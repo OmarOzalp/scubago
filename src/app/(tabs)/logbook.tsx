@@ -13,13 +13,15 @@ import { BottomTabInset, Spacing } from '@/constants/theme';
 import { CATALOG, CATALOG_BY_ID } from '@/lib/catalog';
 import { deriveDex } from '@/lib/dex';
 import { CATEGORY_LABEL, CATEGORY_ORDER, RARITY_COLOR, RARITY_LABEL, rarityRank } from '@/lib/rarity';
-import { useAllSites, useMySightings } from '@/lib/store';
+import { useAllSites, useAppStore, useMySightings } from '@/lib/store';
 import type { Category, DexEntry, Species } from '@/lib/types';
 
 type Mode = 'sightings' | 'species';
 
 export default function LogbookScreen() {
   const insets = useSafeAreaInsets();
+  const user = useAppStore((s) => s.user);
+  const backendEnabled = useAppStore((s) => s.backendEnabled);
   const [mode, setMode] = useState<Mode>('sightings');
   const mySightings = useMySightings();
   const sites = useAllSites();
@@ -56,7 +58,16 @@ export default function LogbookScreen() {
           styles.content,
           { paddingTop: insets.top + Spacing.three, paddingBottom: BottomTabInset + Spacing.six },
         ]}>
-        <ThemedText type="subtitle">My Log</ThemedText>
+        <View style={styles.titleRow}>
+          <ThemedText type="subtitle">My Log</ThemedText>
+          {backendEnabled ? (
+            <Pressable onPress={() => router.push('/auth')} hitSlop={8}>
+              <ThemedText type="smallBold" themeColor="textSecondary">
+                {user ? `@${user.username}` : 'Sign in to sync'}
+              </ThemedText>
+            </Pressable>
+          ) : null}
+        </View>
 
         {/* Stats */}
         <View style={styles.statsRow}>
@@ -193,6 +204,11 @@ const styles = StyleSheet.create({
   content: {
     paddingHorizontal: Spacing.three,
     gap: Spacing.three,
+  },
+  titleRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'baseline',
   },
   statsRow: {
     flexDirection: 'row',
