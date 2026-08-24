@@ -12,13 +12,14 @@ import { Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { CATALOG_BY_ID } from '@/lib/catalog';
 import { CATEGORY_EMOJI, CATEGORY_LABEL } from '@/lib/rarity';
-import { LOCAL_USER_ID, useAllSites, useAppStore } from '@/lib/store';
+import { useAllSites, useAppStore, useMyUserId } from '@/lib/store';
 
 export default function SpeciesDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const theme = useTheme();
   const sites = useAllSites();
   const sightings = useAppStore((s) => s.sightings);
+  const myUserId = useMyUserId();
 
   const species = id ? CATALOG_BY_ID.get(id) : undefined;
 
@@ -26,7 +27,7 @@ export default function SpeciesDetailScreen() {
     () => sightings.filter((s) => s.speciesId === id),
     [sightings, id],
   );
-  const mine = speciesSightings.filter((s) => s.userId === LOCAL_USER_ID);
+  const mine = speciesSightings.filter((s) => s.userId === myUserId);
 
   /** Sites where this species has been seen, most sightings first. */
   const seenAt = useMemo(() => {

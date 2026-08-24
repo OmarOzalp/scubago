@@ -21,7 +21,8 @@ export async function drainOutbox(unsynced: Sighting[], push: PushFn): Promise<D
     try {
       await push(sighting);
       synced.push(sighting.id);
-    } catch {
+    } catch (e) {
+      console.warn(`push failed for sighting ${sighting.id}`, e);
       failed.push(sighting.id);
     }
   }

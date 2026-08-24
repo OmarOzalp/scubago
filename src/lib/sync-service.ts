@@ -22,6 +22,7 @@ import {
 import type { DiveSite, Sighting } from '@/lib/types';
 
 const PULL_LIMIT = 500;
+const OWN_PULL_LIMIT = 2000;
 
 export interface SyncDeps {
   getUnsyncedSightings: () => Promise<Sighting[]>;
@@ -86,7 +87,8 @@ export async function syncNow(
         .upsert(siteToRemoteRow(site, userId), { onConflict: 'id', ignoreDuplicates: true });
       if (error) throw error;
       siteResult.synced.push(site.id);
-    } catch {
+    } catch (e) {
+      console.warn(`push failed for site ${site.id}`, e);
       siteResult.failed.push(site.id);
     }
   }
@@ -118,7 +120,23 @@ export async function syncNow(
     .order('created_at', { ascending: false })
     .limit(PULL_LIMIT);
   if (pullError) throw pullError;
-  const pulled = (rows as unknown as RemoteSightingRow[]).map(remoteRowToSighting);
+
+  // The community pull above is a global top-N, so a user with more than PULL_LIMIT
+  // sightings across the whole app can have their own rows fall out of it. Pull the
+  // user's own log directly (a much higher cap) so a reinstall always restores it in
+  // full, independent of how much community activity exists.
+  const { data: ownRows, error: ownError } = await client
+    .from('sightings')
+    .select('id,user_id,species_id,site_id,sighted_on,notes,photo_url,created_at,profiles(username)')
+    .eq('user_id', userId)
+    .order('created_at', { ascending: false })
+    .limit(OWN_PULL_LIMIT);
+  if (ownError) throw ownError;
+
+  const byId = new Map<string, RemoteSightingRow>();
+  for (const row of rows as unknown as RemoteSightingRow[]) byId.set(row.id, row);
+  for (const row of ownRows as unknown as RemoteSightingRow[]) byId.set(row.id, row);
+  const pulled = [...byId.values()].map(remoteRowToSighting);
   await deps.upsertSightings(pulled);
 
   return {

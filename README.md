@@ -39,11 +39,16 @@ SUPABASE_URL=... SUPABASE_SERVICE_ROLE_KEY=... npm run seed:supabase
                                # never put this in the app or commit it)
 ```
 
-Auth is email + password with auto-confirm, which needs
-`enable_confirmations = false` under `[auth.email]` in `supabase/config.toml` pushed
-with `npx supabase config push`. This is deliberate: Supabase's free tier can't
-customize hosted email templates, and the default templates don't carry a token for
-an OTP-code flow, so sign-in avoids the email round-trip entirely.
+Auth is email + password with auto-confirm, which needs email confirmation turned off:
+in the Supabase dashboard, go to **Authentication → Providers → Email** and turn off
+**"Confirm email"**. This is deliberate: Supabase's free tier can't customize hosted
+email templates, and the default templates don't carry a token for an OTP-code flow,
+so sign-in avoids the email round-trip entirely.
+
+Do this in the dashboard, not with `npx supabase config push` — `supabase/config.toml`
+is the unmodified local-dev CLI default (`site_url = "http://127.0.0.1:3000"`, a
+`[auth.rate_limit] email_sent = 2`, etc.), and pushing it would overwrite the live
+project's settings with those dev defaults.
 
 ## What's in the slice
 

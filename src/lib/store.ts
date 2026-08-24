@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 
 import { SITES } from '@/data/sites';
-import { ensureProfile, getSessionUserId, signOut as authSignOut } from '@/lib/auth';
+import { ensureProfile, getSessionUserId, signOut as authSignOut, usernameForUser } from '@/lib/auth';
 import { claimLocalSightings, initDb, insertSighting, insertUserSite, loadAll } from '@/lib/db';
 import { isFirstOfSpecies } from '@/lib/dex';
 import { getSupabase } from '@/lib/supabase';
@@ -65,9 +65,16 @@ export const useAppStore = create<AppState>((set, get) => ({
     if (!client) return;
     try {
       const sessionUid = await getSessionUserId(client);
-      if (sessionUid) {
-        const username = await ensureProfile(client, sessionUid);
-        await get().onSignedIn({ id: sessionUid, username });
+      if (!sessionUid) return;
+      // Set the user from the persisted session immediately, before any network call —
+      // offline launch must not leave a signed-in user looking local. Provisional
+      // username; refined below once the network is reachable. Safe because username
+      // is never pushed — it comes from the profiles embed on pull.
+      await get().onSignedIn({ id: sessionUid, username: usernameForUser(sessionUid) });
+      try {
+        set({ user: { id: sessionUid, username: await ensureProfile(client, sessionUid) } });
+      } catch (e) {
+        console.warn('profile fetch failed; using derived username', e);
       }
     } catch (e) {
       console.warn('session restore failed; staying local', e);
@@ -164,10 +171,14 @@ export function useAllSites(): DiveSite[] {
   return userSites.length === 0 ? SITES : [...SITES, ...userSites];
 }
 
+/** The id that owns "my" rows: the signed-in user, or the device before sign-in. */
+export function useMyUserId(): string {
+  return useAppStore((s) => s.user?.id) ?? LOCAL_USER_ID;
+}
+
 /** The signed-in user's sightings, or the device-local ones before sign-in. */
 export function useMySightings(): Sighting[] {
   const sightings = useAppStore((s) => s.sightings);
-  const user = useAppStore((s) => s.user);
-  const mineId = user?.id ?? LOCAL_USER_ID;
+  const mineId = useMyUserId();
   return sightings.filter((s) => s.userId === mineId);
 }
