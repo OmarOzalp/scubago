@@ -49,10 +49,9 @@ async function getDb(): Promise<SQLite.SQLiteDatabase> {
 
     const ver = await db.getFirstAsync<{ user_version: number }>('PRAGMA user_version');
     if ((ver?.user_version ?? 0) < 2) {
-      try {
+      const cols = await db.getAllAsync<{ name: string }>(`PRAGMA table_info(user_sites)`);
+      if (!cols.some((c) => c.name === 'synced')) {
         await db.execAsync('ALTER TABLE user_sites ADD COLUMN synced INTEGER NOT NULL DEFAULT 0');
-      } catch {
-        // fresh install: column already in CREATE TABLE
       }
       await db.execAsync('PRAGMA user_version = 2');
     }
