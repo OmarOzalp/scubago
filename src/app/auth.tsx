@@ -1,26 +1,23 @@
 import { router } from 'expo-router';
 import { useState } from 'react';
-import { ActivityIndicator, StyleSheet, TextInput, View } from 'react-native';
+import { ActivityIndicator, StyleSheet, TextInput } from 'react-native';
 
 import { OceanButton } from '@/components/ocean-button';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
-import { ensureProfile, sendLoginCode, verifyLoginCode } from '@/lib/auth';
+import { ensureProfile, signInWithPassword } from '@/lib/auth';
 import { useAppStore } from '@/lib/store';
 import { getSupabase } from '@/lib/supabase';
-
-type Step = 'email' | 'code';
 
 export default function AuthScreen() {
   const theme = useTheme();
   const user = useAppStore((s) => s.user);
   const onSignedIn = useAppStore((s) => s.onSignedIn);
   const signOutUser = useAppStore((s) => s.signOutUser);
-  const [step, setStep] = useState<Step>('email');
   const [email, setEmail] = useState('');
-  const [code, setCode] = useState('');
+  const [password, setPassword] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const client = getSupabase();
@@ -52,29 +49,17 @@ export default function AuthScreen() {
     );
   }
 
-  const sendCode = async () => {
+  const submit = async () => {
+    if (!client) return;
     setBusy(true);
     setError(null);
     try {
-      await sendLoginCode(client, email.trim().toLowerCase());
-      setStep('code');
-    } catch (e: any) {
-      setError(e.message ?? 'Could not send the code');
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  const verify = async () => {
-    setBusy(true);
-    setError(null);
-    try {
-      const { id } = await verifyLoginCode(client, email.trim().toLowerCase(), code.trim());
+      const { id } = await signInWithPassword(client, email.trim().toLowerCase(), password);
       const username = await ensureProfile(client, id);
       await onSignedIn({ id, username });
       router.back();
     } catch (e: any) {
-      setError(e.message ?? 'Wrong code — try again');
+      setError(e.message ?? 'Could not sign in');
     } finally {
       setBusy(false);
     }
@@ -82,31 +67,29 @@ export default function AuthScreen() {
 
   return (
     <ThemedView style={styles.container}>
-      <ThemedText type="subtitle">
-        {step === 'email' ? 'Sign in to sync your log' : `Enter the code sent to ${email}`}
+      <ThemedText type="subtitle">Sign in to sync your log</ThemedText>
+      <ThemedText type="small" themeColor="textSecondary">
+        New here? The same form creates your account.
       </ThemedText>
-      {step === 'email' ? (
-        <TextInput
-          style={inputStyle}
-          placeholder="you@example.com"
-          placeholderTextColor={theme.textSecondary}
-          autoCapitalize="none"
-          autoComplete="email"
-          keyboardType="email-address"
-          value={email}
-          onChangeText={setEmail}
-        />
-      ) : (
-        <TextInput
-          style={inputStyle}
-          placeholder="123456"
-          placeholderTextColor={theme.textSecondary}
-          keyboardType="number-pad"
-          maxLength={6}
-          value={code}
-          onChangeText={setCode}
-        />
-      )}
+      <TextInput
+        style={inputStyle}
+        placeholder="you@example.com"
+        placeholderTextColor={theme.textSecondary}
+        autoCapitalize="none"
+        autoComplete="email"
+        keyboardType="email-address"
+        value={email}
+        onChangeText={setEmail}
+      />
+      <TextInput
+        style={inputStyle}
+        placeholder="password (6+ characters)"
+        placeholderTextColor={theme.textSecondary}
+        secureTextEntry
+        autoComplete="password"
+        value={password}
+        onChangeText={setPassword}
+      />
       {error ? (
         <ThemedText type="small" style={{ color: '#c0392b' }}>
           {error}
@@ -114,20 +97,12 @@ export default function AuthScreen() {
       ) : null}
       {busy ? (
         <ActivityIndicator />
-      ) : step === 'email' ? (
-        <OceanButton title="Email me a code" onPress={sendCode} disabled={!email.includes('@')} />
       ) : (
-        <View style={{ gap: Spacing.two }}>
-          <OceanButton title="Verify" onPress={verify} disabled={code.length !== 6} />
-          <OceanButton
-            title="Use a different email"
-            onPress={() => {
-              setStep('email');
-              setError(null);
-              setCode('');
-            }}
-          />
-        </View>
+        <OceanButton
+          title="Sign in"
+          onPress={submit}
+          disabled={!email.includes('@') || password.length < 6}
+        />
       )}
     </ThemedView>
   );

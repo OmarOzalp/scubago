@@ -5,24 +5,42 @@ export function usernameForUser(userId: string): string {
   return `diver-${userId.replace(/-/g, '').slice(0, 8)}`;
 }
 
-/** Email a 6-digit login code (requires the Magic Link template to include {{ .Token }}). */
-export async function sendLoginCode(client: SupabaseClient, email: string): Promise<void> {
-  const { error } = await client.auth.signInWithOtp({
-    email,
-    options: { shouldCreateUser: true },
-  });
-  if (error) throw error;
+/** Rethrow as a real `Error` (Supabase's `AuthError` already is one; this only matters for tests/mocks). */
+function toError(e: unknown): Error {
+  if (e instanceof Error) return e;
+  const message = typeof e === 'object' && e !== null && 'message' in e ? String((e as { message: unknown }).message) : String(e);
+  return new Error(message);
 }
 
-export async function verifyLoginCode(
+/**
+ * Email + password sign-in that transparently creates the account on first use.
+ * The project has email auto-confirm enabled, so signUp returns a live session
+ * immediately — no email round-trip. Supabase deliberately returns the same
+ * "Invalid login credentials" for wrong-password and unknown-email, so we try
+ * signUp on that error: a new user signs up cleanly; an existing user's signUp
+ * fails with "already registered", which means the password was wrong.
+ */
+export async function signInWithPassword(
   client: SupabaseClient,
   email: string,
-  code: string,
+  password: string,
 ): Promise<{ id: string }> {
-  const { data, error } = await client.auth.verifyOtp({ email, token: code, type: 'email' });
-  if (error) throw error;
-  if (!data.user) throw new Error('No user returned from verifyOtp');
-  return { id: data.user.id };
+  const { data, error } = await client.auth.signInWithPassword({ email, password });
+  if (!error) {
+    if (!data.user) throw new Error('No user returned from sign-in');
+    return { id: data.user.id };
+  }
+  if (!/invalid login credentials/i.test(error.message)) throw toError(error);
+
+  const { data: signUpData, error: signUpError } = await client.auth.signUp({ email, password });
+  if (signUpError) {
+    if (/already registered/i.test(signUpError.message)) {
+      throw new Error('Wrong password for this email');
+    }
+    throw toError(signUpError);
+  }
+  if (!signUpData.user) throw new Error('No user returned from sign-up');
+  return { id: signUpData.user.id };
 }
 
 /** Create the public profile row on first login; return the username either way. */
