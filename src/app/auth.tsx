@@ -6,6 +6,7 @@ import { OceanButton } from '@/components/ocean-button';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Spacing } from '@/constants/theme';
+import { useTheme } from '@/hooks/use-theme';
 import { ensureProfile, sendLoginCode, verifyLoginCode } from '@/lib/auth';
 import { useAppStore } from '@/lib/store';
 import { getSupabase } from '@/lib/supabase';
@@ -13,6 +14,7 @@ import { getSupabase } from '@/lib/supabase';
 type Step = 'email' | 'code';
 
 export default function AuthScreen() {
+  const theme = useTheme();
   const user = useAppStore((s) => s.user);
   const onSignedIn = useAppStore((s) => s.onSignedIn);
   const signOutUser = useAppStore((s) => s.signOutUser);
@@ -22,6 +24,7 @@ export default function AuthScreen() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const client = getSupabase();
+  const inputStyle = [styles.input, { backgroundColor: theme.backgroundElement, color: theme.text }];
 
   if (!client) {
     return (
@@ -84,8 +87,9 @@ export default function AuthScreen() {
       </ThemedText>
       {step === 'email' ? (
         <TextInput
-          style={styles.input}
+          style={inputStyle}
           placeholder="you@example.com"
+          placeholderTextColor={theme.textSecondary}
           autoCapitalize="none"
           autoComplete="email"
           keyboardType="email-address"
@@ -94,8 +98,9 @@ export default function AuthScreen() {
         />
       ) : (
         <TextInput
-          style={styles.input}
+          style={inputStyle}
           placeholder="123456"
+          placeholderTextColor={theme.textSecondary}
           keyboardType="number-pad"
           maxLength={6}
           value={code}
@@ -114,7 +119,14 @@ export default function AuthScreen() {
       ) : (
         <View style={{ gap: Spacing.two }}>
           <OceanButton title="Verify" onPress={verify} disabled={code.length !== 6} />
-          <OceanButton title="Use a different email" onPress={() => setStep('email')} />
+          <OceanButton
+            title="Use a different email"
+            onPress={() => {
+              setStep('email');
+              setError(null);
+              setCode('');
+            }}
+          />
         </View>
       )}
     </ThemedView>
