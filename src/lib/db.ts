@@ -42,9 +42,20 @@ async function getDb(): Promise<SQLite.SQLiteDatabase> {
         region TEXT NOT NULL,
         country TEXT NOT NULL,
         blurb TEXT NOT NULL,
+        synced INTEGER NOT NULL DEFAULT 0,
         created_at TEXT NOT NULL
       );
     `);
+
+    const ver = await db.getFirstAsync<{ user_version: number }>('PRAGMA user_version');
+    if ((ver?.user_version ?? 0) < 2) {
+      try {
+        await db.execAsync('ALTER TABLE user_sites ADD COLUMN synced INTEGER NOT NULL DEFAULT 0');
+      } catch {
+        // fresh install: column already in CREATE TABLE
+      }
+      await db.execAsync('PRAGMA user_version = 2');
+    }
   }
   return db;
 }
@@ -75,6 +86,27 @@ async function insertSightingRow(d: SQLite.SQLiteDatabase, s: Sighting): Promise
   );
 }
 
+/** Read everything the store needs (no seeding). */
+export async function loadAll(): Promise<{ sightings: Sighting[]; userSites: DiveSite[] }> {
+  const d = await getDb();
+  const sightingRows = await d.getAllAsync<any>(`SELECT * FROM sightings`);
+  const siteRows = await d.getAllAsync<any>(`SELECT * FROM user_sites`);
+  return {
+    sightings: sightingRows.map(rowToSighting),
+    userSites: siteRows.map((row) => ({
+      id: row.id,
+      name: row.name,
+      lat: row.lat,
+      lng: row.lng,
+      region: row.region,
+      country: row.country,
+      blurb: row.blurb,
+      notableSpecies: [],
+      source: 'user' as const,
+    })),
+  };
+}
+
 /** Open the database, seed demo data if needed, and return everything the store needs. */
 export async function initDb(): Promise<{ sightings: Sighting[]; userSites: DiveSite[] }> {
   const d = await getDb();
@@ -94,22 +126,7 @@ export async function initDb(): Promise<{ sightings: Sighting[]; userSites: Dive
     });
   }
 
-  const sightingRows = await d.getAllAsync<any>(`SELECT * FROM sightings`);
-  const siteRows = await d.getAllAsync<any>(`SELECT * FROM user_sites`);
-  return {
-    sightings: sightingRows.map(rowToSighting),
-    userSites: siteRows.map((row) => ({
-      id: row.id,
-      name: row.name,
-      lat: row.lat,
-      lng: row.lng,
-      region: row.region,
-      country: row.country,
-      blurb: row.blurb,
-      notableSpecies: [],
-      source: 'user' as const,
-    })),
-  };
+  return loadAll();
 }
 
 export async function insertSighting(s: Sighting): Promise<void> {
@@ -119,9 +136,9 @@ export async function insertSighting(s: Sighting): Promise<void> {
 export async function insertUserSite(site: DiveSite): Promise<void> {
   const d = await getDb();
   await d.runAsync(
-    `INSERT OR REPLACE INTO user_sites (id, name, lat, lng, region, country, blurb, created_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-    site.id, site.name, site.lat, site.lng, site.region, site.country, site.blurb,
+    `INSERT OR REPLACE INTO user_sites (id, name, lat, lng, region, country, blurb, synced, created_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    site.id, site.name, site.lat, site.lng, site.region, site.country, site.blurb, 0,
     new Date().toISOString(),
   );
 }
@@ -131,4 +148,61 @@ export async function markSynced(ids: string[]): Promise<void> {
   const d = await getDb();
   const placeholders = ids.map(() => '?').join(',');
   await d.runAsync(`UPDATE sightings SET synced = 1 WHERE id IN (${placeholders})`, ...ids);
+}
+
+export async function getUnsyncedUserSites(): Promise<DiveSite[]> {
+  const d = await getDb();
+  const rows = await d.getAllAsync<any>(`SELECT * FROM user_sites WHERE synced = 0`);
+  return rows.map((row) => ({
+    id: row.id,
+    name: row.name,
+    lat: row.lat,
+    lng: row.lng,
+    region: row.region,
+    country: row.country,
+    blurb: row.blurb,
+    notableSpecies: [],
+    source: 'user' as const,
+  }));
+}
+
+export async function markSitesSynced(ids: string[]): Promise<void> {
+  if (ids.length === 0) return;
+  const d = await getDb();
+  const placeholders = ids.map(() => '?').join(',');
+  await d.runAsync(`UPDATE user_sites SET synced = 1 WHERE id IN (${placeholders})`, ...ids);
+}
+
+/** On first sign-in, hand the device-local log to the authenticated user. */
+export async function claimLocalSightings(userId: string, username: string): Promise<void> {
+  const d = await getDb();
+  await d.runAsync(
+    `UPDATE sightings SET user_id = ?, username = ?, synced = 0 WHERE user_id = 'local'`,
+    userId,
+    username,
+  );
+}
+
+/** Upsert pulled remote sightings (and re-mark own pushed rows as synced). */
+export async function upsertSightings(sightings: Sighting[]): Promise<void> {
+  if (sightings.length === 0) return;
+  const d = await getDb();
+  await d.withTransactionAsync(async () => {
+    for (const s of sightings) await insertSightingRow(d, s);
+  });
+}
+
+export async function upsertUserSites(sites: DiveSite[]): Promise<void> {
+  if (sites.length === 0) return;
+  const d = await getDb();
+  await d.withTransactionAsync(async () => {
+    for (const site of sites) {
+      await d.runAsync(
+        `INSERT OR REPLACE INTO user_sites (id, name, lat, lng, region, country, blurb, synced, created_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, 1, ?)`,
+        site.id, site.name, site.lat, site.lng, site.region, site.country, site.blurb,
+        new Date().toISOString(),
+      );
+    }
+  });
 }
