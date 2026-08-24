@@ -27,11 +27,12 @@ export async function verifyLoginCode(
 
 /** Create the public profile row on first login; return the username either way. */
 export async function ensureProfile(client: SupabaseClient, userId: string): Promise<string> {
-  const { data } = await client
+  const { data, error: selectError } = await client
     .from('profiles')
     .select('username')
     .eq('user_id', userId)
     .maybeSingle();
+  if (selectError) throw selectError;
   if (data?.username) return data.username;
 
   const username = usernameForUser(userId);
