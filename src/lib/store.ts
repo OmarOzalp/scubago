@@ -147,7 +147,13 @@ export const useAppStore = create<AppState>((set, get) => ({
 
   signOutUser: async () => {
     const client = getSupabase();
-    if (client) await authSignOut(client);
+    if (client) {
+      try {
+        await authSignOut(client);
+      } catch (e) {
+        console.warn('sign-out failed remotely; clearing local session anyway', e);
+      }
+    }
     set({ user: null });
   },
 }));
