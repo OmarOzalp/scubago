@@ -48,7 +48,8 @@
     "ios": "expo run:ios",
     "web": "expo start --web",
     "lint": "expo lint",
-    "test": "jest"
+    "test": "jest",
+    "seed:supabase": "tsx scripts/seed-supabase.ts"
   },
   "private": true,
   "jest": {

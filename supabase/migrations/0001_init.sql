@@ -1,11 +1,18 @@
 -- ScubaGo initial schema (mirrors src/lib/types.ts).
 -- Apply with the Supabase CLI (`supabase db push`) or paste into the SQL editor.
--- Not yet wired to the app: the vertical slice runs fully local; the sync layer
--- (src/lib/sync.ts) pushes the sightings outbox here once credentials exist.
 
 create extension if not exists postgis;
 
--- Curated species catalog (seeded from src/data/species.ts + species-photos.json).
+-- Public profile names (minimal social: username + derived species count).
+-- sightings/dive_sites FK to profiles (not auth.users) so PostgREST can embed
+-- profiles(username) when the app pulls sightings.
+create table profiles (
+  user_id uuid primary key references auth.users (id) on delete cascade,
+  username text unique not null check (char_length(username) between 3 and 24),
+  created_at timestamptz not null default now()
+);
+
+-- Curated species catalog (seeded by scripts/seed-supabase.ts).
 create table species (
   id text primary key,
   common_name text not null,
@@ -20,17 +27,21 @@ create table species (
   photo_attribution text
 );
 
--- Dive sites: seeded + user-added.
+-- Dive sites: seeded + user-added. lat/lng are what the app reads/writes;
+-- location is generated from them so spatial queries stay possible.
 create table dive_sites (
   id text primary key,
   name text not null,
-  location geography(point, 4326) not null,
+  lat double precision not null,
+  lng double precision not null,
+  location geography(point, 4326) generated always as
+    (st_setsrid(st_makepoint(lng, lat), 4326)::geography) stored,
   region text not null default '',
   country text not null default '',
   blurb text not null default '',
   notable_species text[] not null default '{}',
   source text not null default 'user' check (source in ('seed', 'user')),
-  created_by uuid references auth.users (id),
+  created_by uuid references profiles (user_id),
   created_at timestamptz not null default now()
 );
 
@@ -38,25 +49,18 @@ create index dive_sites_location_idx on dive_sites using gist (location);
 
 create table sightings (
   id text primary key,
-  user_id uuid not null references auth.users (id),
+  user_id uuid not null references profiles (user_id),
   species_id text not null references species (id),
   site_id text not null references dive_sites (id),
   sighted_on date not null,
   notes text,
-  photo_url text, -- Supabase Storage path once photo upload ships
+  photo_url text, -- public URL in the sighting-photos bucket
   created_at timestamptz not null default now()
 );
 
 create index sightings_site_idx on sightings (site_id);
 create index sightings_species_idx on sightings (species_id);
 create index sightings_user_idx on sightings (user_id);
-
--- Public profile names (minimal social: username + species count).
-create table profiles (
-  user_id uuid primary key references auth.users (id),
-  username text unique not null check (char_length(username) between 3 and 24),
-  created_at timestamptz not null default now()
-);
 
 -- Row-level security: everything publicly readable, owners write their own rows.
 alter table species enable row level security;
@@ -83,3 +87,21 @@ create policy "users manage own profile" on profiles
   for insert with check (auth.uid() = user_id);
 create policy "users update own profile" on profiles
   for update using (auth.uid() = user_id);
+
+-- Sighting photos: public-read bucket; users write only inside their own
+-- <uid>/ folder (photo paths are <uid>/<sighting-id>.<ext>).
+insert into storage.buckets (id, name, public)
+values ('sighting-photos', 'sighting-photos', true);
+
+create policy "photos are public" on storage.objects
+  for select using (bucket_id = 'sighting-photos');
+create policy "users upload own photos" on storage.objects
+  for insert with check (
+    bucket_id = 'sighting-photos'
+    and auth.uid()::text = (storage.foldername(name))[1]
+  );
+create policy "users replace own photos" on storage.objects
+  for update using (
+    bucket_id = 'sighting-photos'
+    and auth.uid()::text = (storage.foldername(name))[1]
+  );
