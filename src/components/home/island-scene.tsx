@@ -1,8 +1,9 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
-import { AccessibilityInfo, Animated, AppState, Easing, Pressable, StyleSheet, View } from 'react-native';
-import { router, useFocusEffect } from 'expo-router';
+import { useEffect, useRef, useState } from 'react';
+import { Animated, Easing, Pressable, StyleSheet, View } from 'react-native';
+import { router } from 'expo-router';
 import { CreatureArt } from './creature-art';
 import { IslandArt } from './island-art';
+import { useSceneActive } from '@/hooks/use-scene-active';
 import type { Habitat } from '@/lib/home';
 import type { DexEntry, Species } from '@/lib/types';
 
@@ -31,24 +32,11 @@ function Resident({ species, index, total, width, active }: { species: Species; 
   </Animated.View>;
 }
 
+/** Illustrated island: the fallback when 3D rendering is unavailable. */
 export function IslandScene({ habitat, level, residents, paused = false }: { habitat: Habitat; level: number; residents: DexEntry[]; paused?: boolean }) {
-  const [focused, setFocused] = useState(false);
-  useFocusEffect(useCallback(() => {
-    setFocused(true);
-    return () => setFocused(false);
-  }, []));
-  const [foreground, setForeground] = useState(AppState.currentState === 'active');
-  const [reduced, setReduced] = useState(true);
+  const active = useSceneActive(paused);
   const [width, setWidth] = useState(360);
   const [page, setPage] = useState(0);
-  useEffect(() => {
-    let mounted = true;
-    AccessibilityInfo.isReduceMotionEnabled().then((value) => { if (mounted) setReduced(value); }).catch(() => {});
-    const motion = AccessibilityInfo.addEventListener('reduceMotionChanged', setReduced);
-    const app = AppState.addEventListener('change', (value) => setForeground(value === 'active'));
-    return () => { mounted = false; motion.remove(); app.remove(); };
-  }, []);
-  const active = focused && foreground && !reduced && !paused;
   const pages = Math.ceil(residents.length / 12);
   useEffect(() => {
     if (!active || pages <= 1) return;

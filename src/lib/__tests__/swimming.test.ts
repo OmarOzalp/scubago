@@ -1,5 +1,6 @@
 import { expect, test } from '@jest/globals';
-import { sampleSwimPath, advanceSwimTime, marineModelFor } from '@/lib/swimming';
+import { sampleSwimPath, advanceSwimTime, marineModelFor, pickSwimmers, swimmerPages, MAX_ANIMATED } from '@/lib/swimming';
+import type { DexEntry, Species } from '@/lib/types';
 
 test('paths remain outside the island and always give finite continuous positions', () => {
   for (let lane = 0; lane < 12; lane++) {
@@ -30,4 +31,33 @@ test('sharks and rays select their own rigs', () => {
   expect(marineModelFor('ray')).toBe('manta');
   expect(marineModelFor('fish')).toBe('reef-fish');
   expect(marineModelFor('turtle')).toBeNull();
+});
+
+
+function entry(id: string, category: Species['category']): DexEntry {
+  return { species: { id, commonName: id, scientificName: id, category, rarity: 'common', blurb: '' }, count: 1, firstSeenOn: '2026-01-01', firstSeenSiteId: 'x', lastSeenOn: '2026-01-01' };
+}
+
+test('only species with a rig swim, in collection order, with lanes 0..n-1', () => {
+  const residents = [entry('turtle-a', 'turtle'), entry('shark-a', 'shark'), entry('ray-a', 'ray'), entry('octo', 'cephalopod'), entry('fish-a', 'fish')];
+  expect(pickSwimmers(residents)).toEqual([
+    { species: residents[1].species, model: 'shark', lane: 0 },
+    { species: residents[2].species, model: 'manta', lane: 1 },
+    { species: residents[4].species, model: 'reef-fish', lane: 2 },
+  ]);
+  expect(pickSwimmers([])).toEqual([]);
+  expect(pickSwimmers([entry('t', 'turtle')])).toEqual([]);
+});
+
+test('large collections are bounded and page deterministically, wrapping around', () => {
+  const residents = Array.from({ length: 19 }, (_, i) => entry(`fish-${i}`, 'fish'));
+  expect(swimmerPages(residents)).toBe(3);
+  expect(pickSwimmers(residents, 0)).toHaveLength(MAX_ANIMATED);
+  expect(pickSwimmers(residents, 0).map((s) => s.species.id)[0]).toBe('fish-0');
+  expect(pickSwimmers(residents, 1).map((s) => s.species.id)[0]).toBe(`fish-${MAX_ANIMATED}`);
+  expect(pickSwimmers(residents, 2)).toHaveLength(19 - 2 * MAX_ANIMATED);
+  expect(pickSwimmers(residents, 3)).toEqual(pickSwimmers(residents, 0));
+  expect(pickSwimmers(residents, 1)).toEqual(pickSwimmers(residents, 1));
+  expect(swimmerPages([])).toBe(1);
+  expect(swimmerPages([entry('t', 'turtle')])).toBe(1);
 });

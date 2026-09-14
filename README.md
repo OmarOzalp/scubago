@@ -52,9 +52,15 @@ project's settings with those dev defaults.
 
 ## What's in the slice
 
-- **My Home tab** — a customizable island, coral lagoon, or rocky cove. Discovered species
-  swim around your home; unique species unlock six growth stages. Home name and habitat
-  are saved on this device per account. Collection ranks are in-app milestones.
+- **My Home tab** — a stylized 3D sanctuary: a sculpted island, coral lagoon, or rocky
+  cove in caustic-lit water, seen from an oblique orthographic camera. Discovered
+  sharks, rays and fish swim around it as rigged, animated models (CC0 Quaternius rigs
+  refined in Blender; family-level representatives, not per-species models). Unique
+  species unlock six growth stages; home name and habitat are saved on this device per
+  account. An empty ocean shows a clearly labeled preview shark and manta that never
+  count as discoveries, and either can be opened for a closer look. Animation pauses
+  when the tab is unfocused, the app is backgrounded, reduced motion is on, or you tap
+  Pause. If 3D rendering is unavailable the illustrated SVG island takes over.
 - **Map tab** — ~65 famous dive sites worldwide; search "where can I see a…" to
   highlight sites where a species has been spotted; tap a pin for the site card;
   long-press the map to add a missing site.
@@ -109,8 +115,12 @@ social sign-in (needs custom SMTP or a paid plan), account recovery / password r
 
 ### My Home development
 
-The island uses `react-native-svg`; rebuild an existing native dev client with
-`npx expo run:ios` or `npx expo run:android` after installing dependencies.
+The 3D scene uses `expo-gl` + `@react-three/fiber` + `three`, with the SVG island as
+fallback; rebuild an existing native dev client with `npx expo run:ios` or
+`npx expo run:android` after installing dependencies (expo-gl and expo-asset are
+native modules). Models live in `assets/models/marine` (see its LICENSE.md); regenerate
+the GLBs from the Blender sources with `scripts/art/prepare-marine.py`. Up to eight
+animals swim at once; only shark, ray and fish categories have rigs today.
 For local browser preview, run `npm run web`. Metro includes SQLite WASM support
 and the required isolation headers. Production web hosting also needs
 `Cross-Origin-Embedder-Policy: credentialless` and

@@ -27,7 +27,7 @@ function Palm({ position, scale = 1, rotation = 0 }: { position: [number,number,
   const trunk = useMemo(() => new TubeGeometry(new CatmullRomCurve3([
     new Vector3(0,0,0),new Vector3(.05,.6,.03),new Vector3(.22,1.4,.02),new Vector3(.19,2.1,0),
   ]),16,.065,7,false),[]);
-  const frond = useMemo(makeFrond,[]);
+  const frond = useMemo(() => makeFrond(),[]);
   return <group position={position} scale={scale} rotation={[0,rotation,0]}>
     <mesh geometry={trunk} castShadow><meshStandardMaterial color="#9e845b" roughness={.95} /></mesh>
     <group position={[.19,2.1,0]}>

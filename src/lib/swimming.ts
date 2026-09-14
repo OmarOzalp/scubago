@@ -1,11 +1,33 @@
-import type { Category } from '@/lib/types';
+import type { Category, DexEntry, Species } from '@/lib/types';
 
 export type MarineModel = 'shark' | 'manta' | 'reef-fish';
+/** Family-level representation: every shark shares the shark rig, every ray the manta, every fish the reef fish. */
 export function marineModelFor(category: Category): MarineModel | null {
   if (category === 'shark') return 'shark';
   if (category === 'ray') return 'manta';
   if (category === 'fish') return 'reef-fish';
   return null;
+}
+
+/** Skinned, shadowed models are costly on phones; the rest of the collection stays reachable below the scene. */
+export const MAX_ANIMATED = 8;
+export type Swimmer = { species: Species; model: MarineModel; lane: number };
+
+function rigged(residents: DexEntry[]) {
+  return residents.filter((r) => marineModelFor(r.species.category) !== null);
+}
+export function swimmerPages(residents: DexEntry[], limit = MAX_ANIMATED) {
+  return Math.max(1, Math.ceil(rigged(residents).length / limit));
+}
+/** An empty ocean gets a clearly labeled visiting shark and ray instead of nothing. */
+export function showsPreview(residents: DexEntry[]) {
+  return rigged(residents).length === 0;
+}
+/** Deterministic: the same collection and page always yield the same animals in the same lanes. */
+export function pickSwimmers(residents: DexEntry[], page = 0, limit = MAX_ANIMATED): Swimmer[] {
+  const eligible = rigged(residents);
+  const start = (page % swimmerPages(residents, limit)) * limit;
+  return eligible.slice(start, start + limit).map((r, lane) => ({ species: r.species, model: marineModelFor(r.species.category)!, lane }));
 }
 
 /** World coordinates: island at origin, Y up, animal nose points along local +Z. */

@@ -30,6 +30,7 @@ export default function RootLayout() {
           options={{ presentation: 'modal', title: 'Add a dive site' }}
         />
         <Stack.Screen name="auth" options={{ presentation: 'modal', title: 'Account' }} />
+        <Stack.Screen name="inspect" options={{ presentation: 'modal', title: 'A closer look' }} />
         <Stack.Screen name="site/[id]" options={{ title: '' }} />
         <Stack.Screen name="species/[id]" options={{ title: '' }} />
       </Stack>

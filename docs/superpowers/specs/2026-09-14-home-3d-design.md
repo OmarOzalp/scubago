@@ -16,6 +16,9 @@ Pause freezes animation time, respects reduced motion and app/tab visibility. Ke
 the existing illustrated scene as a fallback for unavailable graphics. Use bounded
 resident counts and an inspect view for a closer look at the two benchmark animals.
 
+Status (2026-09-15): implemented per docs/superpowers/plans/2026-09-14-home-3d.md;
+shark, ray and fish families have rigs, other categories stay in the collection list.
+
 Validate imported asset licenses, animation clips, skinning, finite geometry, and
 export sizes. Test motion continuity, pause/resume timing, deterministic lanes and
 asset mapping. Run TypeScript, Jest, web and native bundles, and inspect rendered
