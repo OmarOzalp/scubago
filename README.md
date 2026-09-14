@@ -52,6 +52,9 @@ project's settings with those dev defaults.
 
 ## What's in the slice
 
+- **My Home tab** — a customizable island, coral lagoon, or rocky cove. Discovered species
+  swim around your home; unique species unlock six growth stages. Home name and habitat
+  are saved on this device per account. Collection ranks are in-app milestones.
 - **Map tab** — ~65 famous dive sites worldwide; search "where can I see a…" to
   highlight sites where a species has been spotted; tap a pin for the site card;
   long-press the map to add a missing site.
@@ -71,7 +74,8 @@ project's settings with those dev defaults.
 ## Project layout
 
 ```
-src/app/            expo-router screens ((tabs)/index = Map, (tabs)/logbook = My Log,
+src/app/            expo-router screens ((tabs)/index = My Home, (tabs)/map = Map,
+                    (tabs)/logbook = My Log,
                     log/new, site/[id], species/[id], add-site)
 src/components/     shared UI (species avatar, rarity chip, map w/ web fallback, …)
 src/lib/            domain logic: db (SQLite), store (zustand), dex, demo data, sync
@@ -102,3 +106,12 @@ node scripts/fetch-species-photos.mjs
 Site dedup/moderation, seasonality, downloadable offline map regions, magic-link or
 social sign-in (needs custom SMTP or a paid plan), account recovery / password reset
 (same email constraint).
+
+### My Home development
+
+The island uses `react-native-svg`; rebuild an existing native dev client with
+`npx expo run:ios` or `npx expo run:android` after installing dependencies.
+For local browser preview, run `npm run web`. Metro includes SQLite WASM support
+and the required isolation headers. Production web hosting also needs
+`Cross-Origin-Embedder-Policy: credentialless` and
+`Cross-Origin-Opener-Policy: same-origin`.

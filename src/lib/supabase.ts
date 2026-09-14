@@ -1,6 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
-import { AppState } from 'react-native';
+import { AppState, Platform } from 'react-native';
 
 /**
  * Nullable Supabase client: null when env is unconfigured, in which case the app
@@ -8,11 +8,13 @@ import { AppState } from 'react-native';
  */
 export function createSupabaseForEnv(url?: string, anonKey?: string): SupabaseClient | null {
   if (!url || !anonKey) return null;
+  // Static web rendering has no browser storage or session to refresh.
+  const persistSession = Platform.OS !== 'web' || typeof window !== 'undefined';
   return createClient(url, anonKey, {
     auth: {
-      storage: AsyncStorage,
-      autoRefreshToken: true,
-      persistSession: true,
+      storage: persistSession ? AsyncStorage : undefined,
+      autoRefreshToken: persistSession,
+      persistSession,
       detectSessionInUrl: false,
     },
   });
