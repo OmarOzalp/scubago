@@ -6,8 +6,8 @@
       30
     ],
     "fps": 24,
-    "bytes": 335524,
-    "vertices": 5202
+    "bytes": 104888,
+    "vertices": 1302
   },
   "manta": {
     "source": "Quaternius Animated Fish Pack (CC0)",
@@ -16,8 +16,8 @@
       101
     ],
     "fps": 24,
-    "bytes": 381604,
-    "vertices": 5740
+    "bytes": 129328,
+    "vertices": 1440
   },
   "reef-fish": {
     "source": "Quaternius Animated Fish Pack (CC0)",
@@ -26,7 +26,7 @@
       31
     ],
     "fps": 24,
-    "bytes": 300004,
-    "vertices": 4538
+    "bytes": 96412,
+    "vertices": 1136
   }
 }

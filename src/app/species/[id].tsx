@@ -11,6 +11,7 @@ import { ThemedView } from '@/components/themed-view';
 import { Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { CATALOG_BY_ID } from '@/lib/catalog';
+import { speciesMarineModel } from '@/lib/swimming';
 import { CATEGORY_EMOJI, CATEGORY_LABEL } from '@/lib/rarity';
 import { useAllSites, useAppStore, useMyUserId } from '@/lib/store';
 
@@ -92,6 +93,12 @@ export default function SpeciesDetailScreen() {
         </View>
 
         <ThemedText>{species.blurb}</ThemedText>
+
+        {speciesMarineModel(species.id) && <OceanButton
+          title={`See ${species.commonName.toLowerCase()} in 3D`}
+          variant="secondary"
+          onPress={() => router.push({ pathname: '/inspect', params: { species: species.id } })}
+        />}
 
         {mine.length > 0 ? (
           <View style={[styles.mine, { backgroundColor: theme.backgroundElement }]}>

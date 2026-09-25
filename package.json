@@ -57,6 +57,7 @@
     "web": "expo start --web",
     "lint": "expo lint",
     "test": "jest",
+    "verify:marine": "node scripts/verify-marine.mjs",
     "seed:supabase": "tsx scripts/seed-supabase.ts"
   },
   "private": true,

@@ -1,9 +1,12 @@
-import { Component, type ReactNode, useEffect, useState } from 'react';
-import { ActivityIndicator, StyleSheet, View } from 'react-native';
-import { Canvas } from '@react-three/fiber';
+import { useEffect, useState } from 'react';
+import { Platform, StyleSheet, View } from 'react-native';
+import { SceneCanvas as Canvas } from './three/scene-canvas';
+import { SceneBoundary, SceneUnavailable } from './scene-boundary';
+import { SceneCamera } from './three/scene-camera';
+import { ScenePerformance } from './three/scene-performance';
 import { router } from 'expo-router';
 import { IslandScene } from './island-scene';
-import { AnimatedMarine } from './three/animated-marine';
+import { MarineSwimmers } from './three/marine-swimmers';
 import { SanctuaryEnvironment } from './three/sanctuary-environment';
 import { useMarineModels } from './three/use-marine-models';
 import { useSceneActive } from '@/hooks/use-scene-active';
@@ -13,27 +16,22 @@ import type { DexEntry } from '@/lib/types';
 
 /** Visiting animals for an empty ocean: labeled as a preview, never counted as discoveries. */
 export const PREVIEW_SWIMMERS: { model: MarineModel; lane: number }[] = [
-  { model: 'shark', lane: 0 },
-  { model: 'manta', lane: 2 },
+  { model: 'whale-shark', lane: 0 },
+  { model: 'reef-manta', lane: 2 },
 ];
 
-/** Oblique orthographic view: island at the origin, camera up and to the front-right. */
-export const SCENE_CAMERA = { position: [7.5, 6.6, 7.5] as [number, number, number], zoom: 31, near: .1, far: 60 };
+/** A mostly overhead orthographic view gives the island an illustrated 2.5D appearance. */
+export const SCENE_CAMERA = { position: [0, 12, 6] as [number, number, number], zoom: 31, near: .1, far: 60 };
 
-class SceneBoundary extends Component<{ fallback: ReactNode; children: ReactNode }, { failed: boolean }> {
-  state = { failed: false };
-  static getDerivedStateFromError() { return { failed: true }; }
-  componentDidCatch(error: unknown) { console.warn('3D sanctuary unavailable; showing the illustrated island', error); }
-  render() { return this.state.failed ? this.props.fallback : this.props.children; }
-}
-
-export function SanctuaryScene({ habitat, level, residents, paused = false, onInspect }: {
-  habitat: Habitat; level: number; residents: DexEntry[]; paused?: boolean; onInspect: (model: MarineModel) => void;
+export function SanctuaryScene({ habitat, level, residents, paused = false, loading = false, onInspect }: {
+  habitat: Habitat; level: number; residents: DexEntry[]; paused?: boolean; loading?: boolean; onInspect: (model: MarineModel) => void;
 }) {
   const active = useSceneActive(paused);
-  const { models, failed } = useMarineModels();
   const [page, setPage] = useState(0);
   const pages = swimmerPages(residents);
+  const preview = showsPreview(residents);
+  const swimmers = pickSwimmers(residents, page);
+  const { models, failed, retry } = useMarineModels(loading ? [] : (preview ? PREVIEW_SWIMMERS : swimmers).map((s) => s.model));
   useEffect(() => {
     if (!active || pages <= 1) return;
     const timer = setInterval(() => setPage((p) => (p + 1) % pages), 30000);
@@ -41,29 +39,32 @@ export function SanctuaryScene({ habitat, level, residents, paused = false, onIn
   }, [active, pages]);
 
   const fallback = <IslandScene habitat={habitat} level={level} residents={residents} paused={paused} />;
-  if (failed) return fallback;
+  if (failed) return <View style={styles.scene}><SceneUnavailable onRetry={retry}>{fallback}</SceneUnavailable></View>;
 
-  const preview = showsPreview(residents);
-  const swimmers = pickSwimmers(residents, page);
-  const label = preview
-    ? `Level ${level} ${habitat} with a visiting shark and manta ray as a preview`
+  const label = loading ? 'Your island; loading your discoveries' : preview
+    ? `Level ${level} ${habitat} with a visiting whale shark and reef manta ray as a preview`
     : `Level ${level} ${habitat}, home to ${residents.length} discovered species, ${swimmers.length} swimming`;
 
   return <View style={styles.scene} accessible accessibilityRole="image" accessibilityLabel={label}>
-    {models ? <SceneBoundary fallback={fallback}>
-      <Canvas orthographic shadows frameloop={active ? 'always' : 'demand'} camera={SCENE_CAMERA}
+    <SceneBoundary fallback={fallback}>
+      <Canvas orthographic flat {...(Platform.OS === 'web' ? { dpr: 1.25 } : {})} frameloop={active && !!models && !loading ? 'always' : 'demand'} camera={SCENE_CAMERA}
+        gl={{ antialias: Platform.OS === 'web' }}
         onCreated={({ camera }) => camera.lookAt(0, -.15, 0)} style={styles.canvas}>
+        <SceneCamera />
+        {__DEV__ && <ScenePerformance ready={!!models && !loading} active={active} />}
         <SanctuaryEnvironment habitat={habitat} level={level} active={active} />
-        {preview
-          ? PREVIEW_SWIMMERS.map((s) => <AnimatedMarine key={s.model} model={s.model} gltf={models[s.model]} lane={s.lane} active={active} onPress={() => onInspect(s.model)} />)
-          : swimmers.map((s) => <AnimatedMarine key={s.species.id} model={s.model} gltf={models[s.model]} lane={s.lane} active={active} onPress={() => router.push(`/species/${s.species.id}`)} />)}
+        {models && !loading && <MarineSwimmers models={models} active={active}
+          waterTint={habitat === 'cove' ? '#8DBBB0' : '#83C3C1'}
+          residents={preview
+            ? PREVIEW_SWIMMERS.map((s) => ({ ...s, id: s.model, onPress: () => onInspect(s.model) }))
+            : swimmers.map((s) => ({ ...s, id: s.species.id, onPress: () => router.push(`/species/${s.species.id}`) }))} />}
+
       </Canvas>
-    </SceneBoundary> : <View style={styles.loading}><ActivityIndicator color="#356D60" /></View>}
+    </SceneBoundary>
   </View>;
 }
 
 const styles = StyleSheet.create({
   scene: { width: '100%', aspectRatio: 420 / 390 },
   canvas: { flex: 1 },
-  loading: { flex: 1, alignItems: 'center', justifyContent: 'center' },
 });

@@ -1,6 +1,13 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useState, useSyncExternalStore } from 'react';
 import { AccessibilityInfo, AppState } from 'react-native';
 import { useFocusEffect } from 'expo-router';
+
+function subscribeAppState(onChange: () => void) {
+  const subscription = AppState.addEventListener('change', onChange);
+  return () => subscription?.remove();
+}
+const isForeground = () => AppState.currentState === 'active';
+const serverForeground = () => false;
 
 /**
  * Whether an ambient scene should be animating right now: only while its screen
@@ -14,14 +21,19 @@ export function useSceneActive(paused = false) {
     setFocused(true);
     return () => setFocused(false);
   }, []));
-  const [foreground, setForeground] = useState(AppState.currentState === 'active');
+  const foreground = useSyncExternalStore(subscribeAppState, isForeground, serverForeground);
   const [reduced, setReduced] = useState(true);
   useEffect(() => {
     let mounted = true;
-    AccessibilityInfo.isReduceMotionEnabled().then((value) => { if (mounted) setReduced(value); }).catch(() => {});
-    const motion = AccessibilityInfo.addEventListener('reduceMotionChanged', setReduced);
-    const app = AppState.addEventListener('change', (value) => setForeground(value === 'active'));
-    return () => { mounted = false; motion.remove(); app.remove(); };
+    let motionChanged = false;
+    const motion = AccessibilityInfo.addEventListener('reduceMotionChanged', (value) => {
+      motionChanged = true;
+      setReduced(value);
+    });
+    AccessibilityInfo.isReduceMotionEnabled()
+      .then((value) => { if (mounted && !motionChanged) setReduced(value); })
+      .catch(() => { if (mounted && !motionChanged) setReduced(false); });
+    return () => { mounted = false; motion?.remove(); };
   }, []);
   return focused && foreground && !reduced && !paused;
 }

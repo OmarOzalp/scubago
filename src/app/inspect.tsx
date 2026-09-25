@@ -1,5 +1,7 @@
-import { ActivityIndicator, StyleSheet, View } from 'react-native';
-import { Canvas } from '@react-three/fiber';
+import { ActivityIndicator, Platform, StyleSheet, View } from 'react-native';
+import { SceneCanvas as Canvas } from '@/components/home/three/scene-canvas';
+import { SceneBoundary, SceneUnavailable } from '@/components/home/scene-boundary';
+import { SceneCamera } from '@/components/home/three/scene-camera';
 import { useLocalSearchParams } from 'expo-router';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
@@ -8,37 +10,35 @@ import { SanctuaryEnvironment } from '@/components/home/three/sanctuary-environm
 import { useMarineModels } from '@/components/home/three/use-marine-models';
 import { Spacing } from '@/constants/theme';
 import { useSceneActive } from '@/hooks/use-scene-active';
-import type { MarineModel } from '@/lib/swimming';
-
-const ABOUT: Record<MarineModel, { name: string; family: string }> = {
-  shark: { name: 'Shark', family: 'shark' },
-  manta: { name: 'Manta ray', family: 'ray' },
-  'reef-fish': { name: 'Reef fish', family: 'fish' },
-};
+import { inspectionModel, MARINE_ART } from '@/lib/marine-art';
 
 /** A closer look at one of the swimming rigs, turning slowly in open water. */
 export default function InspectScreen() {
-  const params = useLocalSearchParams<{ model?: string; preview?: string }>();
-  const model: MarineModel = params.model === 'manta' ? 'manta' : params.model === 'reef-fish' ? 'reef-fish' : 'shark';
-  const about = ABOUT[model];
+  const params = useLocalSearchParams<{ model?: string; species?: string; preview?: string }>();
+  const model = inspectionModel(params);
+  const about = model ? MARINE_ART[model] : null;
   const active = useSceneActive();
-  const { models, failed } = useMarineModels();
+  const { models, failed, retry } = useMarineModels(model ? [model] : []);
+
+  if (!model || !about) return <ThemedView style={styles.root}><ThemedText style={styles.caption}>No swimming model is available for this selection.</ThemedText></ThemedView>;
 
   return <ThemedView style={styles.root}>
     <View style={styles.stage} accessible accessibilityRole="image" accessibilityLabel={`A ${about.name.toLowerCase()} turning slowly in open water`}>
-      {models ? <Canvas orthographic shadows frameloop={active ? 'always' : 'demand'}
-        camera={{ position: [6, 4.2, 6], zoom: 46, near: .1, far: 60 }}
+      {models ? <SceneBoundary><Canvas orthographic flat {...(Platform.OS === 'web' ? { dpr: 1.25 } : {})} frameloop={active ? 'always' : 'demand'}
+        gl={{ antialias: Platform.OS === 'web' }}
+        camera={{ position: [0, 3.8, 9], zoom: 46, near: .1, far: 60 }}
         onCreated={({ camera }) => camera.lookAt(0, .2, 0)} style={styles.canvas}>
+        <SceneCamera inspect />
         <SanctuaryEnvironment habitat="lagoon" level={1} active={active} inspect />
-        <AnimatedMarine model={model} gltf={models[model]} lane={0} active={active} inspect />
-      </Canvas> : failed
-        ? <ThemedText type="small" themeColor="textSecondary" style={styles.center}>The 3D view isn&apos;t available on this device.</ThemedText>
+        <AnimatedMarine model={model} gltf={models[model]!} lane={0} active={active} inspect />
+      </Canvas></SceneBoundary> : failed
+        ? <SceneUnavailable onRetry={retry} />
         : <ActivityIndicator color="#356D60" style={styles.center} />}
     </View>
     <View style={styles.caption}>
       <ThemedText type="subtitle">{about.name}</ThemedText>
       <ThemedText type="small" themeColor="textSecondary">
-        A stylized family representative: every {about.family} in your collection swims with this rig, not a scientific model of each species.
+        {about.caption}
       </ThemedText>
       {params.preview === '1' && <ThemedText type="smallBold" themeColor="textSecondary">Preview only. Nothing in your collection changes.</ThemedText>}
     </View>

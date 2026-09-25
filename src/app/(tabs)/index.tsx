@@ -1,10 +1,11 @@
 import { useMemo, useState } from 'react';
-import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, useColorScheme, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, Text, useColorScheme, View } from 'react-native';
 import { router } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { CreatureArt } from '@/components/home/creature-art';
+import { SpeciesPhoto } from '@/components/species-photo';
 import { HomeEditor } from '@/components/home/home-editor';
 import { SanctuaryScene } from '@/components/home/sanctuary-scene';
+import { WATER } from '@/components/home/three/sanctuary-environment';
 import { useHomePreferences } from '@/hooks/use-home-preferences';
 import { CATALOG_BY_ID } from '@/lib/catalog';
 import { deriveHome, HABITATS, HOME_STAGES } from '@/lib/home';
@@ -35,15 +36,15 @@ export default function HomeScreen() {
         <Pressable accessibilityRole="button" accessibilityLabel="Customize your home" disabled={loading} onPress={() => setEditing(true)} style={[styles.edit, { borderColor: colors.border, opacity: loading ? .4 : 1 }]}><Text style={{ color: colors.ink, fontSize: 13, fontWeight: '500' }}>Customize ↗</Text></Pressable>
       </View>
 
-      <View style={[styles.hero, { backgroundColor: habitat.water }]}>
+      <View style={[styles.hero, { backgroundColor: WATER[habitat.id] }]}>
         <View style={styles.heroHeader}><View style={styles.pill}><View style={[styles.liveDot, preview && styles.previewDot]} /><Text style={styles.pillText}>{preview ? 'PREVIEW · NOT YOUR COLLECTION' : 'YOUR SANCTUARY'}</Text></View>
           <Pressable accessibilityRole="button" accessibilityLabel={paused ? 'Resume ocean animation' : 'Pause ocean animation'} accessibilityState={{ selected: paused }} onPress={() => setPaused((value) => !value)} style={styles.motionButton}><Text style={styles.motionText}>{paused ? 'Play' : 'Pause'}</Text></Pressable>
         </View>
-        {loading ? <View style={styles.loading}><ActivityIndicator color="#356D60" /><Text style={styles.heroSubtitle}>Finding your little corner of the ocean…</Text></View> : <SanctuaryScene habitat={habitat.id} level={home.level} residents={home.residents} paused={paused || editing} onInspect={inspect} />}
+        <SanctuaryScene habitat={habitat.id} level={home.level} residents={home.residents} loading={loading} paused={paused || editing || loading} onInspect={inspect} />
         <View style={styles.heroFooter}><Text style={styles.homeName}>{saved.preferences.name}</Text><Text style={styles.heroSubtitle}>{loading ? habitat.name : `${habitat.name}  ·  ${home.stage.place}`}</Text>
-          <Text style={styles.sceneHint}>{loading ? ' ' : preview ? (count ? 'A shark and a ray are visiting while your discoveries settle in below' : 'A shark and a ray are visiting. Your first discovery makes these waters yours') : 'Tap a swimming resident to revisit your discovery'}</Text>
+          <Text style={styles.sceneHint}>{loading ? ' ' : preview ? (count ? 'A whale shark and reef manta are visiting while your discoveries settle in below' : 'A whale shark and reef manta are visiting. Your first discovery makes these waters yours') : 'Tap a swimming resident to revisit your discovery'}</Text>
           {preview && <View style={styles.previewRow}>
-            {([['shark', 'Shark'], ['manta', 'Manta ray']] as const).map(([model, name]) => <Pressable key={model} accessibilityRole="button" accessibilityLabel={`Take a closer look at the ${name.toLowerCase()} preview`} onPress={() => inspect(model)} style={({ pressed }) => [styles.previewButton, { opacity: pressed ? .7 : 1 }]}><Text style={styles.previewButtonText}>{name} ↗</Text></Pressable>)}
+            {([['whale-shark', 'Whale shark'], ['reef-manta', 'Reef manta']] as const).map(([model, name]) => <Pressable key={model} accessibilityRole="button" accessibilityLabel={`Take a closer look at the ${name.toLowerCase()} preview`} onPress={() => inspect(model)} style={({ pressed }) => [styles.previewButton, { opacity: pressed ? .7 : 1 }]}><Text style={styles.previewButtonText}>{name} ↗</Text></Pressable>)}
           </View>}
         </View>
       </View>
@@ -66,7 +67,7 @@ export default function HomeScreen() {
       <View style={styles.sectionHeader}><Text style={[styles.sectionTitle, { color: colors.ink }]}>Life around you</Text><Pressable accessibilityRole="button" onPress={() => router.push('/logbook')} style={styles.textButton}><Text style={[styles.link, { color: colors.muted }]}>Collection ↗</Text></Pressable></View>
       {count > 0 ? <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.residents}>
         {home.residents.map(({ species }) => <Pressable key={species.id} accessibilityRole="button" accessibilityLabel={`View ${species.commonName}`} onPress={() => router.push(`/species/${species.id}`)} style={[styles.residentCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
-          <CreatureArt species={species} size={65} /><Text numberOfLines={2} style={[styles.residentName, { color: colors.ink }]}>{species.commonName}</Text>
+          <SpeciesPhoto species={species} /><Text numberOfLines={2} style={[styles.residentName, { color: colors.ink }]}>{species.commonName}</Text>
         </Pressable>)}
       </ScrollView> : <View style={[styles.empty, { borderColor: colors.border }]}><Text style={[styles.emptyTitle, { color: colors.ink }]}>A quiet ocean. A world to discover.</Text><Text style={[styles.body, { color: colors.muted, textAlign: 'center', maxWidth: 270 }]}>Log the marine life you meet, and watch your little home come alive.</Text></View>}
 

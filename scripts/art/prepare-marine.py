@@ -1,7 +1,7 @@
 """Refine Quaternius' CC0 source rigs and export texture-free, mobile-ready GLBs.
 Run: blender --background --factory-startup --python scripts/art/prepare-marine.py
 """
-import bpy, math, json
+import bpy, math, json, sys
 from pathlib import Path
 from mathutils import Vector
 ROOT = Path(__file__).resolve().parents[2]
@@ -19,7 +19,7 @@ for kind in ('shark','manta','reef-fish'):
     bpy.context.view_layer.objects.active=body
     body.select_set(True)
     sub=body.modifiers.new('Sculpted surface','SUBSURF')
-    sub.levels=2; sub.render_levels=2
+    sub.levels=1; sub.render_levels=1
     bpy.ops.object.modifier_move_up(modifier=sub.name)
     bpy.ops.object.modifier_apply(modifier=sub.name)
     for poly in body.data.polygons: poly.use_smooth=True
@@ -33,7 +33,7 @@ for kind in ('shark','manta','reef-fish'):
         output=mat.node_tree.nodes.new('ShaderNodeOutputMaterial')
         mat.node_tree.links.new(bsdf.outputs['BSDF'],output.inputs['Surface'])
         bsdf.inputs['Base Color'].default_value=base
-        bsdf.inputs['Roughness'].default_value=.48
+        bsdf.inputs['Roughness'].default_value=.95
         bsdf.inputs['Metallic'].default_value=0
         mat.diffuse_color=base
     # Small embedded eyes follow the original head bone instead of floating in space.
@@ -44,7 +44,7 @@ for kind in ('shark','manta','reef-fish'):
     eye_bsdf=eye_mat.node_tree.nodes.get('Principled BSDF'); eye_bsdf.inputs['Base Color'].default_value=eye_mat.diffuse_color; eye_bsdf.inputs['Roughness'].default_value=.22
     head='Head' if kind=='manta' else 'Face'
     for pos in eye_positions:
-        bpy.ops.mesh.primitive_uv_sphere_add(segments=16, ring_count=8, radius=eye_size, location=pos)
+        bpy.ops.mesh.primitive_uv_sphere_add(segments=12, ring_count=6, radius=eye_size, location=pos)
         eye=bpy.context.object; eye.name='Eye'; eye.data.materials.append(eye_mat)
         for p in eye.data.polygons:p.use_smooth=True
         bpy.ops.object.transform_apply(location=True, rotation=True, scale=True)
@@ -65,6 +65,7 @@ for kind in ('shark','manta','reef-fish'):
     bpy.ops.object.select_all(action='SELECT')
     bpy.ops.export_scene.gltf(filepath=str(OUT/(kind+'.glb')),export_format='GLB',use_selection=True,export_animations=True,export_animation_mode='ACTIONS',export_force_sampling=True,export_frame_range=True,export_skins=True,export_yup=True)
     report[kind]={'source':'Quaternius Animated Fish Pack (CC0)','frames':[scene.frame_start,scene.frame_end],'fps':24,'bytes':(OUT/(kind+'.glb')).stat().st_size,'vertices':len(body.data.vertices)}
+    if '--export-only' in sys.argv: continue
     # A studio contact sheet frame of the actual processed asset, not concept art.
     scene.frame_set(round(scene.frame_end*.25))
     scene.render.engine='CYCLES'; scene.cycles.samples=24

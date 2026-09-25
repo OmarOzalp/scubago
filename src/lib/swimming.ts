@@ -1,20 +1,29 @@
 import type { Category, DexEntry, Species } from '@/lib/types';
 
-export type MarineModel = 'shark' | 'manta' | 'reef-fish';
-/** Family-level representation: every shark shares the shark rig, every ray the manta, every fish the reef fish. */
-export function marineModelFor(category: Category): MarineModel | null {
+export type SpeciesMarineModel = 'whale-shark' | 'tiger-shark' | 'reef-manta';
+export type MarineModel = 'shark' | 'manta' | 'reef-fish' | SpeciesMarineModel;
+export function speciesMarineModel(id: string): SpeciesMarineModel | null {
+  return id === 'whale-shark' || id === 'tiger-shark' || id === 'reef-manta' ? id : null;
+}
+/** Exact art takes precedence; other supported species use a family representative. */
+export function marineModelFor(species: Pick<Species, 'id' | 'category'> | Category): MarineModel | null {
+  if (typeof species !== 'string') {
+    const exact = speciesMarineModel(species.id);
+    if (exact) return exact;
+  }
+  const category = typeof species === 'string' ? species : species.category;
   if (category === 'shark') return 'shark';
   if (category === 'ray') return 'manta';
   if (category === 'fish') return 'reef-fish';
   return null;
 }
 
-/** Skinned, shadowed models are costly on phones; the rest of the collection stays reachable below the scene. */
+/** Bound skeleton animation work on phones; the rest of the collection stays reachable below the scene. */
 export const MAX_ANIMATED = 8;
 export type Swimmer = { species: Species; model: MarineModel; lane: number };
 
 function rigged(residents: DexEntry[]) {
-  return residents.filter((r) => marineModelFor(r.species.category) !== null);
+  return residents.filter((r) => marineModelFor(r.species) !== null);
 }
 export function swimmerPages(residents: DexEntry[], limit = MAX_ANIMATED) {
   return Math.max(1, Math.ceil(rigged(residents).length / limit));
@@ -27,7 +36,7 @@ export function showsPreview(residents: DexEntry[]) {
 export function pickSwimmers(residents: DexEntry[], page = 0, limit = MAX_ANIMATED): Swimmer[] {
   const eligible = rigged(residents);
   const start = (page % swimmerPages(residents, limit)) * limit;
-  return eligible.slice(start, start + limit).map((r, lane) => ({ species: r.species, model: marineModelFor(r.species.category)!, lane }));
+  return eligible.slice(start, start + limit).map((r, lane) => ({ species: r.species, model: marineModelFor(r.species)!, lane }));
 }
 
 /** World coordinates: island at origin, Y up, animal nose points along local +Z. */

@@ -1,0 +1,53 @@
+{
+  "whale-shark": {
+    "status": "stylized-draft",
+    "version": 1,
+    "bytes": 187552,
+    "source": "Original procedural geometry and rig",
+    "frames": [
+      0,
+      48
+    ],
+    "fps": 24,
+    "scientificName": "Rhincodon typus",
+    "reference": "https://www.floridamuseum.ufl.edu/discover-fish/species-profiles/whale-shark/",
+    "humanReview": "pending",
+    "clip": "Swim",
+    "material": "vertex colors, no textures",
+    "generator": "scripts/art/prepare-species.py"
+  },
+  "tiger-shark": {
+    "status": "stylized-draft",
+    "version": 1,
+    "bytes": 126084,
+    "source": "Original procedural geometry and rig",
+    "frames": [
+      0,
+      48
+    ],
+    "fps": 24,
+    "scientificName": "Galeocerdo cuvier",
+    "reference": "https://www.floridamuseum.ufl.edu/discover-fish/species-profiles/tiger-shark/",
+    "humanReview": "pending",
+    "clip": "Swim",
+    "material": "vertex colors, no textures",
+    "generator": "scripts/art/prepare-species.py"
+  },
+  "reef-manta": {
+    "status": "stylized-draft",
+    "version": 1,
+    "bytes": 144348,
+    "source": "Adapted Quaternius CC0 manta rig",
+    "frames": [
+      0,
+      101
+    ],
+    "fps": 24,
+    "scientificName": "Mobula alfredi",
+    "reference": "https://www.mantatrust.org/mobula-alfredi",
+    "humanReview": "pending",
+    "clip": "Swim",
+    "material": "vertex colors, no textures",
+    "generator": "scripts/art/prepare-species.py"
+  }
+}
