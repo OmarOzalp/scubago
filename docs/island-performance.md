@@ -120,9 +120,9 @@ The rise phase uses a separate emergence gradient, so the head appears first as
 well. A slight nose-down/nose-up pitch accompanies each direction. Close-ups keep
 the unmodified material. This adds no animal draw calls or full-screen shader.
 
-`node scripts/verify-underwater.mjs` (Node 24) checks all six real assets for
-correct head/tail orientation, private geometry/materials, and independent dive
-and rise uniforms. Updated timing tests distinguish descent from emergence.
+`npm run verify:underwater` checks all seven real assets for correct head/tail
+orientation, private geometry/materials, and independent dive and rise uniforms.
+Updated timing tests distinguish descent from emergence.
 
 ## Shared cruising behavior
 
@@ -155,3 +155,36 @@ triangles, 136,800–212,504 bytes, one skinned vertex-colored draw call, no tex
 Pause, background and reduced motion freeze the rigs with the rest of the scene
 (zero elapsed time means zero rig steps). Native frame timing with these rigs has
 not been measured on a physical device.
+
+## Low-poly ocean
+
+The flat water plane, ripple strips and underwater shore rings are replaced by a
+faceted ocean (details and tuning in `docs/ocean.md`):
+
+- a jittered water lattice (2,058 vertices) displaced per vertex by four crossing
+  wave layers;
+- a low-poly seabed backdrop (2,400 vertices);
+- a 128 × 128 depth map baked from the shoreline once per level.
+
+This adds two draw calls. Both use custom shaders, so the earlier "no custom
+fragment shader" constraint no longer holds. To stay clear of the per-pixel wave
+cost that stalled the simulator, waves, Fresnel reflection and foam break-up are
+all evaluated per vertex. Each pixel does one depth-map lookup, a
+derivative-based facet normal, one highlight term and blending, with no discard,
+render targets or screen reads.
+
+Swimmers now render inside the environment and share its uniforms. Their
+existing materials gain a depth tint, desaturation, a refraction offset and the
+edge haze, with no extra draw calls. The dive fade now starts after a short
+delay, and pitch follows the vertical velocity.
+
+Verified in headless Chromium (SwiftShader) and in the exported web app:
+
+- `npm run verify:ocean` passes (levels 1–6);
+- `npm run verify:underwater`, `npm run verify:marine`, all Jest tests,
+  TypeScript and lint on the changed files pass.
+
+The iOS simulator's software renderer and physical devices have not been
+measured with the new ocean. Check that first. If the simulator struggles,
+raising `facetSize` and lowering the simulator canvas resolution are the
+cheapest levers.

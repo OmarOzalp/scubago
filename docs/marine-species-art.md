@@ -126,7 +126,7 @@ that quicken its tail beat.
 
 Rebuild: `npm run build:species` (or `-- --only=tiger-shark`). Verify exports:
 `npm run verify:marine` (rig bones, procedural deformation, loop continuity,
-bounds, budgets) and `node scripts/verify-underwater.mjs`. The studio previews in
+bounds, budgets) and `npm run verify:underwater`. The studio previews in
 `docs/art-previews/` for these four species are real-time renders of the actual
 assets with the app's lighting.
 

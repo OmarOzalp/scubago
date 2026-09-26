@@ -1,22 +1,15 @@
-import { useMemo } from 'react';
-import { DoubleSide, Shape } from 'three';
+import { useMemo, type ReactNode } from 'react';
+import { Color, DoubleSide, Shape } from 'three';
 import type { Habitat } from '@/lib/home';
-import { WaterSurface } from './water-surface';
+import { OCEAN } from '@/lib/ocean';
+import { islandScale, shoreline } from './island-shape';
+import { OceanContext } from './ocean-context';
+import { waterColorAt } from './ocean-mesh';
+import { useOcean, WaterSurface, type Ocean } from './water-surface';
 
 export const WATER: Record<Habitat, string> = { island: '#C5E3DF', lagoon: '#B9DEDC', cove: '#C5DCD3' };
 
-function shoreline() {
-  const shape = new Shape();
-  shape.moveTo(-2.1, -.1);
-  shape.bezierCurveTo(-2.25, .85, -1.3, 1.5, -.35, 1.42);
-  shape.bezierCurveTo(.3, 1.38, .5, .98, 1.12, 1.02);
-  shape.bezierCurveTo(2.02, 1.07, 2.32, .25, 1.9, -.42);
-  shape.bezierCurveTo(1.55, -.98, .75, -1.16, .15, -1.36);
-  shape.bezierCurveTo(-.92, -1.65, -1.96, -1.07, -2.1, -.1);
-  return shape;
-}
-
-/** Flat shoreline layers suggest depth without a shadow map or water shader. */
+/** Flat layers of the dry island, stacked just above the water. */
 function ShoreLayer({ scale = 1, y, color, offset = [0, 0] }: {
   scale?: number; y: number; color: string; offset?: [number, number];
 }) {
@@ -54,30 +47,41 @@ function Palm({ position, scale = 1, rotation = 0 }: {
   </group>;
 }
 
-function Rock({ position, scale = 1 }: { position: [number, number, number]; scale?: number }) {
+function Rock({ position, scale = 1, color = '#A3B6A6' }: { position: [number, number, number]; scale?: number; color?: string | Color }) {
   return <mesh position={position} scale={[scale, scale * .55, scale * .8]} rotation={[0, .5, .1]}>
-    <icosahedronGeometry args={[1, 0]} /><meshLambertMaterial color="#A3B6A6" />
+    <icosahedronGeometry args={[1, 0]} /><meshLambertMaterial color={color} />
   </mesh>;
 }
-function Coral({ position, color = '#CBAA96' }: { position: [number, number, number]; color?: string }) {
+function Coral({ position, color = '#CBAA96' }: { position: [number, number, number]; color?: string | Color }) {
   return <group position={position}>{[-1, 0, 1].map((i) => <mesh key={i}
     position={[i * .14, 0, Math.abs(i) * .06]} rotation={[-Math.PI / 2, 0, i * .3]} scale={[.12, .22, 1]}>
     <circleGeometry args={[1, 8]} /><meshBasicMaterial color={color} />
   </mesh>)}</group>;
 }
 
-export function SanctuaryEnvironment({ habitat, level, active, inspect = false }: {
-  habitat: Habitat; level: number; active: boolean; inspect?: boolean;
-}) {
-  return <>
-    <color attach="background" args={[WATER[habitat]]} />
-    <hemisphereLight args={['#F4F7EC', '#5E8F91', 1.15]} />
-    <directionalLight position={[-3, 8, 4]} intensity={1.7} />
-    {!inspect && <WaterSurface active={active} habitat={habitat} />}
-    {!inspect && <group scale={1 + (level - 1) * .025}>
-      <ShoreLayer scale={1.42} y={-.72} color={habitat === 'cove' ? '#B0CEC0' : '#A8D3C9'} />
-      <ShoreLayer scale={1.23} y={-.70} color="#BCDCD0" />
-      <ShoreLayer scale={1.09} y={-.68} color="#D6E6D4" />
+/**
+ * Something resting on the seabed at island-group coordinates (x, z): its height
+ * follows the seabed, and its color takes on the water above it like the sand does.
+ */
+function useSeabedProp(ocean: Ocean, habitat: Habitat, level: number, x: number, z: number, color: string, lift = .01) {
+  const scale = islandScale(level);
+  return useMemo(() => {
+    const { floor, depth } = ocean.field.profile(x * scale, z * scale);
+    // Props stand up off the bottom, so they fade a little less than the sand around them.
+    const fade = 1 - Math.exp(-Math.max(0, depth - .15) / OCEAN.seabedVisibility);
+    return { position: [x, (floor + lift) / scale, z] as [number, number, number], color: new Color(color).lerp(waterColorAt(habitat, depth), fade) };
+  }, [ocean, habitat, scale, x, z, color, lift]);
+}
+
+function IslandWorld({ habitat, level, active, children }: { habitat: Habitat; level: number; active: boolean; children?: ReactNode }) {
+  const ocean = useOcean(habitat, level, WATER[habitat]);
+  const coralA = useSeabedProp(ocean, habitat, level, -2.1, 1.25, '#B98A7C');
+  const coralB = useSeabedProp(ocean, habitat, level, 2.2, .65, '#6E9C88');
+  const coralC = useSeabedProp(ocean, habitat, level, 1.5, 1.65, '#B98A7C');
+  const reefRock = useSeabedProp(ocean, habitat, level, -2.1, -1.3, '#8FA394', .04);
+  return <OceanContext.Provider value={ocean.uniforms}>
+    <WaterSurface ocean={ocean} active={active} />
+    <group scale={islandScale(level)}>
       <ShoreLayer scale={1.035} y={-.12} color="#D9CEAB" offset={[.025, .06]} />
       <ShoreLayer y={-.06} color="#F0E6C9" />
       <ShoreLayer scale={.68} y={-.04} color={habitat === 'cove' ? '#BDC8A3' : '#E5DEB7'} offset={[-.25, -.14]} />
@@ -94,9 +98,9 @@ export function SanctuaryEnvironment({ habitat, level, active, inspect = false }
         <circleGeometry args={[1, 24]} /><meshBasicMaterial color="#A8D3C9" />
       </mesh>}
       {(level >= 2 || habitat === 'lagoon') && <>
-        <Coral position={[-2.1, -.65, 1.25]} /><Coral position={[2.2, -.65, .65]} color="#8CB7A5" />
+        <Coral position={coralA.position} color={coralA.color} /><Coral position={coralB.position} color={coralB.color} />
       </>}
-      {level >= 3 && <><Rock position={[-2.1, -.57, -1.3]} scale={.25} /><Coral position={[1.5, -.65, 1.65]} /></>}
+      {level >= 3 && <><Rock position={reefRock.position} scale={.25} color={reefRock.color} /><Coral position={coralC.position} color={coralC.color} /></>}
       {level >= 4 && <Palm position={[-.55, -.01, .6]} scale={.46} rotation={2.5} />}
       {level >= 5 && <group position={[2.65, 0, -2]} scale={.3}>
         <ShoreLayer y={-.1} color="#F0E6C9" /><Palm position={[0, 0, 0]} scale={.8} />
@@ -104,6 +108,19 @@ export function SanctuaryEnvironment({ habitat, level, active, inspect = false }
       {level >= 6 && <group position={[-2.8, 0, 2.1]} scale={.26}>
         <ShoreLayer y={-.1} color="#F0E6C9" /><Palm position={[0, 0, 0]} scale={.7} />
       </group>}
-    </group>}
+    </group>
+    {children}
+  </OceanContext.Provider>;
+}
+
+/** Lights and backdrop for every scene; the island and its ocean only outside the close-up. */
+export function SanctuaryEnvironment({ habitat, level, active, inspect = false, children }: {
+  habitat: Habitat; level: number; active: boolean; inspect?: boolean; children?: ReactNode;
+}) {
+  return <>
+    <color attach="background" args={[WATER[habitat]]} />
+    <hemisphereLight args={['#F4F7EC', '#5E8F91', 1.15]} />
+    <directionalLight position={OCEAN.sun} intensity={1.7} />
+    {inspect ? children : <IslandWorld habitat={habitat} level={level} active={active}>{children}</IslandWorld>}
   </>;
 }

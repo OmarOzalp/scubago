@@ -1,6 +1,7 @@
-import { useEffect, useMemo, useRef } from 'react';
+import { useContext, useEffect, useMemo, useRef } from 'react';
 import { useFrame } from '@react-three/fiber';
 import { AnimationMixer, Group, Mesh, SkinnedMesh } from 'three';
+import { OceanContext } from './ocean-context';
 import { prepareUnderwater } from './underwater-material';
 import { attachSwimRig, swimDrive } from './swim-rig-driver';
 import type { MarineMotion } from '@/lib/marine-motion';
@@ -17,9 +18,11 @@ const SIZE: Record<MarineModel, number> = { shark: 2.45, manta: 2.25, 'reef-fish
 const GAIT: Record<MarineModel, number> = { shark: .58, manta: .85, 'reef-fish': .68, 'whale-shark': 1, 'tiger-shark': 1, 'great-white-shark': 1, 'reef-manta': 1 };
 const rigModel = (model: MarineModel) => (Object.hasOwn(SWIM_RIGS, model) ? model as SwimRigModel : null);
 
-export function AnimatedMarine({ model, gltf, lane, active, inspect = false, population = 1, waterTint = '#75BDBA', motion, onPress }: {
-  model: MarineModel; gltf: GLTF; lane: number; active: boolean; inspect?: boolean; population?: number; waterTint?: string; motion?: MarineMotion; onPress?: () => void;
+export function AnimatedMarine({ model, gltf, lane, active, inspect = false, population = 1, motion, onPress }: {
+  model: MarineModel; gltf: GLTF; lane: number; active: boolean; inspect?: boolean; population?: number; motion?: MarineMotion; onPress?: () => void;
 }) {
+  // The island's water (absent in the close-up), so the animal tints and refracts with the same waves.
+  const ocean = useContext(OceanContext);
   // SkeletonUtils.clone gives each swimmer its own skeleton so several can share one parsed rig.
   const { instance, underwater } = useMemo(() => {
     const scene = clone(gltf.scene);
@@ -27,10 +30,9 @@ export function AnimatedMarine({ model, gltf, lane, active, inspect = false, pop
       if (object instanceof Mesh) { object.castShadow = false; object.receiveShadow = false; }
       if (object instanceof SkinnedMesh) object.frustumCulled = false;
     });
-    return { instance: scene, underwater: inspect ? null : prepareUnderwater(scene) };
-  }, [gltf.scene, inspect]);
+    return { instance: scene, underwater: inspect ? null : prepareUnderwater(scene, ocean ?? undefined) };
+  }, [gltf.scene, inspect, ocean]);
   useEffect(() => () => underwater?.dispose(), [underwater]);
-  useEffect(() => { underwater?.tint.value.set(waterTint); }, [underwater, waterTint]);
   // Species models swim procedurally so tail beats and wing strokes follow speed and turns;
   // family representatives play their artist-authored clip.
   const swimRig = useMemo(() => {
@@ -41,6 +43,8 @@ export function AnimatedMarine({ model, gltf, lane, active, inspect = false, pop
   const mixer = useMemo(() => new AnimationMixer(instance), [instance]);
   const group = useRef<Group>(null);
   const elapsed = useRef(0);
+  // Pitch follows the actual rise and fall through the water, eased so it never snaps.
+  const vertical = useRef({ y: NaN, pitch: 0 });
 
   useEffect(() => {
     if (swimRig) return;
@@ -73,11 +77,17 @@ export function AnimatedMarine({ model, gltf, lane, active, inspect = false, pop
         const sink = (sampleDive(previous, lane, population).y - dive.y) / dt;
         swimRig.update(dt, swimDrive(swimming, SIZE[model], sink));
       }
+      const y = pose.y + dive.y, v = vertical.current;
+      if (dt > 0 && Number.isFinite(v.y)) {
+        const nose = Math.max(-.22, Math.min(.22, (v.y - y) / dt * .35));
+        v.pitch += (nose - v.pitch) * (1 - Math.exp(-dt * 1.6));
+      }
+      v.y = y;
       group.current.visible = dive.visible;
-      group.current.position.set(pose.x, pose.y + dive.y, pose.z);
+      group.current.position.set(pose.x, y, pose.z);
       underwater?.setDepth(dive.depth, dive.surfacing);
-      // Yaw, then pitch about the animal's own lateral axis, then roll into the turn.
-      group.current.rotation.set(dive.depth * (dive.surfacing ? -.16 : .16), pose.heading, pose.bank, 'YXZ');
+      // Yaw, then pitch about the animal's own lateral axis (positive = nose down), then roll into the turn.
+      group.current.rotation.set(v.pitch, pose.heading, pose.bank, 'YXZ');
     }
     if (!swimRig) mixer.update(dt * (inspect ? 1 : (swimming?.effort ?? 1)));
   });

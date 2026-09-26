@@ -124,6 +124,7 @@ the family representatives from the Blender sources with `scripts/art/prepare-ma
 and the species models with `npm run build:species` (no Blender needed); the species
 swim procedurally from `src/lib/marine-rigs.ts`, and `npm run verify:marine` checks every
 rig. Up to eight animals swim at once; only shark, ray and fish categories have rigs today.
+The surrounding ocean is described, with a tuning guide, in `docs/ocean.md`.
 For local browser preview, run `npm run web`. Metro includes SQLite WASM support
 and the required isolation headers. Production web hosting also needs
 `Cross-Origin-Embedder-Policy: credentialless` and

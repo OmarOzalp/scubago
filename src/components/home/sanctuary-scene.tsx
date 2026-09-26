@@ -52,13 +52,13 @@ export function SanctuaryScene({ habitat, level, residents, paused = false, load
         onCreated={({ camera }) => camera.lookAt(0, -.15, 0)} style={styles.canvas}>
         <SceneCamera />
         {__DEV__ && <ScenePerformance ready={!!models && !loading} active={active} />}
-        <SanctuaryEnvironment habitat={habitat} level={level} active={active} />
-        {models && !loading && <MarineSwimmers models={models} active={active}
-          waterTint={habitat === 'cove' ? '#8DBBB0' : '#83C3C1'}
-          residents={preview
-            ? PREVIEW_SWIMMERS.map((s) => ({ ...s, id: s.model, onPress: () => onInspect(s.model) }))
-            : swimmers.map((s) => ({ ...s, id: s.species.id, onPress: () => router.push(`/species/${s.species.id}`) }))} />}
-
+        {/* The animals swim inside the island's water, which tints and refracts them. */}
+        <SanctuaryEnvironment habitat={habitat} level={level} active={active}>
+          {models && !loading && <MarineSwimmers models={models} active={active}
+            residents={preview
+              ? PREVIEW_SWIMMERS.map((s) => ({ ...s, id: s.model, onPress: () => onInspect(s.model) }))
+              : swimmers.map((s) => ({ ...s, id: s.species.id, onPress: () => router.push(`/species/${s.species.id}`) }))} />}
+        </SanctuaryEnvironment>
       </Canvas>
     </SceneBoundary>
   </View>;
