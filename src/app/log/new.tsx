@@ -388,9 +388,9 @@ function Celebration({ species, dexNumber }: { species: Species; dexNumber: numb
       </ThemedText>
       <RarityChip rarity={species.rarity} />
       <ThemedText type="small" themeColor="textSecondary" style={{ textAlign: 'center' }}>
-        #{dexNumber} in your collection
+        #{dexNumber} in your collection · A new resident for your home
       </ThemedText>
-      <OceanButton title="Nice!" onPress={() => router.back()} style={{ alignSelf: 'stretch' }} />
+      <OceanButton title="Visit my home" onPress={() => router.dismissTo('/(tabs)')} style={{ alignSelf: 'stretch' }} />
     </ThemedView>
   );
 }

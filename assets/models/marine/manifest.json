@@ -1,0 +1,32 @@
+{
+  "shark": {
+    "source": "Quaternius Animated Fish Pack (CC0)",
+    "frames": [
+      0,
+      30
+    ],
+    "fps": 24,
+    "bytes": 104888,
+    "vertices": 1302
+  },
+  "manta": {
+    "source": "Quaternius Animated Fish Pack (CC0)",
+    "frames": [
+      0,
+      101
+    ],
+    "fps": 24,
+    "bytes": 129328,
+    "vertices": 1440
+  },
+  "reef-fish": {
+    "source": "Quaternius Animated Fish Pack (CC0)",
+    "frames": [
+      0,
+      31
+    ],
+    "fps": 24,
+    "bytes": 96412,
+    "vertices": 1136
+  }
+}

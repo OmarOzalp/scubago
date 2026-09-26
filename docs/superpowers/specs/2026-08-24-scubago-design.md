@@ -38,7 +38,7 @@ Expo app (TypeScript, expo-router)
  └─ Sync layer: outbox queue → Supabase when configured/online (no custom API server)
 
 Supabase (added when going multi-user)
- ├─ auth (email + Apple/Google)
+ ├─ auth (email + password shipped; magic-link/Apple/Google noted as future)
  ├─ Postgres + PostGIS: sites, species, sightings (RLS: owner writes, public reads)
  └─ storage: sighting photos
 ```
@@ -83,10 +83,16 @@ where/when).
 - Generated demo community sightings (flagged `is_demo`) so the map is alive on first
   run — the cold-start problem is the app's biggest product risk.
 
+## Shipped since (2026-08-24)
+
+Supabase project provisioned; email + password auth with auto-confirm (Supabase's free
+tier can't customize hosted email templates, which ruled out an OTP-code flow — the
+default templates don't carry a token); per-user sighting sync with an offline outbox;
+photo upload to Supabase Storage; community sightings pulled back into the app.
+
 ## Out of scope for the slice (upgrade paths noted)
 
-Supabase project provisioning + real auth (schema ships now); photo upload; full
-offline map regions (→ PowerSync/WatermelonDB later); AI photo ID; seasonality
+Full offline map regions (→ PowerSync/WatermelonDB later); AI photo ID; seasonality
 analytics; moderation/dedup tools; badges/leaderboards.
 
 ## Testing

@@ -1,371 +1,97 @@
-import { router } from 'expo-router';
 import { useMemo, useState } from 'react';
-import {
-  Alert,
-  FlatList,
-  Platform,
-  Pressable,
-  StyleSheet,
-  TextInput,
-  View,
-} from 'react-native';
+import { Pressable, ScrollView, StyleSheet, Text, useColorScheme, View } from 'react-native';
+import { router } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { SpeciesPhoto } from '@/components/species-photo';
+import { HomeEditor } from '@/components/home/home-editor';
+import { SanctuaryScene } from '@/components/home/sanctuary-scene';
+import { WATER } from '@/components/home/three/sanctuary-environment';
+import { useHomePreferences } from '@/hooks/use-home-preferences';
+import { CATALOG_BY_ID } from '@/lib/catalog';
+import { deriveHome, HABITATS, HOME_STAGES } from '@/lib/home';
+import { useAppStore, useMySightings, useMyUserId } from '@/lib/store';
+import { showsPreview, type MarineModel } from '@/lib/swimming';
+import { BottomTabInset } from '@/constants/theme';
 
-import { SiteMap } from '@/components/site-map';
-import { SpeciesAvatar } from '@/components/species-avatar';
-import { ThemedText } from '@/components/themed-text';
-import { Ocean } from '@/constants/palette';
-import { Spacing } from '@/constants/theme';
-import { useTheme } from '@/hooks/use-theme';
-import { CATALOG, CATALOG_BY_ID } from '@/lib/catalog';
-import { CATEGORY_EMOJI } from '@/lib/rarity';
-import { useAllSites, useAppStore } from '@/lib/store';
-import type { Species } from '@/lib/types';
-
-export default function MapScreen() {
-  const theme = useTheme();
+export default function HomeScreen() {
   const insets = useSafeAreaInsets();
-  const sites = useAllSites();
-  const sightings = useAppStore((s) => s.sightings);
-
-  const [selectedSiteId, setSelectedSiteId] = useState<string | null>(null);
-  const [speciesFilter, setSpeciesFilter] = useState<Species | null>(null);
-  const [searching, setSearching] = useState(false);
-  const [query, setQuery] = useState('');
-
-  const sightingsBySite = useMemo(() => {
-    const map = new Map<string, Map<string, number>>();
-    for (const s of sightings) {
-      let counts = map.get(s.siteId);
-      if (!counts) map.set(s.siteId, (counts = new Map()));
-      counts.set(s.speciesId, (counts.get(s.speciesId) ?? 0) + 1);
-    }
-    return map;
-  }, [sightings]);
-
-  const highlightedSiteIds = useMemo(() => {
-    if (!speciesFilter) return null;
-    const ids = new Set<string>();
-    for (const site of sites) {
-      const seenHere = sightingsBySite.get(site.id)?.has(speciesFilter.id);
-      if (seenHere || site.notableSpecies.includes(speciesFilter.id)) ids.add(site.id);
-    }
-    return ids;
-  }, [speciesFilter, sites, sightingsBySite]);
-
-  const results = useMemo(() => {
-    const q = query.trim().toLowerCase();
-    if (!q) return CATALOG.slice(0, 12);
-    return CATALOG.filter(
-      (s) =>
-        s.commonName.toLowerCase().includes(q) || s.scientificName.toLowerCase().includes(q),
-    ).slice(0, 12);
-  }, [query]);
-
-  const selectedSite = selectedSiteId ? sites.find((s) => s.id === selectedSiteId) : null;
-  const selectedTopSpecies = useMemo(() => {
-    if (!selectedSiteId) return [];
-    const counts = sightingsBySite.get(selectedSiteId);
-    if (!counts) return [];
-    return [...counts.entries()]
-      .sort((a, b) => b[1] - a[1])
-      .slice(0, 4)
-      .map(([speciesId, count]) => ({ species: CATALOG_BY_ID.get(speciesId), count }))
-      .filter((x): x is { species: Species; count: number } => !!x.species);
-  }, [selectedSiteId, sightingsBySite]);
-
-  const pickSpecies = (species: Species) => {
-    setSpeciesFilter(species);
-    setSearching(false);
-    setQuery('');
-    setSelectedSiteId(null);
-  };
-
-  const handleLongPress = (lat: number, lng: number) => {
-    Alert.alert(
-      'Add a dive site here?',
-      `A new site will be pinned at ${lat.toFixed(4)}, ${lng.toFixed(4)}.`,
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Add site',
-          onPress: () =>
-            router.push({ pathname: '/add-site', params: { lat: String(lat), lng: String(lng) } }),
-        },
-      ],
-    );
-  };
-
-  return (
-    <View style={styles.container}>
-      <SiteMap
-        sites={sites}
-        highlightedSiteIds={highlightedSiteIds}
-        onSelectSite={(id) => {
-          setSelectedSiteId(id);
-          setSearching(false);
-        }}
-        onLongPress={handleLongPress}
-      />
-
-      {/* Species search / active filter */}
-      <View style={[styles.topOverlay, { top: insets.top + Spacing.two }]}>
-        {speciesFilter ? (
-          <Pressable
-            onPress={() => setSpeciesFilter(null)}
-            style={[styles.filterChip, { backgroundColor: theme.background }]}>
-            <SpeciesAvatar species={speciesFilter} size={28} />
-            <ThemedText type="smallBold" style={{ flex: 1 }} numberOfLines={1}>
-              {speciesFilter.commonName} — seen at {highlightedSiteIds?.size ?? 0} sites
-            </ThemedText>
-            <ThemedText type="smallBold" themeColor="textSecondary">
-              ✕
-            </ThemedText>
-          </Pressable>
-        ) : (
-          <Pressable
-            onPress={() => setSearching(true)}
-            style={[styles.searchBar, { backgroundColor: theme.background }]}>
-            {searching ? (
-              <TextInput
-                autoFocus
-                value={query}
-                onChangeText={setQuery}
-                placeholder="Whale shark, manta, seahorse…"
-                placeholderTextColor={theme.textSecondary}
-                style={[styles.searchInput, { color: theme.text }]}
-                onSubmitEditing={() => results[0] && pickSpecies(results[0])}
-              />
-            ) : (
-              <ThemedText themeColor="textSecondary">🔍 Where can I see a…</ThemedText>
-            )}
-            {searching ? (
-              <Pressable
-                onPress={() => {
-                  setSearching(false);
-                  setQuery('');
-                }}>
-                <ThemedText type="smallBold" themeColor="textSecondary">
-                  Cancel
-                </ThemedText>
-              </Pressable>
-            ) : null}
-          </Pressable>
-        )}
-
-        {searching ? (
-          <View style={[styles.results, { backgroundColor: theme.background }]}>
-            <FlatList
-              data={results}
-              keyboardShouldPersistTaps="handled"
-              keyExtractor={(s) => s.id}
-              renderItem={({ item }) => (
-                <Pressable
-                  onPress={() => pickSpecies(item)}
-                  style={({ pressed }) => [
-                    styles.resultRow,
-                    pressed && { backgroundColor: theme.backgroundElement },
-                  ]}>
-                  <SpeciesAvatar species={item} size={36} showRarityRing />
-                  <View style={{ flex: 1 }}>
-                    <ThemedText type="smallBold">{item.commonName}</ThemedText>
-                    <ThemedText type="small" themeColor="textSecondary">
-                      {item.scientificName}
-                    </ThemedText>
-                  </View>
-                </Pressable>
-              )}
-            />
-          </View>
-        ) : null}
+  const dark = useColorScheme() === 'dark';
+  const colors = dark ? { bg: '#142620', ink: '#E0E9D9', muted: '#A3B9AA', card: '#21372D', border: '#344D3E' } : { bg: '#F6F7F0', ink: '#254C40', muted: '#6C8073', card: '#FFFFFF', border: '#DEE5D9' };
+  const mine = useMySightings();
+  const owner = useMyUserId();
+  const ready = useAppStore((s) => s.ready);
+  const home = useMemo(() => deriveHome(mine, CATALOG_BY_ID), [mine]);
+  const saved = useHomePreferences(owner);
+  const [editing, setEditing] = useState(false);
+  const [paused, setPaused] = useState(false);
+  const habitat = HABITATS.find((h) => h.id === saved.preferences.habitat)!;
+  const count = home.residents.length;
+  const loading = !ready || saved.loading;
+  const preview = !loading && showsPreview(home.residents);
+  const inspect = (model: MarineModel) => router.push({ pathname: '/inspect', params: { model, preview: '1' } });
+  return <View style={[styles.root, { backgroundColor: colors.bg }]}>
+    <ScrollView contentContainerStyle={[styles.content, { paddingTop: insets.top + 22, paddingBottom: BottomTabInset + insets.bottom + 28 }]}>
+      <View style={styles.header}>
+        <View style={{ gap: 5 }}><Text style={[styles.eyebrow, { color: colors.muted }]}>YOUR OCEAN, GROWING WITH YOU</Text><Text style={[styles.title, { color: colors.ink }]}>My Home</Text></View>
+        <Pressable accessibilityRole="button" accessibilityLabel="Customize your home" disabled={loading} onPress={() => setEditing(true)} style={[styles.edit, { borderColor: colors.border, opacity: loading ? .4 : 1 }]}><Text style={{ color: colors.ink, fontSize: 13, fontWeight: '500' }}>Customize ↗</Text></Pressable>
       </View>
 
-      {/* Selected site card */}
-      {selectedSite ? (
-        <View
-          style={[
-            styles.siteCard,
-            { backgroundColor: theme.background, bottom: insets.bottom + 84 },
-          ]}>
-          <View style={styles.siteCardHeader}>
-            <View style={{ flex: 1 }}>
-              <ThemedText type="smallBold" style={{ fontSize: 18 }} numberOfLines={1}>
-                {selectedSite.name}
-              </ThemedText>
-              <ThemedText type="small" themeColor="textSecondary">
-                {selectedSite.region}, {selectedSite.country}
-              </ThemedText>
-            </View>
-            <Pressable onPress={() => setSelectedSiteId(null)} hitSlop={12}>
-              <ThemedText type="smallBold" themeColor="textSecondary">
-                ✕
-              </ThemedText>
-            </Pressable>
-          </View>
-
-          {selectedTopSpecies.length > 0 ? (
-            <View style={styles.chipsRow}>
-              {selectedTopSpecies.map(({ species, count }) => (
-                <View
-                  key={species.id}
-                  style={[styles.speciesChip, { backgroundColor: theme.backgroundElement }]}>
-                  <ThemedText type="small">
-                    {species.emoji ?? CATEGORY_EMOJI[species.category]} {species.commonName}{' '}
-                    ×{count}
-                  </ThemedText>
-                </View>
-              ))}
-            </View>
-          ) : (
-            <ThemedText type="small" themeColor="textSecondary">
-              No sightings logged here yet — be the first!
-            </ThemedText>
-          )}
-
-          <View style={styles.cardButtons}>
-            <Pressable
-              onPress={() => router.push(`/site/${selectedSite.id}`)}
-              style={[styles.cardButton, { backgroundColor: theme.backgroundElement }]}>
-              <ThemedText type="smallBold">Details</ThemedText>
-            </Pressable>
-            <Pressable
-              onPress={() =>
-                router.push({ pathname: '/log/new', params: { siteId: selectedSite.id } })
-              }
-              style={[styles.cardButton, { backgroundColor: Ocean.primary }]}>
-              <ThemedText type="smallBold" style={{ color: Ocean.onPrimary }}>
-                Log sighting here
-              </ThemedText>
-            </Pressable>
-          </View>
+      <View style={[styles.hero, { backgroundColor: WATER[habitat.id] }]}>
+        <View style={styles.heroHeader}><View style={styles.pill}><View style={[styles.liveDot, preview && styles.previewDot]} /><Text style={styles.pillText}>{preview ? 'PREVIEW · NOT YOUR COLLECTION' : 'YOUR SANCTUARY'}</Text></View>
+          <Pressable accessibilityRole="button" accessibilityLabel={paused ? 'Resume ocean animation' : 'Pause ocean animation'} accessibilityState={{ selected: paused }} onPress={() => setPaused((value) => !value)} style={styles.motionButton}><Text style={styles.motionText}>{paused ? 'Play' : 'Pause'}</Text></Pressable>
         </View>
-      ) : null}
+        <SanctuaryScene habitat={habitat.id} level={home.level} residents={home.residents} loading={loading} paused={paused || editing || loading} onInspect={inspect} />
+        <View style={styles.heroFooter}><Text style={styles.homeName}>{saved.preferences.name}</Text><Text style={styles.heroSubtitle}>{loading ? habitat.name : `${habitat.name}  ·  ${home.stage.place}`}</Text>
+          <Text style={styles.sceneHint}>{loading ? ' ' : preview ? (count ? 'A whale shark and reef manta are visiting while your discoveries settle in below' : 'A whale shark and reef manta are visiting. Your first discovery makes these waters yours') : 'Tap a swimming resident to revisit your discovery'}</Text>
+          {preview && <View style={styles.previewRow}>
+            {([['whale-shark', 'Whale shark'], ['reef-manta', 'Reef manta']] as const).map(([model, name]) => <Pressable key={model} accessibilityRole="button" accessibilityLabel={`Take a closer look at the ${name.toLowerCase()} preview`} onPress={() => inspect(model)} style={({ pressed }) => [styles.previewButton, { opacity: pressed ? .7 : 1 }]}><Text style={styles.previewButtonText}>{name} ↗</Text></Pressable>)}
+          </View>}
+        </View>
+      </View>
+      {!!saved.error && !editing && <Text accessibilityRole="alert" style={{ color: dark ? '#E6A495' : '#A43F36' }}>{saved.error}</Text>}
 
-      {/* Log FAB */}
-      <Pressable
-        onPress={() => router.push('/log/new')}
-        style={[styles.fab, { bottom: insets.bottom + Spacing.three }]}>
-        <ThemedText style={styles.fabPlus}>＋</ThemedText>
-      </Pressable>
-    </View>
-  );
+      <View style={[styles.rankCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
+        <View style={styles.rankTop}>
+          <View style={[styles.levelBadge, { backgroundColor: dark ? '#344D3E' : '#ECF1E5' }]}><Text style={[styles.levelSmall, { color: colors.muted }]}>LEVEL</Text><Text style={[styles.levelNumber, { color: colors.ink }]}>{loading ? '–' : home.level.toString().padStart(2, '0')}</Text></View>
+          <View style={{ flex: 1, gap: 4 }}><Text style={[styles.rankName, { color: colors.ink }]}>{loading ? 'Your explorer journey' : home.stage.rank}</Text><Text style={[styles.body, { color: colors.muted }]}>{loading ? 'Loading your discoveries…' : `${count} species discovered · ${home.sightingCount} sightings`}</Text></View>
+          <Text style={[styles.rankMark, { color: colors.muted }]}>✧</Text>
+        </View>
+        {!loading && <>
+          <View style={[styles.divider, { backgroundColor: colors.border }]} />
+          <View style={styles.progressHeading}><Text style={[styles.nextLabel, { color: colors.ink }]}>{home.next ? `Next: ${home.next.reward.toLowerCase()}` : 'Your archipelago is flourishing'}</Text><Text style={[styles.body, { color: colors.muted }]}>{home.next ? `${count} / ${home.next.at}` : 'Level 6'}</Text></View>
+          <View accessibilityRole="progressbar" accessibilityLabel="Progress to your next island expansion" accessibilityValue={{ min: 0, max: 100, now: Math.round(home.fraction * 100) }} style={[styles.track, { backgroundColor: dark ? '#344D3E' : '#EAF0E5' }]}><View style={[styles.fill, { width: `${home.fraction * 100}%` }]} /></View>
+          <Text style={[styles.body, { color: colors.muted }]}>{home.next ? `${home.remaining} new species to grow your home a little more.` : 'Every new discovery adds another story to your ocean.'}</Text>
+        </>}
+      </View>
+
+      <View style={styles.sectionHeader}><Text style={[styles.sectionTitle, { color: colors.ink }]}>Life around you</Text><Pressable accessibilityRole="button" onPress={() => router.push('/logbook')} style={styles.textButton}><Text style={[styles.link, { color: colors.muted }]}>Collection ↗</Text></Pressable></View>
+      {count > 0 ? <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.residents}>
+        {home.residents.map(({ species }) => <Pressable key={species.id} accessibilityRole="button" accessibilityLabel={`View ${species.commonName}`} onPress={() => router.push(`/species/${species.id}`)} style={[styles.residentCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
+          <SpeciesPhoto species={species} /><Text numberOfLines={2} style={[styles.residentName, { color: colors.ink }]}>{species.commonName}</Text>
+        </Pressable>)}
+      </ScrollView> : <View style={[styles.empty, { borderColor: colors.border }]}><Text style={[styles.emptyTitle, { color: colors.ink }]}>A quiet ocean. A world to discover.</Text><Text style={[styles.body, { color: colors.muted, textAlign: 'center', maxWidth: 270 }]}>Log the marine life you meet, and watch your little home come alive.</Text></View>}
+
+      <Pressable accessibilityRole="button" onPress={() => router.push('/log/new')} style={({ pressed }) => [styles.logButton, { opacity: pressed ? .8 : 1 }]}><Text style={styles.logText}>＋  Log a discovery</Text><Text style={styles.logArrow}>↗</Text></Pressable>
+      <View style={styles.journeyHeader}><Text style={[styles.eyebrow, { color: colors.muted }]}>A LITTLE MORE OCEAN, EVERY TIME</Text></View>
+      <View style={styles.journey}>
+        {HOME_STAGES.map((stage, index) => <View key={stage.at} style={styles.journeyStep}><View style={[styles.journeyDot, { backgroundColor: !loading && home.level > index ? '#668E70' : colors.border }]}><Text style={{ color: !loading && home.level > index ? '#FFFFFF' : colors.muted, fontSize: 10 }}>{index + 1}</Text></View><Text style={[styles.journeyCount, { color: colors.muted }]}>{stage.at} species</Text></View>)}
+      </View>
+      <Text style={[styles.footnote, { color: colors.muted }]}>A collection journey, one encounter at a time.</Text>
+    </ScrollView>
+    {editing && <HomeEditor key={owner} preferences={saved.preferences} saving={saved.saving} error={saved.error} onSave={saved.save} onClose={() => setEditing(false)} />}
+  </View>;
 }
-
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
-  topOverlay: {
-    position: 'absolute',
-    left: Spacing.three,
-    right: Spacing.three,
-    gap: Spacing.two,
-  },
-  searchBar: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    borderRadius: 14,
-    paddingHorizontal: Spacing.three,
-    height: 48,
-    gap: Spacing.two,
-    shadowColor: '#000',
-    shadowOpacity: 0.15,
-    shadowRadius: 8,
-    shadowOffset: { width: 0, height: 2 },
-    elevation: 4,
-  },
-  searchInput: {
-    flex: 1,
-    fontSize: 16,
-    height: '100%',
-  },
-  filterChip: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    borderRadius: 14,
-    paddingHorizontal: Spacing.two + 2,
-    height: 48,
-    gap: Spacing.two,
-    shadowColor: '#000',
-    shadowOpacity: 0.15,
-    shadowRadius: 8,
-    shadowOffset: { width: 0, height: 2 },
-    elevation: 4,
-  },
-  results: {
-    borderRadius: 14,
-    maxHeight: 320,
-    overflow: 'hidden',
-    shadowColor: '#000',
-    shadowOpacity: 0.15,
-    shadowRadius: 8,
-    shadowOffset: { width: 0, height: 2 },
-    elevation: 4,
-  },
-  resultRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: Spacing.two + 2,
-    paddingHorizontal: Spacing.three,
-    paddingVertical: Spacing.two,
-  },
-  siteCard: {
-    position: 'absolute',
-    left: Spacing.three,
-    right: Spacing.three,
-    borderRadius: 18,
-    padding: Spacing.three,
-    gap: Spacing.two + 2,
-    shadowColor: '#000',
-    shadowOpacity: 0.2,
-    shadowRadius: 12,
-    shadowOffset: { width: 0, height: 4 },
-    elevation: 6,
-  },
-  siteCardHeader: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    gap: Spacing.two,
-  },
-  chipsRow: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: Spacing.one + 2,
-  },
-  speciesChip: {
-    borderRadius: 999,
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-  },
-  cardButtons: {
-    flexDirection: 'row',
-    gap: Spacing.two,
-  },
-  cardButton: {
-    flex: 1,
-    alignItems: 'center',
-    paddingVertical: 12,
-    borderRadius: 12,
-  },
-  fab: {
-    position: 'absolute',
-    right: Spacing.three,
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    backgroundColor: Ocean.primary,
-    alignItems: 'center',
-    justifyContent: 'center',
-    shadowColor: '#000',
-    shadowOpacity: 0.25,
-    shadowRadius: 8,
-    shadowOffset: { width: 0, height: 3 },
-    elevation: 6,
-  },
-  fabPlus: {
-    color: Ocean.onPrimary,
-    fontSize: 28,
-    lineHeight: Platform.select({ ios: 32, default: 34 }),
-    fontWeight: '600',
-  },
+  root: { flex: 1 }, content: { paddingHorizontal: 22, width: '100%', maxWidth: 650, alignSelf: 'center', gap: 22 },
+  header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8, flexWrap: 'wrap' },
+  eyebrow: { fontSize: 8, letterSpacing: 1.8, fontWeight: '600' }, title: { fontSize: 34, fontWeight: '500', letterSpacing: -1.3 }, edit: { borderWidth: 1, borderRadius: 30, minHeight: 44, paddingHorizontal: 14, justifyContent: 'center' },
+  hero: { borderRadius: 28, overflow: 'hidden' }, heroHeader: { paddingHorizontal: 19, paddingTop: 14, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  pill: { flexDirection: 'row', alignItems: 'center', gap: 6 }, liveDot: { width: 5, height: 5, borderRadius: 3, backgroundColor: '#4E8771' }, pillText: { color: '#3E7164', letterSpacing: 1.8, fontSize: 8, fontWeight: '600' },
+  motionButton: { minHeight: 44, minWidth: 44, justifyContent: 'center', alignItems: 'center' }, motionText: { fontSize: 11, color: '#3E7164' }, loading: { height: 310, alignItems: 'center', justifyContent: 'center', gap: 16 },
+  previewDot: { backgroundColor: '#C98A3A' }, previewRow: { flexDirection: 'row', gap: 8, marginTop: 10 }, previewButton: { minHeight: 36, paddingHorizontal: 14, borderRadius: 18, backgroundColor: 'rgba(255,255,255,.55)', justifyContent: 'center' }, previewButtonText: { color: '#2F6558', fontSize: 12, fontWeight: '500' },
+  heroFooter: { paddingHorizontal: 16, paddingBottom: 24, gap: 5, alignItems: 'center' }, homeName: { color: '#285D51', fontSize: 25, letterSpacing: -.7, fontWeight: '500', textAlign: 'center' }, heroSubtitle: { color: '#42786C', fontSize: 11, textAlign: 'center', lineHeight: 17 }, sceneHint: { color: '#477B70', fontSize: 9, textAlign: 'center', marginTop: 8 },
+  rankCard: { padding: 18, borderRadius: 21, borderWidth: 1, gap: 12 }, rankTop: { flexDirection: 'row', alignItems: 'center', gap: 14 }, levelBadge: { width: 52, height: 59, borderRadius: 14, alignItems: 'center', justifyContent: 'center', gap: 2 }, levelSmall: { fontSize: 7, letterSpacing: 1.7, fontWeight: '700' }, levelNumber: { fontSize: 25, fontWeight: '500' }, rankName: { fontSize: 18, fontWeight: '500', letterSpacing: -.4 }, rankMark: { fontSize: 32 }, body: { fontSize: 11, lineHeight: 18 }, divider: { height: 1, marginVertical: 1 }, progressHeading: { flexDirection: 'row', gap: 10, justifyContent: 'space-between' }, nextLabel: { fontSize: 11, fontWeight: '500', flex: 1 }, track: { height: 5, borderRadius: 3, overflow: 'hidden' }, fill: { height: '100%', backgroundColor: '#81A37A', borderRadius: 3 },
+  sectionHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: -12 }, sectionTitle: { fontSize: 20, fontWeight: '500', letterSpacing: -.5 }, textButton: { minHeight: 44, justifyContent: 'center' }, link: { fontSize: 11 },
+  residents: { gap: 10 }, residentCard: { width: 104, minHeight: 110, borderRadius: 17, borderWidth: 1, padding: 10, alignItems: 'center', justifyContent: 'center', gap: 8 }, residentName: { fontSize: 10, lineHeight: 14, textAlign: 'center' }, empty: { borderWidth: 1, borderStyle: 'dashed', padding: 23, alignItems: 'center', gap: 8, borderRadius: 18 }, emptyTitle: { fontSize: 14, fontWeight: '500', textAlign: 'center' },
+  logButton: { borderRadius: 17, backgroundColor: '#285E4E', minHeight: 56, paddingHorizontal: 22, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }, logText: { color: '#FFFFFF', fontSize: 14, fontWeight: '500' }, logArrow: { color: '#CDDECE', fontSize: 20 }, journeyHeader: { alignItems: 'center', marginTop: 10 }, journey: { flexDirection: 'row', justifyContent: 'space-between' }, journeyStep: { alignItems: 'center', gap: 8 }, journeyDot: { width: 24, height: 24, borderRadius: 12, alignItems: 'center', justifyContent: 'center' }, journeyCount: { fontSize: 8 }, footnote: { fontSize: 10, textAlign: 'center', marginTop: -4 },
 });
