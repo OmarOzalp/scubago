@@ -54,8 +54,9 @@ project's settings with those dev defaults.
 
 - **My Home tab** — a stylized 3D sanctuary: a sculpted island, coral lagoon, or rocky
   cove in caustic-lit water, seen from an oblique orthographic camera. Discovered
-  sharks, rays and fish swim around it as rigged, animated models (CC0 Quaternius rigs
-  refined in Blender; family-level representatives, not per-species models). Unique
+  sharks, rays and fish swim around it as rigged, animated models. Tiger, whale and
+  great white sharks and the reef manta have their own models and species-specific
+  swimming; other species use CC0 Quaternius family representatives. Unique
   species unlock six growth stages; home name and habitat are saved on this device per
   account. An empty ocean shows a clearly labeled preview shark and manta that never
   count as discoveries, and either can be opened for a closer look. Animation pauses
@@ -118,9 +119,12 @@ social sign-in (needs custom SMTP or a paid plan), account recovery / password r
 The 3D scene uses `expo-gl` + `@react-three/fiber` + `three`, with the SVG island as
 fallback; rebuild an existing native dev client with `npx expo run:ios` or
 `npx expo run:android` after installing dependencies (expo-gl and expo-asset are
-native modules). Models live in `assets/models/marine` (see its LICENSE.md); regenerate
-the GLBs from the Blender sources with `scripts/art/prepare-marine.py`. Up to eight
-animals swim at once; only shark, ray and fish categories have rigs today.
+native modules). Models live in `assets/models/marine` (see its LICENSE.md). Regenerate
+the family representatives from the Blender sources with `scripts/art/prepare-marine.py`
+and the species models with `npm run build:species` (no Blender needed); the species
+swim procedurally from `src/lib/marine-rigs.ts`, and `npm run verify:marine` checks every
+rig. Up to eight animals swim at once; only shark, ray and fish categories have rigs today.
+The surrounding ocean is described, with a tuning guide, in `docs/ocean.md`.
 For local browser preview, run `npm run web`. Metro includes SQLite WASM support
 and the required isolation headers. Production web hosting also needs
 `Cross-Origin-Embedder-Policy: credentialless` and

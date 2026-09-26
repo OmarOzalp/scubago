@@ -58,6 +58,9 @@
     "lint": "expo lint",
     "test": "jest",
     "verify:marine": "node scripts/verify-marine.mjs",
+    "verify:underwater": "tsx scripts/verify-underwater.mjs",
+    "verify:ocean": "tsx scripts/verify-ocean.mjs",
+    "build:species": "tsx scripts/art/build-species.ts",
     "seed:supabase": "tsx scripts/seed-supabase.ts"
   },
   "private": true,

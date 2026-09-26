@@ -8,7 +8,7 @@ jest.mock('../three/use-marine-models', () => ({ useMarineModels: jest.fn() }));
 jest.mock('@/hooks/use-scene-active', () => ({ useSceneActive: () => true }));
 jest.mock('../three/scene-camera', () => ({ SceneCamera: () => null }));
 jest.mock('../three/scene-performance', () => ({ ScenePerformance: () => null }));
-jest.mock('../three/sanctuary-environment', () => ({ SanctuaryEnvironment: () => <environment /> }));
+jest.mock('../three/sanctuary-environment', () => ({ SanctuaryEnvironment: ({ children }) => <environment>{children}</environment> }));
 jest.mock('@react-three/fiber', () => ({ useFrame: jest.fn() }));
 jest.mock('../three/animated-marine', () => ({ AnimatedMarine: () => <swimmer /> }));
 jest.mock('../island-scene', () => ({ IslandScene: () => <fallback /> }));

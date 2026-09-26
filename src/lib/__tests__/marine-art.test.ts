@@ -5,6 +5,8 @@ test('inspection resolves species before a conflicting model query', () => {
   expect(inspectionModel({ species: 'whale-shark', model: 'tiger-shark' })).toBe('whale-shark');
   expect(inspectionModel({ species: 'tiger-shark' })).toBe('tiger-shark');
   expect(inspectionModel({ species: 'reef-manta' })).toBe('reef-manta');
+  expect(inspectionModel({ species: 'great-white-shark' })).toBe('great-white-shark');
+  expect(inspectionModel({ model: 'great-white-shark' })).toBe('great-white-shark');
   expect(inspectionModel({ model: 'reef-fish' })).toBe('reef-fish');
 });
 

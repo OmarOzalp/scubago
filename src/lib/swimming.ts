@@ -1,9 +1,10 @@
 import type { Category, DexEntry, Species } from '@/lib/types';
 
-export type SpeciesMarineModel = 'whale-shark' | 'tiger-shark' | 'reef-manta';
+export type SpeciesMarineModel = 'whale-shark' | 'tiger-shark' | 'great-white-shark' | 'reef-manta';
 export type MarineModel = 'shark' | 'manta' | 'reef-fish' | SpeciesMarineModel;
+const SPECIES_MODELS: readonly string[] = ['whale-shark', 'tiger-shark', 'great-white-shark', 'reef-manta'] satisfies SpeciesMarineModel[];
 export function speciesMarineModel(id: string): SpeciesMarineModel | null {
-  return id === 'whale-shark' || id === 'tiger-shark' || id === 'reef-manta' ? id : null;
+  return SPECIES_MODELS.includes(id) ? id as SpeciesMarineModel : null;
 }
 /** Exact art takes precedence; other supported species use a family representative. */
 export function marineModelFor(species: Pick<Species, 'id' | 'category'> | Category): MarineModel | null {
