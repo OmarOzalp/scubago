@@ -9,10 +9,10 @@ real wildlife.
 
 The catalog contains **119 species** (the earlier rough count of 120 included a
 non-entry match). All 119 have photo URLs, but none have recorded human identity
-review. Six animated GLBs now exist: three family representatives and first species
-drafts for whale shark, tiger shark and reef manta ray. The mapping in
-`src/lib/swimming.ts` resolves these exact IDs before category fallbacks. This
-is **3 of 119 species with dedicated draft art**, not 119 approved models.
+review. Seven animated GLBs now exist: three family representatives and species
+drafts for whale shark, tiger shark, great white shark and reef manta ray. The
+mapping in `src/lib/swimming.ts` resolves these exact IDs before category fallbacks.
+This is **4 of 119 species with dedicated draft art**, not 119 approved models.
 
 The existing photo map contains 26 "all rights reserved" images, 67 CC BY-NC,
 10 CC BY-NC-SA, 2 CC BY-NC-ND, 10 CC BY and 4 CC BY-SA. It is a reference catalog,
@@ -63,41 +63,79 @@ and markings even if part of their skeleton can be shared. Then add a hammerhead
 a distinctive reef fish, turtle and octopus to prove the pipeline across body
 plans before expanding to all 119.
 
-The first three drafts are implemented and can be opened from their species
+The four species drafts are implemented and can be opened from their species
 pages using **See [species] in 3D**. The remaining supported species still use
 clearly described family representatives; unsupported body plans remain without
 3D assets. No asset has been marked scientifically or artistically approved.
 
-## Batch v1 implementation and review
+## Batch v2: species models and swimming
 
-| Species | Distinctive draft geometry / markings | Triangles | GLB bytes |
-| --- | --- | ---: | ---: |
-| Whale shark | Broad flattened head, terminal mouth, rearward dorsal, pale spots and flank lines | 3,466 | 187,552 |
-| Tiger shark | Fuller body, blunt snout, elongated upper tail, dark side bars | 2,820 | 126,084 |
-| Reef manta ray | Broadened disc, cephalic fins, pale shoulders and underside, belly spots | 3,100 | 144,348 |
+Each species is its own modeling and animation problem. The models are generated
+by `scripts/art/build-species.ts` (Node + three.js; `npm run build:species`), with
+shared helpers in `scripts/art/species/` for lofting, airfoil fins, decals and
+skinning, and one design file per species for proportions, fins and markings.
+Every asset is a single skinned, vertex-colored draw call with no textures.
 
-Sharks have newly authored procedural meshes and rigs. The ray adapts the
-Quaternius CC0 mesh/animation. All three use one skinned mesh and one
-vertex-colored material, no textures, and a looping `Swim` clip. Assets load
-only when requested by the visible swimmer page or close-up; in-flight loads
-are shared and stale requests cannot replace the current page.
+| Species | Model | Swimming | Triangles | GLB bytes |
+| --- | --- | --- | ---: | ---: |
+| Tiger shark | Broad blunt snout, heavy shoulders tapering to a slender keeled tail stock, falcate fins, long notched upper lobe, irregular dark bars, cream belly | Heavy, controlled carangiform stroke from the rear third; long flexible upper lobe; steady head; 0.44 strokes/s | 4,084 | 184,088 |
+| Whale shark | Huge flat truncated head with a terminal mouth, small eyes, flank ridges, rearward dorsal, big semi-lunate tail, spots between pale grid lines, white belly | Slow, long, large sweeps in the rear body; almost no head movement; gentle roll; 0.17 strokes/s | 3,986 | 212,504 |
+| Great white shark | Conical snout, deep torpedo body, tall triangular dorsal, long pectorals with dark tips beneath, keeled peduncle, crescent tail, jagged gray/white line | Near-thunniform: rigid body, powerful beats packed into the peduncle and stiff tail; slight roll; 0.6 strokes/s | 3,580 | 146,876 |
+| Reef manta ray | Continuous disc lofted from airfoil sections, broad pointed wings, rolled cephalic lobes, thin tail, pale shoulder patches on a dark back, white belly with dark wing margins | Underwater flight: flexible wing strokes traveling outward and backward, glides, banking; 0.3 strokes/s | 3,096 | 136,800 |
 
-Rebuild: `blender --background --factory-startup --python scripts/art/prepare-species.py`.
-Verify exports: `npm run verify:marine`. Studio previews in `docs/art-previews/`
-are actual model renders. The verifier checks all six assets for deformation,
-loop continuity, bounds, independent skeletons and budgets; dedicated models
-also require vertex colors and a single skinned draw call.
+### Rigs and animation
 
-References used for draft proportions and pattern placement:
+The app drives the bones procedurally every frame (`src/lib/marine-rigs.ts`,
+applied by `src/components/home/three/swim-rig-driver.ts`), so the motion follows
+each swimmer's actual speed, turns and climbs. The baked `Swim` clip in each GLB is
+the same rig sampled at cruising effort, for previews and verification.
+
+- **Sharks:** `Root → Spine1 → Spine2 → RearBody → TailBase → Tail →
+  TailUpper/TailLower`, with `Head`, `Dorsal` and `PectoralL/R` nodes. A traveling
+  wave runs down the midline with an amplitude envelope that grows toward the tail;
+  each spine bone takes the change in midline angle across its segment, so rotation
+  increases toward the tail and the caudal fin lags the peduncle. Turning adds a
+  C-shaped bend into the turn and dips the inside pectoral; climbing pitches both
+  pectorals.
+- **Reef manta:** five wing segments per side (`WingL1–5`, `WingR1–5`), plus `Head`,
+  `CephalicL/R` and a three-bone tail. Each segment flaps about an axis parallel to
+  the body with a growing phase delay, so strokes roll outward to the tips; a
+  quarter-cycle twist lifts the trailing edge after the leading edge. The body rides
+  up on the downstroke, the outer wing strokes harder in turns, stronger strokes
+  come with climbing, and below cruising speed the wings are held in a shallow V.
+
+Tuning parameters:
+
+- **Swimming speed and turning:** `MOVEMENT` in `src/lib/marine-motion.ts`: `pace`
+  (cruise), `swing`/`surge` (speed changes and bursts), `wander`/`bends`/`patrol`
+  (route shape), `steer` (how quickly a new line is taken up), `bank`/`bankMax`/
+  `bankEase` (roll into turns), `lazyRoll`, `bob`/`bobPeriod` (vertical drift).
+- **Stroke frequency and amplitude:** `SWIM_RIGS` in `src/lib/marine-rigs.ts`:
+  `frequency` (strokes per second at cruise, scaled by speed via `strokeFrequency`),
+  `tailAmplitude`, `envelope`, `wavelength`, `lobes`, `dorsal`, `pectoral`, `roll`
+  and `bend` for sharks; `flap`, `waveLag`, `twist`, `glideDihedral`,
+  `turnAsymmetry`, `climbGain`, `bob` and `pitch` for the manta.
+- **Size in the scene:** `SIZE` in `src/components/home/three/animated-marine.tsx`.
+
+Movement personalities: the whale shark cruises slowest with broad, gentle arcs and
+barely rolls; the manta glides at slow to medium speed, weaves in wide turns with
+deep banks and the largest rises and falls; the tiger shark cruises at medium speed
+with confident curves and an occasional lazy roll; the great white is fastest,
+holds a line and then turns decisively with a slight bank, with occasional surges
+that quicken its tail beat.
+
+Rebuild: `npm run build:species` (or `-- --only=tiger-shark`). Verify exports:
+`npm run verify:marine` (rig bones, procedural deformation, loop continuity,
+bounds, budgets) and `node scripts/verify-underwater.mjs`. The studio previews in
+`docs/art-previews/` for these four species are real-time renders of the actual
+assets with the app's lighting.
+
+References used for proportions and pattern placement:
 - [Florida Museum: whale shark](https://www.floridamuseum.ufl.edu/discover-fish/species-profiles/whale-shark/)
 - [Florida Museum: tiger shark](https://www.floridamuseum.ufl.edu/discover-fish/species-profiles/tiger-shark/)
+- [Florida Museum: white shark](https://www.floridamuseum.ufl.edu/discover-fish/species-profiles/white-shark/)
 - [Manta Trust: reef manta ray](https://www.mantatrust.org/mobula-alfredi)
 
 These simplified drafts still need human comparison against multiple views,
-especially fin contours, mouth detail and individual marking variation. Native
-performance must also be checked on physical hardware before release.
-
-Validation on September 25, 2026: 84 Jest tests across 17 suites, TypeScript,
-changed-file ESLint, six-model rig verification and iOS/web production export
-passed. Web close-ups and native simulator island rendering were inspected;
-the three animals visibly moved around the island in successive captures.
+especially fin contours, mouth detail and individual marking variation, and the
+swimming should be watched on physical hardware before release.

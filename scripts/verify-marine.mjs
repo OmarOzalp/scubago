@@ -4,8 +4,10 @@ import { readFileSync } from 'node:fs';
 import { AnimationMixer, Box3, SkinnedMesh, Vector3 } from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { clone } from 'three/examples/jsm/utils/SkeletonUtils.js';
+import { createSwimRig, RIG_EULER_ORDER } from '../src/lib/marine-rigs.ts';
 
-for (const name of ['shark', 'manta', 'reef-fish', 'whale-shark', 'tiger-shark', 'reef-manta']) {
+const SPECIES = ['whale-shark', 'tiger-shark', 'great-white-shark', 'reef-manta'];
+for (const name of ['shark', 'manta', 'reef-fish', ...SPECIES]) {
   const bytes = readFileSync(new URL(`../assets/models/marine/${name}.glb`, import.meta.url));
   const gltf = await new GLTFLoader().parseAsync(bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength), '');
   const clip = gltf.animations.find((animation) => animation.name === 'Swim');
@@ -14,7 +16,7 @@ for (const name of ['shark', 'manta', 'reef-fish', 'whale-shark', 'tiger-shark',
     if (object.isMesh) {
       meshes++;
       triangles += (object.geometry.index?.count ?? object.geometry.attributes.position.count) / 3;
-      if (['whale-shark', 'tiger-shark', 'reef-manta'].includes(name)) {
+      if (SPECIES.includes(name)) {
         assert(object.geometry.attributes.color, `${name}: missing identifying painted markings`);
         assert(object.material.vertexColors, `${name}: material ignores identifying markings`);
         assert(!object.material.map, `${name}: unexpected texture dependency`);
@@ -22,7 +24,7 @@ for (const name of ['shark', 'manta', 'reef-fish', 'whale-shark', 'tiger-shark',
     }
   });
   console.log(`${name}: ${triangles} triangles, ${bytes.byteLength} bytes`);
-  if (['whale-shark', 'tiger-shark', 'reef-manta'].includes(name)) assert.equal(meshes, 1, `${name}: too many skinned draw calls`);
+  if (SPECIES.includes(name)) assert.equal(meshes, 1, `${name}: too many skinned draw calls`);
   assert(triangles < 5000, `${name}: exceeds lightweight swimming budget`);
   assert(bytes.byteLength < 220000, `${name}: exceeds download budget`);
   assert(clip && clip.duration > 0, `${name}: missing swim clip`);
@@ -51,5 +53,19 @@ for (const name of ['shark', 'manta', 'reef-fish', 'whale-shark', 'tiger-shark',
   assert(seam < .002, `${name}: swim loop has a visible seam`);
   assert.notEqual(a.getObjectByName(skin.skeleton.bones[0].name), b.getObjectByName(skin.skeleton.bones[0].name), `${name}: swimmers share a skeleton`);
   mixer.stopAllAction(); mixer.uncacheRoot(a);
+  if (SPECIES.includes(name)) {
+    // The app drives these skeletons procedurally: every rig bone must exist and move the skin.
+    const rig = createSwimRig(name);
+    const bones = rig.bones.map((bone) => a.getObjectByName(bone));
+    assert(bones.every(Boolean), `${name}: missing procedural rig bones ${rig.bones.filter((_, i) => !bones[i]).join(', ')}`);
+    const pose = (phase, drive) => {
+      rig.sample(phase, drive);
+      bones.forEach((bone, i) => bone.rotation.set(rig.rotation[i * 3], rig.rotation[i * 3 + 1], rig.rotation[i * 3 + 2], RIG_EULER_ORDER));
+      return sample(0);
+    };
+    const rest = pose(0), stroke = pose(Math.PI / 2), turning = pose(0, { effort: 1, turn: .4, curvature: .8, climb: 0 });
+    assert(Math.max(...rest.map((value, i) => Math.abs(value - stroke[i]))) > .01, `${name}: procedural stroke does not deform the body`);
+    assert(Math.max(...rest.map((value, i) => Math.abs(value - turning[i]))) > .005, `${name}: turning does not change the pose`);
+  }
   console.log(`${name}: valid rig, independent skeleton, deforming swim cycle, continuous loop (${bytes.byteLength} bytes)`);
 }

@@ -6,7 +6,7 @@ import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { clone } from 'three/examples/jsm/utils/SkeletonUtils.js';
 import { prepareUnderwater } from '../src/components/home/three/underwater-material.ts';
 
-for (const name of ['shark', 'manta', 'reef-fish', 'whale-shark', 'tiger-shark', 'reef-manta']) {
+for (const name of ['shark', 'manta', 'reef-fish', 'whale-shark', 'tiger-shark', 'great-white-shark', 'reef-manta']) {
   const bytes = readFileSync(new URL(`../assets/models/marine/${name}.glb`, import.meta.url));
   const source = await new GLTFLoader().parseAsync(bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength), '');
   const a = clone(source.scene), b = clone(source.scene);

@@ -2,15 +2,20 @@ import { useEffect, useMemo, useRef } from 'react';
 import { useFrame } from '@react-three/fiber';
 import { AnimationMixer, Group, Mesh, SkinnedMesh } from 'three';
 import { prepareUnderwater } from './underwater-material';
+import { attachSwimRig, swimDrive } from './swim-rig-driver';
 import type { MarineMotion } from '@/lib/marine-motion';
+import { SWIM_RIGS, type SwimRigModel } from '@/lib/marine-rigs';
 import { sampleDive } from '@/lib/ocean-depth';
 import type { GLTF } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { clone } from 'three/examples/jsm/utils/SkeletonUtils.js';
 import { advanceSwimTime, sampleSwimPath, type MarineModel } from '@/lib/swimming';
 
-const SIZE: Record<MarineModel, number> = { shark: 2.45, manta: 2.25, 'reef-fish': .85, 'whale-shark': 2.8, 'tiger-shark': 2.45, 'reef-manta': 2.45 };
-// The source shark cycle is fast; slower playback gives it a relaxed cruising gait.
-const GAIT: Record<MarineModel, number> = { shark: .58, manta: .85, 'reef-fish': .68, 'whale-shark': .42, 'tiger-shark': .58, 'reef-manta': .85 };
+// World length of each model (the reef manta is measured across its wings).
+const SIZE: Record<MarineModel, number> = { shark: 2.45, manta: 2.25, 'reef-fish': .85, 'whale-shark': 3, 'tiger-shark': 2.45, 'great-white-shark': 2.5, 'reef-manta': 2.2 };
+// The source shark cycle is fast; slower playback gives it a relaxed cruising gait. Species clips
+// (only played if a rig bone is missing) are already baked at their cruising stroke rate.
+const GAIT: Record<MarineModel, number> = { shark: .58, manta: .85, 'reef-fish': .68, 'whale-shark': 1, 'tiger-shark': 1, 'great-white-shark': 1, 'reef-manta': 1 };
+const rigModel = (model: MarineModel) => (Object.hasOwn(SWIM_RIGS, model) ? model as SwimRigModel : null);
 
 export function AnimatedMarine({ model, gltf, lane, active, inspect = false, population = 1, waterTint = '#75BDBA', motion, onPress }: {
   model: MarineModel; gltf: GLTF; lane: number; active: boolean; inspect?: boolean; population?: number; waterTint?: string; motion?: MarineMotion; onPress?: () => void;
@@ -26,11 +31,19 @@ export function AnimatedMarine({ model, gltf, lane, active, inspect = false, pop
   }, [gltf.scene, inspect]);
   useEffect(() => () => underwater?.dispose(), [underwater]);
   useEffect(() => { underwater?.tint.value.set(waterTint); }, [underwater, waterTint]);
+  // Species models swim procedurally so tail beats and wing strokes follow speed and turns;
+  // family representatives play their artist-authored clip.
+  const swimRig = useMemo(() => {
+    const species = rigModel(model);
+    const rig = species ? attachSwimRig(instance, species, lane * 2.3) : null;
+    return rig?.complete ? rig : null;
+  }, [instance, model, lane]);
   const mixer = useMemo(() => new AnimationMixer(instance), [instance]);
   const group = useRef<Group>(null);
   const elapsed = useRef(0);
 
   useEffect(() => {
+    if (swimRig) return;
     const clip = gltf.animations.find((animation) => animation.name.includes('Swim')) ?? gltf.animations[0];
     if (!clip) return;
     const action = mixer.clipAction(clip);
@@ -39,25 +52,34 @@ export function AnimatedMarine({ model, gltf, lane, active, inspect = false, pop
     action.play();
     mixer.update(0);
     return () => { mixer.stopAllAction(); mixer.uncacheRoot(instance); };
-  }, [gltf.animations, instance, lane, mixer, model]);
+  }, [gltf.animations, instance, lane, mixer, model, swimRig]);
 
   useFrame((_, delta) => {
-    const next = advanceSwimTime(elapsed.current, delta, active);
-    const swimming = motion?.get(lane);
-    mixer.update((next - elapsed.current) * (inspect ? 1 : (swimming?.effort ?? 1)));
+    const previous = elapsed.current;
+    const next = advanceSwimTime(previous, delta, active);
+    const dt = next - previous;
     elapsed.current = next;
+    const swimming = motion?.get(lane);
     if (!group.current) return;
     if (inspect) {
+      const yaw = -1.05 + Math.sin(next * .16) * .22;
+      swimRig?.update(dt, { effort: 1, turn: .22 * .16 * Math.cos(next * .16), curvature: 0, climb: 0 });
       group.current.position.set(0, .2, 0);
-      group.current.rotation.set(.04, -1.05 + Math.sin(next * .16) * .22, -.04);
+      group.current.rotation.set(.04, yaw, -.04);
     } else {
       const pose = swimming ?? sampleSwimPath(next, lane);
       const dive = sampleDive(next, lane, population);
+      if (swimRig && dt > 0) {
+        const sink = (sampleDive(previous, lane, population).y - dive.y) / dt;
+        swimRig.update(dt, swimDrive(swimming, SIZE[model], sink));
+      }
       group.current.visible = dive.visible;
       group.current.position.set(pose.x, pose.y + dive.y, pose.z);
       underwater?.setDepth(dive.depth, dive.surfacing);
-      group.current.rotation.set(dive.depth * (dive.surfacing ? -.16 : .16), pose.heading, pose.bank);
+      // Yaw, then pitch about the animal's own lateral axis, then roll into the turn.
+      group.current.rotation.set(dive.depth * (dive.surfacing ? -.16 : .16), pose.heading, pose.bank, 'YXZ');
     }
+    if (!swimRig) mixer.update(dt * (inspect ? 1 : (swimming?.effort ?? 1)));
   });
 
   const pose = motion?.get(lane) ?? sampleSwimPath(0, lane);

@@ -1,0 +1,268 @@
+/**
+ * Procedural swim rigs for the species models.
+ *
+ * The bone layouts here are shared by the asset generator
+ * (scripts/art/build-species.ts), which places the bones and bakes a preview
+ * loop, and by the runtime, which drives the same bones every frame so tail
+ * beats, turns and wing strokes respond to how the animal is actually moving.
+ *
+ * Model space: nose along +Z, Y up, +X on the animal's left. Shark models are
+ * one body length long (snout to tail tip); the manta's wingspan is one unit.
+ * This module is dependency-free so Node scripts can import it directly.
+ */
+
+export type SwimRigModel = 'tiger-shark' | 'whale-shark' | 'great-white-shark' | 'reef-manta';
+
+export const SHARK_BONES = [
+  'Root', 'Head', 'Spine1', 'Spine2', 'RearBody', 'TailBase', 'Tail', 'TailUpper', 'TailLower',
+  'Dorsal', 'PectoralL', 'PectoralR',
+] as const;
+export const MANTA_BONES = [
+  'Root', 'Head', 'CephalicL', 'CephalicR',
+  'WingL1', 'WingL2', 'WingL3', 'WingL4', 'WingL5',
+  'WingR1', 'WingR2', 'WingR3', 'WingR4', 'WingR5',
+  'Tail1', 'Tail2', 'Tail3',
+] as const;
+export type SharkBone = typeof SHARK_BONES[number];
+export type MantaBone = typeof MANTA_BONES[number];
+/** Every bone rotation is an intrinsic Z·X·Y Euler: flap/roll, then pitch/twist, then yaw. */
+export const RIG_EULER_ORDER = 'ZXY';
+
+export type SharkRig = {
+  kind: 'shark';
+  /** Spine joints measured from the snout (0) to the tail tip (1): Root/Spine1, Spine2, RearBody, TailBase, Tail. */
+  joints: readonly [number, number, number, number, number];
+  dorsalParent: 'Spine1' | 'Spine2';
+  /** Axial position of the first dorsal fin's base, for its sway timing. */
+  dorsalAt: number;
+  /** Tail beats per second at cruising effort. */
+  frequency: number;
+  /** Body wave length in body lengths. Longer waves keep the front of the body stiffer. */
+  wavelength: number;
+  /** Lateral excursion in body lengths at the tail tip, the root joint and the snout. */
+  tailAmplitude: number;
+  rootAmplitude: number;
+  headAmplitude: number;
+  /** Envelope exponent; higher values concentrate the motion in the rear body and tail. */
+  envelope: number;
+  /** Extra flex of each caudal lobe (rad) trailing the tail stroke, and the lobes' angles from horizontal. */
+  lobes: { upper: number; lower: number; upperAngle: number; lowerAngle: number; lag: number };
+  /** Secondary sway of the first dorsal fin (rad). */
+  dorsal: number;
+  /** Pectoral fins: cyclic flap and pitch (rad), plus responses to turning (per rad/s) and climbing. */
+  pectoral: { flap: number; pitch: number; turn: number; climb: number };
+  /** Body roll with each tail beat (rad). */
+  roll: number;
+  /** Share of the path curvature expressed as a bend in the body when turning. */
+  bend: number;
+};
+
+export type MantaRig = {
+  kind: 'manta';
+  /** Wing strokes per second at cruising effort. */
+  frequency: number;
+  /** Local flap amplitude of each wing segment, body to tip (rad). */
+  flap: readonly number[];
+  /** Phase delay between neighboring wing segments; the wave travels toward the tips. */
+  waveLag: number;
+  /** Chordwise twist of each segment (rad); the trailing edge lags the leading edge. */
+  twist: readonly number[];
+  /** Tips-up dihedral held while gliding (rad per segment). */
+  glideDihedral: readonly number[];
+  /** Outer wing works harder in turns: fractional amplitude change per rad/s of turn. */
+  turnAsymmetry: number;
+  /** Stronger strokes while climbing, gentler while descending. */
+  climbGain: number;
+  /** Body rises on the downstroke (units of wingspan) and pitches gently (rad). */
+  bob: number;
+  pitch: number;
+  /** Cephalic lobe curl (rad) and trailing tail wave (rad per segment). */
+  cephalic: number;
+  tail: readonly number[];
+};
+
+export type SwimRigSpec = SharkRig | MantaRig;
+
+/**
+ * Species animation configuration. Swimming speed and turning live in
+ * src/lib/marine-motion.ts; these values shape how the body moves at that speed.
+ */
+export const SWIM_RIGS: Record<SwimRigModel, SwimRigSpec> = {
+  // Heavy, controlled carangiform swimmer: stiff front, driving rear third, long flexible upper lobe.
+  'tiger-shark': {
+    kind: 'shark', joints: [.27, .43, .565, .675, .765], dorsalParent: 'Spine1', dorsalAt: .37,
+    frequency: .44, wavelength: .98, tailAmplitude: .105, rootAmplitude: .0035, headAmplitude: .007, envelope: 2.2,
+    lobes: { upper: .2, lower: .08, upperAngle: .62, lowerAngle: .95, lag: 1.1 },
+    dorsal: .05, pectoral: { flap: .035, pitch: .03, turn: .45, climb: .22 }, roll: .018, bend: .8,
+  },
+  // Enormous and slow: long sweeps concentrated in the rear, almost no head movement, a gentle roll.
+  'whale-shark': {
+    kind: 'shark', joints: [.3, .47, .6, .7, .78], dorsalParent: 'Spine2', dorsalAt: .52,
+    frequency: .17, wavelength: 1.12, tailAmplitude: .12, rootAmplitude: .002, headAmplitude: .003, envelope: 2.35,
+    lobes: { upper: .13, lower: .07, upperAngle: .72, lowerAngle: .88, lag: 1.25 },
+    dorsal: .035, pectoral: { flap: .015, pitch: .012, turn: .25, climb: .12 }, roll: .03, bend: .55,
+  },
+  // Powerful, near-thunniform: rigid torpedo body, motion packed into the keeled peduncle and stiff crescent tail.
+  'great-white-shark': {
+    kind: 'shark', joints: [.28, .45, .59, .7, .8], dorsalParent: 'Spine1', dorsalAt: .37,
+    frequency: .6, wavelength: 1.32, tailAmplitude: .088, rootAmplitude: .0025, headAmplitude: .004, envelope: 3.3,
+    lobes: { upper: .07, lower: .05, upperAngle: .85, lowerAngle: .85, lag: .8 },
+    dorsal: .025, pectoral: { flap: .02, pitch: .025, turn: .6, climb: .3 }, roll: .022, bend: .7,
+  },
+  // Underwater flight: a flexible sheet with a wave running outward and backward across each wing.
+  'reef-manta': {
+    kind: 'manta', frequency: .3,
+    flap: [.08, .125, .15, .16, .17], waveLag: .34,
+    twist: [0, .03, .06, .1, .14], glideDihedral: [.015, .02, .025, .03, .035],
+    turnAsymmetry: .5, climbGain: .6, bob: .012, pitch: .02, cephalic: .12, tail: [.05, .09, .14],
+  },
+};
+
+export function rigBones(model: SwimRigModel): readonly string[] {
+  return SWIM_RIGS[model].kind === 'shark' ? SHARK_BONES : MANTA_BONES;
+}
+
+export type SwimDrive = {
+  /** Current speed relative to the species' cruising speed (1 = cruising). */
+  effort: number;
+  /** Heading change in rad/s; positive turns toward the animal's left (+X). */
+  turn: number;
+  /** Path curvature in 1/body lengths, positive toward the left. */
+  curvature: number;
+  /** Climb from -1 (descending) to 1 (climbing). */
+  climb: number;
+};
+export const CRUISE: SwimDrive = { effort: 1, turn: 0, curvature: 0, climb: 0 };
+
+const TAU = Math.PI * 2;
+const clamp = (value: number, min: number, max: number) => Math.min(max, Math.max(min, value));
+const ease = (current: number, target: number, rate: number, dt: number) => current + (target - current) * (1 - Math.exp(-rate * dt));
+
+/** Tail beats and wing strokes slow down and shorten with speed, but never stop. */
+export function strokeFrequency(spec: SwimRigSpec, effort: number) {
+  return spec.frequency * (.5 + .5 * clamp(effort, .25, 1.6));
+}
+
+/**
+ * One swimmer's rig state. `rotation` holds Z·X·Y Euler angles (x, y, z per
+ * bone, in `bones` order); `offset` is the root bone's translation from rest.
+ */
+export function createSwimRig(model: SwimRigModel, phase = 0) {
+  const spec = SWIM_RIGS[model];
+  const bones = rigBones(model);
+  const rotation = new Float32Array(bones.length * 3);
+  const offset = { x: 0, y: 0, z: 0 };
+  const state = { phase: ((phase % TAU) + TAU) % TAU, effort: 1, turn: 0, curvature: 0, climb: 0 };
+  const slot = Object.fromEntries(bones.map((bone, index) => [bone, index * 3])) as Record<string, number>;
+  const set = (bone: string, x: number, y: number, z: number) => {
+    const i = slot[bone];
+    rotation[i] = x; rotation[i + 1] = y; rotation[i + 2] = z;
+  };
+  const pose = () => (spec.kind === 'shark' ? poseShark(spec, state, set, offset) : poseManta(spec, state, set, offset));
+  pose();
+  return {
+    model, spec, bones, rotation, offset,
+    get phase() { return state.phase; },
+    /** Advance by `dt` seconds. Inputs are eased so sudden changes never snap the pose. */
+    step(dt: number, drive: SwimDrive) {
+      if (dt <= 0) return;
+      state.effort = ease(state.effort, clamp(drive.effort, .25, 1.6), 1.6, dt);
+      state.turn = ease(state.turn, clamp(drive.turn, -1.2, 1.2), 2.2, dt);
+      state.curvature = ease(state.curvature, clamp(drive.curvature, -1.5, 1.5), 2.2, dt);
+      state.climb = ease(state.climb, clamp(drive.climb, -1, 1), 1.4, dt);
+      state.phase = (state.phase + TAU * strokeFrequency(spec, state.effort) * dt) % TAU;
+      pose();
+    },
+    /** Pose at an exact cycle phase with steady inputs; used to bake seamless loops. */
+    sample(at: number, drive: SwimDrive = CRUISE) {
+      state.phase = ((at % TAU) + TAU) % TAU;
+      state.effort = clamp(drive.effort, .25, 1.6);
+      state.turn = drive.turn; state.curvature = drive.curvature; state.climb = drive.climb;
+      pose();
+    },
+  };
+}
+export type SwimRig = ReturnType<typeof createSwimRig>;
+
+type RigState = { phase: number; effort: number; turn: number; curvature: number; climb: number };
+type SetBone = (bone: string, x: number, y: number, z: number) => void;
+
+/**
+ * A traveling wave runs down the body midline; the amplitude envelope grows
+ * toward the tail so the head stays steady. Each spine bone takes the change in
+ * midline angle across its segment, so the caudal fin lags the peduncle the way
+ * a real tail stroke does. Turning adds a C-shaped bend toward the inside.
+ */
+function poseShark(spec: SharkRig, s: RigState, set: SetBone, offset: { x: number; y: number; z: number }) {
+  const [root, spine2, rearBody, tailBase, tail] = spec.joints;
+  const k = TAU / spec.wavelength;
+  const strength = .7 + .3 * s.effort;
+  const bend = .5 * spec.bend * s.curvature;
+  const envelope = (x: number) => x >= root
+    ? spec.rootAmplitude + (spec.tailAmplitude - spec.rootAmplitude) * ((x - root) / (1 - root)) ** spec.envelope
+    : spec.rootAmplitude + (spec.headAmplitude - spec.rootAmplitude) * ((root - x) / root) ** 2;
+  const lateral = (x: number) => envelope(x) * strength * Math.sin(s.phase - k * (x - root)) + bend * (x - root) ** 2;
+
+  // The whole body sways slightly with the root; the head only yaws a little against it.
+  offset.x = lateral(root);
+  offset.y = 0;
+  offset.z = 0;
+  set('Root', 0, 0, spec.roll * strength * Math.sin(s.phase - k * (.75 - root)));
+  set('Head', 0, Math.atan2(lateral(0) - lateral(root), root), 0);
+  const chain = [root, spine2, rearBody, tailBase, tail, 1];
+  const names = ['Spine1', 'Spine2', 'RearBody', 'TailBase', 'Tail'];
+  let previous = 0;
+  for (let i = 0; i < names.length; i++) {
+    const angle = -Math.atan2(lateral(chain[i + 1]) - lateral(chain[i]), chain[i + 1] - chain[i]);
+    set(names[i], 0, angle - previous, 0);
+    previous = angle;
+  }
+
+  // Lobes trail the stroke: positive flex swings a lobe tip toward the right (-X).
+  const tailPhase = s.phase - k * (1 - root);
+  const upper = spec.lobes.upper * strength * Math.cos(tailPhase - spec.lobes.lag);
+  const lower = spec.lobes.lower * strength * Math.cos(tailPhase - spec.lobes.lag);
+  set('TailUpper', 0, upper * Math.cos(spec.lobes.upperAngle), upper * Math.sin(spec.lobes.upperAngle));
+  set('TailLower', 0, lower * Math.cos(spec.lobes.lowerAngle), -lower * Math.sin(spec.lobes.lowerAngle));
+  set('Dorsal', 0, 0, spec.dorsal * strength * Math.cos(s.phase - k * (spec.dorsalAt - root) - .6));
+
+  // Pectorals: a slight rhythmic trim, the inside fin dips in a turn, both pitch up to climb.
+  const trim = spec.pectoral.flap * Math.sin(s.phase + 1.3);
+  const lift = spec.pectoral.pitch * Math.sin(s.phase + 2.2) - spec.pectoral.climb * s.climb;
+  const turn = spec.pectoral.turn * s.turn;
+  set('PectoralL', lift, 0, trim - Math.max(0, turn) + .4 * Math.max(0, -turn));
+  set('PectoralR', lift, 0, -(trim - Math.max(0, -turn) + .4 * Math.max(0, turn)));
+}
+
+/**
+ * Wing segments flap about axes parallel to the body with a growing phase delay,
+ * so each stroke rolls outward from the shoulder to the tip. Twist lags the flap
+ * by a quarter cycle, lifting the trailing edge after the leading edge. The body
+ * rides up on each downstroke; the outer wing strokes harder through turns.
+ */
+function poseManta(spec: MantaRig, s: RigState, set: SetBone, offset: { x: number; y: number; z: number }) {
+  const effort = clamp(s.effort, .25, 1.6);
+  // Below cruising effort the manta increasingly glides, holding its wings in a shallow V.
+  const glide = clamp((1 - effort) / .5, 0, 1);
+  const stroke = (.35 + .65 * effort) * (1 + spec.climbGain * s.climb) * (1 - .45 * glide);
+  const asymmetry = clamp(spec.turnAsymmetry * s.turn, -.45, .45);
+  const left = stroke * (1 - asymmetry), right = stroke * (1 + asymmetry);
+  for (let i = 0; i < spec.flap.length; i++) {
+    const wave = s.phase - i * spec.waveLag;
+    const hold = spec.glideDihedral[i] * glide;
+    const twist = -spec.twist[i] * stroke * Math.cos(wave);
+    set(`WingL${i + 1}`, twist, 0, spec.flap[i] * left * Math.sin(wave) + hold);
+    set(`WingR${i + 1}`, twist, 0, -(spec.flap[i] * right * Math.sin(wave) + hold));
+  }
+  offset.x = 0;
+  offset.y = -spec.bob * stroke * Math.sin(s.phase - .5);
+  offset.z = 0;
+  set('Root', spec.pitch * stroke * Math.cos(s.phase - .5), 0, 0);
+  set('Head', -.5 * spec.pitch * stroke * Math.cos(s.phase - .9), 0, 0);
+  const curl = spec.cephalic * (.6 + .4 * Math.sin(s.phase - 1.2));
+  set('CephalicL', .3 * curl, 0, curl);
+  set('CephalicR', .3 * curl, 0, -curl);
+  for (let i = 0; i < spec.tail.length; i++) {
+    set(`Tail${i + 1}`, spec.tail[i] * stroke * Math.sin(s.phase - 1.6 - .75 * i), -.12 * s.turn * (i + 1), 0);
+  }
+}

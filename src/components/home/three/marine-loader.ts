@@ -8,6 +8,7 @@ import type { MarineModel } from '@/lib/swimming';
 const modules: Record<MarineModel, number> = {
   'whale-shark': require('@/assets/models/marine/whale-shark.glb'),
   'tiger-shark': require('@/assets/models/marine/tiger-shark.glb'),
+  'great-white-shark': require('@/assets/models/marine/great-white-shark.glb'),
   'reef-manta': require('@/assets/models/marine/reef-manta.glb'),
   shark: require('@/assets/models/marine/shark.glb'),
   manta: require('@/assets/models/marine/manta.glb'),

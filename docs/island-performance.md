@@ -143,3 +143,15 @@ A second route pass adds species-scaled bends along each circuit: whale sharks
 sweep broadly while mantas weave more. Additional ten-minute simulations cover
 eight whale sharks and eight reef fish, and a 20 Hz versus 60 Hz comparison checks
 that frame rate does not materially change route positions.
+
+## Species rigs
+
+The tiger, whale and great white sharks and the reef manta are driven by procedural
+rigs instead of clip playback. Each frame, a swimmer's rig computes 12 (sharks) or
+17 (manta) bone rotations from a handful of trigonometric terms and writes them to
+its cloned skeleton; eight swimmers cost a few hundred rotation updates, far below
+the skinning and draw cost. Assets stay within the existing budgets: 3,096–4,084
+triangles, 136,800–212,504 bytes, one skinned vertex-colored draw call, no textures.
+Pause, background and reduced motion freeze the rigs with the rest of the scene
+(zero elapsed time means zero rig steps). Native frame timing with these rigs has
+not been measured on a physical device.

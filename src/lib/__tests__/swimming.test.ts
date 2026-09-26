@@ -63,7 +63,7 @@ test('large collections are bounded and page deterministically, wrapping around'
 });
 
 test('exact species receive distinct art before family fallbacks', () => {
-  const residents = [entry('whale-shark', 'shark'), entry('tiger-shark', 'shark'), entry('other-shark', 'shark'), entry('reef-manta', 'ray'), entry('other-ray', 'ray')];
-  expect(pickSwimmers(residents).map((s) => s.model)).toEqual(['whale-shark', 'tiger-shark', 'shark', 'reef-manta', 'manta']);
+  const residents = [entry('whale-shark', 'shark'), entry('tiger-shark', 'shark'), entry('great-white-shark', 'shark'), entry('other-shark', 'shark'), entry('reef-manta', 'ray'), entry('other-ray', 'ray')];
+  expect(pickSwimmers(residents).map((s) => s.model)).toEqual(['whale-shark', 'tiger-shark', 'great-white-shark', 'shark', 'reef-manta', 'manta']);
   expect(marineModelFor(entry('unknown-turtle', 'turtle').species)).toBeNull();
 });

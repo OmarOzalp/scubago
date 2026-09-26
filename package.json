@@ -58,6 +58,7 @@
     "lint": "expo lint",
     "test": "jest",
     "verify:marine": "node scripts/verify-marine.mjs",
+    "build:species": "tsx scripts/art/build-species.ts",
     "seed:supabase": "tsx scripts/seed-supabase.ts"
   },
   "private": true,
