@@ -217,4 +217,5 @@ so at most one frame is in flight (50ms–2s between frames). The `[island]` lin
 now reports JS milliseconds per frame instead of "frames over 25ms", because
 simulator frames are at least 50ms apart by design. The simulator also logs its
 settled pacing interval once. Neither change has been checked on the simulator
-or a device yet.
+or a device yet. See `docs/ios-render-investigation.md` for the evidence,
+remaining work and a simulator checklist.
