@@ -50,6 +50,21 @@ for (const name of ['shark', 'manta', 'reef-fish', 'whale-shark', 'tiger-shark',
     assert(shader.vertexShader.includes('vOceanDepth = max(0.0, uOceanSurface + oceanWave('));
     assert(shader.fragmentShader.includes('oceanWaterColor(vOceanDepth)'));
   });
+  // Lite (software-rendered GPUs): depth from the calm surface level, no per-vertex waves, surface tint laid on here.
+  const c = clone(source.scene), lite = prepareUnderwater(c, ocean, true);
+  c.traverse((object) => {
+    if (!object.isMesh) return;
+    const material = Array.isArray(object.material) ? object.material[0] : object.material;
+    const shader = { uniforms: {}, vertexShader: ShaderLib.lambert.vertexShader, fragmentShader: ShaderLib.lambert.fragmentShader };
+    material.onBeforeCompile(shader, null);
+    assert(shader.vertexShader.includes('vOceanDepth = max(0.0, uOceanSurface - oceanWorld.y)'));
+    assert(!shader.vertexShader.includes('uOceanSurface + oceanWave('), `${name}: lite animals still evaluate waves per vertex`);
+    assert(shader.fragmentShader.includes('uOceanOpacity.y * .85'));
+    assert(shader.fragmentShader.includes('diffuseColor.a *= 1.0 - submersion'));
+    // A separate program key, so three.js never reuses the full-quality program for lite animals.
+    assert.equal(material.customProgramCacheKey(), 'marine-ocean-water-v2-lite');
+  });
+  lite.dispose();
   assert.equal(min, 0); assert.equal(max, 1);
   assert(head > tail, `${name}: fade direction is reversed`);
   first.dispose(); second.dispose();

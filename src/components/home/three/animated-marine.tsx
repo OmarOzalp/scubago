@@ -2,6 +2,7 @@ import { useContext, useEffect, useMemo, useRef } from 'react';
 import { useFrame } from '@react-three/fiber';
 import { AnimationMixer, Group, Mesh, SkinnedMesh } from 'three';
 import { OceanContext } from './ocean-context';
+import { useSceneQuality } from './scene-quality';
 import { prepareUnderwater } from './underwater-material';
 import { attachSwimRig, swimDrive } from './swim-rig-driver';
 import type { MarineMotion } from '@/lib/marine-motion';
@@ -23,6 +24,7 @@ export function AnimatedMarine({ model, gltf, lane, active, inspect = false, pop
 }) {
   // The island's water (absent in the close-up), so the animal tints and refracts with the same waves.
   const ocean = useContext(OceanContext);
+  const lite = useSceneQuality() === 'lite';
   // SkeletonUtils.clone gives each swimmer its own skeleton so several can share one parsed rig.
   const { instance, underwater } = useMemo(() => {
     const scene = clone(gltf.scene);
@@ -30,8 +32,8 @@ export function AnimatedMarine({ model, gltf, lane, active, inspect = false, pop
       if (object instanceof Mesh) { object.castShadow = false; object.receiveShadow = false; }
       if (object instanceof SkinnedMesh) object.frustumCulled = false;
     });
-    return { instance: scene, underwater: inspect ? null : prepareUnderwater(scene, ocean ?? undefined) };
-  }, [gltf.scene, inspect, ocean]);
+    return { instance: scene, underwater: inspect ? null : prepareUnderwater(scene, ocean ?? undefined, lite) };
+  }, [gltf.scene, inspect, ocean, lite]);
   useEffect(() => () => underwater?.dispose(), [underwater]);
   // Species models swim procedurally so tail beats and wing strokes follow speed and turns;
   // family representatives play their artist-authored clip.

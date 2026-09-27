@@ -5,6 +5,7 @@ import { OCEAN } from '@/lib/ocean';
 import { islandScale, shoreline } from './island-shape';
 import { OceanContext } from './ocean-context';
 import { waterColorAt } from './ocean-mesh';
+import { useSceneQuality } from './scene-quality';
 import { useOcean, WaterSurface, type Ocean } from './water-surface';
 
 export const WATER: Record<Habitat, string> = { island: '#C5E3DF', lagoon: '#B9DEDC', cove: '#C5DCD3' };
@@ -74,7 +75,7 @@ function useSeabedProp(ocean: Ocean, habitat: Habitat, level: number, x: number,
 }
 
 function IslandWorld({ habitat, level, active, children }: { habitat: Habitat; level: number; active: boolean; children?: ReactNode }) {
-  const ocean = useOcean(habitat, level, WATER[habitat]);
+  const ocean = useOcean(habitat, level, WATER[habitat], useSceneQuality());
   const coralA = useSeabedProp(ocean, habitat, level, -2.1, 1.25, '#B98A7C');
   const coralB = useSeabedProp(ocean, habitat, level, 2.2, .65, '#6E9C88');
   const coralC = useSeabedProp(ocean, habitat, level, 1.5, 1.65, '#B98A7C');

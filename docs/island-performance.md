@@ -188,3 +188,58 @@ The iOS simulator's software renderer and physical devices have not been
 measured with the new ocean. Check that first. If the simulator struggles,
 raising `facetSize` and lowering the simulator canvas resolution are the
 cheapest levers.
+
+## Simulator frame pacing and lite quality
+
+After the ocean pass, the home scene stopped animating on the iOS simulator. The simulator
+draws GL in software, so the problem was measured the same way. The app's real scene ran in
+headless Chromium on SwiftShader, a CPU renderer, pinned to one core. The canvas was
+390 × 363 px, which matches the simulator's one pixel per point. Frames were stepped manually,
+and a one-pixel read-back waited for each frame to finish.
+
+| Scene (2 preview animals) | ms per frame |
+| --- | ---: |
+| Before the species and ocean work (`16b0b8a`) | 25 |
+| After the ocean pass, full quality | 84 |
+| Lite quality (this change) | 32 |
+| Lite quality, 4 species animals | 37 |
+
+Where the 84 ms went:
+
+- **Ocean, about 66 ms.** Seabed about 31, surface about 37. Each full-screen layer costs 8–10 ms
+  just to cover the screen, plus about 23 ms of per-pixel shading.
+- **Two species animals, about 16 ms.** The per-vertex wave math is about 1.4 ms of that per
+  animal. The species models cost about 35% more than the family models.
+- **Island, about 3 ms.**
+
+The expensive part was the new water, not mainly the fish.
+
+The picture froze rather than just slowing down because expo-gl queues GL work for a worker
+thread. The old 20 Hz timer requested frames regardless of whether the previous one had
+finished drawing, so frames piled up. Two fixes:
+
+- **Frame pacing (simulator only).** `SceneCanvas` renders each frame itself and waits on
+  expo-gl's `flushEXP()`, which returns once all queued GL work has run. Only then does it
+  schedule the next frame, at least 50 ms apart and leaving the JS thread idle for about 80% of
+  the frame's cost. Any remaining excess becomes a lower frame rate instead of a frozen picture.
+  Development builds log
+  `[island] simulator GL: …ms per frame, about …fps` every 60 frames.
+- **Lite quality on software GPUs.** This is the default on the simulator and emulators;
+  `scene-quality.ts` controls it. The static seabed and water colors are baked per level into
+  one 128² texture and drawn as a single opaque layer. The waves still move per vertex: facet
+  shade is flat per triangle and highlights are smooth. Animals skip per-vertex wave math and
+  carry the surface tint in their own shader, since there is no separate surface pass. Physical
+  devices and web keep full quality.
+
+To compare the tiers anywhere, set `EXPO_PUBLIC_SCENE_QUALITY=lite` or `full` and restart Metro
+with `--clear`. Metro caches the inlined value otherwise. Verified:
+
+- 109 Jest tests pass, including pacing tests with a simulated slow GL worker.
+- `verify:ocean` checks the lite map at every level; `verify:underwater` checks the lite animal
+  shaders.
+- Forced-lite and full web exports both render.
+
+The fixes have not yet been run on the iOS simulator itself, and physical-device timings are
+still unmeasured. The species models were not simplified: the benchmark showed they are the
+smaller cost, and lighter versions would ship extra assets for the simulator alone.
+

@@ -58,6 +58,9 @@ export function createOceanUniforms(habitat: Habitat = 'island', card?: string, 
     uOceanDistortion: { value: u.distortion },
     uOceanEdge: { value: new Vector2(config.edgeFade.start, config.edgeFade.end) },
     uOceanDepthMap: { value: null as DataTexture | null },
+    // Lite tier: the static seabed-and-water colors baked per level (display values), plus display-space sky and card.
+    uOceanLiteMap: { value: null as DataTexture | null },
+    uOceanSkyDisplay: { value: new Color() }, uOceanCardDisplay: { value: new Color() },
     uOceanDepthArea: { value: new Vector4(DEPTH_AREA.x0, DEPTH_AREA.z0, DEPTH_AREA.size, DEPTH_AREA.maxDepth) },
   };
   applyOceanPalette(uniforms, habitat, card, config);
@@ -78,6 +81,8 @@ export function applyOceanPalette(uniforms: OceanUniforms, habitat: Habitat, car
   uniforms.uOceanSun.value.copy(linear(p.sun).convertLinearToSRGB());
   uniforms.uOceanFoam.value.copy(linear(p.foam));
   uniforms.uOceanCard.value.copy(linear(card ?? p.sky));
+  uniforms.uOceanSkyDisplay.value.copy(linear(p.sky).convertLinearToSRGB());
+  uniforms.uOceanCardDisplay.value.copy(linear(card ?? p.sky).convertLinearToSRGB());
 }
 
 /** Advance the shared water clock (the waves, foam and animal wobble all follow it). */
@@ -88,6 +93,11 @@ export function setOceanTime(uniforms: OceanUniforms, time: number) {
 /** Point the shaders at the current level's depth map. */
 export function setOceanDepthMap(uniforms: OceanUniforms, texture: DataTexture | null) {
   uniforms.uOceanDepthMap.value = texture;
+}
+
+/** Point the lite ocean at the current level's baked colors. */
+export function setOceanLiteMap(uniforms: OceanUniforms, texture: DataTexture | null) {
+  uniforms.uOceanLiteMap.value = texture;
 }
 
 /** Water body color at a depth, matching the shaders (for tinting static props). */
@@ -146,6 +156,45 @@ export function buildDepthField(level: number, config: OceanConfig = OCEAN) {
   return { texture, polygons, profile: (x: number, z: number) => seabedProfile(reach(x, z), config) };
 }
 export type DepthField = ReturnType<typeof buildDepthField>;
+
+const smooth = (a: number, b: number, x: number) => { const t = Math.min(1, Math.max(0, (x - a) / (b - a))); return t * t * (3 - 2 * t); };
+
+/**
+ * Lite tier: everything static about the ocean, baked once per level and habitat
+ * into one small texture: the seabed seen through the water, with the average
+ * surface layer already blended over it the way the full shaders do (display
+ * values). Alpha holds the surface's opacity, so the moving facets and highlights
+ * added per frame fade out over the exposed beach.
+ */
+export function buildLiteOceanMap(field: DepthField, habitat: Habitat, config: OceanConfig = OCEAN) {
+  const { resolution, maxDepth } = DEPTH_AREA;
+  const source = field.texture.image.data as Uint8Array;
+  const data = new Uint8Array(resolution * resolution * 4);
+  const p = config.palettes[habitat];
+  const [shallow, mid, deep, wetSand, shallowSand, patch] = [p.shallow, p.mid, p.deep, p.sandWet, p.sandShallow, p.patch].map(linear);
+  const { mid: midStop, deep: deepStop } = config.shoreDepthRange;
+  const bed = new Color(), water = new Color();
+  for (let k = 0; k < resolution * resolution; k++) {
+    const r = source[k * 4] / 255, g = source[k * 4 + 1] / 255, b = source[k * 4 + 2] / 255;
+    // Same decoding and color math as DEPTH_GLSL, SEABED_FRAGMENT and WATER_FRAGMENT.
+    const depth = r * r * maxDepth, wet = depth - g * .2;
+    water.copy(shallow).lerp(mid, smooth(0, midStop, depth)).lerp(deep, smooth(midStop * .5, deepStop, depth));
+    bed.copy(wetSand).lerp(shallowSand, smooth(-.02, .18, wet)).lerp(patch, b * config.seabedPatches)
+      .lerp(water, 1 - Math.exp(-depth / config.seabedVisibility));
+    const alpha = (config.opacity.shallow + (config.opacity.deep - config.opacity.shallow) * smooth(0, deepStop, depth)) * smooth(0, config.shoreClearDepth, wet);
+    // The surface is blended over the seabed on display values.
+    bed.convertLinearToSRGB(); water.convertLinearToSRGB();
+    data[k * 4] = Math.round(255 * (water.r * alpha + bed.r * (1 - alpha)));
+    data[k * 4 + 1] = Math.round(255 * (water.g * alpha + bed.g * (1 - alpha)));
+    data[k * 4 + 2] = Math.round(255 * (water.b * alpha + bed.b * (1 - alpha)));
+    data[k * 4 + 3] = Math.round(255 * alpha);
+  }
+  const texture = new DataTexture(data, resolution, resolution, RGBAFormat, UnsignedByteType);
+  texture.magFilter = LinearFilter;
+  texture.minFilter = LinearFilter;
+  texture.needsUpdate = true;
+  return texture;
+}
 
 const WAVE_GLSL = /* glsl */ `
 #define OCEAN_WAVES ${WAVES}
@@ -263,6 +312,51 @@ void main() {
   gl_FragColor = vec4(linearToOutputTexel(vec4(color, 1.0)).rgb * alpha + uOceanSun * (glint * edge * shore), alpha);
 }`;
 
+// Lite tier: one opaque backdrop instead of seabed + surface. Waves still move the facets: lighting is
+// evaluated per vertex (the facet shade held flat across each triangle, highlights blended smoothly
+// between vertices), and each pixel only reads the baked colors. No derivatives, color-space
+// conversion or blending per pixel.
+const LITE_VERTEX = /* glsl */ `
+${WAVE_GLSL}
+uniform float uOceanSurface; uniform vec3 uOceanReflection; uniform vec3 uOceanSunDir;
+uniform vec3 uOceanSpecular; uniform vec3 uOceanSpecularDir; uniform float uOceanFacet; uniform vec4 uOceanDepthArea;
+attribute float aShoaling;
+varying vec2 vMapUv;
+varying float vClipY;
+varying vec2 vReflectionGlint;
+flat varying float vFacet;
+void main() {
+  vec3 p = position;
+  vec3 w = oceanWave(p.xz) * aShoaling;
+  vec2 slope = oceanSlope(p.xz) * aShoaling;
+  p += w;
+  p.y += uOceanSurface;
+  vec4 world = modelMatrix * vec4(p, 1.0);
+  gl_Position = projectionMatrix * viewMatrix * world;
+  vClipY = gl_Position.y / gl_Position.w;
+  vMapUv = (world.xz - uOceanDepthArea.xy) / uOceanDepthArea.z;
+  vec3 n = normalize(vec3(-slope.x, 1.0, -slope.y));
+  vec3 toCamera = normalize(vec3(viewMatrix[0][2], viewMatrix[1][2], viewMatrix[2][2]));
+  float fresnel = uOceanReflection.z + (1.0 - uOceanReflection.z) * pow(1.0 - clamp(dot(n, toCamera), 0.0, 1.0), uOceanReflection.y);
+  vReflectionGlint = vec2(uOceanReflection.x * clamp(fresnel + .22 * smoothstep(-.4, 1.0, vClipY), 0.0, 1.0),
+    uOceanSpecular.x * pow(max(dot(n, uOceanSpecularDir), 0.0), uOceanSpecular.y));
+  vFacet = uOceanFacet * clamp((dot(n, uOceanSunDir) - uOceanSunDir.y) * 14.0, -1.0, 1.0);
+}`;
+
+const LITE_FRAGMENT = /* glsl */ `
+uniform sampler2D uOceanLiteMap; uniform vec3 uOceanSun; uniform vec3 uOceanSkyDisplay; uniform vec3 uOceanCardDisplay; uniform vec2 uOceanEdge;
+varying vec2 vMapUv;
+varying float vClipY;
+varying vec2 vReflectionGlint;
+flat varying float vFacet;
+void main() {
+  vec4 baked = texture2D(uOceanLiteMap, vMapUv);
+  float water = smoothstep(0.0, .12, baked.a);
+  vec3 color = baked.rgb * (1.0 + vFacet * baked.a);
+  color = mix(color, uOceanSkyDisplay, vReflectionGlint.x * .7 * water) + uOceanSun * (vReflectionGlint.y * water);
+  gl_FragColor = vec4(mix(color, uOceanCardDisplay, smoothstep(uOceanEdge.x, uOceanEdge.y, abs(vClipY))), 1.0);
+}`;
+
 const SEABED_VERTEX = /* glsl */ `
 varying vec3 vWorld;
 varying float vClipY;
@@ -296,7 +390,7 @@ void main() {
 }`;
 
 /** A jittered triangle lattice: irregular low-poly facets instead of a visible grid. */
-export function createWaterMesh(uniforms: OceanUniforms, field: DepthField, config: OceanConfig = OCEAN) {
+function waterLattice(field: DepthField, config: OceanConfig) {
   const s = config.facetSize, h = s * Math.sqrt(3) / 2, extent = 8.6;
   const cols = Math.ceil(extent * 2 / s) + 1, rows = Math.ceil(extent * 2 / h) + 1;
   const positions: number[] = [], shoaling: number[] = [], indices: number[] = [];
@@ -321,6 +415,11 @@ export function createWaterMesh(uniforms: OceanUniforms, field: DepthField, conf
   geometry.setAttribute('aShoaling', new Float32BufferAttribute(shoaling, 1));
   geometry.setIndex(new Uint16BufferAttribute(indices, 1));
   geometry.computeBoundingSphere();
+  return geometry;
+}
+
+export function createWaterMesh(uniforms: OceanUniforms, field: DepthField, config: OceanConfig = OCEAN) {
+  const geometry = waterLattice(field, config);
   const material = new ShaderMaterial({
     uniforms, vertexShader: WATER_VERTEX, fragmentShader: WATER_FRAGMENT,
     transparent: true, depthWrite: false, premultipliedAlpha: true, side: DoubleSide,
@@ -328,6 +427,22 @@ export function createWaterMesh(uniforms: OceanUniforms, field: DepthField, conf
   const mesh = new Mesh(geometry, material);
   mesh.name = 'ocean-surface';
   mesh.renderOrder = 2;
+  mesh.frustumCulled = false;
+  mesh.raycast = () => {};
+  return mesh;
+}
+
+/**
+ * Lite tier: the same wave lattice drawn once as an opaque backdrop, colored from
+ * the baked map (see buildLiteOceanMap). Replaces the seabed and surface meshes.
+ */
+export function createLiteOceanMesh(uniforms: OceanUniforms, field: DepthField, config: OceanConfig = OCEAN) {
+  const material = new ShaderMaterial({
+    uniforms, vertexShader: LITE_VERTEX, fragmentShader: LITE_FRAGMENT, depthWrite: false, depthTest: false, side: DoubleSide,
+  });
+  const mesh = new Mesh(waterLattice(field, config), material);
+  mesh.name = 'ocean-lite';
+  mesh.renderOrder = -1;
   mesh.frustumCulled = false;
   mesh.raycast = () => {};
   return mesh;

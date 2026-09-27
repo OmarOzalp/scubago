@@ -6,8 +6,12 @@ import { createOceanUniforms, OCEAN_SHADER_CHUNKS, type OceanUniforms } from './
  * color and lose a little saturation with depth, waves refract them slightly,
  * and they fade head-first when they dive out of sight. Bind-pose length
  * coordinates travel with the skin, keeping the fade attached to the animal.
+ *
+ * `lite` (software-rendered GPUs) measures depth from the calm surface level with
+ * no wave math per vertex, and lays the surface's tint over the animal here,
+ * because the lite ocean has no separate surface layer drawn on top.
  */
-export function prepareUnderwater(instance: Object3D, ocean: OceanUniforms = createOceanUniforms()) {
+export function prepareUnderwater(instance: Object3D, ocean: OceanUniforms = createOceanUniforms(), lite = false) {
   const depth = { value: 0 };
   const surfacing = { value: 0 };
   const materials = new Map<Material, Material>();
@@ -56,28 +60,31 @@ varying float submersion;\nvarying float vOceanDepth;\nvarying float vOceanHaze;
               float emergence = smoothstep(0.0, .45, (1.0 - diveFade) * 1.45 - (1.0 - diveAlong));
               submersion = mix(submersion, 1.0 - emergence, surfacing);`)
             .replace('#include <project_vertex>', `#include <project_vertex>
+              vec4 oceanWorld = modelMatrix * vec4(transformed, 1.0);${lite ? `
+              vOceanDepth = max(0.0, uOceanSurface - oceanWorld.y);` : `
               // Depth below the moving surface; the waves bend the view of deeper animals a little more.
-              vec4 oceanWorld = modelMatrix * vec4(transformed, 1.0);
               vOceanDepth = max(0.0, uOceanSurface + oceanWave(oceanWorld.xz).y - oceanWorld.y);
               vec2 oceanShift = oceanSlope(oceanWorld.xz) * (uOceanDistortion * vOceanDepth);
               mvPosition.xyz += (viewMatrix * vec4(oceanShift.x, 0.0, oceanShift.y, 0.0)).xyz;
-              gl_Position = projectionMatrix * mvPosition;
+              gl_Position = projectionMatrix * mvPosition;`}
               // The same haze as the water at the top and bottom of the view.
               vOceanHaze = smoothstep(uOceanEdge.x, uOceanEdge.y, abs(gl_Position.y / gl_Position.w));`);
-          shader.fragmentShader = `uniform vec4 uOceanUnderwater;\nuniform vec3 uOceanCard;\nvarying float submersion;\nvarying float vOceanDepth;\nvarying float vOceanHaze;\n${OCEAN_SHADER_CHUNKS.color}\n${shader.fragmentShader}`
+          shader.fragmentShader = `uniform vec4 uOceanUnderwater;\nuniform vec3 uOceanCard;\nuniform vec2 uOceanOpacity;\nvarying float submersion;\nvarying float vOceanDepth;\nvarying float vOceanHaze;\n${OCEAN_SHADER_CHUNKS.color}\n${shader.fragmentShader}`
             .replace('#include <opaque_fragment>', `
               // Deeper water softens the animal: less saturation and more of the water's own color.
               vec3 oceanTone = oceanWaterColor(vOceanDepth);
               float oceanMurk = 1.0 - exp(-max(0.0, vOceanDepth - uOceanUnderwater.x) / uOceanUnderwater.y);
               outgoingLight = mix(outgoingLight, vec3(dot(outgoingLight, vec3(.2126, .7152, .0722))), uOceanUnderwater.w * oceanMurk);
-              outgoingLight = mix(outgoingLight, oceanTone, uOceanUnderwater.z * oceanMurk);
+              outgoingLight = mix(outgoingLight, oceanTone, uOceanUnderwater.z * oceanMurk);${lite ? `
+              // The surface layer's own tint (the full ocean draws it over the animals as a separate pass).
+              outgoingLight = mix(outgoingLight, oceanWaterColor(1.8), uOceanOpacity.y * .85);` : ''}
               outgoingLight = mix(outgoingLight, oceanTone, submersion * .8);
               outgoingLight = mix(outgoingLight, uOceanCard, vOceanHaze);
               diffuseColor.a *= 1.0 - submersion;
               if (diffuseColor.a < .005) discard;
               #include <opaque_fragment>`);
         };
-        material.customProgramCacheKey = () => 'marine-ocean-water-v2';
+        material.customProgramCacheKey = () => (lite ? 'marine-ocean-water-v2-lite' : 'marine-ocean-water-v2');
         materials.set(source, material);
       }
       return materials.get(source)!;

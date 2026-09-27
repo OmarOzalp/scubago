@@ -56,6 +56,21 @@ break-up are per vertex too. Each surface or seabed pixel does one depth-map
 lookup, one facet normal and a few blend terms. There are no render targets,
 screen reads or post-processing, and animals add no draw calls.
 
+## Quality tiers
+
+GPUs emulated in software (the iOS simulator, Android emulators) get a **lite** tier; physical
+devices and browsers get **full** quality (`src/components/home/three/scene-quality.ts`). Lite
+keeps the palette, halo, waves and animal tinting, but:
+
+- the static seabed and water colors are baked into one texture per level, and the ocean is
+  drawn as a single opaque layer over the wave lattice;
+- facet shading is held flat per triangle and highlights are evaluated per vertex;
+- animals skip the per-vertex wave math and take the surface tint in their own shader.
+
+On a CPU renderer this cuts the frame cost from about 84 ms to about 32 ms. Force a tier with
+`EXPO_PUBLIC_SCENE_QUALITY=lite` or `full`, then restart Metro with `--clear`. See
+`island-performance.md` for measurements.
+
 ## Tuning quick reference
 
 | To get… | Change first | Then |
