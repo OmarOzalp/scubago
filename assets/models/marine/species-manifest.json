@@ -62,5 +62,37 @@
     "material": "vertex colors, no textures",
     "generator": "scripts/art/build-species.ts",
     "animation": "procedural at runtime (src/lib/marine-rigs.ts); Swim clip is the same rig baked at cruising effort"
+  },
+  "mola-mola": {
+    "status": "stylized-draft",
+    "version": 2,
+    "bytes": 79480,
+    "triangles": 1832,
+    "source": "Original procedural geometry and rig",
+    "bones": 10,
+    "clip": "Swim",
+    "loopSeconds": 2.778,
+    "scientificName": "Mola mola",
+    "reference": "https://www.fisheries.noaa.gov/species/ocean-sunfish",
+    "humanReview": "pending",
+    "material": "vertex colors, no textures",
+    "generator": "scripts/art/build-species.ts",
+    "animation": "procedural at runtime (src/lib/marine-rigs.ts); Swim clip is the same rig baked at cruising effort"
+  },
+  "green-turtle": {
+    "status": "stylized-draft",
+    "version": 2,
+    "bytes": 93228,
+    "triangles": 1226,
+    "source": "Original procedural geometry and rig",
+    "bones": 9,
+    "clip": "Swim",
+    "loopSeconds": 2.381,
+    "scientificName": "Chelonia mydas",
+    "reference": "https://www.fisheries.noaa.gov/species/green-turtle",
+    "humanReview": "pending",
+    "material": "vertex colors, no textures",
+    "generator": "scripts/art/build-species.ts",
+    "animation": "procedural at runtime (src/lib/marine-rigs.ts); Swim clip is the same rig baked at cruising effort"
   }
 }

@@ -18,6 +18,8 @@ import { buildTigerShark } from './species/tiger-shark';
 import { buildWhaleShark } from './species/whale-shark';
 import { buildReefManta } from './species/reef-manta';
 import { buildGreatWhiteShark } from './species/great-white-shark';
+import { buildMolaMola } from './species/mola-mola';
+import { buildGreenTurtle } from './species/green-turtle';
 
 const OUT = resolve(dirname(process.argv[1]), '../../assets/models/marine') + '/';
 
@@ -26,6 +28,8 @@ const SPECIES: Partial<Record<SwimRigModel, { build: () => { mesh: MeshBuilder; 
   'whale-shark': { build: buildWhaleShark, scientificName: 'Rhincodon typus', reference: 'https://www.floridamuseum.ufl.edu/discover-fish/species-profiles/whale-shark/' },
   'reef-manta': { build: buildReefManta, scientificName: 'Mobula alfredi', reference: 'https://www.mantatrust.org/mobula-alfredi' },
   'great-white-shark': { build: buildGreatWhiteShark, scientificName: 'Carcharodon carcharias', reference: 'https://www.floridamuseum.ufl.edu/discover-fish/species-profiles/white-shark/' },
+  'mola-mola': { build: buildMolaMola, scientificName: 'Mola mola', reference: 'https://www.fisheries.noaa.gov/species/ocean-sunfish' },
+  'green-turtle': { build: buildGreenTurtle, scientificName: 'Chelonia mydas', reference: 'https://www.fisheries.noaa.gov/species/green-turtle' },
 };
 
 async function main() {

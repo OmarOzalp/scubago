@@ -12,7 +12,7 @@ import { prepareUnderwater } from '../src/components/home/three/underwater-mater
 
 const ocean = createOceanUniforms('island');
 
-for (const name of ['shark', 'manta', 'reef-fish', 'whale-shark', 'tiger-shark', 'great-white-shark', 'reef-manta']) {
+for (const name of ['shark', 'manta', 'reef-fish', 'whale-shark', 'tiger-shark', 'great-white-shark', 'reef-manta', 'mola-mola', 'green-turtle']) {
   const bytes = readFileSync(new URL(`../assets/models/marine/${name}.glb`, import.meta.url));
   const source = await new GLTFLoader().parseAsync(bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength), '');
   const a = clone(source.scene), b = clone(source.scene);

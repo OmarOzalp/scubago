@@ -7,6 +7,8 @@ test('inspection resolves species before a conflicting model query', () => {
   expect(inspectionModel({ species: 'reef-manta' })).toBe('reef-manta');
   expect(inspectionModel({ species: 'great-white-shark' })).toBe('great-white-shark');
   expect(inspectionModel({ model: 'great-white-shark' })).toBe('great-white-shark');
+  expect(inspectionModel({ species: 'mola-mola' })).toBe('mola-mola');
+  expect(inspectionModel({ species: 'green-turtle' })).toBe('green-turtle');
   expect(inspectionModel({ model: 'reef-fish' })).toBe('reef-fish');
 });
 
@@ -16,5 +18,5 @@ test('invalid, repeated, missing, and unsupported inspection queries are safe', 
   expect(inspectionModel({ model: 'missing' })).toBeNull();
   expect(inspectionModel({ model: ['shark', 'manta'] })).toBeNull();
   expect(inspectionModel({ species: 'missing', model: 'shark' })).toBeNull();
-  expect(inspectionModel({ species: 'green-turtle' })).toBeNull();
+  expect(inspectionModel({ species: 'hawksbill-turtle' })).toBeNull();
 });

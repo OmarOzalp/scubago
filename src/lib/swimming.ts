@@ -1,8 +1,8 @@
 import type { Category, DexEntry, Species } from '@/lib/types';
 
-export type SpeciesMarineModel = 'whale-shark' | 'tiger-shark' | 'great-white-shark' | 'reef-manta';
+export type SpeciesMarineModel = 'whale-shark' | 'tiger-shark' | 'great-white-shark' | 'reef-manta' | 'mola-mola' | 'green-turtle';
 export type MarineModel = 'shark' | 'manta' | 'reef-fish' | SpeciesMarineModel;
-const SPECIES_MODELS: readonly string[] = ['whale-shark', 'tiger-shark', 'great-white-shark', 'reef-manta'] satisfies SpeciesMarineModel[];
+const SPECIES_MODELS: readonly string[] = ['whale-shark', 'tiger-shark', 'great-white-shark', 'reef-manta', 'mola-mola', 'green-turtle'] satisfies SpeciesMarineModel[];
 export function speciesMarineModel(id: string): SpeciesMarineModel | null {
   return SPECIES_MODELS.includes(id) ? id as SpeciesMarineModel : null;
 }

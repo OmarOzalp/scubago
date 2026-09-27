@@ -26,22 +26,28 @@ export type Movement = {
   lazyRoll: number;
   /** Vertical drift: amplitude (world units) and period (s). */
   bob: number; bobPeriod: number;
+  /** Resting roll (rad): the ocean sunfish drifts tilted onto its side, showing its disc from above. */
+  tilt: number;
 };
 
 const TAU = Math.PI * 2;
 const FAMILY: Movement = {
   pace: .098, swing: .17, swingPeriod: TAU / .19, surge: 0, wander: .15, bends: 2, patrol: 0,
-  steer: .7, bank: .48, bankMax: Infinity, bankEase: 2, lazyRoll: 0, bob: .045, bobPeriod: TAU / .31,
+  steer: .7, bank: .48, bankMax: Infinity, bankEase: 2, lazyRoll: 0, bob: .045, bobPeriod: TAU / .31, tilt: 0,
 };
 export const MOVEMENT: Record<MarineModel, Movement> = {
   // Enormous and unhurried: steady speed, broad sweeping arcs, a slow shallow roll and a gentle rise and fall.
-  'whale-shark': { pace: .072, swing: .06, swingPeriod: 44, surge: 0, wander: .07, bends: 1, patrol: 0, steer: .3, bank: .35, bankMax: .09, bankEase: .6, lazyRoll: 0, bob: .065, bobPeriod: 27 },
+  'whale-shark': { pace: .072, swing: .06, swingPeriod: 44, surge: 0, wander: .07, bends: 1, patrol: 0, steer: .3, bank: .35, bankMax: .09, bankEase: .6, lazyRoll: 0, bob: .065, bobPeriod: 27, tilt: 0 },
   // Medium cruise with confident curves and the occasional lazy roll onto one side.
-  'tiger-shark': { pace: .112, swing: .14, swingPeriod: 30, surge: 0, wander: .14, bends: 2, patrol: .2, steer: .7, bank: .5, bankMax: .2, bankEase: 1.3, lazyRoll: .16, bob: .04, bobPeriod: 19 },
+  'tiger-shark': { pace: .112, swing: .14, swingPeriod: 30, surge: 0, wander: .14, bends: 2, patrol: .2, steer: .7, bank: .5, bankMax: .2, bankEase: 1.3, lazyRoll: .16, bob: .04, bobPeriod: 19, tilt: 0 },
   // Faster and deliberate: holds a line, then turns decisively with a slight bank; now and then a powerful surge.
-  'great-white-shark': { pace: .136, swing: .07, swingPeriod: 26, surge: .2, wander: .17, bends: 2, patrol: .85, steer: 1.1, bank: .42, bankMax: .2, bankEase: 2.4, lazyRoll: 0, bob: .03, bobPeriod: 21 },
+  'great-white-shark': { pace: .136, swing: .07, swingPeriod: 26, surge: .2, wander: .17, bends: 2, patrol: .85, steer: 1.1, bank: .42, bankMax: .2, bankEase: 2.4, lazyRoll: 0, bob: .03, bobPeriod: 21, tilt: 0 },
   // Underwater flight: wide weaving turns with deep, graceful banks, long climbs and descents, strokes and glides.
-  'reef-manta': { pace: .09, swing: .2, swingPeriod: 12, surge: 0, wander: .18, bends: 2, patrol: 0, steer: .5, bank: 1.9, bankMax: .38, bankEase: 1.1, lazyRoll: 0, bob: .09, bobPeriod: 17 },
+  'reef-manta': { pace: .09, swing: .2, swingPeriod: 12, surge: 0, wander: .18, bends: 2, patrol: 0, steer: .5, bank: 1.9, bankMax: .38, bankEase: 1.1, lazyRoll: 0, bob: .09, bobPeriod: 17, tilt: 0 },
+  // Slow, heavy and a little awkward: drifts tilted onto its side, sculling with its tall fins, barely turning.
+  // Calm and fairly agile: flies with bouts of flipper strokes, easy curves and gentle rises and falls.
+  'green-turtle': { pace: .1, swing: .12, swingPeriod: 20, surge: 0, wander: .1, bends: 2, patrol: 0, steer: .8, bank: .6, bankMax: .14, bankEase: 1.5, lazyRoll: 0, bob: .06, bobPeriod: 15, tilt: 0 },
+  'mola-mola': { pace: .062, swing: .1, swingPeriod: 37, surge: 0, wander: .12, bends: 1, patrol: 0, steer: .35, bank: .25, bankMax: .07, bankEase: .5, lazyRoll: 0, bob: .085, bobPeriod: 23, tilt: .95 },
   // Family representatives keep their original tuning.
   shark: FAMILY,
   manta: { ...FAMILY, pace: .083, wander: .19 },
@@ -66,7 +72,7 @@ export function createMarineMotion(members: readonly MarineMember[]) {
     const x = (3.92 + radius) * Math.cos(angle), z = (3.32 + radius) * Math.sin(angle);
     const heading = Math.atan2(-(3.92 + radius) * Math.sin(angle), (3.32 + radius) * Math.cos(angle));
     return { ...member, movement, angle, radius, rate: movement.pace, pose: {
-      x, y: -.02 + Math.sin(member.lane * 1.7) * movement.bob, z, heading, bank: 0, effort: 1, pace: 1, turn: 0, speed: 0, climb: 0,
+      x, y: -.02 + Math.sin(member.lane * 1.7) * movement.bob, z, heading, bank: movement.tilt, effort: 1, pace: 1, turn: 0, speed: 0, climb: 0,
     } };
   });
   const byLane = new Map(animals.map((animal) => [animal.lane, animal]));
@@ -108,7 +114,8 @@ export function createMarineMotion(members: readonly MarineMember[]) {
         animal.pose.heading += rotation;
         // Roll into the turn (with an occasional lazy roll for some species), eased so it never snaps.
         const lazy = m.lazyRoll * Math.sin(time * TAU / 27 + animal.lane * 2.1) ** 5;
-        const bank = clamp(-rotation / dt * m.bank + lazy, m.bankMax);
+        // A tilted swimmer (the sunfish) settles slowly around its resting roll.
+        const bank = clamp(-rotation / dt * m.bank + lazy, m.bankMax) + m.tilt * (1 + .12 * Math.sin(time * TAU / 31 + animal.lane));
         animal.pose.bank += (bank - animal.pose.bank) * (1 - Math.exp(-dt * m.bankEase));
         animal.pose.turn += (rotation / dt - animal.pose.turn) * (1 - Math.exp(-dt * 3));
         animal.pose.speed = Math.hypot(x - animal.pose.x, z - animal.pose.z) / dt;
