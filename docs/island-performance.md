@@ -188,3 +188,33 @@ The iOS simulator's software renderer and physical devices have not been
 measured with the new ocean. Check that first. If the simulator struggles,
 raising `facetSize` and lowering the simulator canvas resolution are the
 cheapest levers.
+
+## iOS simulator: blank island after the low-poly ocean
+
+After the low-poly ocean landed, the iPhone 17 Pro / iOS 26.5 simulator showed
+only the card's teal background and the app lagged; web rendered normally. This
+was not reproduced here (no simulator access). The findings come from reading
+the app code and the Expo GL and Fiber sources:
+
+- `endFrameEXP` queues a frame for Expo GL's worker and returns immediately, so
+  nothing slows JS down when the worker falls behind. The simulator rasterizes
+  GL in software, and the ocean added two full-card custom-shader passes. Once a
+  frame costs more than the 50ms timer, queued frames pile up and the view falls
+  further and further behind what JS has drawn.
+- Fiber's native Canvas applies `{ flex: 1, ...style }` to its root view, which
+  stretched the reduced-resolution canvas back to the card's full height. On a
+  @3x simulator the GL buffer was 3 times the intended size (1.5 times on a
+  device), and two-thirds of it was drawn off-screen and clipped.
+- Fiber mounts `GLView` with `msaaSamples={4}` and switches to 0 only after the
+  renderer reports `antialias: false`. Expo GL's iOS view allocates its
+  multisample buffers at first layout and ignores later changes, so 4x MSAA is
+  still on (the "native multisampling is disabled" note above does not hold).
+  This is not fixed yet: it needs a patch to Fiber's native Canvas.
+
+Changes: `SceneCanvas` sets `flex: 0` on the Fiber canvas. The simulator timer
+now calls `flushEXP` before each frame and backs off by however long it waited,
+so at most one frame is in flight (50ms–2s between frames). The `[island]` line
+now reports JS milliseconds per frame instead of "frames over 25ms", because
+simulator frames are at least 50ms apart by design. The simulator also logs its
+settled pacing interval once. Neither change has been checked on the simulator
+or a device yet.
