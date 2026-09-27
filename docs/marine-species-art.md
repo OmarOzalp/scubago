@@ -150,6 +150,12 @@ bounds, budgets) and `npm run verify:underwater`. The studio previews in
 assets with the app's lighting; the sunfish is shown upright (in the island it
 swims tilted onto its side, as sunfish often do, so its disc reads from above).
 
+The island's tuna school is not a glTF asset: each tuna is a low-poly mesh built at runtime
+(`src/components/home/three/tuna-geometry.ts`, 167 triangles, or 83 in lite quality). It has a
+spindle body, pointed snout, forked crescent tail, sickle fins and yellow finlets, metallic blue
+above and silver below, and it swims in the vertex shader. `docs/art-previews/tuna.png` shows it
+with the app's lighting; `docs/tuna-school.md` describes the school.
+
 References used for proportions and pattern placement:
 - [Florida Museum: whale shark](https://www.floridamuseum.ufl.edu/discover-fish/species-profiles/whale-shark/)
 - [Florida Museum: tiger shark](https://www.floridamuseum.ufl.edu/discover-fish/species-profiles/tiger-shark/)
@@ -157,6 +163,7 @@ References used for proportions and pattern placement:
 - [Manta Trust: reef manta ray](https://www.mantatrust.org/mobula-alfredi)
 - [NOAA Fisheries: ocean sunfish](https://www.fisheries.noaa.gov/species/ocean-sunfish)
 - [NOAA Fisheries: green turtle](https://www.fisheries.noaa.gov/species/green-turtle)
+- [NOAA Fisheries: Atlantic bluefin tuna](https://www.fisheries.noaa.gov/species/atlantic-bluefin-tuna)
 
 These simplified drafts still need human comparison against multiple views,
 especially fin contours, mouth detail and individual marking variation, and the

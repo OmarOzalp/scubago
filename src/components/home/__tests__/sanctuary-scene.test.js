@@ -11,6 +11,7 @@ jest.mock('../three/scene-performance', () => ({ ScenePerformance: () => null })
 jest.mock('../three/sanctuary-environment', () => ({ SanctuaryEnvironment: ({ children }) => <environment>{children}</environment> }));
 jest.mock('@react-three/fiber', () => ({ useFrame: jest.fn() }));
 jest.mock('../three/animated-marine', () => ({ AnimatedMarine: () => <swimmer /> }));
+jest.mock('../three/tuna-school-mesh', () => ({ TunaSchoolMesh: () => <school /> }));
 jest.mock('../island-scene', () => ({ IslandScene: () => <fallback /> }));
 jest.mock('expo-router', () => ({ router: { push: jest.fn() } }));
 
@@ -32,4 +33,6 @@ test('the island is visible during discovery loading, then visiting animals appe
   expect(root.root.findAllByType('swimmer')).toHaveLength(0);
   await act(async () => root.update(<SanctuaryScene {...props} />));
   expect(root.root.findAllByType('swimmer')).toHaveLength(2);
+  // The tuna school swims with them.
+  expect(root.root.findAllByType('school')).toHaveLength(1);
 });

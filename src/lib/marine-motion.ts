@@ -1,6 +1,10 @@
 import { createShoreField } from './island-outline';
 import { sampleDive } from './ocean-depth';
+import { apparentShift, clamp, ease, frame, smoothstep, TAU, variation, wrap } from './steering';
 import type { MarineModel } from './swimming';
+import { attackRoll, createTunaSchool, GREAT_WHITE_HUNT, SCHOOL_REACTIONS, TUNA_SCHOOL, type SchoolNeighbor } from './tuna-school';
+
+export { WORLD } from './steering';
 
 export type MarineMember = { model: MarineModel; lane: number };
 /**
@@ -37,7 +41,6 @@ export type Movement = {
   reverseEvery: number;
 };
 
-const TAU = Math.PI * 2;
 const FAMILY: Movement = {
   cruise: .36, swing: .17, swingPeriod: TAU / .19, surge: 0, turnRate: .38, turnEase: .5, bank: .48, bankMax: .3, bankEase: 2, lazyRoll: 0, tilt: 0,
   halfLength: 1.1, halfWidth: .4, personalSpace: .25, avoidance: .8, islandClearance: .95, roam: [.3, 1], roamPeriod: 60, patrol: 0,
@@ -86,44 +89,20 @@ export const MOVEMENT: Record<MarineModel, Movement> = {
   'reef-fish': { ...FAMILY, cruise: .44, turnRate: .45, turnEase: .65, halfLength: .4, halfWidth: .1, personalSpace: .2, avoidance: 1, islandClearance: .5, roam: [0, .8], reverseEvery: 60 },
 };
 
-/**
- * The ocean area animals keep to, as the camera sees it: a rounded rectangle (half-sizes in
- * units) that keeps a whale shark's fins inside the frame and centers out of most of the top and
- * bottom haze.
- */
-export const WORLD = { x: 4.9, z: 4.3 };
-/**
- * The camera looks down at an angle, so an animal swimming below the beach appears shifted
- * toward the viewer (+z) by about half its depth below the sand: 0.4 units at the usual depth.
- * The island, islets and frame are judged at that apparent position, which keeps animals from
- * slipping visually under the island's far shore.
- */
-const APPARENT_SHIFT = .4, SHIFT_PER_DEPTH = -.5;
 /** Simulation step (s): fixed, so a 20 fps simulator and a 60 fps phone move animals identically. */
 const STEP = 1 / 60;
 /** How far ahead (s) animals look for another animal crossing their path, and for one they will pass. */
 const LOOKAHEAD = 3, LANE_LOOKAHEAD = 14;
 /** How long (s) before an animal returns from a dive (see ocean-depth.ts) the others start making room for it. */
 const SURFACING_LEAD = 6;
+/** The tuna school steps every other simulation step (30 Hz, interpolated like the animals): smooth for small fish, half the cost. */
+const SCHOOL_STEP = STEP * 2;
 /** Islets are small sandbars without a wet-sand fringe: animals keep just their footprint plus this much (units) clear of them. */
 const ISLET_MARGIN = .25;
 
-const clamp = (value: number, min: number, max: number) => Math.max(min, Math.min(max, value));
-const smoothstep = (edge0: number, edge1: number, x: number) => { const t = clamp((x - edge0) / (edge1 - edge0), 0, 1); return t * t * (3 - 2 * t); };
-const wrap = (angle: number) => Math.atan2(Math.sin(angle), Math.cos(angle));
-const ease = (rate: number, dt: number) => 1 - Math.exp(-rate * dt);
-/** Deterministic 0..1 value per (lane, n): varied, repeatable choices without randomness. */
-const variation = (lane: number, n: number) => { const v = Math.sin(lane * 91.7 + n * 12.9898 + 4.1) * 43758.5453; return v - Math.floor(v); };
 /** How far a footprint (half-length a along heading h, half-width b across it) reaches toward the unit direction u. */
 const reachToward = (a: number, b: number, hx: number, hz: number, ux: number, uz: number) =>
   Math.hypot(a * (ux * hx + uz * hz), b * (ux * hz - uz * hx));
-
-/** Where (x, z) sits in the ocean area (1 at its edge), and the inward direction there. */
-function frame(x: number, z: number) {
-  const u = x / WORLD.x, v = z / WORLD.z;
-  const gx = u ** 5 / WORLD.x, gz = v ** 5 / WORLD.z, g = Math.hypot(gx, gz) || 1;
-  return { edge: (u ** 6 + v ** 6) ** (1 / 6), nx: -gx / g, nz: -gz / g };
-}
 
 /** Where the roaming distance from shore sits right now, 0 (inner) to 1 (outer). */
 function roamBand(m: Movement, time: number, lane: number) {
@@ -132,10 +111,30 @@ function roamBand(m: Movement, time: number, lane: number) {
   return .5 + .5 * shaped;
 }
 
+/**
+ * A hunter's stalking of the tuna school (GREAT_WHITE_HUNT in tuna-school.ts): swimming as usual
+ * (`normal`), near the school (`encounter`, which may become a charge: decided once, when it
+ * begins), charging through it (`charge`), then easing back to its cruise (`exit`).
+ */
+export type HuntPhase = 'normal' | 'encounter' | 'charge' | 'exit';
+type Hunt = {
+  phase: HuntPhase;
+  /** Seconds in this phase; encounters so far (each one's roll is indexed by this); whether this one becomes a charge; charges so far. */
+  since: number; encounters: number; attack: boolean; charges: number;
+  /** It has left the school's surroundings since its last encounter, so its next approach is a new one. */
+  away: boolean;
+  /** No new encounter before this time (s): the cooldown after a charge. */
+  rested: number;
+  /** Where the charge is aimed; close to the school it commits to a heading and drives straight through. */
+  aimX: number; aimZ: number; committed: boolean; line: number;
+  /** Why an encounter that will become a charge has not yet (for tuning): 'dive', 'range', 'bearing' or 'line'. */
+  waiting: string;
+};
+
 type Animal = MarineMember & {
   m: Movement;
   x: number; z: number; y: number; heading: number; speed: number; turn: number; bank: number; climb: number;
-  /** Apparent offset toward the viewer (see APPARENT_SHIFT), and how much closer than its island clearance it may pass islets. */
+  /** Apparent offset toward the viewer (see apparentShift), and how much closer than its island clearance it may pass islets. */
   shift: number; allowance: number;
   /** +1 or -1: which way it circles the island. A half turn keeps to one side (+1 or -1, as `turn`) until it is done. */
   direction: number; halfTurn: number; nextReverse: number; reversals: number;
@@ -146,6 +145,8 @@ type Animal = MarineMember & {
   previous: { x: number; z: number; y: number; heading: number; bank: number };
   pose: MarinePose;
   steering: { roam: [number, number]; island: [number, number]; animals: [number, number]; frame: [number, number]; band: number; lane: number };
+  /** Only for species that hunt the tuna school, when there is one. */
+  hunt: Hunt | null;
 };
 
 /**
@@ -155,12 +156,20 @@ type Animal = MarineMember & {
  * species' clearance from the island and islets, and staying in frame. The result is smoothed,
  * and turning is rate-limited and damped per species, so course changes read as intentional.
  */
-export function createMarineMotion(members: readonly MarineMember[], level = 1) {
+export function createMarineMotion(members: readonly MarineMember[], level = 1, options: {
+  /** Add the tuna school: true for TUNA_SCHOOL.size fish (0 leaves it out), or a number of fish. */
+  school?: boolean | number;
+  /** Varies the school's start and the hunter's rolls (0..1); the same seed replays the same scene. */
+  seed?: number;
+} = {}) {
   const field = createShoreField(level);
-  let time = 0, accumulator = 0;
+  const seed = options.seed ?? 0;
+  const size = typeof options.school === 'number' ? options.school : options.school ? TUNA_SCHOOL.size : 0;
+  const school = size > 0 ? createTunaSchool(field, { seed, size }) : null;
+  let time = 0, accumulator = 0, schoolTick = 0;
   const animals: Animal[] = members.map((member, index) => {
     const m = MOVEMENT[member.model];
-    const shift = APPARENT_SHIFT + SHIFT_PER_DEPTH * m.depth;
+    const shift = apparentShift(m.depth);
     const direction = variation(member.lane, 0) < .68 ? 1 : -1;
     // Start spread around the island in the middle of the species' roaming band, heading along the coast.
     const angle = index * TAU / Math.max(1, members.length) + .3;
@@ -180,8 +189,15 @@ export function createMarineMotion(members: readonly MarineMember[], level = 1) 
       previous: { x, z, y, heading, bank: m.tilt },
       pose: { x, y, z, heading, bank: m.tilt, effort: 1, pace: 1, turn: 0, speed: m.cruise, climb: 0 },
       steering: { roam: [0, 0], island: [0, 0], animals: [0, 0], frame: [0, 0], band: target, lane: target },
+      hunt: school && SCHOOL_REACTIONS[member.model].hunts
+        ? { phase: 'normal' as HuntPhase, since: 0, encounters: 0, attack: false, charges: 0, away: true, rested: 0, aimX: 0, aimZ: 0, committed: false, line: 0, waiting: '' }
+        : null,
     };
   });
+  /** What the school sees of the animals, refreshed in place every step. */
+  const neighbors: SchoolNeighbor[] = animals.map((a) => ({
+    model: a.model, x: a.x, y: a.y, z: a.z, heading: a.heading, speed: a.speed, halfLength: a.m.halfLength, halfWidth: a.m.halfWidth, presence: 1, charging: false,
+  }));
   const byLane = new Map(animals.map((animal) => [animal.lane, animal]));
   /** For each pair in an encounter, which side the first of the two keeps (+1 outside), decided once for the whole encounter. */
   const encounters = new Map<number, number>();
@@ -210,8 +226,69 @@ export function createMarineMotion(members: readonly MarineMember[], level = 1) 
     return left + bias >= right - bias ? 1 : -1;
   }
 
+  /** Where a charge aims: the school's middle, a little toward its front, leading it by where it will be. */
+  function aim(a: Animal, hunt: Hunt) {
+    const s = school!.state, speed = Math.hypot(s.velocityX, s.velocityZ) || 1e-6;
+    const lead = .6 * Math.min(3, Math.hypot(s.centerX - a.x, s.centerZ - a.z) / (a.m.cruise * GREAT_WHITE_HUNT.chargeSpeed));
+    hunt.aimX = s.centerX + s.velocityX * lead + s.velocityX / speed * s.spread * .35;
+    hunt.aimZ = s.centerZ + s.velocityZ * lead + s.velocityZ / speed * s.spread * .35;
+  }
+  /**
+   * Whether a charge fits now: the hunter stays in view for all of it (no dive due), the school is
+   * within about 90° of its heading and far enough off to build up speed, and the line through it,
+   * and 1.5 units beyond, is clear of the island and inside the frame.
+   */
+  function chargeFits(a: Animal, hunt: Hunt) {
+    const H = GREAT_WHITE_HUNT;
+    if (presence(a.lane) < .95 || sampleDive(time + H.chargeDuration, a.lane, members.length).opacity < .9) { hunt.waiting = 'dive'; return false; }
+    aim(a, hunt);
+    const dx = hunt.aimX - a.x, dz = hunt.aimZ - a.z, d = Math.hypot(dx, dz);
+    if (d < .7 || d > H.encounterRadius + 2.5) { hunt.waiting = 'range'; return false; }
+    if (Math.abs(wrap(Math.atan2(dx, dz) - a.heading)) > 1.6) { hunt.waiting = 'bearing'; return false; }
+    for (let k = 1; k <= 4; k++) {
+      const t = (d + 1.5) * k / 4, x = a.x + dx / d * t, z = a.z + a.shift + dz / d * t;
+      if (field.island(x, z, a.allowance).distance < a.m.islandClearance * .6 || frame(x, z).edge > 1.02) { hunt.waiting = 'line'; return false; }
+    }
+    hunt.waiting = '';
+    return true;
+  }
+  /**
+   * One step of a hunter's stalking. An encounter begins when it comes within `encounterRadius` of
+   * the school after having been away (beyond `releaseRadius`, or deep on a dive), and not during
+   * the cooldown after a charge. Whether the encounter becomes a charge is rolled once, then.
+   */
+  function stalk(a: Animal, hunt: Hunt) {
+    const H = GREAT_WHITE_HUNT, s = school!.state, visible = presence(a.lane);
+    const distance = Math.hypot(s.centerX - a.x, s.centerZ - a.z);
+    hunt.since += STEP;
+    if (distance > H.releaseRadius + s.spread || visible < .2) hunt.away = true;
+    if (hunt.phase === 'normal') {
+      // It must be in sight and staying so for a while (not about to dive): an encounter, not a glimpse.
+      if (hunt.away && distance < H.encounterRadius + s.spread && visible > .9 && time >= hunt.rested
+        && sampleDive(time + 10, a.lane, members.length).opacity > .9) {
+        hunt.phase = 'encounter'; hunt.since = 0; hunt.away = false; hunt.encounters++;
+        hunt.attack = attackRoll(a.lane, seed, hunt.encounters);
+      }
+    } else if (hunt.phase === 'encounter') {
+      if (hunt.away) { hunt.phase = 'normal'; hunt.since = 0; }
+      else if (hunt.attack && hunt.since > .6 && chargeFits(a, hunt)) { hunt.phase = 'charge'; hunt.since = 0; hunt.charges++; hunt.committed = false; }
+      // The moment passed without a clear line: this encounter stays a pass.
+      else if (hunt.attack && hunt.since > 15) hunt.attack = false;
+    } else if (hunt.phase === 'charge') {
+      // Close to the school it commits to a straight line through it and stops following the fish: a
+      // charge, not a chase.
+      if (!hunt.committed) {
+        aim(a, hunt);
+        if (Math.hypot(hunt.aimX - a.x, hunt.aimZ - a.z) < 1.3) { hunt.committed = true; hunt.line = Math.atan2(hunt.aimX - a.x, hunt.aimZ - a.z); }
+      }
+      const past = hunt.committed && (hunt.aimX - a.x) * Math.sin(hunt.line) + (hunt.aimZ - a.z) * Math.cos(hunt.line) < -.6;
+      if (past || hunt.since > H.chargeDuration) { hunt.phase = 'exit'; hunt.since = 0; hunt.rested = time + H.cooldown; }
+    } else if (a.speed < a.m.cruise * 1.1 || hunt.since > 10) { hunt.phase = 'normal'; hunt.since = 0; }
+  }
+
   /** Decide every animal's desired direction from one snapshot, so the result never depends on update order. */
   function steer() {
+    for (const a of animals) if (a.hunt) stalk(a, a.hunt);
     const snapshot = animals.map((a) => {
       const m = a.m, hx = Math.sin(a.heading), hz = Math.cos(a.heading), x = a.x, z = a.z + a.shift, r2 = x * x + z * z || 1;
       const shore = field.island(x, z, a.allowance);
@@ -306,7 +383,16 @@ export function createMarineMotion(members: readonly MarineMember[], level = 1) 
       const tx = -here.nz * a.direction, tz = here.nx * a.direction;
       // Out to sea briskly, in toward the island gently, so it settles into an inner lane without overshooting.
       const radial = clamp((target - here.distance) * 1.3, -.55, 1);
-      const rx = tx + radial * here.nx, rz = tz + radial * here.nz;
+      let rx = tx + radial * here.nx, rz = tz + radial * here.nz;
+      // Charging: straight for the aim point instead, still clear of the island, the frame and other animals.
+      if (a.hunt?.phase === 'charge') {
+        const h = a.hunt, dx = h.aimX - a.x, dz = h.aimZ - a.z, d = Math.hypot(dx, dz) || 1e-6;
+        rx = h.committed ? Math.sin(h.line) * 1.6 : dx / d * 1.6; rz = h.committed ? Math.cos(h.line) * 1.6 : dz / d * 1.6;
+      } else if (a.hunt?.phase === 'encounter' && a.hunt.attack && school) {
+        // It has picked out the school: it swings toward it before the rush.
+        const dx = school.state.centerX - a.x, dz = school.state.centerZ - a.z, d = Math.hypot(dx, dz) || 1e-6;
+        rx += dx / d * 2; rz += dz / d * 2;
+      }
 
       // Island and islets: if its course would bring it inside its clearance within a few seconds (coast
       // bends ahead included), turn to run along the coast, harder the sooner that would happen. Swimming
@@ -408,11 +494,13 @@ export function createMarineMotion(members: readonly MarineMember[], level = 1) 
   function advance() {
     time += STEP;
     for (const a of animals) {
-      const m = a.m, phase = a.lane * 1.71;
+      const m = a.m, phase = a.lane * 1.71, hunt = a.hunt?.phase;
       a.previous = { x: a.x, z: a.z, y: a.y, heading: a.heading, bank: a.bank };
       // Turn toward the desired heading: rate-limited and damped, so turns build and settle without overshoot.
-      const wanted = clamp(a.want * m.turnEase, -m.turnRate, m.turnRate);
-      a.turn += (wanted - a.turn) * ease(m.turnEase * 3.2, STEP);
+      // A charge turns a little more sharply, never like a missile.
+      const agility = hunt === 'charge' ? GREAT_WHITE_HUNT.chargeTurn : 1, turnRate = m.turnRate * agility, turnEase = m.turnEase * agility;
+      const wanted = clamp(a.want * turnEase, -turnRate, turnRate);
+      a.turn += (wanted - a.turn) * ease(turnEase * 3.2, STEP);
       a.heading = wrap(a.heading + a.turn * STEP);
       a.want -= a.turn * STEP;
       // Cruise with slow changes of pace and, for some, rare surges; ease off in tight turns and when making room.
@@ -421,8 +509,11 @@ export function createMarineMotion(members: readonly MarineMember[], level = 1) 
       // A big course change ahead slows it, which tightens the turn (as animals do).
       const paced = cruise + (Math.min(cruise, Math.max(cruise * .5, a.followSpeed)) - cruise) * a.follow;
       const turning = Math.max(.15 * Math.abs(a.turn) / m.turnRate, .3 * smoothstep(.4, 1.6, Math.abs(a.want)));
-      const target = paced * (1 - .3 * a.brake) * (1 - turning);
-      a.speed += (target - a.speed) * ease(1.2, STEP);
+      let target = paced * (1 - .3 * a.brake) * (1 - turning), response = 1.2;
+      // A charge lines up on the school first, then accelerates hard; afterwards it slows back to its cruise gradually.
+      if (hunt === 'charge') { target = m.cruise * (1 + (GREAT_WHITE_HUNT.chargeSpeed - 1) * smoothstep(.7, .25, Math.abs(a.want))); response = 1.6; }
+      else if (hunt === 'exit') response = .45;
+      a.speed += (target - a.speed) * ease(response, STEP);
       a.x += Math.sin(a.heading) * a.speed * STEP;
       a.z += Math.cos(a.heading) * a.speed * STEP;
       // Gentle vertical drift around the species' preferred depth.
@@ -444,7 +535,8 @@ export function createMarineMotion(members: readonly MarineMember[], level = 1) 
    */
   function reverse(a: Animal) {
     const m = a.m, left = turnRoom(a, 1), right = turnRoom(a, -1);
-    const crowded = a.busy > .05 || animals.some((o) => o !== a && Math.hypot(o.x - a.x, o.z - a.z) < 3.5 && presence(o.lane) > .01);
+    const crowded = a.busy > .05 || (a.hunt && a.hunt.phase !== 'normal')
+      || animals.some((o) => o !== a && Math.hypot(o.x - a.x, o.z - a.z) < 3.5 && presence(o.lane) > .01);
     if (crowded || Math.max(left, right) < .1) { a.nextReverse = time + 4; return; }
     a.direction *= -1;
     a.halfTurn = left >= right ? 1 : -1;
@@ -468,6 +560,18 @@ export function createMarineMotion(members: readonly MarineMember[], level = 1) 
       pose.pace = a.speed / a.m.cruise;
       pose.effort = .65 + .35 * pose.pace;
     }
+    // The school's last step is up to one simulation step older than the animals'.
+    school?.publish((schoolTick * STEP + accumulator) / SCHOOL_STEP);
+  }
+
+  /** Show the school the animals as they are now: where, how fast, whether in sight, whether charging. */
+  function refreshNeighbors() {
+    for (let i = 0; i < animals.length; i++) {
+      const a = animals[i], o = neighbors[i], dive = sampleDive(time, a.lane, members.length);
+      o.x = a.x; o.z = a.z; o.y = a.y + dive.y; o.heading = a.heading; o.speed = a.speed; o.presence = dive.opacity;
+      // The fish read a charge from the rush itself: lined up and accelerating, not while it turns in.
+      o.charging = !!a.hunt && (a.hunt.phase === 'charge' || a.hunt.phase === 'exit') && a.speed > a.m.cruise * 1.3;
+    }
   }
 
   return {
@@ -480,6 +584,10 @@ export function createMarineMotion(members: readonly MarineMember[], level = 1) 
       const a = byLane.get(lane);
       return a && { m: a.m, x: a.x, z: a.z + a.shift, shift: a.shift, allowance: a.allowance, heading: a.heading, want: a.heading + a.want, halfTurn: a.halfTurn, brake: a.brake, ...a.steering };
     },
+    /** A hunter's stalking of the school (null for other species, or without a school). */
+    hunt(lane: number): Readonly<Hunt> | null { return byLane.get(lane)?.hunt ?? null; },
+    /** The tuna school, when there is one: stepped with the animals, its poses published with theirs. */
+    school,
     field,
     /** Seconds simulated so far: the school's clock, which the dive cycle follows too. */
     clock() { return time + accumulator; },
@@ -491,6 +599,7 @@ export function createMarineMotion(members: readonly MarineMember[], level = 1) 
         accumulator -= STEP;
         steer();
         advance();
+        if (school && (schoolTick ^= 1) === 0) { refreshNeighbors(); school.step(SCHOOL_STEP, neighbors); }
       }
       publish();
     },

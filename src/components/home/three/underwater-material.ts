@@ -2,6 +2,36 @@ import { BufferGeometry, Float32BufferAttribute, Material, Object3D, Vector3, ty
 import { createOceanUniforms, OCEAN_SHADER_CHUNKS, type OceanUniforms } from './ocean-mesh';
 
 /**
+ * Vertex GLSL, after `#include <project_vertex>` with the vertex's world position in
+ * `oceanWorld`: its depth below the moving surface, a slight refraction shift for deeper
+ * vertices (full quality only; lite measures from the calm surface level), and the top and
+ * bottom haze. Shared with the tuna school (school-material.ts).
+ */
+export const underwaterVertexGLSL = (lite: boolean) => `${lite ? `
+              vOceanDepth = max(0.0, uOceanSurface - oceanWorld.y);` : `
+              // Depth below the moving surface; the waves bend the view of deeper animals a little more.
+              vOceanDepth = max(0.0, uOceanSurface + oceanWave(oceanWorld.xz).y - oceanWorld.y);
+              vec2 oceanShift = oceanSlope(oceanWorld.xz) * (uOceanDistortion * vOceanDepth);
+              mvPosition.xyz += (viewMatrix * vec4(oceanShift.x, 0.0, oceanShift.y, 0.0)).xyz;
+              gl_Position = projectionMatrix * mvPosition;`}
+              // The same haze as the water at the top and bottom of the view.
+              vOceanHaze = smoothstep(uOceanEdge.x, uOceanEdge.y, abs(gl_Position.y / gl_Position.w));`;
+
+/**
+ * Fragment GLSL, before `#include <opaque_fragment>`: deeper water softens the color (less
+ * saturation, more of the water's own tone), plus the surface's tint in lite quality, where the
+ * ocean has no separate surface layer drawn on top. Shared with the tuna school.
+ */
+export const underwaterTintGLSL = (lite: boolean) => `
+              // Deeper water softens the animal: less saturation and more of the water's own color.
+              vec3 oceanTone = oceanWaterColor(vOceanDepth);
+              float oceanMurk = 1.0 - exp(-max(0.0, vOceanDepth - uOceanUnderwater.x) / uOceanUnderwater.y);
+              outgoingLight = mix(outgoingLight, vec3(dot(outgoingLight, vec3(.2126, .7152, .0722))), uOceanUnderwater.w * oceanMurk);
+              outgoingLight = mix(outgoingLight, oceanTone, uOceanUnderwater.z * oceanMurk);${lite ? `
+              // The surface layer's own tint (the full ocean draws it over the animals as a separate pass).
+              outgoingLight = mix(outgoingLight, oceanWaterColor(1.8), uOceanOpacity.y * .85);` : ''}`;
+
+/**
  * Animals share the island's water: below the moving surface they take on its
  * color and lose a little saturation with depth, waves refract them slightly,
  * and they fade head-first when they dive out of sight. Bind-pose length
@@ -60,24 +90,9 @@ varying float submersion;\nvarying float vOceanDepth;\nvarying float vOceanHaze;
               float emergence = smoothstep(0.0, .45, (1.0 - diveFade) * 1.45 - (1.0 - diveAlong));
               submersion = mix(submersion, 1.0 - emergence, surfacing);`)
             .replace('#include <project_vertex>', `#include <project_vertex>
-              vec4 oceanWorld = modelMatrix * vec4(transformed, 1.0);${lite ? `
-              vOceanDepth = max(0.0, uOceanSurface - oceanWorld.y);` : `
-              // Depth below the moving surface; the waves bend the view of deeper animals a little more.
-              vOceanDepth = max(0.0, uOceanSurface + oceanWave(oceanWorld.xz).y - oceanWorld.y);
-              vec2 oceanShift = oceanSlope(oceanWorld.xz) * (uOceanDistortion * vOceanDepth);
-              mvPosition.xyz += (viewMatrix * vec4(oceanShift.x, 0.0, oceanShift.y, 0.0)).xyz;
-              gl_Position = projectionMatrix * mvPosition;`}
-              // The same haze as the water at the top and bottom of the view.
-              vOceanHaze = smoothstep(uOceanEdge.x, uOceanEdge.y, abs(gl_Position.y / gl_Position.w));`);
+              vec4 oceanWorld = modelMatrix * vec4(transformed, 1.0);${underwaterVertexGLSL(lite)}`);
           shader.fragmentShader = `uniform vec4 uOceanUnderwater;\nuniform vec3 uOceanCard;\nuniform vec2 uOceanOpacity;\nvarying float submersion;\nvarying float vOceanDepth;\nvarying float vOceanHaze;\n${OCEAN_SHADER_CHUNKS.color}\n${shader.fragmentShader}`
-            .replace('#include <opaque_fragment>', `
-              // Deeper water softens the animal: less saturation and more of the water's own color.
-              vec3 oceanTone = oceanWaterColor(vOceanDepth);
-              float oceanMurk = 1.0 - exp(-max(0.0, vOceanDepth - uOceanUnderwater.x) / uOceanUnderwater.y);
-              outgoingLight = mix(outgoingLight, vec3(dot(outgoingLight, vec3(.2126, .7152, .0722))), uOceanUnderwater.w * oceanMurk);
-              outgoingLight = mix(outgoingLight, oceanTone, uOceanUnderwater.z * oceanMurk);${lite ? `
-              // The surface layer's own tint (the full ocean draws it over the animals as a separate pass).
-              outgoingLight = mix(outgoingLight, oceanWaterColor(1.8), uOceanOpacity.y * .85);` : ''}
+            .replace('#include <opaque_fragment>', `${underwaterTintGLSL(lite)}
               outgoingLight = mix(outgoingLight, oceanTone, submersion * .8);
               outgoingLight = mix(outgoingLight, uOceanCard, vOceanHaze);
               diffuseColor.a *= 1.0 - submersion;

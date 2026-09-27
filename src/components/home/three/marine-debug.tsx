@@ -4,7 +4,9 @@ import { BufferAttribute, BufferGeometry, Group, Line, LineBasicMaterial, LineSe
 import { WORLD, type MarineMember, type MarineMotion } from '@/lib/marine-motion';
 
 const Y = -.9, TAU = Math.PI * 2;
-const COLORS = { outline: [1, 1, 1], desired: [1, .85, .2], animals: [1, .3, .3], island: [.3, 1, .6] };
+const COLORS = { outline: [1, 1, 1], desired: [1, .85, .2], animals: [1, .3, .3], island: [.3, 1, .6], lead: [.3, .9, 1], stalk: [1, .6, .1], charge: [1, .1, .1] };
+/** The school's center marker, by mood. */
+const MOODS = { calm: [.6, .8, 1], alert: [1, .85, .2], panic: [1, .2, .2], recover: [.9, .5, 1] };
 
 /** A line on top of everything, so the overlay is never hidden by the water or the island. */
 function overlay<T extends Line | LineSegments>(line: T) {
@@ -21,7 +23,10 @@ const strip = (points: number[][], color: string, opacity: number) => overlay(ne
  * Tuning overlay for the swimming simulation (see marine-swimmers.tsx for switching it on): each
  * species' island clearance (cyan) and the frame (faint white), and per animal its
  * footprint (white), desired heading (yellow), animal avoidance (red) and island avoidance (green).
- * Positions are drawn where the camera shows them at the animals' usual depth.
+ * The tuna school: the lead it follows and its heading (light blue), and a cross at its center
+ * colored by mood (blue calm, yellow alert, red panic, violet regrouping). A great white near the
+ * school draws a line to it: orange while stalking an encounter that will become a charge, red
+ * while charging. Positions are drawn where the camera shows them at the animals' usual depth.
  */
 export function MarineDebug({ motion, members }: { motion: MarineMotion; members: readonly MarineMember[] }) {
   const group = useMemo(() => {
@@ -44,8 +49,9 @@ export function MarineDebug({ motion, members }: { motion: MarineMotion; members
       return [WORLD.x * Math.sign(c) * Math.abs(c) ** (1 / 3), Y, WORLD.z * Math.sign(s) * Math.abs(s) ** (1 / 3) - .42];
     });
     root.add(strip(edge, '#ffffff', .35));
-    // Per animal: a 24-segment footprint and three direction lines, rewritten every frame.
-    const segments = members.length * 27;
+    // Per animal: a 24-segment footprint, three direction lines and a hunting line; the school's lead
+    // and center. Rewritten every frame.
+    const segments = members.length * 28 + 4;
     const geometry = new BufferGeometry()
       .setAttribute('position', new BufferAttribute(new Float32Array(segments * 6), 3))
       .setAttribute('color', new BufferAttribute(new Float32Array(segments * 6), 3));
@@ -75,7 +81,20 @@ export function MarineDebug({ motion, members }: { motion: MarineMotion; members
       put(x, z, COLORS.desired); put(x + Math.sin(info.want) * 1.2, z + Math.cos(info.want) * 1.2, COLORS.desired);
       put(x, z, COLORS.animals); put(x + info.animals[0] * .6, z + info.animals[1] * .6, COLORS.animals);
       put(x, z, COLORS.island); put(x + info.island[0] * .6, z + info.island[1] * .6, COLORS.island);
+      const hunt = motion.hunt(member.lane);
+      const hunting = hunt && (hunt.phase === 'charge' || (hunt.phase === 'encounter' && hunt.attack)) && motion.school;
+      const [tx, tz] = hunting ? (hunt.phase === 'charge' ? [hunt.aimX, hunt.aimZ] : [motion.school!.state.centerX, motion.school!.state.centerZ]) : [x, z];
+      put(x, z, hunt?.phase === 'charge' ? COLORS.charge : COLORS.stalk); put(tx, tz, hunt?.phase === 'charge' ? COLORS.charge : COLORS.stalk);
     }
+    const school = motion.school;
+    if (school) {
+      const { lead, state } = school, mood = MOODS[state.mood];
+      put(lead.x, lead.z, COLORS.lead); put(lead.x + Math.sin(lead.heading) * .8, lead.z + Math.cos(lead.heading) * .8, COLORS.lead);
+      put(state.centerX - .2, state.centerZ, mood); put(state.centerX + .2, state.centerZ, mood);
+      put(state.centerX, state.centerZ - .2, mood); put(state.centerX, state.centerZ + .2, mood);
+    }
+    // Unused segments collapse to a point.
+    for (; v < position.count; v++) { position.setXYZ(v, 0, Y, 0); color.setXYZ(v, 0, 0, 0); }
     position.needsUpdate = true; color.needsUpdate = true;
   });
   return <primitive object={group.root} />;

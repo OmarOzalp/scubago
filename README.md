@@ -131,6 +131,8 @@ fish categories have family rigs today. How the animals find their way around ea
 the island is described, with a tuning guide, in `docs/marine-navigation.md` (set
 `EXPO_PUBLIC_MARINE_DEBUG=1` for an overlay of clearances and steering, or
 `EXPO_PUBLIC_ISLAND_SHOWCASE=1` to preview all six species models together).
+A school of tuna swims with them and reacts to the sharks; a great white occasionally
+charges through it. The school, the hunt and how to tune both are in `docs/tuna-school.md`.
 The surrounding ocean is described, with a tuning guide, in `docs/ocean.md`. On the iOS
 simulator and Android emulators the scene renders at a lighter "lite" quality with paced frames,
 because their GL runs in software (see `docs/island-performance.md`).

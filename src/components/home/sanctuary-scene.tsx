@@ -12,6 +12,7 @@ import { useMarineModels } from './three/use-marine-models';
 import { useSceneActive } from '@/hooks/use-scene-active';
 import type { Habitat } from '@/lib/home';
 import { pickSwimmers, showsPreview, swimmerPages, type MarineModel } from '@/lib/swimming';
+import { TUNA_SCHOOL } from '@/lib/tuna-school';
 import type { DexEntry } from '@/lib/types';
 
 /** Visiting animals for an empty ocean: labeled as a preview, never counted as discoveries. */
@@ -49,9 +50,10 @@ export function SanctuaryScene({ habitat, level, residents, paused = false, load
   const fallback = <IslandScene habitat={habitat} level={level} residents={residents} paused={paused} />;
   if (failed) return <View style={styles.scene}><SceneUnavailable onRetry={retry}>{fallback}</SceneUnavailable></View>;
 
+  const tuna = TUNA_SCHOOL.size > 0 ? ', and a school of tuna' : '';
   const label = loading ? 'Your island; loading your discoveries' : preview
-    ? `Level ${level} ${habitat} with ${SHOWCASE ? 'six visiting species' : 'a visiting whale shark and reef manta ray'} as a preview`
-    : `Level ${level} ${habitat}, home to ${residents.length} discovered species, ${swimmers.length} swimming`;
+    ? `Level ${level} ${habitat} with ${SHOWCASE ? 'six visiting species' : 'a visiting whale shark and reef manta ray'} as a preview${tuna}`
+    : `Level ${level} ${habitat}, home to ${residents.length} discovered species, ${swimmers.length} swimming${tuna}`;
 
   return <View style={styles.scene} accessible accessibilityRole="image" accessibilityLabel={label}>
     <SceneBoundary fallback={fallback}>

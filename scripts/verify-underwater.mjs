@@ -9,6 +9,8 @@ import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { clone } from 'three/examples/jsm/utils/SkeletonUtils.js';
 import { createOceanUniforms } from '../src/components/home/three/ocean-mesh.ts';
 import { prepareUnderwater } from '../src/components/home/three/underwater-material.ts';
+import { createSchoolMaterial } from '../src/components/home/three/school-material.ts';
+import { createTunaGeometry } from '../src/components/home/three/tuna-geometry.ts';
 
 const ocean = createOceanUniforms('island');
 
@@ -69,4 +71,35 @@ for (const name of ['shark', 'manta', 'reef-fish', 'whale-shark', 'tiger-shark',
   assert(head > tail, `${name}: fade direction is reversed`);
   first.dispose(); second.dispose();
   console.log(`${name}: head-to-tail coordinates, independent materials and dive uniforms verified`);
+}
+
+// The tuna school: one instanced material that swims in the vertex shader and shares the water's depth
+// tint, refraction and haze; a runtime mesh within budget whose body normals point outward.
+for (const lite of [false, true]) {
+  const geometry = createTunaGeometry(lite), positions = geometry.attributes.position, normals = geometry.attributes.normal;
+  const triangles = geometry.index.count / 3;
+  assert(triangles <= (lite ? 90 : 180), `tuna${lite ? ' (lite)' : ''}: ${triangles} triangles`);
+  for (let i = 0; i < positions.count; i++) {
+    const p = new Vector3().fromBufferAttribute(positions, i), n = new Vector3().fromBufferAttribute(normals, i);
+    assert(Math.abs(n.length() - 1) < 1e-4, 'tuna normals are unit length');
+    assert(Math.abs(p.x) <= .15 && Math.abs(p.y) <= .22 && p.z >= -.51 && p.z <= .5, 'tuna fits its model space');
+  }
+  const material = createSchoolMaterial(ocean, lite);
+  const shader = { uniforms: {}, vertexShader: ShaderLib.phong.vertexShader, fragmentShader: ShaderLib.phong.fragmentShader };
+  material.onBeforeCompile(shader, null);
+  assert(shader.vertexShader.includes('attribute vec4 swim'));
+  assert(shader.vertexShader.includes('swim.y * swimAlong * swimAlong * sin(swim.x - swimAlong * 2.6)'));
+  assert(shader.vertexShader.includes('modelMatrix * instanceMatrix * vec4(transformed, 1.0)'));
+  assert.equal(shader.uniforms.uOceanTime, ocean.uOceanTime);
+  assert(shader.fragmentShader.includes('oceanWaterColor(vOceanDepth)'));
+  assert(shader.fragmentShader.includes('outgoingLight = mix(outgoingLight, uOceanCard, vOceanHaze)'));
+  if (lite) {
+    assert(shader.vertexShader.includes('vOceanDepth = max(0.0, uOceanSurface - oceanWorld.y)'));
+    assert(!shader.vertexShader.includes('uOceanSurface + oceanWave('), 'lite tuna still evaluate waves per vertex');
+    assert(shader.fragmentShader.includes('uOceanOpacity.y * .85'));
+  } else assert(shader.vertexShader.includes('uOceanSurface + oceanWave('));
+  assert.equal(material.customProgramCacheKey(), lite ? 'marine-school-v1-lite' : 'marine-school-v1');
+  assert(!material.transparent, 'the school is opaque: one draw call, no sorting');
+  material.dispose(); geometry.dispose();
+  console.log(`tuna school${lite ? ' (lite)' : ''}: ${triangles} triangles, swim deformation, instanced water depth and shared uniforms verified`);
 }

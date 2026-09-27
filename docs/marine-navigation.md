@@ -54,6 +54,13 @@ of them decide from the same snapshot:
 - **Dives.** Animals that are deep on a dive (`src/lib/ocean-depth.ts`) are passed
   over; others start making room about 6 s before one resurfaces. The renderer
   runs the dive cycle on the school's clock, so the two always agree.
+- **The tuna school.** A school of tuna swims with the animals, stepped in the same
+  loop (see `tuna-school.md`). The large animals do not steer around it: the fish make
+  room for them. The great white is the exception. Near the school, now and then (one
+  encounter in five, decided when the encounter begins) it turns in and charges
+  through it, then slows back to its cruise and rests at least 50 s before it can
+  charge again. While charging, it still avoids the island, the frame and the other
+  animals, but it leaves its lane.
 
 **Turning and banking.** The desired direction is smoothed (about 0.5 s), then
 the heading follows it through a rate-limited, nearly critically damped turn: the
@@ -135,7 +142,8 @@ can be combined.
 The simulation costs about 20 µs per frame for 2 animals and 70 µs for 8, measured
 in Node. A phone's JavaScript engine is several times slower, which is still well
 under a millisecond. The shore field is built once per level, in about 10 ms.
-Rendering is unchanged: the same draw calls and triangles as before. See
+Navigation adds no draw calls or triangles. The tuna school adds about 26 µs per frame
+with 2 animals (42 µs with 6), and one instanced draw call. See
 `island-performance.md`.
 
 ## Verifying
