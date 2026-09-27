@@ -54,7 +54,7 @@ export function SanctuaryScene({ habitat, level, residents, paused = false, load
         {__DEV__ && <ScenePerformance ready={!!models && !loading} active={active} />}
         {/* The animals swim inside the island's water, which tints and refracts them. */}
         <SanctuaryEnvironment habitat={habitat} level={level} active={active}>
-          {models && !loading && <MarineSwimmers models={models} active={active}
+          {models && !loading && <MarineSwimmers models={models} active={active} level={level}
             residents={preview
               ? PREVIEW_SWIMMERS.map((s) => ({ ...s, id: s.model, onPress: () => onInspect(s.model) }))
               : swimmers.map((s) => ({ ...s, id: s.species.id, onPress: () => router.push(`/species/${s.species.id}`) }))} />}

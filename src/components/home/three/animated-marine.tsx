@@ -74,9 +74,11 @@ export function AnimatedMarine({ model, gltf, lane, active, inspect = false, pop
       group.current.rotation.set(.04, yaw, -.04);
     } else {
       const pose = swimming ?? sampleSwimPath(next, lane);
-      const dive = sampleDive(next, lane, population);
+      // Dive on the school's clock, which is what the others follow when making room for this animal.
+      const clock = motion ? motion.clock() : next;
+      const dive = sampleDive(clock, lane, population);
       if (swimRig && dt > 0) {
-        const sink = (sampleDive(previous, lane, population).y - dive.y) / dt;
+        const sink = (sampleDive(clock - dt, lane, population).y - dive.y) / dt;
         swimRig.update(dt, swimDrive(swimming, SIZE[model], sink));
       }
       const y = pose.y + dive.y, v = vertical.current;
@@ -96,7 +98,7 @@ export function AnimatedMarine({ model, gltf, lane, active, inspect = false, pop
 
   const pose = motion?.get(lane) ?? sampleSwimPath(0, lane);
   const dive = sampleDive(0, lane, population);
-  return <group ref={group} position={inspect ? [0, .2, 0] : [pose.x, pose.y + dive.y, pose.z]} rotation={[0, inspect ? -1.05 : pose.heading, 0]} scale={inspect ? 4.5 : SIZE[model]} onClick={(event) => { if (onPress && group.current?.visible && sampleDive(elapsed.current, lane, population).opacity > .2) { event.stopPropagation(); onPress(); } }}>
+  return <group ref={group} position={inspect ? [0, .2, 0] : [pose.x, pose.y + dive.y, pose.z]} rotation={[0, inspect ? -1.05 : pose.heading, 0]} scale={inspect ? 4.5 : SIZE[model]} onClick={(event) => { if (onPress && group.current?.visible && sampleDive(motion ? motion.clock() : elapsed.current, lane, population).opacity > .2) { event.stopPropagation(); onPress(); } }}>
     <primitive object={instance} dispose={null} />
   </group>;
 }

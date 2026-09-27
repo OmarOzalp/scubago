@@ -243,3 +243,31 @@ The fixes have not yet been run on the iOS simulator itself, and physical-device
 still unmeasured. The species models were not simplified: the benchmark showed they are the
 smaller cost, and lighter versions would ship extra assets for the simulator alone.
 
+
+## Ocean sunfish, green turtle and steering navigation
+
+Two species drafts join the island, and the shared circulation ring described under
+"Shared cruising behavior" is replaced by steering navigation (see
+`docs/marine-navigation.md`). Animals now keep lanes to pass one another, keep a
+species-specific distance from the island and islets, and turn and bank smoothly.
+
+- **Assets.** The ocean sunfish is 1,832 triangles and 79,480 bytes; the green turtle is
+  1,226 triangles and 93,228 bytes. Each is one skinned, vertex-colored draw call, and
+  each is lighter than any shark.
+- **Simulation.** About 20 µs per frame for 2 animals and 70 µs for 8, measured in
+  Node; allow several times that on a phone's JavaScript engine. The shore-distance
+  field is built once per level, in about 10 ms. There are no per-frame allocations
+  beyond small snapshot objects.
+- **Rendering is unchanged by navigation.** Same scene before and after, on the
+  SwiftShader benchmark above (390 × 363, one core):
+
+| Scene, lite quality | Before (`cb8f164`) | After |
+| --- | ---: | ---: |
+| 2 preview animals | 36.2 ms | 36.6 ms |
+| 6 species animals | 50.1 ms | 52.6 ms |
+
+JavaScript time per frame is 1.0–1.6 ms in both. The differences are within run-to-run
+noise; this machine measures about 4 ms slower than the earlier table. At full
+quality, 2 animals take 94 ms and 6 take 109 ms. Each extra animal adds one draw call
+and about 3 ms of CPU-rendered skinning and shading, which a phone GPU does not notice.
+Physical-device timing is still unmeasured.

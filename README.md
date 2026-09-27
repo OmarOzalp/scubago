@@ -54,9 +54,12 @@ project's settings with those dev defaults.
 
 - **My Home tab** — a stylized 3D sanctuary: a sculpted island, coral lagoon, or rocky
   cove in caustic-lit water, seen from an oblique orthographic camera. Discovered
-  sharks, rays and fish swim around it as rigged, animated models. Tiger, whale and
-  great white sharks and the reef manta have their own models and species-specific
-  swimming; other species use CC0 Quaternius family representatives. Unique
+  sharks, rays, fish, the ocean sunfish and the green sea turtle swim around it as
+  rigged, animated models, passing one another in lanes and keeping their own
+  species' distance from the island. Tiger, whale and great white sharks, the reef
+  manta, the ocean sunfish and the green sea turtle have their own models and
+  species-specific swimming; other species use CC0 Quaternius family
+  representatives. Unique
   species unlock six growth stages; home name and habitat are saved on this device per
   account. An empty ocean shows a clearly labeled preview shark and manta that never
   count as discoveries, and either can be opened for a closer look. Animation pauses
@@ -123,7 +126,10 @@ native modules). Models live in `assets/models/marine` (see its LICENSE.md). Reg
 the family representatives from the Blender sources with `scripts/art/prepare-marine.py`
 and the species models with `npm run build:species` (no Blender needed); the species
 swim procedurally from `src/lib/marine-rigs.ts`, and `npm run verify:marine` checks every
-rig. Up to eight animals swim at once; only shark, ray and fish categories have rigs today.
+rig. Up to eight animals swim at once; beyond the six species models, only shark, ray and
+fish categories have family rigs today. How the animals find their way around each other and
+the island is described, with a tuning guide, in `docs/marine-navigation.md` (set
+`EXPO_PUBLIC_MARINE_DEBUG=1` for an overlay of clearances and steering).
 The surrounding ocean is described, with a tuning guide, in `docs/ocean.md`. On the iOS
 simulator and Android emulators the scene renders at a lighter "lite" quality with paced frames,
 because their GL runs in software (see `docs/island-performance.md`).
