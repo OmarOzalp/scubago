@@ -1,8 +1,8 @@
 import { expect, test } from '@jest/globals';
-import { createSwimRig, CRUISE, MANTA_BONES, SHARK_BONES, strokeFrequency, SWIM_RIGS, type SwimDrive, type SwimRigModel } from '../marine-rigs';
+import { createSwimRig, CRUISE, rigBones, strokeFrequency, SWIM_RIGS, type SwimDrive, type SwimRigModel } from '../marine-rigs';
 
 const SHARKS = ['tiger-shark', 'whale-shark', 'great-white-shark'] as const;
-const ALL: SwimRigModel[] = [...SHARKS, 'reef-manta'];
+const ALL: SwimRigModel[] = [...SHARKS, 'reef-manta', 'mola-mola', 'green-turtle'];
 const SPINE = ['Spine1', 'Spine2', 'RearBody', 'TailBase', 'Tail'];
 
 /** Sample one stroke; returns per-sample rotations keyed by bone. */
@@ -20,7 +20,7 @@ const peak = (values: number[]) => Math.max(...values.map(Math.abs));
 test('every species drives its full bone hierarchy with finite, seamlessly looping poses', () => {
   for (const model of ALL) {
     const rig = createSwimRig(model);
-    expect(rig.bones).toEqual(SWIM_RIGS[model].kind === 'shark' ? SHARK_BONES : MANTA_BONES);
+    expect(rig.bones).toEqual(rigBones(model));
     rig.sample(0);
     const start = Array.from(rig.rotation);
     rig.sample(Math.PI * 2);
@@ -103,3 +103,41 @@ test('manta banks with its outer wing, climbs with stronger strokes and glides w
   // Gliding wings are held in a shallow V.
   expect(glide.reduce((sum, pose) => sum + pose.WingL3[2], 0) / glide.length).toBeGreaterThan(0);
 });
+
+test('the ocean sunfish sculls with its dorsal and anal fins together while its disc stays stiff', () => {
+  const poses = cycle('mola-mola');
+  // Fin bones roll about the body axis. The dorsal fin points up and the anal fin down, so opposite
+  // roll signs mean both tips swing to the same side at once.
+  const together = poses.filter((pose) => Math.abs(pose.Dorsal1[2]) > .1).every((pose) => Math.sign(pose.Dorsal1[2]) === -Math.sign(pose.Anal1[2]) || Math.abs(pose.Anal1[2]) < .08);
+  expect(together).toBe(true);
+  const fin = peak(poses.map((pose) => pose.Dorsal1[2]));
+  const body = Math.max(peak(poses.map((pose) => pose.Root[1])), peak(poses.map((pose) => pose.Root[2])));
+  expect(fin).toBeGreaterThan(.3);
+  expect(body).toBeLessThan(.12 * fin);
+  // The clavus steers like a rudder.
+  const mean = (list: Record<string, number[]>[], bone: string) => list.reduce((sum, pose) => sum + pose[bone][1], 0) / list.length;
+  expect(mean(cycle('mola-mola', { effort: 1, turn: .4, curvature: 0, climb: 0 }), 'Clavus2')).toBeGreaterThan(mean(poses, 'Clavus2') + .1);
+});
+
+test('the green turtle flies in bouts of flipper strokes separated by glides', () => {
+  const rig = createSwimRig('green-turtle', .4);
+  const flipper = rig.bones.indexOf('FrontL1') * 3;
+  let gliding = 0, stroking = 0, longestGlide = 0, glide = 0, previous = rig.rotation[flipper + 2];
+  const dt = 1 / 30;
+  for (let i = 0; i < 30 * 60; i++) {
+    rig.step(dt, CRUISE);
+    const flap = rig.rotation[flipper + 2];
+    const moving = Math.abs(flap - previous) / dt > .05;
+    previous = flap;
+    if (moving) { stroking++; glide = 0; } else { gliding++; glide += dt; longestGlide = Math.max(longestGlide, glide); }
+  }
+  // Both states are common, and glides last for several seconds rather than flickering.
+  expect(stroking / (stroking + gliding)).toBeGreaterThan(.3);
+  expect(gliding / (stroking + gliding)).toBeGreaterThan(.2);
+  expect(longestGlide).toBeGreaterThan(2);
+  // While gliding, the front flippers hold swept back along the shell.
+  const hold = createSwimRig('green-turtle');
+  for (let i = 0; i < 30 * 30 && hold.rotation[flipper + 1] < .5; i++) hold.step(dt, CRUISE);
+  expect(hold.rotation[flipper + 1]).toBeGreaterThan(.5);
+});
+

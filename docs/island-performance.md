@@ -243,3 +243,62 @@ The fixes have not yet been run on the iOS simulator itself, and physical-device
 still unmeasured. The species models were not simplified: the benchmark showed they are the
 smaller cost, and lighter versions would ship extra assets for the simulator alone.
 
+
+## Ocean sunfish, green turtle and steering navigation
+
+Two species drafts join the island, and the shared circulation ring described under
+"Shared cruising behavior" is replaced by steering navigation (see
+`docs/marine-navigation.md`). Animals now keep lanes to pass one another, keep a
+species-specific distance from the island and islets, and turn and bank smoothly.
+
+- **Assets.** The ocean sunfish is 1,832 triangles and 79,480 bytes; the green turtle is
+  1,226 triangles and 93,228 bytes. Each is one skinned, vertex-colored draw call, and
+  each is lighter than any shark.
+- **Simulation.** About 20 µs per frame for 2 animals and 70 µs for 8, measured in
+  Node; allow several times that on a phone's JavaScript engine. The shore-distance
+  field is built once per level, in about 10 ms. There are no per-frame allocations
+  beyond small snapshot objects.
+- **Rendering is unchanged by navigation.** Same scene before and after, on the
+  SwiftShader benchmark above (390 × 363, one core):
+
+| Scene, lite quality | Before (`cb8f164`) | After |
+| --- | ---: | ---: |
+| 2 preview animals | 36.2 ms | 36.6 ms |
+| 6 species animals | 50.1 ms | 52.6 ms |
+
+JavaScript time per frame is 1.0–1.6 ms in both. The differences are within run-to-run
+noise; this machine measures about 4 ms slower than the earlier table. At full
+quality, 2 animals take 94 ms and 6 take 109 ms. Each extra animal adds one draw call
+and about 3 ms of CPU-rendered skinning and shading, which a phone GPU does not notice.
+Physical-device timing is still unmeasured.
+
+## Tuna school
+
+The school of tuna (see `docs/tuna-school.md`) is one instanced mesh: one draw call for all 28 fish.
+Each fish is a runtime mesh of 167 triangles, so 4,676 for the school. In lite quality the fish is
+83 triangles, 2,324 for the school: six body sides instead of eight, fewer rings, and no finlets
+or eyes, which are under two pixels there. The matrices and per-fish swim attributes are rewritten
+in place each frame, with no allocation. The simulation steps at 30 Hz inside the animals' 60 Hz
+loop, interpolated like the animals, and allocates nothing per step.
+
+Measured on the SwiftShader benchmark above (390 × 363, one core, the two preview animals):
+
+| Scene | No school | 28 fish |
+| --- | ---: | ---: |
+| Lite quality | 33.4 ms | 37.0 ms |
+| Full quality | 86.6 ms | 94.8 ms |
+| JavaScript per frame (included above) | 1.05 ms | 1.35 ms |
+
+Timings vary by about 2 ms between runs. The school costs about as much as one more large
+animal, on a renderer where every small triangle costs. With the full 167-triangle fish in lite
+quality it cost 5–7 ms, which is why lite quality uses the lighter fish. On a phone GPU, 4,700
+triangles and one draw call are negligible.
+
+Measured in Node, the simulation adds about 26 µs per frame with the two preview animals and
+42 µs with all six. Allow several times that on a phone's JavaScript engine, which is still well
+under a millisecond. School size barely changes the cost: 20 fish cost about the same as 28, and
+40 add about 13 µs. Profiling set the design: the frame test, angle wrapping and per-fish
+trigonometry dominated the first version, and each now runs once per step or only where needed.
+
+Set `TUNA_SCHOOL.size` in `src/lib/tuna-school.ts` lower to lighten the scene further, or to 0 to
+leave the school out. Physical-device timing is still unmeasured.

@@ -11,7 +11,7 @@
  * This module is dependency-free so Node scripts can import it directly.
  */
 
-export type SwimRigModel = 'tiger-shark' | 'whale-shark' | 'great-white-shark' | 'reef-manta';
+export type SwimRigModel = 'tiger-shark' | 'whale-shark' | 'great-white-shark' | 'reef-manta' | 'mola-mola' | 'green-turtle';
 
 export const SHARK_BONES = [
   'Root', 'Head', 'Spine1', 'Spine2', 'RearBody', 'TailBase', 'Tail', 'TailUpper', 'TailLower',
@@ -22,6 +22,12 @@ export const MANTA_BONES = [
   'WingL1', 'WingL2', 'WingL3', 'WingL4', 'WingL5',
   'WingR1', 'WingR2', 'WingR3', 'WingR4', 'WingR5',
   'Tail1', 'Tail2', 'Tail3',
+] as const;
+export const SUNFISH_BONES = [
+  'Root', 'Dorsal1', 'Dorsal2', 'Anal1', 'Anal2', 'Clavus1', 'Clavus2', 'Clavus3', 'PectoralL', 'PectoralR',
+] as const;
+export const TURTLE_BONES = [
+  'Root', 'Head', 'FrontL1', 'FrontL2', 'FrontR1', 'FrontR2', 'RearL', 'RearR', 'Tail',
 ] as const;
 export type SharkBone = typeof SHARK_BONES[number];
 export type MantaBone = typeof MANTA_BONES[number];
@@ -81,7 +87,53 @@ export type MantaRig = {
   tail: readonly number[];
 };
 
-export type SwimRigSpec = SharkRig | MantaRig;
+export type SunfishRig = {
+  kind: 'sunfish';
+  /** Fin beats per second at cruising effort. */
+  frequency: number;
+  /** Side-to-side sweep of the dorsal and anal fins at the base, and extra flex toward the tips (rad). */
+  sweep: number;
+  flex: number;
+  /** Phase lag of the fin tips behind their bases, and of the anal fin behind the dorsal fin. */
+  tipLag: number;
+  analLag: number;
+  /** The stiff disc sways against each beat (rad of yaw) and barely rolls (rad). */
+  bodyYaw: number;
+  bodyRoll: number;
+  /** Clavus: a gentle ripple along its scalloped edge (rad), plus rudder deflection per rad/s of turn. */
+  clavus: number;
+  rudder: number;
+  /** Small pectoral flutter (rad), at twice the fin beat so the loop stays seamless. */
+  pectoral: number;
+};
+
+export type TurtleRig = {
+  kind: 'turtle';
+  /** Front flipper strokes per second while actively swimming. */
+  frequency: number;
+  /** Front flipper stroke: flap up and down, sweep fore and aft, feathering twist, and the forearm's extra lagging flex (rad). */
+  flap: number;
+  sweep: number;
+  feather: number;
+  elbow: number;
+  /** Phase delay of the right flipper behind the left (0 = perfectly synchronized strokes). */
+  offset: number;
+  /** Glide pose: front flippers swept back along the shell and slightly lowered (rad). */
+  glideSweep: number;
+  glideDroop: number;
+  /** Strokes per bout (min, max) and glide seconds between bouts (min, max); each bout varies. */
+  bout: readonly [number, number];
+  glide: readonly [number, number];
+  /** Body pitch (rad) and rise (units of body length) with each stroke, and the head's gentle counter-bob (rad). */
+  pitch: number;
+  bob: number;
+  head: number;
+  /** Rear flippers: steering yaw per rad/s of turn and a slight paddle while stroking (rad). */
+  rudder: number;
+  paddle: number;
+};
+
+export type SwimRigSpec = SharkRig | MantaRig | SunfishRig | TurtleRig;
 
 /**
  * Species animation configuration. Swimming speed and turning live in
@@ -116,10 +168,24 @@ export const SWIM_RIGS: Record<SwimRigModel, SwimRigSpec> = {
     twist: [0, .03, .06, .1, .14], glideDihedral: [.015, .02, .025, .03, .035],
     turnAsymmetry: .5, climbGain: .6, bob: .012, pitch: .02, cephalic: .12, tail: [.05, .09, .14],
   },
+  // Lift-based fin flapping: the tall dorsal and anal fins beat together from side to side while the
+  // stiff disc barely flexes; the scalloped clavus trims and steers.
+  'mola-mola': {
+    kind: 'sunfish', frequency: .36, sweep: .4, flex: .24, tipLag: .65, analLag: .2,
+    bodyYaw: .035, bodyRoll: .015, clavus: .07, rudder: .55, pectoral: .3,
+  },
+  // Aquatic flight: short bouts of nearly synchronized front flipper strokes, then long glides with
+  // the flippers swept back along the shell. The small rear flippers steer.
+  'green-turtle': {
+    kind: 'turtle', frequency: .42, flap: .6, sweep: .42, feather: .55, elbow: .32, offset: .12,
+    glideSweep: .62, glideDroop: .1, bout: [2, 3], glide: [2.5, 5.5],
+    pitch: .04, bob: .006, head: .07, rudder: .55, paddle: .14,
+  },
 };
 
 export function rigBones(model: SwimRigModel): readonly string[] {
-  return SWIM_RIGS[model].kind === 'shark' ? SHARK_BONES : MANTA_BONES;
+  const kind = SWIM_RIGS[model].kind;
+  return kind === 'shark' ? SHARK_BONES : kind === 'manta' ? MANTA_BONES : kind === 'sunfish' ? SUNFISH_BONES : TURTLE_BONES;
 }
 
 export type SwimDrive = {
@@ -136,6 +202,8 @@ export const CRUISE: SwimDrive = { effort: 1, turn: 0, curvature: 0, climb: 0 };
 
 const TAU = Math.PI * 2;
 const clamp = (value: number, min: number, max: number) => Math.min(max, Math.max(min, value));
+/** Deterministic 0..1 value per integer, so every turtle's bouts vary without randomness. */
+const variation = (n: number) => { const v = Math.sin(n * 12.9898 + 78.233) * 43758.5453; return v - Math.floor(v); };
 const ease = (current: number, target: number, rate: number, dt: number) => current + (target - current) * (1 - Math.exp(-rate * dt));
 
 /** Tail beats and wing strokes slow down and shorten with speed, but never stop. */
@@ -152,13 +220,23 @@ export function createSwimRig(model: SwimRigModel, phase = 0) {
   const bones = rigBones(model);
   const rotation = new Float32Array(bones.length * 3);
   const offset = { x: 0, y: 0, z: 0 };
-  const state = { phase: ((phase % TAU) + TAU) % TAU, effort: 1, turn: 0, curvature: 0, climb: 0 };
+  const state: RigState = {
+    phase: ((phase % TAU) + TAU) % TAU, effort: 1, turn: 0, curvature: 0, climb: 0,
+    // Turtles only: how actively the flippers stroke (0 = gliding), strokes left in this bout, glide time left.
+    activity: 1, strokes: 0, glide: 0, bouts: Math.floor(phase * 7),
+  };
+  if (spec.kind === 'turtle') state.strokes = spec.bout[0];
   const slot = Object.fromEntries(bones.map((bone, index) => [bone, index * 3])) as Record<string, number>;
   const set = (bone: string, x: number, y: number, z: number) => {
     const i = slot[bone];
     rotation[i] = x; rotation[i + 1] = y; rotation[i + 2] = z;
   };
-  const pose = () => (spec.kind === 'shark' ? poseShark(spec, state, set, offset) : poseManta(spec, state, set, offset));
+  const pose = () => {
+    if (spec.kind === 'shark') poseShark(spec, state, set, offset);
+    else if (spec.kind === 'manta') poseManta(spec, state, set, offset);
+    else if (spec.kind === 'sunfish') poseSunfish(spec, state, set, offset);
+    else poseTurtle(spec, state, set, offset);
+  };
   pose();
   return {
     model, spec, bones, rotation, offset,
@@ -170,7 +248,8 @@ export function createSwimRig(model: SwimRigModel, phase = 0) {
       state.turn = ease(state.turn, clamp(drive.turn, -1.2, 1.2), 2.2, dt);
       state.curvature = ease(state.curvature, clamp(drive.curvature, -1.5, 1.5), 2.2, dt);
       state.climb = ease(state.climb, clamp(drive.climb, -1, 1), 1.4, dt);
-      state.phase = (state.phase + TAU * strokeFrequency(spec, state.effort) * dt) % TAU;
+      if (spec.kind === 'turtle') stepTurtle(spec, state, dt);
+      else state.phase = (state.phase + TAU * strokeFrequency(spec, state.effort) * dt) % TAU;
       pose();
     },
     /** Pose at an exact cycle phase with steady inputs; used to bake seamless loops. */
@@ -178,13 +257,17 @@ export function createSwimRig(model: SwimRigModel, phase = 0) {
       state.phase = ((at % TAU) + TAU) % TAU;
       state.effort = clamp(drive.effort, .25, 1.6);
       state.turn = drive.turn; state.curvature = drive.curvature; state.climb = drive.climb;
+      state.activity = 1;
       pose();
     },
   };
 }
 export type SwimRig = ReturnType<typeof createSwimRig>;
 
-type RigState = { phase: number; effort: number; turn: number; curvature: number; climb: number };
+type RigState = {
+  phase: number; effort: number; turn: number; curvature: number; climb: number;
+  activity: number; strokes: number; glide: number; bouts: number;
+};
 type SetBone = (bone: string, x: number, y: number, z: number) => void;
 
 /**
@@ -265,4 +348,87 @@ function poseManta(spec: MantaRig, s: RigState, set: SetBone, offset: { x: numbe
   for (let i = 0; i < spec.tail.length; i++) {
     set(`Tail${i + 1}`, spec.tail[i] * stroke * Math.sin(s.phase - 1.6 - .75 * i), -.12 * s.turn * (i + 1), 0);
   }
+}
+
+/**
+ * The dorsal and anal fins beat together from side to side (both tips swing to the same side),
+ * so their sideways forces add while their rolling forces cancel: the stiff disc only sways a
+ * little against each beat. The tips lag their bases, curling each fin through the stroke.
+ */
+function poseSunfish(spec: SunfishRig, s: RigState, set: SetBone, offset: { x: number; y: number; z: number }) {
+  const strength = .65 + .35 * clamp(s.effort, .25, 1.6);
+  const beat = (lag: number) => Math.sin(s.phase - lag);
+  // The dorsal fin points up: a positive roll about the body axis swings its tip toward -X.
+  // The anal fin points down, so the opposite sign swings its tip to the same side.
+  set('Dorsal1', 0, 0, spec.sweep * strength * beat(0));
+  set('Dorsal2', 0, 0, spec.flex * strength * beat(spec.tipLag));
+  set('Anal1', 0, 0, -spec.sweep * strength * beat(spec.analLag));
+  set('Anal2', 0, 0, -spec.flex * strength * beat(spec.analLag + spec.tipLag));
+  set('Root', -.06 * s.climb, spec.bodyYaw * strength * beat(.9), spec.bodyRoll * strength * beat(.4));
+  offset.x = .006 * strength * beat(1.3);
+  offset.y = 0;
+  offset.z = 0;
+  // The clavus ripples down its length and deflects like a rudder into turns.
+  const rudder = clamp(spec.rudder * s.turn, -.45, .45);
+  for (let i = 0; i < 3; i++) set(`Clavus${i + 1}`, 0, spec.clavus * strength * beat(1.1 + .5 * i) + rudder, 0);
+  const flutter = spec.pectoral * Math.sin(2 * s.phase + .7);
+  set('PectoralL', 0, flutter, 0);
+  set('PectoralR', 0, -flutter, 0);
+}
+
+/**
+ * Bouts of strokes, then glides. A stroke cycle starts and ends with the flippers swept back
+ * (phase 0), so a bout can end at any cycle boundary and ease straight into the glide pose.
+ */
+function stepTurtle(spec: TurtleRig, s: RigState, dt: number) {
+  if (s.glide > 0) {
+    s.glide = Math.max(0, s.glide - dt);
+    s.activity = ease(s.activity, 0, 1.4, dt);
+    if (s.glide === 0) {
+      s.bouts++;
+      s.strokes = spec.bout[0] + Math.round(variation(s.bouts) * (spec.bout[1] - spec.bout[0]));
+    }
+    return;
+  }
+  s.activity = ease(s.activity, 1, 2.6, dt);
+  const next = s.phase + TAU * strokeFrequency(spec, s.effort) * dt;
+  if (next < TAU) { s.phase = next; return; }
+  s.strokes--;
+  if (s.strokes > 0) { s.phase = next - TAU; return; }
+  // Faster swimming shortens the glides; gliding never lasts less than a second.
+  s.phase = 0;
+  const [short, long] = spec.glide;
+  s.glide = Math.max(1, (short + (long - short) * variation(s.bouts + .5)) / clamp(s.effort, .6, 1.6));
+}
+
+/**
+ * Front flippers trace an elongated loop: up and forward on the recovery, then down and back on
+ * the power stroke, feathered edge-on while recovering. While gliding they hold swept back along
+ * the shell. The outer flipper works harder through turns; the rear flippers steer.
+ */
+function poseTurtle(spec: TurtleRig, s: RigState, set: SetBone, offset: { x: number; y: number; z: number }) {
+  const a = s.activity;
+  const strength = (.75 + .25 * clamp(s.effort, .25, 1.6)) * (1 + .25 * s.climb);
+  const asymmetry = clamp(.45 * s.turn, -.35, .35);
+  for (const [side, mirror, lag, power] of [['L', 1, 0, 1 - asymmetry], ['R', -1, spec.offset, 1 + asymmetry]] as const) {
+    const p = s.phase - lag;
+    const stroke = strength * power;
+    // Stroke pose blended with the glide pose. Mirrored axes keep both flippers moving the same way.
+    const flap = (spec.flap * stroke * Math.sin(p)) * a - spec.glideDroop * (1 - a);
+    const sweep = (spec.sweep * stroke * -Math.cos(p)) * a - spec.glideSweep * (1 - a);
+    // Leading edge up while recovering (edge-on), angled down to push on the power stroke.
+    const feather = -spec.feather * stroke * Math.sin(p) * a;
+    set(`Front${side}1`, feather, -mirror * sweep, mirror * flap);
+    set(`Front${side}2`, .5 * feather, 0, mirror * spec.elbow * stroke * Math.sin(p - .8) * a);
+  }
+  set('Root', spec.pitch * a * Math.sin(s.phase + .6) - .05 * s.climb, 0, 0);
+  offset.x = 0;
+  offset.y = spec.bob * a * Math.sin(s.phase + .3);
+  offset.z = 0;
+  set('Head', -spec.head * a * Math.sin(s.phase + 1.2), .25 * clamp(s.turn, -1, 1), 0);
+  const steer = clamp(spec.rudder * s.turn, -.5, .5);
+  const paddle = spec.paddle * a * Math.sin(s.phase + 2);
+  set('RearL', 0, steer + paddle, 0);
+  set('RearR', 0, steer - paddle, 0);
+  set('Tail', 0, .6 * steer, 0);
 }
