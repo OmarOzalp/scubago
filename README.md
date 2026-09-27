@@ -129,7 +129,8 @@ swim procedurally from `src/lib/marine-rigs.ts`, and `npm run verify:marine` che
 rig. Up to eight animals swim at once; beyond the six species models, only shark, ray and
 fish categories have family rigs today. How the animals find their way around each other and
 the island is described, with a tuning guide, in `docs/marine-navigation.md` (set
-`EXPO_PUBLIC_MARINE_DEBUG=1` for an overlay of clearances and steering).
+`EXPO_PUBLIC_MARINE_DEBUG=1` for an overlay of clearances and steering, or
+`EXPO_PUBLIC_ISLAND_SHOWCASE=1` to preview all six species models together).
 The surrounding ocean is described, with a tuning guide, in `docs/ocean.md`. On the iOS
 simulator and Android emulators the scene renders at a lighter "lite" quality with paced frames,
 because their GL runs in software (see `docs/island-performance.md`).

@@ -125,6 +125,11 @@ shows:
 It is drawn on top of everything and loaded only when switched on
 (`src/components/home/three/marine-debug.tsx`).
 
+To watch all six species together without logging them, set
+`EXPO_PUBLIC_ISLAND_SHOWCASE=1` (restart Metro with `--clear`). They swim as the labeled
+preview in place of the collection, and each can be tapped for its close-up. Both flags
+can be combined.
+
 ## Cost
 
 The simulation costs about 20 µs per frame for 2 animals and 70 µs for 8, measured
