@@ -10,7 +10,7 @@ export const DOLPHIN_BREACH = {
    * Share of eligible breaths that become a leap, rolled once as the breath begins (never per frame).
    * A breath that rolls a leap takes it as soon as there is room in its first `window` seconds.
    */
-  chance: .2, window: 2.5,
+  chance: .3, window: 2.5,
   /** No leap for this long after the last one of the same pod (s). */
   cooldown: 60,
   /** The run-up (s): speeding up and diving slightly, then climbing steeply to the surface. */

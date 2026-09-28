@@ -67,12 +67,12 @@ test('a leap is one smooth arc: the run-up, the flight and the plunge meet witho
   expect(step).toBeLessThan(.04);
 });
 
-test('leaps are rare: about one breath in five at most, never rolled per frame, and replayed by the same seed', () => {
+test('leaps are rare: about one breath in three at most, never rolled per frame, and replayed by the same seed', () => {
   const run = (seed: number, fps: number) => watch([dolphin(0)], 6, 1500, { seed, fps });
   const a = run(.37, 20), b = run(.37, 60), c = run(.81, 20), d = run(.12, 20);
   // Breaths while up in the water (dives take the rest): one every `every` seconds.
   const breaths = 1500 / MOVEMENT['bottlenose-dolphin'].breathe!.every * .6;
-  for (const visit of [a, c, d]) expect(visit.flown.length).toBeLessThan(breaths * .25);
+  for (const visit of [a, c, d]) expect(visit.flown.length).toBeLessThan(breaths * .35);
   expect(a.flown.length + c.flown.length + d.flown.length).toBeGreaterThanOrEqual(3);
   // Decided once per breath on the fixed simulation clock: any frame rate gives the very same leaps, and
   // another visit (seed) gives others.

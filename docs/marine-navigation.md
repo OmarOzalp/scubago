@@ -154,7 +154,7 @@ Now and then a dolphin's breath becomes a leap clear of the water. Everything to
 is `DOLPHIN_BREACH` in `src/lib/breach.ts`.
 
 - **Rare, and decided once.** As each breath begins, the dolphin rolls once for it
-  (`chance`, 0.2): a deterministic roll on the fixed simulation clock, never per frame,
+  (`chance`, 0.3): a deterministic roll on the fixed simulation clock, never per frame,
   so any frame rate gives the same leaps and the same visit replays them. Each member of
   a pod rolls for its own breaths; the followers leap more often than the leader (half
   the chance for the leader, which steers for them all, and correspondingly more for the
@@ -399,12 +399,15 @@ across at levels 1 and 6, on the body, and follow it when it pitches and leaps.
   corner.
 - In crowded scenes an animal may make a small (4–8°) corrective S-curve every
   half minute or so while lanes settle.
-- Leaps need a stretch of open water in the clear part of the view, so they are rare:
-  in simulation a pod swimming with a couple of other large animals leaps about every
-  5 to 10 minutes, a lone dolphin among several others about every 20 (half the
-  breaths are too near a dive, a fifth roll a leap, about half of those find room, and
-  some run-ups are called off at the last check). Raise `chance` for more, or set
-  `EXPO_PUBLIC_DOLPHIN_LEAPS=1` to review them.
+- Leaps need a stretch of open water in the clear part of the view, so they stay rare.
+  In simulation (30 visits of 20 minutes each, at levels 1, 3 and 6), a lone dolphin
+  leaps about every 6 minutes and a pod on its own about every 7 or 8; a pod with two to
+  four other large animals about every 13, and a lone dolphin among four others about
+  every 20. Only a third to 40% of breaths are clear of a dive, and `chance` of those
+  roll a leap; in company only about a third of the rolls find room, and in a pod more
+  than half of the run-ups are called off at the last check, mostly because a podmate
+  has come into the path. Raise `chance` for more, or set `EXPO_PUBLIC_DOLPHIN_LEAPS=1`
+  to review them.
 - A follower swims behind its leader's turn, so while the leader turns its heading lags
   a little, as a real pod's does; right after a reversal or a leap, the group takes a few
   seconds to settle back into its places.
