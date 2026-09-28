@@ -57,6 +57,10 @@ export function SceneCanvas({ style, children, frameloop = 'always', ...props }:
       ? previous : { width: layout.width, height: layout.height });
   }}>
     {size.width > 0 && size.height > 0 && <Canvas {...props} frameloop={isDevice ? frameloop : 'demand'} style={{
+      // Fiber's native Canvas spreads this over its own `flex: 1`, which would stretch the reduced
+      // height back to the card's full height: a GL buffer 1.5x the intended size on a @3x iPhone
+      // (3x on the simulator), the extra third drawn off-screen and clipped every frame.
+      flex: 0,
       width: size.width * scale,
       height: size.height * scale,
       transform: [{ scale: 1 / scale }],

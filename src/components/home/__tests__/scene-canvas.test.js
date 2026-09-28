@@ -43,6 +43,8 @@ test('simulator draws at one physical pixel per displayed point while keeping th
   expect(canvas.props.style.width * PixelRatio.get()).toBe(360);
   expect(canvas.props.style.height * PixelRatio.get()).toBe(330);
   expect(canvas.props.style.width * canvas.props.style.transform[0].scale).toBe(360);
+  // Fiber's native Canvas applies `{ flex: 1, ...style }`: flex must not stretch the reduced height back out.
+  expect({ flex: 1, ...canvas.props.style }.flex).toBe(0);
   expect(canvas.props.frameloop).toBe('demand');
 });
 
