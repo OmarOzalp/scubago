@@ -8,18 +8,22 @@ Built with Expo (React Native + TypeScript). Design spec:
 
 ## Run it
 
-This is Expo SDK 57. Expo Go from the App Store/Play Store only supports SDK 54, so
-Expo Go does **not** work here — the app runs via a dev build instead.
+This is Expo SDK 57. The App Store's Expo Go runs SDK 57 projects. On iOS you must be signed in to
+the same Expo account in the terminal (`npx expo login`) and in the Expo Go app.
 
 ```bash
 npm install
-npx expo run:ios      # needs Xcode
-npx expo run:android  # needs Android Studio
+npx expo start        # then scan the QR code with Expo Go
+npx expo run:ios      # or a local native build (needs Xcode)
 ```
 
-The app runs fully local: dive sites and species are bundled, your sightings live in
-SQLite on device, and demo community sightings are generated on first launch so the
-map is alive.
+To put the app on real iPhones (EAS builds, TestFlight) and check the Supabase project, see
+**[docs/ios-distribution.md](docs/ios-distribution.md)**. The plan for dive sites, external
+sightings, verification and offline logging is in **[docs/roadmap/](docs/roadmap/README.md)**.
+
+Without a backend the app runs fully local: dive sites and species are bundled, and your sightings
+live in SQLite on the device. So the map isn't empty, it also shows example community sightings,
+each labeled "Example". Builds connected to Supabase never show them.
 
 ### Backend (optional)
 
@@ -28,16 +32,22 @@ To turn on the real backend:
 
 ```bash
 cp .env.example .env
-# fill in EXPO_PUBLIC_SUPABASE_URL and EXPO_PUBLIC_SUPABASE_ANON_KEY
-# from your Supabase dashboard → Project Settings → API
+# fill in EXPO_PUBLIC_SUPABASE_URL and EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY
+# from your Supabase dashboard → Project Settings → API Keys (the publishable key, sb_publishable_…)
 
 npx supabase link --project-ref <ref>
-npx supabase db push          # apply supabase/migrations/
+npx supabase db push          # apply supabase/migrations/ (never `db reset --linked`: it wipes the database)
 
-SUPABASE_URL=... SUPABASE_SERVICE_ROLE_KEY=... npm run seed:supabase
-                               # seeds the species + dive-site catalog (service-role key,
-                               # never put this in the app or commit it)
+SUPABASE_URL=... SUPABASE_SECRET_KEY=... npm run seed:supabase
+                               # seeds the species + dive-site catalog. The secret key bypasses row-level
+                               # security: pass it on the command line only, never in the app or a file.
+
+npm run check:env              # nothing secret in anything the app compiles in (EAS runs it on every build)
+npm run check:supabase         # the live project, checked from outside with the publishable key
 ```
+
+Then run `supabase/checks/audit.sql` and `supabase/checks/rls-isolation.sql` in the SQL editor (see
+[docs/ios-distribution.md](docs/ios-distribution.md#6-supabase-after-a-reset)).
 
 Auth is email + password with auto-confirm, which needs email confirmation turned off:
 in the Supabase dashboard, go to **Authentication → Providers → Email** and turn off
@@ -74,7 +84,8 @@ project's settings with those dev defaults.
 - **Offline-first writes** — sightings save to SQLite immediately with a sync flag;
   `src/lib/sync.ts` drains the outbox once a backend is configured.
 - **Accounts** — email + password sign-in; the account is created automatically on
-  first sign-in, no separate signup step.
+  first sign-in, no separate signup step. Account → Delete account removes the account,
+  its sightings and photos (migration 0004).
 - **Cloud sync** — your sightings push to Supabase and restore on a fresh install;
   photos upload to Supabase Storage; writes stay offline-first and drain the outbox
   once you're back online.
@@ -111,11 +122,16 @@ adding species:
 node scripts/fetch-species-photos.mjs
 ```
 
-## Next steps (per spec)
+## Next steps
 
-Site dedup/moderation, seasonality, downloadable offline map regions, magic-link or
-social sign-in (needs custom SMTP or a paid plan), account recovery / password reset
-(same email constraint).
+The staged plan is in [docs/roadmap/](docs/roadmap/README.md):
+- a bigger, properly sourced dive-site database;
+- reports from dive operators and marine organizations, labeled by where they came from;
+- community sightings verified by a photo or a buddy's confirmation;
+- a faster, offline-first dive log.
+
+From the original spec, still open: seasonality, downloadable offline map regions, and
+password reset (needs a custom SMTP provider for Supabase).
 
 ### My Home development
 
