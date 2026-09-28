@@ -1,6 +1,6 @@
 {
   "expo": {
-    "name": "scubago",
+    "name": "ScubaGo",
     "slug": "scubago",
     "version": "1.0.0",
     "orientation": "portrait",
@@ -9,7 +9,10 @@
     "userInterfaceStyle": "automatic",
     "ios": {
       "icon": "./assets/expo.icon",
-      "bundleIdentifier": "com.anonymous.scubago"
+      "bundleIdentifier": "com.omarozalp.scubago",
+      "config": {
+        "usesNonExemptEncryption": false
+      }
     },
     "android": {
       "adaptiveIcon": {
@@ -18,7 +21,8 @@
         "backgroundImage": "./assets/images/android-icon-background.png",
         "monochromeImage": "./assets/images/android-icon-monochrome.png"
       },
-      "predictiveBackGestureEnabled": false
+      "predictiveBackGestureEnabled": false,
+      "package": "com.omarozalp.scubago"
     },
     "web": {
       "output": "static",
@@ -35,7 +39,14 @@
         }
       ],
       "expo-sqlite",
-      "expo-asset"
+      "expo-asset",
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "ScubaGo lets you choose a photo from your library to attach to a sighting.",
+          "cameraPermission": "ScubaGo can take a photo with your camera to attach to a sighting."
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true,
