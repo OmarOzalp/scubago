@@ -51,9 +51,20 @@ of them decide from the same snapshot:
   meter below the beach appears about 0.4 units closer to the viewer than it
   is. The island and the frame are judged at that apparent position, which is
   what stops animals slipping visually under the island's far (north) shore.
+- **Meanders.** Some species wander rather than hold a line: `weave` swings the
+  roaming course gently either way over `weavePeriod`, so the hammerhead and the
+  dolphin swim in curving arcs. The island, the frame and the other animals are
+  weighed after it, so a meander never takes an animal closer to anything.
 - **Dives.** Animals that are deep on a dive (`src/lib/ocean-depth.ts`) are passed
   over; others start making room about 6 s before one resurfaces. The renderer
   runs the dive cycle on the school's clock, so the two always agree.
+- **Breathing.** Air-breathers (the dolphin, `breathe`) come up to the surface now and
+  then: every 26 s, staggered by lane, the dolphin rises for 3.2 s at a shallow angle,
+  stays up for 1.8 s with its middle 0.2 below the calm surface (its dorsal fin
+  breaks the surface and its back just stays under), then sinks back for 3.2 s. A
+  breath is skipped unless the dolphin stays up in the water for all of it, so it
+  never rises next to a dive. The rise is smooth (no jumps), and `pitch` tips its
+  body up and down with it.
 - **The tuna school.** A school of tuna swims with the animals, stepped in the same
   loop (see `tuna-school.md`). The large animals do not steer around it: the fish make
   room for them. The great white is the exception. Near the school, now and then (one
@@ -76,18 +87,36 @@ eased at `bankEase`), around any resting `tilt` (the sunfish swims on its side).
 All in `MOVEMENT` (`src/lib/marine-motion.ts`). Distances are world units: the
 island is about 4.3 across, and a whale shark is 3 long.
 
-| | Whale shark | Great white | Tiger shark | Reef manta | Ocean sunfish | Green turtle |
-| --- | ---: | ---: | ---: | ---: | ---: | ---: |
-| `cruise` (units/s) | 0.27 | 0.50 | 0.41 | 0.33 | 0.23 | 0.37 |
-| `turnRate` (rad/s) | 0.17 | 0.50 | 0.38 | 0.30 | 0.16 | 0.40 |
-| `turnEase` (1/s) | 0.25 | 0.70 | 0.50 | 0.45 | 0.25 | 0.55 |
-| `bank` / `bankMax` | 0.35 / 0.09 | 0.42 / 0.20 | 0.50 / 0.20 | 1.9 / 0.38 | 0.25 / 0.07 | 0.6 / 0.14 |
-| `halfLength` × `halfWidth` | 1.4 × 0.6 | 1.15 × 0.45 | 1.1 × 0.42 | 0.7 × 1.0 | 0.8 × 0.95 | 0.55 × 0.6 |
-| `personalSpace` | 0.2 | 0.3 | 0.25 | 0.25 | 0.2 | 0.2 |
-| `avoidance` | 0.35 | 0.9 | 0.8 | 0.8 | 0.5 | 1.0 |
-| `islandClearance` | 1.3 | 0.95 | 0.85 | 1.2 | 1.25 | 0.9 |
-| usual distance offshore | 1.7–2.25 | 1.35–2.05 | 1.05–1.65 | 1.4–2.0 | 1.55–2.1 | 1.1–1.35 |
-| `depth` | −0.18 | −0.08 | −0.04 | +0.06 | −0.12 | +0.12 |
+| | Whale shark | Great white | Tiger shark | Hammerhead | Reef manta | Ocean sunfish | Green turtle | Dolphin |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| `cruise` (units/s) | 0.27 | 0.50 | 0.41 | 0.43 | 0.33 | 0.23 | 0.37 | 0.47 |
+| `surge` | 0 | 0.2 | 0 | 0.08 | 0 | 0 | 0 | 0.3 |
+| `turnRate` (rad/s) | 0.17 | 0.50 | 0.38 | 0.52 | 0.30 | 0.16 | 0.40 | 0.62 |
+| `turnEase` (1/s) | 0.25 | 0.70 | 0.50 | 0.82 | 0.45 | 0.25 | 0.55 | 0.9 |
+| `bank` / `bankMax` | 0.35 / 0.09 | 0.42 / 0.20 | 0.50 / 0.20 | 0.62 / 0.24 | 1.9 / 0.38 | 0.25 / 0.07 | 0.6 / 0.14 | 0.75 / 0.30 |
+| `halfLength` × `halfWidth` | 1.4 × 0.6 | 1.15 × 0.45 | 1.1 × 0.42 | 1.05 × 0.36 | 0.7 × 1.0 | 0.8 × 0.95 | 0.55 × 0.6 | 0.8 × 0.26 |
+| `personalSpace` | 0.2 | 0.3 | 0.25 | 0.25 | 0.25 | 0.2 | 0.2 | 0.25 |
+| `avoidance` | 0.35 | 0.9 | 0.8 | 0.85 | 0.8 | 0.5 | 1.0 | 1.0 |
+| `islandClearance` | 1.3 | 0.95 | 0.85 | 1.0 | 1.2 | 1.25 | 0.9 | 0.85 |
+| usual distance offshore | 1.7–2.25 | 1.35–2.05 | 1.05–1.65 | 1.25–2.0 | 1.4–2.0 | 1.55–2.1 | 1.1–1.35 | 0.95–1.75 |
+| `depth` / `bob` | −0.18 / 0.065 | −0.08 / 0.03 | −0.04 / 0.04 | −0.10 / 0.05 | +0.06 / 0.09 | −0.12 / 0.085 | +0.12 / 0.06 | +0.16 / 0.10 |
+| `weave` (rad, over s) | – | – | – | 0.26, 13 | – | – | – | 0.2, 9 |
+
+The two newest species, in short:
+
+- **Scalloped hammerhead:** more active than the whale shark and less forceful than the
+  great white. It cruises at medium speed and turns in the tightest circles of the
+  sharks (its turns also build fastest), with a moderate bank. It keeps to mid-water
+  and comes a little closer to shore than the whale shark, meandering in smooth
+  arcs rather than patrolling a line.
+- **Bottlenose dolphin:** medium-fast with short bursts (`surge`), the most agile
+  turner, with gentle banks. It swims highest and rises and falls the most, comes
+  up to breathe, and pitches with its climbs (`pitch` 1.3, where the others use
+  0.35). As a small, nimble animal it makes most of the room when passing others.
+
+The preferred depths are layered: the dolphin shallowest, the hammerhead in
+mid-water, and the whale shark deepest and farthest out, so the busiest scenes stay
+readable.
 
 How these map to the usual names: `cruise` is cruise speed, and `turnRate` and
 `turnEase` are turn speed. `halfLength`/`halfWidth` are the body radius, as an
@@ -119,6 +148,10 @@ start above their bands.
 | Less banking | lower `bankMax` | 0.07–0.09 reads as nearly level (sunfish, whale shark) |
 | More depth separation | raise the 0.16 / −0.1 lift in `steer()` | Keep it small, so depth stays a last resort |
 | More frequent direction changes | lower `reverseEvery` | 0 means never (the whale shark) |
+| Curvier, wandering paths | raise `weave` (0.15–0.35 rad) or lower `weavePeriod` | Above about 0.4 an animal starts to look lost |
+| More or fewer breaths | change `breathe.every` (s between breaths) | Breaths that would meet a dive are skipped |
+| A higher or lower breath | change `breathe.clearance` (its middle below the calm surface) | Below about 0.15 the dolphin's back breaks the surface; above 0.3 its fin stays under |
+| More or less pitch with climbs | `pitch` (rad per unit/s of rise) | Capped at 0.22 rad either way |
 
 ## Debug overlay
 
@@ -132,7 +165,7 @@ shows:
 It is drawn on top of everything and loaded only when switched on
 (`src/components/home/three/marine-debug.tsx`).
 
-To watch all six species together without logging them, set
+To watch all eight species together without logging them, set
 `EXPO_PUBLIC_ISLAND_SHOWCASE=1` (restart Metro with `--clear`). They swim as the labeled
 preview in place of the collection, and each can be tapped for its close-up. Both flags
 can be combined.
@@ -163,7 +196,8 @@ The tests cover:
 - a great white passing a whale shark;
 - nimbler animals making more room;
 - the preview pair never meeting at the same depth;
-- a crowd of eight rarely clashing.
+- a crowd of eight rarely clashing, and the eight species together;
+- the dolphin breathing: brief, just below the surface, and never next to a dive.
 
 ## Known limitations
 

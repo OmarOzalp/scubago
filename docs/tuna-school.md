@@ -120,14 +120,21 @@ Every species has a reaction in `SCHOOL_REACTIONS`:
 | Species | `threat` | `gap` | How the school treats it |
 | --- | ---: | ---: | --- |
 | Great white | 1 | 0.40 | Alert when near, turns away, keeps its distance; a fish it passes right by starts (fright up to 0.45, below panic); it may charge (below) |
+| Scalloped hammerhead | 0.75 | 0.40 | A predator: alert when near (up to 0.75), so the school tightens and turns away; a close pass scatters the nearest fish (`startle` 0.55, fright up to about 0.41), more than a tiger shark does, but never panics the school; it never charges |
 | Tiger shark | 0.6 | 0.38 | Alert, turns gently away, keeps more room; the nearest fish may start slightly, never panic; it never charges |
 | Whale shark | 0 | 0.30 | Not a threat: fish flow around it; its size splits the school gently, and there is no alarm |
 | Reef manta | 0 | 0.22 | Mostly ignored; fish avoid overlapping it and slip round its wide wings rather than being pushed ahead of them |
 | Ocean sunfish | 0 | 0.25 | Ignored, apart from keeping clear |
 | Green turtle | 0 | 0.15 | Ignored, apart from keeping clear |
+| Bottlenose dolphin | 0 | 0.28 | Not a threat: fish make room and flow around it, with no alarm (also while it rises to breathe) |
 
 A harmless animal in the school's path also steers the whole school around it a little, more for
 bigger animals.
+
+`startle` (0.45 unless set) is how hard a close pass frightens the nearest fish, as a share of
+`threat`. Keep `threat × startle` under 0.5, where the school panics. `hunts: true` gives a
+species the great white's stalking and charges (`GREAT_WHITE_HUNT`): that is how a stronger
+hammerhead hunt could be switched on later.
 
 ## The great white's hunt
 
@@ -295,6 +302,7 @@ Change the values in `src/lib/tuna-school.ts`. Everything else follows from them
 | Less frequent attacks | lower `attackProbability` (0.1), or raise `cooldown` (90) | 0 turns charges off; the shark still alerts the school |
 | A faster, harder charge | raise `chargeSpeed` (2.4) or `chargeTurn` (1.5) | Keep `chargeTurn` modest, or the charge starts to home in like a missile |
 | Stronger tiger shark avoidance | raise the tiger shark's `threat` (0.8) and `gap` (0.5) in `SCHOOL_REACTIONS` | Its `threat` × 0.45 is the start a close pass gives the nearest fish; keep it under about 1 to stay below panic |
+| A stronger hammerhead scare | raise its `startle` (up to about 0.65) | `threat` × `startle` over 0.5 panics the school; `hunts: true` would add charges |
 | Wider berth for any animal | raise its `gap` | Bigger gaps split the school more often in a crowded ocean |
 | School nearer or farther offshore | change `roam`; keep `fishClearance` at least 0.45 | `fishClearance` is the closest a fish's center comes to dry sand |
 | Faster or slower cruising | `cruiseSpeed` (and `tailBeat`, the beat at cruise) | The tail beat follows speed automatically |
@@ -332,7 +340,9 @@ The tests cover:
 - the tap target on the school and turned along it from the first frame, and on a school of one
   fish;
 - the tap target following the school through calm, alert, panic and regrouping: over its main
-  body, never left behind, moving smoothly and within its size limits.
+  body, never left behind, moving smoothly and within its size limits;
+- a hammerhead alarming the school and startling nearby fish more than a tiger shark, without
+  panic or charges, and a dolphin causing no alarm.
 
 `src/lib/__tests__/swimming.test.ts` and `src/components/home/__tests__/sanctuary-scene.test.js`
 cover the ownership rule:

@@ -25,7 +25,7 @@ export const PREVIEW_SWIMMERS: { model: MarineModel; lane: number }[] = [
  * with --clear), every species model visits as the preview, whatever the collection holds.
  */
 const SHOWCASE = process.env.EXPO_PUBLIC_ISLAND_SHOWCASE === '1';
-const SHOWCASE_SWIMMERS = (['whale-shark', 'great-white-shark', 'tiger-shark', 'reef-manta', 'mola-mola', 'green-turtle'] as const)
+const SHOWCASE_SWIMMERS = (['whale-shark', 'great-white-shark', 'tiger-shark', 'reef-manta', 'mola-mola', 'green-turtle', 'scalloped-hammerhead', 'bottlenose-dolphin'] as const)
   .map((model, lane) => ({ model, lane }));
 
 /** A mostly overhead orthographic view gives the island an illustrated 2.5D appearance. */
@@ -54,7 +54,7 @@ export function SanctuaryScene({ habitat, level, residents, paused = false, load
 
   const tuna = TUNA_SCHOOL.size > 0 ? ', and a school of tuna' : '';
   const label = loading ? 'Your island; loading your discoveries' : preview
-    ? `Level ${level} ${habitat} with ${SHOWCASE ? 'six visiting species' : 'a visiting whale shark and reef manta ray'} as a preview${tuna}`
+    ? `Level ${level} ${habitat} with ${SHOWCASE ? `${SHOWCASE_SWIMMERS.length} visiting species` : 'a visiting whale shark and reef manta ray'} as a preview${tuna}`
     : `Level ${level} ${habitat}, home to ${residents.length} discovered species, ${swimmers.length} swimming${tuna}`;
 
   return <View style={styles.scene} accessible accessibilityRole="image" accessibilityLabel={label}>

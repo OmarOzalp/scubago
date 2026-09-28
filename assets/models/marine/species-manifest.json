@@ -94,5 +94,37 @@
     "material": "vertex colors, no textures",
     "generator": "scripts/art/build-species.ts",
     "animation": "procedural at runtime (src/lib/marine-rigs.ts); Swim clip is the same rig baked at cruising effort"
+  },
+  "scalloped-hammerhead": {
+    "status": "stylized-draft",
+    "version": 2,
+    "bytes": 163936,
+    "triangles": 4108,
+    "source": "Original procedural geometry and rig",
+    "bones": 12,
+    "clip": "Swim",
+    "loopSeconds": 1.923,
+    "scientificName": "Sphyrna lewini",
+    "reference": "https://www.floridamuseum.ufl.edu/discover-fish/species-profiles/sphyrna-lewini/",
+    "humanReview": "pending",
+    "material": "vertex colors, no textures",
+    "generator": "scripts/art/build-species.ts",
+    "animation": "procedural at runtime (src/lib/marine-rigs.ts); Swim clip is the same rig baked at cruising effort"
+  },
+  "bottlenose-dolphin": {
+    "status": "stylized-draft",
+    "version": 2,
+    "bytes": 144372,
+    "triangles": 3682,
+    "source": "Original procedural geometry and rig",
+    "bones": 11,
+    "clip": "Swim",
+    "loopSeconds": 1.282,
+    "scientificName": "Tursiops truncatus",
+    "reference": "https://www.fisheries.noaa.gov/species/common-bottlenose-dolphin",
+    "humanReview": "pending",
+    "material": "vertex colors, no textures",
+    "generator": "scripts/art/build-species.ts",
+    "animation": "procedural at runtime (src/lib/marine-rigs.ts); Swim clip is the same rig baked at cruising effort"
   }
 }

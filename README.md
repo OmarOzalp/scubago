@@ -126,11 +126,12 @@ native modules). Models live in `assets/models/marine` (see its LICENSE.md). Reg
 the family representatives from the Blender sources with `scripts/art/prepare-marine.py`
 and the species models with `npm run build:species` (no Blender needed); the species
 swim procedurally from `src/lib/marine-rigs.ts`, and `npm run verify:marine` checks every
-rig. Up to eight animals swim at once; beyond the six species models, only shark, ray and
+rig. Up to eight animals swim at once; beyond the eight species models (great hammerheads swim as
+the scalloped hammerhead and spinner dolphins as the bottlenose), only shark, ray and
 fish categories have family rigs today. How the animals find their way around each other and
 the island is described, with a tuning guide, in `docs/marine-navigation.md` (set
 `EXPO_PUBLIC_MARINE_DEBUG=1` for an overlay of clearances and steering, or
-`EXPO_PUBLIC_ISLAND_SHOWCASE=1` to preview all six species models together).
+`EXPO_PUBLIC_ISLAND_SHOWCASE=1` to preview all eight species models together).
 A school of tuna swims with them and reacts to the sharks; a great white occasionally
 charges through it. The school stands for the tuna in your collection (a logged tuna is never
 drawn as a second, generic fish), and tapping it opens the tuna's species page. The school, the

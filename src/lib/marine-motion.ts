@@ -1,5 +1,6 @@
 import { createShoreField } from './island-outline';
-import { sampleDive } from './ocean-depth';
+import { OCEAN } from './ocean';
+import { sampleDive, SWIM_LEVEL } from './ocean-depth';
 import { apparentShift, clamp, ease, frame, smoothstep, TAU, variation, wrap } from './steering';
 import type { MarineModel } from './swimming';
 import { attackRoll, createTunaSchool, GREAT_WHITE_HUNT, SCHOOL_REACTIONS, TUNA_SCHOOL, type SchoolNeighbor } from './tuna-school';
@@ -39,6 +40,16 @@ export type Movement = {
   depth: number; bob: number; bobPeriod: number;
   /** Average seconds between reversals of its circling direction (0 = never). */
   reverseEvery: number;
+  /** A slow meander of its course (rad either way) and its period (s): curious, curving paths instead of a steady line. */
+  weave?: number; weavePeriod?: number;
+  /**
+   * Air-breathers come up to the surface now and then: a breath every `every` seconds (skipped while
+   * a dive is near), rising and sinking back over `rise` seconds each and staying up for `hold`,
+   * with its middle `clearance` units below the calm surface.
+   */
+  breathe?: { every: number; rise: number; hold: number; clearance: number };
+  /** How far its body pitches with its rise and fall (rad per unit/s; the default is .35). */
+  pitch?: number;
 };
 
 const FAMILY: Movement = {
@@ -82,6 +93,21 @@ export const MOVEMENT: Record<MarineModel, Movement> = {
     cruise: .37, swing: .12, swingPeriod: 20, surge: 0, turnRate: .4, turnEase: .55, bank: .6, bankMax: .14, bankEase: 1.5, lazyRoll: 0, tilt: 0,
     halfLength: .55, halfWidth: .6, personalSpace: .2, avoidance: 1, islandClearance: .9, roam: [0, .45], roamPeriod: 45, patrol: 0,
     depth: .12, bob: .06, bobPeriod: 15, reverseEvery: 70,
+  },
+  // Agile and curious: medium speed with smooth, fairly tight arcs that meander in and out, a moderate
+  // bank, mid-water, a little closer to shore than the whale shark.
+  'scalloped-hammerhead': {
+    cruise: .43, swing: .12, swingPeriod: 24, surge: .08, turnRate: .52, turnEase: .82, bank: .62, bankMax: .24, bankEase: 1.8, lazyRoll: 0, tilt: 0,
+    halfLength: 1.05, halfWidth: .36, personalSpace: .25, avoidance: .85, islandClearance: 1, roam: [.25, 1], roamPeriod: 36, patrol: 0,
+    depth: -.1, bob: .05, bobPeriod: 16, reverseEvery: 75, weave: .26, weavePeriod: 13,
+  },
+  // Playful and athletic: medium-fast with short bursts, the most agile turns, gentle banks, swimming
+  // highest and rising and falling the most, and coming up to breathe now and then.
+  'bottlenose-dolphin': {
+    cruise: .47, swing: .16, swingPeriod: 14, surge: .3, turnRate: .62, turnEase: .9, bank: .75, bankMax: .3, bankEase: 1.6, lazyRoll: .08, tilt: 0,
+    halfLength: .8, halfWidth: .26, personalSpace: .25, avoidance: 1, islandClearance: .85, roam: [.1, .9], roamPeriod: 30, patrol: 0,
+    depth: .16, bob: .1, bobPeriod: 11, reverseEvery: 60, weave: .2, weavePeriod: 9,
+    breathe: { every: 26, rise: 3.2, hold: 1.8, clearance: .2 }, pitch: 1.3,
   },
   // Family representatives stand in for species without their own model.
   shark: FAMILY,
@@ -143,6 +169,8 @@ type Animal = MarineMember & {
   /** Slowing (0..1) and rise (units) while making room for another animal; the pace of one it waits behind; how involved it is with others (0..1). */
   brake: number; lift: number; follow: number; followSpeed: number; busy: number;
   previous: { x: number; z: number; y: number; heading: number; bank: number };
+  /** Its depth before any breath at the surface (air-breathers rise from it and settle back to it). */
+  level: number;
   pose: MarinePose;
   steering: { roam: [number, number]; island: [number, number]; animals: [number, number]; frame: [number, number]; band: number; lane: number };
   /** Only for species that hunt the tuna school, when there is one. */
@@ -186,7 +214,7 @@ export function createMarineMotion(members: readonly MarineMember[], level = 1, 
       ...member, m, x, z, y, heading, speed: m.cruise, turn: 0, bank: m.tilt, climb: 0, shift, allowance,
       direction, halfTurn: 0, nextReverse: m.reverseEvery ? m.reverseEvery * (.5 + variation(member.lane, 1)) : Infinity, reversals: 0,
       want: 0, brake: 0, lift: 0, follow: 0, followSpeed: m.cruise, busy: 0,
-      previous: { x, z, y, heading, bank: m.tilt },
+      previous: { x, z, y, heading, bank: m.tilt }, level: y,
       pose: { x, y, z, heading, bank: m.tilt, effort: 1, pace: 1, turn: 0, speed: m.cruise, climb: 0 },
       steering: { roam: [0, 0], island: [0, 0], animals: [0, 0], frame: [0, 0], band: target, lane: target },
       hunt: school && SCHOOL_REACTIONS[member.model].hunts
@@ -206,6 +234,20 @@ export function createMarineMotion(members: readonly MarineMember[], level = 1, 
    * below them on a dive, and back to 1 a few seconds before it returns.
    */
   const presence = (lane: number) => Math.max(sampleDive(time, lane, members.length).opacity, sampleDive(time + SURFACING_LEAD, lane, members.length).opacity);
+  /**
+   * 0 to 1: how far an air-breather is into a breath at the surface, eased in and out. Breaths come
+   * every `breathe.every` seconds (staggered by lane) and only while it is up in the water for the
+   * whole of one, never next to a dive.
+   */
+  function breathing(a: Animal) {
+    const b = a.m.breathe;
+    if (!b) return 0;
+    const length = 2 * b.rise + b.hold, into = (time + a.lane * 7.3) % b.every;
+    if (into >= length) return 0;
+    const start = time - into;
+    if (sampleDive(start, a.lane, members.length).depth > 0 || sampleDive(start + length, a.lane, members.length).depth > 0) return 0;
+    return smoothstep(0, b.rise, into) * (1 - smoothstep(b.rise + b.hold, length, into));
+  }
 
   /**
    * How much room a half turn toward `side` (+1 or -1, as `turn`) has: the least clearance, from the
@@ -384,6 +426,10 @@ export function createMarineMotion(members: readonly MarineMember[], level = 1, 
       // Out to sea briskly, in toward the island gently, so it settles into an inner lane without overshooting.
       const radial = clamp((target - here.distance) * 1.3, -.55, 1);
       let rx = tx + radial * here.nx, rz = tz + radial * here.nz;
+      if (m.weave) {
+        const w = m.weave * Math.sin(time * TAU / (m.weavePeriod ?? 10) + a.lane * 2.3), c = Math.cos(w), sw = Math.sin(w);
+        [rx, rz] = [rx * c + rz * sw, -rx * sw + rz * c];
+      }
       // Charging: straight for the aim point instead, still clear of the island, the frame and other animals.
       if (a.hunt?.phase === 'charge') {
         const h = a.hunt, dx = h.aimX - a.x, dz = h.aimZ - a.z, d = Math.hypot(dx, dz) || 1e-6;
@@ -516,9 +562,12 @@ export function createMarineMotion(members: readonly MarineMember[], level = 1, 
       a.speed += (target - a.speed) * ease(response, STEP);
       a.x += Math.sin(a.heading) * a.speed * STEP;
       a.z += Math.cos(a.heading) * a.speed * STEP;
-      // Gentle vertical drift around the species' preferred depth.
+      // Gentle vertical drift around the species' preferred depth; an air-breather rises from there to
+      // just below the surface for a breath (heights here are above the swimming level, see ocean-depth.ts).
       const targetY = -.02 + m.depth + m.bob * Math.sin(time * TAU / m.bobPeriod + a.lane * 1.7) + a.lift;
-      const y = a.y + (targetY - a.y) * ease(.9, STEP);
+      a.level += (targetY - a.level) * ease(.9, STEP);
+      const breath = breathing(a);
+      const y = breath > 0 ? a.level + (OCEAN.surfaceLevel - m.breathe!.clearance - SWIM_LEVEL - a.level) * breath : a.level;
       a.climb = clamp((y - a.y) / STEP / (m.bob * TAU / m.bobPeriod + .02), -1, 1);
       a.y = y;
       // Roll into turns (a slow lazy roll for some species), settling around any resting tilt.

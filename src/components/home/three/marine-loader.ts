@@ -9,6 +9,8 @@ const modules: Record<MarineModel, number> = {
   'whale-shark': require('@/assets/models/marine/whale-shark.glb'),
   'tiger-shark': require('@/assets/models/marine/tiger-shark.glb'),
   'great-white-shark': require('@/assets/models/marine/great-white-shark.glb'),
+  'scalloped-hammerhead': require('@/assets/models/marine/scalloped-hammerhead.glb'),
+  'bottlenose-dolphin': require('@/assets/models/marine/bottlenose-dolphin.glb'),
   'mola-mola': require('@/assets/models/marine/mola-mola.glb'),
   'green-turtle': require('@/assets/models/marine/green-turtle.glb'),
   'reef-manta': require('@/assets/models/marine/reef-manta.glb'),

@@ -1,8 +1,8 @@
 import { expect, test } from '@jest/globals';
 import { createSwimRig, CRUISE, rigBones, strokeFrequency, SWIM_RIGS, type SwimDrive, type SwimRigModel } from '../marine-rigs';
 
-const SHARKS = ['tiger-shark', 'whale-shark', 'great-white-shark'] as const;
-const ALL: SwimRigModel[] = [...SHARKS, 'reef-manta', 'mola-mola', 'green-turtle'];
+const SHARKS = ['tiger-shark', 'whale-shark', 'great-white-shark', 'scalloped-hammerhead'] as const;
+const ALL: SwimRigModel[] = [...SHARKS, 'reef-manta', 'mola-mola', 'green-turtle', 'bottlenose-dolphin'];
 const SPINE = ['Spine1', 'Spine2', 'RearBody', 'TailBase', 'Tail'];
 
 /** Sample one stroke; returns per-sample rotations keyed by bone. */
@@ -15,6 +15,8 @@ function cycle(model: SwimRigModel, drive: SwimDrive = CRUISE, samples = 64) {
 }
 /** Heading of each spine segment relative to the body root (accumulated local yaw). */
 const segmentYaw = (pose: Record<string, number[]>) => SPINE.map((_, i) => SPINE.slice(0, i + 1).reduce((sum, bone) => sum + pose[bone][1], 0));
+/** Pitch of each spine segment relative to the body root (accumulated local pitch). */
+const segmentPitch = (pose: Record<string, number[]>) => SPINE.map((_, i) => SPINE.slice(0, i + 1).reduce((sum, bone) => sum + pose[bone][0], 0));
 const peak = (values: number[]) => Math.max(...values.map(Math.abs));
 
 test('every species drives its full bone hierarchy with finite, seamlessly looping poses', () => {
@@ -141,3 +143,43 @@ test('the green turtle flies in bouts of flipper strokes separated by glides', (
   expect(hold.rotation[flipper + 1]).toBeGreaterThan(.5);
 });
 
+test('the hammerhead sways more of its body than the great white, while its wide head stays steadier', () => {
+  const frontShare = (model: SwimRigModel) => {
+    const poses = cycle(model);
+    return peak(poses.map((pose) => segmentYaw(pose)[1])) / peak(poses.map((pose) => segmentYaw(pose)[4]));
+  };
+  expect(frontShare('scalloped-hammerhead')).toBeGreaterThan(1.3 * frontShare('great-white-shark'));
+  const head = (model: SwimRigModel) => peak(cycle(model).map((pose) => pose.Head[1]));
+  expect(head('scalloped-hammerhead')).toBeLessThan(head('great-white-shark'));
+  // The cephalofoil barely yaws: under a degree and a half either way.
+  expect(head('scalloped-hammerhead')).toBeLessThan(.025);
+  expect(strokeFrequency(SWIM_RIGS['scalloped-hammerhead'], 1)).toBeGreaterThan(strokeFrequency(SWIM_RIGS['tiger-shark'], 1));
+  expect(strokeFrequency(SWIM_RIGS['scalloped-hammerhead'], 1)).toBeLessThan(strokeFrequency(SWIM_RIGS['great-white-shark'], 1));
+});
+
+test('the dolphin beats its flukes up and down: the spine pitches, growing toward the tail, and never yaws when swimming straight', () => {
+  const poses = cycle('bottlenose-dolphin');
+  const peaks = SPINE.map((_, i) => peak(poses.map((pose) => segmentPitch(pose)[i])));
+  for (let i = 1; i < peaks.length; i++) expect(peaks[i]).toBeGreaterThan(peaks[i - 1]);
+  expect(peaks[4]).toBeGreaterThan(.3);
+  // Side to side, nothing moves: no yaw or roll anywhere along the body.
+  for (const pose of poses) for (const bone of [...SPINE, 'Head', 'Root']) expect(Math.abs(pose[bone][1]) + Math.abs(pose[bone][2])).toBeLessThan(1e-9);
+  // The head stays level, and the front body is steady.
+  expect(peak(poses.map((pose) => pose.Head[0]))).toBeLessThan(.1 * peaks[4]);
+  expect(peaks[0]).toBeLessThan(.15 * peaks[4]);
+  // The fluke tips flex together, mirrored left and right.
+  for (const pose of poses) expect(pose.FlukeR[2]).toBeCloseTo(-pose.FlukeL[2], 6);
+  expect(peak(poses.map((pose) => pose.FlukeL[2]))).toBeGreaterThan(.05);
+  // Its beat is quicker than any shark's.
+  for (const shark of SHARKS) expect(strokeFrequency(SWIM_RIGS['bottlenose-dolphin'], 1)).toBeGreaterThan(strokeFrequency(SWIM_RIGS[shark], 1));
+});
+
+test('a dolphin bends sideways into a turn, and pitches its flippers up to climb', () => {
+  const mean = (poses: Record<string, number[]>[], pick: (pose: Record<string, number[]>) => number) => poses.reduce((sum, pose) => sum + pick(pose), 0) / poses.length;
+  const left = cycle('bottlenose-dolphin', { effort: 1, turn: .4, curvature: .8, climb: 0 });
+  const straight = cycle('bottlenose-dolphin');
+  expect(mean(left, (pose) => segmentYaw(pose)[4])).toBeLessThan(mean(straight, (pose) => segmentYaw(pose)[4]) - .02);
+  expect(mean(left, (pose) => pose.Head[1])).toBeGreaterThan(0);
+  const climbing = cycle('bottlenose-dolphin', { ...CRUISE, climb: 1 });
+  expect(mean(climbing, (pose) => pose.PectoralL[0])).toBeLessThan(mean(straight, (pose) => pose.PectoralL[0]) - .1);
+});

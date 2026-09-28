@@ -1,17 +1,25 @@
 import { TUNA_SCHOOL } from '@/lib/tuna-school';
 import type { Category, DexEntry, Species } from '@/lib/types';
 
-export type SpeciesMarineModel = 'whale-shark' | 'tiger-shark' | 'great-white-shark' | 'reef-manta' | 'mola-mola' | 'green-turtle';
+export type SpeciesMarineModel = 'whale-shark' | 'tiger-shark' | 'great-white-shark' | 'scalloped-hammerhead' | 'reef-manta' | 'mola-mola' | 'green-turtle' | 'bottlenose-dolphin';
 export type MarineModel = 'shark' | 'manta' | 'reef-fish' | SpeciesMarineModel;
-const SPECIES_MODELS: readonly string[] = ['whale-shark', 'tiger-shark', 'great-white-shark', 'reef-manta', 'mola-mola', 'green-turtle'] satisfies SpeciesMarineModel[];
+const SPECIES_MODELS: readonly string[] = ['whale-shark', 'tiger-shark', 'great-white-shark', 'scalloped-hammerhead', 'reef-manta', 'mola-mola', 'green-turtle', 'bottlenose-dolphin'] satisfies SpeciesMarineModel[];
+/**
+ * Species drawn with a close relative's model: the nearest body plan in the set, like a family
+ * representative (so not offered as their own 3D model), and far closer than the generic one.
+ */
+const RELATIVES: Readonly<Record<string, SpeciesMarineModel>> = {
+  'great-hammerhead': 'scalloped-hammerhead',
+  'spinner-dolphin': 'bottlenose-dolphin',
+};
 export function speciesMarineModel(id: string): SpeciesMarineModel | null {
   return SPECIES_MODELS.includes(id) ? id as SpeciesMarineModel : null;
 }
-/** Exact art takes precedence; other supported species use a family representative. */
+/** Exact art takes precedence, then a close relative's; other supported species use a family representative. */
 export function marineModelFor(species: Pick<Species, 'id' | 'category'> | Category): MarineModel | null {
   if (typeof species !== 'string') {
-    const exact = speciesMarineModel(species.id);
-    if (exact) return exact;
+    const specific = speciesMarineModel(species.id) ?? (Object.hasOwn(RELATIVES, species.id) ? RELATIVES[species.id] : null);
+    if (specific) return specific;
   }
   const category = typeof species === 'string' ? species : species.category;
   if (category === 'shark') return 'shark';

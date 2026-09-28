@@ -11,7 +11,7 @@
  * This module is dependency-free so Node scripts can import it directly.
  */
 
-export type SwimRigModel = 'tiger-shark' | 'whale-shark' | 'great-white-shark' | 'reef-manta' | 'mola-mola' | 'green-turtle';
+export type SwimRigModel = 'tiger-shark' | 'whale-shark' | 'great-white-shark' | 'scalloped-hammerhead' | 'reef-manta' | 'mola-mola' | 'green-turtle' | 'bottlenose-dolphin';
 
 export const SHARK_BONES = [
   'Root', 'Head', 'Spine1', 'Spine2', 'RearBody', 'TailBase', 'Tail', 'TailUpper', 'TailLower',
@@ -28,6 +28,10 @@ export const SUNFISH_BONES = [
 ] as const;
 export const TURTLE_BONES = [
   'Root', 'Head', 'FrontL1', 'FrontL2', 'FrontR1', 'FrontR2', 'RearL', 'RearR', 'Tail',
+] as const;
+/** Dolphins: the spine chain of the sharks, but `Tail` carries the horizontal flukes, whose tips flex on `FlukeL/R`. */
+export const DOLPHIN_BONES = [
+  'Root', 'Head', 'Spine1', 'Spine2', 'RearBody', 'TailBase', 'Tail', 'FlukeL', 'FlukeR', 'PectoralL', 'PectoralR',
 ] as const;
 export type SharkBone = typeof SHARK_BONES[number];
 export type MantaBone = typeof MANTA_BONES[number];
@@ -51,6 +55,8 @@ export type SharkRig = {
   headAmplitude: number;
   /** Envelope exponent; higher values concentrate the motion in the rear body and tail. */
   envelope: number;
+  /** Share of the swimming sway the head follows (1 unless set); turns still lead with the head. */
+  headSteady?: number;
   /** Extra flex of each caudal lobe (rad) trailing the tail stroke, and the lobes' angles from horizontal. */
   lobes: { upper: number; lower: number; upperAngle: number; lowerAngle: number; lag: number };
   /** Secondary sway of the first dorsal fin (rad). */
@@ -133,7 +139,34 @@ export type TurtleRig = {
   paddle: number;
 };
 
-export type SwimRigSpec = SharkRig | MantaRig | SunfishRig | TurtleRig;
+export type CetaceanRig = {
+  kind: 'cetacean';
+  /** Spine joints from the beak tip (0) to the fluke tips (1): Root/Spine1, Spine2, RearBody, TailBase, Tail (the flukes' root). */
+  joints: readonly [number, number, number, number, number];
+  /** Fluke beats per second at cruising effort. */
+  frequency: number;
+  /** Body wave length in body lengths: long, so the front of the body barely moves. */
+  wavelength: number;
+  /** Vertical excursion in body lengths at the fluke tips, the root joint and the beak. */
+  tailAmplitude: number;
+  rootAmplitude: number;
+  headAmplitude: number;
+  /** Envelope exponent; higher values concentrate the motion in the tail stock and flukes. */
+  envelope: number;
+  /** Extra pitch of the flukes against the stroke (rad), trailing it by `flukeLag`: they angle into each beat. */
+  fluke: number;
+  flukeLag: number;
+  /** Spanwise flex of the fluke tips, trailing the flukes (rad). */
+  flukeFlex: number;
+  /** Pectoral flippers: slight trim with each beat, and responses to turning (per rad/s) and climbing (rad). */
+  pectoral: { flap: number; turn: number; climb: number };
+  /** The body rises and falls a little against the flukes (body lengths). */
+  heave: number;
+  /** Share of the path curvature expressed as a sideways bend when turning. */
+  bend: number;
+};
+
+export type SwimRigSpec = SharkRig | MantaRig | SunfishRig | TurtleRig | CetaceanRig;
 
 /**
  * Species animation configuration. Swimming speed and turning live in
@@ -161,6 +194,14 @@ export const SWIM_RIGS: Record<SwimRigModel, SwimRigSpec> = {
     lobes: { upper: .07, lower: .05, upperAngle: .85, lowerAngle: .85, lag: .8 },
     dorsal: .025, pectoral: { flap: .02, pitch: .025, turn: .6, climb: .3 }, roll: .022, bend: .7,
   },
+  // Agile and a little serpentine: the wave starts earlier in the body than the great white's and swells
+  // toward the long upper lobe, while the wide head (the cephalofoil) stays almost still.
+  'scalloped-hammerhead': {
+    kind: 'shark', joints: [.26, .42, .56, .665, .74], dorsalParent: 'Spine1', dorsalAt: .35,
+    frequency: .52, wavelength: .92, tailAmplitude: .09, rootAmplitude: .005, headAmplitude: .0015, envelope: 1.75, headSteady: .4,
+    lobes: { upper: .14, lower: .06, upperAngle: .6, lowerAngle: 1, lag: 1 },
+    dorsal: .045, pectoral: { flap: .03, pitch: .03, turn: .55, climb: .25 }, roll: .012, bend: .95,
+  },
   // Underwater flight: a flexible sheet with a wave running outward and backward across each wing.
   'reef-manta': {
     kind: 'manta', frequency: .3,
@@ -181,11 +222,18 @@ export const SWIM_RIGS: Record<SwimRigModel, SwimRigSpec> = {
     glideSweep: .62, glideDroop: .1, bout: [2, 3], glide: [2.5, 5.5],
     pitch: .04, bob: .006, head: .07, rudder: .55, paddle: .14,
   },
+  // Up-and-down propulsion: the tail stock heaves the horizontal flukes, which angle into every beat,
+  // while the head and front body stay steady. Quicker beats than any shark.
+  'bottlenose-dolphin': {
+    kind: 'cetacean', joints: [.3, .5, .64, .76, .865], frequency: .78, wavelength: 1.25,
+    tailAmplitude: .075, rootAmplitude: .003, headAmplitude: .004, envelope: 2.9,
+    fluke: .18, flukeLag: 1.2, flukeFlex: .12, pectoral: { flap: .04, turn: .5, climb: .3 }, heave: .004, bend: .85,
+  },
 };
 
 export function rigBones(model: SwimRigModel): readonly string[] {
   const kind = SWIM_RIGS[model].kind;
-  return kind === 'shark' ? SHARK_BONES : kind === 'manta' ? MANTA_BONES : kind === 'sunfish' ? SUNFISH_BONES : TURTLE_BONES;
+  return kind === 'shark' ? SHARK_BONES : kind === 'manta' ? MANTA_BONES : kind === 'sunfish' ? SUNFISH_BONES : kind === 'cetacean' ? DOLPHIN_BONES : TURTLE_BONES;
 }
 
 export type SwimDrive = {
@@ -235,6 +283,7 @@ export function createSwimRig(model: SwimRigModel, phase = 0) {
     if (spec.kind === 'shark') poseShark(spec, state, set, offset);
     else if (spec.kind === 'manta') poseManta(spec, state, set, offset);
     else if (spec.kind === 'sunfish') poseSunfish(spec, state, set, offset);
+    else if (spec.kind === 'cetacean') poseCetacean(spec, state, set, offset);
     else poseTurtle(spec, state, set, offset);
   };
   pose();
@@ -284,14 +333,16 @@ function poseShark(spec: SharkRig, s: RigState, set: SetBone, offset: { x: numbe
   const envelope = (x: number) => x >= root
     ? spec.rootAmplitude + (spec.tailAmplitude - spec.rootAmplitude) * ((x - root) / (1 - root)) ** spec.envelope
     : spec.rootAmplitude + (spec.headAmplitude - spec.rootAmplitude) * ((root - x) / root) ** 2;
-  const lateral = (x: number) => envelope(x) * strength * Math.sin(s.phase - k * (x - root)) + bend * (x - root) ** 2;
+  const sway = (x: number) => envelope(x) * strength * Math.sin(s.phase - k * (x - root));
+  const lateral = (x: number) => sway(x) + bend * (x - root) ** 2;
 
-  // The whole body sways slightly with the root; the head only yaws a little against it.
+  // The whole body sways slightly with the root; the head only yaws a little against it (less still
+  // for a steady-headed species), but leads into turns.
   offset.x = lateral(root);
   offset.y = 0;
   offset.z = 0;
   set('Root', 0, 0, spec.roll * strength * Math.sin(s.phase - k * (.75 - root)));
-  set('Head', 0, Math.atan2(lateral(0) - lateral(root), root), 0);
+  set('Head', 0, Math.atan2((spec.headSteady ?? 1) * (sway(0) - sway(root)) + bend * root * root, root), 0);
   const chain = [root, spine2, rearBody, tailBase, tail, 1];
   const names = ['Spine1', 'Spine2', 'RearBody', 'TailBase', 'Tail'];
   let previous = 0;
@@ -312,6 +363,56 @@ function poseShark(spec: SharkRig, s: RigState, set: SetBone, offset: { x: numbe
   // Pectorals: a slight rhythmic trim, the inside fin dips in a turn, both pitch up to climb.
   const trim = spec.pectoral.flap * Math.sin(s.phase + 1.3);
   const lift = spec.pectoral.pitch * Math.sin(s.phase + 2.2) - spec.pectoral.climb * s.climb;
+  const turn = spec.pectoral.turn * s.turn;
+  set('PectoralL', lift, 0, trim - Math.max(0, turn) + .4 * Math.max(0, -turn));
+  set('PectoralR', lift, 0, -(trim - Math.max(0, -turn) + .4 * Math.max(0, turn)));
+}
+
+/**
+ * The dolphin's stroke is the shark's turned on its side: a traveling wave runs down the body in
+ * the vertical plane, growing toward the flukes, so each spine bone pitches (rotation about X)
+ * instead of yawing and the flukes heave up and down. The flukes also angle into each beat
+ * (trailing the stroke) and their tips flex. The head and front body stay steady; turns add a
+ * sideways C-bend, as a dolphin flexes into a turn.
+ */
+function poseCetacean(spec: CetaceanRig, s: RigState, set: SetBone, offset: { x: number; y: number; z: number }) {
+  const [root, spine2, rearBody, tailBase, tail] = spec.joints;
+  const k = TAU / spec.wavelength;
+  const strength = (.7 + .3 * s.effort) * (1 + .15 * s.climb);
+  const bend = .5 * spec.bend * s.curvature;
+  const envelope = (x: number) => x >= root
+    ? spec.rootAmplitude + (spec.tailAmplitude - spec.rootAmplitude) * ((x - root) / (1 - root)) ** spec.envelope
+    : spec.rootAmplitude + (spec.headAmplitude - spec.rootAmplitude) * ((root - x) / root) ** 2;
+  const vertical = (x: number) => envelope(x) * strength * Math.sin(s.phase - k * (x - root));
+  const lateral = (x: number) => bend * (x - root) ** 2;
+
+  // The body rides a little against the flukes; the head pitches slightly against the root, and leads turns.
+  offset.x = 0;
+  offset.y = vertical(root) - spec.heave * strength * Math.sin(s.phase - k * (1 - root));
+  offset.z = 0;
+  set('Root', 0, 0, 0);
+  set('Head', -Math.atan2(vertical(0) - vertical(root), root), Math.atan2(lateral(0) - lateral(root), root), 0);
+  // Positive pitch raises the bones behind a joint (the tail runs along -Z); positive yaw swings them toward -X.
+  const chain = [root, spine2, rearBody, tailBase, tail, 1];
+  const names = ['Spine1', 'Spine2', 'RearBody', 'TailBase', 'Tail'];
+  let pitched = 0, yawed = 0;
+  for (let i = 0; i < names.length; i++) {
+    const length = chain[i + 1] - chain[i];
+    const pitch = Math.atan2(vertical(chain[i + 1]) - vertical(chain[i]), length);
+    const yaw = -Math.atan2(lateral(chain[i + 1]) - lateral(chain[i]), length);
+    // The flukes add their own angle, trailing the stroke.
+    const extra = names[i] === 'Tail' ? spec.fluke * strength * Math.cos(s.phase - k * (1 - root) - spec.flukeLag) : 0;
+    set(names[i], pitch - pitched + extra, yaw - yawed, 0);
+    pitched = pitch; yawed = yaw;
+  }
+  // Fluke tips: a roll about the body axis raises the left tip for positive values and lowers the right.
+  const flex = spec.flukeFlex * strength * Math.cos(s.phase - k * (1 - root) - spec.flukeLag - .7);
+  set('FlukeL', 0, 0, flex);
+  set('FlukeR', 0, 0, -flex);
+
+  // Flippers: a slight trim with each beat, the inside one dips into a turn, both pitch up to climb.
+  const trim = spec.pectoral.flap * Math.sin(s.phase + 1.1);
+  const lift = -spec.pectoral.climb * s.climb;
   const turn = spec.pectoral.turn * s.turn;
   set('PectoralL', lift, 0, trim - Math.max(0, turn) + .4 * Math.max(0, -turn));
   set('PectoralR', lift, 0, -(trim - Math.max(0, -turn) + .4 * Math.max(0, turn)));

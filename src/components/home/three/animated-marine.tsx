@@ -5,7 +5,7 @@ import { OceanContext } from './ocean-context';
 import { useSceneQuality } from './scene-quality';
 import { prepareUnderwater } from './underwater-material';
 import { attachSwimRig, swimDrive } from './swim-rig-driver';
-import type { MarineMotion } from '@/lib/marine-motion';
+import { MOVEMENT, type MarineMotion } from '@/lib/marine-motion';
 import { SWIM_RIGS, type SwimRigModel } from '@/lib/marine-rigs';
 import { sampleDive } from '@/lib/ocean-depth';
 import type { GLTF } from 'three/examples/jsm/loaders/GLTFLoader.js';
@@ -13,10 +13,10 @@ import { clone } from 'three/examples/jsm/utils/SkeletonUtils.js';
 import { advanceSwimTime, sampleSwimPath, type MarineModel } from '@/lib/swimming';
 
 // World length of each model (the reef manta is measured across its wings).
-const SIZE: Record<MarineModel, number> = { shark: 2.45, manta: 2.25, 'reef-fish': .85, 'whale-shark': 3, 'tiger-shark': 2.45, 'great-white-shark': 2.5, 'reef-manta': 2.2, 'mola-mola': 1.8, 'green-turtle': 1.2 };
+const SIZE: Record<MarineModel, number> = { shark: 2.45, manta: 2.25, 'reef-fish': .85, 'whale-shark': 3, 'tiger-shark': 2.45, 'great-white-shark': 2.5, 'scalloped-hammerhead': 2.25, 'reef-manta': 2.2, 'mola-mola': 1.8, 'green-turtle': 1.2, 'bottlenose-dolphin': 1.55 };
 // The source shark cycle is fast; slower playback gives it a relaxed cruising gait. Species clips
 // (only played if a rig bone is missing) are already baked at their cruising stroke rate.
-const GAIT: Record<MarineModel, number> = { shark: .58, manta: .85, 'reef-fish': .68, 'whale-shark': 1, 'tiger-shark': 1, 'great-white-shark': 1, 'reef-manta': 1, 'mola-mola': 1, 'green-turtle': 1 };
+const GAIT: Record<MarineModel, number> = { shark: .58, manta: .85, 'reef-fish': .68, 'whale-shark': 1, 'tiger-shark': 1, 'great-white-shark': 1, 'scalloped-hammerhead': 1, 'reef-manta': 1, 'mola-mola': 1, 'green-turtle': 1, 'bottlenose-dolphin': 1 };
 const rigModel = (model: MarineModel) => (Object.hasOwn(SWIM_RIGS, model) ? model as SwimRigModel : null);
 
 export function AnimatedMarine({ model, gltf, lane, active, inspect = false, population = 1, motion, onPress }: {
@@ -83,7 +83,7 @@ export function AnimatedMarine({ model, gltf, lane, active, inspect = false, pop
       }
       const y = pose.y + dive.y, v = vertical.current;
       if (dt > 0 && Number.isFinite(v.y)) {
-        const nose = Math.max(-.22, Math.min(.22, (v.y - y) / dt * .35));
+        const nose = Math.max(-.22, Math.min(.22, (v.y - y) / dt * (MOVEMENT[model].pitch ?? .35)));
         v.pitch += (nose - v.pitch) * (1 - Math.exp(-dt * 1.6));
       }
       v.y = y;

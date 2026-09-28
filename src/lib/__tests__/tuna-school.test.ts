@@ -114,6 +114,28 @@ test('a whale shark is flowed around without alarm, and a tiger shark only puts 
   expect(tiger.fear).toBeLessThan(.35);
 });
 
+test('a hammerhead puts the school on alert and scatters the fish it passes close to, but never hunts it; a dolphin causes no alarm', () => {
+  const watch = (model: MarineModel, seed: number) => {
+    const seen = new Set<string>();
+    let fear = 0, alert = 0;
+    const motion = run([model], 1, 300, seed, (_, school) => { seen.add(school.state.mood); fear = Math.max(fear, school.state.fear); alert = Math.max(alert, school.state.alert); });
+    return { seen, fear, alert, hunt: motion.hunt(0) };
+  };
+  for (const seed of [.3, .7]) {
+    const hammer = watch('scalloped-hammerhead', seed), tiger = watch('tiger-shark', seed);
+    expect(hammer.hunt).toBeNull();
+    expect(hammer.seen.has('alert')).toBe(true);
+    expect(hammer.seen.has('panic')).toBe(false);
+    // A stronger startle than a tiger shark's close pass, still short of panic.
+    expect(hammer.fear).toBeGreaterThan(tiger.fear);
+    expect(hammer.fear).toBeLessThan(.5);
+    expect(hammer.alert).toBeGreaterThan(tiger.alert);
+    const dolphin = watch('bottlenose-dolphin', seed);
+    expect([...dolphin.seen]).toEqual(['calm']);
+    expect(dolphin.fear).toBeLessThan(.1);
+  }
+});
+
 test('a great white that does not attack only puts the school on alert', () => {
   GREAT_WHITE_HUNT.attackProbability = 0;
   const seen = new Set<string>();

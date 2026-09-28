@@ -20,6 +20,8 @@ import { buildReefManta } from './species/reef-manta';
 import { buildGreatWhiteShark } from './species/great-white-shark';
 import { buildMolaMola } from './species/mola-mola';
 import { buildGreenTurtle } from './species/green-turtle';
+import { buildScallopedHammerhead } from './species/scalloped-hammerhead';
+import { buildBottlenoseDolphin } from './species/bottlenose-dolphin';
 
 const OUT = resolve(dirname(process.argv[1]), '../../assets/models/marine') + '/';
 
@@ -30,6 +32,8 @@ const SPECIES: Partial<Record<SwimRigModel, { build: () => { mesh: MeshBuilder; 
   'great-white-shark': { build: buildGreatWhiteShark, scientificName: 'Carcharodon carcharias', reference: 'https://www.floridamuseum.ufl.edu/discover-fish/species-profiles/white-shark/' },
   'mola-mola': { build: buildMolaMola, scientificName: 'Mola mola', reference: 'https://www.fisheries.noaa.gov/species/ocean-sunfish' },
   'green-turtle': { build: buildGreenTurtle, scientificName: 'Chelonia mydas', reference: 'https://www.fisheries.noaa.gov/species/green-turtle' },
+  'scalloped-hammerhead': { build: buildScallopedHammerhead, scientificName: 'Sphyrna lewini', reference: 'https://www.floridamuseum.ufl.edu/discover-fish/species-profiles/sphyrna-lewini/' },
+  'bottlenose-dolphin': { build: buildBottlenoseDolphin, scientificName: 'Tursiops truncatus', reference: 'https://www.fisheries.noaa.gov/species/common-bottlenose-dolphin' },
 };
 
 async function main() {

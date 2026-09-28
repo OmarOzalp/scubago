@@ -1,5 +1,5 @@
 import { expect, test } from '@jest/globals';
-import { sampleSwimPath, advanceSwimTime, marineModelFor, pickSwimmers, schoolSpeciesFor, showsPreview, swimmerPages, swimsInSchool, MAX_ANIMATED } from '@/lib/swimming';
+import { sampleSwimPath, advanceSwimTime, marineModelFor, pickSwimmers, schoolSpeciesFor, showsPreview, speciesMarineModel, swimmerPages, swimsInSchool, MAX_ANIMATED } from '@/lib/swimming';
 import { TUNA_SCHOOL } from '@/lib/tuna-school';
 import type { DexEntry, Species } from '@/lib/types';
 
@@ -111,4 +111,21 @@ test('with the school left out, tuna swim as fish again', () => {
   } finally {
     TUNA_SCHOOL.size = size;
   }
+});
+
+test('hammerheads and dolphins swim as their own models; their close relatives borrow them without claiming them', () => {
+  expect(marineModelFor(entry('scalloped-hammerhead', 'shark').species)).toBe('scalloped-hammerhead');
+  expect(marineModelFor(entry('bottlenose-dolphin', 'mammal').species)).toBe('bottlenose-dolphin');
+  // The great hammerhead swims as the scalloped hammerhead, not the generic shark; the spinner dolphin as the bottlenose.
+  expect(marineModelFor(entry('great-hammerhead', 'shark').species)).toBe('scalloped-hammerhead');
+  expect(marineModelFor(entry('spinner-dolphin', 'mammal').species)).toBe('bottlenose-dolphin');
+  // Neither is offered as its own 3D model.
+  expect(speciesMarineModel('great-hammerhead')).toBeNull();
+  expect(speciesMarineModel('spinner-dolphin')).toBeNull();
+  expect(speciesMarineModel('scalloped-hammerhead')).toBe('scalloped-hammerhead');
+  // Other mammals still have no model, so a collection of whales alone is still a preview.
+  expect(marineModelFor(entry('humpback-whale', 'mammal').species)).toBeNull();
+  expect(showsPreview([entry('humpback-whale', 'mammal')])).toBe(true);
+  expect(pickSwimmers([entry('humpback-whale', 'mammal'), entry('spinner-dolphin', 'mammal'), entry('great-hammerhead', 'shark')]).map((s) => s.model))
+    .toEqual(['bottlenose-dolphin', 'scalloped-hammerhead']);
 });

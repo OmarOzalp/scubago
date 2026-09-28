@@ -28,8 +28,9 @@ export const underwaterTintGLSL = (lite: boolean) => `
               float oceanMurk = 1.0 - exp(-max(0.0, vOceanDepth - uOceanUnderwater.x) / uOceanUnderwater.y);
               outgoingLight = mix(outgoingLight, vec3(dot(outgoingLight, vec3(.2126, .7152, .0722))), uOceanUnderwater.w * oceanMurk);
               outgoingLight = mix(outgoingLight, oceanTone, uOceanUnderwater.z * oceanMurk);${lite ? `
-              // The surface layer's own tint (the full ocean draws it over the animals as a separate pass).
-              outgoingLight = mix(outgoingLight, oceanWaterColor(1.8), uOceanOpacity.y * .85);` : ''}`;
+              // The surface layer's own tint (the full ocean draws it over the animals as a separate pass),
+              // below the surface only: a dolphin's fin breaking it stays clear, as in full quality.
+              outgoingLight = mix(outgoingLight, oceanWaterColor(1.8), uOceanOpacity.y * .85 * smoothstep(0.0, .03, vOceanDepth));` : ''}`;
 
 /**
  * Animals share the island's water: below the moving surface they take on its

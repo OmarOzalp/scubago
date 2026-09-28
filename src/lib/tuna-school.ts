@@ -44,11 +44,16 @@ export const TUNA_SCHOOL = {
 
 /**
  * How the school treats each large animal: `threat` 0 is just an obstacle to flow around, up to 1
- * for a hunter; `gap` is the room fish keep from its body (units); `hunts` marks the one species
- * that may charge the school.
+ * for a hunter; `gap` is the room fish keep from its body (units); `startle` is how hard a close pass
+ * frightens the nearest fish, as a share of `threat` (.45 unless set; keep `threat` × `startle` under
+ * .5, where the school panics); `hunts` marks a species that stalks and may charge the school
+ * (GREAT_WHITE_HUNT, below).
  */
-export const SCHOOL_REACTIONS: Record<MarineModel, { threat: number; gap: number; hunts?: boolean }> = {
+export const SCHOOL_REACTIONS: Record<MarineModel, { threat: number; gap: number; startle?: number; hunts?: boolean }> = {
   'great-white-shark': { threat: 1, gap: .4, hunts: true },
+  // A predator the school watches closely, tightening and turning away, and a close pass scatters the
+  // nearest fish; but it does not hunt the school (yet): `hunts: true` would give it the great white's charges.
+  'scalloped-hammerhead': { threat: .75, gap: .4, startle: .55 },
   'tiger-shark': { threat: .6, gap: .38 },
   shark: { threat: .5, gap: .35 },
   'whale-shark': { threat: 0, gap: .3 },
@@ -56,6 +61,8 @@ export const SCHOOL_REACTIONS: Record<MarineModel, { threat: number; gap: number
   manta: { threat: 0, gap: .22 },
   'mola-mola': { threat: 0, gap: .25 },
   'green-turtle': { threat: 0, gap: .15 },
+  // Not a threat to the school: the fish make room and flow around it.
+  'bottlenose-dolphin': { threat: 0, gap: .28 },
   'reef-fish': { threat: 0, gap: .08 },
 };
 
@@ -595,7 +602,7 @@ export function createTunaSchool(field: ShoreField, options: { size?: number; se
         }
         if (!reaction.threat) continue;
         // A threat right alongside startles a little, even when it is only passing.
-        fright = Math.max(fright, reaction.threat * .45 * smoothstep(1.05, .7, q) * o.presence);
+        fright = Math.max(fright, reaction.threat * (reaction.startle ?? .45) * smoothstep(1.05, .7, q) * o.presence);
         if (o.charging && o.presence > .3) {
           // A charge: flight for fish near the path it is about to take.
           const s = clamp(lon, -.4, o.speed * 1.1);
