@@ -1,8 +1,9 @@
 import { create } from 'zustand';
 
 import { SITES } from '@/data/sites';
+import { deleteAccount as deleteRemoteAccount } from '@/lib/account';
 import { ensureProfile, getSessionUserId, signOut as authSignOut, usernameForUser } from '@/lib/auth';
-import { claimLocalSightings, initDb, insertSighting, insertUserSite, loadAll } from '@/lib/db';
+import { claimLocalSightings, deleteLocalUserData, initDb, insertSighting, insertUserSite, loadAll } from '@/lib/db';
 import { isFirstOfSpecies } from '@/lib/dex';
 import { getSupabase } from '@/lib/supabase';
 import { syncNow } from '@/lib/sync-service';
@@ -46,6 +47,8 @@ interface AppState {
   addSite: (input: NewSite) => Promise<DiveSite>;
   onSignedIn: (user: { id: string; username: string }) => Promise<void>;
   signOutUser: () => Promise<void>;
+  /** Permanently deletes the signed-in account, its sightings and photos (server and device). Throws on failure. */
+  deleteAccount: () => Promise<void>;
 }
 
 export const useAppStore = create<AppState>((set, get) => ({
@@ -164,6 +167,15 @@ export const useAppStore = create<AppState>((set, get) => ({
       }
     }
     set({ user: null });
+  },
+
+  deleteAccount: async () => {
+    const client = getSupabase();
+    const owner = get().user;
+    if (!client || !owner) return;
+    await deleteRemoteAccount(client, owner.id);
+    await deleteLocalUserData(owner.id);
+    set({ user: null, ...(await loadAll()) });
   },
 }));
 

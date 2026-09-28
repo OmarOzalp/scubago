@@ -74,9 +74,20 @@ checks(section, item, detail, verdict) as (
                and (has_table_privilege('anon', 'public.spatial_ref_sys', 'INSERT,UPDATE,DELETE') or has_table_privilege('authenticated', 'public.spatial_ref_sys', 'INSERT,UPDATE,DELETE'))
               then 'ACTION' else 'ok' end
   union all
-  select 'Functions', 'SECURITY DEFINER functions in public', coalesce(string_agg(p.proname, ', '), 'none'),
+  -- Account deletion (migration 0004): callable when signed in, never anonymously.
+  select 'Functions', 'delete_own_account (in-app account deletion)',
+         case when to_regprocedure('public.delete_own_account()') is null then 'missing: apply migration 0004'
+              when has_function_privilege('anon', 'public.delete_own_account()', 'EXECUTE') then 'callable by anonymous visitors'
+              when not has_function_privilege('authenticated', 'public.delete_own_account()', 'EXECUTE') then 'not callable by signed-in users'
+              else 'signed-in users only' end,
+         case when to_regprocedure('public.delete_own_account()') is not null
+               and not has_function_privilege('anon', 'public.delete_own_account()', 'EXECUTE')
+               and has_function_privilege('authenticated', 'public.delete_own_account()', 'EXECUTE') then 'ok' else 'ACTION' end
+  union all
+  select 'Functions', 'other SECURITY DEFINER functions in public', coalesce(string_agg(p.proname, ', '), 'none'),
          case when count(*) = 0 then 'ok' else 'info' end
-  from pg_proc p join pg_namespace n on n.oid = p.pronamespace where n.nspname = 'public' and p.prosecdef
+  from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+  where n.nspname = 'public' and p.prosecdef and p.proname <> 'delete_own_account'
 )
 select section, item, detail, verdict from checks
 order by case verdict when 'ACTION' then 0 when 'info' then 2 else 1 end, section, item;

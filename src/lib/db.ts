@@ -195,6 +195,12 @@ export async function claimLocalSightings(userId: string, username: string): Pro
   );
 }
 
+/** After the account is deleted: remove that user's own rows (their log and its outbox) from this device. */
+export async function deleteLocalUserData(userId: string): Promise<void> {
+  const d = await getDb();
+  await d.runAsync(`DELETE FROM sightings WHERE user_id = ?`, userId);
+}
+
 /** Upsert pulled remote sightings (and re-mark own pushed rows as synced). */
 export async function upsertSightings(sightings: Sighting[]): Promise<void> {
   if (sightings.length === 0) return;
