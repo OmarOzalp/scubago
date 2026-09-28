@@ -1,3 +1,8 @@
+/** World height the animals swim around while up in the water (their motion adds each one's own offset). */
+export const SWIM_LEVEL = -.92;
+/** How much deeper the bottom of a dive is (units). */
+const DIVE_DEPTH = 1.65;
+
 /** Surface visits are staggered so a growing collection leaves quiet water between animals. */
 export function sampleDive(time: number, lane: number, population: number) {
   const crowding = Math.max(0, Math.min(1, (population - 2) / 6));
@@ -16,7 +21,7 @@ export function sampleDive(time: number, lane: number, population: number) {
     // Even the tallest fin remains under the surface during the shallow phase.
     depth,
     surfacing: phase >= 1 - transition,
-    y: -.92 - depth * 1.65,
+    y: SWIM_LEVEL - depth * DIVE_DEPTH,
     opacity: 1 - smooth(depth),
     visible: depth < .995,
   };

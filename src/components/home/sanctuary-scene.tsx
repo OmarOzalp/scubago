@@ -11,6 +11,7 @@ import { SanctuaryEnvironment } from './three/sanctuary-environment';
 import { useMarineModels } from './three/use-marine-models';
 import { useSceneActive } from '@/hooks/use-scene-active';
 import type { Habitat } from '@/lib/home';
+import { oceanScale } from '@/lib/steering';
 import { pickSwimmers, schoolSpeciesFor, showsPreview, swimmerPages, type MarineModel } from '@/lib/swimming';
 import { TUNA_SCHOOL } from '@/lib/tuna-school';
 import type { DexEntry } from '@/lib/types';
@@ -25,7 +26,7 @@ export const PREVIEW_SWIMMERS: { model: MarineModel; lane: number }[] = [
  * with --clear), every species model visits as the preview, whatever the collection holds.
  */
 const SHOWCASE = process.env.EXPO_PUBLIC_ISLAND_SHOWCASE === '1';
-const SHOWCASE_SWIMMERS = (['whale-shark', 'great-white-shark', 'tiger-shark', 'reef-manta', 'mola-mola', 'green-turtle'] as const)
+const SHOWCASE_SWIMMERS = (['whale-shark', 'great-white-shark', 'tiger-shark', 'reef-manta', 'mola-mola', 'green-turtle', 'scalloped-hammerhead', 'bottlenose-dolphin'] as const)
   .map((model, lane) => ({ model, lane }));
 
 /** A mostly overhead orthographic view gives the island an illustrated 2.5D appearance. */
@@ -54,7 +55,7 @@ export function SanctuaryScene({ habitat, level, residents, paused = false, load
 
   const tuna = TUNA_SCHOOL.size > 0 ? ', and a school of tuna' : '';
   const label = loading ? 'Your island; loading your discoveries' : preview
-    ? `Level ${level} ${habitat} with ${SHOWCASE ? 'six visiting species' : 'a visiting whale shark and reef manta ray'} as a preview${tuna}`
+    ? `Level ${level} ${habitat} with ${SHOWCASE ? `${SHOWCASE_SWIMMERS.length} visiting species` : 'a visiting whale shark and reef manta ray'} as a preview${tuna}`
     : `Level ${level} ${habitat}, home to ${residents.length} discovered species, ${swimmers.length} swimming${tuna}`;
 
   return <View style={styles.scene} accessible accessibilityRole="image" accessibilityLabel={label}>
@@ -62,7 +63,8 @@ export function SanctuaryScene({ habitat, level, residents, paused = false, load
       <Canvas orthographic flat {...(Platform.OS === 'web' ? { dpr: 1.25 } : {})} frameloop={active && !!models && !loading ? 'always' : 'demand'} camera={SCENE_CAMERA}
         gl={{ antialias: Platform.OS === 'web' }}
         onCreated={({ camera }) => camera.lookAt(0, -.15, 0)} style={styles.canvas}>
-        <SceneCamera />
+        {/* The view pulls back as the island levels up and its ocean widens. */}
+        <SceneCamera scale={oceanScale(level)} />
         {__DEV__ && <ScenePerformance ready={!!models && !loading} active={active} />}
         {/* The animals swim inside the island's water, which tints and refracts them. */}
         <SanctuaryEnvironment habitat={habitat} level={level} active={active}>

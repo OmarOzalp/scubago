@@ -1,18 +1,19 @@
 /**
- * Shared shark construction. A species design supplies its own proportions,
- * fin outlines, tail and markings; this module lofts the body, attaches fins
- * so their roots are buried in the skin, paints markings as thin conforming
- * decals and places the swim rig's bones.
+ * Shared shark construction (also used for the dolphin's body). A species design
+ * supplies its own proportions, fin outlines, tail and markings; this module lofts
+ * the body, attaches fins so their roots are buried in the skin, paints markings
+ * as thin conforming decals and places the swim rig's spine bones.
  */
 import { Vector3 } from 'three';
-import type { SharkRig } from '../../../src/lib/marine-rigs';
+import type { CetaceanRig, SharkRig } from '../../../src/lib/marine-rigs';
 import { blendSkins, chainSkin, clamp, curve, eye, fin, MeshBuilder, smoothstep, TAU, type RGB, type Skin } from './kit';
 import type { BoneSpec } from './export';
 
 type Points = readonly (readonly [number, number])[];
 
 export type SharkDesign = {
-  rig: SharkRig;
+  /** The spine joints the body is skinned to (a dolphin's body is lofted the same way). */
+  rig: Pick<SharkRig | CetaceanRig, 'joints'>;
   /** Z of the snout tip; the model origin sits near the center of mass. */
   nose: number;
   /** Axial position where the body loft ends inside the caudal fin. */

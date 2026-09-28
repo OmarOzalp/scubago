@@ -7,13 +7,15 @@ import { createSwimRig, RIG_EULER_ORDER, type SwimDrive, type SwimRigModel } fro
  * heading change bends the body along its path (in body lengths, hence `size`),
  * and rising or sinking through the water column changes stroke strength.
  */
-export function swimDrive(pose: Pick<MarinePose, 'pace' | 'turn' | 'speed' | 'climb'> | undefined, size: number, sink = 0): SwimDrive {
+export function swimDrive(pose: Pick<MarinePose, 'pace' | 'turn' | 'speed' | 'climb'> & Partial<Pick<MarinePose, 'air'>> | undefined, size: number, sink = 0): SwimDrive {
   const turn = pose?.turn ?? 0;
   return {
     effort: pose?.pace ?? 1,
     turn,
     curvature: turn / Math.max(pose?.speed ?? .3, .05) * size,
     climb: Math.max(-1, Math.min(1, (pose?.climb ?? 0) * .5 - sink * 2)),
+    // Out of the water (a leap), the stroke stills and the body stretches out.
+    air: pose?.air ?? 0,
   };
 }
 

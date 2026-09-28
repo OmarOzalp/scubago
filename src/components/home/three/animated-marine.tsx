@@ -5,22 +5,24 @@ import { OceanContext } from './ocean-context';
 import { useSceneQuality } from './scene-quality';
 import { prepareUnderwater } from './underwater-material';
 import { attachSwimRig, swimDrive } from './swim-rig-driver';
-import type { MarineMotion } from '@/lib/marine-motion';
+import { MARINE_SIZE, tapTarget } from './tap-target';
+import { MOVEMENT, type MarineMotion } from '@/lib/marine-motion';
 import { SWIM_RIGS, type SwimRigModel } from '@/lib/marine-rigs';
 import { sampleDive } from '@/lib/ocean-depth';
 import type { GLTF } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { clone } from 'three/examples/jsm/utils/SkeletonUtils.js';
 import { advanceSwimTime, sampleSwimPath, type MarineModel } from '@/lib/swimming';
 
-// World length of each model (the reef manta is measured across its wings).
-const SIZE: Record<MarineModel, number> = { shark: 2.45, manta: 2.25, 'reef-fish': .85, 'whale-shark': 3, 'tiger-shark': 2.45, 'great-white-shark': 2.5, 'reef-manta': 2.2, 'mola-mola': 1.8, 'green-turtle': 1.2 };
+const SIZE: Record<MarineModel, number> = MARINE_SIZE;
 // The source shark cycle is fast; slower playback gives it a relaxed cruising gait. Species clips
 // (only played if a rig bone is missing) are already baked at their cruising stroke rate.
-const GAIT: Record<MarineModel, number> = { shark: .58, manta: .85, 'reef-fish': .68, 'whale-shark': 1, 'tiger-shark': 1, 'great-white-shark': 1, 'reef-manta': 1, 'mola-mola': 1, 'green-turtle': 1 };
+const GAIT: Record<MarineModel, number> = { shark: .58, manta: .85, 'reef-fish': .68, 'whale-shark': 1, 'tiger-shark': 1, 'great-white-shark': 1, 'scalloped-hammerhead': 1, 'reef-manta': 1, 'mola-mola': 1, 'green-turtle': 1, 'bottlenose-dolphin': 1 };
 const rigModel = (model: MarineModel) => (Object.hasOwn(SWIM_RIGS, model) ? model as SwimRigModel : null);
 
-export function AnimatedMarine({ model, gltf, lane, active, inspect = false, population = 1, motion, onPress }: {
+export function AnimatedMarine({ model, gltf, lane, active, inspect = false, population = 1, motion, onPress, tapScale = 1 }: {
   model: MarineModel; gltf: GLTF; lane: number; active: boolean; inspect?: boolean; population?: number; motion?: MarineMotion; onPress?: () => void;
+  /** How much farther the camera has pulled back (the ocean's scale), so tap targets keep their size on screen. */
+  tapScale?: number;
 }) {
   // The island's water (absent in the close-up), so the animal tints and refracts with the same waves.
   const ocean = useContext(OceanContext);
@@ -43,9 +45,11 @@ export function AnimatedMarine({ model, gltf, lane, active, inspect = false, pop
     return rig?.complete ? rig : null;
   }, [instance, model, lane]);
   const mixer = useMemo(() => new AnimationMixer(instance), [instance]);
+  // Slender animals get an invisible tap target over their body that moves (and leaps) with them.
+  const target = useMemo(() => (inspect || !onPress ? null : tapTarget(instance, SIZE[model], tapScale)), [instance, inspect, onPress, model, tapScale]);
   const group = useRef<Group>(null);
   const elapsed = useRef(0);
-  // Pitch follows the actual rise and fall through the water, eased so it never snaps.
+  // Without a shared motion, pitch follows the rise and fall through the water, eased so it never snaps.
   const vertical = useRef({ y: NaN, pitch: 0 });
 
   useEffect(() => {
@@ -74,16 +78,19 @@ export function AnimatedMarine({ model, gltf, lane, active, inspect = false, pop
       group.current.rotation.set(.04, yaw, -.04);
     } else {
       const pose = swimming ?? sampleSwimPath(next, lane);
-      // Dive on the school's clock, which is what the others follow when making room for this animal.
+      // Dive on the school's clock, which is what the others follow when making room for this animal (a
+      // group member dives with its group).
       const clock = motion ? motion.clock() : next;
-      const dive = sampleDive(clock, lane, population);
+      const dive = motion ? motion.dive(lane, clock) : sampleDive(clock, lane, population);
       if (swimRig && dt > 0) {
-        const sink = (sampleDive(clock - dt, lane, population).y - dive.y) / dt;
+        const sink = ((motion ? motion.dive(lane, clock - dt) : sampleDive(clock - dt, lane, population)).y - dive.y) / dt;
         swimRig.update(dt, swimDrive(swimming, SIZE[model], sink));
       }
       const y = pose.y + dive.y, v = vertical.current;
-      if (dt > 0 && Number.isFinite(v.y)) {
-        const nose = Math.max(-.22, Math.min(.22, (v.y - y) / dt * .35));
+      // The shared motion pitches the body along its path (a leap included); on its own, from its rise and fall.
+      if (swimming) v.pitch = swimming.pitch;
+      else if (dt > 0 && Number.isFinite(v.y)) {
+        const nose = Math.max(-.22, Math.min(.22, (v.y - y) / dt * (MOVEMENT[model].pitch ?? .35)));
         v.pitch += (nose - v.pitch) * (1 - Math.exp(-dt * 1.6));
       }
       v.y = y;
@@ -97,8 +104,11 @@ export function AnimatedMarine({ model, gltf, lane, active, inspect = false, pop
   });
 
   const pose = motion?.get(lane) ?? sampleSwimPath(0, lane);
-  const dive = sampleDive(0, lane, population);
-  return <group ref={group} position={inspect ? [0, .2, 0] : [pose.x, pose.y + dive.y, pose.z]} rotation={[0, inspect ? -1.05 : pose.heading, 0]} scale={inspect ? 4.5 : SIZE[model]} onClick={(event) => { if (onPress && group.current?.visible && sampleDive(motion ? motion.clock() : elapsed.current, lane, population).opacity > .2) { event.stopPropagation(); onPress(); } }}>
+  const dive = motion ? motion.dive(lane, 0) : sampleDive(0, lane, population);
+  return <group ref={group} position={inspect ? [0, .2, 0] : [pose.x, pose.y + dive.y, pose.z]} rotation={[0, inspect ? -1.05 : pose.heading, 0]} scale={inspect ? 4.5 : SIZE[model]} onClick={(event) => { if (onPress && group.current?.visible && (motion ? motion.dive(lane) : sampleDive(elapsed.current, lane, population)).opacity > .2) { event.stopPropagation(); onPress(); } }}>
     <primitive object={instance} dispose={null} />
+    {target && <mesh visible={false} position={[target.x, target.y, target.z]} rotation={[-Math.PI / 2, 0, 0]} scale={[target.halfWidth, target.halfLength, 1]}>
+      <circleGeometry args={[1, 16]} />
+    </mesh>}
   </group>;
 }

@@ -15,11 +15,12 @@ every species in the catalog. No texture downloads are required at runtime.
 
 ## Species batch v2
 
-`tiger-shark.glb`, `whale-shark.glb`, `great-white-shark.glb` and `reef-manta.glb`
-use original procedural geometry, vertex-painted markings and species-specific
-bone hierarchies authored for this project in `scripts/art/build-species.ts`
-(Node + three.js; reproduce with `npm run build:species`). No third-party textures
-or model geometry are included in these four assets; the reef manta no longer
-adapts the Quaternius mesh. Anatomy references are linked in
+`tiger-shark.glb`, `whale-shark.glb`, `great-white-shark.glb`, `reef-manta.glb`,
+`mola-mola.glb`, `green-turtle.glb`, `scalloped-hammerhead.glb` and
+`bottlenose-dolphin.glb` use original procedural geometry, vertex-painted markings
+and species-specific bone hierarchies authored for this project in
+`scripts/art/build-species.ts` (Node + three.js; reproduce with
+`npm run build:species`). No third-party textures or model geometry are included in
+these assets; the reef manta no longer adapts the Quaternius mesh. Anatomy references are linked in
 `docs/marine-species-art.md`; no reference photographs are embedded in these GLBs.
 These species assets are stylized drafts awaiting human anatomy and art review.

@@ -4,7 +4,7 @@
  */
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { Box3, Group, Mesh, OrthographicCamera, Raycaster, ShaderLib, Vector2, Vector3 } from 'three';
+import { Box3, CircleGeometry, Group, Mesh, OrthographicCamera, Raycaster, ShaderLib, Vector2, Vector3 } from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { clone } from 'three/examples/jsm/utils/SkeletonUtils.js';
 import { createOceanUniforms } from '../src/components/home/three/ocean-mesh.ts';
@@ -12,11 +12,13 @@ import { prepareUnderwater } from '../src/components/home/three/underwater-mater
 import { createSchoolHitArea, SCHOOL_HIT_DEPTH } from '../src/components/home/three/school-hit-area.ts';
 import { createSchoolMaterial } from '../src/components/home/three/school-material.ts';
 import { createTunaGeometry } from '../src/components/home/three/tuna-geometry.ts';
+import { MARINE_SIZE, MIN_TAP, tapTarget } from '../src/components/home/three/tap-target.ts';
+import { oceanScale } from '../src/lib/steering.ts';
 import { createMarineMotion } from '../src/lib/marine-motion.ts';
 import { sampleDive } from '../src/lib/ocean-depth.ts';
 
 const ocean = createOceanUniforms('island');
-const MODELS = ['shark', 'manta', 'reef-fish', 'whale-shark', 'tiger-shark', 'great-white-shark', 'reef-manta', 'mola-mola', 'green-turtle'];
+const MODELS = ['shark', 'manta', 'reef-fish', 'whale-shark', 'tiger-shark', 'great-white-shark', 'scalloped-hammerhead', 'reef-manta', 'mola-mola', 'green-turtle', 'bottlenose-dolphin'];
 const loadModel = async (name) => {
   const bytes = readFileSync(new URL(`../assets/models/marine/${name}.glb`, import.meta.url));
   return new GLTFLoader().parseAsync(bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength), '');
@@ -165,4 +167,50 @@ for (const lite of [false, true]) {
   assert(lowest > SCHOOL_HIT_DEPTH + 1, `an animal reaches y ${lowest.toFixed(2)}, too near the school's tap target at ${SCHOOL_HIT_DEPTH}`);
   hit.dispose();
   console.log(`tuna school tap target: ${along.toFixed(0)} x ${wide.toFixed(0)} pt over ${under}/${school.size} fish, missed beside the school, behind every animal (lowest reaches y ${lowest.toFixed(2)}, target at ${SCHOOL_HIT_DEPTH})`);
+}
+
+// Slender animals' tap targets (tap-target.ts): an invisible oval over the body, at least 28 pt across
+// on a phone at the first level's zoom and at the last level's (the camera pulls back as the ocean
+// grows), reaching beside the body but not far past the target, and moving with the animal: a dolphin
+// pitched nose up, out of the water in a leap, is tapped on its body just the same.
+{
+  const width = 390, height = 362, raycaster = new Raycaster();
+  for (const level of [1, 6]) {
+    const scale = oceanScale(level);
+    const camera = new OrthographicCamera(-width / 2, width / 2, height / 2, -height / 2, .1, 60);
+    camera.position.set(0, 12, 6);
+    camera.zoom = Math.min(width, height) / (10.8 * scale);
+    camera.lookAt(0, -.15, 0);
+    camera.updateProjectionMatrix();
+    camera.updateMatrixWorld();
+    const screen = (p) => { const v = p.clone().project(camera); return new Vector2(v.x, v.y); };
+    const hits = (p, mesh) => { raycaster.setFromCamera(screen(p), camera); return raycaster.intersectObject(mesh).length > 0; };
+    for (const name of ['bottlenose-dolphin', 'reef-fish']) {
+      const size = MARINE_SIZE[name], instance = clone((await loadModel(name)).scene), target = tapTarget(instance, size, scale);
+      assert(target, `${name}: slender, so it gets a tap target`);
+      for (const [pitch, y] of [[0, -.8], [-1, .2]]) {
+        const group = new Group().add(instance);
+        const mesh = new Mesh(new CircleGeometry(1, 16));
+        mesh.visible = false;
+        mesh.position.set(target.x, target.y, target.z); mesh.rotation.set(-Math.PI / 2, 0, 0); mesh.scale.set(target.halfWidth, target.halfLength, 1);
+        group.add(mesh);
+        group.position.set(1.4, y, .9); group.rotation.set(pitch, .7, 0, 'YXZ'); group.scale.setScalar(size);
+        group.updateMatrixWorld(true);
+        const middle = group.localToWorld(new Vector3(target.x, target.y, target.z));
+        const side = (d) => group.localToWorld(new Vector3(target.x + d / size, target.y, target.z));
+        assert(hits(middle, mesh), `${name}: a tap on the middle of its body misses (level ${level}, pitch ${pitch})`);
+        assert(hits(side(MIN_TAP * scale - .04), mesh), `${name}: a tap just beside its body misses (level ${level}, pitch ${pitch})`);
+        assert(!hits(side(MIN_TAP * scale + .3), mesh), `${name}: its tap target reaches too far (level ${level})`);
+        if (pitch === 0) {
+          const across = screen(side(-target.halfWidth * size)).distanceTo(screen(side(target.halfWidth * size))) / 2 * width;
+          assert(across >= 28 - .5, `${name}: tap target ${across.toFixed(1)} pt across at level ${level}`);
+          console.log(`${name} at level ${level}: tap target ${across.toFixed(0)} pt across, on the body, following it (pitched and in the air too)`);
+        }
+        group.remove(instance);
+        mesh.geometry.dispose();
+      }
+    }
+    // Large animals are tapped on their bodies alone.
+    for (const name of ['whale-shark', 'reef-manta', 'great-white-shark']) assert.equal(tapTarget(clone((await loadModel(name)).scene), MARINE_SIZE[name], scale), null, `${name}: needs no tap target`);
+  }
 }
