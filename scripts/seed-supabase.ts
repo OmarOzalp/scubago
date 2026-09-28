@@ -1,7 +1,8 @@
 /**
  * Seed the remote species catalog and curated dive sites.
- * Run: SUPABASE_URL=... SUPABASE_SERVICE_ROLE_KEY=... npm run seed:supabase
- * (service-role key bypasses RLS; never commit it, never use it in the app.)
+ * Run: SUPABASE_URL=... SUPABASE_SECRET_KEY=... npm run seed:supabase
+ * The secret key (sb_secret_…, or the legacy service_role key as SUPABASE_SERVICE_ROLE_KEY)
+ * bypasses RLS: pass it only on the command line, never commit it, never use it in the app.
  *
  * Relative imports on purpose: tsx doesn't get the app's `@/` alias here, and the
  * data files' own `@/lib/types` imports are type-only so they erase at runtime.
@@ -11,11 +12,16 @@ import { createClient } from '@supabase/supabase-js';
 import { SITES } from '../src/data/sites';
 import photos from '../src/data/species-photos.json';
 import { SPECIES } from '../src/data/species';
+import { classifySupabaseKey, isPrivilegedKey } from '../src/lib/supabase-env';
 
-const url = process.env.SUPABASE_URL;
-const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+const url = process.env.SUPABASE_URL ?? process.env.EXPO_PUBLIC_SUPABASE_URL;
+const serviceKey = process.env.SUPABASE_SECRET_KEY ?? process.env.SUPABASE_SERVICE_ROLE_KEY;
 if (!url || !serviceKey) {
-  console.error('Set SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY');
+  console.error('Set SUPABASE_URL and SUPABASE_SECRET_KEY (or the legacy SUPABASE_SERVICE_ROLE_KEY)');
+  process.exit(1);
+}
+if (!isPrivilegedKey(classifySupabaseKey(serviceKey))) {
+  console.error('Seeding writes the catalog, which only the secret (or legacy service_role) key may do; the publishable key is read-only here.');
   process.exit(1);
 }
 

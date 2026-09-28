@@ -61,7 +61,9 @@
     "verify:underwater": "tsx scripts/verify-underwater.mjs",
     "verify:ocean": "tsx scripts/verify-ocean.mjs",
     "build:species": "tsx scripts/art/build-species.ts",
-    "seed:supabase": "tsx scripts/seed-supabase.ts"
+    "seed:supabase": "tsx scripts/seed-supabase.ts",
+    "check:env": "tsx scripts/check-public-env.ts",
+    "eas-build-post-install": "tsx scripts/check-public-env.ts --eas"
   },
   "private": true,
   "jest": {
