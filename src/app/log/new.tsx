@@ -70,6 +70,10 @@ export default function LogSightingScreen() {
     const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ['images'],
       quality: 0.7,
+      // iOS hands over a JPEG instead of the original HEIC, which the picker then re-encodes: that
+      // drops the photo's metadata, including where it was taken, before it can reach the public
+      // photo bucket. (By default an iPhone HEIC photo is passed through byte for byte, GPS and all.)
+      preferredAssetRepresentationMode: ImagePicker.UIImagePickerPreferredAssetRepresentationMode.Compatible,
     });
     if (!result.canceled && result.assets[0]) setPhotoUri(result.assets[0].uri);
   };
