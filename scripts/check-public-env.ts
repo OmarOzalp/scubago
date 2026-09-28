@@ -14,25 +14,12 @@ import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
 import { join, relative } from 'node:path';
 
 import { checkSupabaseConfig, classifySupabaseKey, isPrivilegedKey } from '../src/lib/supabase-env';
+import { envSources, supabaseSettings } from './lib/env-files';
 
 const root = join(__dirname, '..');
 const eas = process.argv.includes('--eas') || process.env.EAS_BUILD === 'true';
 const profile = process.env.EAS_BUILD_PROFILE ?? '';
 const errors: string[] = [], warnings: string[] = [];
-
-/** Parse KEY=value lines (quotes stripped, comments ignored). */
-function parseEnvFile(text: string): Record<string, string> {
-  const values: Record<string, string> = {};
-  for (const line of text.split(/\r?\n/)) {
-    const match = /^\s*(?:export\s+)?([A-Za-z_][A-Za-z0-9_]*)\s*=\s*(.*)\s*$/.exec(line);
-    if (!match) continue;
-    let value = match[2];
-    if (/^(['"]).*\1$/.test(value)) value = value.slice(1, -1);
-    else value = value.replace(/\s+#.*$/, '');
-    values[match[1]] = value;
-  }
-  return values;
-}
 
 /** Why a value must not ship, or null. */
 function danger(value: string): string | null {
@@ -45,11 +32,7 @@ function danger(value: string): string | null {
 const SECRET_NAME = /SERVICE_ROLE|SECRET|PRIVATE|PASSWORD|DATABASE_URL|DB_URL/i;
 
 // 1. Everything that will be compiled into the app: EXPO_PUBLIC_* from the environment and .env files.
-const sources: { origin: string; values: Record<string, string | undefined> }[] = [{ origin: 'environment', values: process.env }];
-for (const name of readdirSync(root)) {
-  if (!/^\.env(\..+)?$/.test(name) || name === '.env.example' || !statSync(join(root, name)).isFile()) continue;
-  sources.push({ origin: name, values: parseEnvFile(readFileSync(join(root, name), 'utf8')) });
-}
+const sources = envSources(root);
 for (const { origin, values } of sources) {
   for (const [name, value] of Object.entries(values)) {
     if (!name.startsWith('EXPO_PUBLIC_') || !value) continue;
@@ -90,9 +73,7 @@ for (const path of [join(root, 'app.json'), ...files(join(root, 'src'))]) {
 
 // 4. Preview and production builds need their backend. Locally, .env files fill in what the
 //    environment doesn't set (as Expo CLI does); .env.local wins over .env.
-const setting = (name: string) => process.env[name] || sources.find((s) => s.origin === '.env.local')?.values[name] || sources.find((s) => s.origin === '.env')?.values[name];
-const url = setting('EXPO_PUBLIC_SUPABASE_URL');
-const key = setting('EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY') || setting('EXPO_PUBLIC_SUPABASE_ANON_KEY');
+const { url, key } = supabaseSettings(sources);
 const config = checkSupabaseConfig(url, key);
 if (config.status === 'invalid-url') errors.push(`EXPO_PUBLIC_SUPABASE_URL must be https://<project-ref>.supabase.co (got "${config.url}").`);
 if (eas && config.status === 'unconfigured') {

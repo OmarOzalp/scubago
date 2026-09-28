@@ -63,7 +63,8 @@
     "build:species": "tsx scripts/art/build-species.ts",
     "seed:supabase": "tsx scripts/seed-supabase.ts",
     "check:env": "tsx scripts/check-public-env.ts",
-    "eas-build-post-install": "tsx scripts/check-public-env.ts --eas"
+    "eas-build-post-install": "tsx scripts/check-public-env.ts --eas",
+    "check:supabase": "tsx scripts/check-supabase.ts"
   },
   "private": true,
   "jest": {
