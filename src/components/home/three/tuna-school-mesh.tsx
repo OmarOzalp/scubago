@@ -1,19 +1,21 @@
 import { useContext, useEffect, useMemo } from 'react';
-import { useFrame } from '@react-three/fiber';
+import { useFrame, type ThreeEvent } from '@react-three/fiber';
 import { DynamicDrawUsage, Euler, InstancedBufferAttribute, InstancedMesh, Matrix4, Quaternion, Vector3 } from 'three';
 import { TUNA_SCHOOL, type TunaSchool } from '@/lib/tuna-school';
 import { createOceanUniforms } from './ocean-mesh';
 import { OceanContext } from './ocean-context';
 import { useSceneQuality } from './scene-quality';
+import { createSchoolHitArea } from './school-hit-area';
 import { createSchoolMaterial } from './school-material';
 import { createTunaGeometry } from './tuna-geometry';
 
 /**
  * The tuna school, drawn as one instanced mesh (a single draw call): each frame copies the
  * simulation's poses (src/lib/tuna-school.ts, stepped by the marine motion before this runs) into
- * the instance matrices and the per-fish swim attribute. No allocation per frame.
+ * the instance matrices and the per-fish swim attribute. No allocation per frame. With `onPress`,
+ * the school is one tap target (the fish themselves are never hit-tested).
  */
-export function TunaSchoolMesh({ school }: { school: TunaSchool }) {
+export function TunaSchoolMesh({ school, onPress }: { school: TunaSchool; onPress?: () => void }) {
   const ocean = useContext(OceanContext);
   const lite = useSceneQuality() === 'lite';
   const view = useMemo(() => {
@@ -51,5 +53,20 @@ export function TunaSchoolMesh({ school }: { school: TunaSchool }) {
   useEffect(() => () => view.dispose(), [view]);
   useFrame(() => view.update());
 
-  return <primitive object={view.mesh} dispose={null} />;
+  return <>
+    <primitive object={view.mesh} dispose={null} />
+    {onPress && <SchoolHitArea school={school} onPress={onPress} />}
+  </>;
+}
+
+/**
+ * Tapping the school: one invisible oval over it (school-hit-area.ts), following its hit area each
+ * frame. It lies below every animal, so an animal over the school is nearer and takes the tap (the
+ * animals stop it there, see animated-marine.tsx). The tap only calls `onPress`: the fish never notice.
+ */
+function SchoolHitArea({ school, onPress }: { school: TunaSchool; onPress: () => void }) {
+  const hit = useMemo(() => createSchoolHitArea(), []);
+  useEffect(() => () => hit.dispose(), [hit]);
+  useFrame(({ camera }) => hit.update(school.hitArea, camera));
+  return <primitive object={hit.mesh} dispose={null} onClick={(event: ThreeEvent<MouseEvent>) => { event.stopPropagation(); onPress(); }} />;
 }

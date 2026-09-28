@@ -34,6 +34,12 @@ export const TUNA_SCHOOL = {
   panicFade: 1.4, regroupTime: 7,
   /** Tail beats per second at cruising speed (faster when fleeing). */
   tailBeat: 2.4,
+  /**
+   * The school's tap target: an oval over the fish reaching twice their spread each way from their
+   * middle, plus this padding (units), with half-sizes kept between these (units): the smallest is
+   * comfortable under a finger, the largest never covers much more than the school.
+   */
+  hitPadding: .35, hitSize: [.85, 2.2] as const,
 };
 
 /**
@@ -96,6 +102,13 @@ const LOOKS = [.35, .7, 1];
 const LEVEL = -.94;
 /** Islets are small sandbars: fish may pass them this much closer than the main island (units). */
 const ISLET_ALLOWANCE = .45;
+/** How much farther up the screen a point appears per unit higher in the water (see apparentShift()). */
+const SLANT = apparentShift(0) - apparentShift(1);
+/**
+ * How far around its anchor fish the tap target gathers the school's main body (units): fish beyond
+ * are stragglers, or the other part of a split school, and the target does not stretch to them.
+ */
+const HIT_STRAY = 2.5;
 /** Tail phases wrap at a multiple of a full beat, so they stay precise as 32-bit floats. */
 const PHASE_WRAP = TAU * 64;
 /** Where fish start turning back from the frame (its edge measure), tested as a sixth power without roots. */
@@ -287,6 +300,64 @@ export function createTunaSchool(field: ShoreField, options: { size?: number; se
     for (let i = 0; i < n; i++) rejoin[i] = 0;
     lead.reseats++;
   }
+
+  /**
+   * Where a tap selects the school (tuna-school-mesh.tsx lays its one tap target over this): an oval
+   * where the camera shows the fish at the school's depth, over the main body of the school (the
+   * larger part if it splits, stragglers aside), turned along its longest spread and reaching twice
+   * its spread each way plus `hitPadding`, kept within `hitSize`. Measured from the published poses,
+   * so it follows the school through every mood; no allocation.
+   */
+  const hitArea = { x: 0, y: T.depth, z: 0, heading: 0, along: 0, across: 0 };
+  /** The fish the tap target is built around, and how many fish are within HIT_STRAY of each (refreshed each step). */
+  let hitAnchor = 0;
+  const hitCounts = new Uint16Array(n);
+  /**
+   * The fish with the most others near it: in the thick of the school, and in its larger part when it
+   * splits. Kept until another fish is clearly more central, so the target never flickers between two
+   * halves of a school.
+   */
+  const pickHitAnchor = () => {
+    hitCounts.fill(0);
+    for (let i = 0; i < n; i++) {
+      for (let j = i + 1; j < n; j++) {
+        if ((x[i] - x[j]) ** 2 + (z[i] - z[j]) ** 2 < HIT_STRAY * HIT_STRAY) { hitCounts[i]++; hitCounts[j]++; }
+      }
+    }
+    let best = hitAnchor;
+    for (let i = 0; i < n; i++) if (hitCounts[i] > hitCounts[best]) best = i;
+    if (hitCounts[best] > hitCounts[hitAnchor] + 2) hitAnchor = best;
+  };
+  /** The mean position of the fish within HIT_STRAY of (sx, sz), written into `middle`. */
+  const middle = { x: 0, y: 0, z: 0, count: 0 };
+  const within = (i: number, sx: number, sz: number) => (pose.x[i] - sx) ** 2 + (pose.z[i] - sz) ** 2 <= HIT_STRAY * HIT_STRAY;
+  const gather = (sx: number, sz: number) => {
+    let count = 0, mx = 0, my = 0, mz = 0;
+    for (let i = 0; i < n; i++) if (within(i, sx, sz)) { count++; mx += pose.x[i]; my += pose.y[i]; mz += pose.z[i]; }
+    // Never empty: the anchor is within reach of both points gathered around (its own place, and a mean of fish within its reach).
+    middle.x = mx / count; middle.y = my / count; middle.z = mz / count; middle.count = count;
+  };
+  const measureHitArea = () => {
+    // The middle of the fish around the anchor, then of those around that: a step into the densest part.
+    gather(pose.x[hitAnchor], pose.z[hitAnchor]);
+    gather(middle.x, middle.z);
+    const cx = middle.x, cy = middle.y, cz = middle.z;
+    // Their spread as the camera shows it: a fish higher in the water appears farther up the screen.
+    let xx = 0, xz = 0, zz = 0;
+    for (let i = 0; i < n; i++) {
+      if (!within(i, cx, cz)) continue;
+      const dx = pose.x[i] - cx, dz = pose.z[i] - cz - (pose.y[i] - cy) * SLANT;
+      xx += dx * dx; xz += dx * dz; zz += dz * dz;
+    }
+    xx /= middle.count; xz /= middle.count; zz /= middle.count;
+    // Spread along the school and across it (their squares are mid ± half), and the longest spread's
+    // direction as a heading (0 along +z, like the fish's).
+    const mid = (xx + zz) / 2, half = Math.sqrt(((xx - zz) / 2) ** 2 + xz * xz);
+    hitArea.x = cx; hitArea.y = cy; hitArea.z = cz;
+    hitArea.heading = Math.PI / 2 - Math.atan2(2 * xz, xx - zz) / 2;
+    hitArea.along = clamp(2 * Math.sqrt(mid + half) + T.hitPadding, T.hitSize[0], T.hitSize[1]);
+    hitArea.across = clamp(2 * Math.sqrt(Math.max(0, mid - half)) + T.hitPadding, T.hitSize[0], T.hitSize[1]);
+  };
 
   /** Animals near enough to matter this step (indices into the list passed to step()), and their headings' sine and cosine. */
   const near: number[] = [], nearHX: number[] = [], nearHZ: number[] = [];
@@ -614,6 +685,26 @@ export function createTunaSchool(field: ShoreField, options: { size?: number; se
     }
   }
 
+  /** Poses between the last two steps (t in 0..1), written into `pose`, and the tap target over them. */
+  function publish(t: number) {
+    for (let i = 0; i < n; i++) {
+      pose.x[i] = prevX[i] + (x[i] - prevX[i]) * t;
+      pose.y[i] = prevY[i] + (y[i] - prevY[i]) * t;
+      pose.z[i] = prevZ[i] + (z[i] - prevZ[i]) * t;
+      pose.heading[i] = prevHeading[i] + wrapAngle(heading[i] - prevHeading[i]) * t;
+      pose.pitch[i] = pitch[i];
+      pose.roll[i] = clamp(-turn[i] * .12, -.45, .45);
+      pose.bend[i] = clamp(turn[i] * .07, -.22, .22);
+      const beat = phase[i] - prevPhase[i];
+      pose.phase[i] = prevPhase[i] + (beat < 0 ? beat + PHASE_WRAP : beat) * t;
+      pose.amp[i] = amp[i];
+    }
+    measureHitArea();
+  }
+  // Where the fish start, for a first frame drawn before the school has stepped.
+  pickHitAnchor();
+  publish(1);
+
   return {
     size: n,
     state,
@@ -622,6 +713,8 @@ export function createTunaSchool(field: ShoreField, options: { size?: number; se
     sizes,
     /** The point the school follows (for tuning overlays). */
     lead: lead as Readonly<typeof lead>,
+    /** Where a tap selects the school, updated with each published pose (world units; see `hitArea` above). */
+    hitArea: hitArea as Readonly<typeof hitArea>,
     /** One step of `dt` seconds among `animals`, the large animals as they are now. */
     step(dt: number, animals: readonly SchoolNeighbor[]) {
       time += dt;
@@ -645,6 +738,7 @@ export function createTunaSchool(field: ShoreField, options: { size?: number; se
       steerLead(dt, animals);
       advanceLead(dt);
       advanceFish(dt, animals);
+      pickHitAnchor();
       let fear = 0;
       for (let i = 0; i < n; i++) fear = Math.max(fear, panic[i]);
       state.fear = fear;
@@ -654,21 +748,8 @@ export function createTunaSchool(field: ShoreField, options: { size?: number; se
       state.scare = state.sinceScare >= T.regroupTime ? 0 : Math.max(state.scare, fear);
       state.mood = panicking ? 'panic' : state.sinceScare < T.regroupTime ? 'recover' : state.alert > (state.mood === 'alert' ? .12 : .25) ? 'alert' : 'calm';
     },
-    /** Poses between the last two steps (t in 0..1), written into `pose`. */
-    publish(t: number) {
-      for (let i = 0; i < n; i++) {
-        pose.x[i] = prevX[i] + (x[i] - prevX[i]) * t;
-        pose.y[i] = prevY[i] + (y[i] - prevY[i]) * t;
-        pose.z[i] = prevZ[i] + (z[i] - prevZ[i]) * t;
-        pose.heading[i] = prevHeading[i] + wrapAngle(heading[i] - prevHeading[i]) * t;
-        pose.pitch[i] = pitch[i];
-        pose.roll[i] = clamp(-turn[i] * .12, -.45, .45);
-        pose.bend[i] = clamp(turn[i] * .07, -.22, .22);
-        const beat = phase[i] - prevPhase[i];
-        pose.phase[i] = prevPhase[i] + (beat < 0 ? beat + PHASE_WRAP : beat) * t;
-        pose.amp[i] = amp[i];
-      }
-    },
+    /** Poses between the last two steps (t in 0..1), written into `pose`, and the tap target over them. */
+    publish,
   };
 }
 export type TunaSchool = ReturnType<typeof createTunaSchool>;

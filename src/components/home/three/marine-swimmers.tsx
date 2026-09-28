@@ -13,8 +13,9 @@ const MarineDebug: ComponentType<{ motion: MarineMotion; members: readonly Marin
 const SEED = Math.random();
 
 type Resident = MarineMember & { id: string; onPress: () => void };
-export function MarineSwimmers({ residents, models, active, level = 1 }: {
-  residents: Resident[]; models: MarineModels; active: boolean; level?: number;
+/** The animals and the tuna school; `onSchoolPress` makes the school one tap target, like an animal. */
+export function MarineSwimmers({ residents, models, active, level = 1, onSchoolPress }: {
+  residents: Resident[]; models: MarineModels; active: boolean; level?: number; onSchoolPress?: () => void;
 }) {
   const signature = JSON.stringify(residents.map(({ id, model, lane }) => ({ id, model, lane })));
   // The island's shape at this level (it grows, and islets appear) decides where animals may swim.
@@ -27,7 +28,7 @@ export function MarineSwimmers({ residents, models, active, level = 1 }: {
     {residents.map((resident) => <AnimatedMarine key={resident.id}
       model={resident.model} lane={resident.lane} gltf={models[resident.model]!}
       active={active} population={residents.length} motion={motion} onPress={resident.onPress} />)}
-    {motion.school && <TunaSchoolMesh school={motion.school} />}
+    {motion.school && <TunaSchoolMesh school={motion.school} onPress={onSchoolPress} />}
     {MarineDebug && <MarineDebug motion={motion} members={members} />}
   </>;
 }

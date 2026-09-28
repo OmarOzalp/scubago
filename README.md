@@ -132,7 +132,9 @@ the island is described, with a tuning guide, in `docs/marine-navigation.md` (se
 `EXPO_PUBLIC_MARINE_DEBUG=1` for an overlay of clearances and steering, or
 `EXPO_PUBLIC_ISLAND_SHOWCASE=1` to preview all six species models together).
 A school of tuna swims with them and reacts to the sharks; a great white occasionally
-charges through it. The school, the hunt and how to tune both are in `docs/tuna-school.md`.
+charges through it. The school stands for the tuna in your collection (a logged tuna is never
+drawn as a second, generic fish), and tapping it opens the tuna's species page. The school, the
+hunt, the tap target and how to tune them are in `docs/tuna-school.md`.
 The surrounding ocean is described, with a tuning guide, in `docs/ocean.md`. On the iOS
 simulator and Android emulators the scene renders at a lighter "lite" quality with paced frames,
 because their GL runs in software (see `docs/island-performance.md`).

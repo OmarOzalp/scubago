@@ -1,9 +1,9 @@
 import { afterEach, expect, test } from '@jest/globals';
-import { shoreDistance, shorePolygons } from '../island-outline';
+import { createShoreField, shoreDistance, shorePolygons } from '../island-outline';
 import { createMarineMotion, MOVEMENT, WORLD, type MarineMotion } from '../marine-motion';
 import { apparentShift } from '../steering';
 import type { MarineModel } from '../swimming';
-import { attackRoll, GREAT_WHITE_HUNT, TUNA_SCHOOL, type TunaSchool } from '../tuna-school';
+import { attackRoll, createTunaSchool, GREAT_WHITE_HUNT, TUNA_SCHOOL, type TunaSchool } from '../tuna-school';
 
 const frameEdge = (x: number, z: number) => ((x / WORLD.x) ** 6 + (z / WORLD.z) ** 6) ** (1 / 6);
 const probability = GREAT_WHITE_HUNT.attackProbability;
@@ -19,23 +19,30 @@ function run(models: MarineModel[], level: number, seconds: number, seed: number
   return motion;
 }
 
-/** Share of the fish in the school's largest group (fish linked by gaps under 1 unit). */
-function together(school: TunaSchool) {
+/** The fish in the school's largest group (fish linked by gaps under 1 unit). */
+function largestGroup(school: TunaSchool) {
   const { x, z } = school.pose, seen = new Set<number>();
-  let best = 0;
+  let best: number[] = [];
   for (let i = 0; i < school.size; i++) {
     if (seen.has(i)) continue;
-    const open = [i];
-    let count = 0;
+    const open = [i], group: number[] = [];
     seen.add(i);
     while (open.length) {
       const a = open.pop()!;
-      count++;
+      group.push(a);
       for (let j = 0; j < school.size; j++) if (!seen.has(j) && Math.hypot(x[a] - x[j], z[a] - z[j]) < 1) { seen.add(j); open.push(j); }
     }
-    best = Math.max(best, count);
+    if (group.length > best.length) best = group;
   }
-  return best / school.size;
+  return best;
+}
+/** Share of the fish in the school's largest group. */
+const together = (school: TunaSchool) => largestGroup(school).length / school.size;
+/** Whether a fish is inside the school's tap target, where the camera shows it at the target's depth. */
+function inTarget(school: TunaSchool, i: number) {
+  const area = school.hitArea, { x, y, z } = school.pose, hx = Math.sin(area.heading), hz = Math.cos(area.heading);
+  const dx = x[i] - area.x, dz = z[i] - area.z + apparentShift(y[i] - area.y) - apparentShift(0);
+  return ((dx * hx + dz * hz) / area.along) ** 2 + ((dx * hz - dz * hx) / area.across) ** 2 <= 1;
 }
 
 test('the school holds together, in view, off the island and islets, and below the surface', () => {
@@ -197,4 +204,85 @@ test('the school moves the same at simulator and device frame rates, and can be 
   expect(createMarineMotion([], 1, { school: 20 }).school!.size).toBe(20);
   expect(createMarineMotion([], 1).school).toBeNull();
   expect(createMarineMotion([], 1, { school: 0 }).school).toBeNull();
+});
+
+test('the tap target sits on the school, turned along it, from the first frame', () => {
+  const school = createTunaSchool(createShoreField(1), { seed: .5 });
+  const check = () => {
+    const { x, z } = school.pose, area = school.hitArea;
+    let mx = 0, mz = 0;
+    for (let i = 0; i < school.size; i++) { mx += x[i]; mz += z[i]; }
+    // A school that is together: the target's middle is the fish's middle, and every fish is inside it.
+    expect(together(school)).toBe(1);
+    expect(Math.hypot(area.x - mx / school.size, area.z - mz / school.size)).toBeLessThan(1e-4);
+    for (let i = 0; i < school.size; i++) expect(inTarget(school, i)).toBe(true);
+    // Longer along the school's way than across it.
+    const travel = Math.atan2(school.state.velocityX, school.state.velocityZ);
+    expect(Math.abs(Math.sin(area.heading - travel))).toBeLessThan(.35);
+    expect(area.along).toBeGreaterThan(area.across);
+  };
+  check();
+  for (let k = 0; k < 20; k++) {
+    for (let s = 0; s < 30; s++) school.step(1 / 30, []);
+    school.publish(1);
+    check();
+  }
+});
+
+test('the tap target follows the school through calm, alert, panic and regrouping, at a comfortable, bounded size', () => {
+  GREAT_WHITE_HUNT.attackProbability = 1;
+  const [min, max] = TUNA_SCHOOL.hitSize;
+  for (const seed of [.3, .6]) {
+    const moods = new Set<string>();
+    let bounded = true, calm = 0, covered = 0, centered = 0, scattered = 0, kept = 0, least = 1, frames = 0, jumps = 0, lastX = NaN, lastZ = NaN, area = 0, widest = 0;
+    run(['great-white-shark', 'whale-shark', 'tiger-shark'], 1, 240, seed, (_, school, time) => {
+      const target = school.hitArea;
+      // It moves with the school, smoothly: only a school splitting in two moves it across at once.
+      if (Math.hypot(target.x - lastX, target.z - lastZ) > .1) jumps++;
+      frames++; lastX = target.x; lastZ = target.z;
+      if (Math.round(time * 60) % 10) return;
+      const mood = school.state.mood;
+      moods.add(mood);
+      bounded &&= [target.x, target.y, target.z, target.heading].every(Number.isFinite)
+        && target.along <= max && target.across >= min && target.across <= target.along;
+      widest = Math.max(widest, target.along);
+      // Over the main body of the school, never left behind where the school was.
+      const group = largestGroup(school), share = group.filter((i) => inTarget(school, i)).length / group.length;
+      let inside = 0;
+      for (let i = 0; i < school.size; i++) if (inTarget(school, i)) inside++;
+      least = Math.min(least, inside / school.size);
+      if (mood === 'calm') {
+        let gx = 0, gz = 0;
+        for (const i of group) { gx += school.pose.x[i]; gz += school.pose.z[i]; }
+        calm++;
+        if (share >= .9) covered++;
+        if (Math.hypot(gx / group.length - target.x, gz / group.length - target.z) < .25) centered++;
+        area = Math.max(area, Math.PI * target.along * target.across);
+      } else if (mood === 'panic' || mood === 'recover') {
+        scattered++;
+        if (share >= .85) kept++;
+      }
+    });
+    expect(bounded).toBe(true);
+    expect([...moods].sort()).toEqual(['alert', 'calm', 'panic', 'recover']);
+    expect(covered / calm).toBeGreaterThan(.95);
+    expect(centered / calm).toBeGreaterThan(.95);
+    expect(kept / scattered).toBeGreaterThan(.9);
+    expect(least).toBeGreaterThan(.35);
+    expect(jumps / frames).toBeLessThan(.001);
+    // Generous, but never more than a small part of the ocean (about 110 square units in view): a
+    // stretched or scattered school reaches the largest size and no further.
+    expect(area).toBeLessThanOrEqual(Math.PI * max * max);
+    expect(widest).toBe(max);
+  }
+});
+
+test('a school of one fish still has a target comfortable to tap, on the fish', () => {
+  const school = createTunaSchool(createShoreField(1), { seed: .2, size: 1 });
+  for (let s = 0; s < 90; s++) school.step(1 / 30, []);
+  school.publish(1);
+  const area = school.hitArea, [min] = TUNA_SCHOOL.hitSize;
+  expect([area.along, area.across]).toEqual([min, min]);
+  expect(area.x).toBeCloseTo(school.pose.x[0], 5);
+  expect(area.z).toBeCloseTo(school.pose.z[0], 5);
 });

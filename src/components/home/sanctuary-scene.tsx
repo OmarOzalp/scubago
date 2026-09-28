@@ -11,7 +11,7 @@ import { SanctuaryEnvironment } from './three/sanctuary-environment';
 import { useMarineModels } from './three/use-marine-models';
 import { useSceneActive } from '@/hooks/use-scene-active';
 import type { Habitat } from '@/lib/home';
-import { pickSwimmers, showsPreview, swimmerPages, type MarineModel } from '@/lib/swimming';
+import { pickSwimmers, schoolSpeciesFor, showsPreview, swimmerPages, type MarineModel } from '@/lib/swimming';
 import { TUNA_SCHOOL } from '@/lib/tuna-school';
 import type { DexEntry } from '@/lib/types';
 
@@ -39,7 +39,9 @@ export function SanctuaryScene({ habitat, level, residents, paused = false, load
   const pages = swimmerPages(residents);
   const preview = SHOWCASE || showsPreview(residents);
   const visitors = SHOWCASE ? SHOWCASE_SWIMMERS : PREVIEW_SWIMMERS;
+  // Logged tuna are shown by the school rather than as a swimmer of their own; a tap on it opens their species.
   const swimmers = pickSwimmers(residents, page);
+  const schoolSpecies = schoolSpeciesFor(residents);
   const { models, failed, retry } = useMarineModels(loading ? [] : (preview ? visitors : swimmers).map((s) => s.model));
   useEffect(() => {
     if (!active || pages <= 1) return;
@@ -67,7 +69,8 @@ export function SanctuaryScene({ habitat, level, residents, paused = false, load
           {models && !loading && <MarineSwimmers models={models} active={active} level={level}
             residents={preview
               ? visitors.map((s) => ({ ...s, id: s.model, onPress: () => onInspect(s.model) }))
-              : swimmers.map((s) => ({ ...s, id: s.species.id, onPress: () => router.push(`/species/${s.species.id}`) }))} />}
+              : swimmers.map((s) => ({ ...s, id: s.species.id, onPress: () => router.push(`/species/${s.species.id}`) }))}
+            onSchoolPress={() => router.push(`/species/${schoolSpecies}`)} />}
         </SanctuaryEnvironment>
       </Canvas>
     </SceneBoundary>

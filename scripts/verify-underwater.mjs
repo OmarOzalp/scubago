@@ -4,19 +4,26 @@
  */
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { Mesh, ShaderLib, Vector3 } from 'three';
+import { Box3, Group, Mesh, OrthographicCamera, Raycaster, ShaderLib, Vector2, Vector3 } from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { clone } from 'three/examples/jsm/utils/SkeletonUtils.js';
 import { createOceanUniforms } from '../src/components/home/three/ocean-mesh.ts';
 import { prepareUnderwater } from '../src/components/home/three/underwater-material.ts';
+import { createSchoolHitArea, SCHOOL_HIT_DEPTH } from '../src/components/home/three/school-hit-area.ts';
 import { createSchoolMaterial } from '../src/components/home/three/school-material.ts';
 import { createTunaGeometry } from '../src/components/home/three/tuna-geometry.ts';
+import { createMarineMotion } from '../src/lib/marine-motion.ts';
+import { sampleDive } from '../src/lib/ocean-depth.ts';
 
 const ocean = createOceanUniforms('island');
-
-for (const name of ['shark', 'manta', 'reef-fish', 'whale-shark', 'tiger-shark', 'great-white-shark', 'reef-manta', 'mola-mola', 'green-turtle']) {
+const MODELS = ['shark', 'manta', 'reef-fish', 'whale-shark', 'tiger-shark', 'great-white-shark', 'reef-manta', 'mola-mola', 'green-turtle'];
+const loadModel = async (name) => {
   const bytes = readFileSync(new URL(`../assets/models/marine/${name}.glb`, import.meta.url));
-  const source = await new GLTFLoader().parseAsync(bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength), '');
+  return new GLTFLoader().parseAsync(bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength), '');
+};
+
+for (const name of MODELS) {
+  const source = await loadModel(name);
   const a = clone(source.scene), b = clone(source.scene);
   const first = prepareUnderwater(a, ocean), second = prepareUnderwater(b, ocean);
   first.setDepth(.5, true);
@@ -102,4 +109,60 @@ for (const lite of [false, true]) {
   assert(!material.transparent, 'the school is opaque: one draw call, no sorting');
   material.dispose(); geometry.dispose();
   console.log(`tuna school${lite ? ' (lite)' : ''}: ${triangles} triangles, swim deformation, instanced water depth and shared uniforms verified`);
+}
+
+// The tuna school's tap target: one invisible oval over the school as the scene camera sees it (a
+// phone-sized canvas, framed like SceneCamera), under every fish of a school that is together, not
+// beside it, and behind every animal: one over the school is always nearer, and takes the tap.
+{
+  const width = 390, height = 362, raycaster = new Raycaster();
+  const camera = new OrthographicCamera(-width / 2, width / 2, height / 2, -height / 2, .1, 60);
+  camera.position.set(0, 12, 6);
+  camera.zoom = Math.min(width, height) / 10.8;
+  camera.lookAt(0, -.15, 0);
+  camera.updateProjectionMatrix();
+  camera.updateMatrixWorld();
+  const screen = (x, y, z) => { const p = new Vector3(x, y, z).project(camera); return new Vector2(p.x, p.y); };
+  const hitsTarget = (point, objects) => { raycaster.setFromCamera(point, camera); return raycaster.intersectObjects(objects, true); };
+  const motion = createMarineMotion([], 1, { school: true, seed: .5 });
+  for (let i = 0; i < 1800; i++) motion.step(1 / 60, true);
+  const school = motion.school, area = school.hitArea, pose = school.pose, hit = createSchoolHitArea();
+  hit.update(area, camera);
+  assert.equal(hit.mesh.visible, false, 'the tap target is never drawn');
+  assert.equal(hit.mesh.geometry.index.count / 3, 24);
+  // Far below the school, yet exactly under its middle on screen.
+  assert(screen(area.x, area.y, area.z).distanceTo(screen(hit.mesh.position.x, hit.mesh.position.y, hit.mesh.position.z)) < 1e-4);
+  let under = 0;
+  for (let i = 0; i < school.size; i++) if (hitsTarget(screen(pose.x[i], pose.y[i], pose.z[i]), [hit.mesh]).length) under++;
+  assert.equal(under, school.size, `${under} of ${school.size} fish under the tap target`);
+  const across = area.across + .5, beside = screen(area.x + Math.cos(area.heading) * across, area.y, area.z - Math.sin(area.heading) * across);
+  assert.equal(hitsTarget(beside, [hit.mesh]).length, 0, 'the tap target reaches beside the school');
+  // Its size on screen, in points: the smallest is comfortable under a finger.
+  const points = (a, b) => a.distanceTo(b) / 2 * width;
+  const along = points(screen(area.x - Math.sin(area.heading) * area.along, area.y, area.z - Math.cos(area.heading) * area.along), screen(area.x + Math.sin(area.heading) * area.along, area.y, area.z + Math.cos(area.heading) * area.along));
+  const wide = points(screen(area.x - Math.cos(area.heading) * area.across, area.y, area.z + Math.sin(area.heading) * area.across), screen(area.x + Math.cos(area.heading) * area.across, area.y, area.z - Math.sin(area.heading) * area.across));
+  assert(Math.min(along, wide) >= 44, `tap target ${along.toFixed(0)} x ${wide.toFixed(0)} pt`);
+  // A great white over the school: its body is hit first, the school's target only behind it.
+  const great = new Group().add(clone((await loadModel('great-white-shark')).scene));
+  great.position.set(area.x, -.94, area.z); great.rotation.set(0, area.heading + .6, 0, 'YXZ'); great.scale.setScalar(2.5);
+  great.updateMatrixWorld(true);
+  const [first, ...rest] = hitsTarget(screen(area.x, -.94, area.z), [great, hit.mesh]);
+  assert(first && first.object !== hit.mesh && rest.some((h) => h.object === hit.mesh), 'the shark over the school must take the tap first');
+  // And so for every animal, at the bottom of its dive, pitched and rolled any way (the sunfish
+  // swims on its side), and larger than any is drawn.
+  let lowest = Infinity;
+  const deepest = Math.min(...Array.from({ length: 380 }, (_, k) => sampleDive(k / 10, 0, 1).y)) - .3;
+  for (const name of MODELS) {
+    const animal = new Group().add(clone((await loadModel(name)).scene));
+    for (const pitch of [-.22, .22]) {
+      for (let roll = -1.2; roll <= 1.21; roll += .3) {
+        animal.position.set(0, deepest, 0); animal.rotation.set(pitch, 0, roll, 'YXZ'); animal.scale.setScalar(3);
+        animal.updateMatrixWorld(true);
+        lowest = Math.min(lowest, new Box3().setFromObject(animal, true).min.y);
+      }
+    }
+  }
+  assert(lowest > SCHOOL_HIT_DEPTH + 1, `an animal reaches y ${lowest.toFixed(2)}, too near the school's tap target at ${SCHOOL_HIT_DEPTH}`);
+  hit.dispose();
+  console.log(`tuna school tap target: ${along.toFixed(0)} x ${wide.toFixed(0)} pt over ${under}/${school.size} fish, missed beside the school, behind every animal (lowest reaches y ${lowest.toFixed(2)}, target at ${SCHOOL_HIT_DEPTH})`);
 }
