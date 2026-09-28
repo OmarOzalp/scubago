@@ -1,4 +1,4 @@
-import { Pressable, StyleSheet, View } from 'react-native';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { SpeciesAvatar } from '@/components/species-avatar';
 import { ThemedText } from '@/components/themed-text';
@@ -26,11 +26,19 @@ export function SightingRow({ sighting, species, site, showUsername = false, onP
       ]}>
       <SpeciesAvatar species={species} size={44} showRarityRing />
       <View style={styles.body}>
-        <ThemedText type="smallBold" numberOfLines={1}>
-          {species.commonName}
-        </ThemedText>
+        <View style={styles.title}>
+          <ThemedText type="smallBold" numberOfLines={1} style={styles.name}>
+            {species.commonName}
+          </ThemedText>
+          {/* Demo community data (local-only builds): never passed off as another diver's report. */}
+          {sighting.isDemo ? (
+            <View style={[styles.example, { borderColor: theme.textSecondary }]} accessibilityLabel="Example data, not a real sighting">
+              <Text style={[styles.exampleLabel, { color: theme.textSecondary }]}>Example</Text>
+            </View>
+          ) : null}
+        </View>
         <ThemedText type="small" themeColor="textSecondary" numberOfLines={1}>
-          {showUsername ? `@${sighting.username} · ` : ''}
+          {showUsername && !sighting.isDemo ? `@${sighting.username} · ` : ''}
           {site ? `${site.name} · ` : ''}
           {formatDate(sighting.sightedOn)}
         </ThemedText>
@@ -62,5 +70,23 @@ const styles = StyleSheet.create({
   body: {
     flex: 1,
     gap: 1,
+  },
+  title: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.two,
+  },
+  name: {
+    flexShrink: 1,
+  },
+  example: {
+    borderRadius: 999,
+    borderWidth: 1,
+    paddingHorizontal: 6,
+    paddingVertical: 1,
+  },
+  exampleLabel: {
+    fontSize: 10,
+    fontWeight: '700',
   },
 });

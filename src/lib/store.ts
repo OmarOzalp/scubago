@@ -35,7 +35,7 @@ export interface NewSite {
 
 interface AppState {
   ready: boolean;
-  /** All sightings: the user's own + seeded demo community data. */
+  /** All sightings: the user's own + community ones (demo community data only in local-only builds). */
   sightings: Sighting[];
   userSites: DiveSite[];
   user: { id: string; username: string } | null;
@@ -57,7 +57,9 @@ export const useAppStore = create<AppState>((set, get) => ({
 
   init: async () => {
     if (get().ready) return;
-    const { sightings, userSites } = await initDb();
+    // Demo community sightings only keep a local-only build's map alive; with a real backend
+    // they would pass for other divers' reports.
+    const { sightings, userSites } = await initDb({ demo: !get().backendEnabled });
     set({ sightings, userSites, ready: true });
 
     // Restore a persisted session, then sync in the background.
