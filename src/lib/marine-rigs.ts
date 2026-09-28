@@ -245,6 +245,8 @@ export type SwimDrive = {
   curvature: number;
   /** Climb from -1 (descending) to 1 (climbing). */
   climb: number;
+  /** 0 to 1: how far the body is out of the water, as in a dolphin's leap; the stroke stills (0 unless set). */
+  air?: number;
 };
 export const CRUISE: SwimDrive = { effort: 1, turn: 0, curvature: 0, climb: 0 };
 
@@ -269,7 +271,7 @@ export function createSwimRig(model: SwimRigModel, phase = 0) {
   const rotation = new Float32Array(bones.length * 3);
   const offset = { x: 0, y: 0, z: 0 };
   const state: RigState = {
-    phase: ((phase % TAU) + TAU) % TAU, effort: 1, turn: 0, curvature: 0, climb: 0,
+    phase: ((phase % TAU) + TAU) % TAU, effort: 1, turn: 0, curvature: 0, climb: 0, air: 0,
     // Turtles only: how actively the flippers stroke (0 = gliding), strokes left in this bout, glide time left.
     activity: 1, strokes: 0, glide: 0, bouts: Math.floor(phase * 7),
   };
@@ -297,6 +299,7 @@ export function createSwimRig(model: SwimRigModel, phase = 0) {
       state.turn = ease(state.turn, clamp(drive.turn, -1.2, 1.2), 2.2, dt);
       state.curvature = ease(state.curvature, clamp(drive.curvature, -1.5, 1.5), 2.2, dt);
       state.climb = ease(state.climb, clamp(drive.climb, -1, 1), 1.4, dt);
+      state.air = ease(state.air, clamp(drive.air ?? 0, 0, 1), 6, dt);
       if (spec.kind === 'turtle') stepTurtle(spec, state, dt);
       else state.phase = (state.phase + TAU * strokeFrequency(spec, state.effort) * dt) % TAU;
       pose();
@@ -305,7 +308,7 @@ export function createSwimRig(model: SwimRigModel, phase = 0) {
     sample(at: number, drive: SwimDrive = CRUISE) {
       state.phase = ((at % TAU) + TAU) % TAU;
       state.effort = clamp(drive.effort, .25, 1.6);
-      state.turn = drive.turn; state.curvature = drive.curvature; state.climb = drive.climb;
+      state.turn = drive.turn; state.curvature = drive.curvature; state.climb = drive.climb; state.air = drive.air ?? 0;
       state.activity = 1;
       pose();
     },
@@ -314,7 +317,7 @@ export function createSwimRig(model: SwimRigModel, phase = 0) {
 export type SwimRig = ReturnType<typeof createSwimRig>;
 
 type RigState = {
-  phase: number; effort: number; turn: number; curvature: number; climb: number;
+  phase: number; effort: number; turn: number; curvature: number; climb: number; air: number;
   activity: number; strokes: number; glide: number; bouts: number;
 };
 type SetBone = (bone: string, x: number, y: number, z: number) => void;
@@ -378,7 +381,8 @@ function poseShark(spec: SharkRig, s: RigState, set: SetBone, offset: { x: numbe
 function poseCetacean(spec: CetaceanRig, s: RigState, set: SetBone, offset: { x: number; y: number; z: number }) {
   const [root, spine2, rearBody, tailBase, tail] = spec.joints;
   const k = TAU / spec.wavelength;
-  const strength = (.7 + .3 * s.effort) * (1 + .15 * s.climb);
+  // In the air the stroke all but stops and the body stretches out straight.
+  const strength = (.7 + .3 * s.effort) * (1 + .15 * s.climb) * (1 - .9 * s.air);
   const bend = .5 * spec.bend * s.curvature;
   const envelope = (x: number) => x >= root
     ? spec.rootAmplitude + (spec.tailAmplitude - spec.rootAmplitude) * ((x - root) / (1 - root)) ** spec.envelope
@@ -414,8 +418,10 @@ function poseCetacean(spec: CetaceanRig, s: RigState, set: SetBone, offset: { x:
   const trim = spec.pectoral.flap * Math.sin(s.phase + 1.1);
   const lift = -spec.pectoral.climb * s.climb;
   const turn = spec.pectoral.turn * s.turn;
-  set('PectoralL', lift, 0, trim - Math.max(0, turn) + .4 * Math.max(0, -turn));
-  set('PectoralR', lift, 0, -(trim - Math.max(0, -turn) + .4 * Math.max(0, turn)));
+  // In the air they fold in against the flanks.
+  const tuck = .35 * s.air;
+  set('PectoralL', lift * (1 - s.air), 0, trim + tuck - Math.max(0, turn) + .4 * Math.max(0, -turn));
+  set('PectoralR', lift * (1 - s.air), 0, -(trim + tuck - Math.max(0, -turn) + .4 * Math.max(0, turn)));
 }
 
 /**

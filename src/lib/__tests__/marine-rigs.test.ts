@@ -183,3 +183,21 @@ test('a dolphin bends sideways into a turn, and pitches its flippers up to climb
   const climbing = cycle('bottlenose-dolphin', { ...CRUISE, climb: 1 });
   expect(mean(climbing, (pose) => pose.PectoralL[0])).toBeLessThan(mean(straight, (pose) => pose.PectoralL[0]) - .1);
 });
+
+test('out of the water a dolphin stills its tail beat, stretches out and folds its flippers in; other species ignore it', () => {
+  const swimming = cycle('bottlenose-dolphin'), flying = cycle('bottlenose-dolphin', { ...CRUISE, air: 1 });
+  const beat = (poses: Record<string, number[]>[]) => peak(poses.map((pose) => segmentPitch(pose)[4]));
+  expect(beat(flying)).toBeLessThan(beat(swimming) * .15);
+  expect(peak(flying.map((pose) => pose.FlukeL[2]))).toBeLessThan(peak(swimming.map((pose) => pose.FlukeL[2])) * .15);
+  // Flippers tuck against the flanks, mirrored.
+  const mean = (poses: Record<string, number[]>[], pick: (pose: Record<string, number[]>) => number) => poses.reduce((sum, pose) => sum + pick(pose), 0) / poses.length;
+  expect(mean(flying, (pose) => pose.PectoralL[2])).toBeGreaterThan(mean(swimming, (pose) => pose.PectoralL[2]) + .25);
+  expect(mean(flying, (pose) => pose.PectoralR[2])).toBeLessThan(mean(swimming, (pose) => pose.PectoralR[2]) - .25);
+  // Stepped, the change eases in rather than snapping.
+  const rig = createSwimRig('bottlenose-dolphin');
+  rig.step(1 / 60, CRUISE);
+  const before = Array.from(rig.rotation);
+  rig.step(1 / 60, { ...CRUISE, air: 1 });
+  expect(Math.max(...Array.from(rig.rotation).map((v, i) => Math.abs(v - before[i])))).toBeLessThan(.05);
+  for (const model of SHARKS) expect(cycle(model, { ...CRUISE, air: 1 })).toEqual(cycle(model));
+});

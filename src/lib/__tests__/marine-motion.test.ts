@@ -3,13 +3,14 @@ import { shoreDistance, shorePolygons } from '../island-outline';
 import { createMarineMotion, MOVEMENT, WORLD, type MarineMember } from '../marine-motion';
 import { OCEAN } from '../ocean';
 import { sampleDive } from '../ocean-depth';
+import { worldFor, type World } from '../steering';
 import type { MarineModel } from '../swimming';
 
 const SIX: MarineModel[] = ['whale-shark', 'great-white-shark', 'tiger-shark', 'reef-manta', 'mola-mola', 'green-turtle'];
 /** Every species with its own model, as the showcase shows them. */
 const SPECIES: MarineModel[] = [...SIX, 'scalloped-hammerhead', 'bottlenose-dolphin'];
 const school = (models: MarineModel[]): MarineMember[] => models.map((model, lane) => ({ model, lane }));
-const frameEdge = (x: number, z: number) => ((x / WORLD.x) ** 6 + (z / WORLD.z) ** 6) ** (1 / 6);
+const frameEdge = (x: number, z: number, world: World = WORLD) => ((x / world.x) ** 6 + (z / world.z) ** 6) ** (1 / 6);
 
 /** Separation of two footprint ellipses (negative when they overlap), from projected gaps over many axes. */
 function footprintGap(a: { x: number; z: number; heading: number; m: { halfLength: number; halfWidth: number } }, b: typeof a) {
@@ -37,7 +38,7 @@ test('animals stay in view and clear of the island and islets, at every level an
           expect(Object.values(pose).every(Number.isFinite)).toBe(true);
           // Judged where the camera shows it: inside the frame (a whale shark rounding a level 6 islet may
           // swing briefly into the haze at the corner), and its center well off the beach.
-          expect(frameEdge(seen.x, seen.z)).toBeLessThan(level > 4 ? 1.35 : 1.15);
+          expect(frameEdge(seen.x, seen.z, worldFor(level))).toBeLessThan(level > 4 ? 1.35 : 1.15);
           expect(shoreDistance([main], seen.x, seen.z)).toBeGreaterThan(seen.m.islandClearance - .75);
           expect(shoreDistance([main], seen.x, seen.z)).toBeGreaterThan(seen.m.halfWidth * .85);
           if (islets.length) expect(shoreDistance(islets, seen.x, seen.z)).toBeGreaterThan(seen.m.halfWidth * .5);
@@ -55,6 +56,8 @@ test('turns build and settle smoothly at simulator frame rates', () => {
     motion.step(.05, true);
     before.forEach((p, i) => {
       const next = motion.get(members[i].lane)!, m = MOVEMENT[members[i].model];
+      // A leap has its own speed (breach.test.ts covers it).
+      if (motion.inspect(members[i].lane)!.leap) return;
       // Never faster than the species' top turn rate, and turning speeds up or eases off gradually.
       expect(Math.abs(Math.atan2(Math.sin(next.heading - p.heading), Math.cos(next.heading - p.heading)))).toBeLessThanOrEqual(m.turnRate * .05 + 1e-6);
       expect(Math.abs(next.turn - p.turn)).toBeLessThan(m.turnRate * .5);
@@ -239,6 +242,7 @@ test('the eight species together keep apart or pass at different depths', () => 
 });
 
 test('the dolphin comes up to breathe now and then, just below the surface, and never next to a dive', () => {
+  // Leaps (breach.test.ts) replace a few of the breaths; this follows the ordinary ones.
   const m = MOVEMENT['bottlenose-dolphin'], top = OCEAN.surfaceLevel - m.breathe!.clearance;
   for (const count of [1, 4]) {
     const members = school(['bottlenose-dolphin', 'whale-shark', 'tiger-shark', 'reef-manta'].slice(0, count) as MarineModel[]);
@@ -247,6 +251,7 @@ test('the dolphin comes up to breathe now and then, just below the surface, and 
     for (let frame = 0; frame < 12000; frame++) {
       motion.step(.05, true);
       const pose = motion.get(0)!, dive = sampleDive(motion.clock(), 0, count), y = pose.y + dive.y;
+      if (motion.inspect(0)!.leap) { up = true; continue; }
       highest = Math.max(highest, y);
       frames++;
       if (y > top - .15) near++;

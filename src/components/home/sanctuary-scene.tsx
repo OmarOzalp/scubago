@@ -11,6 +11,7 @@ import { SanctuaryEnvironment } from './three/sanctuary-environment';
 import { useMarineModels } from './three/use-marine-models';
 import { useSceneActive } from '@/hooks/use-scene-active';
 import type { Habitat } from '@/lib/home';
+import { oceanScale } from '@/lib/steering';
 import { pickSwimmers, schoolSpeciesFor, showsPreview, swimmerPages, type MarineModel } from '@/lib/swimming';
 import { TUNA_SCHOOL } from '@/lib/tuna-school';
 import type { DexEntry } from '@/lib/types';
@@ -62,7 +63,8 @@ export function SanctuaryScene({ habitat, level, residents, paused = false, load
       <Canvas orthographic flat {...(Platform.OS === 'web' ? { dpr: 1.25 } : {})} frameloop={active && !!models && !loading ? 'always' : 'demand'} camera={SCENE_CAMERA}
         gl={{ antialias: Platform.OS === 'web' }}
         onCreated={({ camera }) => camera.lookAt(0, -.15, 0)} style={styles.canvas}>
-        <SceneCamera />
+        {/* The view pulls back as the island levels up and its ocean widens. */}
+        <SceneCamera scale={oceanScale(level)} />
         {__DEV__ && <ScenePerformance ready={!!models && !loading} active={active} />}
         {/* The animals swim inside the island's water, which tints and refracts them. */}
         <SanctuaryEnvironment habitat={habitat} level={level} active={active}>

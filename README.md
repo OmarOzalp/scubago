@@ -132,8 +132,12 @@ fish categories have family rigs today. How the animals find their way around ea
 the island is described, with a tuning guide, in `docs/marine-navigation.md` (set
 `EXPO_PUBLIC_MARINE_DEBUG=1` for an overlay of clearances and steering, or
 `EXPO_PUBLIC_ISLAND_SHOWCASE=1` to preview all eight species models together).
-A school of tuna swims with them and reacts to the sharks; a great white occasionally
-charges through it. The school stands for the tuna in your collection (a logged tuna is never
+Dolphins swim in pods of two or three, and now and then one leaps clear of the water; a
+scalloped hammerhead sometimes has company, and a few schooling fish come as small shoals. Each
+still counts, and opens, as one species. The ocean widens and the camera pulls back as the island
+levels up. All of this is in `docs/marine-navigation.md` too (set `EXPO_PUBLIC_DOLPHIN_LEAPS=1` to
+see leaps without waiting). A school of tuna swims with them and reacts to the sharks; a great
+white occasionally charges through it. The school stands for the tuna in your collection (a logged tuna is never
 drawn as a second, generic fish), and tapping it opens the tuna's species page. The school, the
 hunt, the tap target and how to tune them are in `docs/tuna-school.md`.
 The surrounding ocean is described, with a tuning guide, in `docs/ocean.md`. On the iOS

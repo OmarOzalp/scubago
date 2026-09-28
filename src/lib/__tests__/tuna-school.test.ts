@@ -1,11 +1,11 @@
 import { afterEach, expect, test } from '@jest/globals';
 import { createShoreField, shoreDistance, shorePolygons } from '../island-outline';
 import { createMarineMotion, MOVEMENT, WORLD, type MarineMotion } from '../marine-motion';
-import { apparentShift } from '../steering';
+import { apparentShift, worldFor, type World } from '../steering';
 import type { MarineModel } from '../swimming';
 import { attackRoll, createTunaSchool, GREAT_WHITE_HUNT, TUNA_SCHOOL, type TunaSchool } from '../tuna-school';
 
-const frameEdge = (x: number, z: number) => ((x / WORLD.x) ** 6 + (z / WORLD.z) ** 6) ** (1 / 6);
+const frameEdge = (x: number, z: number, world: World = WORLD) => ((x / world.x) ** 6 + (z / world.z) ** 6) ** (1 / 6);
 const probability = GREAT_WHITE_HUNT.attackProbability;
 afterEach(() => { GREAT_WHITE_HUNT.attackProbability = probability; });
 
@@ -57,7 +57,8 @@ test('the school holds together, in view, off the island and islets, and below t
           finite &&= [x[i], y[i], z[i]].every(Number.isFinite);
           // Judged where the camera shows it, like the large animals.
           const seenZ = z[i] + apparentShift(y[i] + .94);
-          edge = Math.max(edge, frameEdge(x[i], seenZ));
+          // Inside this level's ocean area, which grows with the island.
+          edge = Math.max(edge, frameEdge(x[i], seenZ, worldFor(level)));
           shore = Math.min(shore, shoreDistance([main], x[i], seenZ));
           if (islets.length) islet = Math.min(islet, shoreDistance(islets, x[i], seenZ));
           top = Math.max(top, y[i]);

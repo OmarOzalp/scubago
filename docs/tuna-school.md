@@ -79,7 +79,8 @@ come close to the frame), the school slims into a stream along the middle and le
 
 - **Path.** The lead circles the island at a distance offshore that drifts slowly between 1.35 and
   2.2 units (`roam`), over two overlapping periods. A gentle wander of up to ±30° bends the path, so
-  it never repeats exactly.
+  it never repeats exactly. As the island levels up the ocean widens (`OCEAN_GROWTH` in
+  `src/lib/steering.ts`): the outer edge of that band moves out by up to 0.5 units at level 6.
 - **Depth.** The school rises and sinks by up to 0.22 (`depthRange`), over 43 s and 101 s.
 - **Pace.** It speeds up and slows over 31 s.
 - **Reversals.** Every 85 s or so (`reverseEvery`) the school makes a broad U-turn out to sea, when
@@ -90,7 +91,8 @@ come close to the frame), the school slims into a stream along the middle and le
   safety net that starts turning it away early and never lets it into the beach. Fish may come
   closer to shore than the whale shark (their center 0.5 from the dry sand, `fishClearance`) and
   pass islets a little closer still.
-- **Frame.** It stays inside the frame.
+- **Frame.** It stays inside the frame, which grows with the level along with the large animals'
+  (the school reads the shared ocean area live, so a level change widens its room gradually too).
 - **Stragglers.** A fish cut off from the school, by an islet or a crowd of animals, hurries back:
   up to about twice its cruising speed, following the lead's trail. When it is far round the island,
   it swims along the coast whichever way meets the school sooner, head-on if chasing would take
@@ -129,7 +131,10 @@ Every species has a reaction in `SCHOOL_REACTIONS`:
 | Bottlenose dolphin | 0 | 0.28 | Not a threat: fish make room and flow around it, with no alarm (also while it rises to breathe) |
 
 A harmless animal in the school's path also steers the whole school around it a little, more for
-bigger animals.
+bigger animals. The school sees every animal on its own, a member of a pod or pair included, so a
+pair of hammerheads is two predators to watch (the alert follows the nearer one) and fish flow
+around each dolphin of a pod. A leaping dolphin is in the air above the fish and alarms them no more
+than one swimming by.
 
 `startle` (0.45 unless set) is how hard a close pass frightens the nearest fish, as a share of
 `threat`. Keep `threat × startle` under 0.5, where the school panics. `hunts: true` gives a
