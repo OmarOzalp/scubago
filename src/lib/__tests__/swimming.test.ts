@@ -1,5 +1,6 @@
 import { expect, test } from '@jest/globals';
-import { sampleSwimPath, advanceSwimTime, marineModelFor, pickSwimmers, swimmerPages, MAX_ANIMATED } from '@/lib/swimming';
+import { sampleSwimPath, advanceSwimTime, marineModelFor, pickSwimmers, schoolSpeciesFor, showsPreview, swimmerPages, swimsInSchool, MAX_ANIMATED } from '@/lib/swimming';
+import { TUNA_SCHOOL } from '@/lib/tuna-school';
 import type { DexEntry, Species } from '@/lib/types';
 
 test('paths remain outside the island and always give finite continuous positions', () => {
@@ -66,4 +67,48 @@ test('exact species receive distinct art before family fallbacks', () => {
   const residents = [entry('whale-shark', 'shark'), entry('tiger-shark', 'shark'), entry('great-white-shark', 'shark'), entry('other-shark', 'shark'), entry('reef-manta', 'ray'), entry('other-ray', 'ray')];
   expect(pickSwimmers(residents).map((s) => s.model)).toEqual(['whale-shark', 'tiger-shark', 'great-white-shark', 'shark', 'reef-manta', 'manta']);
   expect(marineModelFor(entry('unknown-turtle', 'turtle').species)).toBeNull();
+});
+
+test('logged tuna swim in the school, never also as a generic reef fish; other fish keep the family model', () => {
+  const residents = [entry('clownfish', 'fish'), entry('yellowfin-tuna', 'fish'), entry('whale-shark', 'shark'), entry('dogtooth-tuna', 'fish'), entry('napoleon-wrasse', 'fish')];
+  expect(pickSwimmers(residents)).toEqual([
+    { species: residents[0].species, model: 'reef-fish', lane: 0 },
+    { species: residents[2].species, model: 'whale-shark', lane: 1 },
+    { species: residents[4].species, model: 'reef-fish', lane: 2 },
+  ]);
+  expect(swimsInSchool('yellowfin-tuna')).toBe(true);
+  expect(swimsInSchool('dogtooth-tuna')).toBe(true);
+  expect(swimsInSchool('clownfish')).toBe(false);
+  // The family fallback itself is untouched.
+  expect(marineModelFor(residents[1].species)).toBe('reef-fish');
+  expect(marineModelFor('fish')).toBe('reef-fish');
+});
+
+test('a collection of only tuna is shown by the school: no preview, no swimmers, and paging counts only animals of their own', () => {
+  const tuna = [entry('yellowfin-tuna', 'fish')];
+  expect(showsPreview(tuna)).toBe(false);
+  expect(pickSwimmers(tuna)).toEqual([]);
+  expect(swimmerPages(tuna)).toBe(1);
+  expect(showsPreview([])).toBe(true);
+  const crowd = [...Array.from({ length: MAX_ANIMATED }, (_, i) => entry(`fish-${i}`, 'fish')), entry('dogtooth-tuna', 'fish'), entry('yellowfin-tuna', 'fish')];
+  expect(swimmerPages(crowd)).toBe(1);
+  expect(pickSwimmers(crowd).map((s) => s.species.id)).toEqual(Array.from({ length: MAX_ANIMATED }, (_, i) => `fish-${i}`));
+});
+
+test('a tap on the school opens one tuna species: the logged one, preferring the species it is drawn after', () => {
+  expect(schoolSpeciesFor([])).toBe('yellowfin-tuna');
+  expect(schoolSpeciesFor([entry('clownfish', 'fish')])).toBe('yellowfin-tuna');
+  expect(schoolSpeciesFor([entry('dogtooth-tuna', 'fish')])).toBe('dogtooth-tuna');
+  expect(schoolSpeciesFor([entry('dogtooth-tuna', 'fish'), entry('yellowfin-tuna', 'fish')])).toBe('yellowfin-tuna');
+});
+
+test('with the school left out, tuna swim as fish again', () => {
+  const size = TUNA_SCHOOL.size;
+  TUNA_SCHOOL.size = 0;
+  try {
+    expect(swimsInSchool('yellowfin-tuna')).toBe(false);
+    expect(pickSwimmers([entry('yellowfin-tuna', 'fish')]).map((s) => s.model)).toEqual(['reef-fish']);
+  } finally {
+    TUNA_SCHOOL.size = size;
+  }
 });

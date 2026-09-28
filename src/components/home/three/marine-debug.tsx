@@ -23,10 +23,11 @@ const strip = (points: number[][], color: string, opacity: number) => overlay(ne
  * Tuning overlay for the swimming simulation (see marine-swimmers.tsx for switching it on): each
  * species' island clearance (cyan) and the frame (faint white), and per animal its
  * footprint (white), desired heading (yellow), animal avoidance (red) and island avoidance (green).
- * The tuna school: the lead it follows and its heading (light blue), and a cross at its center
- * colored by mood (blue calm, yellow alert, red panic, violet regrouping). A great white near the
- * school draws a line to it: orange while stalking an encounter that will become a charge, red
- * while charging. Positions are drawn where the camera shows them at the animals' usual depth.
+ * The tuna school: the lead it follows and its heading (light blue), a cross at its center and the
+ * oval where a tap selects it, colored by mood (blue calm, yellow alert, red panic, violet
+ * regrouping). A great white near the school draws a line to it: orange while stalking an encounter
+ * that will become a charge, red while charging. Positions are drawn where the camera shows them at
+ * the animals' usual depth.
  */
 export function MarineDebug({ motion, members }: { motion: MarineMotion; members: readonly MarineMember[] }) {
   const group = useMemo(() => {
@@ -49,9 +50,9 @@ export function MarineDebug({ motion, members }: { motion: MarineMotion; members
       return [WORLD.x * Math.sign(c) * Math.abs(c) ** (1 / 3), Y, WORLD.z * Math.sign(s) * Math.abs(s) ** (1 / 3) - .42];
     });
     root.add(strip(edge, '#ffffff', .35));
-    // Per animal: a 24-segment footprint, three direction lines and a hunting line; the school's lead
-    // and center. Rewritten every frame.
-    const segments = members.length * 28 + 4;
+    // Per animal: a 24-segment footprint, three direction lines and a hunting line; the school's lead,
+    // center and 24-segment tap oval. Rewritten every frame.
+    const segments = members.length * 28 + 28;
     const geometry = new BufferGeometry()
       .setAttribute('position', new BufferAttribute(new Float32Array(segments * 6), 3))
       .setAttribute('color', new BufferAttribute(new Float32Array(segments * 6), 3));
@@ -92,6 +93,15 @@ export function MarineDebug({ motion, members }: { motion: MarineMotion; members
       put(lead.x, lead.z, COLORS.lead); put(lead.x + Math.sin(lead.heading) * .8, lead.z + Math.cos(lead.heading) * .8, COLORS.lead);
       put(state.centerX - .2, state.centerZ, mood); put(state.centerX + .2, state.centerZ, mood);
       put(state.centerX, state.centerZ - .2, mood); put(state.centerX, state.centerZ + .2, mood);
+      const area = school.hitArea, hx = Math.sin(area.heading), hz = Math.cos(area.heading);
+      const rim = (t: number) => {
+        const along = Math.cos(t) * area.along, across = Math.sin(t) * area.across;
+        return [area.x + hx * along + hz * across, area.z + hz * along - hx * across];
+      };
+      for (let k = 0; k < 24; k++) {
+        const [ax, az] = rim(TAU * k / 24), [bx, bz] = rim(TAU * (k + 1) / 24);
+        put(ax, az, mood); put(bx, bz, mood);
+      }
     }
     // Unused segments collapse to a point.
     for (; v < position.count; v++) { position.setXYZ(v, 0, Y, 0); color.setXYZ(v, 0, 0, 0); }

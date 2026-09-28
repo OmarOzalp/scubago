@@ -11,10 +11,13 @@ through it. The school scatters and then regroups.
 | `src/lib/steering.ts` | Frame, apparent-depth and smoothing helpers shared by both simulations |
 | `src/components/home/three/tuna-geometry.ts` | The low-poly tuna |
 | `src/components/home/three/school-material.ts` | Swimming in the vertex shader, and the island's water tint |
-| `src/components/home/three/tuna-school-mesh.tsx` | Draws the whole school as one instanced mesh |
+| `src/components/home/three/tuna-school-mesh.tsx` | Draws the whole school as one instanced mesh, and makes it one tap target |
+| `src/components/home/three/school-hit-area.ts` | The school's invisible tap target |
+| `src/lib/swimming.ts` | Which logged species the school shows instead of a generic fish (`SCHOOL_SPECIES`) |
 
-The school is ambient life. It is not a discovery, it appears on every island (the preview and your
-collection alike), and tapping it does nothing. Set `TUNA_SCHOOL.size` to 0 to leave it out.
+The school swims on every island, in the preview and in your collection alike. It stands for the
+catalog's tuna, and tapping it opens their species page (see
+[The school as a species](#the-school-as-a-species)). Set `TUNA_SCHOOL.size` to 0 to leave it out.
 
 ## The tuna
 
@@ -201,6 +204,59 @@ The lead slows while the school is spread, so the fish catch up. In the simulate
 median of 96% of the fish were back in one group 2 s after a charge ended, and 100% from 8 s on. In
 about one charge in ten a few stragglers take longer to rejoin.
 
+## The school as a species
+
+The school stands for the catalog's tuna: `SCHOOL_SPECIES` in `src/lib/swimming.ts` lists Yellowfin
+Tuna, the species it is drawn after, then Dogtooth Tuna. The school owns their visualization:
+
+- A logged tuna is shown by the school, never also as a swimmer of its own. Both tuna are in the
+  catalog's fish family, so before this rule a logged tuna also swam as the generic `reef-fish`
+  model beside the school.
+- Every other fish without its own model still swims as the `reef-fish` model.
+- A collection holding only tuna is not a preview: the school shows it.
+- With the school left out (`TUNA_SCHOOL.size` 0), tuna swim as fish again.
+
+## Tapping the school
+
+The school is one tap target, like an animal. The fish are never tested one by one.
+
+**What a tap does.** It opens the tuna's species page, the same page an animal from your collection
+opens. That's the logged tuna (Yellowfin Tuna if both are logged), or Yellowfin Tuna when none is,
+including in the preview, where the page offers to log one. It is one species: nothing is added to
+your collection. The fish don't notice the tap, so there's no panic and no change to the simulation.
+
+**Where the target is.** Every published frame, the simulation measures an oval over the school
+(`TunaSchool.hitArea`, in `tuna-school.ts`):
+
+1. **The school's main body.** Each step picks an anchor fish, the one with the most other fish
+   within 2.5 units. It stays the anchor until another fish is clearly more central. The oval
+   centers on the mean of the fish within 2.5 units of the anchor, refined once around that mean.
+   Stragglers never pull it off the school. When the school splits, the oval stays on the larger
+   part, never on the empty water (or the island) between the parts.
+2. **Its shape.** The oval turns along the fish's longest spread, as the camera shows them. Each
+   half-size is twice the spread that way, plus `hitPadding` (0.35), kept between `hitSize` (0.85
+   to 2.2 units). A calm school gets about 1.7 × 0.85, around 105 × 57 points on a phone. A
+   stretched, loose or scattered school reaches 2.2 and no further. The smallest oval is
+   comfortable under a finger, and the largest is still a small part of the ocean.
+
+**The target itself.** `tuna-school-mesh.tsx` lays one flat oval of 24 triangles
+(`school-hit-area.ts`) over the hit area each frame, and uses R3F's normal tap handling. The oval
+is invisible. The renderer skips it, so it costs no draw call, but raycasts still find it.
+
+**Overlapping animals.** The oval lies far below every animal, at y −8. The camera is
+orthographic, so the oval slides straight down the view without moving on screen. R3F gives a tap
+to the nearest object hit first, so:
+
+- A shark, turtle or manta over the school is always nearer. Tapping its body opens that animal,
+  and the animal stops the tap there.
+- An animal faded deep on a dive lets the tap through to the school.
+- The rest of the school stays tappable around an animal, even while a great white charges through
+  it.
+
+**Cost.** Picking the anchor checks every pair of fish once per 30 Hz step (378 distance checks).
+Measuring the oval takes three passes over the 28 fish per frame. Neither allocates, and in Node
+neither measurably changed the time per frame. Each tap is raycast against one 24-triangle oval.
+
 ## Performance
 
 - **Rendering.** One instanced draw call: 4,676 triangles at full quality, 2,324 in lite. No
@@ -242,6 +298,7 @@ Change the values in `src/lib/tuna-school.ts`. Everything else follows from them
 | Wider berth for any animal | raise its `gap` | Bigger gaps split the school more often in a crowded ocean |
 | School nearer or farther offshore | change `roam`; keep `fishClearance` at least 0.45 | `fishClearance` is the closest a fish's center comes to dry sand |
 | Faster or slower cruising | `cruiseSpeed` (and `tailBeat`, the beat at cruise) | The tail beat follows speed automatically |
+| An easier or stricter tap target | `hitPadding` (0.25–0.5), and `hitSize` | A half-size of 0.85 is about 57 points on a phone; keep the smallest above about 0.7 |
 
 ## Debug overlay
 
@@ -249,8 +306,8 @@ Set `EXPO_PUBLIC_MARINE_DEBUG=1` and restart Metro with `--clear`, as for the la
 `marine-navigation.md`). The overlay also shows:
 
 - the school's lead and heading (light blue);
-- a cross at the school's center, colored by mood: blue calm, yellow alert, red panic, violet
-  regrouping;
+- a cross at the school's center and the oval where a tap selects it, both colored by mood: blue
+  calm, yellow alert, red panic, violet regrouping;
 - for a great white stalking an encounter that will become a charge, an orange line to the school,
   turning red while it charges.
 
@@ -271,7 +328,26 @@ The tests cover:
   regrouping, and at least `cooldown` apart;
 - the roll coming up about 20% of the time and never changing during an encounter;
 - 20 vs 60 fps equivalence;
-- leaving the school out.
+- leaving the school out;
+- the tap target on the school and turned along it from the first frame, and on a school of one
+  fish;
+- the tap target following the school through calm, alert, panic and regrouping: over its main
+  body, never left behind, moving smoothly and within its size limits.
+
+`src/lib/__tests__/swimming.test.ts` and `src/components/home/__tests__/sanctuary-scene.test.js`
+cover the ownership rule:
+
+- a logged tuna is shown by the school only, never also as a generic fish;
+- other fish keep the fish model;
+- a tap on the school opens the right tuna.
+
+`npm run verify:underwater` checks the tap target against the scene camera and the real animal
+models:
+
+- it lies under every fish of a school that is together, and not beside the school;
+- it is at least 44 points across on a phone;
+- a great white over the school takes the tap first;
+- every animal, at any pitch and roll, stays above the target even at the bottom of its dive.
 
 ## Known limitations
 
@@ -281,4 +357,6 @@ The tests cover:
 - **Misses.** About one charge in ten brushes past the school's edge rather than through its middle,
   because the shark commits to its line and the fish move.
 - **One school.** The school is designed as one; a second would need the two to avoid each other.
+- **A split school has one tap target.** While the school is in two parts, the target covers the
+  larger one. The smaller part can be tapped again once it rejoins.
 - **Surface.** Fish never break the surface or jump.

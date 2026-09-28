@@ -1,3 +1,4 @@
+import { TUNA_SCHOOL } from '@/lib/tuna-school';
 import type { Category, DexEntry, Species } from '@/lib/types';
 
 export type SpeciesMarineModel = 'whale-shark' | 'tiger-shark' | 'great-white-shark' | 'reef-manta' | 'mola-mola' | 'green-turtle';
@@ -19,23 +20,43 @@ export function marineModelFor(species: Pick<Species, 'id' | 'category'> | Categ
   return null;
 }
 
+/**
+ * The tuna the island's school stands for (src/lib/tuna-school.ts), the species it is drawn after
+ * first. The school owns their visualization: a logged one is shown by the school, never also as a
+ * generic reef fish (both are in the 'fish' family). Other fish keep the family model.
+ */
+export const SCHOOL_SPECIES = ['yellowfin-tuna', 'dogtooth-tuna'] as const;
+/** Whether the school shows this species. With the school left out (TUNA_SCHOOL.size 0), tuna swim as fish again. */
+export function swimsInSchool(id: string) {
+  return TUNA_SCHOOL.size > 0 && (SCHOOL_SPECIES as readonly string[]).includes(id);
+}
+/** The species a tap on the school opens: a logged tuna it stands for, else the one it is drawn after. */
+export function schoolSpeciesFor(residents: DexEntry[]): string {
+  return SCHOOL_SPECIES.find((id) => residents.some((r) => r.species.id === id)) ?? SCHOOL_SPECIES[0];
+}
+
 /** Bound skeleton animation work on phones; the rest of the collection stays reachable below the scene. */
 export const MAX_ANIMATED = 8;
 export type Swimmer = { species: Species; model: MarineModel; lane: number };
 
-function rigged(residents: DexEntry[]) {
-  return residents.filter((r) => marineModelFor(r.species) !== null);
+/** Logged species the island shows: as their own animal, or in the tuna school. */
+function shown(residents: DexEntry[]) {
+  return residents.filter((r) => swimsInSchool(r.species.id) || marineModelFor(r.species) !== null);
+}
+/** Logged species that swim as their own animal: every species with a model, except those the school shows. */
+function swimming(residents: DexEntry[]) {
+  return residents.filter((r) => !swimsInSchool(r.species.id) && marineModelFor(r.species) !== null);
 }
 export function swimmerPages(residents: DexEntry[], limit = MAX_ANIMATED) {
-  return Math.max(1, Math.ceil(rigged(residents).length / limit));
+  return Math.max(1, Math.ceil(swimming(residents).length / limit));
 }
 /** An empty ocean gets a clearly labeled visiting shark and ray instead of nothing. */
 export function showsPreview(residents: DexEntry[]) {
-  return rigged(residents).length === 0;
+  return shown(residents).length === 0;
 }
 /** Deterministic: the same collection and page always yield the same animals in the same lanes. */
 export function pickSwimmers(residents: DexEntry[], page = 0, limit = MAX_ANIMATED): Swimmer[] {
-  const eligible = rigged(residents);
+  const eligible = swimming(residents);
   const start = (page % swimmerPages(residents, limit)) * limit;
   return eligible.slice(start, start + limit).map((r, lane) => ({ species: r.species, model: marineModelFor(r.species)!, lane }));
 }
