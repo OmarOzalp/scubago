@@ -15,7 +15,8 @@ function toError(e: unknown): Error {
 /**
  * Email + password sign-in that transparently creates the account on first use.
  * The project has email auto-confirm enabled, so signUp returns a live session
- * immediately — no email round-trip. Supabase deliberately returns the same
+ * immediately — no email round-trip (a project that requires confirmation gets a clear
+ * error instead of a half-signed-in user). Supabase deliberately returns the same
  * "Invalid login credentials" for wrong-password and unknown-email, so we try
  * signUp on that error: a new user signs up cleanly; an existing user's signUp
  * fails with "already registered", which means the password was wrong.
@@ -40,6 +41,12 @@ export async function signInWithPassword(
     throw toError(signUpError);
   }
   if (!signUpData.user) throw new Error('No user returned from sign-up');
+  // No session means the project asks new accounts to confirm their email (Authentication →
+  // Providers → Email → "Confirm email"; ScubaGo expects it off, see README). Carrying on would
+  // leave a "signed-in" user whose every upload is refused.
+  if (!signUpData.session) {
+    throw new Error('Check your email to confirm your account, then sign in. (If you already have an account, check your password.)');
+  }
   return { id: signUpData.user.id };
 }
 

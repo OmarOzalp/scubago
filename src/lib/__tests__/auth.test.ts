@@ -12,7 +12,7 @@ describe('usernameForUser', () => {
   });
 });
 
-type FakeAuthResult = { data: { user: { id: string } | null }; error: { message: string } | null };
+type FakeAuthResult = { data: { user: { id: string } | null; session?: object | null }; error: { message: string } | null };
 
 function fakeClient(opts: {
   signIn: FakeAuthResult;
@@ -48,10 +48,19 @@ describe('signInWithPassword', () => {
   it('falls back to signUp for a brand-new user and returns the new id', async () => {
     const { client, calls } = fakeClient({
       signIn: { data: { user: null }, error: { message: 'Invalid login credentials' } },
-      signUp: { data: { user: { id: 'uid-new' } }, error: null },
+      signUp: { data: { user: { id: 'uid-new' }, session: { access_token: 't' } }, error: null },
     });
     await expect(signInWithPassword(client, 'new@b.co', 'pw123456')).resolves.toEqual({ id: 'uid-new' });
     expect(calls).toEqual(['signIn', 'signUp']);
+  });
+
+  it('refuses to sign in half-way when the project requires email confirmation', async () => {
+    // Supabase then returns a user but no session, for new accounts and (obfuscated) existing ones alike.
+    const { client } = fakeClient({
+      signIn: { data: { user: null }, error: { message: 'Invalid login credentials' } },
+      signUp: { data: { user: { id: 'uid-pending' }, session: null }, error: null },
+    });
+    await expect(signInWithPassword(client, 'new@b.co', 'pw123456')).rejects.toThrow(/confirm your account/);
   });
 
   it('reports a wrong password when the account already exists', async () => {
