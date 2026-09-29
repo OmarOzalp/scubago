@@ -12,10 +12,12 @@ interface Props {
   site?: DiveSite;
   /** Show who logged it (used on site details); My Log hides it. */
   showUsername?: boolean;
+  /** The diver's change hasn't reached the server yet (My Log, when signed in). */
+  pending?: boolean;
   onPress?: () => void;
 }
 
-export function SightingRow({ sighting, species, site, showUsername = false, onPress }: Props) {
+export function SightingRow({ sighting, species, site, showUsername = false, pending = false, onPress }: Props) {
   const theme = useTheme();
   return (
     <Pressable
@@ -34,6 +36,13 @@ export function SightingRow({ sighting, species, site, showUsername = false, onP
           {sighting.isDemo ? (
             <View style={[styles.example, { borderColor: theme.textSecondary }]} accessibilityLabel="Example data, not a real sighting">
               <Text style={[styles.exampleLabel, { color: theme.textSecondary }]}>Example</Text>
+            </View>
+          ) : null}
+          {pending ? (
+            <View style={[styles.example, { borderColor: theme.textSecondary, borderStyle: 'dashed' }]} accessibilityLabel="Waiting to sync">
+              <Text style={[styles.exampleLabel, { color: theme.textSecondary }]}>
+                {sighting.syncError ? 'Not synced' : 'Waiting to sync'}
+              </Text>
             </View>
           ) : null}
         </View>

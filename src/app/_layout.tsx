@@ -33,6 +33,7 @@ export default function RootLayout() {
         <Stack.Screen name="inspect" options={{ presentation: 'modal', title: 'A closer look' }} />
         <Stack.Screen name="site/[id]" options={{ title: '' }} />
         <Stack.Screen name="species/[id]" options={{ title: '' }} />
+        <Stack.Screen name="sighting/[id]" options={{ title: '' }} />
       </Stack>
     </ThemeProvider>
   );

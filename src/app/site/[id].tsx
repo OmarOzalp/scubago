@@ -129,7 +129,7 @@ export default function SiteDetailScreen() {
                   sighting={s}
                   species={species}
                   showUsername
-                  onPress={() => router.push(`/species/${species.id}`)}
+                  onPress={() => router.push(`/sighting/${s.id}`)}
                 />
               );
             })

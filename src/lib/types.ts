@@ -96,7 +96,19 @@ export interface Sighting {
   isDemo: boolean;
   synced: boolean;
   createdAt: string; // ISO timestamp
+  /** When the diver last edited it (ISO timestamp); absent if never edited. */
+  updatedAt?: string;
+  /** Verification status as last known from the server; absent means unverified. */
+  status?: SightingStatus;
+  /** Why the last attempt to sync this change failed; cleared once it syncs. */
+  syncError?: string;
 }
+
+/**
+ * Where a sighting stands (docs/roadmap/sightings-architecture.md). Only the server sets it:
+ * the app shows it, and resets its own copy to unverified when a diver changes what was seen.
+ */
+export type SightingStatus = 'unverified' | 'evidence_submitted' | 'confirmed' | 'accepted' | 'rejected' | 'disputed';
 
 /** One entry in the user's species collection, derived from their sightings. */
 export interface DexEntry {

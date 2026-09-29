@@ -8,7 +8,7 @@ import { ThemedView } from '@/components/themed-view';
 import { Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { ensureProfile, signInWithPassword } from '@/lib/auth';
-import { useAppStore } from '@/lib/store';
+import { useAppStore, usePendingChanges } from '@/lib/store';
 import { getSupabase } from '@/lib/supabase';
 
 export default function AuthScreen() {
@@ -17,6 +17,7 @@ export default function AuthScreen() {
   const onSignedIn = useAppStore((s) => s.onSignedIn);
   const signOutUser = useAppStore((s) => s.signOutUser);
   const deleteAccount = useAppStore((s) => s.deleteAccount);
+  const pending = usePendingChanges();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [busy, setBusy] = useState(false);
@@ -62,6 +63,13 @@ export default function AuthScreen() {
         <ThemedText type="small" themeColor="textSecondary">
           Your sightings back up automatically and follow you to any device.
         </ThemedText>
+        {pending.count > 0 ? (
+          <ThemedText type="small" themeColor="textSecondary">
+            {pending.count} {pending.count === 1 ? 'change hasn’t' : 'changes haven’t'} synced yet. If you sign
+            out now, {pending.count === 1 ? 'it stays' : 'they stay'} on this device and sync the next time you sign
+            in to this account.
+          </ThemedText>
+        ) : null}
         <OceanButton
           title="Sign out"
           disabled={busy}

@@ -81,8 +81,11 @@ project's settings with those dev defaults.
 - **My Log tab** — your sightings, and a species dex of 119 curated species with
   rarity tiers (common → legendary). First-of-species logs get a celebration.
 - **Log flow** — site → species → date/notes/photo, designed for speed.
-- **Offline-first writes** — sightings save to SQLite immediately with a sync flag;
-  `src/lib/sync.ts` drains the outbox once a backend is configured.
+- **Sighting pages** — tap a sighting for its details, verification status and provenance;
+  your own can be edited (through the same log flow) or deleted, offline too.
+- **Offline-first writes** — sightings, edits and deletions save to SQLite immediately and wait
+  in an outbox that syncs with retries once a backend is configured
+  ([docs/sighting-sync.md](docs/sighting-sync.md)).
 - **Accounts** — email + password sign-in; the account is created automatically on
   first sign-in, no separate signup step. Account → Delete account removes the account,
   its sightings and photos (migration 0004).
