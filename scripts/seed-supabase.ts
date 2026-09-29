@@ -9,6 +9,7 @@
  */
 import { createClient } from '@supabase/supabase-js';
 
+import { REGIONS } from '../src/data/regions';
 import { SITES } from '../src/data/sites';
 import photos from '../src/data/species-photos.json';
 import { SPECIES } from '../src/data/species';
@@ -46,6 +47,14 @@ async function main() {
   if (speciesError) throw speciesError;
   console.log(`Seeded ${speciesRows.length} species`);
 
+  // Regions first: sites point at them.
+  const { error: regionsError } = await db.from('regions').upsert(
+    REGIONS.map((r) => ({ id: r.id, name: r.name, parent_id: r.parentId ?? null, country: r.country ?? null, mrgid: r.mrgid ?? null, source: r.source })),
+    { onConflict: 'id' },
+  );
+  if (regionsError) throw regionsError;
+  console.log(`Seeded ${REGIONS.length} regions`);
+
   const siteRows = SITES.map((s) => ({
     id: s.id,
     name: s.name,
@@ -57,12 +66,36 @@ async function main() {
     notable_species: s.notableSpecies,
     source: 'seed',
     created_by: null,
+    region_id: s.regionId ?? null,
+    depth_min_m: s.depthMinM ?? null,
+    depth_max_m: s.depthMaxM ?? null,
+    difficulty: s.difficulty ?? null,
+    dive_types: s.diveTypes ?? [],
+    access: s.access ?? [],
+    conditions: s.conditions ?? '',
   }));
   const { error: sitesError } = await db
     .from('dive_sites')
     .upsert(siteRows, { onConflict: 'id' });
   if (sitesError) throw sitesError;
   console.log(`Seeded ${siteRows.length} dive sites`);
+
+  // Where each detail came from, and the same places in other datasets.
+  const sourceRows = SITES.flatMap((s) => (s.sources ?? []).flatMap((src) => src.fields.map((field) => ({
+    site_id: s.id, field, source: src.source, url: src.url ?? null, license: src.license ?? null, retrieved_at: src.retrieved ?? null,
+  }))));
+  if (sourceRows.length) {
+    const { error } = await db.from('site_field_sources').upsert(sourceRows, { onConflict: 'site_id,field,source' });
+    if (error) throw error;
+  }
+  const idRows = SITES.flatMap((s) => (s.externalIds ?? []).map((ext) => ({
+    site_id: s.id, scheme: ext.scheme, external_id: ext.id, relation: ext.relation ?? 'same_as',
+  })));
+  if (idRows.length) {
+    const { error } = await db.from('site_external_ids').upsert(idRows, { onConflict: 'site_id,scheme,external_id' });
+    if (error) throw error;
+  }
+  console.log(`Seeded ${sourceRows.length} site sources and ${idRows.length} external ids`);
 }
 
 main().catch((e) => {

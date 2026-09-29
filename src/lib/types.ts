@@ -27,17 +27,60 @@ export interface Species {
   photoAttribution?: string;
 }
 
+export type Difficulty = 'beginner' | 'intermediate' | 'advanced' | 'technical';
+export type DiveType = 'reef' | 'wall' | 'wreck' | 'drift' | 'pinnacle' | 'bommie' | 'muck' | 'cave' | 'swim-through' | 'pier';
+export type SiteAccess = 'boat' | 'shore' | 'liveaboard';
+/** A site detail that must carry a source when it is filled in (supabase/migrations/0005). */
+export type SiteField = 'region' | 'description' | 'depth' | 'difficulty' | 'dive_types' | 'access' | 'conditions' | 'species';
+
+/** Where one or more facts about a site came from: shown on the site page, never invented. */
+export interface SiteSource {
+  fields: SiteField[];
+  source: string;
+  url?: `https://${string}`;
+  license?: string;
+  /** yyyy-mm-dd the source was checked. */
+  retrieved?: string;
+}
+
+/** The same place in another dataset (Wikidata QID, GBRMPA reef id, …), so sources never duplicate a site. */
+export interface SiteExternalId {
+  scheme: 'wikidata' | 'gbrmpa' | 'rls' | 'auchd' | 'mrgid' | 'osm' | 'partner';
+  id: string;
+  relation?: 'same_as' | 'on_reef' | 'within_region' | 'near';
+}
+
+export interface Region {
+  id: string; // slug, e.g. "great-barrier-reef"
+  name: string;
+  parentId?: string;
+  country?: string;
+  /** Marine Regions gazetteer id, once confirmed. */
+  mrgid?: number;
+  source: string;
+}
+
 export interface DiveSite {
   id: string; // slug, e.g. "richelieu-rock"
   name: string;
   lat: number;
   lng: number;
+  /** Display region (free text); `regionId` links the structured one when known. */
   region: string;
   country: string;
   blurb: string;
   /** Species ids realistically seen here; powers demo data + "what to expect". */
   notableSpecies: string[];
   source: 'seed' | 'user';
+  regionId?: string;
+  depthMinM?: number;
+  depthMaxM?: number;
+  difficulty?: Difficulty;
+  diveTypes?: DiveType[];
+  access?: SiteAccess[];
+  conditions?: string;
+  sources?: SiteSource[];
+  externalIds?: SiteExternalId[];
 }
 
 export interface Sighting {

@@ -149,6 +149,17 @@ begin
     passed := passed + 1; report := report || E'\n  ok    B cannot add a site in A''s name';
   end;
 
+  -- 8b. Regions and site sources are curated: signed-in users cannot write them.
+  begin
+    set local role authenticated;
+    perform set_config('request.jwt.claims', json_build_object('sub', a, 'role', 'authenticated')::text, true);
+    insert into public.site_field_sources (site_id, field, source) values (site, 'depth', 'made up');
+    reset role;
+    failed := failed + 1; report := report || E'\n  FAIL  a user could add a source to a dive site';
+  exception when insufficient_privilege then
+    passed := passed + 1; report := report || E'\n  ok    users cannot add sources or regions to dive sites';
+  end;
+
   -- 9. Anonymous visitors can read but not write.
   begin
     set local role anon;

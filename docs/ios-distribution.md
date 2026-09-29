@@ -174,7 +174,8 @@ Work through these in order. Nothing here recreates or resets the project.
    - 0001: schema and row-level security;
    - 0002: account-deletion cascades and photo limits;
    - 0003: protects PostGIS's table;
-   - 0004: in-app account deletion.
+   - 0004: in-app account deletion;
+   - 0005: dive-site details, regions, external IDs and sources.
 
    If the earlier migrations were pasted into the SQL editor, the CLI has no record of them, and
    `db push` would try to run 0001 again. First mark the ones already in place:

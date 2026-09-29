@@ -13,7 +13,8 @@ expected_policies(tbl, policy) as (values
   ('sightings', 'sightings are public'), ('sightings', 'users log own sightings'), ('sightings', 'users edit own sightings'),
   ('sightings', 'users delete own sightings'), ('profiles', 'profiles are public'), ('profiles', 'users manage own profile'),
   ('profiles', 'users update own profile'), ('objects', 'photos are public'), ('objects', 'users upload own photos'),
-  ('objects', 'users replace own photos'), ('objects', 'users delete own photos')
+  ('objects', 'users replace own photos'), ('objects', 'users delete own photos'),
+  ('regions', 'regions are public'), ('site_external_ids', 'site ids are public'), ('site_field_sources', 'site sources are public')
 ),
 bucket as (select * from storage.buckets where id = 'sighting-photos'),
 checks(section, item, detail, verdict) as (
@@ -23,7 +24,7 @@ checks(section, item, detail, verdict) as (
   from tables where name <> 'spatial_ref_sys'
   union all
   select 'RLS', 'app tables present', string_agg(e.t, ', ') || ' missing', 'ACTION'
-  from (values ('species'), ('dive_sites'), ('sightings'), ('profiles')) e(t)
+  from (values ('species'), ('dive_sites'), ('sightings'), ('profiles'), ('regions'), ('site_external_ids'), ('site_field_sources')) e(t)
   where not exists (select 1 from tables where name = e.t) having count(*) > 0
   union all
   -- The policies from migrations 0001 and 0002.
