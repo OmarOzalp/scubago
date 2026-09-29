@@ -5,6 +5,8 @@ import { Dimensions, StyleSheet, View } from 'react-native';
 import Animated, { Easing, Keyframe } from 'react-native-reanimated';
 import { scheduleOnRN } from 'react-native-worklets';
 
+import { Ocean } from '@/constants/palette';
+
 const INITIAL_SCALE_FACTOR = Dimensions.get('screen').height / 90;
 const DURATION = 600;
 
@@ -33,7 +35,8 @@ export function AnimatedSplashOverlay() {
     },
   });
 
-  const image = <Image style={styles.image} source={require('@/assets/images/expo-logo.png')} />;
+  // Continues the native splash (app.json, expo-splash-screen): the same mark, size and color.
+  const image = <Image style={styles.splashMark} source={require('@/assets/images/splash-icon.png')} />;
 
   return animate ? (
     <Animated.View
@@ -138,9 +141,13 @@ const styles = StyleSheet.create({
     height: 128,
     position: 'absolute',
   },
+  splashMark: {
+    width: 120,
+    height: 120,
+  },
   splashOverlay: {
     ...StyleSheet.absoluteFill,
-    backgroundColor: '#208AEF',
+    backgroundColor: Ocean.primary,
     alignItems: 'center',
     justifyContent: 'center',
     zIndex: 1000,

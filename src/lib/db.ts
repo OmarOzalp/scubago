@@ -106,9 +106,22 @@ export async function loadAll(): Promise<{ sightings: Sighting[]; userSites: Div
   };
 }
 
-/** Open the database, seed demo data if needed, and return everything the store needs. */
-export async function initDb(): Promise<{ sightings: Sighting[]; userSites: DiveSite[] }> {
+/**
+ * Open the database, seed demo data if needed, and return everything the store needs.
+ * `demo: false` (a build with a real backend) removes any demo community sightings and
+ * never generates them: invented sightings must never sit beside real ones. Only rows
+ * flagged is_demo are touched; the user's own log is never affected.
+ */
+export async function initDb({ demo }: { demo: boolean }): Promise<{ sightings: Sighting[]; userSites: DiveSite[] }> {
   const d = await getDb();
+
+  if (!demo) {
+    await d.withTransactionAsync(async () => {
+      await d.runAsync(`DELETE FROM sightings WHERE is_demo = 1`);
+      await d.runAsync(`DELETE FROM meta WHERE key = 'demo_version'`);
+    });
+    return loadAll();
+  }
 
   const meta = await d.getFirstAsync<{ value: string }>(
     `SELECT value FROM meta WHERE key = 'demo_version'`,
@@ -180,6 +193,12 @@ export async function claimLocalSightings(userId: string, username: string): Pro
     userId,
     username,
   );
+}
+
+/** After the account is deleted: remove that user's own rows (their log and its outbox) from this device. */
+export async function deleteLocalUserData(userId: string): Promise<void> {
+  const d = await getDb();
+  await d.runAsync(`DELETE FROM sightings WHERE user_id = ?`, userId);
 }
 
 /** Upsert pulled remote sightings (and re-mark own pushed rows as synced). */

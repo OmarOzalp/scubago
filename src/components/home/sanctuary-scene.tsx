@@ -3,7 +3,8 @@ import { Platform, StyleSheet, View } from 'react-native';
 import { SceneCanvas as Canvas } from './three/scene-canvas';
 import { SceneBoundary, SceneUnavailable } from './scene-boundary';
 import { SceneCamera } from './three/scene-camera';
-import { ScenePerformance } from './three/scene-performance';
+import { IslandPerfBadge } from './island-perf-badge';
+import { IslandPerfProbe, ScenePerformance } from './three/scene-performance';
 import { router } from 'expo-router';
 import { IslandScene } from './island-scene';
 import { MarineSwimmers } from './three/marine-swimmers';
@@ -26,6 +27,8 @@ export const PREVIEW_SWIMMERS: { model: MarineModel; lane: number }[] = [
  * with --clear), every species model visits as the preview, whatever the collection holds.
  */
 const SHOWCASE = process.env.EXPO_PUBLIC_ISLAND_SHOWCASE === '1';
+/** Frame timing over the card, for measuring the island on real phones (set in the EAS preview profile). */
+const ISLAND_PERF = process.env.EXPO_PUBLIC_ISLAND_PERF === '1';
 const SHOWCASE_SWIMMERS = (['whale-shark', 'great-white-shark', 'tiger-shark', 'reef-manta', 'mola-mola', 'green-turtle', 'scalloped-hammerhead', 'bottlenose-dolphin'] as const)
   .map((model, lane) => ({ model, lane }));
 
@@ -66,6 +69,7 @@ export function SanctuaryScene({ habitat, level, residents, paused = false, load
         {/* The view pulls back as the island levels up and its ocean widens. */}
         <SceneCamera scale={oceanScale(level)} />
         {__DEV__ && <ScenePerformance ready={!!models && !loading} active={active} />}
+        {ISLAND_PERF && <IslandPerfProbe />}
         {/* The animals swim inside the island's water, which tints and refracts them. */}
         <SanctuaryEnvironment habitat={habitat} level={level} active={active}>
           {models && !loading && <MarineSwimmers models={models} active={active} level={level}
@@ -76,6 +80,7 @@ export function SanctuaryScene({ habitat, level, residents, paused = false, load
         </SanctuaryEnvironment>
       </Canvas>
     </SceneBoundary>
+    {ISLAND_PERF && <IslandPerfBadge />}
   </View>;
 }
 

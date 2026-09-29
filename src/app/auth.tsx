@@ -1,6 +1,6 @@
 import { router } from 'expo-router';
 import { useState } from 'react';
-import { ActivityIndicator, StyleSheet, TextInput } from 'react-native';
+import { ActivityIndicator, Alert, Platform, Pressable, StyleSheet, TextInput } from 'react-native';
 
 import { OceanButton } from '@/components/ocean-button';
 import { ThemedText } from '@/components/themed-text';
@@ -16,6 +16,7 @@ export default function AuthScreen() {
   const user = useAppStore((s) => s.user);
   const onSignedIn = useAppStore((s) => s.onSignedIn);
   const signOutUser = useAppStore((s) => s.signOutUser);
+  const deleteAccount = useAppStore((s) => s.deleteAccount);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [busy, setBusy] = useState(false);
@@ -26,12 +27,35 @@ export default function AuthScreen() {
   if (!client) {
     return (
       <ThemedView style={styles.container}>
-        <ThemedText>Sync isn't configured in this build.</ThemedText>
+        <ThemedText>Sync isn&apos;t configured in this build.</ThemedText>
       </ThemedView>
     );
   }
 
   if (user) {
+    const removeAccount = async () => {
+      setBusy(true);
+      setError(null);
+      try {
+        await deleteAccount();
+        router.back();
+      } catch (e: any) {
+        setError(e.message ?? 'Could not delete your account');
+      } finally {
+        setBusy(false);
+      }
+    };
+    const confirmRemoval = () => {
+      const message = 'This permanently deletes your ScubaGo account and your sightings and photos, from our servers and from this device. Dive sites you added stay on the map, without your name. This cannot be undone.';
+      if (Platform.OS === 'web') {
+        if (window.confirm(message)) removeAccount();
+        return;
+      }
+      Alert.alert('Delete your account?', message, [
+        { text: 'Cancel', style: 'cancel' },
+        { text: 'Delete account', style: 'destructive', onPress: removeAccount },
+      ]);
+    };
     return (
       <ThemedView style={styles.container}>
         <ThemedText type="subtitle">@{user.username}</ThemedText>
@@ -40,11 +64,24 @@ export default function AuthScreen() {
         </ThemedText>
         <OceanButton
           title="Sign out"
+          disabled={busy}
           onPress={async () => {
             await signOutUser();
             router.back();
           }}
         />
+        {error ? (
+          <ThemedText type="small" style={{ color: DANGER }}>
+            {error}
+          </ThemedText>
+        ) : null}
+        {busy ? (
+          <ActivityIndicator />
+        ) : (
+          <Pressable onPress={confirmRemoval} accessibilityRole="button" style={styles.delete}>
+            <ThemedText type="small" style={{ color: DANGER }}>Delete account</ThemedText>
+          </Pressable>
+        )}
       </ThemedView>
     );
   }
@@ -91,7 +128,7 @@ export default function AuthScreen() {
         onChangeText={setPassword}
       />
       {error ? (
-        <ThemedText type="small" style={{ color: '#c0392b' }}>
+        <ThemedText type="small" style={{ color: DANGER }}>
           {error}
         </ThemedText>
       ) : null}
@@ -108,8 +145,11 @@ export default function AuthScreen() {
   );
 }
 
+const DANGER = '#c0392b';
+
 const styles = StyleSheet.create({
   container: { flex: 1, padding: Spacing.four, gap: Spacing.three },
+  delete: { alignSelf: 'center', paddingVertical: Spacing.two },
   input: {
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: '#8886',
