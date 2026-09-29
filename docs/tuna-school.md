@@ -15,9 +15,11 @@ through it. The school scatters and then regroups.
 | `src/components/home/three/school-hit-area.ts` | The school's invisible tap target |
 | `src/lib/swimming.ts` | Which logged species the school shows instead of a generic fish (`SCHOOL_SPECIES`) |
 
-The school swims on every island, in the preview and in your collection alike. It stands for the
-catalog's tuna, and tapping it opens their species page (see
-[The school as a species](#the-school-as-a-species)). Set `TUNA_SCHOOL.size` to 0 to leave it out.
+The school swims only once you've logged a tuna (Yellowfin or Dogtooth), and leaves again if you
+delete your last tuna sighting. The empty-ocean preview has no tuna. It stands for the catalog's
+tuna, and tapping it opens their species page (see
+[The school as a species](#the-school-as-a-species)). Set `TUNA_SCHOOL.size` to 0 to leave it out
+everywhere.
 
 ## The tuna
 
@@ -233,8 +235,7 @@ Tuna, the species it is drawn after, then Dogtooth Tuna. The school owns their v
 The school is one tap target, like an animal. The fish are never tested one by one.
 
 **What a tap does.** It opens the tuna's species page, the same page an animal from your collection
-opens. That's the logged tuna (Yellowfin Tuna if both are logged), or Yellowfin Tuna when none is,
-including in the preview, where the page offers to log one. It is one species: nothing is added to
+opens. That's the logged tuna (Yellowfin Tuna if both are logged). It is one species: nothing is added to
 your collection. The fish don't notice the tap, so there's no panic and no change to the simulation.
 
 **Where the target is.** Every published frame, the simulation measures an oval over the school
@@ -352,6 +353,7 @@ The tests cover:
 `src/lib/__tests__/swimming.test.ts` and `src/components/home/__tests__/sanctuary-scene.test.js`
 cover the ownership rule:
 
+- the school swims only while a tuna is logged (never in the preview);
 - a logged tuna is shown by the school only, never also as a generic fish;
 - other fish keep the fish model;
 - a tap on the school opens the right tuna.

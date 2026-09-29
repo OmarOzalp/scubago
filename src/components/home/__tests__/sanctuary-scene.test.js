@@ -39,10 +39,8 @@ test('the island is visible during discovery loading, then visiting animals appe
   expect(root.root.findAllByType('swimmer')).toHaveLength(0);
   await act(async () => root.update(<SanctuaryScene {...props} />));
   expect(root.root.findAllByType('swimmer')).toHaveLength(2);
-  // The tuna school swims with them; a tap on it opens the tuna it is drawn after.
-  expect(root.root.findAllByType('school')).toHaveLength(1);
-  root.root.findByType('school').props.onPress();
-  expect(router.push).toHaveBeenLastCalledWith('/species/yellowfin-tuna');
+  // No tuna in the preview: the school swims only once a tuna is logged.
+  expect(root.root.findAllByType('school')).toHaveLength(0);
 });
 
 const logged = (id, category) => ({ species: { id, commonName: id, scientificName: id, category, rarity: 'common', blurb: '' }, count: 1, firstSeenOn: '2026-01-01', firstSeenSiteId: 'x', lastSeenOn: '2026-01-01' });
@@ -58,6 +56,18 @@ test('a logged tuna is shown by the school alone, never also as a generic fish, 
   expect(router.push).toHaveBeenLastCalledWith('/species/dogtooth-tuna');
   root.root.findByType('swimmer').props.onPress();
   expect(router.push).toHaveBeenLastCalledWith('/species/clownfish');
+});
+test('no tuna swim unless one is logged, and deleting the last one takes the school away', async () => {
+  useMarineModels.mockReturnValue({ models: { 'reef-fish': {} }, failed: false, retry: jest.fn() });
+  const clownfish = logged('clownfish', 'fish');
+  await act(async () => { root = create(<SanctuaryScene {...props} residents={[clownfish]} />); });
+  expect(root.root.findAllByType('school')).toHaveLength(0);
+  expect(root.root.findByProps({ accessibilityRole: 'image' }).props.accessibilityLabel).not.toContain('tuna');
+  await act(async () => root.update(<SanctuaryScene {...props} residents={[clownfish, logged('yellowfin-tuna', 'fish')]} />));
+  expect(root.root.findAllByType('school')).toHaveLength(1);
+  await act(async () => root.update(<SanctuaryScene {...props} residents={[clownfish]} />));
+  expect(root.root.findAllByType('school')).toHaveLength(0);
+  expect(root.root.findAllByType('swimmer').map((swimmer) => swimmer.props.model)).toEqual(['reef-fish']);
 });
 test('a collection of only tuna is the school: no preview visitors, no swimmers', async () => {
   useMarineModels.mockReturnValue({ models: {}, failed: false, retry: jest.fn() });

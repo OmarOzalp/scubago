@@ -14,8 +14,7 @@ import { useMarineModels } from './three/use-marine-models';
 import { useSceneActive, useSceneVisible } from '@/hooks/use-scene-active';
 import type { Habitat } from '@/lib/home';
 import { clamp, oceanScale } from '@/lib/steering';
-import { MAX_ANIMATED, pickSwimmers, SCHOOL_SPECIES, schoolSpeciesFor, showsPreview, swimmerPages, swimsInSchool, type MarineModel } from '@/lib/swimming';
-import { TUNA_SCHOOL } from '@/lib/tuna-school';
+import { hasSchool, MAX_ANIMATED, pickSwimmers, SCHOOL_SPECIES, schoolSpeciesFor, showsPreview, swimmerPages, swimsInSchool, type MarineModel } from '@/lib/swimming';
 import type { DexEntry } from '@/lib/types';
 
 /** Visiting animals for an empty ocean: labeled as a preview, never counted as discoveries. */
@@ -66,6 +65,8 @@ export function SanctuaryScene({ habitat, level, residents, paused = false, load
   // A new discovery arriving has a place of its own, whatever the page.
   const swimmers = pickSwimmers(residents, page, MAX_ANIMATED, moments?.featured);
   const schoolSpecies = schoolSpeciesFor(residents);
+  // No tuna unless one is logged (the showcase shows every animal, the school included).
+  const school = SHOWCASE || (!preview && hasSchool(residents));
   const { models, failed, retry } = useMarineModels(loading ? [] : (preview ? visitors : swimmers).map((s) => s.model));
   const busy = !!moments?.busy;
   useEffect(() => {
@@ -106,7 +107,7 @@ export function SanctuaryScene({ habitat, level, residents, paused = false, load
     layout.current.height = event.nativeEvent.layout.height;
   };
 
-  const tuna = TUNA_SCHOOL.size > 0 ? ', and a school of tuna' : '';
+  const tuna = school ? ', and a school of tuna' : '';
   const description = loading ? 'Your island; loading your discoveries' : preview
     ? `Level ${level} ${habitat} with ${SHOWCASE ? `${SHOWCASE_SWIMMERS.length} visiting species` : 'a visiting whale shark and reef manta ray'} as a preview${tuna}`
     : `Level ${level} ${habitat}, home to ${residents.length} discovered species, ${swimmers.length} swimming${tuna}`;
@@ -126,7 +127,7 @@ export function SanctuaryScene({ habitat, level, residents, paused = false, load
             residents={preview
               ? visitors.map((s) => ({ ...s, id: s.model, onPress: () => onInspect(s.model) }))
               : swimmers.map((s) => ({ ...s, id: s.species.id, onPress: () => router.push(`/species/${s.species.id}`) }))}
-            onSchoolPress={() => router.push(`/species/${schoolSpecies}`)} schoolSpecies={SCHOOLED} arrivals={arrivals} />}
+            onSchoolPress={() => router.push(`/species/${schoolSpecies}`)} school={school} schoolSpecies={SCHOOLED} arrivals={arrivals} />}
         </SanctuaryEnvironment>
       </Canvas>
     </SceneBoundary>

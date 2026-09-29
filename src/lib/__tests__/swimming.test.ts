@@ -1,5 +1,5 @@
 import { expect, test } from '@jest/globals';
-import { sampleSwimPath, advanceSwimTime, marineModelFor, pickSwimmers, schoolSpeciesFor, showsPreview, speciesMarineModel, swimmerPages, swimsInSchool, MAX_ANIMATED } from '@/lib/swimming';
+import { sampleSwimPath, advanceSwimTime, hasSchool, marineModelFor, pickSwimmers, schoolSpeciesFor, showsPreview, speciesMarineModel, swimmerPages, swimsInSchool, MAX_ANIMATED } from '@/lib/swimming';
 import { TUNA_SCHOOL } from '@/lib/tuna-school';
 import type { DexEntry, Species } from '@/lib/types';
 
@@ -100,6 +100,13 @@ test('a tap on the school opens one tuna species: the logged one, preferring the
   expect(schoolSpeciesFor([entry('clownfish', 'fish')])).toBe('yellowfin-tuna');
   expect(schoolSpeciesFor([entry('dogtooth-tuna', 'fish')])).toBe('dogtooth-tuna');
   expect(schoolSpeciesFor([entry('dogtooth-tuna', 'fish'), entry('yellowfin-tuna', 'fish')])).toBe('yellowfin-tuna');
+});
+
+test('the school swims only once a tuna is logged', () => {
+  expect(hasSchool([])).toBe(false);
+  expect(hasSchool([entry('clownfish', 'fish'), entry('whale-shark', 'shark')])).toBe(false);
+  expect(hasSchool([entry('yellowfin-tuna', 'fish')])).toBe(true);
+  expect(hasSchool([entry('clownfish', 'fish'), entry('dogtooth-tuna', 'fish')])).toBe(true);
 });
 
 test('with the school left out, tuna swim as fish again', () => {

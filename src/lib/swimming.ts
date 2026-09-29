@@ -38,6 +38,10 @@ export const SCHOOL_SPECIES = ['yellowfin-tuna', 'dogtooth-tuna'] as const;
 export function swimsInSchool(id: string) {
   return TUNA_SCHOOL.size > 0 && (SCHOOL_SPECIES as readonly string[]).includes(id);
 }
+/** Whether the island has the tuna school: only once a tuna it stands for is logged. */
+export function hasSchool(residents: DexEntry[]) {
+  return residents.some((r) => swimsInSchool(r.species.id));
+}
 /** The species a tap on the school opens: a logged tuna it stands for, else the one it is drawn after. */
 export function schoolSpeciesFor(residents: DexEntry[]): string {
   return SCHOOL_SPECIES.find((id) => residents.some((r) => r.species.id === id)) ?? SCHOOL_SPECIES[0];

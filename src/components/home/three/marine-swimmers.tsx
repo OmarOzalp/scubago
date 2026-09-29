@@ -52,8 +52,10 @@ const scratch = { x: 0, y: 0 };
  * The animals and the tuna school. A species that swims in a group (marine-groups.ts) is drawn as
  * several animals, all opening its one page; `onSchoolPress` makes the school one tap target too.
  */
-export function MarineSwimmers({ residents, models, active, level = 1, onSchoolPress, schoolSpecies = [], arrivals }: {
+export function MarineSwimmers({ residents, models, active, level = 1, school = false, onSchoolPress, schoolSpecies = [], arrivals }: {
   residents: Resident[]; models: MarineModels; active: boolean; level?: number; onSchoolPress?: () => void;
+  /** Whether the tuna school swims here (a tuna is logged). */
+  school?: boolean;
   /** The species the tuna school shows (logged tuna): a new one arrives with the whole school. */
   schoolSpecies?: readonly string[];
   arrivals?: Arrivals;
@@ -72,18 +74,19 @@ export function MarineSwimmers({ residents, models, active, level = 1, onSchoolP
   const holdable = schoolPending && !arrivals?.visible && !arrivals?.instant;
   const start = () => {
     const arriving = residents.filter((r) => waiting.includes(r.id)).map((r) => r.lane);
-    const motion = createMarineMotion(members, level, { school: true, seed: SEED, leap: LEAP, arriving });
+    const motion = createMarineMotion(members, level, { school, seed: SEED, leap: LEAP, arriving });
     // A new tuna brings the whole school in, from out of sight (only ever before the scene is shown).
     if (holdable) motion.holdSchool(aspect);
     return motion;
   };
   // One simulation per set of animals (a school of tuna swims with them, src/lib/tuna-school.ts). A new
   // level reshapes the island and widens the ocean around the same animals rather than starting over.
-  const [simulation, setSimulation] = useState(() => ({ members, motion: start() }));
+  // The school joining (a tuna logged) or leaving (its last sighting deleted) starts one too.
+  const [simulation, setSimulation] = useState(() => ({ members, school, motion: start() }));
   let motion = simulation.motion;
-  if (simulation.members !== members) {
+  if (simulation.members !== members || simulation.school !== school) {
     motion = start();
-    setSimulation({ members, motion });
+    setSimulation({ members, school, motion });
   }
   useEffect(() => { motion.setLevel(level); }, [motion, level]);
 
