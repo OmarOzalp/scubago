@@ -217,12 +217,20 @@ room. Animals keep their size; only the space and the view grow.
   seabed, water and depth map already reach well past the widest view, so no geometry
   changes and the water's cost is the same at every level.
 - **Smoothly.** A new level reshapes the island at once (it grows 2.5% per level, and
-  islets appear at levels 5 and 6; animals near the shore ease out of the way), while
+  islets rise from the water at levels 5 and 6; animals near the shore ease out of the way), while
   the frame, the roaming room and the camera ease to the new level's together, over
   about 3 s. Nobody is moved or restarted: the scene keeps its animals.
 - **Taps stay easy.** Pulling back makes everything smaller on screen, so a slender
   animal's invisible tap target grows with the scale: at least 28 pt across on a phone
   at every level (`MIN_TAP` in `src/components/home/three/tap-target.ts`).
+
+## Arrivals
+
+A species logged for the first time swims in from beyond the edge of the view when My Home next
+opens, in its own way (`arrive()` and `ARRIVAL_PACE` in `src/lib/marine-motion.ts`). Until its turn
+it waits out of sight, invisible and ignored by the others. The tuna school can do the same
+(`holdSchool()`). The whole sequence, with the level-up banner and islets rising, is in
+[discovery-moments.md](discovery-moments.md).
 
 ## Species settings
 

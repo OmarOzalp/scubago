@@ -81,6 +81,9 @@ project's settings with those dev defaults.
 - **My Log tab** — your sightings, and a species dex of 119 curated species with
   rarity tiers (common → legendary). First-of-species logs get a celebration.
 - **Log flow** — site → species → date/notes/photo, designed for speed.
+- **Discovery moments** — a new species swims into your island with a small "New" tag, and a
+  level-up gets a banner as the island grows (islets rise from the water)
+  ([docs/discovery-moments.md](docs/discovery-moments.md)).
 - **Sighting pages** — tap a sighting for its details, verification status and provenance;
   your own can be edited (through the same log flow) or deleted, offline too.
 - **Offline-first writes** — sightings, edits and deletions save to SQLite immediately and wait

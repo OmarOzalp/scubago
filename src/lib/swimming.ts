@@ -62,11 +62,28 @@ export function swimmerPages(residents: DexEntry[], limit = MAX_ANIMATED) {
 export function showsPreview(residents: DexEntry[]) {
   return shown(residents).length === 0;
 }
-/** Deterministic: the same collection and page always yield the same animals in the same lanes. */
-export function pickSwimmers(residents: DexEntry[], page = 0, limit = MAX_ANIMATED): Swimmer[] {
+/**
+ * Deterministic: the same collection and page always yield the same animals in the same lanes.
+ * `featured` species (a new discovery arriving) are guaranteed a place: those not on this page take
+ * the last places on it, so the island never animates more than `limit` animals.
+ */
+export function pickSwimmers(residents: DexEntry[], page = 0, limit = MAX_ANIMATED, featured: readonly string[] = []): Swimmer[] {
   const eligible = swimming(residents);
   const start = (page % swimmerPages(residents, limit)) * limit;
-  return eligible.slice(start, start + limit).map((r, lane) => ({ species: r.species, model: marineModelFor(r.species)!, lane }));
+  let chosen = eligible.slice(start, start + limit);
+  const extra = eligible.filter((r) => featured.includes(r.species.id) && !chosen.includes(r)).slice(0, limit);
+  if (extra.length > 0) {
+    const keep = chosen.filter((r) => featured.includes(r.species.id));
+    const others = chosen.filter((r) => !featured.includes(r.species.id)).slice(0, Math.max(0, limit - keep.length - extra.length));
+    chosen = chosen.filter((r) => others.includes(r) || keep.includes(r)).concat(extra);
+  }
+  return chosen.map((r, lane) => ({ species: r.species, model: marineModelFor(r.species)!, lane }));
+}
+
+/** How a species shows up on the island: as its own animal, in the tuna school, or not at all. */
+export function islandPresence(species: Pick<Species, 'id' | 'category'>): 'animal' | 'school' | null {
+  if (swimsInSchool(species.id)) return 'school';
+  return marineModelFor(species) ? 'animal' : null;
 }
 
 /** World coordinates: island at origin, Y up, animal nose points along local +Z. */

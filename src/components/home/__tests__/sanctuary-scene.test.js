@@ -7,11 +7,14 @@ import { useMarineModels } from '../three/use-marine-models';
 
 jest.mock('../three/scene-canvas', () => ({ SceneCanvas: ({ children }) => <>{children}</> }));
 jest.mock('../three/use-marine-models', () => ({ useMarineModels: jest.fn() }));
-jest.mock('@/hooks/use-scene-active', () => ({ useSceneActive: () => true }));
+jest.mock('@/hooks/use-scene-active', () => ({ useSceneActive: () => true, useSceneVisible: () => true }));
 jest.mock('../three/scene-camera', () => ({ SceneCamera: () => null }));
 jest.mock('../three/scene-performance', () => ({ ScenePerformance: () => null }));
 jest.mock('../three/sanctuary-environment', () => ({ SanctuaryEnvironment: ({ children }) => <environment>{children}</environment> }));
-jest.mock('@react-three/fiber', () => ({ useFrame: jest.fn() }));
+jest.mock('@react-three/fiber', () => ({
+  useFrame: jest.fn(),
+  useThree: (select) => select({ size: { width: 420, height: 390 }, invalidate: () => {}, camera: {} }),
+}));
 jest.mock('../three/animated-marine', () => ({ AnimatedMarine: ({ model, onPress }) => <swimmer model={model} onPress={onPress} /> }));
 jest.mock('../three/tuna-school-mesh', () => ({ TunaSchoolMesh: ({ onPress }) => <school onPress={onPress} /> }));
 jest.mock('../three/marine-splashes', () => ({ MarineSplashes: () => null }));

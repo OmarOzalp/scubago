@@ -19,13 +19,19 @@ export const HOME_STAGES = [
   { at: 60, rank: 'Ocean Legend', place: 'Your own archipelago', reward: 'A little archipelago' },
 ] as const;
 
+/** The island's level (1 to 6) for a collection of `count` species. */
+export function levelForCount(count: number) {
+  let index = 0;
+  for (let i = 1; i < HOME_STAGES.length; i++) if (count >= HOME_STAGES[i].at) index = i;
+  return index + 1;
+}
+
 /** Caller supplies the active owner's sightings, as with the existing logbook. */
 export function deriveHome(sightings: Sighting[], catalog: Map<string, Species>) {
   const valid = sightings.filter((s) => !s.isDemo && catalog.has(s.speciesId));
   const residents = deriveDex(valid, catalog);
   const count = residents.length;
-  let index = 0;
-  for (let i = 1; i < HOME_STAGES.length; i++) if (count >= HOME_STAGES[i].at) index = i;
+  const index = levelForCount(count) - 1;
   const stage = HOME_STAGES[index];
   const next = HOME_STAGES[index + 1] ?? null;
   return {

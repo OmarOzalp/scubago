@@ -1,11 +1,13 @@
 import { useMemo, type ReactNode } from 'react';
-import { Color, DoubleSide, Shape } from 'three';
+import { Color, DoubleSide, Shape, type Object3D } from 'three';
 import type { Habitat } from '@/lib/home';
 import { OCEAN } from '@/lib/ocean';
 import { islandScale, shoreline } from './island-shape';
 import { OceanContext } from './ocean-context';
 import { waterColorAt } from './ocean-mesh';
 import { useSceneQuality } from './scene-quality';
+import { submerge } from './islet-material';
+import { GROWTH_SECONDS, GrowthContext, Unlock } from './unlock';
 import { useOcean, WaterSurface, type Ocean } from './water-surface';
 
 export const WATER: Record<Habitat, string> = { island: '#C5E3DF', lagoon: '#B9DEDC', cove: '#C5DCD3' };
@@ -74,13 +76,18 @@ function useSeabedProp(ocean: Ocean, habitat: Habitat, level: number, x: number,
   }, [ocean, habitat, scale, x, z, color, lift]);
 }
 
-function IslandWorld({ habitat, level, active, children }: { habitat: Habitat; level: number; active: boolean; children?: ReactNode }) {
-  const ocean = useOcean(habitat, level, WATER[habitat], useSceneQuality());
+function IslandWorld({ habitat, level, active, growIn, children }: { habitat: Habitat; level: number; active: boolean; growIn: boolean; children?: ReactNode }) {
+  const quality = useSceneQuality();
+  const ocean = useOcean(habitat, level, WATER[habitat], quality);
+  const growth = useMemo(() => ({
+    animate: growIn, duration: GROWTH_SECONDS[quality],
+    submerge: (group: Object3D) => submerge(group, ocean.uniforms, quality === 'lite'),
+  }), [growIn, quality, ocean.uniforms]);
   const coralA = useSeabedProp(ocean, habitat, level, -2.1, 1.25, '#B98A7C');
   const coralB = useSeabedProp(ocean, habitat, level, 2.2, .65, '#6E9C88');
   const coralC = useSeabedProp(ocean, habitat, level, 1.5, 1.65, '#B98A7C');
   const reefRock = useSeabedProp(ocean, habitat, level, -2.1, -1.3, '#8FA394', .04);
-  return <OceanContext.Provider value={ocean.uniforms}>
+  return <OceanContext.Provider value={ocean.uniforms}><GrowthContext.Provider value={growth}>
     <WaterSurface ocean={ocean} active={active} />
     <group scale={islandScale(level)}>
       <ShoreLayer scale={1.035} y={-.12} color="#D9CEAB" offset={[.025, .06]} />
@@ -98,30 +105,35 @@ function IslandWorld({ habitat, level, active, children }: { habitat: Habitat; l
       {habitat === 'lagoon' && <mesh position={[.45, -.02, .62]} rotation={[-Math.PI / 2, 0, -.3]} scale={[.65, .32, 1]}>
         <circleGeometry args={[1, 24]} /><meshBasicMaterial color="#A8D3C9" />
       </mesh>}
-      {(level >= 2 || habitat === 'lagoon') && <>
+      {/* What each level adds grows in (or rises from the water) when it's unlocked on screen. */}
+      <Unlock at={habitat === 'lagoon' ? 1 : 2} level={level} kind="grow">
         <Coral position={coralA.position} color={coralA.color} /><Coral position={coralB.position} color={coralB.color} />
-      </>}
-      {level >= 3 && <><Rock position={reefRock.position} scale={.25} color={reefRock.color} /><Coral position={coralC.position} color={coralC.color} /></>}
-      {level >= 4 && <Palm position={[-.55, -.01, .6]} scale={.46} rotation={2.5} />}
-      {level >= 5 && <group position={[2.65, 0, -2]} scale={.3}>
-        <ShoreLayer y={-.1} color="#F0E6C9" /><Palm position={[0, 0, 0]} scale={.8} />
-      </group>}
-      {level >= 6 && <group position={[-2.8, 0, 2.1]} scale={.26}>
-        <ShoreLayer y={-.1} color="#F0E6C9" /><Palm position={[0, 0, 0]} scale={.7} />
-      </group>}
+      </Unlock>
+      <Unlock at={3} level={level} kind="grow">
+        <Rock position={reefRock.position} scale={.25} color={reefRock.color} /><Coral position={coralC.position} color={coralC.color} />
+      </Unlock>
+      <Unlock at={4} level={level} kind="grow"><Palm position={[-.55, -.01, .6]} scale={.46} rotation={2.5} /></Unlock>
+      <Unlock at={5} level={level} kind="rise">
+        <group position={[2.65, 0, -2]} scale={.3}><ShoreLayer y={-.1} color="#F0E6C9" /><Palm position={[0, 0, 0]} scale={.8} /></group>
+      </Unlock>
+      <Unlock at={6} level={level} kind="rise">
+        <group position={[-2.8, 0, 2.1]} scale={.26}><ShoreLayer y={-.1} color="#F0E6C9" /><Palm position={[0, 0, 0]} scale={.7} /></group>
+      </Unlock>
     </group>
     {children}
-  </OceanContext.Provider>;
+  </GrowthContext.Provider></OceanContext.Provider>;
 }
 
 /** Lights and backdrop for every scene; the island and its ocean only outside the close-up. */
-export function SanctuaryEnvironment({ habitat, level, active, inspect = false, children }: {
-  habitat: Habitat; level: number; active: boolean; inspect?: boolean; children?: ReactNode;
+export function SanctuaryEnvironment({ habitat, level, active, inspect = false, growIn = false, children }: {
+  habitat: Habitat; level: number; active: boolean; inspect?: boolean;
+  /** A new level's additions rise or grow in (see Growth), rather than simply being there. */
+  growIn?: boolean; children?: ReactNode;
 }) {
   return <>
     <color attach="background" args={[WATER[habitat]]} />
     <hemisphereLight args={['#F4F7EC', '#5E8F91', 1.15]} />
     <directionalLight position={OCEAN.sun} intensity={1.7} />
-    {inspect ? children : <IslandWorld habitat={habitat} level={level} active={active}>{children}</IslandWorld>}
+    {inspect ? children : <IslandWorld habitat={habitat} level={level} active={active} growIn={growIn}>{children}</IslandWorld>}
   </>;
 }

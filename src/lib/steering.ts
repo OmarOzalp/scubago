@@ -51,6 +51,18 @@ export const apparentShift = (depth: number) => .4 - .5 * depth;
  */
 export const viewHeight = (y: number, z: number, scale = 1) => (.4428 * (y + .15) - .8966 * z) / (5.4 * scale);
 
+/**
+ * What the camera shows at world height `y`, as world (x, z): x within ±`x`, z from `top` (far, up the
+ * view) to `bottom` (near). The camera fits the ocean's 10.8 × scale units across the canvas's
+ * shorter side (scene-camera.tsx), so a wider canvas (`aspect` = width / height) shows more water at
+ * the sides. Where an arriving animal starts, out of sight.
+ */
+export function viewBounds(y: number, scale = 1, aspect = 1) {
+  const half = 5.4 * scale, halfHeight = half * Math.max(1, 1 / aspect);
+  const lift = .4428 * (y + .15);
+  return { x: half * Math.max(1, aspect), top: (lift - halfHeight) / .8966, bottom: (lift + halfHeight) / .8966 };
+}
+
 export const clamp = (value: number, min: number, max: number) => Math.max(min, Math.min(max, value));
 export const smoothstep = (edge0: number, edge1: number, x: number) => { const t = clamp((x - edge0) / (edge1 - edge0), 0, 1); return t * t * (3 - 2 * t); };
 export const wrap = (angle: number) => Math.atan2(Math.sin(angle), Math.cos(angle));

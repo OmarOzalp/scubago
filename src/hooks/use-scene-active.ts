@@ -37,3 +37,14 @@ export function useSceneActive(paused = false) {
   }, []);
   return focused && foreground && !reduced && !paused;
 }
+
+/** Whether the scene's screen is on show: focused, with the app in the foreground (motion settings aside). */
+export function useSceneVisible() {
+  const [focused, setFocused] = useState(false);
+  useFocusEffect(useCallback(() => {
+    setFocused(true);
+    return () => setFocused(false);
+  }, []));
+  const foreground = useSyncExternalStore(subscribeAppState, isForeground, serverForeground);
+  return focused && foreground;
+}
