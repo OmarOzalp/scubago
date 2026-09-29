@@ -9,6 +9,7 @@ import { SightingRow } from '@/components/sighting-row';
 import { SpeciesAvatar } from '@/components/species-avatar';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
+import { Ocean } from '@/constants/palette';
 import { BottomTabInset, Spacing } from '@/constants/theme';
 import { CATALOG, CATALOG_BY_ID } from '@/lib/catalog';
 import { deriveDex } from '@/lib/dex';
@@ -102,6 +103,14 @@ export default function LogbookScreen() {
             </View>
           ) : null}
         </View>
+
+        {backendEnabled ? (
+          <Pressable onPress={() => router.push('/verify')} accessibilityRole="link" hitSlop={6}>
+            <ThemedText type="small" themeColor="textSecondary">
+              Got a code from a buddy? <ThemedText type="smallBold" style={{ color: Ocean.primary }}>Confirm a buddy’s sighting ›</ThemedText>
+            </ThemedText>
+          </Pressable>
+        ) : null}
 
         <Segmented<Mode>
           options={[

@@ -14,7 +14,14 @@ expected_policies(tbl, policy) as (values
   ('sightings', 'users delete own sightings'), ('profiles', 'profiles are public'), ('profiles', 'users manage own profile'),
   ('profiles', 'users update own profile'), ('objects', 'photos are public'), ('objects', 'users upload own photos'),
   ('objects', 'users replace own photos'), ('objects', 'users delete own photos'),
-  ('regions', 'regions are public'), ('site_external_ids', 'site ids are public'), ('site_field_sources', 'site sources are public')
+  ('regions', 'regions are public'), ('site_external_ids', 'site ids are public'), ('site_field_sources', 'site sources are public'),
+  ('verification_requests', 'own requests'), ('attestations', 'attestations on own sightings or by me')
+),
+-- Migration 0006 (buddy verification): who may call each function.
+verification_functions(fn, app_calls) as (values
+  ('public.create_verification_request(text)', true), ('public.revoke_verification_request(uuid)', true),
+  ('public.preview_verification(text)', true), ('public.attest(text,text,text,text,text,date)', true),
+  ('public.refresh_sighting_status(text)', false), ('public.verification_lookup(text,uuid)', false)
 ),
 bucket as (select * from storage.buckets where id = 'sighting-photos'),
 checks(section, item, detail, verdict) as (
@@ -75,6 +82,27 @@ checks(section, item, detail, verdict) as (
                and (has_table_privilege('anon', 'public.spatial_ref_sys', 'INSERT,UPDATE,DELETE') or has_table_privilege('authenticated', 'public.spatial_ref_sys', 'INSERT,UPDATE,DELETE'))
               then 'ACTION' else 'ok' end
   union all
+  -- Buddy verification (migration 0006): the app asks and answers only through these functions, and
+  -- only ScubaGo sets a sighting's status.
+  select 'Migrations', 'buddy verification (0006)',
+         case when to_regclass('public.attestations') is null then 'not applied: "Ask a buddy" stays unavailable in the app'
+              when not exists (select 1 from pg_trigger where tgname = 'sightings_1_guard_status' and tgrelid = 'public.sightings'::regclass)
+                then 'status guard trigger missing' else 'applied, status guard on' end,
+         case when to_regclass('public.attestations') is not null
+               and exists (select 1 from pg_trigger where tgname = 'sightings_1_guard_status' and tgrelid = 'public.sightings'::regclass)
+              then 'ok' else 'ACTION' end
+  union all
+  select 'Functions', f.fn,
+         case when to_regprocedure(f.fn) is null then 'missing'
+              when has_function_privilege('anon', f.fn, 'EXECUTE') then 'callable by anonymous visitors'
+              when f.app_calls and not has_function_privilege('authenticated', f.fn, 'EXECUTE') then 'not callable by signed-in users'
+              when not f.app_calls and has_function_privilege('authenticated', f.fn, 'EXECUTE') then 'callable from the app (should not be)'
+              when f.app_calls then 'signed-in users only' else 'internal only' end,
+         case when to_regprocedure(f.fn) is not null
+               and not has_function_privilege('anon', f.fn, 'EXECUTE')
+               and has_function_privilege('authenticated', f.fn, 'EXECUTE') = f.app_calls then 'ok' else 'ACTION' end
+  from verification_functions f where to_regclass('public.attestations') is not null
+  union all
   -- Account deletion (migration 0004): callable when signed in, never anonymously.
   select 'Functions', 'delete_own_account (in-app account deletion)',
          case when to_regprocedure('public.delete_own_account()') is null then 'missing: apply migration 0004'
@@ -88,7 +116,9 @@ checks(section, item, detail, verdict) as (
   select 'Functions', 'other SECURITY DEFINER functions in public', coalesce(string_agg(p.proname, ', '), 'none'),
          case when count(*) = 0 then 'ok' else 'info' end
   from pg_proc p join pg_namespace n on n.oid = p.pronamespace
-  where n.nspname = 'public' and p.prosecdef and p.proname <> 'delete_own_account'
+  where n.nspname = 'public' and p.prosecdef and p.proname not in ('delete_own_account', 'create_verification_request',
+    'revoke_verification_request', 'preview_verification', 'attest', 'refresh_sighting_status', 'verification_lookup',
+    'sighting_facts_changed', 'attestation_removed')
 )
 select section, item, detail, verdict from checks
 order by case verdict when 'ACTION' then 0 when 'info' then 2 else 1 end, section, item;

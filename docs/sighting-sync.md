@@ -35,7 +35,7 @@ How a diver's changes reach the server, including offline. The code is in `src/l
 | Another diver deletes a community sighting | It disappears from site feeds on the next pull (within the window the pull covers). |
 | A push lands but the reply is lost | Retrying is safe. New rows are inserted only if absent, then updated; deleting what's gone isn't an error. |
 | An edit made while a push is on its way | Every local change bumps `version`; a push only marks the row synced if the version still matches, so the newer edit goes next time. |
-| Species, site or date changed on a verified sighting | Its local status resets to unverified (a buddy vouched for the old facts); the server does the same when verification ships. Notes and photo edits keep the status. |
+| Species, site or date changed on a verified sighting | Its local status resets to unverified (a buddy vouched for the old facts); the server does the same and removes the old answers (migration 0006, [buddy-verification.md](buddy-verification.md)). Notes and photo edits keep the status. |
 | Not signed in | Nothing leaves the device. Deletes are immediate (no tombstone), and edits just update the row. |
 
 Pushes send only what an owner may change after logging (`species_id`, `site_id`,

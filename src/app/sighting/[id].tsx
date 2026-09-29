@@ -3,6 +3,7 @@ import { Stack, router, useLocalSearchParams } from 'expo-router';
 import { useState } from 'react';
 import { Alert, Platform, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 
+import { BuddyVerification } from '@/components/buddy-verification';
 import { OceanButton } from '@/components/ocean-button';
 import { RarityChip } from '@/components/rarity-chip';
 import { formatDate } from '@/components/sighting-row';
@@ -147,6 +148,8 @@ export default function SightingDetailScreen() {
             {sighting.photoUri ? 'Photo attached' : 'No photo'}
           </ThemedText>
         </View>
+
+        {mine && !sighting.isDemo ? <BuddyVerification sighting={sighting} speciesName={species.commonName} /> : null}
 
         <View style={{ gap: 2 }}>
           <ThemedText type="small" themeColor="textSecondary">

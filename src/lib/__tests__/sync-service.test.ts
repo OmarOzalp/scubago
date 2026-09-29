@@ -1,4 +1,4 @@
-import { describe, expect, it } from '@jest/globals';
+import { describe, expect, it, jest } from '@jest/globals';
 
 import type { OutboxSighting, PullScope } from '@/lib/db';
 import { syncNow, type SyncDeps } from '@/lib/sync-service';
@@ -154,5 +154,25 @@ describe('syncNow', () => {
     expect(result.pulled).toBe(1);
     expect(calls.merged[0][0]).toHaveLength(1);
     expect(calls.merged[0][1]).toEqual({ ownerId: UID, ownComplete: true, communitySince: null });
+  });
+
+  it('pulls each sighting\'s verification status, which only the server sets', async () => {
+    const { server, calls, run } = setup([]);
+    server.seedSighting(remoteRow({ id: 'verified', status: 'confirmed' }));
+    await run();
+    expect(calls.merged[0][0].find((s) => s.id === 'verified')?.status).toBe('confirmed');
+  });
+
+  it('keeps syncing on a project without verification yet (migration 0006 not applied)', async () => {
+    // A fresh copy of the module: it remembers whether the project has the column.
+    let fresh!: typeof import('@/lib/sync-service');
+    // eslint-disable-next-line @typescript-eslint/no-require-imports -- a fresh module copy needs require()
+    jest.isolateModules(() => { fresh = require('@/lib/sync-service'); });
+    const { server, deps, calls } = setup([]);
+    server.statusColumn = false;
+    server.seedSighting(remoteRow({ id: 'r-1' }));
+    const result = await fresh.syncNow(server.device('phone', UID).client, UID, deps);
+    expect(result.pulled).toBe(1);
+    expect(calls.merged[0][0][0].status).toBeUndefined();
   });
 });

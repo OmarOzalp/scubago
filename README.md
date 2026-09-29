@@ -44,9 +44,11 @@ SUPABASE_URL=... SUPABASE_SECRET_KEY=... npm run seed:supabase
 
 npm run check:env              # nothing secret in anything the app compiles in (EAS runs it on every build)
 npm run check:supabase         # the live project, checked from outside with the publishable key
+npm run check:buddy            # "Ask a buddy" end to end, with two test accounts (after migration 0006)
 ```
 
-Then run `supabase/checks/audit.sql` and `supabase/checks/rls-isolation.sql` in the SQL editor (see
+Then run `supabase/checks/audit.sql`, `supabase/checks/rls-isolation.sql` and
+`supabase/checks/verification-check.sql` in the SQL editor (see
 [docs/ios-distribution.md](docs/ios-distribution.md#6-supabase-after-a-reset)).
 
 Auth is email + password with auto-confirm, which needs email confirmation turned off:
@@ -86,6 +88,9 @@ project's settings with those dev defaults.
   ([docs/discovery-moments.md](docs/discovery-moments.md)).
 - **Sighting pages** — tap a sighting for its details, verification status and provenance;
   your own can be edited (through the same log flow) or deleted, offline too.
+- **Ask a buddy** — send a buddy a code; signed in, they see the sighting and confirm it, and it
+  reads **Buddy verified**. The server checks everything (migration 0006,
+  [docs/buddy-verification.md](docs/buddy-verification.md)).
 - **Offline-first writes** — sightings, edits and deletions save to SQLite immediately and wait
   in an outbox that syncs with retries once a backend is configured
   ([docs/sighting-sync.md](docs/sighting-sync.md)).
@@ -133,7 +138,7 @@ node scripts/fetch-species-photos.mjs
 The staged plan is in [docs/roadmap/](docs/roadmap/README.md):
 - a bigger, properly sourced dive-site database;
 - reports from dive operators and marine organizations, labeled by where they came from;
-- community sightings verified by a photo or a buddy's confirmation;
+- community sightings verified by a photo (a buddy's confirmation is in: "Ask a buddy");
 - a faster, offline-first dive log.
 
 From the original spec, still open: seasonality, downloadable offline map regions, and

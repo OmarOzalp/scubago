@@ -142,6 +142,9 @@ Attaching a photo alone never verifies a sighting.
 
 ### Method B: buddy or instructor confirmation
 
+Built in migration 0006. [buddy-verification.md](../buddy-verification.md) describes what shipped
+and where it differs from this design.
+
 1. The diver taps "Ask a buddy" on a sighting (later: on a whole dive).
 2. `create_verification_request()` returns a **10-character code** such as `G2QF0-XJRYR`:
    - Crockford base32, 50 random bits;

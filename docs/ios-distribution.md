@@ -175,7 +175,9 @@ Work through these in order. Nothing here recreates or resets the project.
    - 0002: account-deletion cascades and photo limits;
    - 0003: protects PostGIS's table;
    - 0004: in-app account deletion;
-   - 0005: dive-site details, regions, external IDs and sources.
+   - 0005: dive-site details, regions, external IDs and sources;
+   - 0006: buddy verification ("Ask a buddy"; [buddy-verification.md](buddy-verification.md)).
+     Before pushing, check which project is linked (`npx supabase projects list`).
 
    If the earlier migrations were pasted into the SQL editor, the CLI has no record of them, and
    `db push` would try to run 0001 again. First mark the ones already in place:
@@ -197,8 +199,11 @@ Work through these in order. Nothing here recreates or resets the project.
    - In the SQL editor, run `supabase/checks/audit.sql` (read-only). Every row should be `ok` or
      `info`; fix any `ACTION`.
    - In the SQL editor, run `supabase/checks/rls-isolation.sql`. It ends in an intentional error
-     that reads "RLS isolation check: 15 passed, 0 failed". The error rolls the check back, so
+     that reads "RLS isolation check: 17 passed, 0 failed". The error rolls the check back, so
      nothing is saved.
+   - Once 0006 is applied, run `supabase/checks/verification-check.sql` the same way ("26 passed,
+     0 failed"). Then run `npm run check:buddy` with two test accounts: it runs "Ask a buddy" end to
+     end and deletes its test sighting.
    - In the dashboard, check Advisors → Security Advisor (or run `eas integrations:supabase:advisors`
      once linked).
 
@@ -211,6 +216,9 @@ Work through these in order. Nothing here recreates or resets the project.
 - **Writing:** only the owner can create, edit or delete a sighting or their profile, or add a site
   in their own name. Nobody can edit the catalog from the app. The isolation check proves each of
   these.
+- **Verification (0006):** a sighting's status is set only by the server's functions, never by the
+  app. Codes are stored as hashes, expire, and are rate-limited, and nobody can confirm their own
+  sighting. `verification-check.sql` proves it.
 - **Photos:** the bucket is public-read, limited to 10 MB and image types. Each user can write only
   inside their own folder. On iOS, photos are re-encoded before upload, so the location a photo was
   taken at never reaches the bucket. **Android still keeps it:** before Android testing, re-encode
@@ -235,6 +243,7 @@ Done in this pass:
 - [x] Placeholder ScubaGo icon and splash instead of Expo's logo
 - [x] Performance badge in preview builds; the canvas no longer over-renders on iPhones
 - [x] Supabase checks: `check:supabase`, `audit.sql`, `rls-isolation.sql`
+- [x] Buddy verification checks: `verification-check.sql`, `check:buddy` (after migration 0006)
 
 Your part:
 

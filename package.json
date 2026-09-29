@@ -64,7 +64,8 @@
     "seed:supabase": "tsx scripts/seed-supabase.ts",
     "check:env": "tsx scripts/check-public-env.ts",
     "eas-build-post-install": "tsx scripts/check-public-env.ts --eas",
-    "check:supabase": "tsx scripts/check-supabase.ts"
+    "check:supabase": "tsx scripts/check-supabase.ts",
+    "check:buddy": "tsx scripts/check-buddy-verification.ts"
   },
   "private": true,
   "jest": {

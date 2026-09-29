@@ -3,7 +3,7 @@ import type { Sighting, SightingStatus } from '@/lib/types';
 export const STATUS_LABEL: Record<SightingStatus, string> = {
   unverified: 'Unverified',
   evidence_submitted: 'Evidence in review',
-  confirmed: 'Buddy confirmed',
+  confirmed: 'Buddy verified',
   accepted: 'Verified',
   rejected: 'Not accepted',
   disputed: 'Disputed',

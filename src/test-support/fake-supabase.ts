@@ -36,6 +36,8 @@ export class FakeServer {
   loseNextReply = false;
   /** When set, only these sightings columns may be updated (like column-level privileges). */
   sightingUpdateColumns: string[] | null = null;
+  /** The project has sightings.status (migration 0006); without it, selecting it fails with 42703. */
+  statusColumn = true;
 
   device(name: string, userId: string | null): FakeDevice {
     return new FakeDevice(this, name, userId);
@@ -187,6 +189,9 @@ class FakeQuery implements PromiseLike<Result> {
       server.calls.push({ device: this.device.name, table: this.table, op: this.op, ids, columns });
 
     if (this.op === 'select') {
+      if (this.table === 'sightings' && !server.statusColumn && this.columns.split(',').includes('status')) {
+        return { data: null, error: { message: 'column sightings.status does not exist', code: '42703', details: '', hint: '' } };
+      }
       let out = rows.filter((r) => this.matches(r));
       if (this.orderBy) {
         const { col, asc } = this.orderBy;

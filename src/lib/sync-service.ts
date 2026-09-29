@@ -36,6 +36,30 @@ import type { DiveSite, Sighting } from '@/lib/types';
 const PULL_LIMIT = 500;
 const OWN_PULL_LIMIT = 2000;
 const SIGHTING_COLUMNS = 'id,user_id,species_id,site_id,sighted_on,notes,photo_url,created_at,profiles(username)';
+/**
+ * Whether this project has the status column (migration 0006): unknown until a pull asks. Without
+ * it, sightings sync as before and simply show as unverified.
+ */
+let hasStatus: boolean | null = null;
+
+/** Pull sightings with their status where the project has one. */
+async function pullSightings(
+  query: (columns: string) => PromiseLike<{ data: unknown; error: { code?: string } | null }>,
+): Promise<RemoteSightingRow[]> {
+  if (hasStatus !== false) {
+    const { data, error } = await query(`${SIGHTING_COLUMNS},status`);
+    if (!error) {
+      hasStatus = true;
+      return data as RemoteSightingRow[];
+    }
+    // 42703: no such column (0006 not applied yet).
+    if (error.code !== '42703') throw error;
+    hasStatus = false;
+  }
+  const { data, error } = await query(SIGHTING_COLUMNS);
+  if (error) throw error;
+  return data as RemoteSightingRow[];
+}
 
 export interface SyncDeps {
   getUnsyncedUserSites: () => Promise<DiveSite[]>;
@@ -256,27 +280,22 @@ export async function syncNow(
   if (sitesError) throw sitesError;
   await deps.upsertUserSites((siteRows as RemoteSiteRow[]).map(remoteSiteRowToSite));
 
-  const { data: rows, error: pullError } = await client
+  const community = await pullSightings((columns) => client
     .from('sightings')
-    .select(SIGHTING_COLUMNS)
+    .select(columns)
     .order('created_at', { ascending: false })
-    .limit(PULL_LIMIT);
-  if (pullError) throw pullError;
+    .limit(PULL_LIMIT));
 
   // The community pull above is a global top-N, so a user with more than PULL_LIMIT
   // sightings across the whole app can have their own rows fall out of it. Pull the
   // user's own log directly (a much higher cap) so a reinstall always restores it in
   // full, independent of how much community activity exists.
-  const { data: ownRows, error: ownError } = await client
+  const own = await pullSightings((columns) => client
     .from('sightings')
-    .select(SIGHTING_COLUMNS)
+    .select(columns)
     .eq('user_id', userId)
     .order('created_at', { ascending: false })
-    .limit(OWN_PULL_LIMIT);
-  if (ownError) throw ownError;
-
-  const community = rows as unknown as RemoteSightingRow[];
-  const own = ownRows as unknown as RemoteSightingRow[];
+    .limit(OWN_PULL_LIMIT));
   const byId = new Map<string, RemoteSightingRow>();
   for (const row of community) byId.set(row.id, row);
   for (const row of own) byId.set(row.id, row);

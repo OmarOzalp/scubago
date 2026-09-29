@@ -1,6 +1,7 @@
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { SpeciesAvatar } from '@/components/species-avatar';
+import { StatusChip } from '@/components/status-chip';
 import { ThemedText } from '@/components/themed-text';
 import { Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
@@ -38,6 +39,8 @@ export function SightingRow({ sighting, species, site, showUsername = false, pen
               <Text style={[styles.exampleLabel, { color: theme.textSecondary }]}>Example</Text>
             </View>
           ) : null}
+          {/* Unverified is the usual case, so only the others are named here. */}
+          {sighting.status && sighting.status !== 'unverified' && !pending ? <StatusChip status={sighting.status} small /> : null}
           {pending ? (
             <View style={[styles.example, { borderColor: theme.textSecondary, borderStyle: 'dashed' }]} accessibilityLabel="Waiting to sync">
               <Text style={[styles.exampleLabel, { color: theme.textSecondary }]}>

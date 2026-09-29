@@ -1,4 +1,4 @@
-import type { DiveSite, Sighting } from '@/lib/types';
+import type { DiveSite, Sighting, SightingStatus } from '@/lib/types';
 
 export type PushFn<T extends Sighting = Sighting> = (sighting: T) => Promise<void>;
 
@@ -52,6 +52,8 @@ export interface RemoteSightingRow {
   photo_url: string | null;
   created_at: string;
   profiles: { username: string } | null;
+  /** Set only by the server (migration 0006); absent from projects without it. */
+  status?: SightingStatus | null;
 }
 
 export function sightingToRemoteRow(
@@ -97,6 +99,7 @@ export function remoteRowToSighting(row: RemoteSightingRow): Sighting {
     isDemo: false,
     synced: true,
     createdAt: new Date(row.created_at).toISOString(),
+    ...(row.status ? { status: row.status } : {}),
   };
 }
 

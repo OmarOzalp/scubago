@@ -31,6 +31,7 @@ export default function RootLayout() {
         />
         <Stack.Screen name="auth" options={{ presentation: 'modal', title: 'Account' }} />
         <Stack.Screen name="inspect" options={{ presentation: 'modal', title: 'A closer look' }} />
+        <Stack.Screen name="verify" options={{ presentation: 'modal', title: 'Confirm a sighting' }} />
         <Stack.Screen name="site/[id]" options={{ title: '' }} />
         <Stack.Screen name="species/[id]" options={{ title: '' }} />
         <Stack.Screen name="sighting/[id]" options={{ title: '' }} />
