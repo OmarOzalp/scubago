@@ -1,6 +1,7 @@
 import { useMemo, type ReactNode } from 'react';
 import { Color, DoubleSide, Shape, type Object3D } from 'three';
 import type { Habitat } from '@/lib/home';
+import { SEABED_PROPS } from '@/lib/island-outline';
 import { OCEAN } from '@/lib/ocean';
 import { islandScale, shoreline } from './island-shape';
 import { OceanContext } from './ocean-context';
@@ -83,10 +84,10 @@ function IslandWorld({ habitat, level, active, growIn, children }: { habitat: Ha
     animate: growIn, duration: GROWTH_SECONDS[quality],
     submerge: (group: Object3D) => submerge(group, ocean.uniforms, quality === 'lite'),
   }), [growIn, quality, ocean.uniforms]);
-  const coralA = useSeabedProp(ocean, habitat, level, -2.1, 1.25, '#B98A7C');
-  const coralB = useSeabedProp(ocean, habitat, level, 2.2, .65, '#6E9C88');
-  const coralC = useSeabedProp(ocean, habitat, level, 1.5, 1.65, '#B98A7C');
-  const reefRock = useSeabedProp(ocean, habitat, level, -2.1, -1.3, '#8FA394', .04);
+  const coralA = useSeabedProp(ocean, habitat, level, ...SEABED_PROPS.coralA, '#B98A7C');
+  const coralB = useSeabedProp(ocean, habitat, level, ...SEABED_PROPS.coralB, '#6E9C88');
+  const coralC = useSeabedProp(ocean, habitat, level, ...SEABED_PROPS.coralC, '#B98A7C');
+  const reefRock = useSeabedProp(ocean, habitat, level, ...SEABED_PROPS.reefRock, '#8FA394', .04);
   return <OceanContext.Provider value={ocean.uniforms}><GrowthContext.Provider value={growth}>
     <WaterSurface ocean={ocean} active={active} />
     <group scale={islandScale(level)}>

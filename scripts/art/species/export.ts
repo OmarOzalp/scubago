@@ -85,6 +85,7 @@ export function bakeSwim(model: SwimRigModel, bones: Map<string, Bone>, samples 
   const duration = 1 / strokeFrequency(SWIM_RIGS[model], 1);
   const times = Array.from({ length: samples + 1 }, (_, i) => duration * i / samples);
   const rotations = new Map(rig.bones.map((name) => [name, [] as number[]]));
+  const scales = new Map(rig.scaled.map((b) => [rig.bones[b], [] as number[]]));
   const rootPosition: number[] = [];
   const root = bones.get('Root')!;
   const euler = new Euler(), quaternion = new Quaternion();
@@ -95,11 +96,13 @@ export function bakeSwim(model: SwimRigModel, bones: Map<string, Bone>, samples 
       quaternion.setFromEuler(euler);
       rotations.get(name)!.push(quaternion.x, quaternion.y, quaternion.z, quaternion.w);
     });
+    rig.scaled.forEach((b) => scales.get(rig.bones[b])!.push(rig.scale[b * 3], rig.scale[b * 3 + 1], rig.scale[b * 3 + 2]));
     rootPosition.push(root.position.x + rig.offset.x, root.position.y + rig.offset.y, root.position.z + rig.offset.z);
   });
   const tracks = [
     ...rig.bones.map((name) => new QuaternionKeyframeTrack(`${name}.quaternion`, times, rotations.get(name)!)),
     new VectorKeyframeTrack('Root.position', times, rootPosition),
+    ...[...scales].map(([name, values]) => new VectorKeyframeTrack(`${name}.scale`, times, values)),
   ];
   return new AnimationClip('Swim', duration, tracks);
 }

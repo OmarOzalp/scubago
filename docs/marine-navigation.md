@@ -2,8 +2,10 @@
 
 How the animals around the island decide where to swim: finding their way around
 each other, keeping clear of the island and islets, and turning and banking
-smoothly; swimming in small groups; the dolphins' leaps; and the ocean widening as
-the island levels up. Everything lives in `src/lib/marine-motion.ts`; the island's
+smoothly; swimming in small groups; the dolphins' leaps; the ocean widening as
+the island levels up; and the reef's own animals, which keep to the reef rather than
+the open water ([Reef habitats](#reef-habitats)). Everything lives in
+`src/lib/marine-motion.ts` and, for the reef, `src/lib/reef-life.ts`; the island's
 shape and the shore-distance field are in `src/lib/island-outline.ts`, the groups in
 `src/lib/marine-groups.ts`, the leap's curves in `src/lib/breach.ts` and the ocean's
 growth in `src/lib/steering.ts`. Swimming gait (tail beats, wing and flipper strokes)
@@ -229,8 +231,110 @@ room. Animals keep their size; only the space and the view grow.
 A species logged for the first time swims in from beyond the edge of the view when My Home next
 opens, in its own way (`arrive()` and `ARRIVAL_PACE` in `src/lib/marine-motion.ts`). Until its turn
 it waits out of sight, invisible and ignored by the others. The tuna school can do the same
-(`holdSchool()`). The whole sequence, with the level-up banner and islets rising, is in
+(`holdSchool()`), and the reef's animals arrive on the reef instead ([Arriving](#arriving)). The
+whole sequence, with the level-up banner and islets rising, is in
 [discovery-moments.md](discovery-moments.md).
+
+## Reef habitats
+
+Each species has a habitat (`habitat` in `MOVEMENT`): `open-water` (the default: every
+animal above, steered here), or one of the reef's own. The reef's animals have their own
+simulation, `src/lib/reef-life.ts`, which `createMarineMotion` runs beside the open
+water's in the same fixed 60 Hz steps:
+
+| Species (model) | Habitat | Where | How it moves |
+| --- | --- | --- | --- |
+| Day octopus (`day-octopus`) | `seabed` | Its patch of the sandy shelf beside its rock | Walks a short way, pauses, rests coiled by its rock; now and then a short jet |
+| Giant cuttlefish (`giant-cuttlefish`) | `reef-edge` | Its stretch of the reef edge, where the bottom drops away, higher in the water | Hovers, glides to a new spot, rises and sinks; a rare jet |
+| Giant moray (`giant-moray`) | `crevice` | Its den in the rocks, head out; now and then its other den nearby | Lies still breathing, slides out, swims along the shelf, goes in head first |
+
+**Kept apart from the open water.** The open-water animals, their groups, the dolphins'
+leaps and the tuna school never see the reef's animals: they are not among the animals
+the steering, the school's neighbors or a leap's room check look at, and they don't count
+toward the open water's dive staggering or starting places. With or without reef animals,
+the open water's animals and the school move exactly the same (a test checks it). The reef's
+animals do notice the open water's large animals passing over them, as the camera sees them
+(each animal's apparent footprint, see `ReefVisitor` and `REEF_THREAT`): sharks most, then
+the dolphin, while big animals that eat neither barely count.
+
+**Anchors and zones, no pathfinding.** The places are found once per level from the island's
+outline and the seabed's profile (`reefRocks()`): each moray's two dens, facing each other
+along the coast (`MORAY_DENS`), and each octopus's rock (`OCTOPUS_ROCKS`); each cuttlefish has
+a stretch of reef edge (`CUTTLEFISH_REEFS`). They are given as an angle around the island and a
+*reach*, the seabed's own distance from the shore (`seabedProfile` in `src/lib/ocean.ts`: the
+beach slopes down to the flat shelf by 0.62, and the reef edge drops away past 0.78). All are
+clear of the corals and the reef rock (`SEABED_PROPS` in `island-outline.ts`, which the
+environment places too), of the islets at levels 5 and 6, and of each other. An animal picks
+a target inside its zone, checks the way there for room in a few places, and steers for it;
+a den's mouth is aimed so that a moray coming straight out stays on the shelf. As the island
+grows with the level, the rocks move out with it and so does everyone on them.
+
+**Clear of the island, as the camera sees it.** Like the open water's, the reef's animals keep
+their distance from the beach at their apparent place (the octopus's every arm: `clear` 0.62),
+so nothing slips under the sand layers. Zones use the seabed's exact distance from the shore
+(`shore()` on the shore field, with the islets as they are), and heights follow the bottom.
+
+**Drawn as part of the bottom.** The seabed is drawn behind everything, so the octopus, the
+moray and their rocks are set back in depth by `FLOOR_BIAS` (one unit, see `ReefLook` in
+`underwater-material.ts`): an open-water animal passing over them is drawn above them, as it
+is above the seabed, while they still hide each other properly and the island's beach still
+covers anything behind it. The cuttlefish, which hovers higher than the open water's animals
+swim, is drawn where it is. The part of a moray inside its den is cut away in the shader
+(`setHide`), where the den's boulder covers the seam; its mouth is placed far enough inside the
+boulder (`REEF_ROCK`) to hide the cut. Color states are a per-animal tone (`setTone`:
+brightness, saturation and contrast about its own average shade). These animals use their own
+program (`-reef` in the cache key); the open water's programs are untouched.
+
+### The octopus
+
+It rests 9–20 s beside its rock (`rest`), arms coiled and colors muted, then makes an outing of
+two to four walks (`legs`) to spots on its own side of the rock (`spread` 0.5 rad, `reach`
+0.5–0.98), walking at 0.075 units/s, sometimes pausing (`pause`), and walks home. At the start
+of a walk, if its last jet was at least 30 s ago (`jet.cooldown`) and there is room behind it,
+it may jet instead (`jet.chance` 0.4): it lines up, draws water into its mantle, pushes off
+mantle first with its arms trailing (0.6 s, `jet.speed` scaled to the distance, 0.4–0.65
+units), glides as its arms loosen (1.8 s), and settles back to the bottom. A jet that would
+carry it off its patch stops short. A large shark close above (`wary`) makes it go still, press
+flat and darken until it has passed. Its tones: walking `1, 1, 1.05`, resting `0.82, 0.85, 1.1`
+(darker, muted), wary `0.7, 0.78, 1.15`, jetting `1.15, 1.18, 1` (brighter).
+
+### The cuttlefish
+
+It hovers 4–9 s (`hover`), looking about, its fin skirt rippling gently, then glides 0.35–1.3
+units to a new spot on its stretch of reef edge (`cruise` 0.13 units/s), rising or sinking within
+its band (`height`, world y −0.72 to −0.42, at least `floor` 0.16 above the bottom). A predator
+close by (`startle`: a shark or the dolphin within 0.3, apparent gap) makes it swing round to face
+it, flash darker and bolder (`0.82, 1.1, 1.65`), and jet backward away from it (0.55 s at up to
+0.6 units/s, then a 1.4 s glide), choosing the nearest direction that leaves it room over its reef
+edge; no more than once every 75 s (`jet.cooldown`). Unprompted jets come every 120–240 s
+(`jet.every`). Gliding, its pattern is a little bolder (`1, 1.05, 1.22`); hovering, calm.
+
+### The moray
+
+It lies in its den with half its body inside (`inside` 0.5) and its head out in a gentle S,
+breathing (the mouth opening and closing), looking about and sliding a touch in and out, for
+35–80 s (`den`). Then, with a 30% chance (`move`), it moves: it slides out along the mouth
+(0.16 units/s, `slide`), swims along the shelf toward its other den (0.2 units/s, keeping to
+`reach` 0.88), swings out in front of the den's mouth to come in straight, goes in head first,
+turns round out of sight (1.5–3 s) and comes out again to rest facing the way it came. A large
+animal (half-length 0.9 or more) passing within 0.15 of its head (`retreat`) sends it back into
+its den (`hidden` 0.82: only its head showing) until the water has been clear for 3 s.
+
+### Arriving
+
+A new reef discovery arrives the reef's way, not from beyond the view: the octopus edges out
+from beside its rock as it fades in, arms first; the cuttlefish glides in from the deep side of
+its reef edge, rising and fading in; the moray comes out of its den head first. With reduced
+motion or a paused scene it is simply there.
+
+### Tuning
+
+All in `REEF` (`src/lib/reef-life.ts`). Places: `MORAY_DENS`, `OCTOPUS_ROCKS`, `CUTTLEFISH_REEFS`
+and `REEF_ROCK` in the same file. How alarming each open-water species is: `REEF_THREAT`. Sizes in
+the scene: `REEF_SIZE`. The arms', fin skirt's and body's motion: `SWIM_RIGS` in
+`src/lib/marine-rigs.ts`. A third octopus or a second moray takes the next place in the list
+(three rocks, two pairs of dens); only two species share the moray's model, so two pairs are
+enough, and a fourth octopus shares the first's rock, resting on its other side.
 
 ## Species settings
 
@@ -344,6 +448,15 @@ Navigation adds no draw calls or triangles. The tuna school adds about 26 µs pe
 with 2 animals (42 µs with 6), and one instanced draw call. See
 `island-performance.md`.
 
+The reef's simulation costs about 2–3 µs per step for an octopus or a cuttlefish and 1 µs for a
+moray (Node), plus the open water's animals as visitors; its rocks are found once per level and
+count. Each reef animal is one skinned draw call (1,320–1,820 triangles), and the rocks are one
+more (20 triangles a boulder). On the software renderer, three reef animals cost the same as
+three open-water species (18.4–20.6 ms against 19.3–21.6 ms a frame); a page of eight with three
+of them came to 29.7–31.8 ms against 25.6–29.3 ms for eight open-water species in full quality,
+because reef animals never dive out of sight and so are always drawn, and 17.2 ms against 17.0 in
+lite.
+
 Groups and leaps, measured the same way with the eight species and the tuna school
 (simulation), and on the software renderer the simulators use (a 390 × 363 canvas,
 median over 20 s of the scene, so animals on a dive are included as they come and go):
@@ -366,7 +479,8 @@ level.
 
 ```sh
 npx jest src/lib/__tests__/marine-motion.test.ts src/lib/__tests__/breach.test.ts \
-  src/lib/__tests__/marine-groups.test.ts src/lib/__tests__/ocean-growth.test.ts
+  src/lib/__tests__/marine-groups.test.ts src/lib/__tests__/ocean-growth.test.ts \
+  src/lib/__tests__/reef-life.test.ts
 ```
 
 The tests cover:
@@ -393,8 +507,20 @@ The tests cover:
   school in view and off the island at all six levels, a level change easing without
   moving anyone, and animals using the extra room.
 
+- the reef (`reef-life.test.ts`): the open water's animals and the school moving exactly as
+  they would without reef animals; each reef animal keeping to its habitat at levels 1 and 6
+  (on the shelf, over the reef edge, at its dens, clear of the beach as seen, on the bottom);
+  the rocks clear of the props, the islets and each other at every level; the octopus's walks,
+  rests and jets, and its wariness of a large shark (not of a dolphin); the cuttlefish hovering,
+  gliding and jetting away from a predator; the moray's den, its move to its other den, its
+  body entering the rock right at the mouth, and retreating from a large animal (not a turtle);
+  the three arrivals; and a level change moving the rocks and the animals out together.
+
 `npm run verify:underwater` checks that slender animals' tap targets are at least 28 pt
-across at levels 1 and 6, on the body, and follow it when it pitches and leaps.
+across at levels 1 and 6, on the body, and follow it when it pitches and leaps, that the
+reef's animals have their simple tap shapes (never every arm) at the same minimum, and that
+their own program sets them back in depth, cuts the den and holds per-animal colors without
+touching the open water's programs.
 
 ## Known limitations
 
@@ -419,3 +545,11 @@ across at levels 1 and 6, on the body, and follow it when it pitches and leaps.
 - A follower swims behind its leader's turn, so while the leader turns its heading lags
   a little, as a real pod's does; right after a reversal or a leap, the group takes a few
   seconds to settle back into its places.
+- The reef's animals hold their own places, so an open-water animal may pass over a resting
+  octopus or a moray's den (drawn above them), and the octopus's arms may reach under its own
+  rock while it rests. The moray's den cut is judged along its body as if it were straight, which
+  the den's boulder covers for its resting curve. The mouths of a moray's two dens are 1.1–1.6
+  body lengths apart (the second pair, for a second moray species, the closer), so it is fully
+  out between them only briefly.
+- The day octopus model stands in for the other octopuses and the giant cuttlefish for the
+  broadclub and flamboyant cuttlefish, with the day octopus's and giant cuttlefish's colors.

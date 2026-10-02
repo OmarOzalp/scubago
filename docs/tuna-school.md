@@ -131,6 +131,7 @@ Every species has a reaction in `SCHOOL_REACTIONS`:
 | Ocean sunfish | 0 | 0.25 | Ignored, apart from keeping clear |
 | Green turtle | 0 | 0.15 | Ignored, apart from keeping clear |
 | Bottlenose dolphin | 0 | 0.28 | Not a threat: fish make room and flow around it, with no alarm (also while it rises to breathe) |
+| Day octopus, giant cuttlefish, giant moray | 0 | 0 | Never seen: they keep to the reef (`src/lib/reef-life.ts`) and are not among the school's neighbors, so they can never alarm or panic it |
 
 A harmless animal in the school's path also steers the whole school around it a little, more for
 bigger animals. The school sees every animal on its own, a member of a pod or pair included, so a

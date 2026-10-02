@@ -7,16 +7,21 @@ real wildlife.
 
 ## Current inventory
 
-The catalog contains **119 species** (the earlier rough count of 120 included a
-non-entry match). All 119 have photo URLs, but none have recorded human identity
-review. Eleven animated GLBs now exist: three family representatives and species
-drafts for whale shark, tiger shark, great white shark, scalloped hammerhead, reef
-manta ray, ocean sunfish, green sea turtle and bottlenose dolphin. The mapping in
+The catalog contains **120 species** (119, plus the giant cuttlefish added with the
+reef animals). 119 have photo URLs, but none have recorded human identity review; the
+giant cuttlefish has none yet (run `node scripts/fetch-species-photos.mjs`, then
+review the result as below). Fourteen animated GLBs now exist: three family
+representatives and species drafts for whale shark, tiger shark, great white shark,
+scalloped hammerhead, reef manta ray, ocean sunfish, green sea turtle, bottlenose
+dolphin, day octopus, giant cuttlefish and giant moray. The mapping in
 `src/lib/swimming.ts` resolves these exact IDs before category fallbacks, and draws
-two close relatives with them (great hammerheads as the scalloped hammerhead,
-spinner dolphins as the bottlenose; like family representatives, these are not
-offered as the relative's own 3D model). This is **8 of 119 species with dedicated
-draft art**, not 119 approved models.
+close relatives with them (great hammerheads as the scalloped hammerhead, spinner
+dolphins as the bottlenose, the giant Pacific, blue-ringed, mimic and coconut
+octopuses as the day octopus, the broadclub and flamboyant cuttlefish as the giant
+cuttlefish, the green moray as the giant moray; like family representatives, these
+are not offered as the relative's own 3D model). Before the reef animals no
+cephalopod had any island presence; squid and the nautilus still have none. This is
+**11 of 120 species with dedicated draft art**, not 120 approved models.
 
 The existing photo map contains 26 "all rights reserved" images, 67 CC BY-NC,
 10 CC BY-NC-SA, 2 CC BY-NC-ND, 10 CC BY and 4 CC BY-SA. It is a reference catalog,
@@ -168,10 +173,53 @@ until its dorsal fin breaks the surface (see `docs/marine-navigation.md`).
 
 Rebuild: `npm run build:species` (or `-- --only=tiger-shark`). Verify exports:
 `npm run verify:marine` (rig bones, procedural deformation, loop continuity,
-bounds, budgets) and `npm run verify:underwater`. The studio previews in
-`docs/art-previews/` for these eight species are real-time renders of the actual
+bounds, budgets; for the reef animals also their jet, fin fold, den rest and breathing
+mouth) and `npm run verify:underwater`. The studio previews in
+`docs/art-previews/` for these species are real-time renders of the actual
 assets with the app's lighting; the sunfish is shown upright (in the island it
 swims tilted onto its side, as sunfish often do, so its disc reads from above).
+
+## Batch v3: reef animals
+
+Three animals with body plans unlike any before, and their own habitats on the reef rather
+than the open water (`docs/marine-navigation.md`, "Reef habitats"). Built the same way (one
+design file each in `scripts/art/species/`, one skinned, vertex-colored draw call).
+
+| Species | Model | Motion | Triangles | GLB bytes |
+| --- | --- | --- | ---: | ---: |
+| Day octopus | A rounded head with raised pale eyes (dark slit pupils), a pinched neck and a soft, faceted mantle sac rising behind it; eight tapering, slightly flattened arms spreading from a webbed crown; mottled reddish brown with darker blotches and pale spots above, lighter beneath with pale sucker dots. Drawn 1.1 units across its arms | Each arm walks in its own rhythm (its own phase and vigor), reaching forward and pressing down, with a slow curl wave running out to the tip, mirrored left to right; the mantle rides up and down and breathes. Resting, the tips coil and the mantle settles; jetting, the arms stream together behind the mantle as it squeezes and lowers into the line of travel; gliding after it, they loosen and drift; turning, they lag behind the turn. 0.34 strides/s | 1,820 | 114,564 |
+| Giant cuttlefish | A broad, flattened oval mantle edged all round by a thin, continuous fin skirt with a pale margin; a short head with large eyes and W-shaped pupils; eight short arms held together in a cone in front; warm tan with dark mottling, cream flecks and a pale belly. Drawn 0.85 units long | No tail: a wave ripples backward along the fin skirt on both sides (fourteen fin bones), gentler and slower while it hovers, the outer side working harder in a turn; the arms sway and the upper pair lifts while it hovers, closing together as it speeds up; the mantle breathes. A jet squeezes the mantle and folds the skirt down; the head and arms lead into turns. 0.95 waves/s | 1,752 | 101,844 |
+| Giant moray | A long, muscular, laterally compressed body (heavier than a snake: a broad head with heavy cheeks, a deep jaw, a narrow tail) with a continuous fin along the back and beneath the tail; a gape held slightly open, its lips parting from upper and lower teeth over a dark mouth lining; small eyes high on the snout; dark olive-green and brown with mottling. Drawn 1.65 units long | Swimming, a traveling wave runs down the whole body, growing toward the tail (anguilliform, unlike a shark's stiff front). Resting in its den, the part out of the rock lies in a gentle S, swaying slowly, the head looking about and nodding as the mouth opens and closes with each breath (respiration, not a threat). Turns bend the whole body. 0.85 waves/s | 1,320 | 68,488 |
+
+### Rigs
+
+- **Day octopus:** `Root` at the crown, `Mantle` (scaled as it breathes and squeezes), and
+  four bones down each arm (`ArmL1_1`–`ArmR4_4`). Each arm bone bends about its own axes,
+  whichever way the arm points (a closed-form rotation in `marine-rigs.ts`), so a reach,
+  a press and a curl read the same on every arm. Inputs beyond speed and turn: `rest`,
+  `jet` and `ground` (walking on the bottom, or gliding off it).
+- **Giant cuttlefish:** `Root`, `Mantle` (scaled), `Head`, seven fin bones a side along
+  the skirt (`FinL1–7`, `FinR1–7`, each hinged along the mantle's edge there) and two bones
+  for each pair of arms. Inputs: speed (hovering below cruise), turn, climb and `jet`.
+- **Giant moray:** `Root`, `Head`, `Jaw` and a chain of eight body bones (`Body1–8`); the
+  jaw opens about the corner of the mouth, and the lips are separate vertices so the mouth
+  truly opens. Inputs: speed, turn and `rest`.
+
+Tuning: `SWIM_RIGS` in `src/lib/marine-rigs.ts`: for the octopus `frequency`, `phases` and
+`vigor` (per arm), `curl`, `curlLag`, `reach`, `press`, `coil`, `settle`, `breath`,
+`mantle`, `bob`, `trail`, `squeeze`, `streamline` and `swirl`; for the cuttlefish
+`frequency`, `waveLag`, `amplitude`, `hover`, `turnAsymmetry`, `sway`, `raise`, `trail`,
+`breath`, `squeeze`, `fold`, `bob` and `pitch`; for the moray `joints`, `frequency`,
+`wavelength`, `amplitude`, `headAmplitude`, `envelope`, `bend`, `drape`, `sway`, `look`,
+`gape`, `breathRate` and `curve`. Their behavior (walks, jets, hovering, dens) and color
+states are `REEF` in `src/lib/reef-life.ts`; their sizes `REEF_SIZE`. On the island, their
+colors change with what they do (the octopus darker resting and wary, brighter jetting;
+the cuttlefish bolder gliding and darker, high-contrast when startled) through a per-animal
+tone in their material, not new vertex colors. Their tap targets are simple shapes
+(`TAP_SHAPES` in `tap-target.ts`), never their arms or long bodies.
+
+Previews: `docs/art-previews/day-octopus.png`, `giant-cuttlefish.png` and `giant-moray.png`
+(the same studio framing as the others, walking, cruising and swimming).
 
 The island's tuna school is not a glTF asset: each tuna is a low-poly mesh built at runtime
 (`src/components/home/three/tuna-geometry.ts`, 167 triangles, or 83 in lite quality). It has a
@@ -189,6 +237,9 @@ References used for proportions and pattern placement:
 - [Florida Museum: scalloped hammerhead](https://www.floridamuseum.ufl.edu/discover-fish/species-profiles/sphyrna-lewini/)
 - [NOAA Fisheries: common bottlenose dolphin](https://www.fisheries.noaa.gov/species/common-bottlenose-dolphin)
 - [NOAA Fisheries: Atlantic bluefin tuna](https://www.fisheries.noaa.gov/species/atlantic-bluefin-tuna)
+- [WoRMS: Octopus cyanea](https://www.marinespecies.org/aphia.php?p=taxlist&tName=Octopus%20cyanea)
+- [WoRMS: Sepia apama](https://www.marinespecies.org/aphia.php?p=taxlist&tName=Sepia%20apama)
+- [WoRMS: Gymnothorax javanicus](https://www.marinespecies.org/aphia.php?p=taxlist&tName=Gymnothorax%20javanicus)
 
 These simplified drafts still need human comparison against multiple views,
 especially fin contours, mouth detail and individual marking variation, and the

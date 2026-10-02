@@ -3,6 +3,7 @@ import { createShoreField } from './island-outline';
 import { GROUP_STYLES, type GroupStyle } from './marine-groups';
 import { OCEAN } from './ocean';
 import { sampleDive, surfaceShift, SWIM_LEVEL } from './ocean-depth';
+import { createReefLife, isReefModel, REEF_THREAT, type MarineHabitat, type ReefVisitor } from './reef-life';
 import { apparentShift, clamp, ease, frame, OCEAN_GROWTH, roamFor, smoothstep, TAU, variation, viewBounds, viewHeight, WORLD, worldFor, wrap } from './steering';
 import type { MarineModel } from './swimming';
 import { attackRoll, createTunaSchool, GREAT_WHITE_HUNT, SCHOOL_REACTIONS, TUNA_SCHOOL, type SchoolNeighbor } from './tuna-school';
@@ -27,6 +28,12 @@ export const followerLane = (leader: number, index: number) => 100 + leader * 8 
 export type MarinePose = {
   x: number; y: number; z: number; heading: number; bank: number; effort: number; pace: number; turn: number; speed: number; climb: number;
   pitch: number; air: number;
+  /**
+   * Reef animals only (reef-life.ts): how settled, jetting and on the bottom it is (0..1, for its rig);
+   * its color as (brightness, saturation, contrast); how much of its body is out of sight in a den
+   * (shares of its length from the tail and from the head).
+   */
+  rest?: number; jet?: number; ground?: number; tone?: [number, number, number]; hide?: [number, number];
 };
 
 /**
@@ -66,6 +73,11 @@ export type Movement = {
   pitch?: number;
   /** Now and then a breath becomes a leap clear of the water (see breach.ts). */
   breach?: BreachConfig;
+  /**
+   * Where it lives: the open water around the island (the default, steered here), or on the reef
+   * itself (reef-life.ts, which has the reef animals' behavior; the fields above only give their size).
+   */
+  habitat?: MarineHabitat;
 };
 
 const FAMILY: Movement = {
@@ -125,6 +137,11 @@ export const MOVEMENT: Record<MarineModel, Movement> = {
     depth: .16, bob: .1, bobPeriod: 11, reverseEvery: 60, weave: .2, weavePeriod: 9,
     breathe: { every: 26, rise: 3.2, hold: 1.8, clearance: .2 }, pitch: 1.3, breach: DOLPHIN_BREACH,
   },
+  // Reef animals keep to the reef: the octopus on the seabed shelf, the cuttlefish over the reef edge,
+  // the moray in its crevice (their behavior is in reef-life.ts).
+  'day-octopus': { ...FAMILY, cruise: .075, turnRate: .9, halfLength: .5, halfWidth: .55, habitat: 'seabed' },
+  'giant-cuttlefish': { ...FAMILY, cruise: .13, turnRate: .55, halfLength: .43, halfWidth: .2, habitat: 'reef-edge' },
+  'giant-moray': { ...FAMILY, cruise: .2, turnRate: .75, halfLength: .83, halfWidth: .09, habitat: 'crevice' },
   // Family representatives stand in for species without their own model.
   shark: FAMILY,
   manta: { ...FAMILY, cruise: .31, turnRate: .3, turnEase: .45, halfLength: .9, halfWidth: .8, islandClearance: 1.05 },
@@ -294,9 +311,10 @@ function spread(m: Movement, style: GroupStyle, followers: number): Movement {
  * and turning is rate-limited and damped per species, so course changes read as intentional.
  * A species that swims in a group (marine-groups.ts) is steered by its leader, with the others
  * following in loose places of their own; air-breathers now and then leap clear of the water
- * (breach.ts). The ocean area grows with the island's level (OCEAN_GROWTH in steering.ts).
+ * (breach.ts). The ocean area grows with the island's level (OCEAN_GROWTH in steering.ts). Species
+ * that live on the reef (`habitat`) are handed to reef-life.ts, stepped and published with the rest.
  */
-export function createMarineMotion(members: readonly MarineMember[], level = 1, options: {
+export function createMarineMotion(everyMember: readonly MarineMember[], level = 1, options: {
   /** Add the tuna school: true for TUNA_SCHOOL.size fish (0 leaves it out), or a number of fish. */
   school?: boolean | number;
   /** Varies the school's start, the hunter's rolls and the leaps (0..1); the same seed replays the same scene. */
@@ -308,6 +326,11 @@ export function createMarineMotion(members: readonly MarineMember[], level = 1, 
 } = {}) {
   let field = createShoreField(level), current = level;
   const seed = options.seed ?? 0;
+  // The reef's animals keep to the reef (reef-life.ts); everything here is the open water's, which pays them no attention.
+  const onReef = (m: MarineMember) => (MOVEMENT[m.model].habitat ?? 'open-water') !== 'open-water' && isReefModel(m.model);
+  const members = everyMember.filter((m) => !onReef(m));
+  const reefMembers = everyMember.flatMap((m) => (onReef(m) && isReefModel(m.model) ? [{ model: m.model, lane: m.lane }] : []));
+  const reef = reefMembers.length ? createReefLife(reefMembers, level, { seed, arriving: options.arriving }) : null;
   /** Species on the island: dives are staggered among them (see ocean-depth.ts); group members count once. */
   const population = members.length;
   // The ocean area animals keep to and their extra roaming room: this level's, easing to a new level's after setLevel().
@@ -386,6 +409,9 @@ export function createMarineMotion(members: readonly MarineMember[], level = 1, 
   const everyone = [...animals, ...followers];
   const groups = animals.map((a) => a.group);
   const swimmers: MarineSwimmer[] = everyone.map((a) => ({ model: a.model, lane: a.lane, leader: a.group.members[0].lane, index: a.index }));
+  if (reef) swimmers.push(...reef.swimmers);
+  /** What the reef animals see of the open water's animals (refreshed in place every step), when there are any. */
+  const visitors: ReefVisitor[] = reef ? everyone.map(() => ({ x: 0, z: 0, hx: 0, hz: 1, threat: 0, size: 0, width: 0, presence: 0 })) : [];
   /** What the school sees of the animals (every one of them, as itself), refreshed in place every step. */
   const neighbors: SchoolNeighbor[] = everyone.map((a) => ({
     model: a.model, x: a.x, y: a.y, z: a.z, heading: a.heading, speed: a.speed, halfLength: a.base.halfLength, halfWidth: a.base.halfWidth, presence: 1, charging: false,
@@ -782,7 +808,7 @@ export function createMarineMotion(members: readonly MarineMember[], level = 1, 
         // Too narrow to pass side by side: the one swimming higher rises a little, the other sinks a little.
         const shortfall = lateral - (outerLane - innerLane);
         const squeeze = weight * Math.max(smoothstep(0, .35, shortfall), smoothstep(lateral, lateral * .6, Math.abs(now)) * smoothstep(length + .5, length * .8, gap));
-        const higher = self.depth > o.depth || (self.depth === o.depth && a.lane > members[j].lane);
+        const higher = self.depth > o.depth || (self.depth === o.depth && a.lane > animals[j].lane);
         lift = higher ? Math.max(lift, .16 * squeeze) : Math.min(lift, -.1 * squeeze);
         // Catching up with one it cannot pass here: ease to its pace for a while and pass where the water widens.
         const behind = (o.x - px) * hx + (o.z - pz) * hz > 0 && hx * o.hx + hz * o.hz > .5 && closing > 0;
@@ -1183,8 +1209,18 @@ export function createMarineMotion(members: readonly MarineMember[], level = 1, 
       pose.pace = a.speed / a.base.cruise;
       pose.effort = .65 + .35 * pose.pace;
     }
+    reef?.publish(t);
     // The school's last step is up to one simulation step older than the animals'.
     school?.publish((schoolTick * STEP + accumulator) / SCHOOL_STEP);
+  }
+
+  /** Show the reef animals the open water's: where each appears (as the camera sees it), how alarming and how big it is, whether in sight. */
+  function refreshVisitors() {
+    for (let i = 0; i < everyone.length; i++) {
+      const a = everyone[i], v = visitors[i];
+      v.x = a.x; v.z = a.z + a.shift; v.hx = Math.sin(a.heading); v.hz = Math.cos(a.heading);
+      v.threat = REEF_THREAT[a.model] ?? 0; v.size = a.base.halfLength; v.width = a.base.halfWidth; v.presence = presence(a);
+    }
   }
 
   /** Show the school the animals as they are now: where, how fast, whether in sight, whether charging. */
@@ -1200,12 +1236,18 @@ export function createMarineMotion(members: readonly MarineMember[], level = 1, 
   return {
     /** Every animal to draw: each species' own, then its group's followers. */
     swimmers,
-    get(lane: number): MarinePose | undefined { return byLane.get(lane)?.pose; },
-    /** An animal's dive at the scene clock (or at `at`): followers dive with their group, a little behind their leader. */
+    get(lane: number): MarinePose | undefined { return byLane.get(lane)?.pose ?? reef?.get(lane); },
+    /**
+     * An animal's dive at the scene clock (or at `at`): followers dive with their group, a little behind
+     * their leader. Reef animals never dive (see reef-life.ts).
+     */
     dive(lane: number, at = time + accumulator) {
       const a = byLane.get(lane);
-      return a ? diveOf(a, at) : sampleDive(at, lane, population);
+      if (a) return diveOf(a, at);
+      return reef?.get(lane) ? reef.dive(lane) : sampleDive(at, lane, population);
     },
+    /** The reef's animals and their rocks (null when there are none). */
+    reef,
     /**
      * Steering state for tuning overlays: the species' movement, its apparent position (and the shift
      * toward the viewer it was judged with), desired heading, target distance offshore and each
@@ -1231,6 +1273,7 @@ export function createMarineMotion(members: readonly MarineMember[], level = 1, 
      * Returns false if it wasn't waiting.
      */
     arrive(lane: number, how: { aspect?: number; instant?: boolean } = {}) {
+      if (!byLane.has(lane) && reef?.get(lane)) return reef.arrive(lane, how);
       const g = byLane.get(lane)?.group, A = g?.arrival;
       if (!g || !A || A.stage !== 'offstage') return false;
       const head = g.members[0];
@@ -1274,7 +1317,7 @@ export function createMarineMotion(members: readonly MarineMember[], level = 1, 
     releaseSchool() { school?.release(); },
     /** Where an arriving species is (null for one that isn't arriving): its stage and seconds in it. */
     arrival(lane: number): Readonly<{ stage: ArrivalStage; since: number }> | null {
-      return byLane.get(lane)?.group.arrival ?? null;
+      return byLane.get(lane)?.group.arrival ?? reef?.arrival(lane) ?? null;
     },
     /** The tuna school, when there is one: stepped with the animals, its poses published with theirs. */
     school,
@@ -1297,6 +1340,7 @@ export function createMarineMotion(members: readonly MarineMember[], level = 1, 
       current = next;
       field = createShoreField(next);
       school?.setField(field);
+      reef?.setLevel(next);
       goal = { world: worldFor(next), roam: roamFor(next) };
     },
     step(delta: number, active: boolean) {
@@ -1311,6 +1355,7 @@ export function createMarineMotion(members: readonly MarineMember[], level = 1, 
         for (const f of followers) follow(f);
         for (const g of groups) trade(g);
         for (const g of groups) progressArrival(g);
+        if (reef) { refreshVisitors(); reef.step(STEP, visitors); }
         if (school && (schoolTick ^= 1) === 0) { refreshNeighbors(); school.step(SCHOOL_STEP, neighbors); }
       }
       publish();

@@ -11,7 +11,8 @@
  * This module is dependency-free so Node scripts can import it directly.
  */
 
-export type SwimRigModel = 'tiger-shark' | 'whale-shark' | 'great-white-shark' | 'scalloped-hammerhead' | 'reef-manta' | 'mola-mola' | 'green-turtle' | 'bottlenose-dolphin';
+export type SwimRigModel = 'tiger-shark' | 'whale-shark' | 'great-white-shark' | 'scalloped-hammerhead' | 'reef-manta' | 'mola-mola' | 'green-turtle' | 'bottlenose-dolphin'
+  | 'day-octopus' | 'giant-cuttlefish' | 'giant-moray';
 
 export const SHARK_BONES = [
   'Root', 'Head', 'Spine1', 'Spine2', 'RearBody', 'TailBase', 'Tail', 'TailUpper', 'TailLower',
@@ -33,6 +34,38 @@ export const TURTLE_BONES = [
 export const DOLPHIN_BONES = [
   'Root', 'Head', 'Spine1', 'Spine2', 'RearBody', 'TailBase', 'Tail', 'FlukeL', 'FlukeR', 'PectoralL', 'PectoralR',
 ] as const;
+/**
+ * The octopus's eight arms around the crown, each of four segments, named by side and position from
+ * front to back, with the direction each one points in the bind pose (rad from straight ahead, +Z,
+ * toward the animal's left, +X; the right side mirrors). Shared with the generator.
+ */
+export const OCTOPUS_ARMS = [
+  { name: 'L1', angle: .34 }, { name: 'L2', angle: .98 }, { name: 'L3', angle: 1.72 }, { name: 'L4', angle: 2.42 },
+  { name: 'R1', angle: -.34 }, { name: 'R2', angle: -.98 }, { name: 'R3', angle: -1.72 }, { name: 'R4', angle: -2.42 },
+] as const;
+export const OCTOPUS_SEGMENTS = 4;
+export const octopusArmBone = (arm: string, segment: number) => `Arm${arm}_${segment}`;
+export const OCTOPUS_BONES: readonly string[] = ['Root', 'Mantle',
+  ...OCTOPUS_ARMS.flatMap(({ name }) => Array.from({ length: OCTOPUS_SEGMENTS }, (_, s) => octopusArmBone(name, s + 1)))];
+/**
+ * The cuttlefish's mantle seen from above: half its width (model units) along its length, from the
+ * front edge over the head (z = .2) to the rounded rear (z = -.5). Shared with the generator, so the
+ * fin bones' hinges follow the mantle's edge.
+ */
+export function cuttlefishHalfWidth(z: number) {
+  const u = z >= -.14 ? (z + .14) / .48 : (z + .14) / .36;
+  return .158 * Math.sqrt(Math.max(0, 1 - u * u));
+}
+/** The fin skirt's bones along each side of the mantle, front to back: where each hinge sits and the edge's direction there (rad from +Z toward +X, left side). */
+export const CUTTLEFISH_FINS = Array.from({ length: 7 }, (_, i) => {
+  const z = .16 - i * .1, h = .004;
+  return { z, x: cuttlefishHalfWidth(z), yaw: Math.atan2((cuttlefishHalfWidth(z + h) - cuttlefishHalfWidth(z - h)) / (2 * h), 1) };
+});
+export const CUTTLEFISH_BONES: readonly string[] = ['Root', 'Mantle', 'Head',
+  ...CUTTLEFISH_FINS.map((_, i) => `FinL${i + 1}`), ...CUTTLEFISH_FINS.map((_, i) => `FinR${i + 1}`),
+  'ArmLU1', 'ArmLU2', 'ArmRU1', 'ArmRU2', 'ArmLD1', 'ArmLD2', 'ArmRD1', 'ArmRD2'];
+/** The moray: `Root` at the neck, `Head` and its lower `Jaw` ahead of it, and eight body bones behind it to the tail. */
+export const MORAY_BONES = ['Root', 'Head', 'Jaw', 'Body1', 'Body2', 'Body3', 'Body4', 'Body5', 'Body6', 'Body7', 'Body8'] as const;
 export type SharkBone = typeof SHARK_BONES[number];
 export type MantaBone = typeof MANTA_BONES[number];
 /** Every bone rotation is an intrinsic Z·X·Y Euler: flap/roll, then pitch/twist, then yaw. */
@@ -166,7 +199,65 @@ export type CetaceanRig = {
   bend: number;
 };
 
-export type SwimRigSpec = SharkRig | MantaRig | SunfishRig | TurtleRig | CetaceanRig;
+export type OctopusRig = {
+  kind: 'octopus';
+  /** Arm cycles per second while crawling at its cruising pace (slower, but never still, when it rests). */
+  frequency: number;
+  /** Each arm's own phase and vigor (around 1), so no two arms move alike. */
+  phases: readonly number[];
+  vigor: readonly number[];
+  /** A slow sideways wave traveling out along each arm (rad per segment, growing toward the tip), and its lag between segments (rad). */
+  curl: number; curlLag: number;
+  /** Crawling: arms reach forward and pull back (rad at the base, front arms most), tips pressing to the floor and lifting on the way back (rad). */
+  reach: number; press: number;
+  /** Resting: the arms coil to one side, most at the tips (rad), and the body settles (units). */
+  coil: number; settle: number;
+  /** Breathing: the mantle's pulse (scale fraction) and breaths per second. */
+  breath: number; breathRate: number;
+  /** As it crawls, the mantle rides up and down (rad) and the body bobs (units). */
+  mantle: number; bob: number;
+  /** Jetting: the arms sweep back together behind it (share of the way), the mantle squeezes (scale fraction) and lowers into the line of travel (rad). */
+  trail: number; squeeze: number; streamline: number;
+  /** Turning, the arms lag behind the body's turn (rad per rad/s of turn). */
+  swirl: number;
+};
+
+export type CuttlefishRig = {
+  kind: 'cuttlefish';
+  /** Fin waves per second at its cruising pace; hovering, the ripple slows but never stops. */
+  frequency: number;
+  /** Phase lag between neighboring fin bones, front to back, so the wave travels backward along the skirt. */
+  waveLag: number;
+  /** How far the fin's margin rolls up and down (rad) cruising, and hovering. */
+  amplitude: number; hover: number;
+  /** In a turn the outer fin ripples harder (fraction per rad/s). */
+  turnAsymmetry: number;
+  /** Arms: a gentle sway (rad), the upper pair held up a little while hovering (rad), and how far they close together and straighten when it speeds up or jets (0..1). */
+  sway: number; raise: number; trail: number;
+  /** Breathing (mantle pulse, scale fraction; breaths per second); jetting squeezes the mantle (scale fraction) and folds the fins down (rad). */
+  breath: number; breathRate: number; squeeze: number; fold: number;
+  /** The body rides up and down with the ripple (units) and pitches into climbs (rad). */
+  bob: number; pitch: number;
+};
+
+export type MorayRig = {
+  kind: 'moray';
+  /** Spine joints from the snout (0) to the tail tip (1): `Root` and `Body1` at the neck, then `Body2`–`Body8`. */
+  joints: readonly [number, number, number, number, number, number, number, number];
+  /** Swimming: body waves per second at its cruising pace, the wave's length and its sideways reach at the tail tip and at the head (body lengths), growing along the body by `envelope`. */
+  frequency: number; wavelength: number; amplitude: number; headAmplitude: number; envelope: number;
+  /** Share of the path's curvature taken up as a bend in the body. */
+  bend: number;
+  /**
+   * Resting in its den: a lazy curve along its body, a slow sway (units), the head looking about
+   * (rad), and the mouth opening and closing as it breathes (rad, breaths per second). `curve` is a
+   * gentle S (units) in the front half, the part out of the den, back to straight where the body
+   * goes into the rock.
+   */
+  drape: number; sway: number; look: number; gape: number; breathRate: number; curve: number;
+};
+
+export type SwimRigSpec = SharkRig | MantaRig | SunfishRig | TurtleRig | CetaceanRig | OctopusRig | CuttlefishRig | MorayRig;
 
 /**
  * Species animation configuration. Swimming speed and turning live in
@@ -229,11 +320,40 @@ export const SWIM_RIGS: Record<SwimRigModel, SwimRigSpec> = {
     tailAmplitude: .075, rootAmplitude: .003, headAmplitude: .004, envelope: 2.9,
     fluke: .18, flukeLag: 1.2, flukeFlex: .12, pectoral: { flap: .04, turn: .5, climb: .3 }, heave: .004, bend: .85,
   },
+  // A crawler, not a swimmer: eight arms each with its own rhythm, reaching and pulling over the reef,
+  // a slow wave running out along each; at rest they coil and the mantle settles and breathes; a jet
+  // sweeps them back together behind the squeezed mantle.
+  'day-octopus': {
+    kind: 'octopus', frequency: .34, phases: [0, 2.3, 4.1, 1.2, 3.6, 5.5, .7, 2.9], vigor: [1, .85, 1.1, .9, .95, 1.15, .8, 1.05],
+    curl: .22, curlLag: .9, reach: .3, press: .14, coil: .6, settle: .008, breath: .05, breathRate: .32,
+    mantle: .1, bob: .004, trail: .94, squeeze: .14, streamline: .42, swirl: .25,
+  },
+  // No tail: a wave rippling backward along the fin skirt around the mantle moves it, smooth and
+  // hovering, while the body stays level; a jet squeezes the mantle and folds the fins.
+  'giant-cuttlefish': {
+    kind: 'cuttlefish', frequency: .95, waveLag: .78, amplitude: .62, hover: .38, turnAsymmetry: .6,
+    sway: .08, raise: .24, trail: .85, breath: .035, breathRate: .4, squeeze: .1, fold: .4, bob: .0025, pitch: .1,
+  },
+  // Anguilliform: the whole long body waves, the wave growing toward the tail; resting in its den it
+  // lies in a lazy curve, looking about and breathing through its slowly opening mouth.
+  'giant-moray': {
+    kind: 'moray', joints: [.13, .25, .37, .49, .6, .71, .81, .9],
+    frequency: .85, wavelength: .62, amplitude: .085, headAmplitude: .012, envelope: 1.1, bend: .9,
+    drape: .9, sway: .012, look: .3, gape: .36, breathRate: .28, curve: .035,
+  },
 };
 
+const BONES: Record<SwimRigSpec['kind'], readonly string[]> = {
+  shark: SHARK_BONES, manta: MANTA_BONES, sunfish: SUNFISH_BONES, turtle: TURTLE_BONES, cetacean: DOLPHIN_BONES,
+  octopus: OCTOPUS_BONES, cuttlefish: CUTTLEFISH_BONES, moray: MORAY_BONES,
+};
 export function rigBones(model: SwimRigModel): readonly string[] {
+  return BONES[SWIM_RIGS[model].kind];
+}
+/** Bones a rig also scales (the mantles that breathe and squeeze), besides rotating them. */
+export function scaledBones(model: SwimRigModel): readonly string[] {
   const kind = SWIM_RIGS[model].kind;
-  return kind === 'shark' ? SHARK_BONES : kind === 'manta' ? MANTA_BONES : kind === 'sunfish' ? SUNFISH_BONES : kind === 'cetacean' ? DOLPHIN_BONES : TURTLE_BONES;
+  return kind === 'octopus' || kind === 'cuttlefish' ? ['Mantle'] : [];
 }
 
 export type SwimDrive = {
@@ -247,6 +367,8 @@ export type SwimDrive = {
   climb: number;
   /** 0 to 1: how far the body is out of the water, as in a dolphin's leap; the stroke stills (0 unless set). */
   air?: number;
+  /** Reef animals (0 to 1): settled and resting (the moray in its den), jetting, and on the seabed rather than swimming (1 unless set). */
+  rest?: number; jet?: number; ground?: number;
 };
 export const CRUISE: SwimDrive = { effort: 1, turn: 0, curvature: 0, climb: 0 };
 
@@ -270,10 +392,14 @@ export function createSwimRig(model: SwimRigModel, phase = 0) {
   const bones = rigBones(model);
   const rotation = new Float32Array(bones.length * 3);
   const offset = { x: 0, y: 0, z: 0 };
+  const scaled = scaledBones(model).map((bone) => bones.indexOf(bone));
+  const scale = new Float32Array(bones.length * 3).fill(1);
   const state: RigState = {
     phase: ((phase % TAU) + TAU) % TAU, effort: 1, turn: 0, curvature: 0, climb: 0, air: 0,
     // Turtles only: how actively the flippers stroke (0 = gliding), strokes left in this bout, glide time left.
     activity: 1, strokes: 0, glide: 0, bouts: Math.floor(phase * 7),
+    // Reef animals only: resting, jetting, on the seabed, and their breathing's own phase.
+    rest: 0, jet: 0, ground: 1, breath: ((phase * 1.7) % TAU + TAU) % TAU,
   };
   if (spec.kind === 'turtle') state.strokes = spec.bout[0];
   const slot = Object.fromEntries(bones.map((bone, index) => [bone, index * 3])) as Record<string, number>;
@@ -281,16 +407,26 @@ export function createSwimRig(model: SwimRigModel, phase = 0) {
     const i = slot[bone];
     rotation[i] = x; rotation[i + 1] = y; rotation[i + 2] = z;
   };
+  const setScale = (bone: string, x: number, y: number, z: number) => {
+    const i = slot[bone];
+    scale[i] = x; scale[i + 1] = y; scale[i + 2] = z;
+  };
   const pose = () => {
     if (spec.kind === 'shark') poseShark(spec, state, set, offset);
     else if (spec.kind === 'manta') poseManta(spec, state, set, offset);
     else if (spec.kind === 'sunfish') poseSunfish(spec, state, set, offset);
     else if (spec.kind === 'cetacean') poseCetacean(spec, state, set, offset);
+    else if (spec.kind === 'octopus') poseOctopus(spec, state, set, offset, setScale);
+    else if (spec.kind === 'cuttlefish') poseCuttlefish(spec, state, set, offset, setScale);
+    else if (spec.kind === 'moray') poseMoray(spec, state, set, offset);
     else poseTurtle(spec, state, set, offset);
   };
+  const breathRate = 'breathRate' in spec ? spec.breathRate : 0;
   pose();
   return {
     model, spec, bones, rotation, offset,
+    /** Per-bone scale (x, y, z per bone, in `bones` order); only the bones in `scaled` (indices) ever change from 1. */
+    scale, scaled,
     get phase() { return state.phase; },
     /** Advance by `dt` seconds. Inputs are eased so sudden changes never snap the pose. */
     step(dt: number, drive: SwimDrive) {
@@ -300,6 +436,12 @@ export function createSwimRig(model: SwimRigModel, phase = 0) {
       state.curvature = ease(state.curvature, clamp(drive.curvature, -1.5, 1.5), 2.2, dt);
       state.climb = ease(state.climb, clamp(drive.climb, -1, 1), 1.4, dt);
       state.air = ease(state.air, clamp(drive.air ?? 0, 0, 1), 6, dt);
+      // A jet comes on fast and fades as the glide slows; settling and getting up are gentle.
+      const jet = clamp(drive.jet ?? 0, 0, 1);
+      state.jet = ease(state.jet, jet, jet > state.jet ? 9 : 2.4, dt);
+      state.rest = ease(state.rest, clamp(drive.rest ?? 0, 0, 1), 1.6, dt);
+      state.ground = ease(state.ground, clamp(drive.ground ?? 1, 0, 1), 3, dt);
+      state.breath = (state.breath + TAU * breathRate * dt) % TAU;
       if (spec.kind === 'turtle') stepTurtle(spec, state, dt);
       else state.phase = (state.phase + TAU * strokeFrequency(spec, state.effort) * dt) % TAU;
       pose();
@@ -309,6 +451,9 @@ export function createSwimRig(model: SwimRigModel, phase = 0) {
       state.phase = ((at % TAU) + TAU) % TAU;
       state.effort = clamp(drive.effort, .25, 1.6);
       state.turn = drive.turn; state.curvature = drive.curvature; state.climb = drive.climb; state.air = drive.air ?? 0;
+      state.rest = drive.rest ?? 0; state.jet = drive.jet ?? 0; state.ground = drive.ground ?? 1;
+      // One breath per stroke while baking, so the loop stays seamless.
+      state.breath = state.phase;
       state.activity = 1;
       pose();
     },
@@ -319,8 +464,26 @@ export type SwimRig = ReturnType<typeof createSwimRig>;
 type RigState = {
   phase: number; effort: number; turn: number; curvature: number; climb: number; air: number;
   activity: number; strokes: number; glide: number; bouts: number;
+  rest: number; jet: number; ground: number; breath: number;
 };
 type SetBone = (bone: string, x: number, y: number, z: number) => void;
+
+/**
+ * Z·X·Y Euler angles for a bone whose segment points `theta` (rad from +Z toward +X) in its parent's
+ * frame: swung `beta` sideways about the vertical and tipped `alpha` down about the horizontal axis
+ * across it (R = Ry(theta + beta)·Rx(alpha)·Ry(-theta)), in closed form so arms bend about their own
+ * axes, whichever way they point.
+ */
+function armRotation(set: SetBone, bone: string, theta: number, beta: number, alpha: number) {
+  const c1 = Math.cos(theta + beta), s1 = Math.sin(theta + beta), c2 = Math.cos(theta), s2 = -Math.sin(theta);
+  const ca = Math.cos(alpha), sa = Math.sin(alpha);
+  set(bone, Math.asin(clamp(c1 * sa, -1, 1)), Math.atan2(s1 * c2 + c1 * ca * s2, c1 * ca * c2 - s1 * s2), Math.atan2(-s1 * sa, ca));
+}
+/** Z·X·Y Euler angles for a roll of `alpha` about the horizontal hinge line along `psi` (rad from +Z toward +X): R = Ry(psi)·Rz(alpha)·Ry(-psi). */
+function hingeRotation(set: SetBone, bone: string, psi: number, alpha: number) {
+  const c = Math.cos(psi), s = Math.sin(psi), ca = Math.cos(alpha), sa = Math.sin(alpha);
+  set(bone, Math.asin(clamp(s * sa, -1, 1)), Math.atan2(-s * c * (1 - ca), s * s * ca + c * c), Math.atan2(c * sa, ca));
+}
 
 /**
  * A traveling wave runs down the body midline; the amplitude envelope grows
@@ -538,4 +701,131 @@ function poseTurtle(spec: TurtleRig, s: RigState, set: SetBone, offset: { x: num
   set('RearL', 0, steer + paddle, 0);
   set('RearR', 0, steer - paddle, 0);
   set('Tail', 0, .6 * steer, 0);
+}
+
+/**
+ * The octopus walks on its arms. Each arm reaches forward and pulls back in its own rhythm (its own
+ * phase and vigor, front arms reaching farthest), its tip pressing to the floor and lifting on the
+ * way back, while a slow sideways wave runs out along it. Resting, the arms coil to one side and the
+ * body settles; the mantle breathes. A jet sweeps the arms back together behind the squeezed mantle,
+ * which lowers into the line of travel (the octopus jets mantle-first, toward -Z).
+ */
+type SetScale = (bone: string, x: number, y: number, z: number) => void;
+function poseOctopus(spec: OctopusRig, s: RigState, set: SetBone, offset: { x: number; y: number; z: number }, setScale: SetScale) {
+  const jet = s.jet, rest = s.rest * (1 - jet), ground = s.ground;
+  const pace = clamp(s.effort, 0, 1.3);
+  // How much it is walking: on the floor, not resting or jetting, and moving.
+  const crawl = ground * (1 - rest) * (1 - jet) * clamp(pace, 0, 1);
+  // Swimming off the floor (gliding after a jet), the arms hang back loosely rather than reaching.
+  const loose = (1 - ground) * (1 - jet);
+  const calm = 1 - .55 * rest;
+  // Turning, the arms lag behind the body's turn, swirling the other way, the tips most.
+  const swirl = -clamp(s.turn, -1.2, 1.2) * spec.swirl;
+  for (let i = 0; i < OCTOPUS_ARMS.length; i++) {
+    const { name, angle } = OCTOPUS_ARMS[i];
+    const side = angle > 0 ? 1 : -1, v = spec.vigor[i], ph = s.phase + spec.phases[i];
+    const front = .5 + .5 * Math.cos(angle);
+    // Reaching forward swings an arm toward straight ahead (smaller |angle|).
+    const reach = -side * spec.reach * crawl * v * (.35 + .65 * front) * Math.sin(ph);
+    const press = spec.press * crawl * v * Math.cos(ph);
+    // Jetting, the base swings the arm round toward +Z (behind the mantle-first travel), bunched together.
+    const tuck = -angle * spec.trail * jet;
+    // Hanging back while it glides: a softer version of the same.
+    const drift = -angle * .45 * loose;
+    for (let k = 0; k < OCTOPUS_SEGMENTS; k++) {
+      const t = (k + 1) / OCTOPUS_SEGMENTS;
+      // A slow curl wave runs out along the arm, mirrored left to right, in step with the reach at its base.
+      let beta = -side * spec.curl * calm * v * (.35 + .65 * t) * Math.sin(ph - k * spec.curlLag) * (1 - .75 * jet);
+      // At rest the arms coil to one side, the tips most (a loose pinwheel), varying arm to arm.
+      beta += side * spec.coil * rest * t * t * (.7 + .3 * v);
+      // Tips press down on the stance and lift on the recovery; resting they curl up a little; jetting they stream straight.
+      let alpha = k ? press * (.5 + .6 * t) * (1 - jet) : 0;
+      alpha -= rest * (k === OCTOPUS_SEGMENTS - 1 ? .28 : 0) + loose * .06 * t;
+      beta += swirl * (.5 + .5 * t);
+      if (k === 0) beta = beta + reach + tuck + drift;
+      armRotation(set, octopusArmBone(name, k + 1), angle, beta, alpha);
+    }
+  }
+  const breathe = spec.breath * Math.sin(s.breath), squeeze = 1 - spec.squeeze * jet;
+  setScale('Mantle', (1 + breathe) * squeeze, (1 + breathe) * squeeze, 1 + .4 * breathe);
+  // The mantle rides up and down as it walks, settles low at rest, and lowers into the line of a jet.
+  set('Mantle', spec.mantle * crawl * Math.sin(2 * s.phase + .8) - .22 * rest - spec.streamline * jet, 0, 0);
+  set('Root', 0, 0, 0);
+  offset.x = 0;
+  offset.y = spec.bob * crawl * Math.sin(2 * s.phase) - spec.settle * rest;
+  offset.z = 0;
+}
+
+/**
+ * A cuttlefish has no tail: the fin skirt along each side of its mantle carries a wave that ripples
+ * from front to back, gentler while it hovers, the outer fin working harder in a turn. The body stays
+ * level. The arms sway, the upper pair held up while it hovers; speeding up or jetting closes them
+ * together. A jet squeezes the mantle and folds the fins down against it; the mantle breathes.
+ */
+function poseCuttlefish(spec: CuttlefishRig, s: RigState, set: SetBone, offset: { x: number; y: number; z: number }, setScale: SetScale) {
+  const moving = clamp(s.effort, 0, 1.4), jet = s.jet, hovering = 1 - clamp(moving, 0, 1);
+  const amplitude = (spec.hover + (spec.amplitude - spec.hover) * clamp(moving, 0, 1)) * (1 - .85 * jet);
+  const asymmetry = clamp(spec.turnAsymmetry * s.turn, -.5, .5);
+  const n = CUTTLEFISH_FINS.length;
+  for (let i = 0; i < n; i++) {
+    const { yaw } = CUTTLEFISH_FINS[i];
+    // The wave fades toward the ends of the skirt, which is narrower there.
+    const envelope = Math.sin(Math.PI * (i + .6) / (n + .2)) ** .6;
+    const wave = Math.sin(s.phase - i * spec.waveLag), fold = spec.fold * jet;
+    // Positive roll raises the left fin's margin; the right fin mirrors.
+    hingeRotation(set, `FinL${i + 1}`, yaw, amplitude * envelope * (1 - asymmetry) * wave - fold);
+    hingeRotation(set, `FinR${i + 1}`, -yaw, -(amplitude * envelope * (1 + asymmetry) * wave - fold));
+  }
+  const breathe = spec.breath * Math.sin(s.breath), squeeze = 1 - spec.squeeze * jet;
+  setScale('Mantle', (1 + breathe) * squeeze, (1 + .7 * breathe) * squeeze, 1);
+  set('Mantle', 0, 0, 0);
+  set('Root', -spec.pitch * s.climb, 0, 0);
+  // Hovering, it looks about a little; turning, its head and arms lead into the turn.
+  const lead = clamp(s.turn, -1, 1) * .15;
+  set('Head', .05 * hovering * Math.sin(s.breath + .9), .09 * hovering * Math.sin(s.breath) + lead, 0);
+  const together = clamp(jet + .6 * clamp(moving - .7, 0, 1), 0, 1) * spec.trail;
+  const arms: [string, number, boolean, number][] = [['ArmLU', 1, true, 0], ['ArmRU', -1, true, 1.7], ['ArmLD', 1, false, 3.1], ['ArmRD', -1, false, 4.6]];
+  for (const [name, side, upper, lag] of arms) {
+    const sway = spec.sway * (1 - together) * Math.sin(s.phase + lag);
+    // Positive pitch lowers an arm's tip; positive yaw swings it toward +X.
+    const raise = upper ? -spec.raise * hovering * (1 - together) : .04 * (1 - together);
+    set(`${name}1`, raise + (upper ? .5 : -.5) * .08 * together, side * .09 * (1 - together) + sway + lead, 0);
+    set(`${name}2`, (upper ? -.12 : .1) * hovering * (1 - together), .8 * sway, 0);
+  }
+  offset.x = 0;
+  offset.y = spec.bob * Math.sin(2 * s.phase + .4) * (1 - jet);
+  offset.z = 0;
+}
+
+/**
+ * Swimming, a moray waves its whole body: a traveling wave from head to tail, growing toward the tail
+ * (anguilliform, unlike a shark's stiff front). Resting in its den it lies in a lazy curve that sways
+ * slowly, its head looking about, its mouth opening and closing as it breathes (respiration, not a
+ * threat). Turns bend the body into the turn.
+ */
+function poseMoray(spec: MorayRig, s: RigState, set: SetBone, offset: { x: number; y: number; z: number }) {
+  const root = spec.joints[0], rest = s.rest, k = TAU / spec.wavelength;
+  const strength = (.7 + .3 * clamp(s.effort, .25, 1.6)) * (1 - rest);
+  const envelope = (x: number) => spec.headAmplitude + (spec.amplitude - spec.headAmplitude) * clamp(x, 0, 1) ** spec.envelope;
+  // Resting: a lazy curve and slow sway along the body, and an S in the front half (out of the den), straight again where it goes in.
+  const drape = (x: number) => rest * (x * (spec.drape * .05 * Math.sin(TAU * .85 * x - .9) + spec.sway * Math.sin(s.breath - 2.5 * x))
+    + (x < .5 ? spec.curve * Math.sin(TAU * x / .5) : 0));
+  const bend = .5 * spec.bend * s.curvature;
+  const lateral = (x: number) => envelope(x) * strength * Math.sin(s.phase - k * x) + drape(x) + bend * (x - root) ** 2;
+  offset.x = lateral(root);
+  offset.y = 0;
+  offset.z = 0;
+  set('Root', 0, 0, 0);
+  // The head follows the body's line; resting, it turns to look about and nods a little as it breathes.
+  const look = spec.look * rest * (.65 * Math.sin(s.breath + 1.1) + .35 * Math.sin(2 * s.breath + 2.6));
+  set('Head', -.06 * rest * Math.sin(s.breath + .4), Math.atan2(lateral(0) - lateral(root), root) + look, 0);
+  // The mouth: a slow gape and close with each breath, a little open while swimming.
+  set('Jaw', spec.gape * (.3 + .7 * (.5 + .5 * Math.sin(s.breath))) * (.35 + .65 * rest), 0, 0);
+  const chain = [...spec.joints, 1];
+  let previous = 0;
+  for (let i = 0; i < 8; i++) {
+    const angle = -Math.atan2(lateral(chain[i + 1]) - lateral(chain[i]), chain[i + 1] - chain[i]);
+    set(`Body${i + 1}`, 0, angle - previous, 0);
+    previous = angle;
+  }
 }

@@ -8,7 +8,9 @@ on the island:
 2. The island grows into the level. New coral, rocks and palms grow in; a new islet (levels 5
    and 6) rises out of the water with its palm, while the camera pulls back a little.
 3. The new animal swims in from the edge of the ocean in its own way, with a small **New** tag
-   that follows it.
+   that follows it. The reef's animals arrive on the reef instead: an octopus edges out from beside
+   its rock, a cuttlefish glides in from the deep side of the reef edge, a moray comes out of its
+   den head first.
 4. The island goes back to its usual life.
 
 Nothing replays: each moment is saved as done once it has played.
@@ -20,7 +22,7 @@ Nothing replays: each moment is saved as done once it has played.
 | Which moments are owed and their order (pure, tested) | `src/lib/discoveries.ts` |
 | Playing them on My Home: timing, what's saved when | `src/hooks/use-discovery-moments.ts` |
 | A guaranteed place for an arriving species | `pickSwimmers(…, featured)` in `src/lib/swimming.ts` |
-| The arrival itself (out of sight, swimming in, settling) | `arrive()` in `src/lib/marine-motion.ts` |
+| The arrival itself (out of sight, swimming in, settling) | `arrive()` in `src/lib/marine-motion.ts` (the reef's: `src/lib/reef-life.ts`) |
 | The tuna school arriving | `hold()` / `release()` in `src/lib/tuna-school.ts` |
 | Growth: things rising or growing in | `src/components/home/three/unlock.tsx`, `islet-material.ts` |
 | Banner, New tag, note | `src/components/home/discovery-overlays.tsx` |

@@ -68,9 +68,11 @@ project's settings with those dev defaults.
   cove in caustic-lit water, seen from an oblique orthographic camera. Discovered
   sharks, rays, fish, the ocean sunfish and the green sea turtle swim around it as
   rigged, animated models, passing one another in lanes and keeping their own
-  species' distance from the island. Tiger, whale and great white sharks, the reef
-  manta, the ocean sunfish and the green sea turtle have their own models and
-  species-specific swimming; other species use CC0 Quaternius family
+  species' distance from the island; octopuses, cuttlefish and morays live on the reef
+  itself (walking the shelf by a rock, hovering over the reef edge, resting in a den).
+  Tiger, whale and great white sharks, the reef manta, the ocean sunfish, the green sea
+  turtle, the day octopus, the giant cuttlefish and the giant moray have their own models
+  and species-specific motion; other species use CC0 Quaternius family
   representatives. Unique
   species unlock six growth stages; home name and habitat are saved on this device per
   account. An empty ocean shows a clearly labeled preview shark and manta that never
@@ -80,7 +82,7 @@ project's settings with those dev defaults.
 - **Map tab** — ~65 famous dive sites worldwide; search "where can I see a…" to
   highlight sites where a species has been spotted; tap a pin for the site card;
   long-press the map to add a missing site.
-- **My Log tab** — your sightings, and a species dex of 119 curated species with
+- **My Log tab** — your sightings, and a species dex of 120 curated species with
   rarity tiers (common → legendary). First-of-species logs get a celebration.
 - **Log flow** — site → species → date/notes/photo, designed for speed.
 - **Discovery moments** — a new species swims into your island with a small "New" tag, and a

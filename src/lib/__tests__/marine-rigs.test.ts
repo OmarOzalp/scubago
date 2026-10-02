@@ -1,8 +1,9 @@
 import { expect, test } from '@jest/globals';
-import { createSwimRig, CRUISE, rigBones, strokeFrequency, SWIM_RIGS, type SwimDrive, type SwimRigModel } from '../marine-rigs';
+import { createSwimRig, CRUISE, CUTTLEFISH_FINS, OCTOPUS_ARMS, octopusArmBone, OCTOPUS_SEGMENTS, RIG_EULER_ORDER, rigBones, strokeFrequency, SWIM_RIGS, type SwimDrive, type SwimRigModel } from '../marine-rigs';
 
 const SHARKS = ['tiger-shark', 'whale-shark', 'great-white-shark', 'scalloped-hammerhead'] as const;
-const ALL: SwimRigModel[] = [...SHARKS, 'reef-manta', 'mola-mola', 'green-turtle', 'bottlenose-dolphin'];
+const REEF = ['day-octopus', 'giant-cuttlefish', 'giant-moray'] as const;
+const ALL: SwimRigModel[] = [...SHARKS, 'reef-manta', 'mola-mola', 'green-turtle', 'bottlenose-dolphin', ...REEF];
 const SPINE = ['Spine1', 'Spine2', 'RearBody', 'TailBase', 'Tail'];
 
 /** Sample one stroke; returns per-sample rotations keyed by bone. */
@@ -200,4 +201,78 @@ test('out of the water a dolphin stills its tail beat, stretches out and folds i
   rig.step(1 / 60, { ...CRUISE, air: 1 });
   expect(Math.max(...Array.from(rig.rotation).map((v, i) => Math.abs(v - before[i])))).toBeLessThan(.05);
   for (const model of SHARKS) expect(cycle(model, { ...CRUISE, air: 1 })).toEqual(cycle(model));
+});
+
+/** Where an octopus arm's first segment points (rad from +Z toward +X, seen from above) in this pose: its rest direction turned by the bone's Z·X·Y rotation. */
+function armHeading(pose: Record<string, number[]>, arm: (typeof OCTOPUS_ARMS)[number]) {
+  expect(RIG_EULER_ORDER).toBe('ZXY');
+  const [x, y, z] = pose[octopusArmBone(arm.name, 1)], vx = Math.sin(arm.angle), vz = Math.cos(arm.angle);
+  const a = Math.cos(x), b = Math.sin(x), c = Math.cos(y), d = Math.sin(y), e = Math.cos(z), f = Math.sin(z);
+  return Math.atan2((c * e - d * f * b) * vx + (d * e + c * f * b) * vz, -a * d * vx + a * c * vz);
+}
+
+test('the octopus walks on eight arms, each in its own rhythm, never in lockstep', () => {
+  const poses = cycle('day-octopus', { ...CRUISE, ground: 1 }, 96);
+  // Each arm reaches forward and back around its own direction...
+  const swings = OCTOPUS_ARMS.map((arm) => poses.map((pose) => armHeading(pose, arm) - arm.angle));
+  for (const swing of swings) expect(Math.max(...swing) - Math.min(...swing)).toBeGreaterThan(.05);
+  // ...at its own moment: the arms reach their furthest forward at many different points in the stride.
+  const peaks = new Set(swings.map((swing) => Math.round(swing.indexOf(Math.max(...swing)) / 6)));
+  expect(peaks.size).toBeGreaterThanOrEqual(6);
+  // Every segment of every arm moves.
+  for (const { name } of OCTOPUS_ARMS) for (let s = 1; s <= OCTOPUS_SEGMENTS; s++) {
+    const bone = octopusArmBone(name, s), ys = poses.map((pose) => pose[bone][1]);
+    expect(Math.max(...ys) - Math.min(...ys)).toBeGreaterThan(.01);
+  }
+});
+
+test('a jetting octopus streams its arms together behind it; resting, it coils them and settles its mantle', () => {
+  const rig = createSwimRig('day-octopus');
+  const pose = () => Object.fromEntries(rig.bones.map((bone, b) => [bone, [rig.rotation[b * 3], rig.rotation[b * 3 + 1], rig.rotation[b * 3 + 2]]]));
+  rig.sample(1, { ...CRUISE, ground: 1 });
+  const walking = OCTOPUS_ARMS.map((arm) => Math.abs(armHeading(pose(), arm)));
+  rig.sample(1, { ...CRUISE, jet: 1, ground: 0 });
+  const jetting = OCTOPUS_ARMS.map((arm) => Math.abs(armHeading(pose(), arm)));
+  // Jetting mantle first (toward -Z), every arm swings round toward +Z, the whole bundle within a narrow fan.
+  expect(Math.max(...jetting)).toBeLessThan(.5);
+  expect(jetting.reduce((a, b) => a + b)).toBeLessThan(walking.reduce((a, b) => a + b) * .25);
+  const mantle = rig.bones.indexOf('Mantle');
+  expect(rig.scale[mantle * 3]).toBeLessThan(1);
+  rig.sample(1, { ...CRUISE, effort: .25, rest: 1, ground: 1 });
+  // Resting, the tips curl to the side and up, the mantle lowers, and the body settles a touch.
+  const tips = OCTOPUS_ARMS.map(({ name, angle }) => rig.rotation[rig.bones.indexOf(octopusArmBone(name, OCTOPUS_SEGMENTS)) * 3 + 1] * Math.sign(angle));
+  expect(Math.min(...tips)).toBeGreaterThan(0);
+  expect(rig.rotation[mantle * 3]).toBeLessThan(-.1);
+  expect(rig.offset.y).toBeLessThan(0);
+});
+
+test("a cuttlefish ripples a wave backward along its fin skirt, softer while hovering, and folds it to jet", () => {
+  const roll = (poses: Record<string, number[]>[], fin: string) => poses.map((pose) => pose[fin][2]);
+  const cruising = cycle('giant-cuttlefish', CRUISE, 96), hovering = cycle('giant-cuttlefish', { ...CRUISE, effort: .25 }, 96);
+  // The wave reaches each fin a little after the one in front of it: the peaks march toward the back.
+  const peaks = CUTTLEFISH_FINS.map((_, i) => { const r = roll(cruising, `FinL${i + 1}`); return r.indexOf(Math.max(...r)); });
+  const lags = peaks.slice(1).map((p, i) => ((p - peaks[i]) % 96 + 96) % 96);
+  for (const lag of lags) expect(lag).toBeGreaterThan(0);
+  // Left and right mirror each other, and hovering keeps the ripple gentler.
+  const middle = `FinL${Math.ceil(CUTTLEFISH_FINS.length / 2)}`;
+  expect(peak(roll(hovering, middle))).toBeLessThan(peak(roll(cruising, middle)));
+  cruising.forEach((pose) => expect(pose[middle][2]).toBeCloseTo(-pose[middle.replace('L', 'R')][2], 5));
+  // A jet folds the skirt down against the mantle and squeezes it.
+  const rig = createSwimRig('giant-cuttlefish');
+  rig.sample(0, { ...CRUISE, jet: 1 });
+  const left = rig.bones.indexOf(middle), mantle = rig.bones.indexOf('Mantle');
+  expect(rig.rotation[left * 3 + 2]).toBeLessThan(-.2);
+  expect(rig.scale[mantle * 3]).toBeLessThan(1);
+});
+
+test('a resting moray breathes through its slowly opening mouth and lies still; swimming, a wave runs down its whole body', () => {
+  const lateral = (poses: Record<string, number[]>[], bone: string) => peak(poses.map((pose) => pose[bone][1]));
+  const resting = cycle('giant-moray', { ...CRUISE, effort: .25, rest: 1 }, 96), swimming = cycle('giant-moray', CRUISE, 96);
+  // The jaw opens and closes with each breath, never past closed.
+  const jaw = resting.map((pose) => pose.Jaw[0]);
+  expect(Math.min(...jaw)).toBeGreaterThanOrEqual(0);
+  expect(Math.max(...jaw) - Math.min(...jaw)).toBeGreaterThan(.15);
+  // Swimming bends the body far more than resting does, more toward the tail than at the neck.
+  expect(lateral(swimming, 'Body6')).toBeGreaterThan(lateral(resting, 'Body6') * 3);
+  expect(lateral(swimming, 'Body7')).toBeGreaterThan(lateral(swimming, 'Body2'));
 });

@@ -12,7 +12,7 @@ transaction that was rolled back. The draft becomes real migrations in phases
 
 | Area | Today |
 | --- | --- |
-| Species | `species`: a curated catalog of 119 species, read-only for the app. |
+| Species | `species`: a curated catalog of 120 species, read-only for the app. |
 | Dive sites | `dive_sites`: 69 curated sites plus user-added ones (public; no moderation). See [dive-site-data.md](dive-site-data.md). |
 | Dive logs | **None.** A "sighting" is the only unit (species + site + date + optional notes/photo). |
 | Sightings | `sightings`: every row is **public** (username, species, site, date, notes, photo URL). There is no status and no provenance. Offline-first: SQLite outbox → Supabase. |

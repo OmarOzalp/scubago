@@ -18,6 +18,7 @@ jest.mock('@react-three/fiber', () => ({
 jest.mock('../three/animated-marine', () => ({ AnimatedMarine: ({ model, onPress }) => <swimmer model={model} onPress={onPress} /> }));
 jest.mock('../three/tuna-school-mesh', () => ({ TunaSchoolMesh: ({ onPress }) => <school onPress={onPress} /> }));
 jest.mock('../three/marine-splashes', () => ({ MarineSplashes: () => null }));
+jest.mock('../three/reef-rocks', () => ({ ReefRocks: ({ morays, octopuses }) => <rocks morays={morays} octopuses={octopuses} /> }));
 jest.mock('../island-scene', () => ({ IslandScene: () => <fallback /> }));
 jest.mock('expo-router', () => ({ router: { push: jest.fn() } }));
 
@@ -92,4 +93,25 @@ test('a logged dolphin swims as a pod whose every member opens its one page; a g
     dolphin.props.onPress();
     expect(router.push).toHaveBeenLastCalledWith('/species/bottlenose-dolphin');
   }
+});
+test('reef animals swim as one animal each, opening their own page, with rocks only for those that need them', async () => {
+  useMarineModels.mockReturnValue({ models: { 'day-octopus': {}, 'giant-cuttlefish': {}, 'giant-moray': {} }, failed: false, retry: jest.fn() });
+  const octopus = logged('day-octopus', 'cephalopod'), cuttlefish = logged('broadclub-cuttlefish', 'cephalopod');
+  const morays = [logged('giant-moray', 'fish'), logged('green-moray', 'fish')];
+  await act(async () => { root = create(<SanctuaryScene {...props} residents={[octopus, cuttlefish, ...morays]} />); });
+  // (the loader fetches each model once)
+  expect(useMarineModels).toHaveBeenLastCalledWith(['day-octopus', 'giant-cuttlefish', 'giant-moray', 'giant-moray']);
+  const swimmers = root.root.findAllByType('swimmer');
+  expect(swimmers.map((swimmer) => swimmer.props.model)).toEqual(['day-octopus', 'giant-cuttlefish', 'giant-moray', 'giant-moray']);
+  ['day-octopus', 'broadclub-cuttlefish', 'giant-moray', 'green-moray'].forEach((id, i) => {
+    swimmers[i].props.onPress();
+    expect(router.push).toHaveBeenLastCalledWith(`/species/${id}`);
+  });
+  // Two dens for each moray and a rock for the octopus; the cuttlefish needs none. No tuna, so no school.
+  expect(root.root.findByType('rocks').props).toEqual({ morays: 2, octopuses: 1 });
+  expect(root.root.findAllByType('school')).toHaveLength(0);
+  // Deleting the morays and the octopus takes their rocks away.
+  await act(async () => root.update(<SanctuaryScene {...props} residents={[cuttlefish]} />));
+  expect(root.root.findAllByType('rocks')).toHaveLength(0);
+  expect(root.root.findAllByType('swimmer').map((swimmer) => swimmer.props.model)).toEqual(['giant-cuttlefish']);
 });

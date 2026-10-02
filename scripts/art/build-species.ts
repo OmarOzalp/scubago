@@ -22,6 +22,9 @@ import { buildMolaMola } from './species/mola-mola';
 import { buildGreenTurtle } from './species/green-turtle';
 import { buildScallopedHammerhead } from './species/scalloped-hammerhead';
 import { buildBottlenoseDolphin } from './species/bottlenose-dolphin';
+import { buildDayOctopus } from './species/day-octopus';
+import { buildGiantCuttlefish } from './species/giant-cuttlefish';
+import { buildGiantMoray } from './species/giant-moray';
 
 const OUT = resolve(dirname(process.argv[1]), '../../assets/models/marine') + '/';
 
@@ -34,6 +37,9 @@ const SPECIES: Partial<Record<SwimRigModel, { build: () => { mesh: MeshBuilder; 
   'green-turtle': { build: buildGreenTurtle, scientificName: 'Chelonia mydas', reference: 'https://www.fisheries.noaa.gov/species/green-turtle' },
   'scalloped-hammerhead': { build: buildScallopedHammerhead, scientificName: 'Sphyrna lewini', reference: 'https://www.floridamuseum.ufl.edu/discover-fish/species-profiles/sphyrna-lewini/' },
   'bottlenose-dolphin': { build: buildBottlenoseDolphin, scientificName: 'Tursiops truncatus', reference: 'https://www.fisheries.noaa.gov/species/common-bottlenose-dolphin' },
+  'giant-cuttlefish': { build: buildGiantCuttlefish, scientificName: 'Sepia apama', reference: 'https://www.marinespecies.org/aphia.php?p=taxlist&tName=Sepia%20apama' },
+  'giant-moray': { build: buildGiantMoray, scientificName: 'Gymnothorax javanicus', reference: 'https://www.marinespecies.org/aphia.php?p=taxlist&tName=Gymnothorax%20javanicus' },
+  'day-octopus': { build: buildDayOctopus, scientificName: 'Octopus cyanea', reference: 'https://www.marinespecies.org/aphia.php?p=taxlist&tName=Octopus%20cyanea' },
 };
 
 async function main() {

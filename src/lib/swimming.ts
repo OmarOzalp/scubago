@@ -1,9 +1,11 @@
 import { TUNA_SCHOOL } from '@/lib/tuna-school';
 import type { Category, DexEntry, Species } from '@/lib/types';
 
-export type SpeciesMarineModel = 'whale-shark' | 'tiger-shark' | 'great-white-shark' | 'scalloped-hammerhead' | 'reef-manta' | 'mola-mola' | 'green-turtle' | 'bottlenose-dolphin';
+export type SpeciesMarineModel = 'whale-shark' | 'tiger-shark' | 'great-white-shark' | 'scalloped-hammerhead' | 'reef-manta' | 'mola-mola' | 'green-turtle' | 'bottlenose-dolphin'
+  | 'day-octopus' | 'giant-cuttlefish' | 'giant-moray';
 export type MarineModel = 'shark' | 'manta' | 'reef-fish' | SpeciesMarineModel;
-const SPECIES_MODELS: readonly string[] = ['whale-shark', 'tiger-shark', 'great-white-shark', 'scalloped-hammerhead', 'reef-manta', 'mola-mola', 'green-turtle', 'bottlenose-dolphin'] satisfies SpeciesMarineModel[];
+const SPECIES_MODELS: readonly string[] = ['whale-shark', 'tiger-shark', 'great-white-shark', 'scalloped-hammerhead', 'reef-manta', 'mola-mola', 'green-turtle', 'bottlenose-dolphin',
+  'day-octopus', 'giant-cuttlefish', 'giant-moray'] satisfies SpeciesMarineModel[];
 /**
  * Species drawn with a close relative's model: the nearest body plan in the set, like a family
  * representative (so not offered as their own 3D model), and far closer than the generic one.
@@ -11,6 +13,13 @@ const SPECIES_MODELS: readonly string[] = ['whale-shark', 'tiger-shark', 'great-
 const RELATIVES: Readonly<Record<string, SpeciesMarineModel>> = {
   'great-hammerhead': 'scalloped-hammerhead',
   'spinner-dolphin': 'bottlenose-dolphin',
+  'giant-pacific-octopus': 'day-octopus',
+  'blue-ringed-octopus': 'day-octopus',
+  'mimic-octopus': 'day-octopus',
+  'coconut-octopus': 'day-octopus',
+  'broadclub-cuttlefish': 'giant-cuttlefish',
+  'flamboyant-cuttlefish': 'giant-cuttlefish',
+  'green-moray': 'giant-moray',
 };
 export function speciesMarineModel(id: string): SpeciesMarineModel | null {
   return SPECIES_MODELS.includes(id) ? id as SpeciesMarineModel : null;

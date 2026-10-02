@@ -21,6 +21,9 @@ jest.mock('@/assets/models/marine/mola-mola.glb', () => 8, { virtual: true });
 jest.mock('@/assets/models/marine/green-turtle.glb', () => 9, { virtual: true });
 jest.mock('@/assets/models/marine/scalloped-hammerhead.glb', () => 10, { virtual: true });
 jest.mock('@/assets/models/marine/bottlenose-dolphin.glb', () => 11, { virtual: true });
+jest.mock('@/assets/models/marine/day-octopus.glb', () => 12, { virtual: true });
+jest.mock('@/assets/models/marine/giant-cuttlefish.glb', () => 13, { virtual: true });
+jest.mock('@/assets/models/marine/giant-moray.glb', () => 14, { virtual: true });
 
 let loader, Asset, parse, THREE;
 beforeEach(() => {
