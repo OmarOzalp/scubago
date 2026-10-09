@@ -12,7 +12,7 @@ transaction that was rolled back. The draft becomes real migrations in phases
 
 | Area | Today |
 | --- | --- |
-| Species | `species`: a curated catalog of 119 species, read-only for the app. |
+| Species | `species`: a curated catalog of 120 species, read-only for the app. |
 | Dive sites | `dive_sites`: 69 curated sites plus user-added ones (public; no moderation). See [dive-site-data.md](dive-site-data.md). |
 | Dive logs | **None.** A "sighting" is the only unit (species + site + date + optional notes/photo). |
 | Sightings | `sightings`: every row is **public** (username, species, site, date, notes, photo URL). There is no status and no provenance. Offline-first: SQLite outbox → Supabase. |
@@ -141,6 +141,9 @@ flags it for a moderator.
 Attaching a photo alone never verifies a sighting.
 
 ### Method B: buddy or instructor confirmation
+
+Built in migration 0006. [buddy-verification.md](../buddy-verification.md) describes what shipped
+and where it differs from this design.
 
 1. The diver taps "Ask a buddy" on a sighting (later: on a whole dive).
 2. `create_verification_request()` returns a **10-character code** such as `G2QF0-XJRYR`:

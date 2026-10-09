@@ -31,11 +31,12 @@ begin
     site := 'rls-check-site';
   end if;
 
-  -- 1. A logs a sighting of their own.
+  -- 1. A logs a sighting of their own (two: one of them is deleted in 5b).
   begin
     set local role authenticated;
     perform set_config('request.jwt.claims', json_build_object('sub', a, 'role', 'authenticated')::text, true);
-    insert into public.sightings (id, user_id, species_id, site_id, sighted_on) values ('rls-check-a', a, sp, site, current_date);
+    insert into public.sightings (id, user_id, species_id, site_id, sighted_on)
+    values ('rls-check-a', a, sp, site, current_date), ('rls-check-a2', a, sp, site, current_date);
     reset role;
     passed := passed + 1; report := report || E'\n  ok    A can log a sighting of their own';
   exception when others then
@@ -90,6 +91,22 @@ begin
     else failed := failed + 1; report := report || E'\n  FAIL  A could not edit their own sighting'; end if;
   exception when others then
     failed := failed + 1; report := report || E'\n  FAIL  A could not edit their own sighting: ' || sqlerrm;
+  end;
+
+  -- 5b. A can delete their own sighting, and deleting it again is harmless (the app retries a
+  --     deletion until the server confirms it, so a repeat must not fail).
+  begin
+    set local role authenticated;
+    perform set_config('request.jwt.claims', json_build_object('sub', a, 'role', 'authenticated')::text, true);
+    delete from public.sightings where id = 'rls-check-a2' and user_id = a;
+    get diagnostics n = row_count;
+    delete from public.sightings where id = 'rls-check-a2' and user_id = a;
+    get diagnostics m = row_count;
+    reset role;
+    if n = 1 and m = 0 then passed := passed + 1; report := report || E'\n  ok    A can delete their own sighting (and a repeated delete is harmless)';
+    else failed := failed + 1; report := report || format(E'\n  FAIL  A''s deletes removed %s, then %s rows', n, m); end if;
+  exception when others then
+    failed := failed + 1; report := report || E'\n  FAIL  A could not delete their own sighting: ' || sqlerrm;
   end;
 
   -- 6. Profiles: B cannot create or rename A's.
@@ -147,6 +164,17 @@ begin
     failed := failed + 1; report := report || E'\n  FAIL  B could add a site in A''s name';
   exception when insufficient_privilege then
     passed := passed + 1; report := report || E'\n  ok    B cannot add a site in A''s name';
+  end;
+
+  -- 8b. Regions and site sources are curated: signed-in users cannot write them.
+  begin
+    set local role authenticated;
+    perform set_config('request.jwt.claims', json_build_object('sub', a, 'role', 'authenticated')::text, true);
+    insert into public.site_field_sources (site_id, field, source) values (site, 'depth', 'made up');
+    reset role;
+    failed := failed + 1; report := report || E'\n  FAIL  a user could add a source to a dive site';
+  exception when insufficient_privilege then
+    passed := passed + 1; report := report || E'\n  ok    users cannot add sources or regions to dive sites';
   end;
 
   -- 9. Anonymous visitors can read but not write.

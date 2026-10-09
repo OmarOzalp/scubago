@@ -1,6 +1,6 @@
 import * as ImagePicker from 'expo-image-picker';
 import { Image } from 'expo-image';
-import { router, useLocalSearchParams } from 'expo-router';
+import { Stack, router, useLocalSearchParams } from 'expo-router';
 import { useMemo, useState } from 'react';
 import {
   Pressable,
@@ -19,30 +19,36 @@ import { ThemedView } from '@/components/themed-view';
 import { Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { CATALOG, CATALOG_BY_ID } from '@/lib/catalog';
+import { keepPhoto } from '@/lib/photo-files';
 import { CATEGORY_LABEL, CATEGORY_ORDER, RARITY_COLOR } from '@/lib/rarity';
-import { useAllSites, useAppStore, useMySightings } from '@/lib/store';
+import { canEditSighting, isMaterialChange, localIsoDate, shiftIsoDate } from '@/lib/sighting-edit';
+import { useAllSites, useAppStore, useMySightings, useMyUserId } from '@/lib/store';
 import type { Category, DiveSite, Species } from '@/lib/types';
+import { statusOf } from '@/lib/verification';
 
 type Step = 'site' | 'species' | 'details';
 
-function toIsoDate(d: Date): string {
-  return d.toISOString().slice(0, 10);
-}
-
+/** Log a new sighting, or edit one (`?edit=<id>`) through the same steps and checks. */
 export default function LogSightingScreen() {
-  const params = useLocalSearchParams<{ siteId?: string; speciesId?: string }>();
+  const params = useLocalSearchParams<{ siteId?: string; speciesId?: string; edit?: string }>();
   const theme = useTheme();
   const sites = useAllSites();
   const mySightings = useMySightings();
+  const myUserId = useMyUserId();
   const addSighting = useAppStore((s) => s.addSighting);
+  const updateSighting = useAppStore((s) => s.updateSighting);
+  const editing = useAppStore((s) => (params.edit ? s.sightings.find((x) => x.id === params.edit) : undefined));
 
-  const [siteId, setSiteId] = useState<string | null>(params.siteId ?? null);
-  const [speciesId, setSpeciesId] = useState<string | null>(params.speciesId ?? null);
-  const [step, setStep] = useState<Step>(params.siteId ? (params.speciesId ? 'details' : 'species') : 'site');
-  const [date, setDate] = useState(new Date());
-  const [notes, setNotes] = useState('');
-  const [photoUri, setPhotoUri] = useState<string | undefined>();
+  const [siteId, setSiteId] = useState<string | null>(editing?.siteId ?? params.siteId ?? null);
+  const [speciesId, setSpeciesId] = useState<string | null>(editing?.speciesId ?? params.speciesId ?? null);
+  const [step, setStep] = useState<Step>(
+    editing ? 'details' : params.siteId ? (params.speciesId ? 'details' : 'species') : 'site',
+  );
+  const [date, setDate] = useState(editing?.sightedOn ?? localIsoDate(new Date()));
+  const [notes, setNotes] = useState(editing?.notes ?? '');
+  const [photoUri, setPhotoUri] = useState<string | undefined>(editing?.photoUri);
   const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const [celebration, setCelebration] = useState<{ species: Species; dexNumber: number } | null>(
     null,
   );
@@ -61,8 +67,8 @@ export default function LogSightingScreen() {
 
   const shiftDate = (days: number) => {
     setDate((d) => {
-      const next = new Date(d.getTime() + days * 24 * 60 * 60 * 1000);
-      return next > new Date() ? d : next;
+      const next = shiftIsoDate(d, days);
+      return next > localIsoDate(new Date()) ? d : next;
     });
   };
 
@@ -75,24 +81,26 @@ export default function LogSightingScreen() {
       // photo bucket. (By default an iPhone HEIC photo is passed through byte for byte, GPS and all.)
       preferredAssetRepresentationMode: ImagePicker.UIImagePickerPreferredAssetRepresentationMode.Compatible,
     });
-    if (!result.canceled && result.assets[0]) setPhotoUri(result.assets[0].uri);
+    // A sighting logged offline may wait days to sync: keep the photo out of the system's cache.
+    if (!result.canceled && result.assets[0]) setPhotoUri(await keepPhoto(result.assets[0].uri));
   };
 
   const save = async () => {
     if (!siteId || !speciesId || !species || saving) return;
     setSaving(true);
-    const speciesSeenBefore = new Set(mySightings.map((s) => s.speciesId)).size;
-    const { isNewSpecies } = await addSighting({
-      speciesId,
-      siteId,
-      sightedOn: toIsoDate(date),
-      notes: notes.trim() || undefined,
-      photoUri,
-    });
-    if (isNewSpecies) {
-      setCelebration({ species, dexNumber: speciesSeenBefore + 1 });
-    } else {
-      router.back();
+    setError(null);
+    const others = mySightings.filter((s) => s.id !== editing?.id);
+    const input = { speciesId, siteId, sightedOn: date, notes: notes.trim() || undefined, photoUri };
+    try {
+      const { isNewSpecies } = editing ? await updateSighting(editing.id, input) : await addSighting(input);
+      if (isNewSpecies) {
+        setCelebration({ species, dexNumber: new Set([...others.map((s) => s.speciesId), speciesId]).size });
+      } else {
+        router.back();
+      }
+    } catch (e: any) {
+      setError(e.message ?? 'Could not save this sighting');
+      setSaving(false);
     }
   };
 
@@ -100,8 +108,23 @@ export default function LogSightingScreen() {
     return <Celebration species={celebration.species} dexNumber={celebration.dexNumber} />;
   }
 
+  if (params.edit && (!editing || !canEditSighting(editing, myUserId))) {
+    return (
+      <ThemedView style={styles.celebration}>
+        <Stack.Screen options={{ title: 'Edit sighting' }} />
+        <ThemedText>{editing ? 'You can only edit your own sightings.' : 'This sighting isn’t here any more.'}</ThemedText>
+      </ThemedView>
+    );
+  }
+
+  // Changing what was seen, where or when voids a confirmation (the server enforces it too).
+  const losesVerification =
+    !!editing && statusOf(editing) !== 'unverified' && !!siteId && !!speciesId &&
+    isMaterialChange(editing, { speciesId, siteId, sightedOn: date });
+
   return (
     <ThemedView style={styles.container}>
+      {editing ? <Stack.Screen options={{ title: 'Edit sighting' }} /> : null}
       {/* Progress summary of picks so far */}
       <View style={styles.breadcrumbs}>
         <Crumb
@@ -141,10 +164,10 @@ export default function LogSightingScreen() {
             <View style={styles.dateControls}>
               <DateButton label="−1 day" onPress={() => shiftDate(-1)} />
               <ThemedText type="smallBold" style={styles.dateValue}>
-                {formatDate(toIsoDate(date))}
+                {formatDate(date)}
               </ThemedText>
               <DateButton label="+1 day" onPress={() => shiftDate(1)} />
-              <DateButton label="Today" onPress={() => setDate(new Date())} />
+              <DateButton label="Today" onPress={() => setDate(localIsoDate(new Date()))} />
             </View>
           </View>
 
@@ -176,9 +199,31 @@ export default function LogSightingScreen() {
                 </ThemedText>
               )}
             </Pressable>
+            {photoUri ? (
+              <Pressable onPress={() => setPhotoUri(undefined)} accessibilityRole="button" hitSlop={6} style={styles.removePhoto}>
+                <ThemedText type="small" themeColor="textSecondary">
+                  Remove photo
+                </ThemedText>
+              </Pressable>
+            ) : null}
           </View>
 
-          <OceanButton title={saving ? 'Saving…' : 'Log it'} onPress={save} disabled={saving} />
+          {losesVerification ? (
+            <ThemedText type="small" themeColor="textSecondary">
+              Changing the species, site or date removes this sighting’s verification. It can be
+              confirmed again afterwards.
+            </ThemedText>
+          ) : null}
+          {error ? (
+            <ThemedText type="small" style={{ color: '#c0392b' }}>
+              {error}
+            </ThemedText>
+          ) : null}
+          <OceanButton
+            title={saving ? 'Saving…' : editing ? 'Save changes' : 'Log it'}
+            onPress={save}
+            disabled={saving}
+          />
         </ScrollView>
       )}
     </ThemedView>
@@ -487,6 +532,11 @@ const styles = StyleSheet.create({
     width: '100%',
     height: 180,
     borderRadius: 8,
+  },
+  removePhoto: {
+    alignSelf: 'flex-start',
+    minHeight: 32,
+    justifyContent: 'center',
   },
   celebration: {
     flex: 1,

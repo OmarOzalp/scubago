@@ -9,11 +9,12 @@ import { SightingRow } from '@/components/sighting-row';
 import { SpeciesAvatar } from '@/components/species-avatar';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
+import { Ocean } from '@/constants/palette';
 import { BottomTabInset, Spacing } from '@/constants/theme';
 import { CATALOG, CATALOG_BY_ID } from '@/lib/catalog';
 import { deriveDex } from '@/lib/dex';
 import { CATEGORY_LABEL, CATEGORY_ORDER, RARITY_COLOR, RARITY_LABEL, rarityRank } from '@/lib/rarity';
-import { useAllSites, useAppStore, useMySightings } from '@/lib/store';
+import { useAllSites, useAppStore, useMySightings, usePendingChanges } from '@/lib/store';
 import type { Category, DexEntry, Species } from '@/lib/types';
 
 type Mode = 'sightings' | 'species';
@@ -24,6 +25,10 @@ export default function LogbookScreen() {
   const backendEnabled = useAppStore((s) => s.backendEnabled);
   const [mode, setMode] = useState<Mode>('sightings');
   const mySightings = useMySightings();
+  const pending = usePendingChanges();
+  const syncing = useAppStore((s) => s.syncing);
+  const syncProblem = useAppStore((s) => s.syncProblem);
+  const requestSync = useAppStore((s) => s.requestSync);
   const sites = useAllSites();
   const sitesById = useMemo(() => new Map(sites.map((s) => [s.id, s])), [sites]);
 
@@ -68,6 +73,17 @@ export default function LogbookScreen() {
             </Pressable>
           ) : null}
         </View>
+        {pending.count > 0 ? (
+          <Pressable onPress={() => void requestSync()} accessibilityRole="button" accessibilityHint="Tries to sync now">
+            <ThemedText type="small" themeColor="textSecondary">
+              {syncing
+                ? 'Syncing…'
+                : `${pending.count} ${pending.count === 1 ? 'change' : 'changes'} waiting to sync${
+                    syncProblem || pending.failing > 0 ? ' · will retry automatically' : ''
+                  } · Sync now`}
+            </ThemedText>
+          </Pressable>
+        ) : null}
 
         {/* Stats */}
         <View style={styles.statsRow}>
@@ -87,6 +103,14 @@ export default function LogbookScreen() {
             </View>
           ) : null}
         </View>
+
+        {backendEnabled ? (
+          <Pressable onPress={() => router.push('/verify')} accessibilityRole="link" hitSlop={6}>
+            <ThemedText type="small" themeColor="textSecondary">
+              Got a code from a buddy? <ThemedText type="smallBold" style={{ color: Ocean.primary }}>Confirm a buddy’s sighting ›</ThemedText>
+            </ThemedText>
+          </Pressable>
+        ) : null}
 
         <Segmented<Mode>
           options={[
@@ -111,7 +135,8 @@ export default function LogbookScreen() {
                     sighting={s}
                     species={species}
                     site={sitesById.get(s.siteId)}
-                    onPress={() => router.push(`/species/${species.id}`)}
+                    pending={!!user && !s.synced}
+                    onPress={() => router.push(`/sighting/${s.id}`)}
                   />
                 );
               })}

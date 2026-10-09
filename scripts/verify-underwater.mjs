@@ -8,17 +8,19 @@ import { Box3, CircleGeometry, Group, Mesh, OrthographicCamera, Raycaster, Shade
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { clone } from 'three/examples/jsm/utils/SkeletonUtils.js';
 import { createOceanUniforms } from '../src/components/home/three/ocean-mesh.ts';
-import { prepareUnderwater } from '../src/components/home/three/underwater-material.ts';
+import { FLOOR_BIAS, prepareUnderwater } from '../src/components/home/three/underwater-material.ts';
 import { createSchoolHitArea, SCHOOL_HIT_DEPTH } from '../src/components/home/three/school-hit-area.ts';
 import { createSchoolMaterial } from '../src/components/home/three/school-material.ts';
 import { createTunaGeometry } from '../src/components/home/three/tuna-geometry.ts';
-import { MARINE_SIZE, MIN_TAP, tapTarget } from '../src/components/home/three/tap-target.ts';
+import { MARINE_SIZE, MIN_TAP, TAP_SHAPES, tapTarget } from '../src/components/home/three/tap-target.ts';
 import { oceanScale } from '../src/lib/steering.ts';
 import { createMarineMotion } from '../src/lib/marine-motion.ts';
 import { sampleDive } from '../src/lib/ocean-depth.ts';
 
 const ocean = createOceanUniforms('island');
-const MODELS = ['shark', 'manta', 'reef-fish', 'whale-shark', 'tiger-shark', 'great-white-shark', 'scalloped-hammerhead', 'reef-manta', 'mola-mola', 'green-turtle', 'bottlenose-dolphin'];
+const MODELS = ['shark', 'manta', 'reef-fish', 'whale-shark', 'tiger-shark', 'great-white-shark', 'scalloped-hammerhead', 'reef-manta', 'mola-mola', 'green-turtle', 'bottlenose-dolphin',
+  'day-octopus', 'giant-cuttlefish', 'giant-moray'];
+const REEF = ['day-octopus', 'giant-cuttlefish', 'giant-moray'];
 const loadModel = async (name) => {
   const bytes = readFileSync(new URL(`../assets/models/marine/${name}.glb`, import.meta.url));
   return new GLTFLoader().parseAsync(bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength), '');
@@ -80,6 +82,81 @@ for (const name of MODELS) {
   assert(head > tail, `${name}: fade direction is reversed`);
   first.dispose(); second.dispose();
   console.log(`${name}: head-to-tail coordinates, independent materials and dive uniforms verified`);
+}
+
+// The reef's animals (reef-life.ts) draw with their own program: set back in depth so open-water animals
+// passing over the reef are never hidden by them, partly out of sight in a den, with color states, each
+// its own (one moray in its den never hides another's body), full quality and lite alike.
+{
+  const camera = new OrthographicCamera(-200, 200, 180, -180, .1, 60);
+  camera.position.set(0, 12, 6); camera.lookAt(0, -.15, 0); camera.updateProjectionMatrix(); camera.updateMatrixWorld();
+  for (const name of REEF) {
+    const source = await loadModel(name);
+    for (const lite of [false, true]) {
+      const a = clone(source.scene), b = clone(source.scene);
+      const first = prepareUnderwater(a, ocean, lite, { bias: FLOOR_BIAS }), second = prepareUnderwater(b, ocean, lite, { bias: FLOOR_BIAS });
+      first.setHide(.5, .1);
+      first.setTone(.7, .8, 1.2);
+      a.traverse((object) => {
+        if (!object.isMesh) return;
+        const material = Array.isArray(object.material) ? object.material[0] : object.material;
+        const shader = { uniforms: {}, vertexShader: ShaderLib.lambert.vertexShader, fragmentShader: ShaderLib.lambert.fragmentShader };
+        material.onBeforeCompile(shader, null);
+        assert(shader.vertexShader.includes('gl_Position.z -= projectionMatrix[2][2] * diveBias * gl_Position.w'), `${name}: not set back in depth`);
+        assert(shader.fragmentShader.includes('if (vDiveAlong < diveHide.x || vDiveAlong > 1.0 - diveHide.y) discard;'), `${name}: no den cut`);
+        assert(shader.fragmentShader.includes('* diveTone.z + diveTone.w) * diveTone.x'), `${name}: no color state`);
+        assert.deepEqual([shader.uniforms.diveHide.value.x, shader.uniforms.diveHide.value.y], [.5, .1]);
+        assert.equal(shader.uniforms.diveTone.value.x, .7);
+        assert.equal(shader.uniforms.diveBias.value, FLOOR_BIAS);
+        // Its contrast works about its own average shade.
+        assert(shader.uniforms.diveTone.value.w > .02 && shader.uniforms.diveTone.value.w < .8, `${name}: average shade ${shader.uniforms.diveTone.value.w}`);
+        assert.equal(material.customProgramCacheKey(), lite ? 'marine-ocean-water-v2-lite-reef' : 'marine-ocean-water-v2-reef');
+      });
+      b.traverse((object) => {
+        if (!object.isMesh) return;
+        const material = Array.isArray(object.material) ? object.material[0] : object.material;
+        const shader = { uniforms: {}, vertexShader: ShaderLib.lambert.vertexShader, fragmentShader: ShaderLib.lambert.fragmentShader };
+        material.onBeforeCompile(shader, null);
+        assert.deepEqual([shader.uniforms.diveHide.value.x, shader.uniforms.diveHide.value.y], [0, 0], `${name}: den cut leaks between animals`);
+        assert.equal(shader.uniforms.diveTone.value.x, 1, `${name}: color state leaks between animals`);
+      });
+      first.dispose(); second.dispose();
+    }
+    // The open water's animals keep their own program, untouched by any of this.
+    const plain = clone(source.scene);
+    prepareUnderwater(plain, ocean);
+    plain.traverse((object) => {
+      if (!object.isMesh) return;
+      const material = Array.isArray(object.material) ? object.material[0] : object.material;
+      const shader = { uniforms: {}, vertexShader: ShaderLib.lambert.vertexShader, fragmentShader: ShaderLib.lambert.fragmentShader };
+      material.onBeforeCompile(shader, null);
+      assert(!shader.vertexShader.includes('diveBias') && !shader.fragmentShader.includes('diveHide'));
+      assert.equal(material.customProgramCacheKey(), 'marine-ocean-water-v2');
+    });
+  }
+  // Set back far enough: an octopus on the shelf is drawn behind a whale shark at the bottom of its swimming
+  // depth passing over the same spot on screen, yet still in front of the shelf's sand beneath it.
+  const clipZ = (x, y, z, bias = 0) => {
+    const p = new Vector3(x, y, z).applyMatrix4(camera.matrixWorldInverse).applyMatrix4(camera.projectionMatrix);
+    return p.z - camera.projectionMatrix.elements[10] * bias;
+  };
+  const octopus = clipZ(0, -.6, 2.2, FLOOR_BIAS);
+  // Where the line of sight through the octopus meets the whale shark's depth (y -1.2): the same place on screen.
+  const view = new Vector3(0, -12.15, -6).normalize(), t = (-1.2 - -.6) / view.y;
+  const shark = clipZ(0, -1.2, 2.2 + view.z * t);
+  assert(octopus > shark, 'a reef animal on the bottom must draw behind an open-water animal over it');
+  assert(octopus < clipZ(0, -.6, 2.2, 0) + 1, 'bias stays within the view');
+  console.log(`reef animals: own program (set back ${FLOOR_BIAS} unit, den cut, color states), per-animal uniforms, open water untouched`);
+}
+// The reef's rocks share the program and are tinted like the seabed's props.
+{
+  const rock = new Mesh(new CircleGeometry(1, 8));
+  const look = prepareUnderwater(rock, ocean, false, { bias: FLOOR_BIAS, seabed: .45 });
+  const shader = { uniforms: {}, vertexShader: ShaderLib.lambert.vertexShader, fragmentShader: ShaderLib.lambert.fragmentShader };
+  rock.material.onBeforeCompile(shader, null);
+  assert.equal(shader.uniforms.diveSeabed.value, .45);
+  assert(shader.fragmentShader.includes('diveSeabed * (1.0 - exp(-max(0.0, vOceanDepth - .15) / uOceanSeabed.x))'));
+  look.dispose();
 }
 
 // The tuna school: one instanced material that swims in the vertex shader and shares the water's depth
@@ -212,5 +289,15 @@ for (const lite of [false, true]) {
     }
     // Large animals are tapped on their bodies alone.
     for (const name of ['whale-shark', 'reef-manta', 'great-white-shark']) assert.equal(tapTarget(clone((await loadModel(name)).scene), MARINE_SIZE[name], scale), null, `${name}: needs no tap target`);
+    // Reef animals always have a simple shape (never every arm): at least 28 pt across, over the mantle and inner
+    // arms, over the cuttlefish, and along the moray's front (the part out of its den).
+    for (const name of REEF) {
+      const size = MARINE_SIZE[name], target = tapTarget(clone((await loadModel(name)).scene), size, scale, TAP_SHAPES[name]);
+      assert(target, `${name}: needs its tap shape`);
+      const across = 2 * Math.min(target.halfWidth, target.halfLength) * size / (10.8 * scale) * Math.min(width, height);
+      assert(across >= 28 - .5, `${name}: tap target ${across.toFixed(1)} pt across at level ${level}`);
+      if (name === 'giant-moray') assert(target.z - target.halfLength < .05 && target.z + target.halfLength > .45, 'giant-moray: tap target misses its front');
+      console.log(`${name} at level ${level}: tap shape ${across.toFixed(0)} pt across`);
+    }
   }
 }

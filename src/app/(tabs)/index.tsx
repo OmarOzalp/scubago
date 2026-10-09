@@ -6,7 +6,9 @@ import { SpeciesPhoto } from '@/components/species-photo';
 import { HomeEditor } from '@/components/home/home-editor';
 import { SanctuaryScene } from '@/components/home/sanctuary-scene';
 import { WATER } from '@/components/home/three/sanctuary-environment';
+import { useDiscoveryMoments } from '@/hooks/use-discovery-moments';
 import { useHomePreferences } from '@/hooks/use-home-preferences';
+import { useSceneActive } from '@/hooks/use-scene-active';
 import { CATALOG_BY_ID } from '@/lib/catalog';
 import { deriveHome, HABITATS, HOME_STAGES } from '@/lib/home';
 import { useAppStore, useMySightings, useMyUserId } from '@/lib/store';
@@ -24,9 +26,12 @@ export default function HomeScreen() {
   const saved = useHomePreferences(owner);
   const [editing, setEditing] = useState(false);
   const [paused, setPaused] = useState(false);
+  // New species arriving and level-ups, played when My Home is on screen (see useDiscoveryMoments).
+  const moving = useSceneActive(paused || editing);
+  const moments = useDiscoveryMoments({ owner, ready, residents: home.residents, sightings: mine, level: home.level, animate: moving });
   const habitat = HABITATS.find((h) => h.id === saved.preferences.habitat)!;
   const count = home.residents.length;
-  const loading = !ready || saved.loading;
+  const loading = !ready || saved.loading || moments.loading;
   const preview = !loading && showsPreview(home.residents);
   const inspect = (model: MarineModel) => router.push({ pathname: '/inspect', params: { model, preview: '1' } });
   return <View style={[styles.root, { backgroundColor: colors.bg }]}>
@@ -40,7 +45,8 @@ export default function HomeScreen() {
         <View style={styles.heroHeader}><View style={styles.pill}><View style={[styles.liveDot, preview && styles.previewDot]} /><Text style={styles.pillText}>{preview ? 'PREVIEW · NOT YOUR COLLECTION' : 'YOUR SANCTUARY'}</Text></View>
           <Pressable accessibilityRole="button" accessibilityLabel={paused ? 'Resume ocean animation' : 'Pause ocean animation'} accessibilityState={{ selected: paused }} onPress={() => setPaused((value) => !value)} style={styles.motionButton}><Text style={styles.motionText}>{paused ? 'Play' : 'Pause'}</Text></Pressable>
         </View>
-        <SanctuaryScene habitat={habitat.id} level={home.level} residents={home.residents} loading={loading} paused={paused || editing || loading} onInspect={inspect} />
+        <SanctuaryScene habitat={habitat.id} level={moments.level} residents={home.residents} loading={loading} paused={paused || editing || loading} onInspect={inspect}
+          moments={{ featured: moments.featured, waiting: moments.waiting, now: moments.now, onArrived: moments.onArrived, tag: moments.tag, banner: moments.banner, note: moments.note, busy: moments.busy }} />
         <View style={styles.heroFooter}><Text style={styles.homeName}>{saved.preferences.name}</Text><Text style={styles.heroSubtitle}>{loading ? habitat.name : `${habitat.name}  ·  ${home.stage.place}`}</Text>
           <Text style={styles.sceneHint}>{loading ? ' ' : preview ? (count ? 'A whale shark and reef manta are visiting while your discoveries settle in below' : 'A whale shark and reef manta are visiting. Your first discovery makes these waters yours') : 'Tap a swimming resident to revisit your discovery'}</Text>
           {preview && <View style={styles.previewRow}>

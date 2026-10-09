@@ -44,6 +44,15 @@ export function islets(level: number): { position: [number, number]; scale: numb
   ];
 }
 
+/**
+ * Props on the seabed around the island, at island-group coordinates (x, z; scaled like the island):
+ * the corals (from level 2, or 1 in the lagoon), and a third coral and a reef rock (from level 3).
+ * The reef's animals keep clear of them (reef-life.ts).
+ */
+export const SEABED_PROPS = {
+  coralA: [-2.1, 1.25], coralB: [2.2, .65], coralC: [1.5, 1.65], reefRock: [-2.1, -1.3],
+} as const satisfies Record<string, readonly [number, number]>;
+
 /** Every dry shoreline at this level as world-space (x, z) polygons; the main island comes first. */
 export function shorePolygons(level: number, divisions = 24) {
   const outline = outlinePoints(divisions);
@@ -82,6 +91,8 @@ export type ShoreField = {
    * so they may count `allowance` units smaller than they are (animals pass closer to them).
    */
   island(x: number, z: number, allowance?: number): ShoreSample;
+  /** Distance to the nearest shoreline, islets as they are (no blending): the seabed's own measure (seabedProfile). */
+  shore(x: number, z: number): number;
 };
 const fields = new Map<number, ShoreField>();
 
@@ -134,6 +145,7 @@ export function createShoreField(level: number): ShoreField {
       if (length < 1e-9) { const r = Math.hypot(x, z) || 1; return { distance: distance(x, z), nx: x / r, nz: z / r }; }
       return { distance: distance(x, z), nx: nx / length, nz: nz / length };
     },
+    shore: (x, z) => (islets ? Math.min(island(x, z), islets(x, z)) : island(x, z)),
   };
   fields.set(level, field);
   return field;

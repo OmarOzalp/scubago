@@ -126,5 +126,53 @@
     "material": "vertex colors, no textures",
     "generator": "scripts/art/build-species.ts",
     "animation": "procedural at runtime (src/lib/marine-rigs.ts); Swim clip is the same rig baked at cruising effort"
+  },
+  "day-octopus": {
+    "status": "stylized-draft",
+    "version": 2,
+    "bytes": 114564,
+    "triangles": 1820,
+    "source": "Original procedural geometry and rig",
+    "bones": 34,
+    "clip": "Swim",
+    "loopSeconds": 2.941,
+    "scientificName": "Octopus cyanea",
+    "reference": "https://www.marinespecies.org/aphia.php?p=taxlist&tName=Octopus%20cyanea",
+    "humanReview": "pending",
+    "material": "vertex colors, no textures",
+    "generator": "scripts/art/build-species.ts",
+    "animation": "procedural at runtime (src/lib/marine-rigs.ts); Swim clip is the same rig baked at cruising effort"
+  },
+  "giant-cuttlefish": {
+    "status": "stylized-draft",
+    "version": 2,
+    "bytes": 101844,
+    "triangles": 1752,
+    "source": "Original procedural geometry and rig",
+    "bones": 25,
+    "clip": "Swim",
+    "loopSeconds": 1.053,
+    "scientificName": "Sepia apama",
+    "reference": "https://www.marinespecies.org/aphia.php?p=taxlist&tName=Sepia%20apama",
+    "humanReview": "pending",
+    "material": "vertex colors, no textures",
+    "generator": "scripts/art/build-species.ts",
+    "animation": "procedural at runtime (src/lib/marine-rigs.ts); Swim clip is the same rig baked at cruising effort"
+  },
+  "giant-moray": {
+    "status": "stylized-draft",
+    "version": 2,
+    "bytes": 68488,
+    "triangles": 1320,
+    "source": "Original procedural geometry and rig",
+    "bones": 11,
+    "clip": "Swim",
+    "loopSeconds": 1.176,
+    "scientificName": "Gymnothorax javanicus",
+    "reference": "https://www.marinespecies.org/aphia.php?p=taxlist&tName=Gymnothorax%20javanicus",
+    "humanReview": "pending",
+    "material": "vertex colors, no textures",
+    "generator": "scripts/art/build-species.ts",
+    "animation": "procedural at runtime (src/lib/marine-rigs.ts); Swim clip is the same rig baked at cruising effort"
   }
 }

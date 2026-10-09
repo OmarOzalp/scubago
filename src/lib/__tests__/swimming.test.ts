@@ -1,5 +1,5 @@
 import { expect, test } from '@jest/globals';
-import { sampleSwimPath, advanceSwimTime, marineModelFor, pickSwimmers, schoolSpeciesFor, showsPreview, speciesMarineModel, swimmerPages, swimsInSchool, MAX_ANIMATED } from '@/lib/swimming';
+import { sampleSwimPath, advanceSwimTime, hasSchool, islandPresence, marineModelFor, pickSwimmers, schoolSpeciesFor, showsPreview, speciesMarineModel, swimmerPages, swimsInSchool, MAX_ANIMATED } from '@/lib/swimming';
 import { TUNA_SCHOOL } from '@/lib/tuna-school';
 import type { DexEntry, Species } from '@/lib/types';
 
@@ -102,6 +102,13 @@ test('a tap on the school opens one tuna species: the logged one, preferring the
   expect(schoolSpeciesFor([entry('dogtooth-tuna', 'fish'), entry('yellowfin-tuna', 'fish')])).toBe('yellowfin-tuna');
 });
 
+test('the school swims only once a tuna is logged', () => {
+  expect(hasSchool([])).toBe(false);
+  expect(hasSchool([entry('clownfish', 'fish'), entry('whale-shark', 'shark')])).toBe(false);
+  expect(hasSchool([entry('yellowfin-tuna', 'fish')])).toBe(true);
+  expect(hasSchool([entry('clownfish', 'fish'), entry('dogtooth-tuna', 'fish')])).toBe(true);
+});
+
 test('with the school left out, tuna swim as fish again', () => {
   const size = TUNA_SCHOOL.size;
   TUNA_SCHOOL.size = 0;
@@ -128,4 +135,24 @@ test('hammerheads and dolphins swim as their own models; their close relatives b
   expect(showsPreview([entry('humpback-whale', 'mammal')])).toBe(true);
   expect(pickSwimmers([entry('humpback-whale', 'mammal'), entry('spinner-dolphin', 'mammal'), entry('great-hammerhead', 'shark')]).map((s) => s.model))
     .toEqual(['bottlenose-dolphin', 'scalloped-hammerhead']);
+});
+
+test('the reef species swim as their own models; their close relatives borrow them; squid and nautilus still have none', () => {
+  expect(marineModelFor(entry('day-octopus', 'cephalopod').species)).toBe('day-octopus');
+  expect(marineModelFor(entry('giant-cuttlefish', 'cephalopod').species)).toBe('giant-cuttlefish');
+  expect(marineModelFor(entry('giant-moray', 'fish').species)).toBe('giant-moray');
+  for (const id of ['giant-pacific-octopus', 'blue-ringed-octopus', 'mimic-octopus', 'coconut-octopus']) expect(marineModelFor(entry(id, 'cephalopod').species)).toBe('day-octopus');
+  for (const id of ['broadclub-cuttlefish', 'flamboyant-cuttlefish']) expect(marineModelFor(entry(id, 'cephalopod').species)).toBe('giant-cuttlefish');
+  expect(marineModelFor(entry('green-moray', 'fish').species)).toBe('giant-moray');
+  // Borrowed, never claimed as their own 3D model.
+  expect(speciesMarineModel('blue-ringed-octopus')).toBeNull();
+  expect(speciesMarineModel('green-moray')).toBeNull();
+  // Other eels keep the fish family's model; squid and the nautilus have no model yet.
+  expect(marineModelFor(entry('ribbon-eel', 'fish').species)).toBe('reef-fish');
+  expect(marineModelFor(entry('bigfin-reef-squid', 'cephalopod').species)).toBeNull();
+  expect(islandPresence(entry('chambered-nautilus', 'cephalopod').species)).toBeNull();
+  expect(islandPresence(entry('mimic-octopus', 'cephalopod').species)).toBe('animal');
+  // One species, one animal: each logged reef species takes one place among the island's animals.
+  expect(pickSwimmers([entry('day-octopus', 'cephalopod'), entry('mimic-octopus', 'cephalopod'), entry('green-moray', 'fish')]).map((s) => [s.species.id, s.model]))
+    .toEqual([['day-octopus', 'day-octopus'], ['mimic-octopus', 'day-octopus'], ['green-moray', 'giant-moray']]);
 });

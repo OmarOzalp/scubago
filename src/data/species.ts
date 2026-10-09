@@ -122,6 +122,7 @@ export const SPECIES: Species[] = [
   { id: 'mimic-octopus', commonName: 'Mimic Octopus', scientificName: 'Thaumoctopus mimicus', category: 'cephalopod', rarity: 'epic', blurb: 'Impersonates lionfish, flounders and sea snakes on demand.' },
   { id: 'coconut-octopus', commonName: 'Coconut Octopus', scientificName: 'Amphioctopus marginatus', category: 'cephalopod', rarity: 'rare', blurb: 'Carries shells and coconut halves as portable armor.' },
   { id: 'broadclub-cuttlefish', commonName: 'Broadclub Cuttlefish', scientificName: 'Sepia latimanus', category: 'cephalopod', rarity: 'common', blurb: 'Hypnotizes prey with rolling waves of color.', emoji: '🦑' },
+  { id: 'giant-cuttlefish', commonName: 'Giant Cuttlefish', scientificName: 'Sepia apama', category: 'cephalopod', rarity: 'rare', blurb: 'The world’s largest cuttlefish, rippling its fin skirt over southern Australian reefs.', emoji: '🦑' },
   { id: 'flamboyant-cuttlefish', commonName: 'Flamboyant Cuttlefish', scientificName: 'Metasepia pfefferi', category: 'cephalopod', rarity: 'epic', blurb: 'Struts across the sand flashing purple, yellow and red.', emoji: '🦑' },
   { id: 'bigfin-reef-squid', commonName: 'Bigfin Reef Squid', scientificName: 'Sepioteuthis lessoniana', category: 'cephalopod', rarity: 'common', blurb: 'Hovering glass ornaments that shimmer on night dives.', emoji: '🦑' },
   { id: 'bobtail-squid', commonName: 'Bobtail Squid', scientificName: 'Euprymna berryi', category: 'cephalopod', rarity: 'rare', blurb: 'A glowing thumb-sized button that buries itself at dawn.', emoji: '🦑' },

@@ -9,6 +9,7 @@ for EAS CLI 24.x (`npm install -g eas-cli`, or `npx eas-cli@latest …`).
 | Way | What you need | Cost | Good for | Not good for |
 | --- | --- | --- | --- | --- |
 | **Expo Go** (App Store app) with `npx expo start` | An Expo account, signed in both in the terminal (`npx expo login`) and in Expo Go. From SDK 57, iOS Expo Go only runs projects when both sides use the same account. | Free | Everyday development on your phone: screens, sign-in, logging, the island's look. Every native module ScubaGo uses (expo-gl, expo-sqlite, maps, image picker, reanimated) is built into Expo Go. | Performance numbers (the JS runs in development mode inside Expo Go). The app's own name, icon, splash and permission texts. Testers (they would need your laptop's dev server). |
+| **Web app on your home screen** (Netlify, see [section 8](#8-scubago-as-a-home-screen-web-app-free)) | A free Netlify account and this GitHub repo | Free | Using ScubaGo every day on your own phone (iPhone or Android) with no laptop running: logging, the island, sign-in and sync. | The real app's feel: it runs in Safari's engine, the dive map is a site list, and it isn't in the App Store. |
 | **Simulator build** (`eas build -p ios --profile simulator`) | An Expo account; **no Apple account** | Free (EAS free tier) | Checking the real release build on your Mac. | Performance: the simulator draws GL in software on your Mac's CPU, so the island falls back to its "lite" tier. |
 | **Your iPhone through Xcode** (`npx expo run:ios --device`) | A Mac with Xcode and a free Apple ID ("Personal Team") | Free | A one-off try on your own phone before paying. | Anyone else. The app stops launching after 7 days, and a free Apple ID allows only a few devices. |
 | **Preview build** (`eas build -p ios --profile preview`) | **Apple Developer Program**, and each iPhone registered with `eas device:create` | US$99/year (Apple) | Measuring the island on real hardware (the performance badge is on); you and a few friends' registered iPhones. | Many testers: every device must be registered, and each new device needs a rebuild. |
@@ -174,7 +175,10 @@ Work through these in order. Nothing here recreates or resets the project.
    - 0001: schema and row-level security;
    - 0002: account-deletion cascades and photo limits;
    - 0003: protects PostGIS's table;
-   - 0004: in-app account deletion.
+   - 0004: in-app account deletion;
+   - 0005: dive-site details, regions, external IDs and sources;
+   - 0006: buddy verification ("Ask a buddy"; [buddy-verification.md](buddy-verification.md)).
+     Before pushing, check which project is linked (`npx supabase projects list`).
 
    If the earlier migrations were pasted into the SQL editor, the CLI has no record of them, and
    `db push` would try to run 0001 again. First mark the ones already in place:
@@ -196,8 +200,11 @@ Work through these in order. Nothing here recreates or resets the project.
    - In the SQL editor, run `supabase/checks/audit.sql` (read-only). Every row should be `ok` or
      `info`; fix any `ACTION`.
    - In the SQL editor, run `supabase/checks/rls-isolation.sql`. It ends in an intentional error
-     that reads "RLS isolation check: 15 passed, 0 failed". The error rolls the check back, so
+     that reads "RLS isolation check: 17 passed, 0 failed". The error rolls the check back, so
      nothing is saved.
+   - Once 0006 is applied, run `supabase/checks/verification-check.sql` the same way ("26 passed,
+     0 failed"). Then run `npm run check:buddy` with two test accounts: it runs "Ask a buddy" end to
+     end and deletes its test sighting.
    - In the dashboard, check Advisors → Security Advisor (or run `eas integrations:supabase:advisors`
      once linked).
 
@@ -210,6 +217,9 @@ Work through these in order. Nothing here recreates or resets the project.
 - **Writing:** only the owner can create, edit or delete a sighting or their profile, or add a site
   in their own name. Nobody can edit the catalog from the app. The isolation check proves each of
   these.
+- **Verification (0006):** a sighting's status is set only by the server's functions, never by the
+  app. Codes are stored as hashes, expire, and are rate-limited, and nobody can confirm their own
+  sighting. `verification-check.sql` proves it.
 - **Photos:** the bucket is public-read, limited to 10 MB and image types. Each user can write only
   inside their own folder. On iOS, photos are re-encoded before upload, so the location a photo was
   taken at never reaches the bucket. **Android still keeps it:** before Android testing, re-encode
@@ -234,6 +244,7 @@ Done in this pass:
 - [x] Placeholder ScubaGo icon and splash instead of Expo's logo
 - [x] Performance badge in preview builds; the canvas no longer over-renders on iPhones
 - [x] Supabase checks: `check:supabase`, `audit.sql`, `rls-isolation.sql`
+- [x] Buddy verification checks: `verification-check.sql`, `check:buddy` (after migration 0006)
 
 Your part:
 
@@ -258,3 +269,69 @@ Soon after:
 - [ ] Crash reporting beyond TestFlight's (for example Sentry): optional
 - [ ] Sign in with Apple is *not* required: Apple asks for it only when an app offers other
   third-party sign-ins.
+
+## 8. ScubaGo as a home-screen web app (free)
+
+Until the Apple Developer Program is worth paying for, the web build is the way to keep ScubaGo on
+your phone without a laptop running `npx expo start`. Netlify hosts it for free. Opened in Safari,
+**Share → Add to Home Screen** gives it an icon and a full-screen window, like an app. It
+rebuilds by itself each time you push.
+
+What's in the repo for this:
+
+- `netlify.toml`: the build command, the folder to publish, and rewrites for the
+  `/species/…`, `/site/…` and `/sighting/…` pages.
+- `src/app/+html.tsx` and `public/`: the home-screen name, icon and full-screen settings.
+- `src/app/(tabs)/_layout.web.tsx`: a bottom tab bar for the web build. The iOS and Android apps keep
+  their native tabs.
+- `npm run build:web`: builds into `dist/`. It refuses to build without the Supabase settings, or if
+  a secret key is set (see `check:env`).
+
+### One-time setup
+
+1. Push the branch you want to use, ideally after merging it into `main`.
+2. At [app.netlify.com](https://app.netlify.com), sign up with GitHub, then:
+   - **Add new site → Import an existing project → GitHub**;
+   - pick `scubago` and the branch.
+
+   Netlify reads `netlify.toml`, so leave the build settings as they are.
+3. Before the first deploy, add two variables under **Site configuration → Environment
+   variables**, with the same values as your `.env`:
+   - `EXPO_PUBLIC_SUPABASE_URL`: `https://<project-ref>.supabase.co`
+   - `EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY`: the `sb_publishable_…` key
+
+   They are compiled into the page, where anyone can read them, which is fine for these two. Never
+   add the secret (`sb_secret_…`) or service-role key here: the build fails if you do.
+4. Deploy. Netlify gives the site an address like `https://<name>.netlify.app`. You can rename it
+   under **Site configuration → Change site name**.
+5. Optional: in Supabase, under **Authentication → URL Configuration**, set the **Site URL** to that
+   address. Confirmation emails then link to the web app instead of `localhost`.
+
+### On your phone
+
+1. Open the Netlify address in **Safari** (on Android, Chrome).
+2. Tap **Share → Add to Home Screen**. On Android: **⋮ → Add to Home screen** or **Install app**.
+3. Open ScubaGo from the new icon. Go to **My Log → Sign in to sync** and sign in with your usual account.
+
+Signing in matters. The home-screen app keeps its own storage, separate from Safari tabs and from
+Expo Go. Your sightings reach it, and are backed up, through the account sync.
+
+### Good to know
+
+- **Updates:** every push to the connected branch rebuilds the site. Reopen the app to get the new
+  version; if it shows the old one, close it in the app switcher and open it again.
+- **The map** is a list of dive sites on the web, because the native map doesn't run in a browser.
+  Everything else works as in Expo Go.
+- **Pages:** every page is a pre-built HTML file. Netlify serves a site, species or sighting page
+  for any id through the rewrites in `netlify.toml`. On another host, add the same three rewrites.
+- **No special headers needed.** The app uses only expo-sqlite's asynchronous API, which works
+  without cross-origin isolation, so a plain static host is enough. `npm run web` still sends the
+  isolation headers in development. Safari ignores the `credentialless` variant anyway.
+- **Try the build locally** before pushing:
+
+  ```sh
+  npm run build:web
+  npx serve dist
+  ```
+
+  `serve` has no rewrites, so open species and site pages by tapping through from the home screen.

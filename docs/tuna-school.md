@@ -15,9 +15,11 @@ through it. The school scatters and then regroups.
 | `src/components/home/three/school-hit-area.ts` | The school's invisible tap target |
 | `src/lib/swimming.ts` | Which logged species the school shows instead of a generic fish (`SCHOOL_SPECIES`) |
 
-The school swims on every island, in the preview and in your collection alike. It stands for the
-catalog's tuna, and tapping it opens their species page (see
-[The school as a species](#the-school-as-a-species)). Set `TUNA_SCHOOL.size` to 0 to leave it out.
+The school swims only once you've logged a tuna (Yellowfin or Dogtooth), and leaves again if you
+delete your last tuna sighting. The empty-ocean preview has no tuna. It stands for the catalog's
+tuna, and tapping it opens their species page (see
+[The school as a species](#the-school-as-a-species)). Set `TUNA_SCHOOL.size` to 0 to leave it out
+everywhere.
 
 ## The tuna
 
@@ -129,6 +131,7 @@ Every species has a reaction in `SCHOOL_REACTIONS`:
 | Ocean sunfish | 0 | 0.25 | Ignored, apart from keeping clear |
 | Green turtle | 0 | 0.15 | Ignored, apart from keeping clear |
 | Bottlenose dolphin | 0 | 0.28 | Not a threat: fish make room and flow around it, with no alarm (also while it rises to breathe) |
+| Day octopus, giant cuttlefish, giant moray | 0 | 0 | Never seen: they keep to the reef (`src/lib/reef-life.ts`) and are not among the school's neighbors, so they can never alarm or panic it |
 
 A harmless animal in the school's path also steers the whole school around it a little, more for
 bigger animals. The school sees every animal on its own, a member of a pod or pair included, so a
@@ -233,8 +236,7 @@ Tuna, the species it is drawn after, then Dogtooth Tuna. The school owns their v
 The school is one tap target, like an animal. The fish are never tested one by one.
 
 **What a tap does.** It opens the tuna's species page, the same page an animal from your collection
-opens. That's the logged tuna (Yellowfin Tuna if both are logged), or Yellowfin Tuna when none is,
-including in the preview, where the page offers to log one. It is one species: nothing is added to
+opens. That's the logged tuna (Yellowfin Tuna if both are logged). It is one species: nothing is added to
 your collection. The fish don't notice the tap, so there's no panic and no change to the simulation.
 
 **Where the target is.** Every published frame, the simulation measures an oval over the school
@@ -352,6 +354,7 @@ The tests cover:
 `src/lib/__tests__/swimming.test.ts` and `src/components/home/__tests__/sanctuary-scene.test.js`
 cover the ownership rule:
 
+- the school swims only while a tuna is logged (never in the preview);
 - a logged tuna is shown by the school only, never also as a generic fish;
 - other fish keep the fish model;
 - a tap on the school opens the right tuna.

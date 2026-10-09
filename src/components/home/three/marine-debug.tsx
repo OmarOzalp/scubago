@@ -47,7 +47,8 @@ const strip = (points: number[][], color: string, opacity: number) => overlay(ne
  * animals' usual depth.
  */
 export function MarineDebug({ motion }: { motion: MarineMotion }) {
-  const swimmers = motion.swimmers;
+  // The open water's animals (the reef's have no steering to show).
+  const swimmers = useMemo(() => motion.swimmers.filter((s) => motion.inspect(s.lane)), [motion]);
   const group = useMemo(() => {
     const root = new Group();
     const seen = new Set<string>();

@@ -1,9 +1,11 @@
 import { TUNA_SCHOOL } from '@/lib/tuna-school';
 import type { Category, DexEntry, Species } from '@/lib/types';
 
-export type SpeciesMarineModel = 'whale-shark' | 'tiger-shark' | 'great-white-shark' | 'scalloped-hammerhead' | 'reef-manta' | 'mola-mola' | 'green-turtle' | 'bottlenose-dolphin';
+export type SpeciesMarineModel = 'whale-shark' | 'tiger-shark' | 'great-white-shark' | 'scalloped-hammerhead' | 'reef-manta' | 'mola-mola' | 'green-turtle' | 'bottlenose-dolphin'
+  | 'day-octopus' | 'giant-cuttlefish' | 'giant-moray';
 export type MarineModel = 'shark' | 'manta' | 'reef-fish' | SpeciesMarineModel;
-const SPECIES_MODELS: readonly string[] = ['whale-shark', 'tiger-shark', 'great-white-shark', 'scalloped-hammerhead', 'reef-manta', 'mola-mola', 'green-turtle', 'bottlenose-dolphin'] satisfies SpeciesMarineModel[];
+const SPECIES_MODELS: readonly string[] = ['whale-shark', 'tiger-shark', 'great-white-shark', 'scalloped-hammerhead', 'reef-manta', 'mola-mola', 'green-turtle', 'bottlenose-dolphin',
+  'day-octopus', 'giant-cuttlefish', 'giant-moray'] satisfies SpeciesMarineModel[];
 /**
  * Species drawn with a close relative's model: the nearest body plan in the set, like a family
  * representative (so not offered as their own 3D model), and far closer than the generic one.
@@ -11,6 +13,13 @@ const SPECIES_MODELS: readonly string[] = ['whale-shark', 'tiger-shark', 'great-
 const RELATIVES: Readonly<Record<string, SpeciesMarineModel>> = {
   'great-hammerhead': 'scalloped-hammerhead',
   'spinner-dolphin': 'bottlenose-dolphin',
+  'giant-pacific-octopus': 'day-octopus',
+  'blue-ringed-octopus': 'day-octopus',
+  'mimic-octopus': 'day-octopus',
+  'coconut-octopus': 'day-octopus',
+  'broadclub-cuttlefish': 'giant-cuttlefish',
+  'flamboyant-cuttlefish': 'giant-cuttlefish',
+  'green-moray': 'giant-moray',
 };
 export function speciesMarineModel(id: string): SpeciesMarineModel | null {
   return SPECIES_MODELS.includes(id) ? id as SpeciesMarineModel : null;
@@ -38,6 +47,10 @@ export const SCHOOL_SPECIES = ['yellowfin-tuna', 'dogtooth-tuna'] as const;
 export function swimsInSchool(id: string) {
   return TUNA_SCHOOL.size > 0 && (SCHOOL_SPECIES as readonly string[]).includes(id);
 }
+/** Whether the island has the tuna school: only once a tuna it stands for is logged. */
+export function hasSchool(residents: DexEntry[]) {
+  return residents.some((r) => swimsInSchool(r.species.id));
+}
 /** The species a tap on the school opens: a logged tuna it stands for, else the one it is drawn after. */
 export function schoolSpeciesFor(residents: DexEntry[]): string {
   return SCHOOL_SPECIES.find((id) => residents.some((r) => r.species.id === id)) ?? SCHOOL_SPECIES[0];
@@ -62,11 +75,28 @@ export function swimmerPages(residents: DexEntry[], limit = MAX_ANIMATED) {
 export function showsPreview(residents: DexEntry[]) {
   return shown(residents).length === 0;
 }
-/** Deterministic: the same collection and page always yield the same animals in the same lanes. */
-export function pickSwimmers(residents: DexEntry[], page = 0, limit = MAX_ANIMATED): Swimmer[] {
+/**
+ * Deterministic: the same collection and page always yield the same animals in the same lanes.
+ * `featured` species (a new discovery arriving) are guaranteed a place: those not on this page take
+ * the last places on it, so the island never animates more than `limit` animals.
+ */
+export function pickSwimmers(residents: DexEntry[], page = 0, limit = MAX_ANIMATED, featured: readonly string[] = []): Swimmer[] {
   const eligible = swimming(residents);
   const start = (page % swimmerPages(residents, limit)) * limit;
-  return eligible.slice(start, start + limit).map((r, lane) => ({ species: r.species, model: marineModelFor(r.species)!, lane }));
+  let chosen = eligible.slice(start, start + limit);
+  const extra = eligible.filter((r) => featured.includes(r.species.id) && !chosen.includes(r)).slice(0, limit);
+  if (extra.length > 0) {
+    const keep = chosen.filter((r) => featured.includes(r.species.id));
+    const others = chosen.filter((r) => !featured.includes(r.species.id)).slice(0, Math.max(0, limit - keep.length - extra.length));
+    chosen = chosen.filter((r) => others.includes(r) || keep.includes(r)).concat(extra);
+  }
+  return chosen.map((r, lane) => ({ species: r.species, model: marineModelFor(r.species)!, lane }));
+}
+
+/** How a species shows up on the island: as its own animal, in the tuna school, or not at all. */
+export function islandPresence(species: Pick<Species, 'id' | 'category'>): 'animal' | 'school' | null {
+  if (swimsInSchool(species.id)) return 'school';
+  return marineModelFor(species) ? 'animal' : null;
 }
 
 /** World coordinates: island at origin, Y up, animal nose points along local +Z. */

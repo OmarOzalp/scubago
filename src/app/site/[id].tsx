@@ -2,14 +2,17 @@ import { Stack, router, useLocalSearchParams } from 'expo-router';
 import { useMemo } from 'react';
 import { ScrollView, StyleSheet, View } from 'react-native';
 
+import { ExternalLink } from '@/components/external-link';
 import { OceanButton } from '@/components/ocean-button';
 import { SightingRow } from '@/components/sighting-row';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
+import { regionPath } from '@/data/regions';
 import { CATALOG_BY_ID } from '@/lib/catalog';
 import { CATEGORY_EMOJI } from '@/lib/rarity';
+import { siteFacts, siteSourceList } from '@/lib/site-details';
 import { useAllSites, useAppStore } from '@/lib/store';
 
 export default function SiteDetailScreen() {
@@ -50,12 +53,26 @@ export default function SiteDetailScreen() {
             {site.name}
           </ThemedText>
           <ThemedText type="small" themeColor="textSecondary">
-            {site.region}, {site.country}
+            {regionPath(site.regionId) ?? site.region}, {site.country}
             {site.source === 'user' ? ' · added by you' : ''}
           </ThemedText>
         </View>
 
         <ThemedText>{site.blurb}</ThemedText>
+
+        {/* Only facts with a source are ever filled in (src/data/__tests__/integrity.test.ts). */}
+        {siteFacts(site).length > 0 ? (
+          <View style={styles.chipsRow}>
+            {siteFacts(site).map((fact) => (
+              <View key={fact.label} style={[styles.chip, { backgroundColor: theme.backgroundElement }]}>
+                <ThemedText type="small">
+                  <ThemedText type="smallBold">{fact.label}</ThemedText> {fact.value}
+                </ThemedText>
+              </View>
+            ))}
+          </View>
+        ) : null}
+        {site.conditions ? <ThemedText type="small" themeColor="textSecondary">{site.conditions}</ThemedText> : null}
 
         <View style={styles.statsRow}>
           <ThemedText type="smallBold">{siteSightings.length}</ThemedText>
@@ -112,12 +129,25 @@ export default function SiteDetailScreen() {
                   sighting={s}
                   species={species}
                   showUsername
-                  onPress={() => router.push(`/species/${species.id}`)}
+                  onPress={() => router.push(`/sighting/${s.id}`)}
                 />
               );
             })
           )}
         </View>
+
+        {siteSourceList(site).length > 0 ? (
+          <ThemedText type="small" themeColor="textSecondary">
+            Sources:{' '}
+            {siteSourceList(site).map((source, i) => (
+              <ThemedText key={source.source} type="small" themeColor="textSecondary">
+                {i > 0 ? ' · ' : ''}
+                {source.url ? <ExternalLink href={source.url}>{source.source}</ExternalLink> : source.source}
+                {source.license ? ` (${source.license})` : ''}
+              </ThemedText>
+            ))}
+          </ThemedText>
+        ) : null}
       </ScrollView>
     </ThemedView>
   );

@@ -44,9 +44,11 @@ SUPABASE_URL=... SUPABASE_SECRET_KEY=... npm run seed:supabase
 
 npm run check:env              # nothing secret in anything the app compiles in (EAS runs it on every build)
 npm run check:supabase         # the live project, checked from outside with the publishable key
+npm run check:buddy            # "Ask a buddy" end to end, with two test accounts (after migration 0006)
 ```
 
-Then run `supabase/checks/audit.sql` and `supabase/checks/rls-isolation.sql` in the SQL editor (see
+Then run `supabase/checks/audit.sql`, `supabase/checks/rls-isolation.sql` and
+`supabase/checks/verification-check.sql` in the SQL editor (see
 [docs/ios-distribution.md](docs/ios-distribution.md#6-supabase-after-a-reset)).
 
 Auth is email + password with auto-confirm, which needs email confirmation turned off:
@@ -66,9 +68,11 @@ project's settings with those dev defaults.
   cove in caustic-lit water, seen from an oblique orthographic camera. Discovered
   sharks, rays, fish, the ocean sunfish and the green sea turtle swim around it as
   rigged, animated models, passing one another in lanes and keeping their own
-  species' distance from the island. Tiger, whale and great white sharks, the reef
-  manta, the ocean sunfish and the green sea turtle have their own models and
-  species-specific swimming; other species use CC0 Quaternius family
+  species' distance from the island; octopuses, cuttlefish and morays live on the reef
+  itself (walking the shelf by a rock, hovering over the reef edge, resting in a den).
+  Tiger, whale and great white sharks, the reef manta, the ocean sunfish, the green sea
+  turtle, the day octopus, the giant cuttlefish and the giant moray have their own models
+  and species-specific motion; other species use CC0 Quaternius family
   representatives. Unique
   species unlock six growth stages; home name and habitat are saved on this device per
   account. An empty ocean shows a clearly labeled preview shark and manta that never
@@ -78,11 +82,20 @@ project's settings with those dev defaults.
 - **Map tab** — ~65 famous dive sites worldwide; search "where can I see a…" to
   highlight sites where a species has been spotted; tap a pin for the site card;
   long-press the map to add a missing site.
-- **My Log tab** — your sightings, and a species dex of 119 curated species with
+- **My Log tab** — your sightings, and a species dex of 120 curated species with
   rarity tiers (common → legendary). First-of-species logs get a celebration.
 - **Log flow** — site → species → date/notes/photo, designed for speed.
-- **Offline-first writes** — sightings save to SQLite immediately with a sync flag;
-  `src/lib/sync.ts` drains the outbox once a backend is configured.
+- **Discovery moments** — a new species swims into your island with a small "New" tag, and a
+  level-up gets a banner as the island grows (islets rise from the water)
+  ([docs/discovery-moments.md](docs/discovery-moments.md)).
+- **Sighting pages** — tap a sighting for its details, verification status and provenance;
+  your own can be edited (through the same log flow) or deleted, offline too.
+- **Ask a buddy** — send a buddy a code; signed in, they see the sighting and confirm it, and it
+  reads **Buddy verified**. The server checks everything (migration 0006,
+  [docs/buddy-verification.md](docs/buddy-verification.md)).
+- **Offline-first writes** — sightings, edits and deletions save to SQLite immediately and wait
+  in an outbox that syncs with retries once a backend is configured
+  ([docs/sighting-sync.md](docs/sighting-sync.md)).
 - **Accounts** — email + password sign-in; the account is created automatically on
   first sign-in, no separate signup step. Account → Delete account removes the account,
   its sightings and photos (migration 0004).
@@ -127,7 +140,7 @@ node scripts/fetch-species-photos.mjs
 The staged plan is in [docs/roadmap/](docs/roadmap/README.md):
 - a bigger, properly sourced dive-site database;
 - reports from dive operators and marine organizations, labeled by where they came from;
-- community sightings verified by a photo or a buddy's confirmation;
+- community sightings verified by a photo (a buddy's confirmation is in: "Ask a buddy");
 - a faster, offline-first dive log.
 
 From the original spec, still open: seasonality, downloadable offline map regions, and
@@ -159,7 +172,8 @@ hunt, the tap target and how to tune them are in `docs/tuna-school.md`.
 The surrounding ocean is described, with a tuning guide, in `docs/ocean.md`. On the iOS
 simulator and Android emulators the scene renders at a lighter "lite" quality with paced frames,
 because their GL runs in software (see `docs/island-performance.md`).
-For local browser preview, run `npm run web`. Metro includes SQLite WASM support
-and the required isolation headers. Production web hosting also needs
-`Cross-Origin-Embedder-Policy: credentialless` and
-`Cross-Origin-Opener-Policy: same-origin`.
+For local browser preview, run `npm run web`. Metro includes SQLite WASM support.
+To keep ScubaGo on your phone for free without a dev server, deploy the web build
+(`npm run build:web`) to Netlify and add it to your home screen. See
+`docs/ios-distribution.md`, section 8. The app uses only expo-sqlite's async API,
+so the host needs no cross-origin isolation headers.

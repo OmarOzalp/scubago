@@ -64,6 +64,10 @@ export const SCHOOL_REACTIONS: Record<MarineModel, { threat: number; gap: number
   // Not a threat to the school: the fish make room and flow around it.
   'bottlenose-dolphin': { threat: 0, gap: .28 },
   'reef-fish': { threat: 0, gap: .08 },
+  // Reef animals keep to the reef (reef-life.ts): the school never meets them.
+  'day-octopus': { threat: 0, gap: 0 },
+  'giant-cuttlefish': { threat: 0, gap: 0 },
+  'giant-moray': { threat: 0, gap: 0 },
 };
 
 /** The great white's hunting behavior (used by src/lib/marine-motion.ts). */
@@ -237,18 +241,26 @@ export function createTunaSchool(initialField: ShoreField, options: {
     shoreD[i] = s.distance; shoreNX[i] = s.nx; shoreNZ[i] = s.nz;
   };
   // Place the fish in their slots behind the lead.
-  for (let i = 0; i < n; i++) {
-    driftA[i] = .05 * Math.sin(i * 1.7 * 1.3 + seed); driftB[i] = .18 * Math.sin(i * 1.7 * 1.9 + 2.1); driftC[i] = .35 * Math.sin(i * 1.7 * 1.1 + 4.2);
-    const a = clamp(slotA[i] + driftA[i], .02, .98), p = behind(a * T.shape[0]);
-    const width = T.shape[1] * Math.sin(Math.PI * (.1 + .8 * a));
-    x[i] = p.x + p.hz * (slotB[i] + driftB[i]) * width;
-    z[i] = p.z - p.hx * (slotB[i] + driftB[i]) * width;
-    y[i] = T.depth + clamp(slotC[i] + driftC[i], -1.2, 1.2) * T.shape[2];
-    heading[i] = Math.atan2(p.hx, p.hz);
-    vx[i] = p.hx * T.cruiseSpeed; vz[i] = p.hz * T.cruiseSpeed;
-    prevX[i] = x[i]; prevY[i] = y[i]; prevZ[i] = z[i]; prevHeading[i] = heading[i]; prevPhase[i] = phase[i];
-    sampleShore(i);
-  }
+  const placeFish = () => {
+    for (let i = 0; i < n; i++) {
+      driftA[i] = .05 * Math.sin(i * 1.7 * 1.3 + seed); driftB[i] = .18 * Math.sin(i * 1.7 * 1.9 + 2.1); driftC[i] = .35 * Math.sin(i * 1.7 * 1.1 + 4.2);
+      const a = clamp(slotA[i] + driftA[i], .02, .98), p = behind(a * T.shape[0]);
+      const width = T.shape[1] * Math.sin(Math.PI * (.1 + .8 * a));
+      x[i] = p.x + p.hz * (slotB[i] + driftB[i]) * width;
+      z[i] = p.z - p.hx * (slotB[i] + driftB[i]) * width;
+      y[i] = T.depth + clamp(slotC[i] + driftC[i], -1.2, 1.2) * T.shape[2];
+      heading[i] = Math.atan2(p.hx, p.hz);
+      vx[i] = p.hx * T.cruiseSpeed; vz[i] = p.hz * T.cruiseSpeed;
+      prevX[i] = x[i]; prevY[i] = y[i]; prevZ[i] = z[i]; prevHeading[i] = heading[i]; prevPhase[i] = phase[i];
+      sampleShore(i);
+    }
+  };
+  placeFish();
+  /**
+   * Arriving as a new discovery (motion.holdSchool()): `held` out of sight until released, then
+   * `entering` (swimming in toward `goal`, the frame not turning it back) until it is well in view.
+   */
+  const arrival = { held: false, entering: false, goalX: 0, goalZ: 0 };
 
   const state = {
     mood: 'calm' as SchoolMood,
@@ -408,6 +420,11 @@ export function createTunaSchool(initialField: ShoreField, options: {
     const tx = -here.nz * lead.direction, tz = here.nx * lead.direction;
     const rx = tx + radial * here.nx, rz = tz + radial * here.nz, c = Math.cos(wander), s = Math.sin(wander);
     let wx = rx * c + rz * s, wz = -rx * s + rz * c;
+    if (arrival.entering) {
+      // Swimming in: straight for the water it will roam.
+      const dx = arrival.goalX - lead.x, dz = arrival.goalZ - lead.z, d = norm(dx, dz) || 1e-6;
+      wx = dx / d * 1.3; wz = dz / d * 1.3;
+    }
     // Island and islets: turn along the coast before the school's inner edge would reach the shore.
     const inner = low - .3;
     let threat = 0, nx = 0, nz = 0;
@@ -426,7 +443,8 @@ export function createTunaSchool(initialField: ShoreField, options: {
     if (here.distance < inner) { const push = (inner - here.distance) * 6; wx += here.nx * push; wz += here.nz * push; }
     // Frame: keep the whole school in view.
     const edgeAhead = frameAt(px + hx * reach, pz + hz * reach, frameA, ocean.world), edgeHere = frameAt(px, pz, frameB, ocean.world);
-    const skirtWeight = smoothstep(.86, .98, edgeAhead.edge) * 1.8, back = smoothstep(.9, 1, edgeHere.edge) * 2 + Math.max(0, edgeHere.edge - 1) * 10;
+    const skirtWeight = arrival.entering ? 0 : smoothstep(.86, .98, edgeAhead.edge) * 1.8;
+    const back = arrival.entering ? 0 : smoothstep(.9, 1, edgeHere.edge) * 2 + Math.max(0, edgeHere.edge - 1) * 10;
     const skirt = Math.sign(edgeAhead.nx * hz - edgeAhead.nz * hx) || 1;
     wx += edgeAhead.nx * (skirtWeight * .8 + back) - edgeAhead.nz * skirt * skirtWeight;
     wz += edgeAhead.nz * (skirtWeight * .8 + back) + edgeAhead.nx * skirt * skirtWeight;
@@ -657,7 +675,7 @@ export function createTunaSchool(initialField: ShoreField, options: {
       }
       // Frame: back into view. Depth: within the school's band, well below the surface.
       const w = ocean.world, ez = z[i] + apparentShift(y[i] - LEVEL), fu = x[i] * x[i] / (w.x * w.x), fv = ez * ez / (w.z * w.z);
-      const edge = fu * fu * fu + fv * fv * fv > EDGE_TEST ? frameAt(x[i], ez, frameFish, w) : INSIDE;
+      const edge = !arrival.entering && fu * fu * fu + fv * fv * fv > EDGE_TEST ? frameAt(x[i], ez, frameFish, w) : INSIDE;
       if (edge.edge > .92) {
         const outward = -(dx * edge.nx + dz * edge.nz), over = edge.edge - .92;
         if (outward > 0) { dx += outward * edge.nx * smoothstep(0, .05, over); dz += outward * edge.nz * smoothstep(0, .05, over); }
@@ -733,9 +751,11 @@ export function createTunaSchool(initialField: ShoreField, options: {
     hitArea: hitArea as Readonly<typeof hitArea>,
     /** One step of `dt` seconds among `animals`, the large animals as they are now. */
     step(dt: number, animals: readonly SchoolNeighbor[]) {
+      if (arrival.held) return;
       time += dt;
       steps++;
       measure();
+      if (arrival.entering && frameAt(state.centerX, state.centerZ + apparentShift(state.centerY - LEVEL), frameA, ocean.world).edge < .8) arrival.entering = false;
       // Only animals near enough to matter, judged once for the whole school.
       near.length = 0;
       let alert = 0;
@@ -768,6 +788,27 @@ export function createTunaSchool(initialField: ShoreField, options: {
     publish,
     /** The island's shape at a new level (it grows a little, and islets appear). */
     setField(next: ShoreField) { field = next; },
+    /**
+     * Wait out of sight: the lead at (x, z) heading along `heading`, the fish strung out behind it, still
+     * until release(); then the school swims in toward (goalX, goalZ). Used while the scene isn't shown.
+     */
+    hold(at: { x: number; z: number; heading: number; goalX: number; goalZ: number }) {
+      lead.x = at.x; lead.z = at.z; lead.heading = at.heading; lead.turn = 0; lead.want = 0; lead.halfTurn = 0; lead.speed = T.cruiseSpeed;
+      trailHead = 0; sinceTrail = 0;
+      for (let k = 0; k < TRAIL_POINTS; k++) {
+        trailX[k] = lead.x - Math.sin(lead.heading) * TRAIL_STEP * k; trailZ[k] = lead.z - Math.cos(lead.heading) * TRAIL_STEP * k;
+        trailHX[k] = Math.sin(lead.heading); trailHZ[k] = Math.cos(lead.heading);
+      }
+      for (let i = 0; i < n; i++) { panic[i] = 0; rejoin[i] = 0; }
+      placeFish();
+      measure();
+      publish(1);
+      arrival.held = true; arrival.entering = true; arrival.goalX = at.goalX; arrival.goalZ = at.goalZ;
+    },
+    /** Let a held school swim in. */
+    release() { arrival.held = false; },
+    /** 'held' out of sight, 'entering', or null once it swims like any day. */
+    get arriving(): 'held' | 'entering' | null { return arrival.held ? 'held' : arrival.entering ? 'entering' : null; },
   };
 }
 export type TunaSchool = ReturnType<typeof createTunaSchool>;
