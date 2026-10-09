@@ -1,0 +1,41 @@
+# Hosts the web build of ScubaGo on Netlify (free), so the app can be added to a
+# phone's home screen without an App Store build. See docs/ios-distribution.md.
+#
+# Set EXPO_PUBLIC_SUPABASE_URL and EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY under
+# Site configuration → Environment variables. They are compiled into the page,
+# so only ever the publishable key: never the secret or service-role key.
+# `npm run build:web` refuses to build without them, or with a secret key.
+
+[build]
+  command = "npm run build:web"
+  publish = "dist"
+
+[build.environment]
+  NODE_VERSION = "22"
+
+# Each dynamic route is exported once, as a page named after its parameter.
+[[redirects]]
+  from = "/species/*"
+  to = "/species/[id].html"
+  status = 200
+
+[[redirects]]
+  from = "/site/*"
+  to = "/site/[id].html"
+  status = 200
+
+[[redirects]]
+  from = "/sighting/*"
+  to = "/sighting/[id].html"
+  status = 200
+
+[[redirects]]
+  from = "/*"
+  to = "/+not-found.html"
+  status = 404
+
+# Script bundles are content-hashed, so they never change under the same name.
+[[headers]]
+  for = "/_expo/static/*"
+  [headers.values]
+    Cache-Control = "public, max-age=31536000, immutable"

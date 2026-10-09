@@ -172,7 +172,8 @@ hunt, the tap target and how to tune them are in `docs/tuna-school.md`.
 The surrounding ocean is described, with a tuning guide, in `docs/ocean.md`. On the iOS
 simulator and Android emulators the scene renders at a lighter "lite" quality with paced frames,
 because their GL runs in software (see `docs/island-performance.md`).
-For local browser preview, run `npm run web`. Metro includes SQLite WASM support
-and the required isolation headers. Production web hosting also needs
-`Cross-Origin-Embedder-Policy: credentialless` and
-`Cross-Origin-Opener-Policy: same-origin`.
+For local browser preview, run `npm run web`. Metro includes SQLite WASM support.
+To keep ScubaGo on your phone for free without a dev server, deploy the web build
+(`npm run build:web`) to Netlify and add it to your home screen. See
+`docs/ios-distribution.md`, section 8. The app uses only expo-sqlite's async API,
+so the host needs no cross-origin isolation headers.

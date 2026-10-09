@@ -5,7 +5,8 @@
  * those values (from the environment EAS provides and any local .env files), the env blocks in
  * eas.json (committed to git), app.json and the app's source for Supabase secret or service-role
  * keys, database URLs and secret-sounding names. On EAS (`--eas`), preview and production builds
- * must also carry the Supabase URL and client key, or the app would quietly run without sync.
+ * must also carry the Supabase URL and client key, or the app would quietly run without sync; so
+ * must the hosted web app (`--web`, run by `npm run build:web` and on Netlify).
  *
  * Run: npm run check:env        (EAS runs it after installing dependencies: eas-build-post-install)
  * Relative imports on purpose: tsx doesn't get the app's `@/` alias in scripts.
@@ -19,6 +20,7 @@ import { envSources, supabaseSettings } from './lib/env-files';
 const root = join(__dirname, '..');
 const eas = process.argv.includes('--eas') || process.env.EAS_BUILD === 'true';
 const profile = process.env.EAS_BUILD_PROFILE ?? '';
+const web = process.argv.includes('--web') || process.env.NETLIFY === 'true';
 const errors: string[] = [], warnings: string[] = [];
 
 /** Why a value must not ship, or null. */
@@ -80,6 +82,9 @@ if (eas && config.status === 'unconfigured') {
   const message = `EAS profile "${profile || 'unknown'}" has no EXPO_PUBLIC_SUPABASE_URL and EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY: the app would run without sign-in or sync. Set them with eas env:set (see docs/ios-distribution.md).`;
   if (profile === 'preview' || profile === 'production') errors.push(message);
   else warnings.push(message);
+}
+if (web && config.status === 'unconfigured') {
+  errors.push('The web build has no EXPO_PUBLIC_SUPABASE_URL and EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY: the web app would run without sign-in or sync. Set them in .env, or on Netlify under Site configuration → Environment variables (see docs/ios-distribution.md).');
 }
 if (config.status === 'ok' && config.kind === 'unknown') {
   warnings.push('The Supabase client key is neither a publishable key (sb_publishable_…) nor an anon JWT; check it is the publishable key from Project Settings → API Keys.');
