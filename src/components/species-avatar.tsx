@@ -21,7 +21,10 @@ export function SpeciesAvatar({ species, size = 48, showRarityRing = false, mute
   const ring = showRarityRing ? RARITY_COLOR[species.rarity] : 'transparent';
 
   return (
+    // Decorative: the species name is always shown (and read) next to it.
     <View
+      accessibilityElementsHidden
+      importantForAccessibility="no-hide-descendants"
       style={[
         styles.ring,
         {

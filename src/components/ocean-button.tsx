@@ -9,15 +9,30 @@ interface Props {
   variant?: 'primary' | 'secondary';
   disabled?: boolean;
   style?: ViewStyle;
+  /** Read instead of the title when the title alone is unclear out of context. */
+  accessibilityLabel?: string;
+  accessibilityHint?: string;
 }
 
-export function OceanButton({ title, onPress, variant = 'primary', disabled = false, style }: Props) {
+export function OceanButton({
+  title,
+  onPress,
+  variant = 'primary',
+  disabled = false,
+  style,
+  accessibilityLabel,
+  accessibilityHint,
+}: Props) {
   const theme = useTheme();
   const primary = variant === 'primary';
   return (
     <Pressable
       onPress={onPress}
       disabled={disabled}
+      accessibilityRole="button"
+      accessibilityLabel={accessibilityLabel}
+      accessibilityHint={accessibilityHint}
+      accessibilityState={{ disabled }}
       style={({ pressed }) => [
         styles.button,
         primary
@@ -34,12 +49,15 @@ export function OceanButton({ title, onPress, variant = 'primary', disabled = fa
 const styles = StyleSheet.create({
   button: {
     borderRadius: 14,
-    paddingVertical: 14,
+    minHeight: 48,
+    paddingVertical: 12,
     paddingHorizontal: 20,
     alignItems: 'center',
+    justifyContent: 'center',
   },
   title: {
     fontSize: 16,
     fontWeight: '700',
+    textAlign: 'center',
   },
 });

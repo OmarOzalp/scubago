@@ -6,6 +6,7 @@ import { ThemedText } from '@/components/themed-text';
 import { Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import type { DiveSite, Sighting, Species } from '@/lib/types';
+import { STATUS_LABEL } from '@/lib/verification';
 
 interface Props {
   sighting: Sighting;
@@ -20,9 +21,25 @@ interface Props {
 
 export function SightingRow({ sighting, species, site, showUsername = false, pending = false, onPress }: Props) {
   const theme = useTheme();
+  const showStatus = !!sighting.status && sighting.status !== 'unverified' && !pending;
+  // One sentence for screen readers instead of five separate bits of text.
+  const label = [
+    species.commonName,
+    showUsername && !sighting.isDemo ? `logged by @${sighting.username}` : null,
+    site?.name,
+    formatDate(sighting.sightedOn),
+    sighting.photoUri ? 'with photo' : null,
+    sighting.isDemo ? 'example data, not a real sighting' : null,
+    pending ? (sighting.syncError ? 'not synced yet' : 'waiting to sync') : null,
+    showStatus ? STATUS_LABEL[sighting.status!] : null,
+  ]
+    .filter(Boolean)
+    .join(', ');
   return (
     <Pressable
       onPress={onPress}
+      accessibilityRole={onPress ? 'button' : undefined}
+      accessibilityLabel={label}
       style={({ pressed }) => [
         styles.row,
         { backgroundColor: pressed ? theme.backgroundSelected : theme.backgroundElement },
@@ -40,9 +57,9 @@ export function SightingRow({ sighting, species, site, showUsername = false, pen
             </View>
           ) : null}
           {/* Unverified is the usual case, so only the others are named here. */}
-          {sighting.status && sighting.status !== 'unverified' && !pending ? <StatusChip status={sighting.status} small /> : null}
+          {showStatus ? <StatusChip status={sighting.status!} small /> : null}
           {pending ? (
-            <View style={[styles.example, { borderColor: theme.textSecondary, borderStyle: 'dashed' }]} accessibilityLabel="Waiting to sync">
+            <View style={[styles.example, { borderColor: theme.textSecondary, borderStyle: 'dashed' }]}>
               <Text style={[styles.exampleLabel, { color: theme.textSecondary }]}>
                 {sighting.syncError ? 'Not synced' : 'Waiting to sync'}
               </Text>
@@ -55,7 +72,11 @@ export function SightingRow({ sighting, species, site, showUsername = false, pen
           {formatDate(sighting.sightedOn)}
         </ThemedText>
       </View>
-      {sighting.photoUri ? <ThemedText type="small">📷</ThemedText> : null}
+      {sighting.photoUri ? (
+        <ThemedText type="small" importantForAccessibility="no" accessibilityElementsHidden>
+          📷
+        </ThemedText>
+      ) : null}
     </Pressable>
   );
 }
@@ -98,7 +119,7 @@ const styles = StyleSheet.create({
     paddingVertical: 1,
   },
   exampleLabel: {
-    fontSize: 10,
+    fontSize: 12,
     fontWeight: '700',
   },
 });
