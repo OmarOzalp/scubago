@@ -3,6 +3,7 @@ import { describe, expect, it, jest } from '@jest/globals';
 import {
   applyEdit,
   canEditSighting,
+  cleanCustomName,
   isMaterialChange,
   localIsoDate,
   shiftIsoDate,
@@ -80,5 +81,28 @@ describe('dates', () => {
     expect(shiftIsoDate('2026-09-30', 1)).toBe('2026-10-01');
     expect(shiftIsoDate('2027-01-01', -1)).toBe('2026-12-31');
     expect(shiftIsoDate('2028-02-28', 1)).toBe('2028-02-29');
+  });
+});
+
+describe('"something else" sightings', () => {
+  const known = { species: (id: string) => id === 'reef-manta', site: (id: string) => id === 'blue-corner', today: '2026-10-15' };
+  const input = { speciesId: 'unlisted', siteId: 'blue-corner', sightedOn: '2026-10-15' };
+
+  it('need the diver to say what they saw, in 80 characters or fewer', () => {
+    expect(validateSightingInput({ ...input }, known)).toMatch(/what you saw/i);
+    expect(validateSightingInput({ ...input, customName: '   ' }, known)).toMatch(/what you saw/i);
+    expect(validateSightingInput({ ...input, customName: 'x'.repeat(81) }, known)).toMatch(/80/);
+    expect(validateSightingInput({ ...input, customName: 'Mystery nudibranch' }, known)).toBeNull();
+  });
+
+  it('keep the name tidy, and only for "something else"', () => {
+    expect(cleanCustomName({ speciesId: 'unlisted', customName: '  Mystery   nudi ' })).toBe('Mystery nudi');
+    expect(cleanCustomName({ speciesId: 'reef-manta', customName: 'leftover' })).toBeUndefined();
+  });
+
+  it('treat renaming what was seen like changing the species', () => {
+    const before = { speciesId: 'unlisted', siteId: 's', sightedOn: '2026-10-01', customName: 'Flatworm' };
+    expect(isMaterialChange(before, { ...before, customName: ' Flatworm ' })).toBe(false);
+    expect(isMaterialChange(before, { ...before, customName: 'Nudibranch' })).toBe(true);
   });
 });

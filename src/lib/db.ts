@@ -111,6 +111,14 @@ async function getDb(): Promise<SQLite.SQLiteDatabase> {
       }
       await db.execAsync('PRAGMA user_version = 4');
     }
+    if ((ver?.user_version ?? 0) < 5) {
+      // "Something else" sightings carry the diver's own name for the animal.
+      const cols = await db.getAllAsync<{ name: string }>(`PRAGMA table_info(sightings)`);
+      if (!cols.some((c) => c.name === 'custom_name')) {
+        await db.execAsync('ALTER TABLE sightings ADD COLUMN custom_name TEXT');
+      }
+      await db.execAsync('PRAGMA user_version = 5');
+    }
   }
   return db;
 }
@@ -125,6 +133,7 @@ function rowToSighting(row: any): Sighting {
     sightedOn: row.sighted_on,
     notes: row.notes ?? undefined,
     photoUri: row.photo_uri ?? undefined,
+    customName: row.custom_name ?? undefined,
     isDemo: !!row.is_demo,
     synced: !!row.synced,
     createdAt: row.created_at,
@@ -153,10 +162,10 @@ function rowToUserSite(row: any): DiveSite {
 async function insertSightingRow(d: SQLite.SQLiteDatabase, s: Sighting): Promise<void> {
   await d.runAsync(
     `INSERT OR REPLACE INTO sightings
-       (id, user_id, username, species_id, site_id, sighted_on, notes, photo_uri, is_demo, synced, created_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+       (id, user_id, username, species_id, site_id, sighted_on, notes, photo_uri, is_demo, synced, created_at, custom_name)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     s.id, s.userId, s.username, s.speciesId, s.siteId, s.sightedOn,
-    s.notes ?? null, s.photoUri ?? null, s.isDemo ? 1 : 0, s.synced ? 1 : 0, s.createdAt,
+    s.notes ?? null, s.photoUri ?? null, s.isDemo ? 1 : 0, s.synced ? 1 : 0, s.createdAt, s.customName ?? null,
   );
 }
 
@@ -246,10 +255,10 @@ export function insertSighting(s: Sighting): Promise<void> {
 export function updateSighting(s: Sighting): Promise<void> {
   return exclusive(async (d) => {
     const { changes } = await d.runAsync(
-      `UPDATE sightings SET species_id = ?, site_id = ?, sighted_on = ?, notes = ?, photo_uri = ?,
+      `UPDATE sightings SET species_id = ?, site_id = ?, sighted_on = ?, notes = ?, photo_uri = ?, custom_name = ?,
          status = ?, updated_at = ?, synced = 0, sync_error = NULL, version = version + 1
        WHERE id = ? AND deleted = 0 AND is_demo = 0`,
-      s.speciesId, s.siteId, s.sightedOn, s.notes ?? null, s.photoUri ?? null,
+      s.speciesId, s.siteId, s.sightedOn, s.notes ?? null, s.photoUri ?? null, s.customName ?? null,
       s.status ?? null, s.updatedAt ?? new Date().toISOString(), s.id,
     );
     if (changes === 0) throw new Error('This sighting no longer exists.');
@@ -397,17 +406,18 @@ export function mergePulledSightings(
         const { changes } = await d.runAsync(
           `INSERT INTO sightings
              (id, user_id, username, species_id, site_id, sighted_on, notes, photo_uri, is_demo, synced,
-              created_at, remote, status, synced_photo_url)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0, 1, ?, 1, ?, ?)
+              created_at, remote, status, synced_photo_url, custom_name)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0, 1, ?, 1, ?, ?, ?)
            ON CONFLICT (id) DO UPDATE SET
              user_id = excluded.user_id, username = excluded.username, species_id = excluded.species_id,
              site_id = excluded.site_id, sighted_on = excluded.sighted_on, notes = excluded.notes,
              photo_uri = excluded.photo_uri, created_at = excluded.created_at, remote = 1,
+             custom_name = excluded.custom_name,
              status = COALESCE(excluded.status, sightings.status),
              synced_photo_url = excluded.synced_photo_url, sync_error = NULL
            WHERE sightings.synced = 1 AND sightings.deleted = 0`,
           s.id, s.userId, s.username, s.speciesId, s.siteId, s.sightedOn, s.notes ?? null,
-          s.photoUri ?? null, s.createdAt, s.status ?? null, s.photoUri ?? null,
+          s.photoUri ?? null, s.createdAt, s.status ?? null, s.photoUri ?? null, s.customName ?? null,
         );
         saved += changes;
       }

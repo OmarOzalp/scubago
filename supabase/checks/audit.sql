@@ -92,6 +92,15 @@ checks(section, item, detail, verdict) as (
                and exists (select 1 from pg_trigger where tgname = 'sightings_1_guard_status' and tgrelid = 'public.sightings'::regclass)
               then 'ok' else 'ACTION' end
   union all
+  -- "Something else" sightings (migration 0007): the placeholder species and the diver's own name.
+  select 'Migrations', 'something else (0007)',
+         case when exists (select 1 from information_schema.columns where table_schema = 'public' and table_name = 'sightings' and column_name = 'custom_name')
+               and exists (select 1 from public.species where id = 'unlisted')
+              then 'applied' else 'not applied: "Something else" sightings stay on the device until it is' end,
+         case when exists (select 1 from information_schema.columns where table_schema = 'public' and table_name = 'sightings' and column_name = 'custom_name')
+               and exists (select 1 from public.species where id = 'unlisted')
+              then 'ok' else 'ACTION' end
+  union all
   select 'Functions', f.fn,
          case when to_regprocedure(f.fn) is null then 'missing'
               when has_function_privilege('anon', f.fn, 'EXECUTE') then 'callable by anonymous visitors'

@@ -38,6 +38,8 @@ export class FakeServer {
   sightingUpdateColumns: string[] | null = null;
   /** The project has sightings.status (migration 0006); without it, selecting it fails with 42703. */
   statusColumn = true;
+  /** The project has sightings.custom_name (migration 0007); without it, selecting or writing it fails with 42703. */
+  customNameColumn = true;
 
   device(name: string, userId: string | null): FakeDevice {
     return new FakeDevice(this, name, userId);
@@ -192,6 +194,9 @@ class FakeQuery implements PromiseLike<Result> {
       if (this.table === 'sightings' && !server.statusColumn && this.columns.split(',').includes('status')) {
         return { data: null, error: { message: 'column sightings.status does not exist', code: '42703', details: '', hint: '' } };
       }
+      if (this.table === 'sightings' && !server.customNameColumn && this.columns.split(',').includes('custom_name')) {
+        return { data: null, error: { message: 'column sightings.custom_name does not exist', code: '42703', details: '', hint: '' } };
+      }
       let out = rows.filter((r) => this.matches(r));
       if (this.orderBy) {
         const { col, asc } = this.orderBy;
@@ -208,6 +213,11 @@ class FakeQuery implements PromiseLike<Result> {
         return copy;
       });
       return { data: this.single ? (data[0] ?? null) : data, error: null };
+    }
+
+    const writes = Array.isArray(this.payload) ? this.payload : this.payload ? [this.payload] : [];
+    if (this.table === 'sightings' && !server.customNameColumn && writes.some((r: Row) => 'custom_name' in r)) {
+      return { data: null, error: { message: 'column "custom_name" of relation "sightings" does not exist', code: '42703' } };
     }
 
     const reply = (data: Row[]): Result => {

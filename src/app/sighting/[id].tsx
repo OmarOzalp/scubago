@@ -1,7 +1,7 @@
 import { Image } from 'expo-image';
 import { Stack, router, useLocalSearchParams } from 'expo-router';
 import { useState } from 'react';
-import { Alert, Platform, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 
 import { BuddyVerification } from '@/components/buddy-verification';
 import { OceanButton } from '@/components/ocean-button';
@@ -11,10 +11,11 @@ import { SpeciesAvatar } from '@/components/species-avatar';
 import { StatusChip } from '@/components/status-chip';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
-import { Ocean } from '@/constants/palette';
 import { Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
-import { CATALOG_BY_ID } from '@/lib/catalog';
+import { announce } from '@/lib/announce';
+import { UNLISTED_ID, speciesForSighting } from '@/lib/catalog';
+import { confirmAction } from '@/lib/confirm';
 import { canEditSighting } from '@/lib/sighting-edit';
 import { useAllSites, useAppStore, useMyUserId } from '@/lib/store';
 import { displayablePhoto } from '@/lib/sync';
@@ -35,7 +36,7 @@ export default function SightingDetailScreen() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const species = sighting ? CATALOG_BY_ID.get(sighting.speciesId) : undefined;
+  const species = sighting ? speciesForSighting(sighting) : undefined;
   if (!sighting || !species) {
     return (
       <ThemedView style={styles.missing}>
@@ -52,6 +53,7 @@ export default function SightingDetailScreen() {
   const mine = canEditSighting(sighting, myUserId);
   const status = statusOf(sighting);
   const photo = displayablePhoto(sighting, myUserId, process.env.EXPO_PUBLIC_SUPABASE_URL);
+  const unlisted = sighting.speciesId === UNLISTED_ID;
 
   const remove = async () => {
     setBusy(true);
@@ -60,32 +62,34 @@ export default function SightingDetailScreen() {
       await deleteSighting(sighting.id);
       router.back();
     } catch (e: any) {
-      setError(e.message ?? 'Could not delete this sighting');
+      const message = e.message ?? 'Could not delete this sighting';
+      setError(message);
+      announce(message);
       setBusy(false);
     }
   };
-  const confirmRemoval = () => {
-    const message = `Your ${species.commonName} sighting will be removed from your log, your collection and community feeds. This can’t be undone.`;
-    if (Platform.OS === 'web') {
-      if (window.confirm(message)) remove();
-      return;
-    }
-    Alert.alert('Delete this sighting?', message, [
-      { text: 'Cancel', style: 'cancel' },
-      { text: 'Delete', style: 'destructive', onPress: remove },
-    ]);
+  const confirmRemoval = async () => {
+    const ok = await confirmAction({
+      title: 'Delete this sighting?',
+      message: `Your ${species.commonName} sighting will be removed from your log, your collection and community feeds. This can’t be undone.`,
+      confirmLabel: 'Delete',
+      destructive: true,
+    });
+    if (ok) await remove();
   };
 
   return (
     <ThemedView style={{ flex: 1 }}>
       <Stack.Screen options={{ title: species.commonName }} />
       <ScrollView contentContainerStyle={styles.content}>
+        {/* "Something else" has no species page: it isn't in the catalogue. */}
         <Pressable
-          onPress={() => router.push(`/species/${species.id}`)}
-          accessibilityRole="button"
-          accessibilityLabel={`About the ${species.commonName}`}
+          onPress={unlisted ? undefined : () => router.push(`/species/${species.id}`)}
+          disabled={unlisted}
+          accessibilityRole={unlisted ? 'header' : 'button'}
+          accessibilityLabel={unlisted ? `${species.commonName}, not in the catalogue` : `${species.commonName}. About this species`}
           style={[styles.header, { backgroundColor: theme.backgroundElement }]}>
-          <SpeciesAvatar species={species} size={64} showRarityRing />
+          <SpeciesAvatar species={species} size={64} showRarityRing={!unlisted} />
           <View style={{ flex: 1, gap: 2 }}>
             <ThemedText type="subtitle" style={{ fontSize: 22, lineHeight: 28 }}>
               {species.commonName}
@@ -93,9 +97,13 @@ export default function SightingDetailScreen() {
             <ThemedText type="small" themeColor="textSecondary" style={{ fontStyle: 'italic' }}>
               {species.scientificName}
             </ThemedText>
-            <RarityChip rarity={species.rarity} small />
+            {unlisted ? null : <RarityChip rarity={species.rarity} small />}
           </View>
-          <ThemedText themeColor="textSecondary">›</ThemedText>
+          {unlisted ? null : (
+            <ThemedText themeColor="textSecondary" importantForAccessibility="no" accessibilityElementsHidden>
+              ›
+            </ThemedText>
+          )}
         </Pressable>
 
         {photo ? (
@@ -110,8 +118,12 @@ export default function SightingDetailScreen() {
         <View style={[styles.card, { backgroundColor: theme.backgroundElement }]}>
           <Fact label="Site">
             {site ? (
-              <Pressable onPress={() => router.push(`/site/${site.id}`)} accessibilityRole="link" hitSlop={6}>
-                <ThemedText type="smallBold" style={{ color: Ocean.primary }}>
+              <Pressable
+                onPress={() => router.push(`/site/${site.id}`)}
+                accessibilityRole="link"
+                accessibilityLabel={`Site: ${site.name}`}
+                style={styles.inlineLink}>
+                <ThemedText type="smallBold" themeColor="tint">
                   {site.name} ›
                 </ThemedText>
               </Pressable>
@@ -129,7 +141,9 @@ export default function SightingDetailScreen() {
 
         {sighting.notes ? (
           <View style={{ gap: Spacing.one }}>
-            <ThemedText type="smallBold">Notes</ThemedText>
+            <ThemedText type="smallBold" accessibilityRole="header">
+              Notes
+            </ThemedText>
             <ThemedText>{sighting.notes}</ThemedText>
           </View>
         ) : null}
@@ -149,7 +163,7 @@ export default function SightingDetailScreen() {
           </ThemedText>
         </View>
 
-        {mine && !sighting.isDemo ? <BuddyVerification sighting={sighting} speciesName={species.commonName} /> : null}
+        {mine && !sighting.isDemo && !unlisted ? <BuddyVerification sighting={sighting} speciesName={species.commonName} /> : null}
 
         <View style={{ gap: 2 }}>
           <ThemedText type="small" themeColor="textSecondary">
@@ -170,12 +184,12 @@ export default function SightingDetailScreen() {
               onPress={() => router.push({ pathname: '/log/new', params: { edit: sighting.id } })}
             />
             <Pressable onPress={confirmRemoval} disabled={busy} accessibilityRole="button" style={styles.delete}>
-              <ThemedText type="small" style={{ color: DANGER, opacity: busy ? 0.4 : 1 }}>
+              <ThemedText type="small" themeColor="danger" style={{ opacity: busy ? 0.4 : 1 }}>
                 Delete sighting
               </ThemedText>
             </Pressable>
             {error ? (
-              <ThemedText type="small" style={{ color: DANGER }}>
+              <ThemedText type="small" themeColor="danger" accessibilityLiveRegion="polite">
                 {error}
               </ThemedText>
             ) : null}
@@ -209,9 +223,9 @@ function SyncLine({ sighting }: { sighting: Sighting }) {
   }
   if (!user) {
     return (
-      <Pressable onPress={() => router.push('/auth')} accessibilityRole="link">
+      <Pressable onPress={() => router.push('/auth')} accessibilityRole="link" style={styles.inlineLink}>
         <ThemedText type="small" themeColor="textSecondary">
-          Saved on this device only. <ThemedText type="small" style={{ color: Ocean.primary }}>Sign in to back it up ›</ThemedText>
+          Saved on this device only. <ThemedText type="small" themeColor="tint">Sign in to back it up ›</ThemedText>
         </ThemedText>
       </Pressable>
     );
@@ -222,14 +236,18 @@ function SyncLine({ sighting }: { sighting: Sighting }) {
   if (sighting.syncError && !syncing) {
     const offline = isConnectionProblem(sighting.syncError);
     return (
-      <ThemedText type="small" themeColor="textSecondary" style={offline ? undefined : { color: DANGER }}>
-        {offline
-          ? 'Waiting for a connection. It will sync when you’re back online.'
-          : `Couldn’t sync: ${sighting.syncError}. It will retry automatically.`}{' '}
-        <ThemedText type="small" style={{ color: Ocean.primary }} onPress={() => void requestSync()}>
-          Retry now
+      <View style={{ gap: Spacing.one }}>
+        <ThemedText type="small" themeColor={offline ? 'textSecondary' : 'danger'}>
+          {offline
+            ? 'Waiting for a connection. It will sync when you’re back online.'
+            : `Couldn’t sync: ${sighting.syncError}. It will retry automatically.`}
         </ThemedText>
-      </ThemedText>
+        <Pressable onPress={() => void requestSync()} accessibilityRole="button" style={styles.inlineLink}>
+          <ThemedText type="smallBold" themeColor="tint">
+            Retry now
+          </ThemedText>
+        </Pressable>
+      </View>
     );
   }
   return (
@@ -238,8 +256,6 @@ function SyncLine({ sighting }: { sighting: Sighting }) {
     </ThemedText>
   );
 }
-
-const DANGER = '#c0392b';
 
 const styles = StyleSheet.create({
   content: {
@@ -277,7 +293,11 @@ const styles = StyleSheet.create({
     gap: Spacing.two,
   },
   factLabel: {
-    width: 44,
+    minWidth: 44,
+  },
+  inlineLink: {
+    minHeight: 44,
+    justifyContent: 'center',
   },
   delete: {
     alignSelf: 'center',

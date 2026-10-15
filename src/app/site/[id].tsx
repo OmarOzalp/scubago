@@ -10,7 +10,7 @@ import { ThemedView } from '@/components/themed-view';
 import { Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { regionPath } from '@/data/regions';
-import { CATALOG_BY_ID } from '@/lib/catalog';
+import { CATALOG_BY_ID, speciesForSighting } from '@/lib/catalog';
 import { CATEGORY_EMOJI } from '@/lib/rarity';
 import { siteAddedBy, siteFacts, siteSourceList } from '@/lib/site-details';
 import { useAllSites, useAppStore } from '@/lib/store';
@@ -34,7 +34,7 @@ export default function SiteDetailScreen() {
   );
 
   const speciesCount = useMemo(
-    () => new Set(siteSightings.map((s) => s.speciesId)).size,
+    () => new Set(siteSightings.map((s) => s.speciesId).filter((id) => CATALOG_BY_ID.has(id))).size,
     [siteSightings],
   );
 
@@ -123,7 +123,7 @@ export default function SiteDetailScreen() {
             </ThemedText>
           ) : (
             siteSightings.slice(0, 30).map((s) => {
-              const species = CATALOG_BY_ID.get(s.speciesId);
+              const species = speciesForSighting(s);
               if (!species) return null;
               return (
                 <SightingRow

@@ -12,7 +12,7 @@ import { ThemedView } from '@/components/themed-view';
 import { Ocean } from '@/constants/palette';
 import { BottomTabInset, Spacing } from '@/constants/theme';
 import { useSchemeName, useTheme } from '@/hooks/use-theme';
-import { CATALOG, CATALOG_BY_ID } from '@/lib/catalog';
+import { CATALOG, CATALOG_BY_ID, speciesForSighting } from '@/lib/catalog';
 import { deriveDex } from '@/lib/dex';
 import { CATEGORY_LABEL, CATEGORY_ORDER, RARITY_LABEL, RARITY_TEXT, rarityRank } from '@/lib/rarity';
 import { useAllSites, useAppStore, useMySightings, usePendingChanges } from '@/lib/store';
@@ -162,7 +162,7 @@ export default function LogbookScreen() {
           ) : (
             <View style={styles.list}>
               {sorted.map((s) => {
-                const species = CATALOG_BY_ID.get(s.speciesId);
+                const species = speciesForSighting(s);
                 if (!species) return null;
                 return (
                   <SightingRow

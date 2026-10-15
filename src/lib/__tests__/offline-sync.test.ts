@@ -454,7 +454,7 @@ describeSqlite('the local database upgrade', () => {
       // A site that never synced was added on this phone; a downloaded one waits for the next sync to say who.
       expect(userSites.map((s) => [s.id, s.createdBy])).toEqual([['site-mine', 'local'], ['site-pulled', undefined]]);
       const raw = sqliteHooks.last;
-      expect({ ...raw.prepare('PRAGMA user_version').get() }).toEqual({ user_version: 4 });
+      expect({ ...raw.prepare('PRAGMA user_version').get() }).toEqual({ user_version: 5 });
       const rows = raw.prepare('SELECT id, remote, synced_photo_url, deleted, version FROM sightings ORDER BY id').all();
       expect(rows.map((r: object) => ({ ...r }))).toEqual([
         { id: 'old-pending', remote: 0, synced_photo_url: null, deleted: 0, version: 0 },

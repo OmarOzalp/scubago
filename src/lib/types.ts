@@ -98,6 +98,8 @@ export interface Sighting {
   sightedOn: string;
   notes?: string;
   photoUri?: string;
+  /** What the diver saw, in their words, when it isn't in the catalogue (species 'unlisted'). */
+  customName?: string;
   isDemo: boolean;
   synced: boolean;
   createdAt: string; // ISO timestamp

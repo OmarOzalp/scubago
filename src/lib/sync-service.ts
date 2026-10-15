@@ -37,28 +37,25 @@ const PULL_LIMIT = 500;
 const OWN_PULL_LIMIT = 2000;
 const SIGHTING_COLUMNS = 'id,user_id,species_id,site_id,sighted_on,notes,photo_url,created_at,profiles(username)';
 /**
- * Whether this project has the status column (migration 0006): unknown until a pull asks. Without
- * it, sightings sync as before and simply show as unverified.
+ * Columns later migrations add: status (0006) and custom_name (0007). A project that doesn't have
+ * one yet answers 42703 ("no such column"); pulls then carry on without it for the rest of the
+ * session, so sightings sync as before (unverified, and "something else" without its name).
  */
-let hasStatus: boolean | null = null;
+const OPTIONAL_COLUMNS = ['status', 'custom_name'] as const;
+const missingColumns = new Set<string>();
 
-/** Pull sightings with their status where the project has one. */
+/** Pull sightings with whichever optional columns this project has. */
 async function pullSightings(
-  query: (columns: string) => PromiseLike<{ data: unknown; error: { code?: string } | null }>,
+  query: (columns: string) => PromiseLike<{ data: unknown; error: { code?: string; message?: string } | null }>,
 ): Promise<RemoteSightingRow[]> {
-  if (hasStatus !== false) {
-    const { data, error } = await query(`${SIGHTING_COLUMNS},status`);
-    if (!error) {
-      hasStatus = true;
-      return data as RemoteSightingRow[];
-    }
-    // 42703: no such column (0006 not applied yet).
-    if (error.code !== '42703') throw error;
-    hasStatus = false;
+  for (;;) {
+    const optional = OPTIONAL_COLUMNS.filter((c) => !missingColumns.has(c));
+    const { data, error } = await query([SIGHTING_COLUMNS, ...optional].join(','));
+    if (!error) return data as RemoteSightingRow[];
+    if (error.code !== '42703' || optional.length === 0) throw error;
+    // Postgres names the missing column; if it somehow doesn't, drop the newest one.
+    missingColumns.add(optional.find((c) => error.message?.includes(c)) ?? optional[optional.length - 1]);
   }
-  const { data, error } = await query(SIGHTING_COLUMNS);
-  if (error) throw error;
-  return data as RemoteSightingRow[];
 }
 
 export interface SyncDeps {

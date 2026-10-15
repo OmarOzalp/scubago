@@ -163,4 +163,66 @@ describeSqlite('logging, editing and deleting sightings', () => {
     await expect(app().updateSighting(sighting.id, { speciesId: 'reef-manta', siteId: site, sightedOn: tomorrow })).rejects.toThrow(/future/);
     expect(app().sightings.find((s) => s.id === sighting.id)).toMatchObject({ siteId: site, sightedOn: today });
   });
+
+  it('a whole dive logs in one go, and says which species are new', async () => {
+    const { store, db } = await openApp();
+    const app = store.useAppStore.getState;
+    await app().addSighting({ speciesId: 'reef-manta', siteId: site, sightedOn: today });
+
+    const { sightings, newSpeciesIds } = await app().addSightings([
+      { speciesId: 'reef-manta', siteId: site, sightedOn: today, notes: ' shared note ' },
+      { speciesId: 'whale-shark', siteId: site, sightedOn: today, notes: ' shared note ' },
+      { speciesId: 'unlisted', siteId: site, sightedOn: today, customName: '  Mystery   nudibranch ' },
+    ]);
+    expect(sightings.map((s) => s.speciesId)).toEqual(['reef-manta', 'whale-shark', 'unlisted']);
+    // Already had a manta; "something else" never counts towards the collection.
+    expect(newSpeciesIds).toEqual(['whale-shark']);
+    expect(sightings.map((s) => s.notes)).toEqual(['shared note', 'shared note', undefined]);
+    expect(sightings[2].customName).toBe('Mystery nudibranch');
+    // They keep the order they were picked in.
+    expect([...sightings].sort((a, b) => a.createdAt.localeCompare(b.createdAt)).map((s) => s.id)).toEqual(sightings.map((s) => s.id));
+
+    const saved = (await db.loadAll()).sightings;
+    expect(saved.find((s) => s.speciesId === 'unlisted')?.customName).toBe('Mystery nudibranch');
+    // The collection and the island ignore "something else".
+    expect(deriveDex(app().sightings.filter((s) => !s.isDemo), CATALOG_BY_ID).map((d) => d.species.id).sort()).toEqual(['reef-manta', 'whale-shark']);
+  });
+
+  it('a dive with one bad entry saves nothing', async () => {
+    const { store } = await openApp();
+    const app = store.useAppStore.getState;
+    const before = app().sightings.length;
+    await expect(
+      app().addSightings([
+        { speciesId: 'reef-manta', siteId: site, sightedOn: today },
+        { speciesId: 'unlisted', siteId: site, sightedOn: today, customName: '   ' },
+      ]),
+    ).rejects.toThrow(/what you saw/i);
+    expect(app().sightings.length).toBe(before);
+  });
+
+  it('"something else" syncs its name, and the rest syncs even where the project lacks migration 0007', async () => {
+    const server = new FakeServer();
+    server.tables.profiles.push({ user_id: A, username: 'alice' });
+    server.customNameColumn = false;
+    const { store } = await openApp(server.device('phone', A).client);
+    const app = store.useAppStore.getState;
+    await app().onSignedIn({ id: A, username: 'alice' });
+    const { sightings } = await app().addSightings([
+      { speciesId: 'reef-manta', siteId: site, sightedOn: today },
+      { speciesId: 'unlisted', siteId: site, sightedOn: today, customName: 'Mystery nudibranch' },
+    ]);
+    await app().requestSync();
+    const [manta, other] = sightings.map((s) => app().sightings.find((x) => x.id === s.id)!);
+    expect(manta.synced).toBe(true);
+    expect(server.tables.sightings.find((r) => r.id === manta.id)).toBeDefined();
+    // Without the column the named sighting waits on the phone, with the reason.
+    expect(other.synced).toBe(false);
+    expect(other.syncError).toMatch(/custom_name/);
+
+    server.customNameColumn = true;
+    await app().requestSync();
+    expect(app().sightings.find((x) => x.id === other.id)?.synced).toBe(true);
+    expect(server.tables.sightings.find((r) => r.id === other.id)).toMatchObject({ species_id: 'unlisted', custom_name: 'Mystery nudibranch' });
+  });
 });

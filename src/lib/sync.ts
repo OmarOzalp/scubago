@@ -54,6 +54,8 @@ export interface RemoteSightingRow {
   profiles: { username: string } | null;
   /** Set only by the server (migration 0006); absent from projects without it. */
   status?: SightingStatus | null;
+  /** The diver's name for a "something else" sighting (migration 0007). */
+  custom_name?: string | null;
 }
 
 export function sightingToRemoteRow(
@@ -70,11 +72,13 @@ export function sightingToRemoteRow(
     notes: s.notes ?? null,
     photo_url: photoUrl ?? existingRemotePhoto,
     created_at: s.createdAt,
+    // Only sent when there is one, so projects without migration 0007 keep syncing everything else.
+    ...(s.customName ? { custom_name: s.customName } : {}),
   };
 }
 
 /** The columns an owner may change after logging (the rest are fixed once the row exists). */
-export type SightingFacts = Pick<RemoteSightingRow, 'species_id' | 'site_id' | 'sighted_on' | 'notes' | 'photo_url'>;
+export type SightingFacts = Pick<RemoteSightingRow, 'species_id' | 'site_id' | 'sighted_on' | 'notes' | 'photo_url' | 'custom_name'>;
 
 export function sightingFacts(row: Omit<RemoteSightingRow, 'profiles'>): SightingFacts {
   return {
@@ -83,6 +87,7 @@ export function sightingFacts(row: Omit<RemoteSightingRow, 'profiles'>): Sightin
     sighted_on: row.sighted_on,
     notes: row.notes,
     photo_url: row.photo_url,
+    ...(row.custom_name ? { custom_name: row.custom_name } : {}),
   };
 }
 
@@ -100,6 +105,8 @@ export function remoteRowToSighting(row: RemoteSightingRow): Sighting {
     synced: true,
     createdAt: new Date(row.created_at).toISOString(),
     ...(row.status ? { status: row.status } : {}),
+    // A name left behind after an edit to a catalogue species means nothing any more.
+    ...(row.species_id === 'unlisted' && row.custom_name ? { customName: row.custom_name } : {}),
   };
 }
 

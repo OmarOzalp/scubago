@@ -1,3 +1,4 @@
+import { UNLISTED_ID, UNLISTED_NAME_MAX } from '@/lib/catalog';
 import type { Sighting } from '@/lib/types';
 
 /** What the logging flow collects, for a new sighting or an edit. */
@@ -7,16 +8,29 @@ export interface SightingInput {
   sightedOn: string;
   notes?: string;
   photoUri?: string;
+  /** Only for "something else" (species 'unlisted'): what the diver saw. */
+  customName?: string;
 }
 
-type Facts = Pick<Sighting, 'speciesId' | 'siteId' | 'sightedOn'>;
+type Facts = Pick<Sighting, 'speciesId' | 'siteId' | 'sightedOn' | 'customName'>;
+
+/** The diver's name for an unlisted animal, tidied; undefined for catalogue species. */
+export function cleanCustomName(input: Pick<SightingInput, 'speciesId' | 'customName'>): string | undefined {
+  if (input.speciesId !== UNLISTED_ID) return undefined;
+  return input.customName?.replace(/\s+/g, ' ').trim() || undefined;
+}
 
 /**
  * Whether an edit changes what a verification vouches for: which animal, where and when. Notes and
  * the diver's own photo don't: a buddy confirms the encounter, not the write-up.
  */
 export function isMaterialChange(before: Facts, after: Facts): boolean {
-  return before.speciesId !== after.speciesId || before.siteId !== after.siteId || before.sightedOn !== after.sightedOn;
+  return (
+    before.speciesId !== after.speciesId ||
+    before.siteId !== after.siteId ||
+    before.sightedOn !== after.sightedOn ||
+    cleanCustomName(before) !== cleanCustomName(after)
+  );
 }
 
 /** Only the diver who logged a sighting may change or delete it (example data belongs to no one). */
@@ -38,6 +52,7 @@ export function applyEdit(before: Sighting, input: SightingInput, now: string): 
     sightedOn: input.sightedOn,
     notes: input.notes?.trim() || undefined,
     photoUri: input.photoUri || undefined,
+    customName: cleanCustomName(input),
     status: material ? 'unverified' : before.status,
     updatedAt: now,
     synced: false,
@@ -73,7 +88,11 @@ export function validateSightingInput(
   input: SightingInput,
   known: { species: (id: string) => boolean; site: (id: string) => boolean; today: string },
 ): string | null {
-  if (!known.species(input.speciesId)) return 'Choose the species you saw.';
+  if (input.speciesId === UNLISTED_ID) {
+    const name = cleanCustomName(input);
+    if (!name) return 'Say what you saw.';
+    if (name.length > UNLISTED_NAME_MAX) return `Keep the name under ${UNLISTED_NAME_MAX} characters.`;
+  } else if (!known.species(input.speciesId)) return 'Choose the species you saw.';
   if (!known.site(input.siteId)) return 'Choose the dive site.';
   if (!isRealDate(input.sightedOn)) return 'That date isn’t valid.';
   if (input.sightedOn > known.today) return 'A sighting can’t be dated in the future.';

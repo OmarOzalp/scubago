@@ -4,7 +4,7 @@ import { create } from 'zustand';
 import { SITES } from '@/data/sites';
 import { deleteAccount as deleteRemoteAccount } from '@/lib/account';
 import { ensureProfile, getSessionUserId, signOut as authSignOut, usernameForUser } from '@/lib/auth';
-import { CATALOG_BY_ID } from '@/lib/catalog';
+import { CATALOG_BY_ID, UNLISTED_ID } from '@/lib/catalog';
 import {
   claimLocalSightings,
   deleteLocalUserData,
@@ -18,7 +18,7 @@ import {
 } from '@/lib/db';
 import { isFirstOfSpecies } from '@/lib/dex';
 import { discardKeptPhoto } from '@/lib/photo-files';
-import { applyEdit, canEditSighting, localIsoDate, validateSightingInput, type SightingInput } from '@/lib/sighting-edit';
+import { applyEdit, canEditSighting, cleanCustomName, localIsoDate, validateSightingInput, type SightingInput } from '@/lib/sighting-edit';
 import { getSupabase } from '@/lib/supabase';
 import { errorMessage } from '@/lib/sync';
 import { createSyncScheduler } from '@/lib/sync-scheduler';
@@ -60,6 +60,11 @@ interface StoreState {
   init: () => Promise<void>;
   /** Logs a sighting; returns whether it was the user's first of this species. */
   addSighting: (input: NewSighting) => Promise<{ sighting: Sighting; isNewSpecies: boolean }>;
+  /**
+   * Logs several sightings at once (a whole dive). All are checked before any is saved; returns
+   * them with the species that are new to the diver's collection, in the order given.
+   */
+  addSightings: (inputs: NewSighting[]) => Promise<{ sightings: Sighting[]; newSpeciesIds: string[] }>;
   /** Edits one of the user's sightings; returns whether the edit brought a species new to their collection. */
   updateSighting: (id: string, input: NewSighting) => Promise<{ sighting: Sighting; isNewSpecies: boolean }>;
   /** Deletes one of the user's sightings, here at once and on the server as soon as it can. */
@@ -149,27 +154,42 @@ export const useAppStore = create<StoreState>((set, get) => {
     },
 
     addSighting: async (input) => {
-      checkInput(input);
+      const { sightings, newSpeciesIds } = await get().addSightings([input]);
+      return { sighting: sightings[0], isNewSpecies: newSpeciesIds.length > 0 };
+    },
+
+    addSightings: async (inputs) => {
+      inputs.forEach(checkInput);
       const owner = get().user;
       const mine = get().sightings.filter((s) => s.userId === ownerId());
-      const isNewSpecies = isFirstOfSpecies(mine, input.speciesId);
-      const sighting: Sighting = {
-        id: uid('s'),
-        userId: ownerId(),
-        username: owner?.username ?? LOCAL_USERNAME,
-        speciesId: input.speciesId,
-        siteId: input.siteId,
-        sightedOn: input.sightedOn,
-        notes: input.notes?.trim() || undefined,
-        photoUri: input.photoUri,
-        isDemo: false,
-        synced: false, // stays in the outbox until it reaches the server
-        createdAt: new Date().toISOString(),
-      };
-      await insertSighting(sighting);
-      set({ sightings: [...get().sightings, sighting] });
+      const created: Sighting[] = [];
+      const newSpeciesIds: string[] = [];
+      const now = Date.now();
+      inputs.forEach((input, index) => {
+        // "Something else" is never a new species: it isn't part of the collection.
+        if (input.speciesId !== UNLISTED_ID && isFirstOfSpecies([...mine, ...created], input.speciesId)) {
+          newSpeciesIds.push(input.speciesId);
+        }
+        created.push({
+          id: uid('s'),
+          userId: ownerId(),
+          username: owner?.username ?? LOCAL_USERNAME,
+          speciesId: input.speciesId,
+          siteId: input.siteId,
+          sightedOn: input.sightedOn,
+          notes: input.notes?.trim() || undefined,
+          photoUri: input.photoUri,
+          customName: cleanCustomName(input),
+          isDemo: false,
+          synced: false, // stays in the outbox until it reaches the server
+          // A millisecond apart, so the dive's sightings keep the order they were picked in.
+          createdAt: new Date(now + index).toISOString(),
+        });
+      });
+      for (const sighting of created) await insertSighting(sighting);
+      set({ sightings: [...get().sightings, ...created] });
       void get().requestSync();
-      return { sighting, isNewSpecies };
+      return { sightings: created, newSpeciesIds };
     },
 
     updateSighting: async (id, input) => {
@@ -177,7 +197,8 @@ export const useAppStore = create<StoreState>((set, get) => {
       if (!before || !canEditSighting(before, ownerId())) throw new Error('You can only edit your own sightings.');
       checkInput(input);
       const others = get().sightings.filter((s) => s.userId === ownerId() && s.id !== id);
-      const isNewSpecies = input.speciesId !== before.speciesId && isFirstOfSpecies(others, input.speciesId);
+      const isNewSpecies =
+        input.speciesId !== UNLISTED_ID && input.speciesId !== before.speciesId && isFirstOfSpecies(others, input.speciesId);
       const after = applyEdit(before, input, new Date().toISOString());
       await updateSightingRow(after);
       // A replaced photo that never left the device isn't needed any more.
