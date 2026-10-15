@@ -17,8 +17,9 @@ who turn motion off. These are the rules the screens follow; new screens should 
 
 - **Every `Pressable` has a role** (`button`, `link`, `tab`, `checkbox`, `radio`) and, when its text
   alone is unclear out of context, an `accessibilityLabel` ("Remove Reef Manta Ray", not "✕").
-- **State is in `accessibilityState`**: `selected` for tabs and chips, `checked` for checkboxes and
-  radios, `disabled` for anything inert.
+- **State is in `aria-*` props**: `aria-selected` for tabs and chips, `aria-checked` for checkboxes
+  and radios, `aria-disabled` for anything inert. Not `accessibilityState`: React Native reads both,
+  but react-native-web ignores `accessibilityState`, so on the web build no state would be announced.
 - **Rows read as one sentence.** A list row sets one label with everything on it (species, site,
   date, "with photo", "waiting to sync"), so the screen reader doesn't stop on five fragments.
 - **Screen titles and section titles are headings** (`accessibilityRole="header"`), so they can be

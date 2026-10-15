@@ -56,7 +56,7 @@ export default function HomeScreen() {
 
       <View style={[styles.hero, { backgroundColor: WATER[habitat.id] }]}>
         <View style={styles.heroHeader}><View style={styles.pill}><View style={styles.liveDot} /><Text style={styles.pillText}>YOUR SANCTUARY</Text></View>
-          <Pressable accessibilityRole="button" accessibilityLabel={paused ? 'Resume ocean animation' : 'Pause ocean animation'} accessibilityState={{ selected: paused }} onPress={() => setPaused((value) => !value)} style={styles.motionButton}><Text style={styles.motionText}>{paused ? 'Play' : 'Pause'}</Text></Pressable>
+          <Pressable accessibilityRole="button" accessibilityLabel={paused ? 'Resume ocean animation' : 'Pause ocean animation'} onPress={() => setPaused((value) => !value)} style={styles.motionButton}><Text style={styles.motionText}>{paused ? 'Play' : 'Pause'}</Text></Pressable>
         </View>
         <SanctuaryScene habitat={habitat.id} level={moments.level} residents={home.residents} loading={loading} paused={paused || editing || loading} onInspect={inspect}
           moments={{ featured: moments.featured, waiting: moments.waiting, now: moments.now, onArrived: moments.onArrived, tag: moments.tag, banner: moments.banner, note: moments.note, busy: moments.busy }} />

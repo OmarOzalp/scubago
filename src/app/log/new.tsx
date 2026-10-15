@@ -267,7 +267,8 @@ export default function LogSightingScreen() {
               disabled={!c.enabled}
               accessibilityRole="tab"
               accessibilityLabel={`Step ${i + 1}, ${STEP_NAMES[c.step]}${c.label !== STEP_NAMES[c.step] ? `: ${c.label}` : ''}`}
-              accessibilityState={{ selected: step === c.step, disabled: !c.enabled }}
+              aria-selected={step === c.step}
+              aria-disabled={!c.enabled}
               style={styles.crumb}>
               <ThemedText
                 type="smallBold"
@@ -595,7 +596,7 @@ function SpeciesPicker({
                 onPress={() => setCategory(on ? null : cat)}
                 accessibilityRole="button"
                 accessibilityLabel={`${CATEGORY_LABEL[cat]} only`}
-                accessibilityState={{ selected: on }}
+                aria-selected={on}
                 style={[
                   styles.chip,
                   { backgroundColor: on ? theme.backgroundSelected : theme.backgroundElement, borderColor: on ? theme.text : 'transparent' },
@@ -679,7 +680,7 @@ function SpeciesRow({
     <Pressable
       onPress={onPress}
       accessibilityRole={multi ? 'checkbox' : 'button'}
-      accessibilityState={multi ? { checked } : undefined}
+      aria-checked={multi ? checked : undefined}
       accessibilityLabel={unlisted ? `${name}. ${detail}` : `${name}, ${species.rarity}`}
       style={({ pressed }) => [
         styles.row,

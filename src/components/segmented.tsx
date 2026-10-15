@@ -25,7 +25,7 @@ export function Segmented<T extends string>({ options, value, onChange, accessib
             key={opt.value}
             onPress={() => onChange(opt.value)}
             accessibilityRole="tab"
-            accessibilityState={{ selected }}
+            aria-selected={selected}
             style={[
               styles.segment,
               // The outline keeps the choice visible where the two greys are too close to tell apart.

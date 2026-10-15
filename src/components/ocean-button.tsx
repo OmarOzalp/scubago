@@ -32,7 +32,7 @@ export function OceanButton({
       accessibilityRole="button"
       accessibilityLabel={accessibilityLabel}
       accessibilityHint={accessibilityHint}
-      accessibilityState={{ disabled }}
+      aria-disabled={disabled}
       style={({ pressed }) => [
         styles.button,
         primary

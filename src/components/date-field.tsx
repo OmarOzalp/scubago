@@ -64,7 +64,7 @@ function QuickDate({ label, selected, onPress }: { label: string; selected: bool
     <Pressable
       onPress={onPress}
       accessibilityRole="radio"
-      accessibilityState={{ checked: selected }}
+      aria-checked={selected}
       style={[
         styles.quick,
         { backgroundColor: theme.backgroundElement, borderColor: selected ? theme.text : 'transparent' },
@@ -138,7 +138,8 @@ function Calendar({
                   disabled={future}
                   accessibilityRole="button"
                   accessibilityLabel={longDate(iso, 'long')}
-                  accessibilityState={{ selected, disabled: future }}
+                  aria-selected={selected}
+                  aria-disabled={future}
                   style={[styles.day, selected && { backgroundColor: Ocean.primary, borderRadius: 22 }]}>
                   <ThemedText
                     type={selected ? 'smallBold' : 'small'}
@@ -168,7 +169,7 @@ function NavButton({ label, a11y, onPress, disabled = false }: { label: string; 
       disabled={disabled}
       accessibilityRole="button"
       accessibilityLabel={a11y}
-      accessibilityState={{ disabled }}
+      aria-disabled={disabled}
       style={styles.nav}>
       <ThemedText type="smallBold" themeColor={disabled ? 'textSecondary' : 'text'} style={disabled && { opacity: 0.4 }}>
         {label}

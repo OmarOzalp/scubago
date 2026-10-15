@@ -19,7 +19,7 @@ export function HomeEditor({ preferences, saving, error, onSave, onClose }: {
       <Text style={styles.label}>HOME NAME</Text>
       <TextInput accessibilityLabel="Home name" value={draft.name} onChangeText={(name) => setDraft((s) => ({ ...s, name }))} maxLength={32} placeholder="My little island" placeholderTextColor="#71877E" style={styles.input} selectionColor="#387A68" />
       <Text style={styles.label}>CHOOSE YOUR SHORES</Text>
-      {HABITATS.map((habitat) => <Pressable key={habitat.id} accessibilityRole="radio" accessibilityState={{ checked: draft.habitat === habitat.id }} accessibilityLabel={habitat.name} onPress={() => setDraft((s) => ({ ...s, habitat: habitat.id }))} style={[styles.option, draft.habitat === habitat.id && styles.selected]}>
+      {HABITATS.map((habitat) => <Pressable key={habitat.id} accessibilityRole="radio" aria-checked={draft.habitat === habitat.id} accessibilityLabel={habitat.name} onPress={() => setDraft((s) => ({ ...s, habitat: habitat.id }))} style={[styles.option, draft.habitat === habitat.id && styles.selected]}>
         <View style={[styles.preview, { backgroundColor: habitat.water }]}><IslandArt habitat={habitat.id} /></View>
         <View style={{ flex: 1, gap: 4 }}><Text style={styles.optionName}>{habitat.name}</Text><Text style={styles.description}>{habitat.description}</Text></View>
         <View style={[styles.radio, draft.habitat === habitat.id && styles.radioSelected]}>{draft.habitat === habitat.id && <View style={styles.dot} />}</View>

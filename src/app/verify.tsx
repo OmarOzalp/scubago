@@ -201,7 +201,7 @@ export default function VerifyScreen() {
                           key={r}
                           onPress={() => setRole(r)}
                           accessibilityRole="radio"
-                          accessibilityState={{ checked: selected }}
+                          aria-checked={selected}
                           style={[styles.role, { borderColor: selected ? theme.text : theme.backgroundSelected, borderWidth: selected ? 2 : 1, backgroundColor: selected ? theme.backgroundElement : 'transparent' }]}>
                           <ThemedText type={selected ? 'smallBold' : 'small'}>
                             {ROLE_LABEL[r]}
