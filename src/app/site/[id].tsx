@@ -12,7 +12,7 @@ import { useTheme } from '@/hooks/use-theme';
 import { regionPath } from '@/data/regions';
 import { CATALOG_BY_ID } from '@/lib/catalog';
 import { CATEGORY_EMOJI } from '@/lib/rarity';
-import { siteFacts, siteSourceList } from '@/lib/site-details';
+import { siteAddedBy, siteFacts, siteSourceList } from '@/lib/site-details';
 import { useAllSites, useAppStore } from '@/lib/store';
 
 export default function SiteDetailScreen() {
@@ -20,8 +20,10 @@ export default function SiteDetailScreen() {
   const theme = useTheme();
   const sites = useAllSites();
   const sightings = useAppStore((s) => s.sightings);
+  const userId = useAppStore((s) => s.user?.id);
 
   const site = sites.find((s) => s.id === id);
+  const addedBy = site ? siteAddedBy(site, userId) : null;
 
   const siteSightings = useMemo(
     () =>
@@ -54,7 +56,7 @@ export default function SiteDetailScreen() {
           </ThemedText>
           <ThemedText type="small" themeColor="textSecondary">
             {regionPath(site.regionId) ?? site.region}, {site.country}
-            {site.source === 'user' ? ' · added by you' : ''}
+            {addedBy ? ` · added by ${addedBy}` : ''}
           </ThemedText>
         </View>
 

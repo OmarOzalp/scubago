@@ -275,7 +275,7 @@ export async function syncNow(
   // 3. Pull: community + own sightings (restores the log on a fresh install).
   const { data: siteRows, error: sitesError } = await client
     .from('dive_sites')
-    .select('id,name,lat,lng,region,country,blurb,notable_species,source')
+    .select('id,name,lat,lng,region,country,blurb,notable_species,source,created_by')
     .eq('source', 'user');
   if (sitesError) throw sitesError;
   await deps.upsertUserSites((siteRows as RemoteSiteRow[]).map(remoteSiteRowToSite));

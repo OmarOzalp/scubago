@@ -113,6 +113,7 @@ export interface RemoteSiteRow {
   blurb: string;
   notable_species: string[];
   source: 'seed' | 'user';
+  created_by?: string | null;
 }
 
 export function siteToRemoteRow(
@@ -144,6 +145,7 @@ export function remoteSiteRowToSite(row: RemoteSiteRow): DiveSite {
     blurb: row.blurb,
     notableSpecies: row.notable_species,
     source: row.source,
+    ...(row.created_by ? { createdBy: row.created_by } : {}),
   };
 }
 

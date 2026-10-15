@@ -74,7 +74,8 @@ async function getDb(): Promise<SQLite.SQLiteDatabase> {
         country TEXT NOT NULL,
         blurb TEXT NOT NULL,
         synced INTEGER NOT NULL DEFAULT 0,
-        created_at TEXT NOT NULL
+        created_at TEXT NOT NULL,
+        created_by TEXT
       );
     `);
 
@@ -100,6 +101,15 @@ async function getDb(): Promise<SQLite.SQLiteDatabase> {
         WHERE synced = 1 AND is_demo = 0;
         PRAGMA user_version = 3;
       `);
+    }
+    if ((ver?.user_version ?? 0) < 4) {
+      // Who added each user site, so only your own say "added by you". Sites downloaded before
+      // this stay unknown until the next sync fills it in.
+      const cols = await db.getAllAsync<{ name: string }>(`PRAGMA table_info(user_sites)`);
+      if (!cols.some((c) => c.name === 'created_by')) {
+        await db.execAsync('ALTER TABLE user_sites ADD COLUMN created_by TEXT');
+      }
+      await db.execAsync('PRAGMA user_version = 4');
     }
   }
   return db;
@@ -135,6 +145,8 @@ function rowToUserSite(row: any): DiveSite {
     blurb: row.blurb,
     notableSpecies: [],
     source: 'user' as const,
+    // Older rows have no owner: an unsynced one can only have been added here.
+    ...(row.created_by ? { createdBy: row.created_by } : row.synced ? {} : { createdBy: 'local' }),
   };
 }
 
@@ -422,10 +434,10 @@ export function mergePulledSightings(
 export function insertUserSite(site: DiveSite): Promise<void> {
   return exclusive(async (d) => {
     await d.runAsync(
-      `INSERT OR REPLACE INTO user_sites (id, name, lat, lng, region, country, blurb, synced, created_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      `INSERT OR REPLACE INTO user_sites (id, name, lat, lng, region, country, blurb, synced, created_at, created_by)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       site.id, site.name, site.lat, site.lng, site.region, site.country, site.blurb, 0,
-      new Date().toISOString(),
+      new Date().toISOString(), site.createdBy ?? 'local',
     );
   });
 }
@@ -469,10 +481,10 @@ export function upsertUserSites(sites: DiveSite[]): Promise<void> {
     await d.withTransactionAsync(async () => {
       for (const site of sites) {
         await d.runAsync(
-          `INSERT OR REPLACE INTO user_sites (id, name, lat, lng, region, country, blurb, synced, created_at)
-           VALUES (?, ?, ?, ?, ?, ?, ?, 1, ?)`,
+          `INSERT OR REPLACE INTO user_sites (id, name, lat, lng, region, country, blurb, synced, created_at, created_by)
+           VALUES (?, ?, ?, ?, ?, ?, ?, 1, ?, ?)`,
           site.id, site.name, site.lat, site.lng, site.region, site.country, site.blurb,
-          new Date().toISOString(),
+          new Date().toISOString(), site.createdBy ?? null,
         );
       }
     });

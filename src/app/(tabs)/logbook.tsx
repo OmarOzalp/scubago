@@ -11,9 +11,10 @@ import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Ocean } from '@/constants/palette';
 import { BottomTabInset, Spacing } from '@/constants/theme';
+import { useSchemeName, useTheme } from '@/hooks/use-theme';
 import { CATALOG, CATALOG_BY_ID } from '@/lib/catalog';
 import { deriveDex } from '@/lib/dex';
-import { CATEGORY_LABEL, CATEGORY_ORDER, RARITY_COLOR, RARITY_LABEL, rarityRank } from '@/lib/rarity';
+import { CATEGORY_LABEL, CATEGORY_ORDER, RARITY_LABEL, RARITY_TEXT, rarityRank } from '@/lib/rarity';
 import { useAllSites, useAppStore, useMySightings, usePendingChanges } from '@/lib/store';
 import type { Category, DexEntry, Species } from '@/lib/types';
 
@@ -31,6 +32,8 @@ export default function LogbookScreen() {
   const requestSync = useAppStore((s) => s.requestSync);
   const sites = useAllSites();
   const sitesById = useMemo(() => new Map(sites.map((s) => [s.id, s])), [sites]);
+  const theme = useTheme();
+  const scheme = useSchemeName();
 
   const dex = useMemo(() => deriveDex(mySightings, CATALOG_BY_ID), [mySightings]);
   const dexById = useMemo(() => new Map(dex.map((d) => [d.species.id, d])), [dex]);
@@ -64,17 +67,48 @@ export default function LogbookScreen() {
           { paddingTop: insets.top + Spacing.three, paddingBottom: BottomTabInset + Spacing.six },
         ]}>
         <View style={styles.titleRow}>
-          <ThemedText type="subtitle">My Log</ThemedText>
-          {backendEnabled ? (
-            <Pressable onPress={() => router.push('/auth')} hitSlop={8}>
-              <ThemedText type="smallBold" themeColor="textSecondary">
-                {user ? `@${user.username}` : 'Sign in to sync'}
-              </ThemedText>
-            </Pressable>
-          ) : null}
+          <ThemedText type="subtitle" accessibilityRole="header">
+            My Log
+          </ThemedText>
+          <Pressable
+            onPress={() => router.push('/log/new')}
+            accessibilityRole="button"
+            accessibilityLabel="Log a sighting"
+            style={({ pressed }) => [styles.addButton, { backgroundColor: pressed ? Ocean.primaryPressed : Ocean.primary }]}>
+            <ThemedText style={styles.addButtonText} importantForAccessibility="no" accessibilityElementsHidden>
+              ＋ Log
+            </ThemedText>
+          </Pressable>
         </View>
+        {backendEnabled && user ? (
+          <Pressable onPress={() => router.push('/auth')} accessibilityRole="button" accessibilityLabel={`Account, signed in as ${user.username}`} style={styles.accountRow}>
+            <ThemedText type="smallBold" themeColor="textSecondary">
+              @{user.username} · Account ›
+            </ThemedText>
+          </Pressable>
+        ) : null}
+        {/* Signed out, the log lives only in this phone's storage: say so, and offer the way to keep it. */}
+        {backendEnabled && !user ? (
+          <View style={[styles.backup, { backgroundColor: theme.backgroundElement }]}>
+            <ThemedText type="smallBold">
+              {mySightings.length > 0
+                ? `${mySightings.length} ${mySightings.length === 1 ? 'sighting is' : 'sightings are'} only on this phone`
+                : 'Back up your log'}
+            </ThemedText>
+            <ThemedText type="small" themeColor="textSecondary">
+              {mySightings.length > 0
+                ? 'Sign in or create a free account to back them up and see them on any device.'
+                : 'Sign in to see a log you’ve already backed up, or create an account so new sightings are kept safe.'}
+            </ThemedText>
+            <OceanButton
+              title={mySightings.length > 0 ? 'Back up my log' : 'Sign in or create an account'}
+              variant={mySightings.length > 0 ? 'primary' : 'secondary'}
+              onPress={() => router.push('/auth')}
+            />
+          </View>
+        ) : null}
         {pending.count > 0 ? (
-          <Pressable onPress={() => void requestSync()} accessibilityRole="button" accessibilityHint="Tries to sync now">
+          <Pressable onPress={() => void requestSync()} accessibilityRole="button" accessibilityHint="Tries to sync now" style={styles.syncRow}>
             <ThemedText type="small" themeColor="textSecondary">
               {syncing
                 ? 'Syncing…'
@@ -93,7 +127,7 @@ export default function LogbookScreen() {
             <View style={styles.stat}>
               <ThemedText
                 type="smallBold"
-                style={{ color: RARITY_COLOR[rarest.species.rarity], fontSize: 18 }}
+                style={{ color: RARITY_TEXT[scheme][rarest.species.rarity], fontSize: 18 }}
                 numberOfLines={1}>
                 {rarest.species.commonName}
               </ThemedText>
@@ -105,14 +139,15 @@ export default function LogbookScreen() {
         </View>
 
         {backendEnabled ? (
-          <Pressable onPress={() => router.push('/verify')} accessibilityRole="link" hitSlop={6}>
+          <Pressable onPress={() => router.push('/verify')} accessibilityRole="link" accessibilityLabel="Got a code from a buddy? Confirm a buddy’s sighting" style={styles.syncRow}>
             <ThemedText type="small" themeColor="textSecondary">
-              Got a code from a buddy? <ThemedText type="smallBold" style={{ color: Ocean.primary }}>Confirm a buddy’s sighting ›</ThemedText>
+              Got a code from a buddy? <ThemedText type="smallBold" themeColor="tint">Confirm a buddy’s sighting ›</ThemedText>
             </ThemedText>
           </Pressable>
         ) : null}
 
         <Segmented<Mode>
+          accessibilityLabel="Show"
           options={[
             { value: 'sightings', label: 'Sightings' },
             { value: 'species', label: `Species ${dex.length}/${CATALOG.length}` },
@@ -150,7 +185,7 @@ export default function LogbookScreen() {
               const seenCount = speciesList.filter((s) => dexById.has(s.id)).length;
               return (
                 <View key={cat} style={styles.dexSection}>
-                  <View style={styles.dexHeader}>
+                  <View style={styles.dexHeader} accessibilityRole="header" accessible accessibilityLabel={`${CATEGORY_LABEL[cat]}, ${seenCount} of ${speciesList.length} seen`}>
                     <ThemedText type="smallBold">{CATEGORY_LABEL[cat]}</ThemedText>
                     <ThemedText type="small" themeColor="textSecondary">
                       {seenCount}/{speciesList.length}
@@ -187,7 +222,9 @@ function Stat({ value, label }: { value: number; label: string }) {
 function EmptyState() {
   return (
     <View style={styles.empty}>
-      <ThemedText style={{ fontSize: 44 }}>🤿</ThemedText>
+      <ThemedText style={{ fontSize: 44, lineHeight: 52 }} importantForAccessibility="no" accessibilityElementsHidden>
+        🤿
+      </ThemedText>
       <ThemedText type="smallBold">Nothing logged yet</ThemedText>
       <ThemedText type="small" themeColor="textSecondary" style={{ textAlign: 'center' }}>
         Log your first sighting and start your collection.
@@ -198,24 +235,29 @@ function EmptyState() {
 }
 
 function DexCell({ species, entry }: { species: Species; entry?: DexEntry }) {
+  const theme = useTheme();
   const seen = !!entry;
+  // Seen vs not seen is otherwise shown only by greying out, so say it.
+  const label = `${species.commonName}, ${RARITY_LABEL[species.rarity].toLowerCase()}, ${
+    seen ? (entry.count > 1 ? `seen ${entry.count} times` : 'seen once') : 'not seen yet'
+  }`;
   return (
-    <Pressable onPress={() => router.push(`/species/${species.id}`)} style={styles.dexCell}>
+    <Pressable
+      onPress={() => router.push(`/species/${species.id}`)}
+      accessibilityRole="button"
+      accessibilityLabel={label}
+      style={styles.dexCell}>
       <View>
         <SpeciesAvatar species={species} size={60} showRarityRing muted={!seen} />
         {seen && entry.count > 1 ? (
-          <View style={[styles.countBadge, { backgroundColor: RARITY_COLOR[species.rarity] }]}>
-            <ThemedText type="small" style={styles.countBadgeText}>
+          <View style={[styles.countBadge, { backgroundColor: theme.text }]}>
+            <ThemedText type="small" style={[styles.countBadgeText, { color: theme.background }]}>
               ×{entry.count}
             </ThemedText>
           </View>
         ) : null}
       </View>
-      <ThemedText
-        type="small"
-        themeColor={seen ? 'text' : 'textSecondary'}
-        style={[styles.dexName, !seen && { opacity: 0.6 }]}
-        numberOfLines={2}>
+      <ThemedText type="small" themeColor={seen ? 'text' : 'textSecondary'} style={styles.dexName} numberOfLines={2}>
         {species.commonName}
       </ThemedText>
     </Pressable>
@@ -233,7 +275,33 @@ const styles = StyleSheet.create({
   titleRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'baseline',
+    alignItems: 'center',
+  },
+  addButton: {
+    minHeight: 44,
+    minWidth: 44,
+    borderRadius: 22,
+    paddingHorizontal: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  addButtonText: {
+    color: Ocean.onPrimary,
+    fontWeight: '700',
+  },
+  accountRow: {
+    minHeight: 44,
+    justifyContent: 'center',
+    alignSelf: 'flex-start',
+  },
+  backup: {
+    borderRadius: 14,
+    padding: Spacing.three,
+    gap: Spacing.two,
+  },
+  syncRow: {
+    minHeight: 44,
+    justifyContent: 'center',
   },
   statsRow: {
     flexDirection: 'row',
@@ -275,8 +343,8 @@ const styles = StyleSheet.create({
   },
   dexName: {
     textAlign: 'center',
-    fontSize: 11,
-    lineHeight: 14,
+    fontSize: 12,
+    lineHeight: 15,
   },
   countBadge: {
     position: 'absolute',
@@ -287,9 +355,8 @@ const styles = StyleSheet.create({
     paddingVertical: 1,
   },
   countBadgeText: {
-    color: '#fff',
-    fontSize: 10,
-    lineHeight: 14,
+    fontSize: 12,
+    lineHeight: 16,
     fontWeight: '700',
   },
 });

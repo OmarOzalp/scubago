@@ -1,5 +1,13 @@
 import { describe, expect, it } from '@jest/globals';
-import { signInWithPassword, usernameForUser } from '@/lib/auth';
+import {
+  createAccount,
+  credentialsProblem,
+  emailProblem,
+  requestPasswordReset,
+  resetPasswordWithCode,
+  signIn,
+  usernameForUser,
+} from '@/lib/auth';
 
 describe('usernameForUser', () => {
   it('derives a stable, valid username from the auth uid', () => {
@@ -12,74 +20,108 @@ describe('usernameForUser', () => {
   });
 });
 
-type FakeAuthResult = { data: { user: { id: string } | null; session?: object | null }; error: { message: string } | null };
+type Result = { data: Record<string, any>; error: { message: string } | null };
 
-function fakeClient(opts: {
-  signIn: FakeAuthResult;
-  signUp?: FakeAuthResult;
-}) {
-  const calls: string[] = [];
+function fakeClient(results: Partial<Record<'signIn' | 'signUp' | 'reset' | 'verify' | 'update', Result>>) {
+  const calls: { name: string; args: unknown }[] = [];
+  const answer = (name: keyof typeof results) => async (args: unknown) => {
+    calls.push({ name, args });
+    return results[name] ?? { data: {}, error: { message: `unexpected ${name}` } };
+  };
   return {
     calls,
     client: {
       auth: {
-        signInWithPassword: async () => {
-          calls.push('signIn');
-          return opts.signIn;
-        },
-        signUp: async () => {
-          calls.push('signUp');
-          return opts.signUp ?? { data: { user: null }, error: { message: 'unexpected' } };
-        },
+        signInWithPassword: answer('signIn'),
+        signUp: answer('signUp'),
+        resetPasswordForEmail: answer('reset'),
+        verifyOtp: answer('verify'),
+        updateUser: answer('update'),
       },
     } as any,
   };
 }
 
-describe('signInWithPassword', () => {
-  it('returns the user id on a successful sign-in without calling signUp', async () => {
-    const { client, calls } = fakeClient({
-      signIn: { data: { user: { id: 'uid-1' } }, error: null },
-    });
-    await expect(signInWithPassword(client, 'a@b.co', 'pw123456')).resolves.toEqual({ id: 'uid-1' });
-    expect(calls).toEqual(['signIn']);
+describe('credentialsProblem', () => {
+  it('asks for an email address that looks like one', () => {
+    expect(emailProblem('diver@reef')).toBe('Enter your email address.');
+    expect(emailProblem(' diver@reef.org ')).toBeNull();
+    expect(credentialsProblem('sign-in', { email: 'nope', password: 'secret1' })).toBe('Enter your email address.');
+  });
+  it('enforces the minimum password length', () => {
+    expect(credentialsProblem('sign-in', { email: 'a@b.co', password: '12345' })).toMatch(/at least 6/);
+    expect(credentialsProblem('sign-in', { email: 'a@b.co', password: '123456' })).toBeNull();
+  });
+  it('asks for the password twice when creating an account or choosing a new one', () => {
+    expect(credentialsProblem('create', { email: 'a@b.co', password: 'secret1', confirm: 'secret2' })).toMatch(/don’t match/);
+    expect(credentialsProblem('create', { email: 'a@b.co', password: 'secret1', confirm: 'secret1' })).toBeNull();
+    expect(credentialsProblem('reset', { email: '', password: 'secret1', confirm: 'secret' })).toMatch(/don’t match/);
+  });
+});
+
+describe('signIn', () => {
+  it('returns the user id', async () => {
+    const { client } = fakeClient({ signIn: { data: { user: { id: 'uid-1' } }, error: null } });
+    await expect(signIn(client, 'a@b.co', 'pw123456')).resolves.toEqual({ id: 'uid-1' });
   });
 
-  it('falls back to signUp for a brand-new user and returns the new id', async () => {
+  it('never creates an account for an unknown email or a wrong password', async () => {
     const { client, calls } = fakeClient({
       signIn: { data: { user: null }, error: { message: 'Invalid login credentials' } },
+    });
+    await expect(signIn(client, 'typo@b.co', 'pw123456')).rejects.toThrow(/don’t match an account/);
+    expect(calls.map((c) => c.name)).toEqual(['signIn']);
+  });
+
+  it('passes other errors through', async () => {
+    const { client } = fakeClient({ signIn: { data: { user: null }, error: { message: 'Email rate limit exceeded' } } });
+    await expect(signIn(client, 'a@b.co', 'pw123456')).rejects.toThrow('Email rate limit exceeded');
+  });
+});
+
+describe('createAccount', () => {
+  it('returns the new id when the project signs new accounts straight in', async () => {
+    const { client } = fakeClient({
       signUp: { data: { user: { id: 'uid-new' }, session: { access_token: 't' } }, error: null },
     });
-    await expect(signInWithPassword(client, 'new@b.co', 'pw123456')).resolves.toEqual({ id: 'uid-new' });
-    expect(calls).toEqual(['signIn', 'signUp']);
+    await expect(createAccount(client, 'new@b.co', 'pw123456')).resolves.toEqual({ id: 'uid-new' });
+  });
+
+  it('points an existing email to sign-in', async () => {
+    const { client } = fakeClient({ signUp: { data: { user: null }, error: { message: 'User already registered' } } });
+    await expect(createAccount(client, 'a@b.co', 'pw123456')).rejects.toThrow(/Sign in instead/);
   });
 
   it('refuses to sign in half-way when the project requires email confirmation', async () => {
-    // Supabase then returns a user but no session, for new accounts and (obfuscated) existing ones alike.
-    const { client } = fakeClient({
-      signIn: { data: { user: null }, error: { message: 'Invalid login credentials' } },
-      signUp: { data: { user: { id: 'uid-pending' }, session: null }, error: null },
-    });
-    await expect(signInWithPassword(client, 'new@b.co', 'pw123456')).rejects.toThrow(/confirm your account/);
+    const { client } = fakeClient({ signUp: { data: { user: { id: 'uid-pending' }, session: null }, error: null } });
+    await expect(createAccount(client, 'new@b.co', 'pw123456')).rejects.toThrow(/confirm your account/);
+  });
+});
+
+describe('password reset', () => {
+  it('asks Supabase to email a reset code', async () => {
+    const { client, calls } = fakeClient({ reset: { data: {}, error: null } });
+    await requestPasswordReset(client, 'a@b.co');
+    expect(calls).toEqual([{ name: 'reset', args: 'a@b.co' }]);
   });
 
-  it('reports a wrong password when the account already exists', async () => {
-    const { client } = fakeClient({
-      signIn: { data: { user: null }, error: { message: 'Invalid login credentials' } },
-      signUp: { data: { user: null }, error: { message: 'User already registered' } },
-    });
-    await expect(signInWithPassword(client, 'a@b.co', 'wrong')).rejects.toThrow(
-      'Wrong password for this email',
-    );
-  });
-
-  it('propagates non-credential sign-in errors without attempting signUp', async () => {
+  it('checks the code, sets the new password and signs the diver in', async () => {
     const { client, calls } = fakeClient({
-      signIn: { data: { user: null }, error: { message: 'Email rate limit exceeded' } },
+      verify: { data: { user: { id: 'uid-1' }, session: {} }, error: null },
+      update: { data: { user: { id: 'uid-1' } }, error: null },
     });
-    await expect(signInWithPassword(client, 'a@b.co', 'pw123456')).rejects.toThrow(
-      'Email rate limit exceeded',
-    );
-    expect(calls).toEqual(['signIn']);
+    await expect(resetPasswordWithCode(client, 'a@b.co', '123 456', 'newpass1')).resolves.toEqual({ id: 'uid-1' });
+    expect(calls).toEqual([
+      { name: 'verify', args: { email: 'a@b.co', token: '123456', type: 'recovery' } },
+      { name: 'update', args: { password: 'newpass1' } },
+    ]);
+  });
+
+  it('explains a wrong or expired code and leaves the password alone', async () => {
+    const { client, calls } = fakeClient({
+      verify: { data: { user: null }, error: { message: 'Token has expired or is invalid' } },
+    });
+    await expect(resetPasswordWithCode(client, 'a@b.co', '000000', 'newpass1')).rejects.toThrow(/wrong or has expired/);
+    expect(calls.map((c) => c.name)).toEqual(['verify']);
   });
 });

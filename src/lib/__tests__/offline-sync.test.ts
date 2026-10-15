@@ -438,6 +438,9 @@ describeSqlite('the local database upgrade', () => {
           ('old-synced', '${A}', 'alice', 'reef-manta', 'blue-corner', '2026-01-01', NULL,
            'https://x.supabase.co/storage/v1/object/public/sighting-photos/${A}/old-synced.jpg', 0, 1, '2026-01-01T00:00:00.000Z'),
           ('old-pending', '${A}', 'alice', 'whale-shark', 'blue-corner', '2026-01-02', 'n', NULL, 0, 0, '2026-01-02T00:00:00.000Z');
+        INSERT INTO user_sites VALUES
+          ('site-mine', 'Mine', 1, 2, 'R', 'C', '', 0, '2026-01-01T00:00:00.000Z'),
+          ('site-pulled', 'Pulled', 1, 2, 'R', 'C', '', 1, '2026-01-01T00:00:00.000Z');
         PRAGMA user_version = 2;
       `);
     };
@@ -446,10 +449,12 @@ describeSqlite('the local database upgrade', () => {
       db = require('@/lib/db');
     });
     try {
-      const { sightings } = await db.initDb({ demo: false });
+      const { sightings, userSites } = await db.initDb({ demo: false });
       expect(sightings.map((s) => s.id).sort()).toEqual(['old-pending', 'old-synced']);
+      // A site that never synced was added on this phone; a downloaded one waits for the next sync to say who.
+      expect(userSites.map((s) => [s.id, s.createdBy])).toEqual([['site-mine', 'local'], ['site-pulled', undefined]]);
       const raw = sqliteHooks.last;
-      expect({ ...raw.prepare('PRAGMA user_version').get() }).toEqual({ user_version: 3 });
+      expect({ ...raw.prepare('PRAGMA user_version').get() }).toEqual({ user_version: 4 });
       const rows = raw.prepare('SELECT id, remote, synced_photo_url, deleted, version FROM sightings ORDER BY id').all();
       expect(rows.map((r: object) => ({ ...r }))).toEqual([
         { id: 'old-pending', remote: 0, synced_photo_url: null, deleted: 0, version: 0 },

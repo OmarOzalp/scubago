@@ -81,6 +81,11 @@ export interface DiveSite {
   conditions?: string;
   sources?: SiteSource[];
   externalIds?: SiteExternalId[];
+  /**
+   * Who added a user site: their user id, or 'local' for one added on this device that hasn't
+   * synced. Absent for seed sites, and for a downloaded site until the next sync says who.
+   */
+  createdBy?: string;
 }
 
 export interface Sighting {

@@ -215,6 +215,7 @@ export const useAppStore = create<StoreState>((set, get) => {
         blurb: input.blurb,
         notableSpecies: [],
         source: 'user',
+        createdBy: get().user?.id ?? LOCAL_USER_ID,
       };
       await insertUserSite(site);
       set({ userSites: [...get().userSites, site] });

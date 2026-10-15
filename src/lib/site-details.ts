@@ -9,6 +9,16 @@ const DIVE_TYPE: Record<DiveType, string> = {
 };
 const ACCESS: Record<SiteAccess, string> = { boat: 'Boat', shore: 'Shore', liveaboard: 'Liveaboard' };
 
+/** Who added a user site, from the viewer's side: 'you', 'a diver', or null for a seed site. */
+export function siteAddedBy(
+  site: Pick<DiveSite, 'source' | 'createdBy'>,
+  userId: string | undefined,
+): 'you' | 'a diver' | null {
+  if (site.source !== 'user') return null;
+  if (site.createdBy === 'local' || (!!userId && site.createdBy === userId)) return 'you';
+  return 'a diver';
+}
+
 /** "5–18 m", "to 30 m", "from 12 m", or null when the depth isn't known. */
 export function depthLabel(site: Pick<DiveSite, 'depthMinM' | 'depthMaxM'>): string | null {
   const { depthMinM: min, depthMaxM: max } = site;
