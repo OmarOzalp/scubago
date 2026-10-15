@@ -33,7 +33,7 @@ confirmation, they also add to the verified community picture.
 | 5 | Community verification | High | **5a done** (migration 0006, [buddy-verification.md](../buddy-verification.md)); 5b/5c planned | 4 | 5a: buddy codes (RPCs, "Ask a buddy", enter-a-code screen, status chips). 5b: photo evidence (private bucket, upload with metadata, moderator queue). 5c: public reads switch to `public_sightings`; drop the old public policy once testers have updated. |
 | 6 | External sightings ingestion MVP | High | Planned | 4 (and 3's permissions for operator data) | 6a: manual source submission and review (staff form, or the table editor at first). 6b: scheduled iNaturalist import (CC0/CC BY, research grade) in an Edge Function. |
 | 7 | Sightings UI | Medium | Planned | 4, plus 5 or 6 for content | Provenance labels; "Recent Marine Life" on site pages; recent reports on species pages; filters once there is data |
-| 8 | Offline dive-logging design | Planning | **Document written** | — | Discovery interviews next; then the foundations phase from the document |
+| 8 | Offline dive-logging design | Planning | **Document written**; quick log of a whole dive's sightings shipped (several species, one save) | — | Dive records themselves (depth, time, buddy…) next, then the foundations phase from the document |
 
 ### What can run in parallel
 

@@ -55,7 +55,9 @@ Auth is email + password with auto-confirm, which needs email confirmation turne
 in the Supabase dashboard, go to **Authentication → Providers → Email** and turn off
 **"Confirm email"**. This is deliberate: Supabase's free tier can't customize hosted
 email templates, and the default templates don't carry a token for an OTP-code flow,
-so sign-in avoids the email round-trip entirely.
+so sign-in avoids the email round-trip entirely. The one email ScubaGo sends, a password
+reset, uses the default template's link: add `exp://**` and `scubago://**` under
+**Authentication → URL Configuration → Redirect URLs** so it opens the app.
 
 Do this in the dashboard, not with `npx supabase config push` — `supabase/config.toml`
 is the unmodified local-dev CLI default (`site_url = "http://127.0.0.1:3000"`, a
@@ -79,12 +81,19 @@ project's settings with those dev defaults.
   count as discoveries, and either can be opened for a closer look. Animation pauses
   when the tab is unfocused, the app is backgrounded, reduced motion is on, or you tap
   Pause. If 3D rendering is unavailable the illustrated SVG island takes over.
+- **First launch** — three short intro cards (log, collect, grow your island), once per install.
 - **Map tab** — ~65 famous dive sites worldwide; search "where can I see a…" to
   highlight sites where a species has been spotted; tap a pin for the site card;
-  long-press the map to add a missing site.
+  "Add a site" (or long-press the map) to add a missing one; a List view for screen readers.
 - **My Log tab** — your sightings, and a species dex of 120 curated species with
-  rarity tiers (common → legendary). First-of-species logs get a celebration.
-- **Log flow** — site → species → date/notes/photo, designed for speed.
+  rarity tiers (common → legendary). Signed out, a card says how many sightings live only
+  on this phone and offers to back them up.
+- **Log flow** — site → species → details for a whole dive at once: tick every species you saw
+  (what's often seen at that site comes first), pick the date from a calendar, save once. Search
+  forgives accents, spelling variants, other names and typos (`src/lib/text-search.ts`). Animals
+  outside the catalogue can be logged as "Something else" in your own words (migration 0007);
+  they don't count towards the collection. A summary follows every save, with a celebration for
+  new species.
 - **Discovery moments** — a new species swims into your island with a small "New" tag, and a
   level-up gets a banner as the island grows (islets rise from the water)
   ([docs/discovery-moments.md](docs/discovery-moments.md)).
@@ -96,9 +105,14 @@ project's settings with those dev defaults.
 - **Offline-first writes** — sightings, edits and deletions save to SQLite immediately and wait
   in an outbox that syncs with retries once a backend is configured
   ([docs/sighting-sync.md](docs/sighting-sync.md)).
-- **Accounts** — email + password sign-in; the account is created automatically on
-  first sign-in, no separate signup step. Account → Delete account removes the account,
-  its sightings and photos (migration 0004).
+- **Accounts** — email + password, with "Sign in" and "Create account" kept apart so a typo
+  can't start a new account; new passwords are typed twice. "Forgot your password?" emails a
+  link that opens the app to choose a new one (redirect URLs: see
+  [docs/ios-distribution.md](docs/ios-distribution.md#6-supabase-after-a-reset)). Account →
+  Delete account removes the account, its sightings and photos (migration 0004).
+- **Accessibility** — screen-reader labels, roles and headings, announced errors, text that
+  scales, 4.5:1 contrast and 44pt targets; conventions in
+  [docs/accessibility.md](docs/accessibility.md).
 - **Cloud sync** — your sightings push to Supabase and restore on a fresh install;
   photos upload to Supabase Storage; writes stay offline-first and drain the outbox
   once you're back online.
@@ -143,8 +157,8 @@ The staged plan is in [docs/roadmap/](docs/roadmap/README.md):
 - community sightings verified by a photo (a buddy's confirmation is in: "Ask a buddy");
 - a faster, offline-first dive log.
 
-From the original spec, still open: seasonality, downloadable offline map regions, and
-password reset (needs a custom SMTP provider for Supabase).
+From the original spec, still open: seasonality and downloadable offline map regions. Password
+reset works; for it to reach people outside your Supabase team, set up a custom SMTP provider.
 
 ### My Home development
 

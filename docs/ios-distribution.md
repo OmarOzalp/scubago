@@ -177,8 +177,12 @@ Work through these in order. Nothing here recreates or resets the project.
    - 0003: protects PostGIS's table;
    - 0004: in-app account deletion;
    - 0005: dive-site details, regions, external IDs and sources;
-   - 0006: buddy verification ("Ask a buddy"; [buddy-verification.md](buddy-verification.md)).
-     Before pushing, check which project is linked (`npx supabase projects list`).
+   - 0006: buddy verification ("Ask a buddy"; [buddy-verification.md](buddy-verification.md));
+   - 0007: "Something else" sightings, for animals outside the catalogue (a placeholder species
+     and `sightings.custom_name`). Until it's applied, those sightings wait on the phone; everything
+     else syncs normally.
+
+   Before pushing, check which project is linked (`npx supabase projects list`).
 
    If the earlier migrations were pasted into the SQL editor, the CLI has no record of them, and
    `db push` would try to run 0001 again. First mark the ones already in place:
@@ -188,11 +192,23 @@ Work through these in order. Nothing here recreates or resets the project.
    fail. The script only upserts, so it's safe to run again:
    `SUPABASE_URL=https://YOUR-PROJECT-REF.supabase.co SUPABASE_SECRET_KEY=sb_secret_… npm run seed:supabase`.
 4. **Authentication.**
-   - Authentication → Sign In / Providers → Email: enabled, with **"Confirm email" off**. ScubaGo's
-     sign-in creates the account on first use and expects a session straight away. With
-     confirmation on, the app now says so instead of half-signing people in.
+   - Authentication → Sign In / Providers → Email: enabled, with **"Confirm email" off**. "Create
+     account" expects a session straight away. With confirmation on, the app says so instead of
+     half-signing people in. "Sign in" never creates an account.
    - New users must be allowed to sign up.
-   - The app asks for passwords of 6+ characters.
+   - The app asks for passwords of 6+ characters, typed twice when they're new.
+   - **Forgotten passwords.** The app emails a reset link that opens ScubaGo, where the diver
+     chooses a new password. Supabase only sends people to addresses you allow:
+     1. Under Authentication → URL Configuration → Redirect URLs, add `exp://**` (Expo Go),
+        `scubago://**` (builds of the app) and, if you host the web app, its address with `/**`
+        (for example `https://scubago.netlify.app/**`).
+     2. Supabase's built-in email sender is for testing. It only delivers to members of your
+        Supabase team (so it works for you) and only a few emails an hour. For anyone else, set up
+        a custom SMTP provider (Resend, Postmark, Amazon SES; most have free tiers) under
+        Authentication → Emails → SMTP Settings.
+     3. Optional, once custom SMTP is on: add `{{ .Token }}` to the "Reset password" email
+        template. The email then also carries a code, which the app accepts ("The email has a
+        code instead"). Handy when the email is opened on another device.
 5. **Check it.**
    - `npm run check:supabase` checks from outside with the publishable key: that the key works, the
      auth settings, the seeded catalog, that anonymous writes are refused by row-level security,
@@ -205,15 +221,17 @@ Work through these in order. Nothing here recreates or resets the project.
    - Once 0006 is applied, run `supabase/checks/verification-check.sql` the same way ("26 passed,
      0 failed"). Then run `npm run check:buddy` with two test accounts: it runs "Ask a buddy" end to
      end and deletes its test sighting.
+   - Once 0007 is applied, run `supabase/checks/unlisted-check.sql`: every line should say `ok`. It
+     rolls itself back.
    - In the dashboard, check Advisors → Security Advisor (or run `eas integrations:supabase:advisors`
      once linked).
 
 ### What the security model is today
 
-- **Reading:** species, dive sites, profiles (usernames) and **all sightings** (species, site,
-  date, notes, photo URL) can be read by anyone. That's ScubaGo's original "public by default"
-  design; tell testers. The sighting-verification work (docs/roadmap/) makes unverified sightings
-  private.
+- **Reading:** species, dive sites, profiles (usernames) and **all sightings** (species or the
+  diver's own name for it, site, date, notes, photo URL) can be read by anyone. That's ScubaGo's
+  original "public by default" design. The log screen says so above the save button, but tell
+  testers too. The sighting-verification work (docs/roadmap/) makes unverified sightings private.
 - **Writing:** only the owner can create, edit or delete a sighting or their profile, or add a site
   in their own name. Nobody can edit the catalog from the app. The isolation check proves each of
   these.
@@ -261,10 +279,11 @@ Your part:
 
 Soon after:
 
-- [ ] **Password reset.** It needs an email provider for Supabase: custom SMTP such as Resend,
-  Postmark or Amazon SES. Supabase's built-in sender is meant for testing, is heavily rate-limited
-  and may only deliver to your own team's addresses (check the current Supabase docs). Then add a
-  "Forgot password" flow in the app.
+- [x] **Password reset** in the app: an email link that opens ScubaGo (or a code, if the template
+  has one). Needs the redirect URLs from section 6.
+- [ ] **An email provider** for Supabase (custom SMTP such as Resend, Postmark or Amazon SES), so
+  reset emails reach testers too. The built-in sender only delivers to your own team's addresses,
+  a few an hour.
 - [ ] Android: strip photo location metadata before any Android testing
 - [ ] Crash reporting beyond TestFlight's (for example Sentry): optional
 - [ ] Sign in with Apple is *not* required: Apple asks for it only when an app offers other

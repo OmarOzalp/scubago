@@ -35,12 +35,17 @@ How a diver's changes reach the server, including offline. The code is in `src/l
 | Another diver deletes a community sighting | It disappears from site feeds on the next pull (within the window the pull covers). |
 | A push lands but the reply is lost | Retrying is safe. New rows are inserted only if absent, then updated; deleting what's gone isn't an error. |
 | An edit made while a push is on its way | Every local change bumps `version`; a push only marks the row synced if the version still matches, so the newer edit goes next time. |
-| Species, site or date changed on a verified sighting | Its local status resets to unverified (a buddy vouched for the old facts); the server does the same and removes the old answers (migration 0006, [buddy-verification.md](buddy-verification.md)). Notes and photo edits keep the status. |
+| Species, site or date changed on a verified sighting | Its local status resets to unverified (a buddy vouched for the old facts); the server does the same and removes the old answers (migration 0006, [buddy-verification.md](buddy-verification.md)). Notes and photo edits keep the status. Renaming a "something else" sighting counts as changing the species (0007). |
+| A whole dive logged at once | Each species is its own sighting in the outbox (a millisecond apart, so they keep their order). All are checked before any is saved. |
+| "Something else" before migration 0007 | The project has no `custom_name` column yet: those sightings fail with the reason shown and keep retrying; everything else syncs. Once 0007 is applied they go through. |
 | Not signed in | Nothing leaves the device. Deletes are immediate (no tombstone), and edits just update the row. |
 
 Pushes send only what an owner may change after logging (`species_id`, `site_id`,
-`sighted_on`, `notes`, `photo_url`), never the id, owner or creation time. This keeps working
-once column privileges restrict updates to those columns.
+`sighted_on`, `notes`, `photo_url`, and `custom_name` for "something else"), never the id, owner
+or creation time. This keeps working once column privileges restrict updates to those columns.
+`custom_name` is only sent when a sighting has one, and pulls ask for `status` (0006) and
+`custom_name` (0007) only while the project has them: a 42703 "no such column" drops that column
+for the rest of the session.
 
 ## Photos
 
