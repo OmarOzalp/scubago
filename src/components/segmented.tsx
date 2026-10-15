@@ -9,13 +9,16 @@ interface Props<T extends string> {
   onChange: (value: T) => void;
   /** What the choice is about, read before the options (e.g. "Account"). */
   accessibilityLabel?: string;
+  /** 'tabs' switches between views (the default); 'choice' picks a setting, read as radio buttons. */
+  kind?: 'tabs' | 'choice';
 }
 
-export function Segmented<T extends string>({ options, value, onChange, accessibilityLabel }: Props<T>) {
+export function Segmented<T extends string>({ options, value, onChange, accessibilityLabel, kind = 'tabs' }: Props<T>) {
   const theme = useTheme();
+  const choice = kind === 'choice';
   return (
     <View
-      accessibilityRole="tablist"
+      accessibilityRole={choice ? 'radiogroup' : 'tablist'}
       accessibilityLabel={accessibilityLabel}
       style={[styles.track, { backgroundColor: theme.backgroundElement }]}>
       {options.map((opt) => {
@@ -24,8 +27,9 @@ export function Segmented<T extends string>({ options, value, onChange, accessib
           <Pressable
             key={opt.value}
             onPress={() => onChange(opt.value)}
-            accessibilityRole="tab"
-            aria-selected={selected}
+            accessibilityRole={choice ? 'radio' : 'tab'}
+            aria-checked={choice ? selected : undefined}
+            aria-selected={choice ? undefined : selected}
             style={[
               styles.segment,
               // The outline keeps the choice visible where the two greys are too close to tell apart.

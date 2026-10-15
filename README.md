@@ -47,8 +47,9 @@ npm run check:supabase         # the live project, checked from outside with the
 npm run check:buddy            # "Ask a buddy" end to end, with two test accounts (after migration 0006)
 ```
 
-Then run `supabase/checks/audit.sql`, `supabase/checks/rls-isolation.sql` and
-`supabase/checks/verification-check.sql` in the SQL editor (see
+Then run `supabase/checks/audit.sql`, `supabase/checks/rls-isolation.sql`,
+`supabase/checks/verification-check.sql`, `supabase/checks/unlisted-check.sql` and
+`supabase/checks/privacy-check.sql` in the SQL editor (see
 [docs/ios-distribution.md](docs/ios-distribution.md#6-supabase-after-a-reset)).
 
 Auth is email + password with auto-confirm, which needs email confirmation turned off:
@@ -99,6 +100,10 @@ project's settings with those dev defaults.
   ([docs/discovery-moments.md](docs/discovery-moments.md)).
 - **Sighting pages** — tap a sighting for its details, verification status and provenance;
   your own can be edited (through the same log flow) or deleted, offline too.
+- **Privacy** — "Who can see this" on the log screen: each sighting is shared with everyone or kept
+  to yourself, and a shared one can keep its notes and photo private (migration 0008). Private
+  notes and photos never go to the public row or photo bucket; private sightings say "Only you" in
+  My Log ([docs/sighting-sync.md](docs/sighting-sync.md#who-can-see-it)).
 - **Ask a buddy** — send a buddy a code; signed in, they see the sighting and confirm it, and it
   reads **Buddy verified**. The server checks everything (migration 0006,
   [docs/buddy-verification.md](docs/buddy-verification.md)).
@@ -109,14 +114,14 @@ project's settings with those dev defaults.
   can't start a new account; new passwords are typed twice. "Forgot your password?" emails a
   link that opens the app to choose a new one (redirect URLs: see
   [docs/ios-distribution.md](docs/ios-distribution.md#6-supabase-after-a-reset)). Account →
-  Delete account removes the account, its sightings and photos (migration 0004).
+  Delete account removes the account, its sightings and photos, private ones included (migration 0004).
 - **Accessibility** — screen-reader labels, roles and headings, announced errors, text that
   scales, 4.5:1 contrast and 44pt targets; conventions in
   [docs/accessibility.md](docs/accessibility.md).
 - **Cloud sync** — your sightings push to Supabase and restore on a fresh install;
   photos upload to Supabase Storage; writes stay offline-first and drain the outbox
   once you're back online.
-- **Community sightings** — other divers' sightings pull into the map and site cards
+- **Community sightings** — other divers' public sightings pull into the map and site cards
   alongside your own.
 
 ## Project layout

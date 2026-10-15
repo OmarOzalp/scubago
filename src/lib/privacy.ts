@@ -43,6 +43,11 @@ export function isPrivatePhotoRef(uri: string | undefined | null): uri is string
   return !!uri && uri.startsWith(PRIVATE_REF);
 }
 
+/** The private-bucket path a private ref names (unchecked: the bucket itself lets only the owner read it). */
+export function privateRefPath(ref: string): string {
+  return ref.slice(PRIVATE_REF.length);
+}
+
 /**
  * The private-bucket path behind one of this user's private photos, or null for anything else: only
  * the owner's own files are ever read, moved or removed.

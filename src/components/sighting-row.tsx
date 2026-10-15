@@ -22,6 +22,8 @@ interface Props {
 export function SightingRow({ sighting, species, site, showUsername = false, pending = false, onPress }: Props) {
   const theme = useTheme();
   const showStatus = !!sighting.status && sighting.status !== 'unverified' && !pending;
+  // Only the diver who logged a private sighting ever has it.
+  const hidden = sighting.visibility === 'private';
   // One sentence for screen readers instead of five separate bits of text.
   const label = [
     species.commonName,
@@ -29,6 +31,7 @@ export function SightingRow({ sighting, species, site, showUsername = false, pen
     site?.name,
     formatDate(sighting.sightedOn),
     sighting.photoUri ? 'with photo' : null,
+    hidden ? 'only you can see it' : null,
     sighting.isDemo ? 'example data, not a real sighting' : null,
     pending ? (sighting.syncError ? 'not synced yet' : 'waiting to sync') : null,
     showStatus ? STATUS_LABEL[sighting.status!] : null,
@@ -54,6 +57,11 @@ export function SightingRow({ sighting, species, site, showUsername = false, pen
           {sighting.isDemo ? (
             <View style={[styles.example, { borderColor: theme.textSecondary }]} accessibilityLabel="Example data, not a real sighting">
               <Text style={[styles.exampleLabel, { color: theme.textSecondary }]}>Example</Text>
+            </View>
+          ) : null}
+          {hidden ? (
+            <View style={[styles.example, { borderColor: theme.textSecondary }]}>
+              <Text style={[styles.exampleLabel, { color: theme.textSecondary }]}>Only you</Text>
             </View>
           ) : null}
           {/* Unverified is the usual case, so only the others are named here. */}

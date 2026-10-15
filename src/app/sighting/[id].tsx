@@ -12,10 +12,12 @@ import { StatusChip } from '@/components/status-chip';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Spacing } from '@/constants/theme';
+import { usePhotoUrl } from '@/hooks/use-photo-url';
 import { useTheme } from '@/hooks/use-theme';
 import { announce } from '@/lib/announce';
 import { UNLISTED_ID, speciesForSighting } from '@/lib/catalog';
 import { confirmAction } from '@/lib/confirm';
+import { isPrivateSighting, privacySummary, sharesNotes, sharesPhoto } from '@/lib/privacy';
 import { canEditSighting } from '@/lib/sighting-edit';
 import { useAllSites, useAppStore, useMyUserId } from '@/lib/store';
 import { displayablePhoto } from '@/lib/sync';
@@ -33,8 +35,11 @@ export default function SightingDetailScreen() {
   const sighting = useAppStore((s) => s.sightings.find((x) => x.id === id));
   const myUserId = useMyUserId();
   const deleteSighting = useAppStore((s) => s.deleteSighting);
+  const backendEnabled = useAppStore((s) => s.backendEnabled);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // A private photo is shown through a short-lived link (only its owner can get one).
+  const photo = usePhotoUrl(sighting ? displayablePhoto(sighting, myUserId, process.env.EXPO_PUBLIC_SUPABASE_URL) : undefined);
 
   const species = sighting ? speciesForSighting(sighting) : undefined;
   if (!sighting || !species) {
@@ -52,7 +57,6 @@ export default function SightingDetailScreen() {
   const site = sites.find((s) => s.id === sighting.siteId);
   const mine = canEditSighting(sighting, myUserId);
   const status = statusOf(sighting);
-  const photo = displayablePhoto(sighting, myUserId, process.env.EXPO_PUBLIC_SUPABASE_URL);
   const unlisted = sighting.speciesId === UNLISTED_ID;
 
   const remove = async () => {
@@ -110,7 +114,7 @@ export default function SightingDetailScreen() {
           <View style={{ gap: 4 }}>
             <Image source={{ uri: photo }} style={styles.photo} contentFit="cover" accessibilityLabel="Photo from the dive" />
             <ThemedText type="small" themeColor="textSecondary">
-              {mine ? 'Your photo' : `Photo by @${sighting.username}`}
+              {mine ? (backendEnabled && !sharesPhoto(sighting) ? 'Your photo · only you can see it' : 'Your photo') : `Photo by @${sighting.username}`}
             </ThemedText>
           </View>
         ) : null}
@@ -137,12 +141,23 @@ export default function SightingDetailScreen() {
           <Fact label="Dive">
             <ThemedText type="small" themeColor="textSecondary">Not linked to a dive (dive logs are coming)</ThemedText>
           </Fact>
+          {mine && backendEnabled && !sighting.isDemo ? (
+            <Fact label="Who can see this">
+              <ThemedText type="smallBold">{privacySummary(sighting)}</ThemedText>
+            </Fact>
+          ) : null}
         </View>
+        {mine && backendEnabled && isPrivateSighting(sighting) && !unlisted ? (
+          <ThemedText type="small" themeColor="textSecondary">
+            Only you can see this sighting. If you ask a buddy to confirm it, they’ll see the species, site and date, never your notes or
+            photo.
+          </ThemedText>
+        ) : null}
 
         {sighting.notes ? (
           <View style={{ gap: Spacing.one }}>
             <ThemedText type="smallBold" accessibilityRole="header">
-              Notes
+              {mine && backendEnabled && !sharesNotes(sighting) ? 'Notes · only you can see them' : 'Notes'}
             </ThemedText>
             <ThemedText>{sighting.notes}</ThemedText>
           </View>
@@ -240,7 +255,7 @@ function SyncLine({ sighting }: { sighting: Sighting }) {
         <ThemedText type="small" themeColor={offline ? 'textSecondary' : 'danger'}>
           {offline
             ? 'Waiting for a connection. It will sync when you’re back online.'
-            : `Couldn’t sync: ${sighting.syncError}. It will retry automatically.`}
+            : `Couldn’t sync: ${sighting.syncError.replace(/\.$/, '')}. It will retry automatically.`}
         </ThemedText>
         <Pressable onPress={() => void requestSync()} accessibilityRole="button" style={styles.inlineLink}>
           <ThemedText type="smallBold" themeColor="tint">

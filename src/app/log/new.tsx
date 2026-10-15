@@ -7,17 +7,20 @@ import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { DateField } from '@/components/date-field';
 import { FormField } from '@/components/form-field';
 import { OceanButton } from '@/components/ocean-button';
+import { PrivacyFields } from '@/components/privacy-fields';
 import { RarityChip } from '@/components/rarity-chip';
 import { SpeciesAvatar } from '@/components/species-avatar';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Ocean } from '@/constants/palette';
 import { Spacing } from '@/constants/theme';
+import { usePhotoUrl } from '@/hooks/use-photo-url';
 import { useSchemeName, useTheme } from '@/hooks/use-theme';
 import { announce } from '@/lib/announce';
 import { CATALOG, CATALOG_BY_ID, UNLISTED_ID, UNLISTED_NAME_MAX, speciesForSighting } from '@/lib/catalog';
 import { recentDiveDate, rememberDiveDate } from '@/lib/last-dive-date';
 import { keepPhoto } from '@/lib/photo-files';
+import { DEFAULT_PRIVACY, lastPrivacyChoice, rememberPrivacyChoice, type PrivacySettings } from '@/lib/privacy-choice';
 import { CATEGORY_LABEL, CATEGORY_ORDER, RARITY_TEXT } from '@/lib/rarity';
 import { canEditSighting, isMaterialChange, localIsoDate } from '@/lib/sighting-edit';
 import { siteAddedBy } from '@/lib/site-details';
@@ -62,6 +65,15 @@ export default function LogSightingScreen() {
   const [dateTouched, setDateTouched] = useState(!!editing);
   const [notes, setNotes] = useState(editing?.notes ?? '');
   const [photoUri, setPhotoUri] = useState<string | undefined>(editing?.photoUri);
+  const photoPreview = usePhotoUrl(photoUri);
+  // Who can see it: an edit starts from the sighting's own choice (one from before privacy was
+  // shared, notes and photo included); a new log from the last one made.
+  const [privacy, setPrivacy] = useState<PrivacySettings>(
+    editing
+      ? { visibility: editing.visibility ?? 'public', notesPrivate: !!editing.notesPrivate, photoPrivate: !!editing.photoPrivate }
+      : DEFAULT_PRIVACY,
+  );
+  const [privacyTouched, setPrivacyTouched] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<Result | null>(null);
@@ -77,6 +89,17 @@ export default function LogSightingScreen() {
       live = false;
     };
   }, [editing]);
+
+  useEffect(() => {
+    if (editing || privacyTouched) return;
+    let live = true;
+    void lastPrivacyChoice().then((choice) => {
+      if (live && choice) setPrivacy(choice);
+    });
+    return () => {
+      live = false;
+    };
+  }, [editing, privacyTouched]);
 
   // Back from "Add a dive site" with the new site: carry on to the species.
   useEffect(
@@ -155,7 +178,7 @@ export default function LogSightingScreen() {
     if (!siteId || !site || chosen.length === 0 || saving) return;
     setSaving(true);
     setError(null);
-    const base = { siteId, sightedOn: date, notes: notes.trim() || undefined };
+    const base = { siteId, sightedOn: date, notes: notes.trim() || undefined, ...privacy };
     try {
       if (editing) {
         const speciesId = selected[0];
@@ -188,6 +211,7 @@ export default function LogSightingScreen() {
       }));
       const { newSpeciesIds } = await addSightings(inputs);
       void rememberDiveDate(date, localIsoDate(new Date()));
+      void rememberPrivacyChoice(privacy);
       const owned = new Set(mySightings.map((s) => s.speciesId).filter((id) => id !== UNLISTED_ID));
       const outcome: Result = {
         count: inputs.length,
@@ -377,8 +401,8 @@ export default function LogSightingScreen() {
               {photoUri ? (
                 <>
                   <Image
-                    source={{ uri: photoUri }}
-                    style={styles.photoPreview}
+                    source={photoPreview ? { uri: photoPreview } : undefined}
+                    style={[styles.photoPreview, { backgroundColor: theme.backgroundElement }]}
                     contentFit="cover"
                     accessibilityLabel={`Your photo of the ${chosen[0].commonName}`}
                   />
@@ -412,10 +436,17 @@ export default function LogSightingScreen() {
               afterwards.
             </ThemedText>
           ) : null}
+          {/* Without a backend nothing leaves the phone, so there is nobody to keep it from. */}
           {backendEnabled ? (
-            <ThemedText type="small" themeColor="textSecondary">
-              Sightings are shared with other ScubaGo divers once they sync, including notes and photos.
-            </ThemedText>
+            <PrivacyFields
+              value={privacy}
+              onChange={(next) => {
+                setPrivacy(next);
+                setPrivacyTouched(true);
+              }}
+              photo={chosen.length === 1}
+              count={chosen.length}
+            />
           ) : null}
           {error ? (
             <ThemedText type="small" themeColor="danger" accessibilityLiveRegion="polite">

@@ -20,6 +20,8 @@ who turn motion off. These are the rules the screens follow; new screens should 
 - **State is in `aria-*` props**: `aria-selected` for tabs and chips, `aria-checked` for checkboxes
   and radios, `aria-disabled` for anything inert. Not `accessibilityState`: React Native reads both,
   but react-native-web ignores `accessibilityState`, so on the web build no state would be announced.
+- **A setting picked from a few options is a radio group**: `<Segmented kind="choice">` (for
+  example "Who can see this" on the log screen). Plain `<Segmented>` is for tabs that switch views.
 - **Rows read as one sentence.** A list row sets one label with everything on it (species, site,
   date, "with photo", "waiting to sync"), so the screen reader doesn't stop on five fragments.
 - **Screen titles and section titles are headings** (`accessibilityRole="header"`), so they can be
