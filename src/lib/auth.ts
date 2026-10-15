@@ -79,19 +79,65 @@ export async function createAccount(client: SupabaseClient, email: string, passw
 }
 
 /**
- * Email a password-reset code. Supabase answers the same whether or not the address has an
- * account, so nobody can use this to find out who uses ScubaGo.
+ * Email a password reset. Supabase's standard email holds a link: `redirectTo` (the app's own
+ * address, Linking.createURL) brings the diver back into ScubaGo to choose a new password (see
+ * recoveryFromUrl). A project whose "Reset password" template also prints `{{ .Token }}` sends a
+ * code that works too (resetPasswordWithCode). Supabase answers the same whether or not the
+ * address has an account, so nobody can use this to find out who uses ScubaGo.
  */
-export async function requestPasswordReset(client: SupabaseClient, email: string): Promise<void> {
-  const { error } = await client.auth.resetPasswordForEmail(email);
+export async function requestPasswordReset(client: SupabaseClient, email: string, redirectTo?: string): Promise<void> {
+  const { error } = await client.auth.resetPasswordForEmail(email, redirectTo ? { redirectTo } : undefined);
+  if (error) throw toError(error);
+}
+
+export type Recovery = { accessToken: string; refreshToken: string } | { error: string };
+
+/**
+ * What a password-reset link brought back to the app: the recovery session in the URL fragment
+ * (`#access_token=…&refresh_token=…&type=recovery`), Supabase's error for a dead link, or null for
+ * any other URL. Parsed by hand: React Native's URLSearchParams can't read values.
+ */
+export function recoveryFromUrl(url: string | null | undefined): Recovery | null {
+  const fragment = url?.split('#')[1];
+  if (!fragment) return null;
+  const params: Record<string, string> = {};
+  for (const pair of fragment.split('&')) {
+    const [key, value = ''] = pair.split('=');
+    if (!key) continue;
+    try {
+      params[decodeURIComponent(key)] = decodeURIComponent(value.replace(/\+/g, ' '));
+    } catch {
+      // A malformed part: skip it.
+    }
+  }
+  if (params.error || params.error_code) {
+    return { error: 'That reset link has expired or was already used. Ask for a new one.' };
+  }
+  if (params.type !== 'recovery' || !params.access_token || !params.refresh_token) return null;
+  return { accessToken: params.access_token, refreshToken: params.refresh_token };
+}
+
+/** Sign in with the session a reset link carried, so the diver can choose a new password. */
+export async function startRecovery(
+  client: SupabaseClient,
+  tokens: { accessToken: string; refreshToken: string },
+): Promise<{ id: string }> {
+  const { data, error } = await client.auth.setSession({ access_token: tokens.accessToken, refresh_token: tokens.refreshToken });
+  if (error) throw new Error('That reset link has expired or was already used. Ask for a new one.');
+  if (!data.user) throw new Error('No user returned for that link');
+  return { id: data.user.id };
+}
+
+/** Set the signed-in diver's new password (after startRecovery). */
+export async function setNewPassword(client: SupabaseClient, password: string): Promise<void> {
+  const { error } = await client.auth.updateUser({ password });
   if (error) throw toError(error);
 }
 
 /**
- * Finish a reset with the code from the email, set the new password, and leave the diver signed
- * in. A code instead of a link, because a link would have to open the app (Expo Go has no fixed
- * address for that). Needs `{{ .Token }}` in the "Reset password" email template
- * (docs/ios-distribution.md, section 6).
+ * Finish a reset with a code from the email instead of the link: check it, set the new password,
+ * and leave the diver signed in. Only for projects whose "Reset password" template includes
+ * `{{ .Token }}` (Supabase allows editing templates once a custom email provider is set up).
  */
 export async function resetPasswordWithCode(
   client: SupabaseClient,
@@ -105,8 +151,7 @@ export async function resetPasswordWithCode(
     throw toError(error);
   }
   if (!data.user) throw new Error('No user returned for that code');
-  const { error: updateError } = await client.auth.updateUser({ password: newPassword });
-  if (updateError) throw toError(updateError);
+  await setNewPassword(client, newPassword);
   return { id: data.user.id };
 }
 

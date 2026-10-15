@@ -1,6 +1,7 @@
+import * as Linking from 'expo-linking';
 import { router } from 'expo-router';
-import { useRef, useState } from 'react';
-import { ActivityIndicator, Pressable, ScrollView, StyleSheet, TextInput } from 'react-native';
+import { useEffect, useRef, useState } from 'react';
+import { ActivityIndicator, Platform, Pressable, ScrollView, StyleSheet, TextInput } from 'react-native';
 
 import { FormField } from '@/components/form-field';
 import { OceanButton } from '@/components/ocean-button';
@@ -15,19 +16,34 @@ import {
   credentialsProblem,
   emailProblem,
   ensureProfile,
+  recoveryFromUrl,
   requestPasswordReset,
   resetPasswordWithCode,
+  setNewPassword,
   signIn,
+  startRecovery,
 } from '@/lib/auth';
 import { confirmAction } from '@/lib/confirm';
 import { useAppStore, usePendingChanges } from '@/lib/store';
 import { getSupabase } from '@/lib/supabase';
 
-type Mode = 'sign-in' | 'create' | 'reset-request' | 'reset-code';
+/**
+ * reset-request → (email) → reset-sent: open the link on this phone → reset-new (the link signed
+ * the diver in) → new password. Or, from reset-sent, reset-code for an email that shows a code.
+ */
+type Mode = 'sign-in' | 'create' | 'reset-request' | 'reset-sent' | 'reset-code' | 'reset-new';
+
+/** Reset links already used in this session (on the web, the address keeps the link's fragment). */
+const finishedRecoveryLinks = new Set<string>();
 
 export default function AuthScreen() {
   const user = useAppStore((s) => s.user);
   const client = getSupabase();
+  // A reset link signs the diver in (and the app may pick that session up on launch): keep the
+  // new-password form up until they've chosen one, instead of jumping to their account.
+  const url = Linking.useLinkingURL();
+  const recovery = recoveryFromUrl(url);
+  const recovering = !!url && !!recovery && !('error' in recovery) && !finishedRecoveryLinks.has(url);
 
   if (!client) {
     return (
@@ -36,7 +52,7 @@ export default function AuthScreen() {
       </ThemedView>
     );
   }
-  return user ? <Account username={user.username} /> : <SignInForm />;
+  return user && !recovering ? <Account username={user.username} /> : <SignInForm url={url} />;
 }
 
 function Account({ username }: { username: string }) {
@@ -116,7 +132,7 @@ function Account({ username }: { username: string }) {
   );
 }
 
-function SignInForm() {
+function SignInForm({ url }: { url: string | null }) {
   const client = getSupabase()!;
   const onSignedIn = useAppStore((s) => s.onSignedIn);
   const [mode, setMode] = useState<Mode>('sign-in');
@@ -126,15 +142,39 @@ function SignInForm() {
   const [code, setCode] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [notice, setNotice] = useState<string | null>(null);
+  const [recoveredId, setRecoveredId] = useState<string | null>(null);
+  const [linkErrorDismissed, setLinkErrorDismissed] = useState(false);
   const passwordRef = useRef<TextInput>(null);
   const confirmRef = useRef<TextInput>(null);
   const codeRef = useRef<TextInput>(null);
 
+  // Back from a reset link: it carries a session that lets the diver choose a new password.
+  const linkRecovery = recoveryFromUrl(url);
+  const linkError = linkRecovery && 'error' in linkRecovery && !linkErrorDismissed ? linkRecovery.error : null;
+  const handledUrl = useRef<string | null>(null);
+  useEffect(() => {
+    const recovery = recoveryFromUrl(url);
+    if (!url || !recovery || 'error' in recovery || handledUrl.current === url) return;
+    handledUrl.current = url;
+    startRecovery(client, recovery)
+      .then(({ id }) => {
+        setRecoveredId(id);
+        setMode('reset-new');
+        setError(null);
+        announce('Choose a new password');
+      })
+      .catch((e: Error) => {
+        finishedRecoveryLinks.add(url);
+        setMode('reset-request');
+        setError(e.message);
+        announce(e.message);
+      });
+  }, [url, client]);
+
   const switchMode = (next: Mode) => {
     setMode(next);
     setError(null);
-    setNotice(null);
+    setLinkErrorDismissed(true);
     setPassword('');
     setConfirm('');
     if (next !== 'reset-code') setCode('');
@@ -149,12 +189,24 @@ function SignInForm() {
   const finish = async (id: string) => {
     const username = await ensureProfile(client, id);
     await onSignedIn({ id, username });
-    router.back();
+    // Opened straight from a reset link there's nothing to go back to.
+    if (router.canGoBack()) router.back();
+    else router.replace('/logbook');
+  };
+
+  const address = email.trim().toLowerCase();
+  const sendReset = async () => {
+    // The link comes back to this screen, in whichever app opened it (Expo Go, a build, the web).
+    await requestPasswordReset(client, address, Linking.createURL('/auth'));
+    setMode('reset-sent');
+    announce(`If there’s an account for ${address}, we’ve emailed it a link to reset your password.`);
   };
 
   const formMode = mode === 'sign-in' ? 'sign-in' : mode === 'create' ? 'create' : 'reset';
   const problem =
-    mode === 'reset-request' ? emailProblem(email) : credentialsProblem(formMode, { email, password, confirm });
+    mode === 'reset-request' || mode === 'reset-sent'
+      ? emailProblem(email)
+      : credentialsProblem(formMode, { email, password, confirm });
 
   const submit = async () => {
     if (busy) return;
@@ -168,18 +220,20 @@ function SignInForm() {
     }
     setBusy(true);
     setError(null);
-    const address = email.trim().toLowerCase();
     try {
       if (mode === 'sign-in') await finish((await signIn(client, address, password)).id);
       else if (mode === 'create') await finish((await createAccount(client, address, password)).id);
-      else if (mode === 'reset-request') {
-        await requestPasswordReset(client, address);
-        setMode('reset-code');
-        const sent = `If there’s an account for ${address}, we’ve emailed it a reset code.`;
-        setNotice(sent);
-        announce(sent);
-        setTimeout(() => codeRef.current?.focus(), 50);
-      } else {
+      else if (mode === 'reset-request' || mode === 'reset-sent') await sendReset();
+      else if (mode === 'reset-new' && recoveredId) {
+        await setNewPassword(client, password);
+        announce('Password changed');
+        if (url) finishedRecoveryLinks.add(url);
+        // On the web the link's tokens are still in the address bar: drop them.
+        if (Platform.OS === 'web' && typeof window !== 'undefined') {
+          window.history.replaceState(null, '', window.location.pathname + window.location.search);
+        }
+        await finish(recoveredId);
+      } else if (mode === 'reset-code') {
         await finish((await resetPasswordWithCode(client, address, code, password)).id);
       }
     } catch (e: any) {
@@ -189,10 +243,36 @@ function SignInForm() {
     }
   };
 
-  const resetting = mode === 'reset-request' || mode === 'reset-code';
-  const title = mode === 'create' ? 'Create your account' : resetting ? 'Reset your password' : 'Sign in to sync your log';
+  const resetting = mode !== 'sign-in' && mode !== 'create';
+  const choosingPassword = mode === 'create' || mode === 'reset-code' || mode === 'reset-new';
+  const title =
+    mode === 'create'
+      ? 'Create your account'
+      : mode === 'reset-sent'
+        ? 'Check your email'
+        : mode === 'reset-new'
+          ? 'Choose a new password'
+          : resetting
+            ? 'Reset your password'
+            : 'Sign in to sync your log';
+  const intro = {
+    'sign-in': 'Your log backs up to your account and follows you to any device.',
+    create: 'Back up your log and see it on any device. Sightings logged on this phone move into your new account.',
+    'reset-request': 'We’ll email you a link to choose a new password.',
+    'reset-sent': `If there’s an account for ${address}, we’ve emailed it a link. Open the email on this phone and tap the link: ScubaGo opens so you can choose a new password.`,
+    'reset-code': 'Enter the code from the email and choose a new password.',
+    'reset-new': 'You’re signed in from the link. Choose a new password to finish.',
+  }[mode];
   const action =
-    mode === 'create' ? 'Create account' : mode === 'reset-request' ? 'Email me a code' : mode === 'reset-code' ? 'Set new password' : 'Sign in';
+    mode === 'create'
+      ? 'Create account'
+      : mode === 'reset-request'
+        ? 'Email me a reset link'
+        : mode === 'reset-sent'
+          ? 'Send the link again'
+          : mode === 'reset-code' || mode === 'reset-new'
+            ? 'Set new password'
+            : 'Sign in';
 
   return (
     <ThemedView style={{ flex: 1 }}>
@@ -212,34 +292,30 @@ function SignInForm() {
           {title}
         </ThemedText>
         <ThemedText type="small" themeColor="textSecondary">
-          {mode === 'create'
-            ? 'Back up your log and see it on any device. Sightings logged on this phone move into your new account.'
-            : mode === 'reset-request'
-              ? 'We’ll email you a code to choose a new password.'
-              : mode === 'reset-code'
-                ? 'Enter the code from the email and choose a new password.'
-                : 'Your log backs up to your account and follows you to any device.'}
+          {intro}
         </ThemedText>
-
-        {notice ? (
-          <ThemedText type="small" themeColor="textSecondary">
-            {notice}
+        {linkError && mode === 'sign-in' ? (
+          <ThemedText type="small" themeColor="danger" accessibilityLiveRegion="polite">
+            {linkError}
           </ThemedText>
         ) : null}
-        <FormField
-          label="Email"
-          placeholder="you@example.com"
-          autoCapitalize="none"
-          autoCorrect={false}
-          autoComplete="email"
-          textContentType="emailAddress"
-          keyboardType="email-address"
-          returnKeyType={mode === 'reset-request' ? 'send' : 'next'}
-          editable={mode !== 'reset-code'}
-          value={email}
-          onChangeText={setEmail}
-          onSubmitEditing={() => (mode === 'reset-request' ? submit() : passwordRef.current?.focus())}
-        />
+
+        {mode !== 'reset-new' && mode !== 'reset-sent' ? (
+          <FormField
+            label="Email"
+            placeholder="you@example.com"
+            autoCapitalize="none"
+            autoCorrect={false}
+            autoComplete="email"
+            textContentType="emailAddress"
+            keyboardType="email-address"
+            returnKeyType={mode === 'reset-request' ? 'send' : 'next'}
+            editable={mode !== 'reset-code'}
+            value={email}
+            onChangeText={setEmail}
+            onSubmitEditing={() => (mode === 'reset-request' ? submit() : (mode === 'reset-code' ? codeRef : passwordRef).current?.focus())}
+          />
+        ) : null}
         {mode === 'reset-code' ? (
           <FormField
             ref={codeRef}
@@ -254,10 +330,10 @@ function SignInForm() {
             onSubmitEditing={() => passwordRef.current?.focus()}
           />
         ) : null}
-        {mode !== 'reset-request' ? (
+        {mode !== 'reset-request' && mode !== 'reset-sent' ? (
           <FormField
             ref={passwordRef}
-            label={mode === 'reset-code' ? 'New password' : 'Password'}
+            label={mode === 'reset-code' || mode === 'reset-new' ? 'New password' : 'Password'}
             hint={mode === 'sign-in' ? undefined : `At least ${MIN_PASSWORD_LENGTH} characters`}
             secureTextEntry
             autoCapitalize="none"
@@ -270,7 +346,7 @@ function SignInForm() {
             onSubmitEditing={() => (mode === 'sign-in' ? submit() : confirmRef.current?.focus())}
           />
         ) : null}
-        {mode === 'create' || mode === 'reset-code' ? (
+        {choosingPassword ? (
           <FormField
             ref={confirmRef}
             label="Type the password again"
@@ -294,34 +370,29 @@ function SignInForm() {
         {busy ? (
           <ActivityIndicator accessibilityLabel="Working" />
         ) : (
-          <OceanButton title={action} onPress={submit} />
+          <OceanButton title={action} onPress={submit} variant={mode === 'reset-sent' ? 'secondary' : 'primary'} />
         )}
 
         {mode === 'sign-in' ? (
-          <Pressable onPress={() => switchMode('reset-request')} accessibilityRole="button" style={styles.textButton}>
-            <ThemedText type="smallBold" themeColor="textSecondary">
-              Forgot your password?
-            </ThemedText>
-          </Pressable>
+          <TextButton label="Forgot your password?" onPress={() => switchMode('reset-request')} />
         ) : null}
-        {resetting ? (
-          <>
-            {mode === 'reset-code' ? (
-              <Pressable onPress={() => switchMode('reset-request')} accessibilityRole="button" style={styles.textButton}>
-                <ThemedText type="smallBold" themeColor="textSecondary">
-                  Send a new code
-                </ThemedText>
-              </Pressable>
-            ) : null}
-            <Pressable onPress={() => switchMode('sign-in')} accessibilityRole="button" style={styles.textButton}>
-              <ThemedText type="smallBold" themeColor="textSecondary">
-                Back to sign in
-              </ThemedText>
-            </Pressable>
-          </>
+        {mode === 'reset-sent' ? (
+          <TextButton label="The email has a code instead" onPress={() => switchMode('reset-code')} />
         ) : null}
+        {mode === 'reset-code' ? <TextButton label="Send a new link or code" onPress={() => switchMode('reset-request')} /> : null}
+        {resetting && mode !== 'reset-new' ? <TextButton label="Back to sign in" onPress={() => switchMode('sign-in')} /> : null}
       </ScrollView>
     </ThemedView>
+  );
+}
+
+function TextButton({ label, onPress }: { label: string; onPress: () => void }) {
+  return (
+    <Pressable onPress={onPress} accessibilityRole="button" style={styles.textButton}>
+      <ThemedText type="smallBold" themeColor="textSecondary">
+        {label}
+      </ThemedText>
+    </Pressable>
   );
 }
 

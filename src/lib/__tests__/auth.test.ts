@@ -3,9 +3,12 @@ import {
   createAccount,
   credentialsProblem,
   emailProblem,
+  recoveryFromUrl,
   requestPasswordReset,
   resetPasswordWithCode,
+  setNewPassword,
   signIn,
+  startRecovery,
   usernameForUser,
 } from '@/lib/auth';
 
@@ -22,10 +25,10 @@ describe('usernameForUser', () => {
 
 type Result = { data: Record<string, any>; error: { message: string } | null };
 
-function fakeClient(results: Partial<Record<'signIn' | 'signUp' | 'reset' | 'verify' | 'update', Result>>) {
-  const calls: { name: string; args: unknown }[] = [];
-  const answer = (name: keyof typeof results) => async (args: unknown) => {
-    calls.push({ name, args });
+function fakeClient(results: Partial<Record<'signIn' | 'signUp' | 'reset' | 'verify' | 'update' | 'session', Result>>) {
+  const calls: { name: string; args: unknown; options?: unknown }[] = [];
+  const answer = (name: keyof typeof results) => async (args: unknown, options?: unknown) => {
+    calls.push(options === undefined ? { name, args } : { name, args, options });
     return results[name] ?? { data: {}, error: { message: `unexpected ${name}` } };
   };
   return {
@@ -37,6 +40,7 @@ function fakeClient(results: Partial<Record<'signIn' | 'signUp' | 'reset' | 'ver
         resetPasswordForEmail: answer('reset'),
         verifyOtp: answer('verify'),
         updateUser: answer('update'),
+        setSession: answer('session'),
       },
     } as any,
   };
@@ -123,5 +127,51 @@ describe('password reset', () => {
     });
     await expect(resetPasswordWithCode(client, 'a@b.co', '000000', 'newpass1')).rejects.toThrow(/wrong or has expired/);
     expect(calls.map((c) => c.name)).toEqual(['verify']);
+  });
+});
+
+describe('password reset by link', () => {
+  const link = (fragment: string) => `exp://192.168.1.5:8081/--/auth#${fragment}`;
+
+  it('sends the link back to the app', async () => {
+    const { client, calls } = fakeClient({ reset: { data: {}, error: null } });
+    await requestPasswordReset(client, 'a@b.co', 'scubago://auth');
+    expect(calls).toEqual([{ name: 'reset', args: 'a@b.co', options: { redirectTo: 'scubago://auth' } }]);
+  });
+
+  it('reads the recovery session from the link', () => {
+    expect(recoveryFromUrl(link('access_token=at.b.c&expires_in=3600&refresh_token=rt%2B1&token_type=bearer&type=recovery'))).toEqual({
+      accessToken: 'at.b.c',
+      refreshToken: 'rt+1',
+    });
+  });
+
+  it('explains a dead link, and ignores every other URL', () => {
+    expect(recoveryFromUrl(link('error=access_denied&error_code=otp_expired&error_description=Email+link+is+invalid+or+has+expired'))).toEqual({
+      error: expect.stringMatching(/expired/),
+    });
+    expect(recoveryFromUrl('exp://192.168.1.5:8081/--/auth')).toBeNull();
+    expect(recoveryFromUrl(link('access_token=x&refresh_token=y&type=magiclink'))).toBeNull();
+    expect(recoveryFromUrl(link('type=recovery'))).toBeNull();
+    expect(recoveryFromUrl(null)).toBeNull();
+    expect(recoveryFromUrl(link('%E0%A4%A=1&type=recovery'))).toBeNull();
+  });
+
+  it('signs in with the link, then sets the new password', async () => {
+    const { client, calls } = fakeClient({
+      session: { data: { user: { id: 'uid-1' }, session: {} }, error: null },
+      update: { data: { user: { id: 'uid-1' } }, error: null },
+    });
+    await expect(startRecovery(client, { accessToken: 'at', refreshToken: 'rt' })).resolves.toEqual({ id: 'uid-1' });
+    await setNewPassword(client, 'newpass1');
+    expect(calls).toEqual([
+      { name: 'session', args: { access_token: 'at', refresh_token: 'rt' } },
+      { name: 'update', args: { password: 'newpass1' } },
+    ]);
+  });
+
+  it('says so when the link no longer works', async () => {
+    const { client } = fakeClient({ session: { data: { user: null, session: null }, error: { message: 'Invalid Refresh Token' } } });
+    await expect(startRecovery(client, { accessToken: 'at', refreshToken: 'rt' })).rejects.toThrow(/expired or was already used/);
   });
 });
