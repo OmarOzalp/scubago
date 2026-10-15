@@ -23,17 +23,17 @@ export default function InspectScreen() {
   if (!model || !about) return <ThemedView style={styles.root}><ThemedText style={styles.caption}>No swimming model is available for this selection.</ThemedText></ThemedView>;
 
   return <ThemedView style={styles.root}>
-    <View style={styles.stage} accessible accessibilityRole="image" accessibilityLabel={`A ${about.name.toLowerCase()} turning slowly in open water`}>
-      {models ? <SceneBoundary><Canvas orthographic flat {...(Platform.OS === 'web' ? { dpr: 1.25 } : {})} frameloop={active ? 'always' : 'demand'}
+    <View style={styles.stage}>
+      {models ? <SceneBoundary><View style={styles.canvas} accessible accessibilityRole="image" accessibilityLabel={`A ${about.name.toLowerCase()} turning slowly in open water`}><Canvas orthographic flat {...(Platform.OS === 'web' ? { dpr: 1.25 } : {})} frameloop={active ? 'always' : 'demand'}
         gl={{ antialias: Platform.OS === 'web' }}
         camera={{ position: [0, 3.8, 9], zoom: 46, near: .1, far: 60 }}
         onCreated={({ camera }) => camera.lookAt(0, .2, 0)} style={styles.canvas}>
         <SceneCamera inspect />
         <SanctuaryEnvironment habitat="lagoon" level={1} active={active} inspect />
         <AnimatedMarine model={model} gltf={models[model]!} lane={0} active={active} inspect />
-      </Canvas></SceneBoundary> : failed
+      </Canvas></View></SceneBoundary> : failed
         ? <SceneUnavailable onRetry={retry} />
-        : <ActivityIndicator color="#356D60" style={styles.center} />}
+        : <ActivityIndicator color="#356D60" style={styles.center} accessibilityLabel="Loading the 3D model" />}
     </View>
     <View style={styles.caption}>
       <ThemedText type="subtitle">{about.name}</ThemedText>

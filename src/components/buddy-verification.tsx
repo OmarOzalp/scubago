@@ -5,9 +5,9 @@ import { ActivityIndicator, Platform, Pressable, Share, StyleSheet, Text, View }
 
 import { OceanButton } from '@/components/ocean-button';
 import { ThemedText } from '@/components/themed-text';
-import { Ocean } from '@/constants/palette';
 import { Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
+import { announce } from '@/lib/announce';
 import { useAppStore } from '@/lib/store';
 import { getSupabase } from '@/lib/supabase';
 import type { Sighting } from '@/lib/types';
@@ -41,7 +41,6 @@ function writeCache(sightingId: string, value: Cached) {
   AsyncStorage.setItem(cacheKey(sightingId), JSON.stringify(value)).catch(() => undefined);
 }
 
-const DANGER = '#c0392b';
 const dateOf = (iso: string) => new Date(iso).toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
 
 /**
@@ -57,6 +56,7 @@ export function BuddyVerification({ sighting, speciesName }: { sighting: Sightin
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [problem, setProblem] = useState<VerificationError | null>(null);
+  useEffect(() => announce(problem?.message), [problem]);
 
   const remember = (next: Cached) => {
     setCached(next);
@@ -96,9 +96,9 @@ export function BuddyVerification({ sighting, speciesName }: { sighting: Sightin
   if (!client) return null;
   if (!user) {
     return <Section title="Ask a buddy">
-      <Pressable onPress={() => router.push('/auth')} accessibilityRole="link">
+      <Pressable onPress={() => router.push('/auth')} accessibilityRole="link" style={styles.link}>
         <ThemedText type="small" themeColor="textSecondary">
-          Someone on the dive saw it too? <Text style={{ color: Ocean.primary }}>Sign in</Text> to ask them to confirm it.
+          Someone on the dive saw it too? <ThemedText type="small" themeColor="tint">Sign in</ThemedText> to ask them to confirm it.
         </ThemedText>
       </Pressable>
     </Section>;
@@ -168,7 +168,7 @@ export function BuddyVerification({ sighting, speciesName }: { sighting: Sightin
         </ThemedText>
         <OceanButton title="Share code" onPress={() => void share(code)} />
         <Pressable onPress={() => void ask(code)} disabled={busy} accessibilityRole="button" accessibilityHint="The code above stops working" style={styles.link}>
-          <ThemedText type="small" style={{ color: Ocean.primary, opacity: busy ? 0.4 : 1 }}>
+          <ThemedText type="smallBold" themeColor="tint" style={{ opacity: busy ? 0.4 : 1 }}>
             {busy ? 'Making a new code…' : 'Make a new code'}
           </ThemedText>
         </Pressable>
@@ -184,7 +184,7 @@ export function BuddyVerification({ sighting, speciesName }: { sighting: Sightin
 
     {loading ? <ActivityIndicator /> : null}
     {problem ? (
-      <ThemedText type="small" style={problem.kind === 'offline' ? undefined : { color: DANGER }} themeColor="textSecondary">
+      <ThemedText type="small" themeColor={problem.kind === 'offline' ? 'textSecondary' : 'danger'} accessibilityLiveRegion="polite">
         {problem.message}
         {problem.kind === 'offline' && cached.checkedAt ? ` Showing what was known on ${dateOf(cached.checkedAt)}.` : ''}
       </ThemedText>
@@ -195,7 +195,7 @@ export function BuddyVerification({ sighting, speciesName }: { sighting: Sightin
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   const theme = useTheme();
   return <View style={[styles.card, { backgroundColor: theme.backgroundElement }]}>
-    <ThemedText type="smallBold">{title}</ThemedText>
+    <ThemedText type="smallBold" accessibilityRole="header">{title}</ThemedText>
     {children}
   </View>;
 }

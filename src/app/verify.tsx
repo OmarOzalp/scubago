@@ -1,6 +1,6 @@
 import { Image } from 'expo-image';
 import { router, useLocalSearchParams } from 'expo-router';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
 
 import { OceanButton } from '@/components/ocean-button';
@@ -8,9 +8,9 @@ import { formatDate } from '@/components/sighting-row';
 import { SpeciesAvatar } from '@/components/species-avatar';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
-import { Ocean } from '@/constants/palette';
 import { Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
+import { announce } from '@/lib/announce';
 import { CATALOG_BY_ID } from '@/lib/catalog';
 import { useAllSites, useAppStore } from '@/lib/store';
 import { getSupabase } from '@/lib/supabase';
@@ -31,7 +31,6 @@ import {
 } from '@/lib/verification-api';
 
 const ROLES: VerifierRole[] = ['buddy', 'instructor', 'divemaster', 'other'];
-const DANGER = '#c0392b';
 
 /**
  * A buddy answers a code (`/verify?code=…`): signed in, they see the sighting it's for and say
@@ -48,6 +47,8 @@ export default function VerifyScreen() {
   const [role, setRole] = useState<VerifierRole>('buddy');
   const [busy, setBusy] = useState(false);
   const [problem, setProblem] = useState<string | null>(null);
+  // Read problems aloud to screen-reader users as they appear (iOS ignores live regions).
+  useEffect(() => announce(problem), [problem]);
   const [answered, setAnswered] = useState<{ decision: Decision; status?: SightingStatus } | null>(null);
 
   if (!client) {
@@ -109,8 +110,8 @@ export default function VerifyScreen() {
     const confirmed = answered.decision === 'saw_it';
     return <ThemedView style={{ flex: 1 }}>
       <View style={styles.content}>
-        <ThemedText style={{ fontSize: 44, textAlign: 'center' }}>{confirmed ? '🤝' : '👍'}</ThemedText>
-        <ThemedText type="subtitle" style={{ textAlign: 'center' }}>{confirmed ? 'Thanks for confirming' : 'Thanks for answering'}</ThemedText>
+        <ThemedText style={{ fontSize: 44, lineHeight: 54, textAlign: 'center' }} importantForAccessibility="no" accessibilityElementsHidden>{confirmed ? '🤝' : '👍'}</ThemedText>
+        <ThemedText type="subtitle" style={{ textAlign: 'center' }} accessibilityRole="header">{confirmed ? 'Thanks for confirming' : 'Thanks for answering'}</ThemedText>
         <ThemedText style={{ textAlign: 'center' }}>
           {`Your answer is on @${preview.owner}’s ${speciesName} sighting`}
           {answered.status ? `, which now shows “${STATUS_LABEL[answered.status]}”.` : '.'}
@@ -192,7 +193,7 @@ export default function VerifyScreen() {
                 </ThemedText>
                 <View style={{ gap: Spacing.one }}>
                   <ThemedText type="smallBold">On this dive, you were…</ThemedText>
-                  <View style={styles.roles}>
+                  <View style={styles.roles} accessibilityRole="radiogroup" accessibilityLabel="On this dive, you were">
                     {ROLES.map((r) => {
                       const selected = r === role;
                       return (
@@ -200,9 +201,9 @@ export default function VerifyScreen() {
                           key={r}
                           onPress={() => setRole(r)}
                           accessibilityRole="radio"
-                          accessibilityState={{ selected }}
-                          style={[styles.role, { borderColor: selected ? Ocean.primary : theme.backgroundSelected, backgroundColor: selected ? `${Ocean.primary}22` : 'transparent' }]}>
-                          <ThemedText type="small" style={selected ? { color: Ocean.primary, fontWeight: '700' } : undefined}>
+                          accessibilityState={{ checked: selected }}
+                          style={[styles.role, { borderColor: selected ? theme.text : theme.backgroundSelected, borderWidth: selected ? 2 : 1, backgroundColor: selected ? theme.backgroundElement : 'transparent' }]}>
+                          <ThemedText type={selected ? 'smallBold' : 'small'}>
                             {ROLE_LABEL[r]}
                           </ThemedText>
                         </Pressable>
@@ -225,7 +226,7 @@ export default function VerifyScreen() {
           </View>
         ) : null}
 
-        {problem ? <ThemedText type="small" style={{ color: DANGER }}>{problem}</ThemedText> : null}
+        {problem ? <ThemedText type="small" themeColor="danger" accessibilityLiveRegion="polite">{problem}</ThemedText> : null}
       </ScrollView>
     </ThemedView>
   );
@@ -234,7 +235,7 @@ export default function VerifyScreen() {
 function Fact({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <View style={styles.fact}>
-      <ThemedText type="small" themeColor="textSecondary" style={{ width: 44 }}>{label}</ThemedText>
+      <ThemedText type="small" themeColor="textSecondary" style={{ minWidth: 44 }}>{label}</ThemedText>
       <ThemedText type="smallBold" style={{ flex: 1, textAlign: 'right' }}>{children}</ThemedText>
     </View>
   );
@@ -291,7 +292,8 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderRadius: 999,
     paddingHorizontal: Spacing.three,
-    paddingVertical: 6,
+    minHeight: 44,
+    justifyContent: 'center',
   },
   link: {
     alignSelf: 'center',

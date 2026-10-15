@@ -1,7 +1,6 @@
 import { router } from 'expo-router';
 import { useMemo, useState } from 'react';
 import {
-  Alert,
   FlatList,
   Platform,
   Pressable,
@@ -11,6 +10,7 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { SiteList } from '@/components/site-list';
 import { SiteMap } from '@/components/site-map';
 import { SpeciesAvatar } from '@/components/species-avatar';
 import { ThemedText } from '@/components/themed-text';
@@ -18,8 +18,10 @@ import { Ocean } from '@/constants/palette';
 import { Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { CATALOG, CATALOG_BY_ID } from '@/lib/catalog';
+import { confirmAction } from '@/lib/confirm';
 import { CATEGORY_EMOJI } from '@/lib/rarity';
 import { useAllSites, useAppStore } from '@/lib/store';
+import { searchSpecies } from '@/lib/text-search';
 import type { Species } from '@/lib/types';
 
 export default function MapScreen() {
@@ -32,6 +34,8 @@ export default function MapScreen() {
   const [speciesFilter, setSpeciesFilter] = useState<Species | null>(null);
   const [searching, setSearching] = useState(false);
   const [query, setQuery] = useState('');
+  // A plain list of sites on phones too: easier for screen readers than pins on a map.
+  const [listView, setListView] = useState(false);
 
   const sightingsBySite = useMemo(() => {
     const map = new Map<string, Map<string, number>>();
@@ -53,14 +57,7 @@ export default function MapScreen() {
     return ids;
   }, [speciesFilter, sites, sightingsBySite]);
 
-  const results = useMemo(() => {
-    const q = query.trim().toLowerCase();
-    if (!q) return CATALOG.slice(0, 12);
-    return CATALOG.filter(
-      (s) =>
-        s.commonName.toLowerCase().includes(q) || s.scientificName.toLowerCase().includes(q),
-    ).slice(0, 12);
-  }, [query]);
+  const results = useMemo(() => searchSpecies(CATALOG, query).slice(0, 12), [query]);
 
   const selectedSite = selectedSiteId ? sites.find((s) => s.id === selectedSiteId) : null;
   const selectedTopSpecies = useMemo(() => {
@@ -81,75 +78,91 @@ export default function MapScreen() {
     setSelectedSiteId(null);
   };
 
-  const handleLongPress = (lat: number, lng: number) => {
-    Alert.alert(
-      'Add a dive site here?',
-      `A new site will be pinned at ${lat.toFixed(4)}, ${lng.toFixed(4)}.`,
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Add site',
-          onPress: () =>
-            router.push({ pathname: '/add-site', params: { lat: String(lat), lng: String(lng) } }),
-        },
-      ],
-    );
+  const handleLongPress = async (lat: number, lng: number) => {
+    const ok = await confirmAction({
+      title: 'Add a dive site here?',
+      message: `A new site will be pinned at ${lat.toFixed(4)}, ${lng.toFixed(4)}.`,
+      confirmLabel: 'Add site',
+    });
+    if (ok) router.push({ pathname: '/add-site', params: { lat: String(lat), lng: String(lng) } });
+  };
+  const selectSite = (id: string) => {
+    setSelectedSiteId(id);
+    setSearching(false);
   };
 
   return (
-    <View style={styles.container}>
-      <SiteMap
-        sites={sites}
-        highlightedSiteIds={highlightedSiteIds}
-        onSelectSite={(id) => {
-          setSelectedSiteId(id);
-          setSearching(false);
-        }}
-        onLongPress={handleLongPress}
-      />
+    <View style={[styles.container, { backgroundColor: theme.background }]}>
+      {listView && Platform.OS !== 'web' ? (
+        <SiteList
+          sites={sites}
+          highlightedSiteIds={highlightedSiteIds}
+          onSelectSite={selectSite}
+          topInset={insets.top + 64}
+        />
+      ) : (
+        <SiteMap
+          sites={sites}
+          highlightedSiteIds={highlightedSiteIds}
+          onSelectSite={selectSite}
+          onLongPress={handleLongPress}
+        />
+      )}
 
       {/* Species search / active filter */}
       <View style={[styles.topOverlay, { top: insets.top + Spacing.two }]}>
         {speciesFilter ? (
           <Pressable
             onPress={() => setSpeciesFilter(null)}
+            accessibilityRole="button"
+            accessibilityLabel={`Showing where to see the ${speciesFilter.commonName}: ${highlightedSiteIds?.size ?? 0} sites. Clear`}
             style={[styles.filterChip, { backgroundColor: theme.background }]}>
             <SpeciesAvatar species={speciesFilter} size={28} />
-            <ThemedText type="smallBold" style={{ flex: 1 }} numberOfLines={1}>
+            <ThemedText type="smallBold" style={{ flex: 1 }} numberOfLines={2}>
               {speciesFilter.commonName} — seen at {highlightedSiteIds?.size ?? 0} sites
             </ThemedText>
-            <ThemedText type="smallBold" themeColor="textSecondary">
+            <ThemedText type="smallBold" themeColor="textSecondary" importantForAccessibility="no" accessibilityElementsHidden>
               ✕
             </ThemedText>
           </Pressable>
+        ) : searching ? (
+          <View style={[styles.searchBar, { backgroundColor: theme.background }]}>
+            <TextInput
+              autoFocus
+              value={query}
+              onChangeText={setQuery}
+              accessibilityLabel="Which species? Search by name"
+              placeholder="Whale shark, manta, seahorse…"
+              placeholderTextColor={theme.textSecondary}
+              autoCorrect={false}
+              returnKeyType="search"
+              style={[styles.searchInput, { color: theme.text }]}
+              onSubmitEditing={() => results[0] && pickSpecies(results[0])}
+            />
+            <Pressable
+              onPress={() => {
+                setSearching(false);
+                setQuery('');
+              }}
+              accessibilityRole="button"
+              style={styles.barButton}>
+              <ThemedText type="smallBold" themeColor="textSecondary">
+                Cancel
+              </ThemedText>
+            </Pressable>
+          </View>
         ) : (
           <Pressable
             onPress={() => setSearching(true)}
+            accessibilityRole="search"
+            accessibilityLabel="Where can I see a… Search by species"
             style={[styles.searchBar, { backgroundColor: theme.background }]}>
-            {searching ? (
-              <TextInput
-                autoFocus
-                value={query}
-                onChangeText={setQuery}
-                placeholder="Whale shark, manta, seahorse…"
-                placeholderTextColor={theme.textSecondary}
-                style={[styles.searchInput, { color: theme.text }]}
-                onSubmitEditing={() => results[0] && pickSpecies(results[0])}
-              />
-            ) : (
-              <ThemedText themeColor="textSecondary">🔍 Where can I see a…</ThemedText>
-            )}
-            {searching ? (
-              <Pressable
-                onPress={() => {
-                  setSearching(false);
-                  setQuery('');
-                }}>
-                <ThemedText type="smallBold" themeColor="textSecondary">
-                  Cancel
-                </ThemedText>
-              </Pressable>
-            ) : null}
+            <ThemedText themeColor="textSecondary">
+              <ThemedText importantForAccessibility="no" accessibilityElementsHidden>
+                🔍{' '}
+              </ThemedText>
+              Where can I see a…
+            </ThemedText>
           </Pressable>
         )}
 
@@ -159,9 +172,16 @@ export default function MapScreen() {
               data={results}
               keyboardShouldPersistTaps="handled"
               keyExtractor={(s) => s.id}
+              ListEmptyComponent={
+                <ThemedText type="small" themeColor="textSecondary" style={styles.noResults} accessibilityLiveRegion="polite">
+                  No species matches “{query.trim()}”.
+                </ThemedText>
+              }
               renderItem={({ item }) => (
                 <Pressable
                   onPress={() => pickSpecies(item)}
+                  accessibilityRole="button"
+                  accessibilityLabel={`${item.commonName}. Show where it’s seen`}
                   style={({ pressed }) => [
                     styles.resultRow,
                     pressed && { backgroundColor: theme.backgroundElement },
@@ -189,14 +209,14 @@ export default function MapScreen() {
           ]}>
           <View style={styles.siteCardHeader}>
             <View style={{ flex: 1 }}>
-              <ThemedText type="smallBold" style={{ fontSize: 18 }} numberOfLines={1}>
+              <ThemedText type="smallBold" style={{ fontSize: 18 }} numberOfLines={2} accessibilityRole="header">
                 {selectedSite.name}
               </ThemedText>
               <ThemedText type="small" themeColor="textSecondary">
                 {selectedSite.region}, {selectedSite.country}
               </ThemedText>
             </View>
-            <Pressable onPress={() => setSelectedSiteId(null)} hitSlop={12}>
+            <Pressable onPress={() => setSelectedSiteId(null)} accessibilityRole="button" accessibilityLabel="Close" style={styles.closeButton}>
               <ThemedText type="smallBold" themeColor="textSecondary">
                 ✕
               </ThemedText>
@@ -208,6 +228,8 @@ export default function MapScreen() {
               {selectedTopSpecies.map(({ species, count }) => (
                 <View
                   key={species.id}
+                  accessible
+                  accessibilityLabel={`${species.commonName}, ${count} ${count === 1 ? 'sighting' : 'sightings'}`}
                   style={[styles.speciesChip, { backgroundColor: theme.backgroundElement }]}>
                   <ThemedText type="small">
                     {species.emoji ?? CATEGORY_EMOJI[species.category]} {species.commonName}{' '}
@@ -225,6 +247,8 @@ export default function MapScreen() {
           <View style={styles.cardButtons}>
             <Pressable
               onPress={() => router.push(`/site/${selectedSite.id}`)}
+              accessibilityRole="button"
+              accessibilityLabel={`Details about ${selectedSite.name}`}
               style={[styles.cardButton, { backgroundColor: theme.backgroundElement }]}>
               <ThemedText type="smallBold">Details</ThemedText>
             </Pressable>
@@ -232,6 +256,8 @@ export default function MapScreen() {
               onPress={() =>
                 router.push({ pathname: '/log/new', params: { siteId: selectedSite.id } })
               }
+              accessibilityRole="button"
+              accessibilityLabel={`Log a sighting at ${selectedSite.name}`}
               style={[styles.cardButton, { backgroundColor: Ocean.primary }]}>
               <ThemedText type="smallBold" style={{ color: Ocean.onPrimary }}>
                 Log sighting here
@@ -241,11 +267,37 @@ export default function MapScreen() {
         </View>
       ) : null}
 
+      {/* Adding a site without the long-press, which VoiceOver and the web app can't do; and the list view. */}
+      {!selectedSite ? (
+        <View style={[styles.bottomActions, { bottom: insets.bottom + Spacing.three }]}>
+          <Pressable
+            onPress={() => router.push('/add-site')}
+            accessibilityRole="button"
+            accessibilityLabel="Add a dive site"
+            style={[styles.pill, { backgroundColor: theme.background }]}>
+            <ThemedText type="smallBold">＋ Add a site</ThemedText>
+          </Pressable>
+          {Platform.OS !== 'web' ? (
+            <Pressable
+              onPress={() => setListView((v) => !v)}
+              accessibilityRole="button"
+              accessibilityLabel={listView ? 'Show the map' : 'Show sites as a list'}
+              style={[styles.pill, { backgroundColor: theme.background }]}>
+              <ThemedText type="smallBold">{listView ? 'Map' : 'List'}</ThemedText>
+            </Pressable>
+          ) : null}
+        </View>
+      ) : null}
+
       {/* Log FAB */}
       <Pressable
         onPress={() => router.push('/log/new')}
+        accessibilityRole="button"
+        accessibilityLabel="Log a sighting"
         style={[styles.fab, { bottom: insets.bottom + Spacing.three }]}>
-        <ThemedText style={styles.fabPlus}>＋</ThemedText>
+        <ThemedText style={styles.fabPlus} importantForAccessibility="no" accessibilityElementsHidden>
+          ＋
+        </ThemedText>
       </Pressable>
     </View>
   );
@@ -266,7 +318,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     borderRadius: 14,
     paddingHorizontal: Spacing.three,
-    height: 48,
+    minHeight: 48,
     gap: Spacing.two,
     shadowColor: '#000',
     shadowOpacity: 0.15,
@@ -277,14 +329,48 @@ const styles = StyleSheet.create({
   searchInput: {
     flex: 1,
     fontSize: 16,
-    height: '100%',
+    minHeight: 48,
+  },
+  barButton: {
+    minHeight: 44,
+    minWidth: 44,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  closeButton: {
+    minHeight: 44,
+    minWidth: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: -10,
+    marginRight: -10,
+  },
+  noResults: {
+    padding: Spacing.three,
+  },
+  bottomActions: {
+    position: 'absolute',
+    left: Spacing.three,
+    flexDirection: 'row',
+    gap: Spacing.two,
+  },
+  pill: {
+    minHeight: 48,
+    borderRadius: 24,
+    paddingHorizontal: Spacing.three,
+    justifyContent: 'center',
+    shadowColor: '#000',
+    shadowOpacity: 0.15,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 2 },
+    elevation: 4,
   },
   filterChip: {
     flexDirection: 'row',
     alignItems: 'center',
     borderRadius: 14,
     paddingHorizontal: Spacing.two + 2,
-    height: 48,
+    minHeight: 48,
     gap: Spacing.two,
     shadowColor: '#000',
     shadowOpacity: 0.15,
@@ -344,6 +430,8 @@ const styles = StyleSheet.create({
   cardButton: {
     flex: 1,
     alignItems: 'center',
+    justifyContent: 'center',
+    minHeight: 48,
     paddingVertical: 12,
     borderRadius: 12,
   },

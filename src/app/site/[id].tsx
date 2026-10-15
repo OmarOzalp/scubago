@@ -51,7 +51,7 @@ export default function SiteDetailScreen() {
       <Stack.Screen options={{ title: site.name }} />
       <ScrollView contentContainerStyle={styles.content}>
         <View style={{ gap: 2 }}>
-          <ThemedText type="subtitle" style={{ fontSize: 26, lineHeight: 32 }}>
+          <ThemedText type="subtitle" style={{ fontSize: 26, lineHeight: 32 }} accessibilityRole="header">
             {site.name}
           </ThemedText>
           <ThemedText type="small" themeColor="textSecondary">
@@ -76,7 +76,7 @@ export default function SiteDetailScreen() {
         ) : null}
         {site.conditions ? <ThemedText type="small" themeColor="textSecondary">{site.conditions}</ThemedText> : null}
 
-        <View style={styles.statsRow}>
+        <View style={styles.statsRow} accessible accessibilityLabel={`${siteSightings.length} sightings, ${speciesCount} species`}>
           <ThemedText type="smallBold">{siteSightings.length}</ThemedText>
           <ThemedText type="small" themeColor="textSecondary">
             sightings
@@ -91,7 +91,9 @@ export default function SiteDetailScreen() {
 
         {site.notableSpecies.length > 0 ? (
           <View style={{ gap: Spacing.two }}>
-            <ThemedText type="smallBold">What divers see here</ThemedText>
+            <ThemedText type="smallBold" accessibilityRole="header">
+              What divers see here
+            </ThemedText>
             <View style={styles.chipsRow}>
               {site.notableSpecies.map((speciesId) => {
                 const species = CATALOG_BY_ID.get(speciesId);
@@ -99,6 +101,8 @@ export default function SiteDetailScreen() {
                 return (
                   <View
                     key={speciesId}
+                    accessible
+                    accessibilityLabel={species.commonName}
                     style={[styles.chip, { backgroundColor: theme.backgroundElement }]}>
                     <ThemedText type="small">
                       {species.emoji ?? CATEGORY_EMOJI[species.category]} {species.commonName}
@@ -116,7 +120,9 @@ export default function SiteDetailScreen() {
         />
 
         <View style={{ gap: Spacing.two }}>
-          <ThemedText type="smallBold">Recent sightings</ThemedText>
+          <ThemedText type="smallBold" accessibilityRole="header">
+            Recent sightings
+          </ThemedText>
           {siteSightings.length === 0 ? (
             <ThemedText type="small" themeColor="textSecondary">
               None yet — be the first to log one.

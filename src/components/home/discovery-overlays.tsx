@@ -68,17 +68,17 @@ const styles = StyleSheet.create({
     paddingVertical: 10, paddingHorizontal: 14, borderRadius: 16, backgroundColor: 'rgba(255,255,255,.9)',
   },
   bannerTitle: { color: '#254C40', fontSize: 14, fontWeight: '600', letterSpacing: -.2, textAlign: 'center' },
-  bannerDetail: { color: '#577467', fontSize: 11, textAlign: 'center' },
+  bannerDetail: { color: '#3F5A4D', fontSize: 13, textAlign: 'center' },
   note: {
     position: 'absolute', bottom: 12, left: 16, right: 16, alignItems: 'center',
     paddingVertical: 8, paddingHorizontal: 12, borderRadius: 14, backgroundColor: 'rgba(255,255,255,.88)',
   },
-  noteText: { color: '#254C40', fontSize: 12, textAlign: 'center' },
+  noteText: { color: '#254C40', fontSize: 13, textAlign: 'center' },
   tag: {
     position: 'absolute', left: 0, top: 0, maxWidth: 200, flexDirection: 'row', alignItems: 'center', gap: 5,
     paddingVertical: 4, paddingHorizontal: 9, borderRadius: 12, backgroundColor: 'rgba(255,255,255,.92)',
   },
   tagDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: '#E07A3F' },
-  tagText: { color: '#254C40', fontSize: 11, flexShrink: 1 },
+  tagText: { color: '#254C40', fontSize: 13, flexShrink: 1 },
   tagNew: { fontWeight: '700', color: '#B45A28' },
 });

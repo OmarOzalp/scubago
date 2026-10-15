@@ -62,7 +62,7 @@ export default function SpeciesDetailScreen() {
       <ScrollView contentContainerStyle={styles.content}>
         {species.photoUrl ? (
           <View>
-            <Image source={{ uri: species.photoUrl }} style={styles.hero} contentFit="cover" />
+            <Image source={{ uri: species.photoUrl }} style={styles.hero} contentFit="cover" accessibilityLabel={`Photo of a ${species.commonName}`} />
             {species.photoAttribution ? (
               <ThemedText type="small" themeColor="textSecondary" style={styles.attribution}>
                 {species.photoAttribution} · iNaturalist
@@ -70,15 +70,15 @@ export default function SpeciesDetailScreen() {
             ) : null}
           </View>
         ) : (
-          <View style={[styles.heroFallback, { backgroundColor: theme.backgroundElement }]}>
-            <ThemedText style={{ fontSize: 72 }}>
+          <View style={[styles.heroFallback, { backgroundColor: theme.backgroundElement }]} importantForAccessibility="no-hide-descendants" accessibilityElementsHidden>
+            <ThemedText style={{ fontSize: 72, lineHeight: 86 }}>
               {species.emoji ?? CATEGORY_EMOJI[species.category]}
             </ThemedText>
           </View>
         )}
 
         <View style={{ gap: Spacing.one }}>
-          <ThemedText type="subtitle" style={{ fontSize: 26, lineHeight: 32 }}>
+          <ThemedText type="subtitle" style={{ fontSize: 26, lineHeight: 32 }} accessibilityRole="header">
             {species.commonName}
           </ThemedText>
           <ThemedText type="small" themeColor="textSecondary" style={{ fontStyle: 'italic' }}>
@@ -117,7 +117,9 @@ export default function SpeciesDetailScreen() {
         )}
 
         <View style={{ gap: Spacing.two }}>
-          <ThemedText type="smallBold">Where it’s been seen</ThemedText>
+          <ThemedText type="smallBold" accessibilityRole="header">
+            Where it’s been seen
+          </ThemedText>
           {seenAt.length === 0 ? (
             <ThemedText type="small" themeColor="textSecondary">
               No logged sightings yet — it’s out there somewhere.
@@ -127,6 +129,8 @@ export default function SpeciesDetailScreen() {
               <Pressable
                 key={site.id}
                 onPress={() => router.push(`/site/${site.id}`)}
+                accessibilityRole="button"
+                accessibilityLabel={`${site.name}, ${site.region}, ${site.country}: seen ${count} ${count === 1 ? 'time' : 'times'}, last on ${formatDate(last)}`}
                 style={({ pressed }) => [
                   styles.siteRow,
                   { backgroundColor: pressed ? theme.backgroundSelected : theme.backgroundElement },
@@ -188,7 +192,7 @@ const styles = StyleSheet.create({
   },
   attribution: {
     marginTop: 4,
-    fontSize: 11,
+    fontSize: 12,
   },
   tagRow: {
     flexDirection: 'row',

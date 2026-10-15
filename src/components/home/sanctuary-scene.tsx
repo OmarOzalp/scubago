@@ -114,8 +114,11 @@ export function SanctuaryScene({ habitat, level, residents, paused = false, load
     ? `Level ${level} ${habitat} with ${SHOWCASE ? `${SHOWCASE_SWIMMERS.length} visiting species` : 'a visiting whale shark and reef manta ray'} as a preview${tuna}`
     : `Level ${level} ${habitat}, home to ${residents.length} discovered species, ${swimmers.length} swimming${tuna}`;
 
-  return <View style={styles.scene} onLayout={onLayout} accessible accessibilityRole="image" accessibilityLabel={description}>
+  // The 3D view is one labelled image for screen readers. The label sits inside the error boundary,
+  // so if the scene fails, its fallback and "Try again" button can still be reached.
+  return <View style={styles.scene} onLayout={onLayout}>
     <SceneBoundary fallback={fallback}>
+      <View style={styles.canvas} accessible accessibilityRole="image" accessibilityLabel={description}>
       <Canvas orthographic flat {...(Platform.OS === 'web' ? { dpr: 1.25 } : {})} frameloop={active && !!models && !loading ? 'always' : 'demand'} camera={SCENE_CAMERA}
         gl={{ antialias: Platform.OS === 'web' }}
         onCreated={({ camera }) => camera.lookAt(0, -.15, 0)} style={styles.canvas}>
@@ -132,6 +135,7 @@ export function SanctuaryScene({ habitat, level, residents, paused = false, load
             onSchoolPress={() => router.push(`/species/${schoolSpecies}`)} school={school} schoolSpecies={SCHOOLED} arrivals={arrivals} />}
         </SanctuaryEnvironment>
       </Canvas>
+      </View>
     </SceneBoundary>
     {!!label && <NewTag label={label} x={tag.x} y={tag.y} inView={tag.inView} visible={!!moments?.tag && !preview}
       onWidth={(width) => { layout.current.tag = width; }} />}

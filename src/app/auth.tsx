@@ -221,6 +221,11 @@ function SignInForm() {
                 : 'Your log backs up to your account and follows you to any device.'}
         </ThemedText>
 
+        {notice ? (
+          <ThemedText type="small" themeColor="textSecondary">
+            {notice}
+          </ThemedText>
+        ) : null}
         <FormField
           label="Email"
           placeholder="you@example.com"
@@ -255,6 +260,8 @@ function SignInForm() {
             label={mode === 'reset-code' ? 'New password' : 'Password'}
             hint={mode === 'sign-in' ? undefined : `At least ${MIN_PASSWORD_LENGTH} characters`}
             secureTextEntry
+            autoCapitalize="none"
+            autoCorrect={false}
             autoComplete={mode === 'sign-in' ? 'current-password' : 'new-password'}
             textContentType={mode === 'sign-in' ? 'password' : 'newPassword'}
             returnKeyType={mode === 'sign-in' ? 'go' : 'next'}
@@ -268,6 +275,8 @@ function SignInForm() {
             ref={confirmRef}
             label="Type the password again"
             secureTextEntry
+            autoCapitalize="none"
+            autoCorrect={false}
             autoComplete="new-password"
             textContentType="newPassword"
             returnKeyType="go"
@@ -277,11 +286,6 @@ function SignInForm() {
           />
         ) : null}
 
-        {notice ? (
-          <ThemedText type="small" themeColor="textSecondary">
-            {notice}
-          </ThemedText>
-        ) : null}
         {error ? (
           <ThemedText type="small" themeColor="danger" accessibilityLiveRegion="polite">
             {error}

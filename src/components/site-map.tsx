@@ -43,6 +43,8 @@ export function SiteMap({ sites, highlightedSiteIds, onSelectSite, onLongPress }
             pinColor={highlighted ? Ocean.pinHighlight : Ocean.pin}
             opacity={dimmed ? 0.3 : 1}
             onPress={() => onSelectSite(site.id)}
+            accessibilityRole="button"
+            accessibilityLabel={`${site.name}, ${site.region}, ${site.country}${highlighted ? ', matches your search' : ''}`}
           />
         );
       })}
