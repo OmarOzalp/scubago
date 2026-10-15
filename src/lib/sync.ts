@@ -1,4 +1,5 @@
-import type { DiveSite, Sighting, SightingStatus } from '@/lib/types';
+import { isPrivatePhotoRef, PRIVATE_PHOTO_BUCKET, privatePhotoPath, privatePhotoRef, sharesNotes, sharesPhoto } from '@/lib/privacy';
+import type { DiveSite, Sighting, SightingStatus, Visibility } from '@/lib/types';
 
 export type PushFn<T extends Sighting = Sighting> = (sighting: T) => Promise<void>;
 
@@ -56,29 +57,50 @@ export interface RemoteSightingRow {
   status?: SightingStatus | null;
   /** The diver's name for a "something else" sighting (migration 0007). */
   custom_name?: string | null;
+  /** Who can see it (migration 0008); absent from projects without it, where every sighting is public. */
+  visibility?: Visibility | null;
 }
 
+/** What only the owner can read about one of their sightings (sighting_details, migration 0008). */
+export interface RemoteDetailsRow {
+  sighting_id: string;
+  user_id: string;
+  notes: string | null;
+  /** The photo's path in the private bucket. */
+  photo_path: string | null;
+}
+
+/**
+ * The sighting as the public row holds it. Notes and a photo the diver keeps to themselves are left
+ * out here, whatever the caller passes: they go to sighting_details and the private bucket instead.
+ */
 export function sightingToRemoteRow(
   s: Sighting,
   photoUrl: string | null,
 ): Omit<RemoteSightingRow, 'profiles'> {
   const existingRemotePhoto = s.photoUri?.startsWith('http') ? s.photoUri : null;
+  const photo = photoUrl ?? existingRemotePhoto;
   return {
     id: s.id,
     user_id: s.userId,
     species_id: s.speciesId,
     site_id: s.siteId,
     sighted_on: s.sightedOn,
-    notes: s.notes ?? null,
-    photo_url: photoUrl ?? existingRemotePhoto,
+    notes: sharesNotes(s) ? (s.notes ?? null) : null,
+    photo_url: sharesPhoto(s) && photo?.startsWith('http') ? photo : null,
     created_at: s.createdAt,
     // Only sent when there is one, so projects without migration 0007 keep syncing everything else.
     ...(s.customName ? { custom_name: s.customName } : {}),
+    // Likewise for 0008 (a project without it has only public sightings; see sync-service.ts).
+    ...(s.visibility ? { visibility: s.visibility } : {}),
   };
 }
 
 /** The columns an owner may change after logging (the rest are fixed once the row exists). */
-export type SightingFacts = Pick<RemoteSightingRow, 'species_id' | 'site_id' | 'sighted_on' | 'notes' | 'photo_url' | 'custom_name'>;
+export type SightingFacts = Pick<
+  RemoteSightingRow,
+  'species_id' | 'site_id' | 'sighted_on' | 'notes' | 'photo_url' | 'custom_name' | 'visibility'
+>;
 
 export function sightingFacts(row: Omit<RemoteSightingRow, 'profiles'>): SightingFacts {
   return {
@@ -88,6 +110,34 @@ export function sightingFacts(row: Omit<RemoteSightingRow, 'profiles'>): Sightin
     notes: row.notes,
     photo_url: row.photo_url,
     ...(row.custom_name ? { custom_name: row.custom_name } : {}),
+    ...(row.visibility ? { visibility: row.visibility } : {}),
+  };
+}
+
+/**
+ * What only the owner may read: the notes and photo the public row leaves out. Null when nothing is
+ * kept back (any earlier details row then goes). `photo` is the photo as it now is on the server.
+ */
+export function privateDetailsRow(s: Sighting, photo: string | null): RemoteDetailsRow | null {
+  const notes = !sharesNotes(s) && s.notes ? s.notes : null;
+  const photoPath = !sharesPhoto(s) ? privatePhotoPath(photo, s.userId) : null;
+  if (!notes && !photoPath) return null;
+  return { sighting_id: s.id, user_id: s.userId, notes, photo_path: photoPath };
+}
+
+/**
+ * One of the diver's own pulled sightings with what only they can read put back. Anything found in
+ * sighting_details was kept private, so it stays private if the sighting is shared later.
+ */
+export function withPrivateDetails(s: Sighting, details: RemoteDetailsRow | undefined): Sighting {
+  const notesPrivate = !!details?.notes;
+  const photoPrivate = !!details?.photo_path;
+  return {
+    ...s,
+    ...(notesPrivate ? { notes: details!.notes! } : {}),
+    ...(photoPrivate ? { photoUri: privatePhotoRef(details!.photo_path!) } : {}),
+    notesPrivate,
+    photoPrivate,
   };
 }
 
@@ -107,6 +157,7 @@ export function remoteRowToSighting(row: RemoteSightingRow): Sighting {
     ...(row.status ? { status: row.status } : {}),
     // A name left behind after an edit to a catalogue species means nothing any more.
     ...(row.species_id === 'unlisted' && row.custom_name ? { customName: row.custom_name } : {}),
+    ...(row.visibility === 'public' || row.visibility === 'private' ? { visibility: row.visibility } : {}),
   };
 }
 
@@ -207,6 +258,19 @@ export function ownPhotoPath(url: string | undefined, userId: string): string | 
   const [folder, file, ...rest] = path.split('/');
   if (folder !== userId || !file || rest.length > 0 || file.startsWith('.')) return null;
   return path;
+}
+
+/** Where one of this user's photos is stored, from its public URL or private ref; null for anything else. */
+export function storedPhoto(
+  ref: string | undefined | null,
+  userId: string,
+): { bucket: typeof PHOTO_BUCKET | typeof PRIVATE_PHOTO_BUCKET; path: string } | null {
+  if (isPrivatePhotoRef(ref)) {
+    const path = privatePhotoPath(ref, userId);
+    return path ? { bucket: PRIVATE_PHOTO_BUCKET, path } : null;
+  }
+  const path = ownPhotoPath(ref ?? undefined, userId);
+  return path ? { bucket: PHOTO_BUCKET, path } : null;
 }
 
 /**

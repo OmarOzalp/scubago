@@ -48,12 +48,21 @@ function setup(queued: OutboxSighting[], sites: DiveSite[] = []) {
     markDeletionSynced: async (id) => { calls.markDeletionSynced.push(id); },
     forgetSighting: async () => {},
     mergePulledSightings: async (pulled, scope) => { calls.merged.push([pulled, scope]); },
-    uploadPhoto: async (client, userId, sightingId, uri) => {
-      calls.uploadPhoto.push([client, userId, sightingId, uri]);
-      return `https://test-project.supabase.co/storage/v1/object/public/sighting-photos/${userId}/${sightingId}-x.jpg`;
+    uploadPhoto: async (client, userId, sightingId, uri, bucket) => {
+      calls.uploadPhoto.push([client, userId, sightingId, uri, bucket]);
+      const path = `${userId}/${sightingId}-x.jpg`;
+      const { error } = await client.storage.from(bucket).upload(path, new Uint8Array([1]), { upsert: true });
+      if (error) throw error;
+      return bucket === 'sighting-photos-private'
+        ? `private:${path}`
+        : `https://test-project.supabase.co/storage/v1/object/public/sighting-photos/${path}`;
     },
-    removePhotos: async (client, paths) => {
-      const { error } = await client.storage.from('sighting-photos').remove(paths);
+    copyPhoto: async (client, path, from, to) => {
+      const { error } = await client.storage.from(from).copy(path, path, { destinationBucket: to });
+      if (error) throw error;
+    },
+    removePhotos: async (client, paths, bucket = 'sighting-photos') => {
+      const { error } = await client.storage.from(bucket).remove(paths);
       if (error) throw error;
     },
     discardLocalPhoto: () => {},
@@ -79,7 +88,7 @@ describe('syncNow', () => {
     expect(server.sighting('s-1')?.photo_url).toMatch(/sighting-photos\/uid-1\/s-1-x\.jpg$/);
     // Pins the Storage RLS contract: the file goes in the owner's folder, so the uploader must
     // be called with exactly the owning user's id and sighting id.
-    expect(calls.uploadPhoto).toEqual([[expect.anything(), UID, 's-1', 'file:///p.jpg']]);
+    expect(calls.uploadPhoto).toEqual([[expect.anything(), UID, 's-1', 'file:///p.jpg', 'sighting-photos']]);
   });
 
   it('does not re-upload a photo that is already a remote url', async () => {

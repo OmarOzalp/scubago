@@ -1,4 +1,5 @@
 import { UNLISTED_ID, UNLISTED_NAME_MAX } from '@/lib/catalog';
+import type { PrivacyChoice } from '@/lib/privacy';
 import type { Sighting } from '@/lib/types';
 
 /** What the logging flow collects, for a new sighting or an edit. */
@@ -10,6 +11,19 @@ export interface SightingInput {
   photoUri?: string;
   /** Only for "something else" (species 'unlisted'): what the diver saw. */
   customName?: string;
+  /** Who can see the sighting, its notes and its photo (src/lib/privacy.ts); absent fields keep what was there. */
+  visibility?: Sighting['visibility'];
+  notesPrivate?: boolean;
+  photoPrivate?: boolean;
+}
+
+/** The privacy choice from the logging flow, falling back to an existing sighting's for anything it leaves out. */
+export function privacyChoice(input: PrivacyChoice, before: PrivacyChoice = {}): PrivacyChoice {
+  return {
+    visibility: input.visibility ?? before.visibility,
+    notesPrivate: (input.notesPrivate ?? before.notesPrivate) || undefined,
+    photoPrivate: (input.photoPrivate ?? before.photoPrivate) || undefined,
+  };
 }
 
 type Facts = Pick<Sighting, 'speciesId' | 'siteId' | 'sightedOn' | 'customName'>;
@@ -53,6 +67,7 @@ export function applyEdit(before: Sighting, input: SightingInput, now: string): 
     notes: input.notes?.trim() || undefined,
     photoUri: input.photoUri || undefined,
     customName: cleanCustomName(input),
+    ...privacyChoice(input, before),
     status: material ? 'unverified' : before.status,
     updatedAt: now,
     synced: false,

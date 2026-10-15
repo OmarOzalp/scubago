@@ -3,7 +3,7 @@ import * as SQLite from 'expo-sqlite';
 import { SITES } from '@/data/sites';
 import { CATALOG_BY_ID } from '@/lib/catalog';
 import { generateDemoSightings } from '@/lib/demo';
-import type { DiveSite, Sighting, SightingStatus } from '@/lib/types';
+import type { DiveSite, Sighting, SightingStatus, Visibility } from '@/lib/types';
 
 /** Bump to regenerate demo data on next launch (e.g. after seed data changes). */
 const DEMO_VERSION = '1';
@@ -38,6 +38,14 @@ const SIGHTING_COLUMNS_V3: [name: string, definition: string][] = [
   ['sync_error', 'TEXT'],
   // The photo URL the server holds, so a replaced or removed photo can be deleted from storage.
   ['synced_photo_url', 'TEXT'],
+];
+
+/** Columns added in schema version 6 (privacy). */
+const SIGHTING_COLUMNS_V6: [name: string, definition: string][] = [
+  // 'private', 'public', or NULL for a sighting from before privacy (shared, like 'public').
+  ['visibility', 'TEXT'],
+  ['notes_private', 'INTEGER NOT NULL DEFAULT 0'],
+  ['photo_private', 'INTEGER NOT NULL DEFAULT 0'],
 ];
 
 async function getDb(): Promise<SQLite.SQLiteDatabase> {
@@ -119,6 +127,17 @@ async function getDb(): Promise<SQLite.SQLiteDatabase> {
       }
       await db.execAsync('PRAGMA user_version = 5');
     }
+    if ((ver?.user_version ?? 0) < 6) {
+      // Who can see each sighting, its notes and its photo (migration 0008). Existing sightings
+      // stay as they were: shared with everyone.
+      const cols = await db.getAllAsync<{ name: string }>(`PRAGMA table_info(sightings)`);
+      for (const [name, definition] of SIGHTING_COLUMNS_V6) {
+        if (!cols.some((c) => c.name === name)) {
+          await db.execAsync(`ALTER TABLE sightings ADD COLUMN ${name} ${definition}`);
+        }
+      }
+      await db.execAsync('PRAGMA user_version = 6');
+    }
   }
   return db;
 }
@@ -140,6 +159,9 @@ function rowToSighting(row: any): Sighting {
     updatedAt: row.updated_at ?? undefined,
     status: (row.status as SightingStatus | null) ?? undefined,
     syncError: row.sync_error ?? undefined,
+    visibility: (row.visibility as Visibility | null) ?? undefined,
+    notesPrivate: row.notes_private ? true : undefined,
+    photoPrivate: row.photo_private ? true : undefined,
   };
 }
 
@@ -162,10 +184,12 @@ function rowToUserSite(row: any): DiveSite {
 async function insertSightingRow(d: SQLite.SQLiteDatabase, s: Sighting): Promise<void> {
   await d.runAsync(
     `INSERT OR REPLACE INTO sightings
-       (id, user_id, username, species_id, site_id, sighted_on, notes, photo_uri, is_demo, synced, created_at, custom_name)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+       (id, user_id, username, species_id, site_id, sighted_on, notes, photo_uri, is_demo, synced, created_at, custom_name,
+        visibility, notes_private, photo_private)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     s.id, s.userId, s.username, s.speciesId, s.siteId, s.sightedOn,
     s.notes ?? null, s.photoUri ?? null, s.isDemo ? 1 : 0, s.synced ? 1 : 0, s.createdAt, s.customName ?? null,
+    s.visibility ?? null, s.notesPrivate ? 1 : 0, s.photoPrivate ? 1 : 0,
   );
 }
 
@@ -249,16 +273,18 @@ export function insertSighting(s: Sighting): Promise<void> {
 }
 
 /**
- * Save an edit to one of the diver's sightings (its facts, notes, photo and the status the edit
- * leaves it with). The change waits in the outbox until it syncs. Throws if the sighting is gone.
+ * Save an edit to one of the diver's sightings (its facts, notes, photo, who can see them, and the
+ * status the edit leaves it with). The change waits in the outbox until it syncs. Throws if the sighting is gone.
  */
 export function updateSighting(s: Sighting): Promise<void> {
   return exclusive(async (d) => {
     const { changes } = await d.runAsync(
       `UPDATE sightings SET species_id = ?, site_id = ?, sighted_on = ?, notes = ?, photo_uri = ?, custom_name = ?,
+         visibility = ?, notes_private = ?, photo_private = ?,
          status = ?, updated_at = ?, synced = 0, sync_error = NULL, version = version + 1
        WHERE id = ? AND deleted = 0 AND is_demo = 0`,
       s.speciesId, s.siteId, s.sightedOn, s.notes ?? null, s.photoUri ?? null, s.customName ?? null,
+      s.visibility ?? null, s.notesPrivate ? 1 : 0, s.photoPrivate ? 1 : 0,
       s.status ?? null, s.updatedAt ?? new Date().toISOString(), s.id,
     );
     if (changes === 0) throw new Error('This sighting no longer exists.');
@@ -290,7 +316,7 @@ export interface OutboxSighting extends Sighting {
   /** The server has had this row before. */
   remote: boolean;
   version: number;
-  /** The photo URL the server holds for it. */
+  /** The photo the server holds for it: a public URL, or a private ref (src/lib/privacy.ts). */
   syncedPhotoUrl?: string;
 }
 
@@ -374,7 +400,9 @@ export interface PullScope {
  * Merge a pull into the local database:
  * - a change still waiting here (an edit, or a deletion) wins over the server's copy;
  * - a sighting deleted here but still on the server is queued for deletion again;
- * - a synced row the pull should have returned but didn't was deleted on the server, so it goes.
+ * - a synced row the pull should have returned but didn't was deleted on the server, so it goes;
+ * - a pull that says nothing about who can see a sighting (a project without migration 0008, as
+ *   far as this session knows) never makes a private one look shared.
  */
 export function mergePulledSightings(
   pulled: Sighting[],
@@ -406,18 +434,20 @@ export function mergePulledSightings(
         const { changes } = await d.runAsync(
           `INSERT INTO sightings
              (id, user_id, username, species_id, site_id, sighted_on, notes, photo_uri, is_demo, synced,
-              created_at, remote, status, synced_photo_url, custom_name)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0, 1, ?, 1, ?, ?, ?)
+              created_at, remote, status, synced_photo_url, custom_name, visibility, notes_private, photo_private)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0, 1, ?, 1, ?, ?, ?, ?, ?, ?)
            ON CONFLICT (id) DO UPDATE SET
              user_id = excluded.user_id, username = excluded.username, species_id = excluded.species_id,
              site_id = excluded.site_id, sighted_on = excluded.sighted_on, notes = excluded.notes,
              photo_uri = excluded.photo_uri, created_at = excluded.created_at, remote = 1,
-             custom_name = excluded.custom_name,
+             custom_name = excluded.custom_name, visibility = COALESCE(excluded.visibility, sightings.visibility),
+             notes_private = excluded.notes_private, photo_private = excluded.photo_private,
              status = COALESCE(excluded.status, sightings.status),
              synced_photo_url = excluded.synced_photo_url, sync_error = NULL
            WHERE sightings.synced = 1 AND sightings.deleted = 0`,
           s.id, s.userId, s.username, s.speciesId, s.siteId, s.sightedOn, s.notes ?? null,
           s.photoUri ?? null, s.createdAt, s.status ?? null, s.photoUri ?? null, s.customName ?? null,
+          s.visibility ?? null, s.notesPrivate ? 1 : 0, s.photoPrivate ? 1 : 0,
         );
         saved += changes;
       }

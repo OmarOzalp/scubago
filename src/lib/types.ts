@@ -109,7 +109,16 @@ export interface Sighting {
   status?: SightingStatus;
   /** Why the last attempt to sync this change failed; cleared once it syncs. */
   syncError?: string;
+  /** Who can see the sighting (migration 0008). Absent means everyone, as before privacy existed. */
+  visibility?: Visibility;
+  /** The notes are only for the diver, even when the sighting is shared. */
+  notesPrivate?: boolean;
+  /** The photo is only for the diver, even when the sighting is shared. */
+  photoPrivate?: boolean;
 }
+
+/** 'public': everyone sees it. 'private': only the diver who logged it (src/lib/privacy.ts). */
+export type Visibility = 'public' | 'private';
 
 /**
  * Where a sighting stands (docs/roadmap/sightings-architecture.md). Only the server sets it:

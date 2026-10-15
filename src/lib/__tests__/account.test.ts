@@ -1,22 +1,32 @@
 import { describe, expect, it } from '@jest/globals';
 import { deleteAccount } from '@/lib/account';
 
-/** A fake client whose photo folder holds `photos` file names; `fail` makes one step error. */
-function fakeClient(opts: { photos: number; fail?: 'list' | 'remove' | 'rpc' | 'missing-rpc' }) {
-  let stored = Array.from({ length: opts.photos }, (_, i) => `s-${i}.jpg`);
+/**
+ * A fake client whose public photo folder holds `photos` file names and private folder `privatePhotos`;
+ * `fail` makes one step error, and `noPrivateBucket` is a server without migration 0008.
+ */
+function fakeClient(opts: {
+  photos: number; privatePhotos?: number; noPrivateBucket?: boolean; fail?: 'list' | 'remove' | 'rpc' | 'missing-rpc';
+}) {
+  const stored: Record<string, string[]> = {
+    'sighting-photos': Array.from({ length: opts.photos }, (_, i) => `s-${i}.jpg`),
+    'sighting-photos-private': Array.from({ length: opts.privatePhotos ?? 0 }, (_, i) => `p-${i}.jpg`),
+  };
   const calls: string[] = [];
+  const missing = (bucket: string) => bucket === 'sighting-photos-private' && opts.noPrivateBucket;
   const client = {
     storage: {
       from: (bucket: string) => ({
         list: async (folder: string, { limit }: { limit: number }) => {
           calls.push(`list ${bucket}/${folder}`);
+          if (missing(bucket)) return { data: null, error: { message: 'Bucket not found' } };
           if (opts.fail === 'list') return { data: null, error: { message: 'offline' } };
-          return { data: stored.slice(0, limit).map((name) => ({ id: `id-${name}`, name })), error: null };
+          return { data: stored[bucket].slice(0, limit).map((name) => ({ id: `id-${name}`, name })), error: null };
         },
         remove: async (paths: string[]) => {
           calls.push(`remove ${paths.length}`);
           if (opts.fail === 'remove') return { data: null, error: { message: 'denied' } };
-          stored = stored.filter((name) => !paths.includes(`uid-1/${name}`));
+          stored[bucket] = stored[bucket].filter((name) => !paths.includes(`uid-1/${name}`));
           return { data: [], error: null };
         },
       }),
@@ -29,7 +39,12 @@ function fakeClient(opts: { photos: number; fail?: 'list' | 'remove' | 'rpc' | '
     },
     auth: { signOut: async ({ scope }: { scope: string }) => { calls.push(`signOut ${scope}`); return { error: null }; } },
   };
-  return { client: client as any, calls, remaining: () => stored.length };
+  return {
+    client: client as any,
+    calls,
+    remaining: () => stored['sighting-photos'].length,
+    remainingPrivate: () => stored['sighting-photos-private'].length,
+  };
 }
 
 describe('deleteAccount', () => {
@@ -45,7 +60,21 @@ describe('deleteAccount', () => {
   it('works for an account without photos', async () => {
     const { client, calls } = fakeClient({ photos: 0 });
     await deleteAccount(client, 'uid-1');
-    expect(calls).toEqual(['list sighting-photos/uid-1', 'rpc delete_own_account', 'signOut local']);
+    expect(calls).toEqual(['list sighting-photos/uid-1', 'list sighting-photos-private/uid-1', 'rpc delete_own_account', 'signOut local']);
+  });
+
+  it('removes private photos too, before the account', async () => {
+    const { client, calls, remaining, remainingPrivate } = fakeClient({ photos: 2, privatePhotos: 3 });
+    await deleteAccount(client, 'uid-1');
+    expect(remaining()).toBe(0);
+    expect(remainingPrivate()).toBe(0);
+    expect(calls.indexOf('list sighting-photos-private/uid-1')).toBeLessThan(calls.indexOf('rpc delete_own_account'));
+  });
+
+  it('works on a server without the private bucket (migration 0008)', async () => {
+    const { client, calls } = fakeClient({ photos: 1, noPrivateBucket: true });
+    await deleteAccount(client, 'uid-1');
+    expect(calls.slice(-2)).toEqual(['rpc delete_own_account', 'signOut local']);
   });
 
   it('leaves the account alone if the photos cannot all be removed', async () => {

@@ -18,7 +18,8 @@ import {
 } from '@/lib/db';
 import { isFirstOfSpecies } from '@/lib/dex';
 import { discardKeptPhoto } from '@/lib/photo-files';
-import { applyEdit, canEditSighting, cleanCustomName, localIsoDate, validateSightingInput, type SightingInput } from '@/lib/sighting-edit';
+import { isLocalPhoto } from '@/lib/privacy';
+import { applyEdit, canEditSighting, cleanCustomName, localIsoDate, privacyChoice, validateSightingInput, type SightingInput } from '@/lib/sighting-edit';
 import { getSupabase } from '@/lib/supabase';
 import { errorMessage } from '@/lib/sync';
 import { createSyncScheduler } from '@/lib/sync-scheduler';
@@ -77,8 +78,6 @@ interface StoreState {
   /** Permanently deletes the signed-in account, its sightings and photos (server and device). Throws on failure. */
   deleteAccount: () => Promise<void>;
 }
-
-const isLocalFile = (uri: string | undefined): uri is string => !!uri && !uri.startsWith('http');
 
 export const useAppStore = create<StoreState>((set, get) => {
   /** Owner of "my" rows: the signed-in user, or the device before sign-in. */
@@ -180,6 +179,7 @@ export const useAppStore = create<StoreState>((set, get) => {
           notes: input.notes?.trim() || undefined,
           photoUri: input.photoUri,
           customName: cleanCustomName(input),
+          ...privacyChoice(input),
           isDemo: false,
           synced: false, // stays in the outbox until it reaches the server
           // A millisecond apart, so the dive's sightings keep the order they were picked in.
@@ -202,7 +202,7 @@ export const useAppStore = create<StoreState>((set, get) => {
       const after = applyEdit(before, input, new Date().toISOString());
       await updateSightingRow(after);
       // A replaced photo that never left the device isn't needed any more.
-      if (before.photoUri !== after.photoUri && isLocalFile(before.photoUri)) discardKeptPhoto(before.photoUri);
+      if (before.photoUri !== after.photoUri && isLocalPhoto(before.photoUri)) discardKeptPhoto(before.photoUri);
       set({ sightings: get().sightings.map((s) => (s.id === id ? after : s)) });
       void get().requestSync();
       return { sighting: after, isNewSpecies };
@@ -215,7 +215,7 @@ export const useAppStore = create<StoreState>((set, get) => {
       // never leaves the device just loses the row.
       const pendingSync = get().user !== null;
       await deleteSightingRow(id, { pendingSync });
-      if (!pendingSync && isLocalFile(target.photoUri)) discardKeptPhoto(target.photoUri);
+      if (!pendingSync && isLocalPhoto(target.photoUri)) discardKeptPhoto(target.photoUri);
       set({
         sightings: get().sightings.filter((s) => s.id !== id),
         deletions: pendingSync ? [...get().deletions, { id, userId: target.userId }] : get().deletions,

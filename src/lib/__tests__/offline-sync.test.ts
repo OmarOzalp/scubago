@@ -41,12 +41,12 @@ function phone(server: FakeServer, name: string, userId: string) {
   const discarded: string[] = [];
   const overrides = {
     // The real uploader reads the file from disk; this one only checks it "exists".
-    uploadPhoto: async (client: any, uid: string, sightingId: string, uri: string) => {
+    uploadPhoto: async (client: any, uid: string, sightingId: string, uri: string, bucket: import('@/lib/sync-service').PhotoBucket) => {
       if (uri.includes('missing')) throw new sync.MissingPhotoError();
       const path = photoObjectPath(uid, sightingId, uri);
-      const { error } = await client.storage.from(PHOTO_BUCKET).upload(path, new Uint8Array([1]), { upsert: true });
+      const { error } = await client.storage.from(bucket).upload(path, new Uint8Array([1]), { upsert: true });
       if (error) throw error;
-      return client.storage.from(PHOTO_BUCKET).getPublicUrl(path).data.publicUrl as string;
+      return sync.photoRef(client, bucket, path);
     },
     discardLocalPhoto: (uri: string) => {
       discarded.push(uri);
@@ -454,7 +454,7 @@ describeSqlite('the local database upgrade', () => {
       // A site that never synced was added on this phone; a downloaded one waits for the next sync to say who.
       expect(userSites.map((s) => [s.id, s.createdBy])).toEqual([['site-mine', 'local'], ['site-pulled', undefined]]);
       const raw = sqliteHooks.last;
-      expect({ ...raw.prepare('PRAGMA user_version').get() }).toEqual({ user_version: 5 });
+      expect({ ...raw.prepare('PRAGMA user_version').get() }).toEqual({ user_version: 6 });
       const rows = raw.prepare('SELECT id, remote, synced_photo_url, deleted, version FROM sightings ORDER BY id').all();
       expect(rows.map((r: object) => ({ ...r }))).toEqual([
         { id: 'old-pending', remote: 0, synced_photo_url: null, deleted: 0, version: 0 },

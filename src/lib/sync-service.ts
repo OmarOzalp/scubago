@@ -15,34 +15,83 @@ import {
   type PullScope,
 } from '@/lib/db';
 import { discardKeptPhoto } from '@/lib/photo-files';
+import { isLocalPhoto, PRIVATE_PHOTO_BUCKET, PrivacyNotReadyError, privatePhotoRef, sharesPhoto } from '@/lib/privacy';
 import {
   drainOutbox,
-  ownPhotoPath,
   PHOTO_BUCKET,
   PHOTO_CONTENT_TYPES,
   photoExtension,
   photoObjectPath,
+  privateDetailsRow,
   pushableSightings,
   remoteRowToSighting,
   remoteSiteRowToSite,
   sightingFacts,
   sightingToRemoteRow,
   siteToRemoteRow,
+  storedPhoto,
+  withPrivateDetails,
+  type RemoteDetailsRow,
   type RemoteSightingRow,
   type RemoteSiteRow,
 } from '@/lib/sync';
-import type { DiveSite, Sighting } from '@/lib/types';
+import type { DiveSite, Sighting, Visibility } from '@/lib/types';
+
+/** The public photo bucket, or the private one (migration 0008) that only each photo's owner can read. */
+export type PhotoBucket = typeof PHOTO_BUCKET | typeof PRIVATE_PHOTO_BUCKET;
 
 const PULL_LIMIT = 500;
 const OWN_PULL_LIMIT = 2000;
 const SIGHTING_COLUMNS = 'id,user_id,species_id,site_id,sighted_on,notes,photo_url,created_at,profiles(username)';
 /**
- * Columns later migrations add: status (0006) and custom_name (0007). A project that doesn't have
- * one yet answers 42703 ("no such column"); pulls then carry on without it for the rest of the
- * session, so sightings sync as before (unverified, and "something else" without its name).
+ * Columns later migrations add: status (0006), custom_name (0007) and visibility (0008). A project
+ * that doesn't have one yet answers 42703 ("no such column"); pulls then carry on without it for the
+ * rest of the session, so sightings sync as before (unverified, "something else" without its name,
+ * and every sighting public).
  */
-const OPTIONAL_COLUMNS = ['status', 'custom_name'] as const;
+const OPTIONAL_COLUMNS = ['status', 'custom_name', 'visibility'] as const;
 const missingColumns = new Set<string>();
+
+type PostgrestReply = { data: unknown; error: { code?: string; message?: string } | null };
+
+/** A write naming a column the project doesn't have (PostgREST checks its schema cache first). */
+const isMissingColumn = (error: { code?: string } | null, column: string, message = '') =>
+  (error?.code === '42703' || error?.code === 'PGRST204') && message.includes(column);
+
+/** The project has no sighting_details table (no migration 0008). */
+const isMissingTable = (error: { code?: string } | null) => error?.code === 'PGRST205' || error?.code === '42P01';
+
+/** The project has no private photo bucket (no migration 0008). */
+const isMissingBucket = (error: { message?: string } | null) => /bucket not found/i.test(error?.message ?? '');
+
+/**
+ * Write a sighting row. A project without migration 0008 has no visibility column, and every
+ * sighting there is public: a public one is written without it, and a private one isn't written at
+ * all (it waits, with the reason, until the server is ready). A private one always asks the server,
+ * so it goes as soon as the migration is applied.
+ */
+async function writeRow<T extends { visibility?: Visibility | null }>(
+  row: T,
+  write: (row: T) => PromiseLike<PostgrestReply>,
+): Promise<{ id: string }[] | null> {
+  for (;;) {
+    let out = row;
+    if (row.visibility === 'public' && missingColumns.has('visibility')) {
+      const { visibility: _, ...rest } = row;
+      out = rest as T;
+    }
+    const { data, error } = await write(out);
+    if ('visibility' in out && isMissingColumn(error, 'visibility', error?.message)) {
+      missingColumns.add('visibility');
+      if (out.visibility === 'private') throw new PrivacyNotReadyError();
+      continue;
+    }
+    if (error) throw error;
+    // The column is there (the migration may have been applied since): pulls ask for it again.
+    if ('visibility' in out) missingColumns.delete('visibility');
+    return data as { id: string }[] | null;
+  }
+}
 
 /** Pull sightings with whichever optional columns this project has. */
 async function pullSightings(
@@ -69,8 +118,11 @@ export interface SyncDeps {
   markDeletionSynced: (id: string) => Promise<void>;
   forgetSighting: (id: string) => Promise<void>;
   mergePulledSightings: (pulled: Sighting[], scope: PullScope) => Promise<unknown>;
-  uploadPhoto: (client: SupabaseClient, userId: string, sightingId: string, uri: string) => Promise<string>;
-  removePhotos: (client: SupabaseClient, paths: string[]) => Promise<void>;
+  /** Upload a photo from the device; returns what the sighting points at (a public URL, or a private ref). */
+  uploadPhoto: (client: SupabaseClient, userId: string, sightingId: string, uri: string, bucket: PhotoBucket) => Promise<string>;
+  /** Copy one of the diver's uploaded photos to the other bucket, at the same path. */
+  copyPhoto: (client: SupabaseClient, path: string, from: PhotoBucket, to: PhotoBucket) => Promise<void>;
+  removePhotos: (client: SupabaseClient, paths: string[], bucket?: PhotoBucket) => Promise<void>;
   /** Tidy up the device's own copy of a photo once the server has it (or it's deleted). */
   discardLocalPhoto: (uri: string) => void;
 }
@@ -82,26 +134,42 @@ export class MissingPhotoError extends Error {
   }
 }
 
+/** What a sighting points at for a photo stored at `path`: its public URL, or a private ref. */
+export function photoRef(client: SupabaseClient, bucket: PhotoBucket, path: string): string {
+  return bucket === PRIVATE_PHOTO_BUCKET ? privatePhotoRef(path) : client.storage.from(PHOTO_BUCKET).getPublicUrl(path).data.publicUrl;
+}
+
 async function uploadPhotoImpl(
   client: SupabaseClient,
   userId: string,
   sightingId: string,
   uri: string,
+  bucket: PhotoBucket,
 ): Promise<string> {
   const path = photoObjectPath(userId, sightingId, uri);
   const file = new File(uri);
   if (!file.exists) throw new MissingPhotoError();
   const { error } = await client.storage
-    .from(PHOTO_BUCKET)
+    .from(bucket)
     .upload(path, await file.bytes(), { contentType: PHOTO_CONTENT_TYPES[photoExtension(uri)], upsert: true });
-  if (error) throw error;
-  return client.storage.from(PHOTO_BUCKET).getPublicUrl(path).data.publicUrl;
+  if (error) throw bucket === PRIVATE_PHOTO_BUCKET && isMissingBucket(error) ? new PrivacyNotReadyError() : error;
+  return photoRef(client, bucket, path);
 }
 
-async function removePhotosImpl(client: SupabaseClient, paths: string[]): Promise<void> {
-  // Removing a file that isn't there is not an error, so a retry is harmless.
-  const { error } = await client.storage.from(PHOTO_BUCKET).remove(paths);
-  if (error) throw error;
+async function copyPhotoImpl(client: SupabaseClient, path: string, from: PhotoBucket, to: PhotoBucket): Promise<void> {
+  const { error } = await client.storage.from(from).copy(path, path, { destinationBucket: to });
+  if (!error) return;
+  if (isMissingBucket(error)) throw new PrivacyNotReadyError();
+  // A retried move: the copy is already there (and the original may already be gone).
+  const { data: there } = await client.storage.from(to).exists(path);
+  if (!there) throw error;
+}
+
+async function removePhotosImpl(client: SupabaseClient, paths: string[], bucket: PhotoBucket = PHOTO_BUCKET): Promise<void> {
+  // Removing a file that isn't there is not an error, so a retry is harmless. Without a private
+  // bucket (no migration 0008) there is nothing in it to remove.
+  const { error } = await client.storage.from(bucket).remove(paths);
+  if (error && !(bucket === PRIVATE_PHOTO_BUCKET && isMissingBucket(error))) throw error;
 }
 
 const defaultDeps: SyncDeps = {
@@ -115,16 +183,68 @@ const defaultDeps: SyncDeps = {
   forgetSighting,
   mergePulledSightings,
   uploadPhoto: uploadPhotoImpl,
+  copyPhoto: copyPhotoImpl,
   removePhotos: removePhotosImpl,
   discardLocalPhoto: discardKeptPhoto,
 };
 
-const isLocalFile = (uri: string | undefined): uri is string => !!uri && !uri.startsWith('http');
+/** Remove photos, each from its own bucket. */
+async function removeStored(
+  client: SupabaseClient,
+  photos: ({ bucket: PhotoBucket; path: string } | null)[],
+  deps: SyncDeps,
+): Promise<void> {
+  const byBucket = new Map<PhotoBucket, Set<string>>();
+  for (const photo of photos) {
+    if (!photo) continue;
+    if (!byBucket.has(photo.bucket)) byBucket.set(photo.bucket, new Set());
+    byBucket.get(photo.bucket)!.add(photo.path);
+  }
+  for (const [bucket, paths] of byBucket) await deps.removePhotos(client, [...paths], bucket);
+}
+
+/**
+ * An uploaded photo, in the bucket the diver's choice now calls for: moved over if they changed who
+ * can see it. Returns what the sighting points at. (Anything that isn't the diver's own upload is
+ * left where it is; the public row only ever points at a photo the diver shares.)
+ */
+async function placePhoto(
+  client: SupabaseClient,
+  userId: string,
+  ref: string | null,
+  bucket: PhotoBucket,
+  deps: SyncDeps,
+): Promise<string | null> {
+  const stored = storedPhoto(ref, userId);
+  if (!stored || stored.bucket === bucket) return ref;
+  await deps.copyPhoto(client, stored.path, stored.bucket, bucket);
+  return photoRef(client, bucket, stored.path);
+}
+
+/**
+ * What only the diver may read (sighting_details): kept, replaced, or removed once nothing is kept
+ * back any more. A project without the table (no migration 0008) can't keep anything private: the
+ * change waits, and nothing private was sent anywhere.
+ */
+async function saveDetails(client: SupabaseClient, s: Sighting, photo: string | null): Promise<void> {
+  const details = privateDetailsRow(s, photo);
+  if (details) {
+    const { error } = await client
+      .from('sighting_details')
+      .upsert({ ...details, updated_at: new Date().toISOString() }, { onConflict: 'sighting_id' });
+    if (error) throw isMissingTable(error) ? new PrivacyNotReadyError() : error;
+    return;
+  }
+  const { error } = await client.from('sighting_details').delete().eq('sighting_id', s.id);
+  if (error && !isMissingTable(error)) throw error;
+}
 
 /**
  * Send one new or edited sighting. Every step can be repeated safely: the photo path is fixed for a
  * given file, a new row is inserted only if it isn't there yet, and an existing row is updated.
- * Returns 'dropped' if the sighting turned out to be deleted on the server by another device.
+ * Notes and a photo the diver keeps private go to sighting_details and the private bucket, never to
+ * the public row or bucket. Returns 'dropped' if the sighting turned out to be deleted on the server
+ * by another device.
  */
 async function pushSighting(
   client: SupabaseClient,
@@ -132,83 +252,100 @@ async function pushSighting(
   s: OutboxSighting,
   deps: SyncDeps,
 ): Promise<'pushed' | 'dropped'> {
-  let photoUrl: string | null = s.photoUri ?? null;
-  if (isLocalFile(s.photoUri)) {
+  // 1. The photo, in the bucket for who may see it.
+  const bucket: PhotoBucket = sharesPhoto(s) ? PHOTO_BUCKET : PRIVATE_PHOTO_BUCKET;
+  let photo: string | null = s.photoUri ?? null;
+  if (isLocalPhoto(s.photoUri)) {
     try {
-      photoUrl = await deps.uploadPhoto(client, userId, s.id, s.photoUri);
+      photo = await deps.uploadPhoto(client, userId, s.id, s.photoUri, bucket);
     } catch (e) {
       if (!(e instanceof MissingPhotoError)) throw e;
       // Don't hold the sighting back forever for a photo that's gone.
       console.warn(`sighting ${s.id}: photo missing from the device; syncing without it`);
-      photoUrl = null;
+      photo = null;
     }
+    // An earlier attempt, made while the photo was still shared, may have left a public copy.
+    if (photo && bucket === PRIVATE_PHOTO_BUCKET) {
+      await deps.removePhotos(client, [photoObjectPath(userId, s.id, s.photoUri)], PHOTO_BUCKET);
+    }
+  } else {
+    photo = await placePhoto(client, userId, photo, bucket, deps);
   }
-  const row = sightingToRemoteRow(s, photoUrl);
+  const row = sightingToRemoteRow(s, photo);
 
+  // 2. The row everyone may read (if the sighting is shared).
   let saved = false;
   if (!s.remote) {
     // New here. If an earlier push landed without us hearing back, the row is already there:
     // leave it alone and update it below.
-    const { data, error } = await client
-      .from('sightings')
-      .upsert(row, { onConflict: 'id', ignoreDuplicates: true })
-      .select('id');
-    if (error) throw error;
+    const data = await writeRow(row, (r) => client.from('sightings').upsert(r, { onConflict: 'id', ignoreDuplicates: true }).select('id'));
     saved = (data?.length ?? 0) > 0;
   }
   if (!saved) {
     // Only what an owner may change; the id, owner and creation time are fixed.
-    const { data, error } = await client
-      .from('sightings')
-      .update(sightingFacts(row))
-      .eq('id', s.id)
-      .eq('user_id', userId)
-      .select('id');
-    if (error) throw error;
+    const data = await writeRow(sightingFacts(row), (r) =>
+      client.from('sightings').update(r).eq('id', s.id).eq('user_id', userId).select('id'));
     if ((data?.length ?? 0) === 0) {
       if (!s.remote) throw new Error('Another sighting on the server already uses this id.');
       // Deleted on another device: the deletion wins over this device's edit.
-      const orphans = new Set([ownPhotoPath(photoUrl ?? undefined, userId), ownPhotoPath(s.syncedPhotoUrl, userId)]);
-      const paths = [...orphans].filter((p): p is string => !!p);
-      if (paths.length > 0) await deps.removePhotos(client, paths).catch(() => undefined);
+      await removeStored(client, [storedPhoto(photo, userId), storedPhoto(s.syncedPhotoUrl, userId)], deps).catch(() => undefined);
       await deps.forgetSighting(s.id);
-      if (isLocalFile(s.photoUri)) deps.discardLocalPhoto(s.photoUri);
+      if (isLocalPhoto(s.photoUri)) deps.discardLocalPhoto(s.photoUri);
       return 'dropped';
     }
   }
 
-  // The server no longer points at the photo it had: remove the file (if this fails, the whole
-  // push is retried, and every step above repeats harmlessly).
-  const stale = ownPhotoPath(s.syncedPhotoUrl, userId);
-  if (stale && s.syncedPhotoUrl !== photoUrl) await deps.removePhotos(client, [stale]);
+  // 3. What only the diver may read.
+  await saveDetails(client, s, photo);
+
+  // 4. The server no longer points at the photo it had (replaced, removed, or moved to the other
+  // bucket): remove the file. If this fails, the whole push is retried, and every step above
+  // repeats harmlessly.
+  if (s.syncedPhotoUrl !== photo) await removeStored(client, [storedPhoto(s.syncedPhotoUrl, userId)], deps);
 
   // The device's copy of the photo can go once the row points at the uploaded one (not before: a
   // newer edit still waiting may need the file for its own push).
-  const done = await deps.markPushed(s.id, s.version, photoUrl);
-  if (done && isLocalFile(s.photoUri) && photoUrl) deps.discardLocalPhoto(s.photoUri);
+  const done = await deps.markPushed(s.id, s.version, photo);
+  if (done && isLocalPhoto(s.photoUri) && photo) deps.discardLocalPhoto(s.photoUri);
   return 'pushed';
 }
 
-/** Delete one sighting on the server, photo first. Deleting what's already gone is not an error. */
+/**
+ * Delete one sighting on the server, photo first (its private details go with the row). Deleting
+ * what's already gone is not an error.
+ */
 async function deleteSightingRemote(
   client: SupabaseClient,
   userId: string,
   s: OutboxSighting,
   deps: SyncDeps,
 ): Promise<void> {
-  const paths = new Set<string>();
-  for (const url of [s.syncedPhotoUrl, s.photoUri]) {
-    const path = ownPhotoPath(url, userId);
-    if (path) paths.add(path);
+  const photos = [storedPhoto(s.syncedPhotoUrl, userId), storedPhoto(s.photoUri, userId)];
+  // A push whose reply never arrived may have uploaded the local photo, to either bucket.
+  if (isLocalPhoto(s.photoUri)) {
+    const path = photoObjectPath(userId, s.id, s.photoUri);
+    photos.push({ bucket: PHOTO_BUCKET, path }, { bucket: PRIVATE_PHOTO_BUCKET, path });
   }
-  // A push whose reply never arrived may have uploaded the local photo.
-  if (isLocalFile(s.photoUri)) paths.add(photoObjectPath(userId, s.id, s.photoUri));
-  if (paths.size > 0) await deps.removePhotos(client, [...paths]);
+  await removeStored(client, photos, deps);
 
   const { error } = await client.from('sightings').delete().eq('id', s.id).eq('user_id', userId);
   if (error) throw error;
   await deps.markDeletionSynced(s.id);
-  if (isLocalFile(s.photoUri)) deps.discardLocalPhoto(s.photoUri);
+  if (isLocalPhoto(s.photoUri)) deps.discardLocalPhoto(s.photoUri);
+}
+
+/** The diver's own private notes and photos (none on a project without migration 0008). */
+async function pullDetails(client: SupabaseClient, userId: string): Promise<Map<string, RemoteDetailsRow>> {
+  const { data, error } = await client
+    .from('sighting_details')
+    .select('sighting_id,user_id,notes,photo_path')
+    .eq('user_id', userId)
+    .limit(OWN_PULL_LIMIT);
+  if (error) {
+    if (isMissingTable(error)) return new Map();
+    throw error;
+  }
+  return new Map((data as RemoteDetailsRow[]).map((d) => [d.sighting_id, d]));
 }
 
 export interface SyncResult {
@@ -296,7 +433,10 @@ export async function syncNow(
   const byId = new Map<string, RemoteSightingRow>();
   for (const row of community) byId.set(row.id, row);
   for (const row of own) byId.set(row.id, row);
-  const pulled = [...byId.values()].map(remoteRowToSighting);
+  const details = await pullDetails(client, userId);
+  const pulled = [...byId.values()]
+    .map(remoteRowToSighting)
+    .map((s) => (s.userId === userId ? withPrivateDetails(s, details.get(s.id)) : s));
   await deps.mergePulledSightings(pulled, {
     ownerId: userId,
     ownComplete: own.length < OWN_PULL_LIMIT,
