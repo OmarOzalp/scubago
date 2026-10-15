@@ -1,5 +1,5 @@
 import { expect, test } from '@jest/globals';
-import { sampleSwimPath, advanceSwimTime, hasSchool, islandPresence, marineModelFor, pickSwimmers, schoolSpeciesFor, showsPreview, speciesMarineModel, swimmerPages, swimsInSchool, MAX_ANIMATED } from '@/lib/swimming';
+import { sampleSwimPath, advanceSwimTime, hasSchool, islandPresence, marineModelFor, pickSwimmers, schoolSpeciesFor, noneSwim, speciesMarineModel, swimmerPages, swimsInSchool, MAX_ANIMATED } from '@/lib/swimming';
 import { TUNA_SCHOOL } from '@/lib/tuna-school';
 import type { DexEntry, Species } from '@/lib/types';
 
@@ -84,12 +84,12 @@ test('logged tuna swim in the school, never also as a generic reef fish; other f
   expect(marineModelFor('fish')).toBe('reef-fish');
 });
 
-test('a collection of only tuna is shown by the school: no preview, no swimmers, and paging counts only animals of their own', () => {
+test('a collection of only tuna is shown by the school: not an empty ocean, no swimmers, and paging counts only animals of their own', () => {
   const tuna = [entry('yellowfin-tuna', 'fish')];
-  expect(showsPreview(tuna)).toBe(false);
+  expect(noneSwim(tuna)).toBe(false);
   expect(pickSwimmers(tuna)).toEqual([]);
   expect(swimmerPages(tuna)).toBe(1);
-  expect(showsPreview([])).toBe(true);
+  expect(noneSwim([])).toBe(true);
   const crowd = [...Array.from({ length: MAX_ANIMATED }, (_, i) => entry(`fish-${i}`, 'fish')), entry('dogtooth-tuna', 'fish'), entry('yellowfin-tuna', 'fish')];
   expect(swimmerPages(crowd)).toBe(1);
   expect(pickSwimmers(crowd).map((s) => s.species.id)).toEqual(Array.from({ length: MAX_ANIMATED }, (_, i) => `fish-${i}`));
@@ -130,9 +130,9 @@ test('hammerheads and dolphins swim as their own models; their close relatives b
   expect(speciesMarineModel('great-hammerhead')).toBeNull();
   expect(speciesMarineModel('spinner-dolphin')).toBeNull();
   expect(speciesMarineModel('scalloped-hammerhead')).toBe('scalloped-hammerhead');
-  // Other mammals still have no model, so a collection of whales alone is still a preview.
+  // Other mammals still have no model, so a collection of whales alone leaves the ocean empty.
   expect(marineModelFor(entry('humpback-whale', 'mammal').species)).toBeNull();
-  expect(showsPreview([entry('humpback-whale', 'mammal')])).toBe(true);
+  expect(noneSwim([entry('humpback-whale', 'mammal')])).toBe(true);
   expect(pickSwimmers([entry('humpback-whale', 'mammal'), entry('spinner-dolphin', 'mammal'), entry('great-hammerhead', 'shark')]).map((s) => s.model))
     .toEqual(['bottlenose-dolphin', 'scalloped-hammerhead']);
 });

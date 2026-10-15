@@ -435,9 +435,9 @@ It is drawn on top of everything and loaded only when switched on
 (`src/components/home/three/marine-debug.tsx`).
 
 To watch all eight species together without logging them, set
-`EXPO_PUBLIC_ISLAND_SHOWCASE=1` (restart Metro with `--clear`). They swim as the labeled
-preview in place of the collection, and each can be tapped for its close-up. Both flags
-can be combined.
+`EXPO_PUBLIC_ISLAND_SHOWCASE=1` (restart Metro with `--clear`). They swim as visitors in
+place of the collection (a development aid: without it, an island with nothing logged has an
+empty ocean), and each can be tapped for its close-up. Both flags can be combined.
 
 ## Cost
 

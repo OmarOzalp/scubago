@@ -33,15 +33,16 @@ test('the island renders while animal assets are still loading', async () => {
   expect(root.root.findAllByType('environment')).toHaveLength(1);
   expect(root.root.findAllByType('swimmer')).toHaveLength(0);
 });
-test('the island is visible during discovery loading, then visiting animals appear', async () => {
-  useMarineModels.mockReturnValue({ models: { 'whale-shark': {}, 'reef-manta': {} }, failed: false, retry: jest.fn() });
+test('a new island’s ocean stays empty until the first discovery: no visitors, no school', async () => {
+  useMarineModels.mockReturnValue({ models: {}, failed: false, retry: jest.fn() });
   await act(async () => { root = create(<SanctuaryScene {...props} loading />); });
   expect(root.root.findAllByType('environment')).toHaveLength(1);
   expect(root.root.findAllByType('swimmer')).toHaveLength(0);
   await act(async () => root.update(<SanctuaryScene {...props} />));
-  expect(root.root.findAllByType('swimmer')).toHaveLength(2);
-  // No tuna in the preview: the school swims only once a tuna is logged.
+  expect(useMarineModels).toHaveBeenLastCalledWith([]);
+  expect(root.root.findAllByType('swimmer')).toHaveLength(0);
   expect(root.root.findAllByType('school')).toHaveLength(0);
+  expect(root.root.findByProps({ accessibilityRole: 'image' }).props.accessibilityLabel).toContain('ocean still empty');
 });
 
 const logged = (id, category) => ({ species: { id, commonName: id, scientificName: id, category, rarity: 'common', blurb: '' }, count: 1, firstSeenOn: '2026-01-01', firstSeenSiteId: 'x', lastSeenOn: '2026-01-01' });
@@ -70,7 +71,7 @@ test('no tuna swim unless one is logged, and deleting the last one takes the sch
   expect(root.root.findAllByType('school')).toHaveLength(0);
   expect(root.root.findAllByType('swimmer').map((swimmer) => swimmer.props.model)).toEqual(['reef-fish']);
 });
-test('a collection of only tuna is the school: no preview visitors, no swimmers', async () => {
+test('a collection of only tuna is the school: no visitors, no swimmers', async () => {
   useMarineModels.mockReturnValue({ models: {}, failed: false, retry: jest.fn() });
   await act(async () => { root = create(<SanctuaryScene {...props} residents={[logged('yellowfin-tuna', 'fish')]} />); });
   expect(useMarineModels).toHaveBeenLastCalledWith([]);

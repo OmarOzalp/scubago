@@ -14,17 +14,13 @@ import { useMarineModels } from './three/use-marine-models';
 import { useSceneActive, useSceneVisible } from '@/hooks/use-scene-active';
 import type { Habitat } from '@/lib/home';
 import { clamp, oceanScale } from '@/lib/steering';
-import { hasSchool, MAX_ANIMATED, pickSwimmers, SCHOOL_SPECIES, schoolSpeciesFor, showsPreview, swimmerPages, swimsInSchool, type MarineModel } from '@/lib/swimming';
+import { hasSchool, MAX_ANIMATED, pickSwimmers, SCHOOL_SPECIES, schoolSpeciesFor, swimmerPages, swimsInSchool, type MarineModel } from '@/lib/swimming';
 import type { DexEntry } from '@/lib/types';
 
-/** Visiting animals for an empty ocean: labeled as a preview, never counted as discoveries. */
-export const PREVIEW_SWIMMERS: { model: MarineModel; lane: number }[] = [
-  { model: 'whale-shark', lane: 0 },
-  { model: 'reef-manta', lane: 2 },
-];
 /**
- * For reviewing the island's animals together: with EXPO_PUBLIC_ISLAND_SHOWCASE=1 (restart Metro
- * with --clear), every species model visits as the preview, whatever the collection holds.
+ * Only the diver's own discoveries swim here: a new island's ocean is empty until the first one.
+ * For reviewing the island's animals together, EXPO_PUBLIC_ISLAND_SHOWCASE=1 (restart Metro with
+ * --clear) brings every species model as a visitor, whatever the collection holds (development only).
  */
 const SHOWCASE = process.env.EXPO_PUBLIC_ISLAND_SHOWCASE === '1';
 /** Frame timing over the card, for measuring the island on real phones (set in the EAS preview profile). */
@@ -61,8 +57,8 @@ export function SanctuaryScene({ habitat, level, residents, paused = false, load
   const visible = useSceneVisible();
   const [page, setPage] = useState(0);
   const pages = swimmerPages(residents);
-  const preview = SHOWCASE || showsPreview(residents);
-  const visitors = SHOWCASE ? SHOWCASE_SWIMMERS : PREVIEW_SWIMMERS;
+  const preview = SHOWCASE;
+  const visitors = SHOWCASE_SWIMMERS;
   // Logged tuna are shown by the school rather than as a swimmer of their own; a tap on it opens their species.
   // A new discovery arriving has a place of its own, whatever the page.
   const swimmers = pickSwimmers(residents, page, MAX_ANIMATED, moments?.featured);
@@ -111,8 +107,10 @@ export function SanctuaryScene({ habitat, level, residents, paused = false, load
 
   const tuna = school ? ', and a school of tuna' : '';
   const description = loading ? 'Your island; loading your discoveries' : preview
-    ? `Level ${level} ${habitat} with ${SHOWCASE ? `${SHOWCASE_SWIMMERS.length} visiting species` : 'a visiting whale shark and reef manta ray'} as a preview${tuna}`
-    : `Level ${level} ${habitat}, home to ${residents.length} discovered species, ${swimmers.length} swimming${tuna}`;
+    ? `Level ${level} ${habitat} with ${SHOWCASE_SWIMMERS.length} visiting species (showcase)${tuna}`
+    : residents.length === 0
+      ? `Level ${level} ${habitat}, its ocean still empty`
+      : `Level ${level} ${habitat}, home to ${residents.length} discovered species, ${swimmers.length} swimming${tuna}`;
 
   // The 3D view is one labelled image for screen readers. The label sits inside the error boundary,
   // so if the scene fails, its fallback and "Try again" button can still be reached.

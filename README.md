@@ -77,8 +77,8 @@ project's settings with those dev defaults.
   and species-specific motion; other species use CC0 Quaternius family
   representatives. Unique
   species unlock six growth stages; home name and habitat are saved on this device per
-  account. An empty ocean shows a clearly labeled preview shark and manta that never
-  count as discoveries, and either can be opened for a closer look. Animation pauses
+  account. Only your own discoveries swim there: a new island's ocean is empty until you
+  log your first sighting. Animation pauses
   when the tab is unfocused, the app is backgrounded, reduced motion is on, or you tap
   Pause. If 3D rendering is unavailable the illustrated SVG island takes over.
 - **First launch** — three short intro cards (log, collect, grow your island), once per install.

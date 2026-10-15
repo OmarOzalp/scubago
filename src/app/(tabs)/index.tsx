@@ -13,7 +13,7 @@ import { useSceneActive } from '@/hooks/use-scene-active';
 import { CATALOG_BY_ID } from '@/lib/catalog';
 import { deriveHome, HABITATS, HOME_STAGES } from '@/lib/home';
 import { useAppStore, useMySightings, useMyUserId } from '@/lib/store';
-import { showsPreview, type MarineModel } from '@/lib/swimming';
+import { noneSwim, type MarineModel } from '@/lib/swimming';
 import { BottomTabInset } from '@/constants/theme';
 
 export default function HomeScreen() {
@@ -36,12 +36,13 @@ export default function HomeScreen() {
   const habitat = HABITATS.find((h) => h.id === saved.preferences.habitat)!;
   const count = home.residents.length;
   const loading = !ready || saved.loading || moments.loading;
-  const preview = !loading && showsPreview(home.residents);
+  // Only the diver's own discoveries swim here (the showcase build, for development, brings visitors).
   const inspect = (model: MarineModel) => router.push({ pathname: '/inspect', params: { model, preview: '1' } });
-  // A preview with species logged means none of them has island art yet: say so, rather than "not your collection".
-  const previewHint = count
-    ? `Your ${count === 1 ? 'species doesn’t' : `${count} species don’t`} swim on the island yet: sharks, rays, reef fish and some turtles, dolphins and octopuses do. Until one arrives, a whale shark and reef manta are visiting.`
-    : 'A whale shark and reef manta are visiting. Your first discovery makes these waters yours.';
+  const sceneHint = count === 0
+    ? 'Your ocean is empty for now. Log a sighting and that animal comes to live here.'
+    : noneSwim(home.residents)
+      ? `Your ${count === 1 ? 'species isn’t' : `${count} species aren’t`} drawn for the island yet. Sharks, rays, reef fish and some turtles, dolphins and octopuses swim here; the rest live in your collection below.`
+      : 'Tap a swimming resident to revisit your discovery';
   return <View style={[styles.root, { backgroundColor: colors.bg }]}>
     <ScrollView contentContainerStyle={[styles.content, { paddingTop: insets.top + 22, paddingBottom: BottomTabInset + insets.bottom + 28 }]}>
       {/* The eyebrow gets its own line, so the larger type doesn't push "Customize" below the title. */}
@@ -54,16 +55,13 @@ export default function HomeScreen() {
       </View>
 
       <View style={[styles.hero, { backgroundColor: WATER[habitat.id] }]}>
-        <View style={styles.heroHeader}><View style={styles.pill}><View style={[styles.liveDot, preview && styles.previewDot]} /><Text style={styles.pillText}>{preview ? (count ? 'VISITORS FOR NOW' : 'PREVIEW') : 'YOUR SANCTUARY'}</Text></View>
+        <View style={styles.heroHeader}><View style={styles.pill}><View style={styles.liveDot} /><Text style={styles.pillText}>YOUR SANCTUARY</Text></View>
           <Pressable accessibilityRole="button" accessibilityLabel={paused ? 'Resume ocean animation' : 'Pause ocean animation'} accessibilityState={{ selected: paused }} onPress={() => setPaused((value) => !value)} style={styles.motionButton}><Text style={styles.motionText}>{paused ? 'Play' : 'Pause'}</Text></Pressable>
         </View>
         <SanctuaryScene habitat={habitat.id} level={moments.level} residents={home.residents} loading={loading} paused={paused || editing || loading} onInspect={inspect}
           moments={{ featured: moments.featured, waiting: moments.waiting, now: moments.now, onArrived: moments.onArrived, tag: moments.tag, banner: moments.banner, note: moments.note, busy: moments.busy }} />
         <View style={styles.heroFooter}><Text style={styles.homeName}>{saved.preferences.name}</Text><Text style={styles.heroSubtitle}>{loading ? habitat.name : `${habitat.name}  ·  ${home.stage.place}`}</Text>
-          <Text style={styles.sceneHint}>{loading ? ' ' : preview ? previewHint : 'Tap a swimming resident to revisit your discovery'}</Text>
-          {preview && <View style={styles.previewRow}>
-            {([['whale-shark', 'Whale shark'], ['reef-manta', 'Reef manta']] as const).map(([model, name]) => <Pressable key={model} accessibilityRole="button" accessibilityLabel={`Take a closer look at the ${name.toLowerCase()} preview`} onPress={() => inspect(model)} style={({ pressed }) => [styles.previewButton, { opacity: pressed ? .7 : 1 }]}><Text style={styles.previewButtonText}>{name} ↗</Text></Pressable>)}
-          </View>}
+          <Text style={styles.sceneHint}>{loading ? ' ' : sceneHint}</Text>
         </View>
       </View>
       {!!saved.error && !editing && <Text accessibilityRole="alert" accessibilityLiveRegion="polite" style={{ color: dark ? '#E6A495' : '#A43F36' }}>{saved.error}</Text>}
@@ -111,7 +109,6 @@ const styles = StyleSheet.create({
   hero: { borderRadius: 28, overflow: 'hidden' }, heroHeader: { paddingHorizontal: 19, paddingTop: 14, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   pill: { flexDirection: 'row', alignItems: 'center', gap: 6 }, liveDot: { width: 5, height: 5, borderRadius: 3, backgroundColor: '#4E8771' }, pillText: { color: '#1F4B40', letterSpacing: 1.4, fontSize: 12, fontWeight: '700' },
   motionButton: { minHeight: 44, minWidth: 44, justifyContent: 'center', alignItems: 'center' }, motionText: { fontSize: 14, fontWeight: '600', color: '#1F4B40' }, loading: { height: 310, alignItems: 'center', justifyContent: 'center', gap: 16 },
-  previewDot: { backgroundColor: '#C98A3A' }, previewRow: { flexDirection: 'row', gap: 8, marginTop: 10 }, previewButton: { minHeight: 44, paddingHorizontal: 16, borderRadius: 22, backgroundColor: 'rgba(255,255,255,.7)', justifyContent: 'center' }, previewButtonText: { color: '#1F4B40', fontSize: 14, fontWeight: '600' },
   heroFooter: { paddingHorizontal: 16, paddingBottom: 24, gap: 5, alignItems: 'center' }, homeName: { color: '#1F4B40', fontSize: 25, letterSpacing: -.7, fontWeight: '500', textAlign: 'center' }, heroSubtitle: { color: '#1F4B40', fontSize: 14, textAlign: 'center', lineHeight: 20 }, sceneHint: { color: '#1F4B40', fontSize: 13, lineHeight: 18, textAlign: 'center', marginTop: 8 },
   rankCard: { padding: 18, borderRadius: 21, borderWidth: 1, gap: 12 }, rankTop: { flexDirection: 'row', alignItems: 'center', gap: 14 }, levelBadge: { minWidth: 56, minHeight: 60, paddingHorizontal: 4, borderRadius: 14, alignItems: 'center', justifyContent: 'center', gap: 2 }, levelSmall: { fontSize: 12, letterSpacing: .8, fontWeight: '700' }, levelNumber: { fontSize: 25, fontWeight: '500' }, rankName: { fontSize: 18, fontWeight: '500', letterSpacing: -.4 }, rankMark: { fontSize: 32 }, body: { fontSize: 14, lineHeight: 20 }, divider: { height: 1, marginVertical: 1 }, progressHeading: { flexDirection: 'row', gap: 10, justifyContent: 'space-between' }, nextLabel: { fontSize: 14, fontWeight: '600', flex: 1 }, track: { height: 5, borderRadius: 3, overflow: 'hidden' }, fill: { height: '100%', backgroundColor: '#81A37A', borderRadius: 3 },
   sectionHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: -12 }, sectionTitle: { fontSize: 20, fontWeight: '500', letterSpacing: -.5 }, textButton: { minHeight: 44, justifyContent: 'center' }, link: { fontSize: 14, fontWeight: '600' },
