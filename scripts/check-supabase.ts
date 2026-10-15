@@ -83,7 +83,7 @@ async function main() {
   if (sites.rows === null) note('ACTION', 'curated dive sites', `not reachable (${sites.error}): apply supabase/migrations`);
   else note(sites.rows >= SITES.length ? 'ok' : 'ACTION', 'curated dive sites', `${sites.rows} of ${SITES.length} sites${sites.rows >= SITES.length ? '' : ': run npm run seed:supabase'}`);
   const profiles = await count('profiles'), sightings = await count('sightings');
-  if (profiles.rows !== null && sightings.rows !== null) note('info', 'community data', `${profiles.rows} profiles, ${sightings.rows} sightings (public by design today)`);
+  if (profiles.rows !== null && sightings.rows !== null) note('info', 'community data', `${profiles.rows} profiles, ${sightings.rows} public sightings (private ones aren't visible from outside)`);
 
   // Row-level security, as an anonymous visitor: every write refused.
   const nobody = '00000000-0000-0000-0000-000000000000', id = `scubago-check-${Date.now().toString(36)}`;
@@ -99,10 +99,13 @@ async function main() {
   else if (photo.status === 400 || photo.status === 404) note('ok', 'photo bucket', 'sighting-photos exists and is publicly readable');
   else note('info', 'photo bucket', `unexpected answer (HTTP ${photo.status}: ${message})`);
 
+  // The private photo bucket (0008) looks the same from outside whether it's missing or properly
+  // hidden, so audit.sql checks it from the SQL editor instead.
+
   const width = Math.max(...results.map((r) => r.item.length));
   for (const r of results) console.log(`${r.verdict.padEnd(6)} ${r.item.padEnd(width)}  ${r.detail}`);
   const actions = results.filter((r) => r.verdict === 'ACTION').length;
-  console.log(`\n${actions ? `${actions} thing(s) to fix.` : 'All outside checks passed.'} Next, run supabase/checks/audit.sql and supabase/checks/rls-isolation.sql in the SQL editor (docs/ios-distribution.md).`);
+  console.log(`\n${actions ? `${actions} thing(s) to fix.` : 'All outside checks passed.'} Next, run supabase/checks/audit.sql, rls-isolation.sql and privacy-check.sql in the SQL editor (docs/ios-distribution.md).`);
   process.exit(actions ? 1 : 0);
 }
 

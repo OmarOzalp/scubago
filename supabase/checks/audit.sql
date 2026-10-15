@@ -10,12 +10,15 @@ tables as (
 ),
 expected_policies(tbl, policy) as (values
   ('species', 'species are public'), ('dive_sites', 'sites are public'), ('dive_sites', 'users add sites'),
-  ('sightings', 'sightings are public'), ('sightings', 'users log own sightings'), ('sightings', 'users edit own sightings'),
+  ('sightings', 'sightings are public unless private'), ('sightings', 'users log own sightings'), ('sightings', 'users edit own sightings'),
   ('sightings', 'users delete own sightings'), ('profiles', 'profiles are public'), ('profiles', 'users manage own profile'),
   ('profiles', 'users update own profile'), ('objects', 'photos are public'), ('objects', 'users upload own photos'),
   ('objects', 'users replace own photos'), ('objects', 'users delete own photos'),
   ('regions', 'regions are public'), ('site_external_ids', 'site ids are public'), ('site_field_sources', 'site sources are public'),
-  ('verification_requests', 'own requests'), ('attestations', 'attestations on own sightings or by me')
+  ('verification_requests', 'own requests'), ('attestations', 'attestations on own sightings or by me'),
+  -- Migration 0008 (privacy).
+  ('sighting_details', 'own sighting details'), ('objects', 'owners read own private photos'), ('objects', 'owners add own private photos'),
+  ('objects', 'owners replace own private photos'), ('objects', 'owners delete own private photos')
 ),
 -- Migration 0006 (buddy verification): who may call each function.
 verification_functions(fn, app_calls) as (values
@@ -39,13 +42,16 @@ checks(section, item, detail, verdict) as (
          case when p.policyname is null then 'missing' else p.cmd || ' for ' || array_to_string(p.roles, ',') end,
          case when p.policyname is null then 'ACTION' else 'ok' end
   from expected_policies e
-  left join pg_policies p on p.tablename = e.tbl and p.policyname = e.policy
+  left join pg_policies p on p.tablename = e.tbl
+    -- Before 0008 the public read on sightings has its original name.
+    and (p.policyname = e.policy or (e.policy = 'sightings are public unless private' and p.policyname = 'sightings are public'))
     and p.schemaname = case when e.tbl = 'objects' then 'storage' else 'public' end
   union all
   select 'Policies', p.schemaname || '.' || p.tablename || ': ' || p.policyname, p.cmd || ' (not in ScubaGo''s migrations: review it)', 'info'
   from pg_policies p
   where (p.schemaname = 'public' or (p.schemaname = 'storage' and p.tablename = 'objects'))
     and not exists (select 1 from expected_policies e where e.policy = p.policyname)
+    and p.policyname <> 'sightings are public'
   union all
   -- Migration 0002: account deletion cascades, photo limits.
   select 'Migrations', 'sightings.user_id on delete', coalesce(max(case rc.delete_rule when 'CASCADE' then 'cascade' else lower(rc.delete_rule) end), 'constraint missing'),
@@ -90,6 +96,15 @@ checks(section, item, detail, verdict) as (
                 then 'status guard trigger missing' else 'applied, status guard on' end,
          case when to_regclass('public.attestations') is not null
                and exists (select 1 from pg_trigger where tgname = 'sightings_1_guard_status' and tgrelid = 'public.sightings'::regclass)
+              then 'ok' else 'ACTION' end
+  union all
+  -- Privacy (migration 0008): public or private sightings, private notes and photos.
+  select 'Migrations', 'privacy (0008)',
+         case when to_regclass('public.sighting_details') is null then 'not applied: private sightings, notes and photos stay on the device until it is'
+              when not exists (select 1 from storage.buckets where id = 'sighting-photos-private' and not public) then 'private photo bucket missing or public'
+              else 'applied' end,
+         case when to_regclass('public.sighting_details') is not null
+               and exists (select 1 from storage.buckets where id = 'sighting-photos-private' and not public)
               then 'ok' else 'ACTION' end
   union all
   -- "Something else" sightings (migration 0007): the placeholder species and the diver's own name.

@@ -16,7 +16,7 @@ through it. The school scatters and then regroups.
 | `src/lib/swimming.ts` | Which logged species the school shows instead of a generic fish (`SCHOOL_SPECIES`) |
 
 The school swims only once you've logged a tuna (Yellowfin or Dogtooth), and leaves again if you
-delete your last tuna sighting. An island with nothing logged has an empty ocean. It stands for the catalog's
+delete your last tuna sighting (an island with nothing logged has an empty ocean). The school stands for the catalog's
 tuna, and tapping it opens their species page (see
 [The school as a species](#the-school-as-a-species)). Set `TUNA_SCHOOL.size` to 0 to leave it out
 everywhere.
