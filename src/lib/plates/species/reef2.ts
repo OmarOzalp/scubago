@@ -321,12 +321,15 @@ const batfish: FishSpec = {
   lateral: (t) => 0.3 + 0.05 * t,
   belly: 1.5,
   softBelly: false,
-  engraving: 'smooth',
+  engraving: 'none',
   extra: (c) => {
     const s = c.s;
     const bar = (x0: number, x1: number, o: number): Fill => ({ poly: region(s, tAtX(s, x0), tAtX(s, x1), -0.1, 1.1), paint: 'dark', o, clip: 'body' });
+    // A few contours only: the silvery disc stays smooth.
+    const shade = contours(s, { top: [0.04, 0.1], bot: [0.84, 0.91, 0.96] });
     return {
-      marks: [bar(6.5, 12.5, 0.75), bar(19, 28, 0.6)],
+      lines: shade.map((l) => ({ ...l, o: 0.55 })),
+      marks: [bar(6.5, 12.5, 0.95), bar(19, 28, 0.85)],
       median: [
         { part: 'dorsal', marks: [{ ...margin(c.dorsal[0].te, 1.6, 'ink', 0.85) }] },
         { part: 'anal', marks: [{ ...margin(c.anal[0].te, 1.6, 'ink', 0.85) }] },
@@ -850,7 +853,7 @@ export const REEF_FISH_2: Record<string, PlateDef> = {
   'wolf-eel': E(wolfEel, { back: '#8E9196', belly: '#A4A6AA', fin: '#7E8186', pattern: '#2B2722' }, 5),
   mandarinfish: F(mandarin, { back: '#1F6FD1', belly: '#1F6FD1', fin: '#1F6FD1' }, 6),
   'blue-tang': F(blueTang, { back: '#1B4FC4', belly: '#1B4FC4', fin: '#1B4FC4' }, 7),
-  'circular-batfish': F(batfish, { back: '#C9C6BA', belly: '#D2CFC4', fin: '#D9CB92', dark: '#3D3B36' }, 8),
+  'circular-batfish': F(batfish, { back: '#C9C6BA', belly: '#D2CFC4', fin: '#8C8676', dark: '#2E2C28' }, 8),
   'oriental-sweetlips': F(sweetlips, { back: '#F3F1E8', belly: '#F3F1E8', fin: '#F2C21A' }, 9),
   'star-puffer': F(starPuffer, { back: '#D9D9D2', belly: '#FFFFFF', fin: '#D0D0C8' }, 10),
   porcupinefish: F(porcupine, { back: '#9C9A73', belly: '#F3F1E6', fin: '#B4B290' }, 11),

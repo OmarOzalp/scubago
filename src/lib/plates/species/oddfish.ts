@@ -208,7 +208,7 @@ function seahorse(h: HorseSpec): PlateGeom {
       : ellipse(add(hc, [2.8, -h.headDepth * 0.78]), 1.8, 1.4);
   // The host it clings to, behind everything.
   if (h.host === 'grass') {
-    const blade = spline([[spine[spine.length - 1][0] - 2, spine[spine.length - 1][1] + 30], [spine[spine.length - 1][0] - 1, spine[spine.length - 1][1]], [spine[spine.length - 1][0] + 3, spine[spine.length - 1][1] - 40]], false);
+    const blade = spline([[spine[spine.length - 1][0] - 1.6, spine[spine.length - 1][1] + 6], [spine[spine.length - 1][0] - 1, spine[spine.length - 1][1]], [spine[spine.length - 1][0] + 2.4, spine[spine.length - 1][1] - 26]], false);
     g.far.push({ poly: tube(blade, () => 1.6), paint: '#8FA56A', lines: [{ pts: blade, w: 0.6, o: 0.6 }], edge: 0.7 });
   } else {
     const tip = spine[spine.length - 1];

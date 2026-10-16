@@ -80,8 +80,8 @@ const goliath: FishSpec = {
   ],
   extra: (c) => {
     const s = c.s;
-    const bands: Fill[] = [26, 40, 54, 68].map((x, i) => bar(s, tAtX(s, x), 0.05, 0.02, 0.85, 'dark', c.rand, 0.25, 0.08 + i * 0.01));
-    const mottle = scatter(s, { t0: 0.05, t1: 1, f0: 0.05, f1: 0.9, r: (t) => 1.2 + c.rand() * 1.8, gap: 1.6, paint: 'light', rand: c.rand, tries: 240, o: 0.25, wobble: 0.45 });
+    const bands: Fill[] = [26, 40, 54, 68].map((x, i) => bar(s, tAtX(s, x), 0.06, 0.02, 0.85, 'dark', c.rand, 0.5, 0.08 + i * 0.01));
+    const mottle = scatter(s, { t0: 0.05, t1: 1, f0: 0.05, f1: 0.9, r: (t) => 1 + c.rand() * 1.2, gap: 2.4, paint: 'light', rand: c.rand, tries: 120, o: 0.15, wobble: 0.45 });
     const spots = scatter(s, { t0: 0.02, t1: 0.75, f0: 0.04, f1: 0.55, r: 0.35, gap: 1.2, paint: 'ink', rand: c.rand, tries: 500, o: 0.75 });
     return {
       marks: [...bands, ...mottle, ...spots],
@@ -534,8 +534,8 @@ void band;
 void lerp;
 
 export const BIG_FISH: Record<string, PlateDef> = {
-  'giant-grouper': F(giantGrouper, { back: '#4E4A3E', belly: '#6E6A5A', fin: '#7C6E44' }, 1),
-  'goliath-grouper': F(goliath, { back: '#6E6A4F', belly: '#8C8768', fin: '#6E6A4F' }, 2),
+  'giant-grouper': F(giantGrouper, { back: '#4A463A', belly: '#6E6A5A', fin: '#C9A23A' }, 1),
+  'goliath-grouper': F(goliath, { back: '#7A6A40', belly: '#9A8A5E', fin: '#7A6A40' }, 2),
   'potato-cod': F(potato, { back: '#A8A397', belly: '#C9C5BA', fin: '#8D887B', dark: '#3E3B33', pattern: '#5E5A50' }, 3),
   'napoleon-wrasse': F(napoleon, { back: '#2F6F64', belly: '#4F8F8A', fin: '#3F7E86', dark: '#1F4A44' }, 4),
   'bumphead-parrotfish': F(bumphead, { back: '#3B5E50', belly: '#5C7E6E', fin: '#3B5E50' }, 5),
