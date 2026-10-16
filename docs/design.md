@@ -14,6 +14,7 @@ illustrations. It should feel crafted and calm, and stay easy to read for any di
 | Icons (Phosphor, duotone) | `src/components/icon.tsx` |
 | Paper card, stamp, seal, wash, chip, tag, ledger, link row, icon button, progress bar and ring, screen headers, tab bar | `src/components/journal/` |
 | Buttons (`primary`, `log`, `secondary`, `quiet`) | `src/components/ocean-button.tsx` |
+| The dive log's pieces: page form, choice chips, star rating, signature pad and view, centre stamp, milestone bookplate, page row | `src/components/dive/` (see [dive-log.md](dive-log.md)) |
 | Species plates | `src/lib/plates/` (one engraved plate per species; see [species-plates.md](species-plates.md)), `src/components/species-art.tsx` (draws it). Divers' own species fall back to the group drawings in `src/lib/species-illustrations.ts` and `src/lib/species-art.ts` |
 
 ## Colour
@@ -46,6 +47,13 @@ swaps them in.
 Corners are gently rounded, never bubbly (`Radius`: tags 6, buttons and inputs 10–14, cards 18).
 A card is a sheet of paper on the page (`Paper`): a thin border and a soft shadow; the one card a
 screen is about can be `raised`. Tappable cards (`PaperButton`) sink a point when pressed.
+
+A dive's page carries its number in the margin, in a ruled box (`NO.` in typewriter capitals over
+the figure in Fraunces), the way divers number a paper logbook. Signatures are drawn in ink above a
+rule with the signer's name under it. A dive centre's stamp is a passport stamp in stamp red or
+lagoon ink, set at an angle that comes from the centre's name. It always reads **NOT VERIFIED**,
+because the app draws it from what the diver wrote. A milestone dive gets a bookplate: a
+double-ruled sand card with a medal on a sun wash.
 
 ## Icons
 

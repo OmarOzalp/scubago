@@ -11,7 +11,7 @@ only asks it.
    such as `2JV0Z-26MM1`, which lasts 7 days and takes up to 3 answers. **Share code** sends it
    with a link (`scubago://verify?code=…`). **Make a new code** replaces it, and the old code stops
    working at once.
-2. **The buddy** follows the link, or goes to Logbook → **Confirm a buddy's sighting** and types the
+2. **The buddy** follows the link, or goes to Logbook → **Buddy code** and types the
    code. They must be signed in.
    - Typing is forgiving: capitals, spaces and the dash are handled, and O, I and L read as 0, 1
      and 1.

@@ -20,8 +20,9 @@ import { useHomePreferences } from '@/hooks/use-home-preferences';
 import { useSceneActive } from '@/hooks/use-scene-active';
 import { useTheme } from '@/hooks/use-theme';
 import { CATALOG_BY_ID } from '@/lib/catalog';
+import { formatDiveNumber, milestoneName, nextMilestone } from '@/lib/dives';
 import { deriveHome, HABITATS, HOME_STAGES } from '@/lib/home';
-import { useAppStore, useMySightings, useMyUserId } from '@/lib/store';
+import { useAppStore, useMyDives, useMySightings, useMyUserId, useNextDiveNumber } from '@/lib/store';
 import { noneSwim, type MarineModel } from '@/lib/swimming';
 
 /** Ink on the island's water (the scene's own colours, the same in both schemes). */
@@ -37,6 +38,17 @@ export default function HomeScreen() {
   const home = useMemo(() => deriveHome(mine, CATALOG_BY_ID), [mine]);
   const sites = useMemo(() => new Set(mine.filter((s) => !s.isDemo).map((s) => s.siteId)).size, [mine]);
   const saved = useHomePreferences(owner);
+  const pages = useMyDives().length;
+  const nextNumber = useNextDiveNumber();
+  const ahead = nextMilestone(nextNumber);
+  // "Two dives to your fiftieth" when a milestone is close; otherwise what the log holds.
+  const logLine = ahead && ahead.remaining === 0
+    ? `Your ${milestoneName(ahead.at)} dive is next`
+    : ahead && ahead.remaining <= 5
+      ? `${ahead.remaining + 1} dives to your ${milestoneName(ahead.at)}`
+      : pages === 0
+        ? 'Your first page is waiting'
+        : `${nextNumber - 1} dives in your log`;
   const [editing, setEditing] = useState(false);
   const [paused, setPaused] = useState(false);
   // New species arriving and level-ups, played when Home is on screen (see useDiscoveryMoments).
@@ -133,7 +145,17 @@ export default function HomeScreen() {
         <ThemedText type="small" themeColor="textSecondary" style={{ textAlign: 'center', maxWidth: 280 }}>Log the marine life you meet, and watch your little home come alive.</ThemedText>
       </View>}
 
-      <OceanButton title="Log a dive" variant="log" icon="plus" accessibilityLabel="Log a dive" onPress={() => router.push('/log/new')} />
+      {/* The next page of the logbook, by its number. */}
+      <View style={styles.nextPage}>
+        <View style={styles.nextHead} accessible accessibilityLabel={`Next in your logbook: dive ${nextNumber}. ${logLine}`}>
+          <ThemedText type="label">Next in your logbook</ThemedText>
+          <View style={styles.nextLine}>
+            <Text style={[styles.nextNumber, { color: theme.text }]}>{formatDiveNumber(nextNumber)}</Text>
+            <ThemedText type="small" themeColor="textSecondary" style={{ flex: 1 }}>{logLine}</ThemedText>
+          </View>
+        </View>
+        <OceanButton title={`Begin entry ${formatDiveNumber(nextNumber)}`} variant="log" icon="plus" accessibilityLabel={`Log a dive, entry ${nextNumber}`} onPress={() => router.push('/log/new')} />
+      </View>
 
       <View style={styles.journeyHeader}><ThemedText type="label">Species to grow your island</ThemedText></View>
       <View style={styles.journey}>
@@ -176,6 +198,10 @@ const styles = StyleSheet.create({
   residentsScroll: { marginHorizontal: -Spacing.three, flexGrow: 0 },
   residents: { gap: 10, paddingHorizontal: Spacing.three, paddingVertical: 2 },
   empty: { borderWidth: 1.5, borderStyle: 'dashed', padding: 22, alignItems: 'center', gap: 8, borderRadius: Radius.lg },
+  nextPage: { gap: 10 },
+  nextHead: { gap: 2 },
+  nextLine: { flexDirection: 'row', alignItems: 'baseline', gap: 10 },
+  nextNumber: { fontFamily: Type.display, fontSize: 26, lineHeight: 32 },
   journeyHeader: { alignItems: 'center', marginTop: 8 },
   journey: { flexDirection: 'row', justifyContent: 'space-between', paddingHorizontal: 4 },
   journeyStep: { alignItems: 'center', gap: 6 },

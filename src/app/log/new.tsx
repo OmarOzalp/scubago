@@ -6,73 +6,110 @@ import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import Animated, { useAnimatedStyle, useReducedMotion, useSharedValue, withDelay, withTiming } from 'react-native-reanimated';
 
 import { DateField } from '@/components/date-field';
+import { DiveForm } from '@/components/dive/dive-form';
+import { Bookplate } from '@/components/dive/marks';
 import { FormField } from '@/components/form-field';
 import { Icon } from '@/components/icon';
 import { Chip } from '@/components/journal/chip';
-import { Paper, PaperButton } from '@/components/journal/paper';
+import { Paper } from '@/components/journal/paper';
 import { NewBadge, Stamp } from '@/components/journal/stamp';
 import { OceanButton } from '@/components/ocean-button';
 import { PrivacyFields } from '@/components/privacy-fields';
 import { RarityChip } from '@/components/rarity-chip';
 import { SpeciesArt } from '@/components/species-art';
+import { formatDate } from '@/components/sighting-row';
+import { SitePicker } from '@/components/site-picker';
 import { SpeciesAvatar } from '@/components/species-avatar';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
+import { WhenReady } from '@/components/when-ready';
 import { OnFill, Radius, Shadow, Spacing, Type } from '@/constants/theme';
 import { usePhotoUrl } from '@/hooks/use-photo-url';
 import { useSchemeName, useTheme } from '@/hooks/use-theme';
 import { announce } from '@/lib/announce';
 import { CATALOG, CATALOG_BY_ID, UNLISTED_ID, UNLISTED_NAME_MAX, speciesForSighting } from '@/lib/catalog';
+import { carryOver, emptyDraft, readDraft, type DiveDraft } from '@/lib/dive-draft';
+import { formatDiveNumber, milestoneAt, milestoneName, nextDiveNumber, nextMilestone, sortDives } from '@/lib/dives';
 import { recentDiveDate, rememberDiveDate } from '@/lib/last-dive-date';
 import { keepPhoto } from '@/lib/photo-files';
 import { DEFAULT_PRIVACY, lastPrivacyChoice, rememberPrivacyChoice, type PrivacySettings } from '@/lib/privacy-choice';
 import { CATEGORY_LABEL, CATEGORY_ORDER } from '@/lib/rarity';
 import { artFor } from '@/lib/species-art';
 import { canEditSighting, isMaterialChange, localIsoDate } from '@/lib/sighting-edit';
-import { siteAddedBy } from '@/lib/site-details';
 import { onSiteAdded } from '@/lib/site-added';
-import { useAllSites, useAppStore, useMySightings, useMyUserId } from '@/lib/store';
-import { searchSites, searchSpecies } from '@/lib/text-search';
+import { useAllSites, useAppStore, useMyDives, useMySightings, useMyUserId, useNextDiveNumber } from '@/lib/store';
+import { searchSpecies } from '@/lib/text-search';
 import type { Category, DiveSite, Species } from '@/lib/types';
 import { statusOf } from '@/lib/verification';
 
 type Step = 'site' | 'species' | 'details';
-type Result = { count: number; siteName: string; newSpecies: Species[]; dexNumber: number };
+type Result = {
+  count: number;
+  siteName: string;
+  newSpecies: Species[];
+  dexNumber: number;
+  /** The page written (a new dive) or added to. */
+  dive?: { id: string; number: number; written: boolean };
+};
 
 const STEP_NAMES: Record<Step, string> = { site: 'Site', species: 'Species', details: 'Details' };
 const STEP_ORDER: Step[] = ['site', 'species', 'details'];
 
 /**
- * Log what you saw on a dive: pick the site, tick every species you saw, then the date and notes,
- * and save them all at once. Editing (`?edit=<id>`) goes through the same steps for one sighting.
+ * Log a dive: pick the site, tick what you saw (or nothing), then fill in the page (its number,
+ * date, depth and time, and as much more as you like) and write it with its sightings. Two other
+ * ways in go through the same steps: `?dive=<id>` adds animals to a page already written, and
+ * `?edit=<id>` edits one sighting (on a page, its site and date stay the page's).
  */
-export default function LogSightingScreen() {
-  const params = useLocalSearchParams<{ siteId?: string; speciesId?: string; edit?: string }>();
+export default function LogSightingScreenRoute() {
+  return (
+    <WhenReady>
+      <LogSightingScreen />
+    </WhenReady>
+  );
+}
+
+function LogSightingScreen() {
+  const params = useLocalSearchParams<{ siteId?: string; speciesId?: string; edit?: string; dive?: string }>();
   const theme = useTheme();
   const scheme = useSchemeName();
   const sites = useAllSites();
   const mySightings = useMySightings();
+  const myDives = useMyDives();
+  const nextNumber = useNextDiveNumber();
   const myUserId = useMyUserId();
   const userId = useAppStore((s) => s.user?.id);
   const backendEnabled = useAppStore((s) => s.backendEnabled);
   const addSightings = useAppStore((s) => s.addSightings);
   const updateSighting = useAppStore((s) => s.updateSighting);
+  const logDive = useAppStore((s) => s.logDive);
   const editing = useAppStore((s) => (params.edit ? s.sightings.find((x) => x.id === params.edit) : undefined));
+  // The page the sightings go on, when it is already written: the one asked for, or the edited sighting's.
+  const page = useAppStore((s) => {
+    const id = params.dive ?? editing?.diveId;
+    return id ? s.dives.find((d) => d.id === id && d.userId === myUserId) : undefined;
+  });
   const multi = !editing;
+  /** Writing a new page (not adding to one, not editing a sighting). */
+  const newDive = !editing && !params.dive;
 
-  const [siteId, setSiteId] = useState<string | null>(editing?.siteId ?? params.siteId ?? null);
+  const [siteId, setSiteId] = useState<string | null>(page?.siteId ?? editing?.siteId ?? params.siteId ?? null);
   const [selected, setSelected] = useState<string[]>(
     editing ? [editing.speciesId] : params.speciesId ? [params.speciesId] : [],
   );
   const [customName, setCustomName] = useState(editing?.customName ?? '');
   const [step, setStep] = useState<Step>(
-    editing ? 'details' : params.siteId ? (params.speciesId ? 'details' : 'species') : 'site',
+    editing ? 'details' : page ? 'species' : params.siteId ? (params.speciesId ? 'details' : 'species') : 'site',
   );
-  const [date, setDate] = useState(editing?.sightedOn ?? localIsoDate(new Date()));
+  const [date, setDate] = useState(page?.divedOn ?? editing?.sightedOn ?? localIsoDate(new Date()));
   const [dateTouched, setDateTouched] = useState(!!editing);
   const [notes, setNotes] = useState(editing?.notes ?? '');
   const [photoUri, setPhotoUri] = useState<string | undefined>(editing?.photoUri);
   const photoPreview = usePhotoUrl(photoUri);
+  // A new page starts numbered after the last, with the gear (and, on the same trip, the buddy and
+  // dive centre) of the latest page.
+  const [start] = useState(() => carryOver(sortDives(myDives)[0], localIsoDate(new Date())));
+  const [draft, setDraft] = useState<DiveDraft>(() => ({ ...emptyDraft({ number: nextNumber, siteId: null, divedOn: date }), ...start.patch }));
   // Who can see it: an edit starts from the sighting's own choice (one from before privacy was
   // shared, notes and photo included); a new log from the last one made.
   const [privacy, setPrivacy] = useState<PrivacySettings>(
@@ -87,7 +124,7 @@ export default function LogSightingScreen() {
 
   // Logging the rest of a trip: start from the date chosen last time, if that was recent.
   useEffect(() => {
-    if (editing) return;
+    if (!newDive) return;
     let live = true;
     void recentDiveDate(localIsoDate(new Date())).then((iso) => {
       if (live && iso) setDate((current) => (current === localIsoDate(new Date()) ? iso : current));
@@ -95,7 +132,7 @@ export default function LogSightingScreen() {
     return () => {
       live = false;
     };
-  }, [editing]);
+  }, [newDive]);
 
   useEffect(() => {
     if (editing || privacyTouched) return;
@@ -126,7 +163,9 @@ export default function LogSightingScreen() {
   const goTo = (next: Step) => {
     setStep(next);
     setError(null);
-    announce(`Step ${STEP_ORDER.indexOf(next) + 1} of 3: ${next === 'site' ? 'choose the dive site' : next === 'species' ? 'choose what you saw' : 'date and notes'}`);
+    announce(
+      `Step ${STEP_ORDER.indexOf(next) + 1} of 3: ${next === 'site' ? 'choose the dive site' : next === 'species' ? 'choose what you saw' : newDive ? 'the dive' : 'notes'}`,
+    );
   };
   const pickSite = (s: DiveSite) => {
     setSiteId(s.id);
@@ -181,20 +220,30 @@ export default function LogSightingScreen() {
     }
   };
 
+  const fail = (message: string) => {
+    setError(message);
+    announce(message);
+  };
+
   const save = async () => {
-    if (!siteId || !site || chosen.length === 0 || saving) return;
+    if (!siteId || !site || saving) return;
+    if (!newDive && chosen.length === 0) return;
     setSaving(true);
     setError(null);
-    const base = { siteId, sightedOn: date, notes: notes.trim() || undefined, ...privacy };
+    // On a page, the sightings take the page's site and date.
+    const base = { siteId: page?.siteId ?? siteId, sightedOn: page?.divedOn ?? date, notes: notes.trim() || undefined, ...privacy };
+    const picks = selected.map((speciesId) => ({
+      ...base,
+      speciesId,
+      // One photo shows one animal: only a single-species log carries it.
+      photoUri: selected.length === 1 ? photoUri : undefined,
+      customName: speciesId === UNLISTED_ID ? customName : undefined,
+    }));
+    const owned = new Set(mySightings.map((s) => s.speciesId).filter((id) => id !== UNLISTED_ID));
     try {
       if (editing) {
         const speciesId = selected[0];
-        const { isNewSpecies } = await updateSighting(editing.id, {
-          ...base,
-          speciesId,
-          photoUri,
-          customName: speciesId === UNLISTED_ID ? customName : undefined,
-        });
+        const { isNewSpecies } = await updateSighting(editing.id, { ...picks[0], photoUri });
         if (!isNewSpecies) {
           router.back();
           return;
@@ -209,33 +258,50 @@ export default function LogSightingScreen() {
         setSaving(false);
         return;
       }
-      const inputs = selected.map((speciesId) => ({
-        ...base,
-        speciesId,
-        // One photo shows one animal: only a single-species log carries it.
-        photoUri: selected.length === 1 ? photoUri : undefined,
-        customName: speciesId === UNLISTED_ID ? customName : undefined,
-      }));
-      const { newSpeciesIds } = await addSightings(inputs);
-      void rememberDiveDate(date, localIsoDate(new Date()));
-      void rememberPrivacyChoice(privacy);
-      const owned = new Set(mySightings.map((s) => s.speciesId).filter((id) => id !== UNLISTED_ID));
-      const outcome: Result = {
-        count: inputs.length,
-        siteName: site.name,
-        newSpecies: newSpeciesIds.map((id) => CATALOG_BY_ID.get(id)!).filter(Boolean),
-        dexNumber: owned.size + newSpeciesIds.length,
-      };
+      let outcome: Result;
+      if (page) {
+        const { newSpeciesIds } = await addSightings(picks.map((p) => ({ ...p, diveId: page.id })));
+        outcome = {
+          count: picks.length,
+          siteName: site.name,
+          newSpecies: newSpeciesIds.map((id) => CATALOG_BY_ID.get(id)!).filter(Boolean),
+          dexNumber: owned.size + newSpeciesIds.length,
+          dive: { id: page.id, number: page.number, written: false },
+        };
+      } else {
+        const read = readDraft({ ...draft, siteId, divedOn: date });
+        if (read.problem !== undefined) {
+          fail(read.problem);
+          setSaving(false);
+          return;
+        }
+        const { dive, newSpeciesIds } = await logDive({
+          dive: read.fields,
+          sightings: picks.map(({ siteId: _s, sightedOn: _d, ...rest }) => rest),
+        });
+        void rememberDiveDate(date, localIsoDate(new Date()));
+        outcome = {
+          count: picks.length,
+          siteName: site.name,
+          newSpecies: newSpeciesIds.map((id) => CATALOG_BY_ID.get(id)!).filter(Boolean),
+          dexNumber: owned.size + newSpeciesIds.length,
+          dive: { id: dive.id, number: dive.number, written: true },
+        };
+      }
+      if (picks.length > 0) void rememberPrivacyChoice(privacy);
       setResult(outcome);
       announce(
-        outcome.newSpecies.length > 0
-          ? `Saved. ${outcome.newSpecies.length === 1 ? 'A new species' : `${outcome.newSpecies.length} new species`} for your collection.`
-          : `Saved ${outcome.count === 1 ? 'your sighting' : `${outcome.count} sightings`}.`,
+        [
+          outcome.dive?.written ? `Entry number ${outcome.dive.number} written.` : 'Saved.',
+          outcome.newSpecies.length > 0
+            ? `${outcome.newSpecies.length === 1 ? 'A new species' : `${outcome.newSpecies.length} new species`} for your collection.`
+            : outcome.count > 0
+              ? `${outcome.count === 1 ? 'One sighting' : `${outcome.count} sightings`} on the page.`
+              : '',
+        ].join(' '),
       );
     } catch (e: any) {
-      const message = e.message ?? 'Could not save';
-      setError(message);
-      announce(message);
+      fail(e.message ?? 'Could not save');
     } finally {
       setSaving(false);
     }
@@ -247,11 +313,15 @@ export default function LogSightingScreen() {
     setCustomName('');
     setNotes('');
     setPhotoUri(undefined);
-    goTo('species');
+    // The next page: numbered after the one just written, with its gear and buddy.
+    const { dives, divesBefore } = useAppStore.getState();
+    const mine = dives.filter((d) => d.userId === myUserId);
+    setDraft({ ...emptyDraft({ number: nextDiveNumber(mine, divesBefore[myUserId] ?? 0), siteId: null, divedOn: date }), ...carryOver(sortDives(mine)[0], date).patch });
+    goTo('site');
   };
 
   if (result) {
-    return <Saved result={result} onLogMore={editing ? undefined : logMore} />;
+    return <Saved result={result} onLogMore={newDive ? logMore : undefined} />;
   }
 
   if (params.edit && (!editing || !canEditSighting(editing, myUserId))) {
@@ -262,6 +332,14 @@ export default function LogSightingScreen() {
       </ThemedView>
     );
   }
+  if (params.dive && !page) {
+    return (
+      <ThemedView style={styles.centered}>
+        <Stack.Screen options={{ title: 'Add to a page' }} />
+        <ThemedText>This page isn’t in your log any more.</ThemedText>
+      </ThemedView>
+    );
+  }
 
   // Changing what was seen, where or when voids a confirmation (the server enforces it too).
   const losesVerification =
@@ -269,17 +347,18 @@ export default function LogSightingScreen() {
     statusOf(editing) !== 'unverified' &&
     !!siteId &&
     selected.length === 1 &&
-    isMaterialChange(editing, { speciesId: selected[0], siteId, sightedOn: date, customName });
+    isMaterialChange(editing, { speciesId: selected[0], siteId: page?.siteId ?? siteId, sightedOn: page?.divedOn ?? date, customName });
 
   const unlisted = selected.includes(UNLISTED_ID);
+  const takenBy = newDive ? myDives.find((d) => String(d.number) === draft.number) : undefined;
   const crumbs: { step: Step; label: string; enabled: boolean }[] = [
-    { step: 'site', label: site ? site.name : 'Site', enabled: true },
+    { step: 'site', label: page ? `${formatDiveNumber(page.number)} · ${site?.name ?? ''}` : site ? site.name : 'Site', enabled: !page },
     {
       step: 'species',
       label: chosen.length === 0 ? 'Species' : chosen.length === 1 ? chosen[0].commonName : `${chosen.length} species`,
       enabled: !!site,
     },
-    { step: 'details', label: 'Details', enabled: !!site && chosen.length > 0 },
+    { step: 'details', label: newDive && draft.number ? `No. ${draft.number}` : 'Details', enabled: !!site && (chosen.length > 0 || newDive) },
   ];
 
   const stepIndex = STEP_ORDER.indexOf(step);
@@ -289,7 +368,7 @@ export default function LogSightingScreen() {
       {/* Set in full: the new-species page turns the header twilight, and "Log more" comes back here. */}
       <Stack.Screen
         options={{
-          title: editing ? 'Edit sighting' : 'Log a dive',
+          title: editing ? 'Edit sighting' : page ? `Add to ${formatDiveNumber(page.number)}` : 'Log a dive',
           headerStyle: { backgroundColor: theme.background },
           headerTintColor: theme.text,
           headerTitleStyle: { fontFamily: Type.display, fontSize: 19, color: theme.text },
@@ -299,7 +378,7 @@ export default function LogSightingScreen() {
       <View style={[styles.steps, { borderBottomColor: theme.rule }]} accessibilityRole="tablist" accessibilityLabel="Steps">
         {crumbs.map((c, i) => {
           const current = step === c.step;
-          const done = i < stepIndex && c.enabled;
+          const done = i < stepIndex && (c.enabled || (c.step === 'site' && !!page));
           return (
             <View key={c.step} style={styles.stepWrap}>
               {i > 0 ? <View style={[styles.stepRule, { backgroundColor: i <= stepIndex ? theme.lagoon : theme.rule }]} /> : null}
@@ -328,7 +407,7 @@ export default function LogSightingScreen() {
                 </View>
                 <Text
                   numberOfLines={1}
-                  style={[styles.stepLabel, { color: current ? theme.text : c.enabled ? theme.text : theme.textSecondary, fontFamily: current ? Type.bodyHeavy : Type.bodyBold }]}>
+                  style={[styles.stepLabel, { color: current ? theme.text : c.enabled || done ? theme.text : theme.textSecondary, fontFamily: current ? Type.bodyHeavy : Type.bodyBold }]}>
                   {c.label}
                 </Text>
               </Pressable>
@@ -347,19 +426,32 @@ export default function LogSightingScreen() {
           customName={customName}
           site={site ?? undefined}
           recentIds={recentSpeciesIds(mySightings)}
+          allowNone={newDive}
           onToggle={toggleSpecies}
           onDone={() => goTo('details')}
         />
       )}
-      {step === 'details' && site && chosen.length > 0 && (
+      {step === 'details' && site && (chosen.length > 0 || newDive) && (
         <ScrollView contentContainerStyle={styles.details} keyboardShouldPersistTaps="handled">
           <Paper style={styles.sawCard}>
             <View style={styles.sawHeader}>
-              <ThemedText type="label">{editing ? 'Logbook entry' : 'New logbook entry'}</ThemedText>
+              <ThemedText type="label">{editing ? 'Logbook entry' : page ? formatDiveNumber(page.number) : 'New logbook entry'}</ThemedText>
               <ThemedText type="heading" accessibilityRole="header">
-                {chosen.length === 1 ? 'What you saw' : `${chosen.length} species`} at {site.name}
+                {newDive
+                  ? `${draft.number ? `No. ${draft.number}` : 'A dive'} at ${site.name}`
+                  : `${chosen.length === 1 ? 'What you saw' : `${chosen.length} species`} at ${site.name}`}
               </ThemedText>
+              {page ? (
+                <ThemedText type="small" themeColor="textSecondary">
+                  {formatDate(page.divedOn)} · the site and date are the page’s{editing ? '; change them on the page' : ''}.
+                </ThemedText>
+              ) : null}
             </View>
+            {chosen.length === 0 ? (
+              <ThemedText type="small" themeColor="textSecondary">
+                No animals on this page yet. You can add them now or later.
+              </ThemedText>
+            ) : null}
             {chosen.map((s, i) => (
               <View key={s.id} style={[styles.summary, i > 0 && { borderTopWidth: 1, borderTopColor: theme.rule }]}>
                 <SpeciesAvatar species={s} size={48} showRarityRing={s.id !== UNLISTED_ID} />
@@ -374,7 +466,7 @@ export default function LogSightingScreen() {
                     onPress={() => {
                       const left = selected.filter((x) => x !== s.id);
                       setSelected(left);
-                      if (left.length === 0) goTo('species');
+                      if (left.length === 0 && !newDive) goTo('species');
                     }}
                     accessibilityRole="button"
                     accessibilityLabel={`Remove ${s.commonName}`}
@@ -389,11 +481,32 @@ export default function LogSightingScreen() {
               <Pressable onPress={() => goTo('species')} accessibilityRole="button" style={styles.textButton}>
                 <Icon name="plus" size={16} color={theme.tint} weight="bold" />
                 <ThemedText type="smallBold" themeColor="tint">
-                  Add another species
+                  {chosen.length === 0 ? 'Add what you saw' : 'Add another species'}
                 </ThemedText>
               </Pressable>
             ) : null}
           </Paper>
+
+          {newDive ? (
+            <DiveForm
+              draft={{ ...draft, siteId, divedOn: date }}
+              onChange={(patch) => {
+                if (patch.divedOn !== undefined) {
+                  setDate(patch.divedOn);
+                  setDateTouched(true);
+                }
+                setDraft((d) => ({ ...d, ...patch }));
+              }}
+              nextNumber={nextNumber}
+              takenBy={takenBy ? { number: takenBy.number, siteName: sites.find((s) => s.id === takenBy.siteId)?.name } : undefined}
+              carried={start.from !== undefined ? { from: start.from, what: start.what } : undefined}
+            />
+          ) : null}
+          {newDive && !dateTouched && date !== localIsoDate(new Date()) ? (
+            <ThemedText type="caption" themeColor="textSecondary" style={styles.dateNote}>
+              Dated the same day as your last log.
+            </ThemedText>
+          ) : null}
 
           {unlisted ? (
             <FormField
@@ -406,29 +519,28 @@ export default function LogSightingScreen() {
             />
           ) : null}
 
-          <View style={{ gap: 6 }}>
-            <DateField
-              value={date}
-              onChange={(iso) => {
-                setDate(iso);
-                setDateTouched(true);
-              }}
-            />
-            {!dateTouched && date !== localIsoDate(new Date()) ? (
-              <ThemedText type="caption" themeColor="textSecondary">
-                Same date as your last log.
-              </ThemedText>
-            ) : null}
-          </View>
+          {!newDive && !page ? (
+            <View style={{ gap: 6 }}>
+              <DateField
+                value={date}
+                onChange={(iso) => {
+                  setDate(iso);
+                  setDateTouched(true);
+                }}
+              />
+            </View>
+          ) : null}
 
-          <FormField
-            label={chosen.length > 1 ? 'Notes (optional, added to each sighting)' : 'Notes (optional)'}
-            placeholder="Came up to check us out at the safety stop…"
-            value={notes}
-            onChangeText={setNotes}
-            multiline
-            style={styles.notes}
-          />
+          {chosen.length > 0 ? (
+            <FormField
+              label={newDive ? (chosen.length > 1 ? 'Notes on what you saw (optional, added to each)' : 'Notes on what you saw (optional)') : chosen.length > 1 ? 'Notes (optional, added to each sighting)' : 'Notes (optional)'}
+              placeholder="Came up to check us out at the safety stop…"
+              value={notes}
+              onChangeText={setNotes}
+              multiline
+              style={styles.notes}
+            />
+          ) : null}
 
           {chosen.length === 1 ? (
             <View style={{ gap: 6 }}>
@@ -462,11 +574,11 @@ export default function LogSightingScreen() {
                 </>
               )}
             </View>
-          ) : (
+          ) : chosen.length > 1 ? (
             <ThemedText type="caption" themeColor="textSecondary">
               Photos go with one sighting each: add one afterwards from the sighting in your logbook.
             </ThemedText>
-          )}
+          ) : null}
 
           {losesVerification ? (
             <Paper tone="sand" style={styles.warning}>
@@ -478,7 +590,7 @@ export default function LogSightingScreen() {
             </Paper>
           ) : null}
           {/* Without a backend nothing leaves the phone, so there is nobody to keep it from. */}
-          {backendEnabled ? (
+          {backendEnabled && chosen.length > 0 ? (
             <PrivacyFields
               value={privacy}
               onChange={(next) => {
@@ -496,7 +608,15 @@ export default function LogSightingScreen() {
           ) : null}
           <OceanButton
             title={
-              saving ? 'Saving…' : editing ? 'Save changes' : chosen.length > 1 ? `Log ${chosen.length} sightings` : 'Log it'
+              saving
+                ? 'Saving…'
+                : editing
+                  ? 'Save changes'
+                  : newDive
+                    ? `Write entry${draft.number ? ` No. ${draft.number}` : ''}`
+                    : chosen.length > 1
+                      ? `Add ${chosen.length} sightings`
+                      : 'Add it to the page'
             }
             variant={editing ? 'primary' : 'log'}
             icon={editing || saving ? undefined : 'stamp'}
@@ -528,96 +648,13 @@ function recentSpeciesIds(sightings: { speciesId: string; createdAt: string }[])
   return seen;
 }
 
-function SitePicker({
-  sites,
-  recentSiteIds,
-  userId,
-  onPick,
-}: {
-  sites: DiveSite[];
-  recentSiteIds: string[];
-  userId: string | undefined;
-  onPick: (site: DiveSite) => void;
-}) {
-  const [query, setQuery] = useState('');
-  const searching = query.trim().length > 0;
-
-  const recent = recentSiteIds.map((id) => sites.find((s) => s.id === id)).filter((s): s is DiveSite => !!s);
-  const listed = useMemo(
-    () => (searching ? searchSites(sites, query) : [...sites].sort((a, b) => a.name.localeCompare(b.name))),
-    [sites, query, searching],
-  );
-
-  return (
-    <ScrollView contentContainerStyle={styles.picker} keyboardShouldPersistTaps="handled">
-      <FormField
-        label="Where did you dive?"
-        value={query}
-        onChangeText={setQuery}
-        placeholder="Search sites, regions, countries…"
-        autoCorrect={false}
-        returnKeyType="search"
-      />
-      {!searching && recent.length > 0 ? (
-        <>
-          <ThemedText type="label" accessibilityRole="header" style={styles.groupLabel}>
-            Recent
-          </ThemedText>
-          {recent.map((s) => (
-            <SiteRow key={`recent-${s.id}`} site={s} userId={userId} recent onPress={() => onPick(s)} />
-          ))}
-          <ThemedText type="label" accessibilityRole="header" style={styles.groupLabel}>
-            All sites
-          </ThemedText>
-        </>
-      ) : null}
-      {listed.map((s) => (
-        <SiteRow key={s.id} site={s} userId={userId} onPress={() => onPick(s)} />
-      ))}
-      {searching && listed.length === 0 ? (
-        <ThemedText type="caption" themeColor="textSecondary" accessibilityLiveRegion="polite">
-          No site matches “{query.trim()}”.
-        </ThemedText>
-      ) : null}
-      <OceanButton
-        title="Can’t find it? Add a dive site"
-        icon="addSite"
-        variant="secondary"
-        onPress={() => router.push({ pathname: '/add-site', params: { then: 'log', name: query.trim() } })}
-        style={{ marginTop: Spacing.two }}
-      />
-    </ScrollView>
-  );
-}
-
-function SiteRow({ site, userId, recent = false, onPress }: { site: DiveSite; userId: string | undefined; recent?: boolean; onPress: () => void }) {
-  const theme = useTheme();
-  const addedBy = siteAddedBy(site, userId);
-  const where = `${site.region}, ${site.country}${addedBy ? ` · added by ${addedBy}` : ''}`;
-  return (
-    <PaperButton onPress={onPress} accessibilityLabel={`${site.name}, ${where}`} style={styles.row}>
-      <View style={[styles.rowIcon, { backgroundColor: recent ? `${theme.wash}66` : theme.backgroundSelected }]}>
-        <Icon name={recent ? 'clock' : 'pin'} size={20} />
-      </View>
-      <View style={{ flex: 1, gap: 1 }}>
-        <Text numberOfLines={2} style={[styles.rowTitle, { color: theme.text }]}>
-          {site.name}
-        </Text>
-        <ThemedText type="small" themeColor="textSecondary" numberOfLines={2}>
-          {where}
-        </ThemedText>
-      </View>
-      <Icon name="chevronRight" size={16} color={theme.textSecondary} weight="bold" />
-    </PaperButton>
-  );
-}
-
 function SpeciesPicker({
   multi,
   selected,
   customName,
   site,
   recentIds,
+  allowNone = false,
   onToggle,
   onDone,
 }: {
@@ -626,6 +663,8 @@ function SpeciesPicker({
   customName: string;
   site?: DiveSite;
   recentIds: string[];
+  /** A dive can be logged without any animals: "Next" works with nothing ticked. */
+  allowNone?: boolean;
   onToggle: (id: string, customName?: string) => void;
   onDone: () => void;
 }) {
@@ -720,9 +759,10 @@ function SpeciesPicker({
       {multi ? (
         <View style={[styles.doneBar, { backgroundColor: theme.background, borderTopColor: theme.rule }]}>
           <OceanButton
-            title={count === 0 ? 'Tick what you saw' : `Next · ${count} ${count === 1 ? 'species' : 'species'}`}
+            title={count === 0 ? (allowNone ? 'Nothing to log · next' : 'Tick what you saw') : `Next · ${count} ${count === 1 ? 'species' : 'species'}`}
+            variant={count === 0 && allowNone ? 'secondary' : 'primary'}
             onPress={onDone}
-            disabled={count === 0}
+            disabled={count === 0 && !allowNone}
           />
         </View>
       ) : null}
@@ -796,23 +836,54 @@ const ON_TWILIGHT = { text: '#FFFFFF', soft: '#C9D3FF' };
  */
 function Saved({ result, onLogMore }: { result: Result; onLogMore?: () => void }) {
   const theme = useTheme();
-  const { newSpecies, count, siteName } = result;
+  const { newSpecies, count, siteName, dive } = result;
+  const milestone = dive?.written ? milestoneAt(dive.number) : null;
+  const ahead = dive?.written && !milestone ? nextMilestone(dive.number + 1) : null;
+  const openPage = dive ? () => (dive.written ? router.replace(`/dive/${dive.id}`) : router.back()) : undefined;
+  // Signing from here ends on the page (there's no page behind this screen to go back to).
+  const askToSign = dive?.written ? () => router.replace({ pathname: '/dive/sign', params: { id: dive.id, then: 'page' } }) : undefined;
   if (newSpecies.length === 0) {
     return (
       <ThemedView style={styles.centered}>
-        <Paper raised style={styles.savedCard}>
-          <Stamp lines={['Logged', siteName.toUpperCase().slice(0, 22)]} animate delay={150} rotate={-6} style={{ alignSelf: 'center' }} />
-          <ThemedText type="display" accessibilityRole="header" style={styles.center}>
-            Saved
-          </ThemedText>
-          <ThemedText style={styles.center} themeColor="textSecondary">
-            {count === 1 ? 'Your sighting is' : `${count} sightings are`} in your log, at {siteName}.
-          </ThemedText>
-          <OceanButton title="Done" onPress={() => router.back()} style={styles.stretch} />
-          {onLogMore ? (
-            <OceanButton title={`Log more at ${siteName}`} variant="secondary" onPress={onLogMore} style={styles.stretch} />
-          ) : null}
-        </Paper>
+        <ScrollView contentContainerStyle={styles.savedScroll}>
+          <Paper raised style={styles.savedCard}>
+            <Stamp
+              lines={dive?.written ? [formatDiveNumber(dive.number).toUpperCase(), siteName.toUpperCase().slice(0, 22)] : ['Logged', siteName.toUpperCase().slice(0, 22)]}
+              animate
+              delay={150}
+              rotate={-6}
+              style={{ alignSelf: 'center' }}
+            />
+            <ThemedText type="display" accessibilityRole="header" style={styles.center}>
+              {dive?.written ? `Entry ${formatDiveNumber(dive.number)}` : 'Saved'}
+            </ThemedText>
+            <ThemedText style={styles.center} themeColor="textSecondary">
+              {dive?.written
+                ? count === 0
+                  ? `Your dive at ${siteName} is written in your logbook.`
+                  : `Written in your logbook, with ${count === 1 ? 'one sighting' : `${count} sightings`} at ${siteName}.`
+                : dive
+                  ? `${count === 1 ? 'Your sighting is' : `${count} sightings are`} on ${formatDiveNumber(dive.number)}.`
+                  : `${count === 1 ? 'Your sighting is' : `${count} sightings are`} in your log, at ${siteName}.`}
+            </ThemedText>
+            {milestone ? <Bookplate at={milestone} siteName={siteName} style={styles.stretch} /> : null}
+            {ahead && ahead.remaining <= 5 ? (
+              <ThemedText type="small" themeColor="textSecondary" style={styles.center}>
+                {ahead.remaining === 0 ? `Your next dive is your ${milestoneName(ahead.at)}.` : `${countWord(ahead.remaining + 1)} dives to your ${milestoneName(ahead.at)}.`}
+              </ThemedText>
+            ) : null}
+            {dive?.written ? (
+              <>
+                <OceanButton title="Open the page" icon="logbook" onPress={openPage!} style={styles.stretch} />
+                <OceanButton title="Ask your buddy to sign" icon="signature" variant="secondary" onPress={askToSign!} style={styles.stretch} />
+                {onLogMore ? <OceanButton title="Log another dive" variant="secondary" icon="plus" onPress={onLogMore} style={styles.stretch} /> : null}
+                <OceanButton title="Done" variant="quiet" onPress={() => router.back()} style={styles.stretch} />
+              </>
+            ) : (
+              <OceanButton title={dive ? 'Back to the page' : 'Done'} onPress={() => router.back()} style={styles.stretch} />
+            )}
+          </Paper>
+        </ScrollView>
       </ThemedView>
     );
   }
@@ -831,6 +902,7 @@ function Saved({ result, onLogMore }: { result: Result; onLogMore?: () => void }
       <ScrollView contentContainerStyle={styles.twilightContent}>
         <View style={{ alignItems: 'center', gap: 4 }}>
           <Text style={[styles.twilightEyebrow, { color: ON_TWILIGHT.soft }]}>
+            {dive ? `${formatDiveNumber(dive.number).toUpperCase()} · ` : ''}
             {count === 1 ? 'ONE SIGHTING' : `${count} SIGHTINGS`} · {siteName.toUpperCase()}
           </Text>
           <Text accessibilityRole="header" style={[styles.twilightTitle, { color: ON_TWILIGHT.text }]}>
@@ -864,17 +936,24 @@ function Saved({ result, onLogMore }: { result: Result; onLogMore?: () => void }
             ) : null}
           </Paper>
         )}
+        {milestone ? <Bookplate at={milestone} siteName={siteName} style={styles.stretch} /> : null}
         <View style={styles.gains}>
           <Gain mark={`+${newSpecies.length}`} text={newSpecies.length === 1 ? 'A new resident swims to your island' : `${newSpecies.length} new residents swim to your island`} />
+          {dive?.written ? <Gain mark="No." text={`Entry ${formatDiveNumber(dive.number)} written in your logbook`} /> : null}
           {count > newSpecies.length ? <Gain mark={`${count}`} text={`${count} sightings saved at ${siteName}`} /> : null}
         </View>
         <OceanButton title="Visit my home" variant="log" icon="home" onPress={() => router.dismissTo('/(tabs)')} style={styles.stretch} />
-        {onLogMore ? (
-          <OceanButton title={`Log more at ${siteName}`} variant="secondary" onPress={onLogMore} style={styles.stretch} />
-        ) : null}
+        {openPage ? <OceanButton title={dive?.written ? 'Open the page' : 'Back to the page'} variant="secondary" icon="logbook" onPress={openPage} style={styles.stretch} /> : null}
+        {askToSign ? <OceanButton title="Ask your buddy to sign" variant="secondary" icon="signature" onPress={askToSign} style={styles.stretch} /> : null}
+        {onLogMore ? <OceanButton title="Log another dive" variant="secondary" icon="plus" onPress={onLogMore} style={styles.stretch} /> : null}
       </ScrollView>
     </View>
   );
+}
+
+/** "Two", "Three"… for a small count at the start of a sentence. */
+function countWord(n: number): string {
+  return ['Zero', 'One', 'Two', 'Three', 'Four', 'Five', 'Six'][n] ?? String(n);
 }
 
 function Gain({ mark, text }: { mark: string; text: string }) {
@@ -1062,7 +1141,9 @@ const styles = StyleSheet.create({
   photoPreview: { width: '100%', height: 220, borderRadius: Radius.md, borderWidth: 1 },
   warning: { flexDirection: 'row', alignItems: 'flex-start', gap: 10 },
   centered: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: Spacing.three, padding: Spacing.four },
+  savedScroll: { flexGrow: 1, justifyContent: 'center', alignItems: 'center', width: '100%' },
   savedCard: { width: '100%', maxWidth: 420, alignItems: 'center', gap: Spacing.three, paddingVertical: Spacing.four },
+  dateNote: { marginTop: -Spacing.three },
   center: { textAlign: 'center' },
   stretch: { alignSelf: 'stretch' },
   twilight: { flex: 1 },

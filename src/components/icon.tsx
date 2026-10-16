@@ -7,8 +7,10 @@ import { View, type ColorValue, type StyleProp, type ViewStyle } from 'react-nat
 
 import { AirplaneTiltIcon } from 'phosphor-react-native/src/icons/AirplaneTilt';
 import { ArrowLeftIcon } from 'phosphor-react-native/src/icons/ArrowLeft';
+import { ArrowLineDownIcon } from 'phosphor-react-native/src/icons/ArrowLineDown';
 import { ArrowsClockwiseIcon } from 'phosphor-react-native/src/icons/ArrowsClockwise';
 import { ArrowSquareOutIcon } from 'phosphor-react-native/src/icons/ArrowSquareOut';
+import { BarbellIcon } from 'phosphor-react-native/src/icons/Barbell';
 import { BellIcon } from 'phosphor-react-native/src/icons/Bell';
 import { BinocularsIcon } from 'phosphor-react-native/src/icons/Binoculars';
 import { BoatIcon } from 'phosphor-react-native/src/icons/Boat';
@@ -27,12 +29,14 @@ import { ClockIcon } from 'phosphor-react-native/src/icons/Clock';
 import { CompassIcon } from 'phosphor-react-native/src/icons/Compass';
 import { CopyIcon } from 'phosphor-react-native/src/icons/Copy';
 import { CrosshairIcon } from 'phosphor-react-native/src/icons/Crosshair';
+import { CylinderIcon } from 'phosphor-react-native/src/icons/Cylinder';
 import { DropIcon } from 'phosphor-react-native/src/icons/Drop';
 import { EnvelopeSimpleIcon } from 'phosphor-react-native/src/icons/EnvelopeSimple';
 import { ExportIcon } from 'phosphor-react-native/src/icons/Export';
 import { EyeIcon } from 'phosphor-react-native/src/icons/Eye';
 import { FishIcon } from 'phosphor-react-native/src/icons/Fish';
 import { FunnelSimpleIcon } from 'phosphor-react-native/src/icons/FunnelSimple';
+import { GaugeIcon } from 'phosphor-react-native/src/icons/Gauge';
 import { GlobeHemisphereWestIcon } from 'phosphor-react-native/src/icons/GlobeHemisphereWest';
 import { HouseIcon } from 'phosphor-react-native/src/icons/House';
 import { ImageIcon } from 'phosphor-react-native/src/icons/Image';
@@ -57,9 +61,11 @@ import { SignatureIcon } from 'phosphor-react-native/src/icons/Signature';
 import { SignOutIcon } from 'phosphor-react-native/src/icons/SignOut';
 import { SparkleIcon } from 'phosphor-react-native/src/icons/Sparkle';
 import { StampIcon } from 'phosphor-react-native/src/icons/Stamp';
+import { StarIcon } from 'phosphor-react-native/src/icons/Star';
 import { ThermometerIcon } from 'phosphor-react-native/src/icons/Thermometer';
 import { TimerIcon } from 'phosphor-react-native/src/icons/Timer';
 import { TrashIcon } from 'phosphor-react-native/src/icons/Trash';
+import { TShirtIcon } from 'phosphor-react-native/src/icons/TShirt';
 import { UserCircleIcon } from 'phosphor-react-native/src/icons/UserCircle';
 import { UsersIcon } from 'phosphor-react-native/src/icons/Users';
 import { WarningIcon } from 'phosphor-react-native/src/icons/Warning';
@@ -131,6 +137,12 @@ const ICONS = {
   waves: WavesIcon,
   current: WindIcon,
   close: XIcon,
+  depth: ArrowLineDownIcon,
+  gauge: GaugeIcon,
+  star: StarIcon,
+  suit: TShirtIcon,
+  tank: CylinderIcon,
+  weights: BarbellIcon,
 } as const;
 
 export type IconName = keyof typeof ICONS;

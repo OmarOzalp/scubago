@@ -9,7 +9,8 @@ How a diver's changes reach the server, including offline. The code is in `src/l
 ## What the diver sees
 
 - **Logbook → a sighting** opens its page (`/sighting/[id]`). It shows the species, the site, the
-  date, the dive (not linked yet: dive logs don't exist), notes, verification status, evidence,
+  date, the dive it's on (a link to the page, for the diver's own sightings: see
+  [dive-log.md](dive-log.md)), notes, verification status, evidence,
   who logged it and when, and, for the diver's own sightings, whether it has synced.
 - **Edit sighting** reopens the logging screen with everything filled in. It uses the same steps
   and the same checks: a known species and site, a real date, not in the future. Dates are the
@@ -37,6 +38,7 @@ How a diver's changes reach the server, including offline. The code is in `src/l
 | An edit made while a push is on its way | Every local change bumps `version`; a push only marks the row synced if the version still matches, so the newer edit goes next time. |
 | Species, site or date changed on a verified sighting | Its local status resets to unverified (a buddy vouched for the old facts); the server does the same and removes the old answers (migration 0006, [buddy-verification.md](buddy-verification.md)). Notes and photo edits keep the status. Renaming a "something else" sighting counts as changing the species (0007). |
 | A whole dive logged at once | Each species is its own sighting in the outbox (a millisecond apart, so they keep their order). All are checked before any is saved. |
+| A sighting on a page | It carries the page's id (`dive_id`) and takes the page's site and date. The page is sent first; a sighting whose page hasn't reached the server waits. Before migration 0009 sightings sync without `dive_id`, and are sent again with it once 0009 is applied. |
 | "Something else" before migration 0007 | The project has no `custom_name` column yet: those sightings fail with the reason shown and keep retrying; everything else syncs. Once 0007 is applied they go through. |
 | Not signed in | Nothing leaves the device. Deletes are immediate (no tombstone), and edits just update the row. |
 | Something private, before migration 0008 | Public sightings sync as before (without `visibility`). A private sighting, private notes or a private photo waits on the phone with the reason shown; nothing private is sent. Once 0008 is applied it goes through, without restarting the app. |

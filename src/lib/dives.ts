@@ -159,7 +159,8 @@ function isRealDate(iso: string): boolean {
   return date.getUTCFullYear() === y && date.getUTCMonth() === m - 1 && date.getUTCDate() === d;
 }
 
-const FIELD_NAMES: Record<MeasuredField, string> = {
+/** What each measured field is called in a message. */
+export const FIELD_NAMES: Record<MeasuredField, string> = {
   bottomTimeMin: 'Bottom time',
   maxDepthM: 'Maximum depth',
   avgDepthM: 'Average depth',

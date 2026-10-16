@@ -13,6 +13,7 @@ import { RarityChip } from '@/components/rarity-chip';
 import { formatEntryDate } from '@/components/sighting-row';
 import { SpeciesAvatar } from '@/components/species-avatar';
 import { StatusChip } from '@/components/status-chip';
+import { SyncLine } from '@/components/sync-line';
 import { ThemedText } from '@/components/themed-text';
 import { Radius, Spacing, Type } from '@/constants/theme';
 import { usePhotoUrl } from '@/hooks/use-photo-url';
@@ -20,12 +21,13 @@ import { useSchemeName, useTheme } from '@/hooks/use-theme';
 import { announce } from '@/lib/announce';
 import { UNLISTED_ID, speciesForSighting } from '@/lib/catalog';
 import { confirmAction } from '@/lib/confirm';
+import { formatDiveNumber } from '@/lib/dives';
 import { isPrivateSighting, privacySummary, sharesNotes, sharesPhoto } from '@/lib/privacy';
 import { canEditSighting } from '@/lib/sighting-edit';
 import { useAllSites, useAppStore, useMyUserId } from '@/lib/store';
 import { displayablePhoto } from '@/lib/sync';
-import type { Sighting, SightingStatus } from '@/lib/types';
-import { isConnectionProblem, STATUS_COLOR, STATUS_EXPLANATION, STATUS_TEXT, statusOf } from '@/lib/verification';
+import type { SightingStatus } from '@/lib/types';
+import { STATUS_COLOR, STATUS_EXPLANATION, STATUS_TEXT, statusOf } from '@/lib/verification';
 
 /** The mark beside each verification status. */
 const STATUS_ICON: Record<SightingStatus, IconName> = {
@@ -48,6 +50,8 @@ export default function SightingDetailScreen() {
   const scheme = useSchemeName();
   const sites = useAllSites();
   const sighting = useAppStore((s) => s.sightings.find((x) => x.id === id));
+  // Only the diver's own pages are ever on the phone.
+  const dive = useAppStore((s) => (sighting?.diveId ? s.dives.find((d) => d.id === sighting.diveId) : undefined));
   const myUserId = useMyUserId();
   const deleteSighting = useAppStore((s) => s.deleteSighting);
   const backendEnabled = useAppStore((s) => s.backendEnabled);
@@ -189,13 +193,29 @@ export default function SightingDetailScreen() {
         </View>
       ) : null}
 
-      <Paper padded={false}>
-        <Fact icon="boat" label="Dive">
-          <ThemedText type="small" themeColor="textSecondary">
-            Not linked to a dive (dive logs are coming)
-          </ThemedText>
-        </Fact>
-        {mine && backendEnabled ? (
+      {/* Dives are private to their diver: only the owner sees which page a sighting is on. */}
+      {mine ? (
+        <Paper padded={false}>
+          {dive ? (
+            <Pressable onPress={() => router.push(`/dive/${dive.id}`)} accessibilityRole="link" accessibilityLabel={`On dive ${dive.number}. Open the page`}>
+              {({ pressed }) => (
+                <View style={{ opacity: pressed ? 0.6 : 1 }}>
+                  <Fact icon="logbook" label="Dive">
+                    <ThemedText type="smallBold" themeColor="tint">
+                      {formatDiveNumber(dive.number)} · open the page ›
+                    </ThemedText>
+                  </Fact>
+                </View>
+              )}
+            </Pressable>
+          ) : (
+            <Fact icon="logbook" label="Dive">
+              <ThemedText type="small" themeColor="textSecondary">
+                Not on a page of your log yet.
+              </ThemedText>
+            </Fact>
+          )}
+          {backendEnabled ? (
           <Fact icon={isPrivateSighting(sighting) ? 'lock' : 'everyone'} label="Who can see this" ruled>
             <ThemedText type="smallBold">{privacySummary(sighting)}</ThemedText>
             {isPrivateSighting(sighting) && !unlisted ? (
@@ -205,8 +225,9 @@ export default function SightingDetailScreen() {
               </ThemedText>
             ) : null}
           </Fact>
-        ) : null}
-      </Paper>
+          ) : null}
+        </Paper>
+      ) : null}
 
       <Paper style={styles.verification}>
         <View style={styles.verificationHead}>
@@ -238,7 +259,7 @@ export default function SightingDetailScreen() {
             : `Logged by ${mine ? 'you' : `@${sighting.username}`} in ScubaGo on ${formatTimestamp(sighting.createdAt)}`}
           {sighting.updatedAt ? ` · edited ${formatTimestamp(sighting.updatedAt)}` : ''}
         </ThemedText>
-        {mine ? <SyncLine sighting={sighting} /> : null}
+        {mine ? <SyncLine item={sighting} /> : null}
       </View>
 
       {mine ? (
@@ -289,72 +310,6 @@ function Fact({ icon, label, ruled = false, children }: { icon: IconName; label:
         <ThemedText type="label">{label}</ThemedText>
         {children}
       </View>
-    </View>
-  );
-}
-
-/** Where the diver's change stands: saved here only, on its way, failing, or backed up. */
-function SyncLine({ sighting }: { sighting: Sighting }) {
-  const theme = useTheme();
-  const user = useAppStore((s) => s.user);
-  const backendEnabled = useAppStore((s) => s.backendEnabled);
-  const syncing = useAppStore((s) => s.syncing);
-  const requestSync = useAppStore((s) => s.requestSync);
-  const quiet = { color: theme.textSecondary, wash: theme.textSecondary, washOpacity: 0.2 };
-
-  if (!backendEnabled) {
-    return (
-      <View style={styles.syncRow}>
-        <Icon name="check" size={16} {...quiet} />
-        <ThemedText type="small" themeColor="textSecondary">Saved on this device.</ThemedText>
-      </View>
-    );
-  }
-  if (!user) {
-    return (
-      <Pressable onPress={() => router.push('/auth')} accessibilityRole="link" style={[styles.syncRow, styles.inlineLink]}>
-        <Icon name="account" size={16} {...quiet} />
-        <ThemedText type="small" themeColor="textSecondary" style={styles.flex}>
-          Saved on this device only. <ThemedText type="small" themeColor="tint">Sign in to back it up ›</ThemedText>
-        </ThemedText>
-      </Pressable>
-    );
-  }
-  if (sighting.synced) {
-    return (
-      <View style={styles.syncRow}>
-        <Icon name="checkCircle" size={16} color={theme.tint} />
-        <ThemedText type="small" themeColor="textSecondary">Backed up to your account</ThemedText>
-      </View>
-    );
-  }
-  if (sighting.syncError && !syncing) {
-    const offline = isConnectionProblem(sighting.syncError);
-    return (
-      <View style={styles.syncBlock}>
-        <View style={styles.syncRow}>
-          <Icon name={offline ? 'sync' : 'warning'} size={16} color={offline ? theme.textSecondary : theme.danger} wash={offline ? theme.textSecondary : theme.danger} washOpacity={0.2} />
-          <ThemedText type="small" themeColor={offline ? 'textSecondary' : 'danger'} style={styles.flex}>
-            {offline
-              ? 'Waiting for a connection. It will sync when you’re back online.'
-              : `Couldn’t sync: ${sighting.syncError.replace(/\.$/, '')}. It will retry automatically.`}
-          </ThemedText>
-        </View>
-        <Pressable onPress={() => void requestSync()} accessibilityRole="button" style={[styles.syncRow, styles.inlineLink]}>
-          <Icon name="sync" size={16} color={theme.tint} />
-          <ThemedText type="smallBold" themeColor="tint">
-            Retry now
-          </ThemedText>
-        </Pressable>
-      </View>
-    );
-  }
-  return (
-    <View style={styles.syncRow}>
-      <Icon name="sync" size={16} {...quiet} />
-      <ThemedText type="small" themeColor="textSecondary">
-        {syncing ? 'Syncing…' : 'Saved on this device, waiting to sync.'}
-      </ThemedText>
     </View>
   );
 }
@@ -475,17 +430,6 @@ const styles = StyleSheet.create({
   },
   colophon: {
     gap: 2,
-  },
-  syncBlock: {
-    gap: 2,
-  },
-  syncRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-  },
-  inlineLink: {
-    minHeight: 44,
   },
   dangerZone: {
     borderTopWidth: 1,

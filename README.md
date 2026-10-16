@@ -48,8 +48,8 @@ npm run check:buddy            # "Ask a buddy" end to end, with two test account
 ```
 
 Then run `supabase/checks/audit.sql`, `supabase/checks/rls-isolation.sql`,
-`supabase/checks/verification-check.sql`, `supabase/checks/unlisted-check.sql` and
-`supabase/checks/privacy-check.sql` in the SQL editor (see
+`supabase/checks/verification-check.sql`, `supabase/checks/unlisted-check.sql`,
+`supabase/checks/privacy-check.sql` and `supabase/checks/dive-log-check.sql` in the SQL editor (see
 [docs/ios-distribution.md](docs/ios-distribution.md#6-supabase-after-a-reset)).
 
 Auth is email + password with auto-confirm, which needs email confirmation turned off:
@@ -92,16 +92,25 @@ project's settings with those dev defaults.
 - **Explore tab** — ~65 famous dive sites worldwide; search "where can I see a…" to
   highlight sites where a species has been spotted; tap a pin for the site card;
   "Add a site" (or long-press the map) to add a missing one; a List view for screen readers.
-- **Logbook tab** — your totals and every sighting under the day it was made. Signed out, a
-  card says how many sightings live only on this phone and offers to back them up.
+- **Logbook tab** — your lifetime totals and every page of your dive log, newest first, with
+  **Begin entry No. N** and **Dives before ScubaGo** (so pages carry your real dive numbers).
+  Signed out, a card says how much of the log lives only on this phone and offers to back it up.
 - **Field guide tab** — all 120 curated species by group, with rarity tiers (common →
   legendary): painted in watercolour once you've seen them, a pencil sketch until then.
-- **Log flow** — site → species → details for a whole dive at once: tick every species you saw
-  (what's often seen at that site comes first), pick the date from a calendar, save once. Search
+- **Log flow** — site → species → the page for a whole dive at once: tick every species you saw
+  (what's often seen at that site comes first, and none is fine), then the dive number, date,
+  time in, bottom time and depth, with conditions, gas and gear, buddy, dive centre and a rating
+  under "More details"; save once. Search
   forgives accents, spelling variants, other names and typos (`src/lib/text-search.ts`). Animals
   outside the catalogue can be logged as "Something else" in your own words (migration 0007);
-  they don't count towards the collection. A summary follows every save: a "Logged" stamp, or for
-  a new species a field-guide card that turns over and is stamped "First record".
+  they don't count towards the collection. A summary follows every save: the entry's stamp ("No. 49"),
+  a bookplate on milestone dives, or for a new species a field-guide card that turns over and is
+  stamped "First record".
+- **Dive log** — every dive is a numbered page you can turn through: the measurements, notes, the
+  animals seen, a buddy's signature (signed on your phone, or from theirs with a code) and a
+  dive-centre stamp drawn from the name you wrote, marked "not verified". Earlier sightings become
+  pages, one per site and day. Pages sync and restore like sightings (migration 0009,
+  [docs/dive-log.md](docs/dive-log.md)).
 - **Discovery moments** — a new species swims into your island with a small "New" tag, and a
   level-up gets a banner as the island grows (islets rise from the water)
   ([docs/discovery-moments.md](docs/discovery-moments.md)).
@@ -168,7 +177,8 @@ The staged plan is in [docs/roadmap/](docs/roadmap/README.md):
 - a bigger, properly sourced dive-site database;
 - reports from dive operators and marine organizations, labeled by where they came from;
 - community sightings verified by a photo (a buddy's confirmation is in: "Ask a buddy");
-- a faster, offline-first dive log.
+- importing dives from dive computers and other logbooks (the dive log itself is in:
+  [docs/dive-log.md](docs/dive-log.md)).
 
 From the original spec, still open: seasonality and downloadable offline map regions. Password
 reset works; for it to reach people outside your Supabase team, set up a custom SMTP provider.

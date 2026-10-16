@@ -2,25 +2,25 @@ import { router } from 'expo-router';
 import { useMemo } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
+import { DiveRow } from '@/components/dive/dive-row';
 import { Icon } from '@/components/icon';
 import { IconButton } from '@/components/journal/icon-button';
 import { Ledger } from '@/components/journal/ledger';
 import { LinkRow } from '@/components/journal/link-row';
-import { Paper } from '@/components/journal/paper';
+import { Paper, PaperButton } from '@/components/journal/paper';
 import { Screen, ScreenHeader, SectionHeader } from '@/components/journal/screen';
 import { Wash } from '@/components/journal/wash';
 import { OceanButton } from '@/components/ocean-button';
-import { formatEntryDate, SightingRow } from '@/components/sighting-row';
 import { ThemedText } from '@/components/themed-text';
-import { Type } from '@/constants/theme';
+import { OnFill, Radius, Type } from '@/constants/theme';
 import { useSchemeName, useTheme } from '@/hooks/use-theme';
 import { CATALOG, CATALOG_BY_ID, speciesForSighting } from '@/lib/catalog';
 import { deriveDex } from '@/lib/dex';
-import { RARITY_LABEL, RARITY_TEXT } from '@/lib/rarity';
-import { useAllSites, useAppStore, useMySightings, usePendingChanges } from '@/lib/store';
-import type { Sighting } from '@/lib/types';
+import { formatDepth, formatDiveNumber, formatMinutes, logTotals, nextMilestone, milestoneName, sortDives } from '@/lib/dives';
+import { useAllSites, useAppStore, useDivesBefore, useMyDives, useMySightings, useNextDiveNumber, usePendingChanges } from '@/lib/store';
+import type { Species } from '@/lib/types';
 
-/** The diver's own log: totals, then every sighting under the day it was made. */
+/** The diver's own log: lifetime totals, then every page, newest first. */
 export default function LogbookScreen() {
   const user = useAppStore((s) => s.user);
   const backendEnabled = useAppStore((s) => s.backendEnabled);
@@ -32,24 +32,25 @@ export default function LogbookScreen() {
   const sites = useAllSites();
   const sitesById = useMemo(() => new Map(sites.map((s) => [s.id, s])), [sites]);
   const theme = useTheme();
-  const scheme = useSchemeName();
+  const dives = useMyDives();
+  const divesBefore = useDivesBefore();
+  const next = useNextDiveNumber();
 
   const dex = useMemo(() => deriveDex(mySightings, CATALOG_BY_ID), [mySightings]);
-  const rarest = dex[0];
-
-  // Newest day first; within a day, the latest logged first.
-  const days = useMemo(() => {
-    const sorted = [...mySightings].sort((a, b) =>
-      b.sightedOn === a.sightedOn ? b.createdAt.localeCompare(a.createdAt) : b.sightedOn.localeCompare(a.sightedOn),
-    );
-    const groups: { date: string; sightings: Sighting[] }[] = [];
-    for (const s of sorted) {
-      const last = groups[groups.length - 1];
-      if (last?.date === s.sightedOn) last.sightings.push(s);
-      else groups.push({ date: s.sightedOn, sightings: [s] });
+  const totals = useMemo(() => logTotals(dives), [dives]);
+  const pages = useMemo(() => sortDives(dives), [dives]);
+  // The animals on each page, in the order they were logged.
+  const speciesByDive = useMemo(() => {
+    const map = new Map<string, Species[]>();
+    for (const s of [...mySightings].sort((a, b) => a.createdAt.localeCompare(b.createdAt))) {
+      const species = s.diveId ? speciesForSighting(s) : undefined;
+      if (!species || !s.diveId) continue;
+      map.set(s.diveId, [...(map.get(s.diveId) ?? []), species]);
     }
-    return groups;
+    return map;
   }, [mySightings]);
+  const lifetime = Math.max(totals.lifetime, divesBefore);
+  const ahead = nextMilestone(next);
 
   return (
     <Screen tab>
@@ -73,9 +74,11 @@ export default function LogbookScreen() {
           <View style={styles.backupTitle}>
             <Icon name="warning" size={22} wash={theme.sun} />
             <ThemedText type="smallBold" style={{ flex: 1 }}>
-              {mySightings.length > 0
-                ? `${mySightings.length} ${mySightings.length === 1 ? 'sighting is' : 'sightings are'} only on this phone`
-                : 'Back up your log'}
+              {dives.length > 0
+                ? `${dives.length} ${dives.length === 1 ? 'page is' : 'pages are'} only on this phone`
+                : mySightings.length > 0
+                  ? `${mySightings.length} ${mySightings.length === 1 ? 'sighting is' : 'sightings are'} only on this phone`
+                  : 'Back up your log'}
             </ThemedText>
           </View>
           <ThemedText type="small" themeColor="textSecondary">
@@ -107,31 +110,49 @@ export default function LogbookScreen() {
 
       <Ledger
         items={[
-          { value: String(mySightings.length), label: mySightings.length === 1 ? 'Sighting' : 'Sightings' },
+          { value: lifetime.toLocaleString('en'), label: lifetime === 1 ? 'Dive' : 'Dives', accessibilityLabel: `${lifetime} dives in your lifetime log` },
+          { value: totals.bottomMinutes ? formatMinutes(totals.bottomMinutes) : '–', label: 'Time', accessibilityLabel: totals.bottomMinutes ? `${formatMinutes(totals.bottomMinutes)} underwater in ScubaGo` : 'No bottom time yet' },
+          { value: totals.deepest ? formatDepth(totals.deepest.depth) : '–', label: 'Deepest', accessibilityLabel: totals.deepest ? `Deepest dive ${formatDepth(totals.deepest.depth)}` : 'No depth yet' },
           { value: String(dex.length), label: `of ${CATALOG.length} species`, accessibilityLabel: `${dex.length} of ${CATALOG.length} species seen` },
-          rarest
-            ? {
-                value: rarest.species.commonName,
-                label: `Rarest · ${RARITY_LABEL[rarest.species.rarity]}`,
-                color: RARITY_TEXT[scheme][rarest.species.rarity],
-                accessibilityLabel: `Rarest find: ${rarest.species.commonName}, ${RARITY_LABEL[rarest.species.rarity].toLowerCase()}`,
-              }
-            : { value: '–', label: 'Rarest find', accessibilityLabel: 'No rarest find yet' },
         ]}
+      />
+
+      {/* The next page, waiting to be written. */}
+      <PaperButtonRow
+        number={next}
+        title={`Begin entry ${formatDiveNumber(next)}`}
+        detail={
+          ahead && ahead.remaining === 0
+            ? `Your ${milestoneName(ahead.at)} dive!`
+            : ahead && ahead.remaining <= 5
+              ? `${ahead.remaining + 1} dives to your ${milestoneName(ahead.at)}`
+              : dives.length === 0
+                ? 'Your first page in ScubaGo'
+                : `${totals.sites} ${totals.sites === 1 ? 'site' : 'sites'} · ${totals.signed} signed`
+        }
+        onPress={() => router.push('/log/new')}
+      />
+
+      <LinkRow
+        icon="logbook"
+        title="Dives before ScubaGo"
+        detail={divesBefore > 0 ? `${divesBefore.toLocaleString('en')} logged elsewhere; your pages are numbered after them` : 'Logged dives elsewhere? Number your pages from there'}
+        onPress={() => router.push('/dive/count')}
       />
 
       {backendEnabled ? (
         <LinkRow
           icon="verified"
-          title="Confirm a buddy’s sighting"
-          detail="Got a code from a buddy? Enter it here."
+          title="Buddy code"
+          detail="Confirm a buddy’s sighting or sign their dive"
           role="link"
           onPress={() => router.push('/verify')}
         />
       ) : null}
 
       <SectionHeader
-        title="Entries"
+        title="Pages"
+        eyebrow={dives.length ? `${dives.length} in ScubaGo` : undefined}
         accessory={
           <Pressable onPress={() => router.push('/field-guide')} accessibilityRole="link" style={styles.textLink}>
             <ThemedText type="smallBold" themeColor="tint">
@@ -141,36 +162,44 @@ export default function LogbookScreen() {
         }
       />
 
-      {days.length === 0 ? (
+      {pages.length === 0 ? (
         <EmptyState />
       ) : (
-        days.map(({ date, sightings }) => (
-          <View key={date} style={styles.day}>
-            <View style={styles.dayHeader}>
-              <ThemedText type="label" accessibilityRole="header">
-                {formatEntryDate(date)}
-              </ThemedText>
-              <View style={[styles.dayRule, { backgroundColor: theme.rule }]} />
-            </View>
-            {sightings.map((s) => {
-              const species = speciesForSighting(s);
-              if (!species) return null;
-              return (
-                <SightingRow
-                  key={s.id}
-                  sighting={s}
-                  species={species}
-                  site={sitesById.get(s.siteId)}
-                  pending={!!user && !s.synced}
-                  hideDate
-                  onPress={() => router.push(`/sighting/${s.id}`)}
-                />
-              );
-            })}
-          </View>
+        pages.map((d) => (
+          <DiveRow
+            key={d.id}
+            dive={d}
+            siteName={sitesById.get(d.siteId)?.name ?? 'Unknown site'}
+            species={speciesByDive.get(d.id) ?? []}
+            pending={!!user && !d.synced}
+            onPress={() => router.push(`/dive/${d.id}`)}
+          />
         ))
       )}
     </Screen>
+  );
+}
+
+/** The next page as a card in the margin style of the index: its number, and a line about it. */
+function PaperButtonRow({ number, title, detail, onPress }: { number: number; title: string; detail: string; onPress: () => void }) {
+  const theme = useTheme();
+  const scheme = useSchemeName();
+  return (
+    <PaperButton onPress={onPress} accessibilityLabel={`${title}. ${detail}`} style={styles.nextRow}>
+      <View style={[styles.nextNumber, { backgroundColor: theme.coral, borderColor: theme.text }]}>
+        <Text style={[styles.nextNo, { color: OnFill[scheme].coral }]}>NO.</Text>
+        <Text numberOfLines={1} adjustsFontSizeToFit style={[styles.nextValue, { color: OnFill[scheme].coral }]}>
+          {number.toLocaleString('en')}
+        </Text>
+      </View>
+      <View style={styles.flex}>
+        <Text style={[styles.nextTitle, { color: theme.text }]}>{title}</Text>
+        <ThemedText type="small" themeColor="textSecondary">
+          {detail}
+        </ThemedText>
+      </View>
+      <Icon name="plus" size={20} color={theme.tint} weight="bold" />
+    </PaperButton>
   );
 }
 
@@ -212,18 +241,37 @@ const styles = StyleSheet.create({
     minHeight: 44,
     justifyContent: 'center',
   },
-  day: {
-    gap: 8,
+  flex: {
+    flex: 1,
   },
-  dayHeader: {
+  nextRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 10,
-    marginTop: 2,
+    gap: 12,
+    padding: 10,
+    paddingRight: 14,
   },
-  dayRule: {
-    flex: 1,
-    height: 1,
+  nextNumber: {
+    width: 64,
+    borderRadius: Radius.md,
+    borderWidth: 1.5,
+    alignItems: 'center',
+    paddingVertical: 6,
+  },
+  nextNo: {
+    fontFamily: Type.label,
+    fontSize: 12,
+    letterSpacing: 1,
+  },
+  nextValue: {
+    fontFamily: Type.display,
+    fontSize: 24,
+    lineHeight: 28,
+  },
+  nextTitle: {
+    fontFamily: Type.bodyHeavy,
+    fontSize: 16,
+    lineHeight: 21,
   },
   empty: {
     alignItems: 'center',

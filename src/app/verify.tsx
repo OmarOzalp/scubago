@@ -3,6 +3,7 @@ import { router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { Pressable, StyleSheet, TextInput, View } from 'react-native';
 
+import { RemoteSign } from '@/components/dive/remote-sign';
 import { Icon, type IconName } from '@/components/icon';
 import { Paper } from '@/components/journal/paper';
 import { Screen } from '@/components/journal/screen';
@@ -16,6 +17,8 @@ import { Radius, Spacing, Type } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { announce } from '@/lib/announce';
 import { CATALOG_BY_ID } from '@/lib/catalog';
+import { isDiveCode, lookUpDiveCode, SIGN_OUTCOME_MESSAGE, type DivePreview } from '@/lib/dive-signature-api';
+import { formatDiveNumber } from '@/lib/dives';
 import { useAllSites, useAppStore } from '@/lib/store';
 import { getSupabase } from '@/lib/supabase';
 import { displayablePhoto } from '@/lib/sync';
@@ -37,8 +40,9 @@ import {
 const ROLES: VerifierRole[] = ['buddy', 'instructor', 'divemaster', 'other'];
 
 /**
- * A buddy answers a code (`/verify?code=…`): signed in, they see the sighting it's for and say
- * whether they saw it too. The server checks the code, the diver and the answer (migration 0006).
+ * A buddy enters a code (`/verify?code=…`). Signed in, they see what it's for: a sighting, and they
+ * say whether they saw it too (migration 0006); or a page of the diver's logbook (codes that start
+ * with D), and they sign it (migration 0009). The server checks the code, the diver and the answer.
  */
 export default function VerifyScreen() {
   const params = useLocalSearchParams<{ code?: string }>();
@@ -55,6 +59,9 @@ export default function VerifyScreen() {
   // Read problems aloud to screen-reader users as they appear (iOS ignores live regions).
   useEffect(() => announce(problem), [problem]);
   const [answered, setAnswered] = useState<{ decision: Decision; status?: SightingStatus } | null>(null);
+  const [divePreview, setDivePreview] = useState<DivePreview | null>(null);
+  const [signedDive, setSignedDive] = useState(false);
+  const [drawing, setDrawing] = useState(false);
 
   if (!client) {
     return <Screen contentStyle={styles.centred}>
@@ -71,7 +78,21 @@ export default function VerifyScreen() {
     setBusy(true);
     setProblem(null);
     setPreview(null);
+    setDivePreview(null);
     try {
+      // A page's code starts with D; so does one sighting code in 32, so a D code that matches no
+      // page is tried as a sighting's.
+      if (isDiveCode(code)) {
+        const page = await lookUpDiveCode(client, code);
+        if (page.preview) {
+          setDivePreview(page.preview);
+          return;
+        }
+        if (page.outcome !== 'invalid_code') {
+          setProblem(SIGN_OUTCOME_MESSAGE[page.outcome === 'ok' ? 'invalid_code' : page.outcome]);
+          return;
+        }
+      }
       const found = await lookUpCode(client, code);
       if (found.preview) {
         setPreview(found.preview);
@@ -111,6 +132,18 @@ export default function VerifyScreen() {
   };
 
   const close = () => (router.canGoBack() ? router.back() : router.replace('/logbook'));
+  const diveSiteName = divePreview ? (sites.find((s) => s.id === divePreview.siteId)?.name ?? divePreview.siteName ?? 'a dive site') : '';
+
+  if (signedDive && divePreview) {
+    return <Screen contentStyle={styles.centred}>
+      <Seal label="Signed" size={104} rotate={-8} animate />
+      <ThemedText type="display" style={styles.center} accessibilityRole="header">Thanks for signing</ThemedText>
+      <ThemedText style={styles.center}>
+        {`Your signature is on @${divePreview.owner}’s ${formatDiveNumber(divePreview.number)} at ${diveSiteName}. It appears in their logbook when it next syncs.`}
+      </ThemedText>
+      <OceanButton title="Done" onPress={close} style={styles.stretch} />
+    </Screen>;
+  }
 
   if (answered && preview) {
     const confirmed = answered.decision === 'saw_it';
@@ -130,12 +163,12 @@ export default function VerifyScreen() {
   const photoUri = user && preview ? previewPhoto(preview, user.id) : undefined;
 
   return (
-    <Screen>
+    <Screen scrollEnabled={!drawing}>
       <View style={styles.intro}>
         <Emblem icon="verified" />
         <ThemedText type="small" themeColor="textSecondary" style={styles.center}>
-          A buddy logged something you both saw? Enter the code they sent you. You’ll see what they logged before
-          you answer.
+          A buddy sent you a code? Enter it to confirm something they saw, or to sign their dive. You’ll see what
+          it’s for before you answer.
         </ThemedText>
       </View>
 
@@ -152,6 +185,7 @@ export default function VerifyScreen() {
           onChangeText={(text) => {
             setCode(formatCode(text));
             setPreview(null);
+            setDivePreview(null);
             setProblem(null);
           }}
           onFocus={() => setFocused(true)}
@@ -185,7 +219,7 @@ export default function VerifyScreen() {
             </ThemedText>
             <OceanButton title="Sign in" icon="account" onPress={() => router.push('/auth')} />
           </View>
-        ) : !preview ? (
+        ) : !preview && !divePreview ? (
           <OceanButton
             title={busy ? 'Looking it up…' : 'Look it up'}
             icon="search"
@@ -194,6 +228,19 @@ export default function VerifyScreen() {
           />
         ) : null}
       </Paper>
+
+      {user && divePreview ? (
+        <RemoteSign
+          client={client}
+          code={code}
+          preview={divePreview}
+          siteName={diveSiteName}
+          onSigned={() => setSignedDive(true)}
+          onPreview={setDivePreview}
+          onProblem={setProblem}
+          onDrawing={setDrawing}
+        />
+      ) : null}
 
       {user && preview ? (
         <>
