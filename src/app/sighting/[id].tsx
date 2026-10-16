@@ -1,19 +1,22 @@
 import { Image } from 'expo-image';
 import { Stack, router, useLocalSearchParams } from 'expo-router';
 import { useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { BuddyVerification } from '@/components/buddy-verification';
+import { Icon, type IconName } from '@/components/icon';
+import { Paper, PaperButton } from '@/components/journal/paper';
+import { Screen } from '@/components/journal/screen';
+import { Wash } from '@/components/journal/wash';
 import { OceanButton } from '@/components/ocean-button';
 import { RarityChip } from '@/components/rarity-chip';
-import { formatDate } from '@/components/sighting-row';
+import { formatEntryDate } from '@/components/sighting-row';
 import { SpeciesAvatar } from '@/components/species-avatar';
 import { StatusChip } from '@/components/status-chip';
 import { ThemedText } from '@/components/themed-text';
-import { ThemedView } from '@/components/themed-view';
-import { Spacing } from '@/constants/theme';
+import { Radius, Spacing, Type } from '@/constants/theme';
 import { usePhotoUrl } from '@/hooks/use-photo-url';
-import { useTheme } from '@/hooks/use-theme';
+import { useSchemeName, useTheme } from '@/hooks/use-theme';
 import { announce } from '@/lib/announce';
 import { UNLISTED_ID, speciesForSighting } from '@/lib/catalog';
 import { confirmAction } from '@/lib/confirm';
@@ -21,16 +24,28 @@ import { isPrivateSighting, privacySummary, sharesNotes, sharesPhoto } from '@/l
 import { canEditSighting } from '@/lib/sighting-edit';
 import { useAllSites, useAppStore, useMyUserId } from '@/lib/store';
 import { displayablePhoto } from '@/lib/sync';
-import type { Sighting } from '@/lib/types';
-import { isConnectionProblem, STATUS_EXPLANATION, statusOf } from '@/lib/verification';
+import type { Sighting, SightingStatus } from '@/lib/types';
+import { isConnectionProblem, STATUS_COLOR, STATUS_EXPLANATION, STATUS_TEXT, statusOf } from '@/lib/verification';
+
+/** The mark beside each verification status. */
+const STATUS_ICON: Record<SightingStatus, IconName> = {
+  unverified: 'info',
+  evidence_submitted: 'clock',
+  confirmed: 'verified',
+  accepted: 'verified',
+  rejected: 'warning',
+  disputed: 'warning',
+};
 
 function formatTimestamp(iso: string): string {
   return new Date(iso).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' });
 }
 
+/** One page of the logbook: what was seen, when and where, who can see it, and who has confirmed it. */
 export default function SightingDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const theme = useTheme();
+  const scheme = useSchemeName();
   const sites = useAllSites();
   const sighting = useAppStore((s) => s.sightings.find((x) => x.id === id));
   const myUserId = useMyUserId();
@@ -44,13 +59,19 @@ export default function SightingDetailScreen() {
   const species = sighting ? speciesForSighting(sighting) : undefined;
   if (!sighting || !species) {
     return (
-      <ThemedView style={styles.missing}>
+      <View style={[styles.missing, { backgroundColor: theme.background }]}>
         <Stack.Screen options={{ title: '' }} />
-        <ThemedText>This sighting isn’t here any more.</ThemedText>
-        <ThemedText type="small" themeColor="textSecondary">
+        <View style={styles.missingArt}>
+          <Wash width={112} height={78} color={theme.wash} seed={23} style={StyleSheet.absoluteFill} />
+          <Icon name="logbook" size={40} />
+        </View>
+        <ThemedText type="heading" style={styles.center}>
+          This sighting isn’t here any more.
+        </ThemedText>
+        <ThemedText type="small" themeColor="textSecondary" style={styles.center}>
           It may have been deleted.
         </ThemedText>
-      </ThemedView>
+      </View>
     );
   }
 
@@ -58,6 +79,9 @@ export default function SightingDetailScreen() {
   const mine = canEditSighting(sighting, myUserId);
   const status = statusOf(sighting);
   const unlisted = sighting.speciesId === UNLISTED_ID;
+  const entryDate = formatEntryDate(sighting.sightedOn);
+  const photoPrivate = mine && backendEnabled && !sharesPhoto(sighting);
+  const notesPrivate = mine && backendEnabled && !sharesNotes(sighting);
 
   const remove = async () => {
     setBusy(true);
@@ -83,181 +107,241 @@ export default function SightingDetailScreen() {
   };
 
   return (
-    <ThemedView style={{ flex: 1 }}>
+    <Screen>
       <Stack.Screen options={{ title: species.commonName }} />
-      <ScrollView contentContainerStyle={styles.content}>
-        {/* "Something else" has no species page: it isn't in the catalogue. */}
-        <Pressable
-          onPress={unlisted ? undefined : () => router.push(`/species/${species.id}`)}
-          disabled={unlisted}
-          accessibilityRole={unlisted ? 'header' : 'button'}
-          accessibilityLabel={unlisted ? `${species.commonName}, not in the catalogue` : `${species.commonName}. About this species`}
-          style={[styles.header, { backgroundColor: theme.backgroundElement }]}>
-          <SpeciesAvatar species={species} size={64} showRarityRing={!unlisted} />
-          <View style={{ flex: 1, gap: 2 }}>
-            <ThemedText type="subtitle" style={{ fontSize: 22, lineHeight: 28 }}>
-              {species.commonName}
-            </ThemedText>
-            <ThemedText type="small" themeColor="textSecondary" style={{ fontStyle: 'italic' }}>
-              {species.scientificName}
-            </ThemedText>
-            {unlisted ? null : <RarityChip rarity={species.rarity} small />}
-          </View>
-          {unlisted ? null : (
-            <ThemedText themeColor="textSecondary" importantForAccessibility="no" accessibilityElementsHidden>
-              ›
-            </ThemedText>
-          )}
-        </Pressable>
 
-        {photo ? (
-          <View style={{ gap: 4 }}>
-            <Image source={{ uri: photo }} style={styles.photo} contentFit="cover" accessibilityLabel="Photo from the dive" />
-            <ThemedText type="small" themeColor="textSecondary">
-              {mine ? (backendEnabled && !sharesPhoto(sighting) ? 'Your photo · only you can see it' : 'Your photo') : `Photo by @${sighting.username}`}
-            </ThemedText>
-          </View>
-        ) : null}
-
-        <View style={[styles.card, { backgroundColor: theme.backgroundElement }]}>
-          <Fact label="Site">
-            {site ? (
-              <Pressable
-                onPress={() => router.push(`/site/${site.id}`)}
-                accessibilityRole="link"
-                accessibilityLabel={`Site: ${site.name}`}
-                style={styles.inlineLink}>
-                <ThemedText type="smallBold" themeColor="tint">
-                  {site.name} ›
-                </ThemedText>
-              </Pressable>
-            ) : (
-              <ThemedText type="small" themeColor="textSecondary">Unknown site</ThemedText>
-            )}
-          </Fact>
-          <Fact label="Date">
-            <ThemedText type="smallBold">{formatDate(sighting.sightedOn)}</ThemedText>
-          </Fact>
-          <Fact label="Dive">
-            <ThemedText type="small" themeColor="textSecondary">Not linked to a dive (dive logs are coming)</ThemedText>
-          </Fact>
-          {mine && backendEnabled && !sighting.isDemo ? (
-            <Fact label="Who can see this">
-              <ThemedText type="smallBold">{privacySummary(sighting)}</ThemedText>
-            </Fact>
-          ) : null}
+      {/* The top of the page, as in a paper logbook: the day, then the site. */}
+      <View style={styles.entryHead}>
+        <View accessible accessibilityRole="header" accessibilityLabel={`Logbook entry, ${entryDate}`} style={styles.entryTitles}>
+          <ThemedText type="label">Logbook entry</ThemedText>
+          <ThemedText type="heading">{entryDate}</ThemedText>
         </View>
-        {mine && backendEnabled && isPrivateSighting(sighting) && !unlisted ? (
-          <ThemedText type="small" themeColor="textSecondary">
-            Only you can see this sighting. If you ask a buddy to confirm it, they’ll see the species, site and date, never your notes or
-            photo.
-          </ThemedText>
-        ) : null}
-
-        {sighting.notes ? (
-          <View style={{ gap: Spacing.one }}>
-            <ThemedText type="smallBold" accessibilityRole="header">
-              {mine && backendEnabled && !sharesNotes(sighting) ? 'Notes · only you can see them' : 'Notes'}
+        {site ? (
+          <Pressable
+            onPress={() => router.push(`/site/${site.id}`)}
+            accessibilityRole="link"
+            accessibilityLabel={`Site: ${site.name}`}
+            style={({ pressed }) => [styles.siteLink, { opacity: pressed ? 0.6 : 1 }]}>
+            <Icon name="pin" size={20} color={theme.tint} />
+            <ThemedText type="smallBold" themeColor="tint" style={styles.shrink}>
+              {site.name} ›
             </ThemedText>
-            <ThemedText>{sighting.notes}</ThemedText>
+          </Pressable>
+        ) : (
+          <View style={styles.siteLink}>
+            <Icon name="pin" size={20} color={theme.textSecondary} wash={theme.textSecondary} washOpacity={0.2} />
+            <ThemedText type="small" themeColor="textSecondary">
+              Unknown site
+            </ThemedText>
           </View>
-        ) : null}
+        )}
+        <View style={[styles.rule, { backgroundColor: theme.rule }]} />
+      </View>
 
-        <View style={[styles.card, { backgroundColor: theme.backgroundElement }]}>
-          <View style={styles.row}>
-            <ThemedText type="smallBold">Verification</ThemedText>
-            <StatusChip status={status} />
-          </View>
-          <ThemedText type="small" themeColor="textSecondary">
-            {sighting.isDemo ? 'Example data: not a real sighting.' : STATUS_EXPLANATION[status]}
+      {/* "Something else" has no species page: it isn't in the catalogue. */}
+      <PaperButton
+        onPress={unlisted ? undefined : () => router.push(`/species/${species.id}`)}
+        disabled={unlisted}
+        accessibilityRole={unlisted ? 'header' : 'button'}
+        accessibilityLabel={unlisted ? `${species.commonName}, not in the catalogue` : `${species.commonName}. About this species`}
+        style={styles.speciesCard}>
+        <SpeciesAvatar species={species} size={84} showRarityRing={!unlisted} />
+        <View style={styles.speciesText}>
+          <Text style={[styles.speciesName, { color: theme.text }]}>{species.commonName}</Text>
+          <ThemedText type="caption" themeColor="textSecondary">
+            {species.scientificName}
           </ThemedText>
-          <ThemedText type="small">
+          {unlisted ? null : (
+            <View style={styles.speciesTag}>
+              <RarityChip rarity={species.rarity} small />
+            </View>
+          )}
+        </View>
+        {unlisted ? null : <Icon name="chevronRight" size={18} color={theme.textSecondary} weight="bold" />}
+      </PaperButton>
+
+      {photo ? (
+        <View style={styles.photoBlock}>
+          {/* Pasted in like a print. */}
+          <Paper padded={false} style={styles.print}>
+            <Image source={{ uri: photo }} style={styles.photo} contentFit="cover" accessibilityLabel="Photo from the dive" />
+          </Paper>
+          <View style={styles.photoCaption}>
+            <Icon name={photoPrivate ? 'lock' : 'camera'} size={16} color={theme.textSecondary} wash={theme.textSecondary} washOpacity={0.2} />
+            <ThemedText type="caption" themeColor="textSecondary" style={styles.flex}>
+              {mine ? (photoPrivate ? 'Your photo · only you can see it' : 'Your photo') : `Photo by @${sighting.username}`}
+            </ThemedText>
+          </View>
+        </View>
+      ) : null}
+
+      {sighting.notes ? (
+        <View style={styles.block}>
+          <View style={styles.labelRow}>
+            <Icon name={notesPrivate ? 'lock' : 'notes'} size={18} color={theme.textSecondary} wash={theme.textSecondary} washOpacity={0.2} />
+            <ThemedText type="label" accessibilityRole="header" style={styles.flex}>
+              {notesPrivate ? 'Notes · only you can see them' : 'Notes'}
+            </ThemedText>
+          </View>
+          <Paper tone="sand">
+            <ThemedText>{sighting.notes}</ThemedText>
+          </Paper>
+        </View>
+      ) : null}
+
+      <Paper padded={false}>
+        <Fact icon="boat" label="Dive">
+          <ThemedText type="small" themeColor="textSecondary">
+            Not linked to a dive (dive logs are coming)
+          </ThemedText>
+        </Fact>
+        {mine && backendEnabled ? (
+          <Fact icon={isPrivateSighting(sighting) ? 'lock' : 'everyone'} label="Who can see this" ruled>
+            <ThemedText type="smallBold">{privacySummary(sighting)}</ThemedText>
+            {isPrivateSighting(sighting) && !unlisted ? (
+              <ThemedText type="small" themeColor="textSecondary">
+                Only you can see this sighting. If you ask a buddy to confirm it, they’ll see the species, site and date, never your notes
+                or photo.
+              </ThemedText>
+            ) : null}
+          </Fact>
+        ) : null}
+      </Paper>
+
+      <Paper style={styles.verification}>
+        <View style={styles.verificationHead}>
+          <Icon name={STATUS_ICON[status]} size={24} color={STATUS_TEXT[scheme][status]} wash={STATUS_COLOR[status]} washOpacity={0.35} />
+          <ThemedText type="label" accessibilityRole="header" style={styles.flex}>
+            Verification
+          </ThemedText>
+          <StatusChip status={status} />
+        </View>
+        <ThemedText type="small" themeColor="textSecondary">
+          {sighting.isDemo ? 'Example data: not a real sighting.' : STATUS_EXPLANATION[status]}
+        </ThemedText>
+        <View style={[styles.evidence, { borderTopColor: theme.rule }]}>
+          <Icon name={sighting.photoUri ? 'camera' : 'image'} size={18} color={theme.textSecondary} wash={theme.textSecondary} washOpacity={0.2} />
+          <ThemedText type="small" style={styles.flex}>
             <ThemedText type="smallBold">Evidence</ThemedText>
             {'  '}
             {sighting.photoUri ? 'Photo attached' : 'No photo'}
           </ThemedText>
         </View>
+      </Paper>
 
-        {mine && !sighting.isDemo && !unlisted ? <BuddyVerification sighting={sighting} speciesName={species.commonName} /> : null}
+      {mine && !sighting.isDemo && !unlisted ? <BuddyVerification sighting={sighting} speciesName={species.commonName} /> : null}
 
-        <View style={{ gap: 2 }}>
-          <ThemedText type="small" themeColor="textSecondary">
-            {sighting.isDemo
-              ? 'Example data generated for this build, not a diver’s report.'
-              : `Logged by ${mine ? 'you' : `@${sighting.username}`} in ScubaGo on ${formatTimestamp(sighting.createdAt)}`}
-            {sighting.updatedAt ? ` · edited ${formatTimestamp(sighting.updatedAt)}` : ''}
-          </ThemedText>
-          {mine ? <SyncLine sighting={sighting} /> : null}
+      <View style={styles.colophon}>
+        <ThemedText type="caption" themeColor="textSecondary">
+          {sighting.isDemo
+            ? 'Example data generated for this build, not a diver’s report.'
+            : `Logged by ${mine ? 'you' : `@${sighting.username}`} in ScubaGo on ${formatTimestamp(sighting.createdAt)}`}
+          {sighting.updatedAt ? ` · edited ${formatTimestamp(sighting.updatedAt)}` : ''}
+        </ThemedText>
+        {mine ? <SyncLine sighting={sighting} /> : null}
+      </View>
+
+      {mine ? (
+        <OceanButton
+          title="Edit sighting"
+          variant="secondary"
+          icon="edit"
+          disabled={busy}
+          onPress={() => router.push({ pathname: '/log/new', params: { edit: sighting.id } })}
+        />
+      ) : null}
+
+      {/* Set apart below a rule: deleting can't be undone. */}
+      {mine ? (
+        <View style={[styles.dangerZone, { borderTopColor: theme.rule }]}>
+          <Pressable
+            onPress={confirmRemoval}
+            disabled={busy}
+            accessibilityRole="button"
+            aria-disabled={busy}
+            style={({ pressed }) => [
+              styles.delete,
+              { borderColor: theme.danger, backgroundColor: pressed ? theme.backgroundSelected : 'transparent', opacity: busy ? 0.4 : 1 },
+            ]}>
+            <Icon name="trash" size={18} color={theme.danger} wash={theme.danger} washOpacity={0.15} />
+            <ThemedText type="smallBold" themeColor="danger">
+              Delete sighting
+            </ThemedText>
+          </Pressable>
+          {error ? (
+            <ThemedText type="small" themeColor="danger" accessibilityLiveRegion="polite" style={styles.center}>
+              {error}
+            </ThemedText>
+          ) : null}
         </View>
-
-        {mine ? (
-          <View style={{ gap: Spacing.two }}>
-            <OceanButton
-              title="Edit sighting"
-              variant="secondary"
-              disabled={busy}
-              onPress={() => router.push({ pathname: '/log/new', params: { edit: sighting.id } })}
-            />
-            <Pressable onPress={confirmRemoval} disabled={busy} accessibilityRole="button" style={styles.delete}>
-              <ThemedText type="small" themeColor="danger" style={{ opacity: busy ? 0.4 : 1 }}>
-                Delete sighting
-              </ThemedText>
-            </Pressable>
-            {error ? (
-              <ThemedText type="small" themeColor="danger" accessibilityLiveRegion="polite">
-                {error}
-              </ThemedText>
-            ) : null}
-          </View>
-        ) : null}
-      </ScrollView>
-    </ThemedView>
+      ) : null}
+    </Screen>
   );
 }
 
-function Fact({ label, children }: { label: string; children: React.ReactNode }) {
+/** A ruled line of the entry: an icon, a typewriter label, and what goes there. */
+function Fact({ icon, label, ruled = false, children }: { icon: IconName; label: string; ruled?: boolean; children: React.ReactNode }) {
+  const theme = useTheme();
   return (
-    <View style={styles.row}>
-      <ThemedText type="small" themeColor="textSecondary" style={styles.factLabel}>
-        {label}
-      </ThemedText>
-      <View style={{ flex: 1, alignItems: 'flex-end' }}>{children}</View>
+    <View style={[styles.fact, ruled && { borderTopWidth: 1, borderTopColor: theme.rule }]}>
+      <Icon name={icon} size={20} color={theme.textSecondary} wash={theme.textSecondary} washOpacity={0.2} style={styles.factIcon} />
+      <View style={styles.factBody}>
+        <ThemedText type="label">{label}</ThemedText>
+        {children}
+      </View>
     </View>
   );
 }
 
 /** Where the diver's change stands: saved here only, on its way, failing, or backed up. */
 function SyncLine({ sighting }: { sighting: Sighting }) {
+  const theme = useTheme();
   const user = useAppStore((s) => s.user);
   const backendEnabled = useAppStore((s) => s.backendEnabled);
   const syncing = useAppStore((s) => s.syncing);
   const requestSync = useAppStore((s) => s.requestSync);
+  const quiet = { color: theme.textSecondary, wash: theme.textSecondary, washOpacity: 0.2 };
 
   if (!backendEnabled) {
-    return <ThemedText type="small" themeColor="textSecondary">Saved on this device.</ThemedText>;
+    return (
+      <View style={styles.syncRow}>
+        <Icon name="check" size={16} {...quiet} />
+        <ThemedText type="small" themeColor="textSecondary">Saved on this device.</ThemedText>
+      </View>
+    );
   }
   if (!user) {
     return (
-      <Pressable onPress={() => router.push('/auth')} accessibilityRole="link" style={styles.inlineLink}>
-        <ThemedText type="small" themeColor="textSecondary">
+      <Pressable onPress={() => router.push('/auth')} accessibilityRole="link" style={[styles.syncRow, styles.inlineLink]}>
+        <Icon name="account" size={16} {...quiet} />
+        <ThemedText type="small" themeColor="textSecondary" style={styles.flex}>
           Saved on this device only. <ThemedText type="small" themeColor="tint">Sign in to back it up ›</ThemedText>
         </ThemedText>
       </Pressable>
     );
   }
   if (sighting.synced) {
-    return <ThemedText type="small" themeColor="textSecondary">✓ Backed up to your account</ThemedText>;
+    return (
+      <View style={styles.syncRow}>
+        <Icon name="checkCircle" size={16} color={theme.tint} />
+        <ThemedText type="small" themeColor="textSecondary">Backed up to your account</ThemedText>
+      </View>
+    );
   }
   if (sighting.syncError && !syncing) {
     const offline = isConnectionProblem(sighting.syncError);
     return (
-      <View style={{ gap: Spacing.one }}>
-        <ThemedText type="small" themeColor={offline ? 'textSecondary' : 'danger'}>
-          {offline
-            ? 'Waiting for a connection. It will sync when you’re back online.'
-            : `Couldn’t sync: ${sighting.syncError.replace(/\.$/, '')}. It will retry automatically.`}
-        </ThemedText>
-        <Pressable onPress={() => void requestSync()} accessibilityRole="button" style={styles.inlineLink}>
+      <View style={styles.syncBlock}>
+        <View style={styles.syncRow}>
+          <Icon name={offline ? 'sync' : 'warning'} size={16} color={offline ? theme.textSecondary : theme.danger} wash={offline ? theme.textSecondary : theme.danger} washOpacity={0.2} />
+          <ThemedText type="small" themeColor={offline ? 'textSecondary' : 'danger'} style={styles.flex}>
+            {offline
+              ? 'Waiting for a connection. It will sync when you’re back online.'
+              : `Couldn’t sync: ${sighting.syncError.replace(/\.$/, '')}. It will retry automatically.`}
+          </ThemedText>
+        </View>
+        <Pressable onPress={() => void requestSync()} accessibilityRole="button" style={[styles.syncRow, styles.inlineLink]}>
+          <Icon name="sync" size={16} color={theme.tint} />
           <ThemedText type="smallBold" themeColor="tint">
             Retry now
           </ThemedText>
@@ -266,58 +350,158 @@ function SyncLine({ sighting }: { sighting: Sighting }) {
     );
   }
   return (
-    <ThemedText type="small" themeColor="textSecondary">
-      {syncing ? 'Syncing…' : 'Saved on this device, waiting to sync.'}
-    </ThemedText>
+    <View style={styles.syncRow}>
+      <Icon name="sync" size={16} {...quiet} />
+      <ThemedText type="small" themeColor="textSecondary">
+        {syncing ? 'Syncing…' : 'Saved on this device, waiting to sync.'}
+      </ThemedText>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  content: {
-    padding: Spacing.three,
-    gap: Spacing.three,
+  flex: {
+    flex: 1,
+  },
+  shrink: {
+    flexShrink: 1,
+  },
+  center: {
+    textAlign: 'center',
   },
   missing: {
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    gap: Spacing.one,
+    gap: Spacing.two,
     padding: Spacing.four,
   },
-  header: {
+  missingArt: {
+    width: 112,
+    height: 78,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: Spacing.one,
+  },
+  entryHead: {
+    gap: 2,
+  },
+  entryTitles: {
+    gap: 2,
+  },
+  siteLink: {
+    alignSelf: 'flex-start',
+    minHeight: 44,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: Spacing.three,
-    borderRadius: 16,
-    padding: Spacing.three,
+    gap: 6,
+  },
+  rule: {
+    height: 1,
+    marginTop: 4,
+  },
+  speciesCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 14,
+    padding: 12,
+    paddingRight: 14,
+  },
+  speciesText: {
+    flex: 1,
+    gap: 2,
+  },
+  speciesName: {
+    fontFamily: Type.display,
+    fontSize: 24,
+    lineHeight: 29,
+  },
+  speciesTag: {
+    flexDirection: 'row',
+    marginTop: 4,
+  },
+  photoBlock: {
+    gap: 6,
+  },
+  print: {
+    padding: 6,
   },
   photo: {
     width: '100%',
     height: 240,
-    borderRadius: 16,
+    borderRadius: Radius.md,
   },
-  card: {
-    borderRadius: 14,
-    padding: Spacing.three,
-    gap: Spacing.two,
-  },
-  row: {
+  photoCaption: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: Spacing.two,
+    gap: 6,
+    paddingHorizontal: 4,
   },
-  factLabel: {
-    minWidth: 44,
+  block: {
+    gap: 8,
+  },
+  labelRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  fact: {
+    flexDirection: 'row',
+    gap: 12,
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+  },
+  factIcon: {
+    marginTop: 1,
+  },
+  factBody: {
+    flex: 1,
+    gap: 3,
+  },
+  verification: {
+    gap: 10,
+  },
+  verificationHead: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  evidence: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    borderTopWidth: 1,
+    paddingTop: 10,
+  },
+  colophon: {
+    gap: 2,
+  },
+  syncBlock: {
+    gap: 2,
+  },
+  syncRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
   },
   inlineLink: {
     minHeight: 44,
-    justifyContent: 'center',
+  },
+  dangerZone: {
+    borderTopWidth: 1,
+    paddingTop: Spacing.four,
+    marginTop: Spacing.two,
+    alignItems: 'center',
+    gap: Spacing.two,
   },
   delete: {
-    alignSelf: 'center',
-    paddingVertical: Spacing.two,
-    minHeight: 44,
+    minHeight: 46,
+    flexDirection: 'row',
+    alignItems: 'center',
     justifyContent: 'center',
+    gap: 8,
+    paddingHorizontal: 20,
+    borderWidth: 1.5,
+    borderRadius: Radius.md,
   },
 });

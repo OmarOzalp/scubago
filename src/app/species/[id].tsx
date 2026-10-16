@@ -1,26 +1,38 @@
 import { Image } from 'expo-image';
 import { Stack, router, useLocalSearchParams } from 'expo-router';
-import { useMemo } from 'react';
-import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { useMemo, useState } from 'react';
+import { StyleSheet, Text, View } from 'react-native';
 
+import { Icon } from '@/components/icon';
+import { Ledger } from '@/components/journal/ledger';
+import { Paper, PaperButton } from '@/components/journal/paper';
+import { Screen, SectionHeader } from '@/components/journal/screen';
+import { Wash } from '@/components/journal/wash';
 import { OceanButton } from '@/components/ocean-button';
 import { RarityChip } from '@/components/rarity-chip';
 import { formatDate } from '@/components/sighting-row';
+import { SpeciesArt } from '@/components/species-art';
 import { ThemedText } from '@/components/themed-text';
-import { ThemedView } from '@/components/themed-view';
-import { Spacing } from '@/constants/theme';
-import { useTheme } from '@/hooks/use-theme';
-import { CATALOG_BY_ID } from '@/lib/catalog';
-import { speciesMarineModel } from '@/lib/swimming';
-import { CATEGORY_EMOJI, CATEGORY_LABEL } from '@/lib/rarity';
+import { Radius, Spacing, Type } from '@/constants/theme';
+import { useSchemeName, useTheme } from '@/hooks/use-theme';
+import { CATALOG, CATALOG_BY_ID } from '@/lib/catalog';
+import { CATEGORY_LABEL } from '@/lib/rarity';
+import { darken, lighten } from '@/lib/art-color';
+import { artFor } from '@/lib/species-art';
 import { useAllSites, useAppStore, useMyUserId } from '@/lib/store';
+import { speciesMarineModel } from '@/lib/swimming';
+import type { DiveSite } from '@/lib/types';
 
+/** A species' page in the field guide: its plate, what it is, and the diver's own record of it. */
 export default function SpeciesDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const theme = useTheme();
+  const scheme = useSchemeName();
   const sites = useAllSites();
   const sightings = useAppStore((s) => s.sightings);
   const myUserId = useMyUserId();
+  // The plate's inner width, measured: a phone's to begin with (the static web render has no window).
+  const [plateWidth, setPlateWidth] = useState(320);
 
   const species = id ? CATALOG_BY_ID.get(id) : undefined;
 
@@ -50,166 +62,302 @@ export default function SpeciesDetailScreen() {
 
   if (!species) {
     return (
-      <ThemedView style={styles.missing}>
-        <ThemedText>Species not found.</ThemedText>
-      </ThemedView>
+      <View style={[styles.missing, { backgroundColor: theme.background }]}>
+        <View style={styles.missingArt}>
+          <Wash width={112} height={78} color={theme.wash} seed={31} style={StyleSheet.absoluteFill} />
+          <Icon name="fieldGuide" size={40} />
+        </View>
+        <ThemedText type="heading" style={styles.center}>
+          Species not found.
+        </ThemedText>
+      </View>
     );
   }
 
+  const seen = mine.length > 0;
+  const { wash, seed } = artFor(species);
+  const artWidth = Math.min(380, Math.round(plateWidth * 0.8));
+  const artHeight = Math.round(artWidth * 0.64);
+  const plateNumber = CATALOG.findIndex((s) => s.id === species.id) + 1;
+  const firstSeen = seen ? formatDate([...mine].sort((a, b) => a.sightedOn.localeCompare(b.sightedOn))[0].sightedOn) : '';
+  const mySites = new Set(mine.map((s) => s.siteId)).size;
+
   return (
-    <ThemedView style={{ flex: 1 }}>
+    <Screen>
       <Stack.Screen options={{ title: species.commonName }} />
-      <ScrollView contentContainerStyle={styles.content}>
-        {species.photoUrl ? (
-          <View>
-            <Image source={{ uri: species.photoUrl }} style={styles.hero} contentFit="cover" accessibilityLabel={`Photo of a ${species.commonName}`} />
-            {species.photoAttribution ? (
-              <ThemedText type="small" themeColor="textSecondary" style={styles.attribution}>
-                {species.photoAttribution} · iNaturalist
+
+      {/* The plate: painted once the diver has seen one, a pencil sketch until then. */}
+      <Paper raised padded={false} style={styles.plateCard}>
+        <View
+          onLayout={(e) => setPlateWidth(Math.floor(e.nativeEvent.layout.width))}
+          accessible
+          accessibilityLabel={seen ? CATEGORY_LABEL[species.category] : `${CATEGORY_LABEL[species.category]}, not seen yet`}
+          style={[
+            styles.mount,
+            seen
+              ? { borderColor: theme.text, backgroundColor: `${wash}14` }
+              : { borderColor: theme.rule, borderStyle: 'dashed' },
+          ]}>
+          <View style={styles.plateTop}>
+            <ThemedText type="label">{CATEGORY_LABEL[species.category]}</ThemedText>
+            {plateNumber > 0 ? (
+              <ThemedText type="label" importantForAccessibility="no" accessibilityElementsHidden>
+                No. {plateNumber}
               </ThemedText>
             ) : null}
           </View>
-        ) : (
-          <View style={[styles.heroFallback, { backgroundColor: theme.backgroundElement }]} importantForAccessibility="no-hide-descendants" accessibilityElementsHidden>
-            <ThemedText style={{ fontSize: 72, lineHeight: 86 }}>
-              {species.emoji ?? CATEGORY_EMOJI[species.category]}
-            </ThemedText>
+          <View style={[styles.art, { width: artWidth, height: artHeight }]}>
+            {seen ? (
+              <Wash
+                width={artWidth + 36}
+                height={artHeight + 20}
+                color={scheme === 'dark' ? darken(wash, 0.35) : lighten(wash, 0.5)}
+                seed={seed}
+                opacity={0.55}
+                style={{ position: 'absolute', left: -18, top: -6 }}
+              />
+            ) : null}
+            <SpeciesArt species={species} width={artWidth} found={seen} />
           </View>
-        )}
+          {!seen ? (
+            <ThemedText type="caption" themeColor="textSecondary" style={styles.pencilNote}>
+              Not seen yet
+            </ThemedText>
+          ) : null}
+        </View>
 
-        <View style={{ gap: Spacing.one }}>
-          <ThemedText type="subtitle" style={{ fontSize: 26, lineHeight: 32 }} accessibilityRole="header">
+        <View style={styles.names}>
+          <ThemedText type="display" accessibilityRole="header" style={styles.center}>
             {species.commonName}
           </ThemedText>
-          <ThemedText type="small" themeColor="textSecondary" style={{ fontStyle: 'italic' }}>
+          <ThemedText type="caption" themeColor="textSecondary" style={styles.center}>
             {species.scientificName}
           </ThemedText>
-          <View style={styles.tagRow}>
+          <View style={styles.tags}>
             <RarityChip rarity={species.rarity} />
-            <ThemedText type="small" themeColor="textSecondary">
-              {CATEGORY_LABEL[species.category]}
-            </ThemedText>
           </View>
         </View>
+      </Paper>
 
-        <ThemedText>{species.blurb}</ThemedText>
+      <ThemedText>{species.blurb}</ThemedText>
 
-        {speciesMarineModel(species.id) && <OceanButton
-          title={`See ${species.commonName.toLowerCase()} in 3D`}
-          variant="secondary"
-          onPress={() => router.push({ pathname: '/inspect', params: { species: species.id } })}
-        />}
-
-        {mine.length > 0 ? (
-          <View style={[styles.mine, { backgroundColor: theme.backgroundElement }]}>
-            <ThemedText type="smallBold">In your log: ×{mine.length}</ThemedText>
-            <ThemedText type="small" themeColor="textSecondary">
-              First seen {formatDate([...mine].sort((a, b) => a.sightedOn.localeCompare(b.sightedOn))[0].sightedOn)}
+      {species.photoUrl ? (
+        <View style={styles.photoBlock}>
+          {/* Mounted like a print pasted into the guide. */}
+          <Paper padded={false} style={styles.print}>
+            <Image source={{ uri: species.photoUrl }} style={styles.photo} contentFit="cover" accessibilityLabel={`Photo of a ${species.commonName}`} />
+          </Paper>
+          {species.photoAttribution ? (
+            <ThemedText type="caption" themeColor="textSecondary" style={styles.credit}>
+              {species.photoAttribution} · iNaturalist
             </ThemedText>
-          </View>
-        ) : (
-          <OceanButton
-            title="I saw one! Log it"
-            onPress={() =>
-              router.push({ pathname: '/log/new', params: { speciesId: species.id } })
-            }
+          ) : null}
+        </View>
+      ) : null}
+
+      {speciesMarineModel(species.id) && <OceanButton
+        title={`See ${species.commonName.toLowerCase()} in 3D`}
+        variant="secondary"
+        icon="eye"
+        onPress={() => router.push({ pathname: '/inspect', params: { species: species.id } })}
+      />}
+
+      {seen ? (
+        <>
+          <SectionHeader title="In your log" />
+          <Ledger
+            items={[
+              {
+                value: String(mine.length),
+                label: mine.length === 1 ? 'Sighting' : 'Sightings',
+                accessibilityLabel: `In your log ${mine.length} ${mine.length === 1 ? 'time' : 'times'}`,
+              },
+              { value: firstSeen, label: 'First seen', accessibilityLabel: `First seen ${firstSeen}` },
+              { value: String(mySites), label: mySites === 1 ? 'Site' : 'Sites' },
+            ]}
           />
-        )}
-
-        <View style={{ gap: Spacing.two }}>
-          <ThemedText type="smallBold" accessibilityRole="header">
-            Where it’s been seen
-          </ThemedText>
-          {seenAt.length === 0 ? (
-            <ThemedText type="small" themeColor="textSecondary">
-              No logged sightings yet — it’s out there somewhere.
-            </ThemedText>
-          ) : (
-            seenAt.map(({ site, count, last }) => (
-              <Pressable
-                key={site.id}
-                onPress={() => router.push(`/site/${site.id}`)}
-                accessibilityRole="button"
-                accessibilityLabel={`${site.name}, ${site.region}, ${site.country}: seen ${count} ${count === 1 ? 'time' : 'times'}, last on ${formatDate(last)}`}
-                style={({ pressed }) => [
-                  styles.siteRow,
-                  { backgroundColor: pressed ? theme.backgroundSelected : theme.backgroundElement },
-                ]}>
-                <View style={{ flex: 1 }}>
-                  <ThemedText type="smallBold" numberOfLines={1}>
-                    {site.name}
-                  </ThemedText>
-                  <ThemedText type="small" themeColor="textSecondary" numberOfLines={1}>
-                    {site.region}, {site.country}
-                  </ThemedText>
-                </View>
-                <View style={{ alignItems: 'flex-end' }}>
-                  <ThemedText type="smallBold">×{count}</ThemedText>
-                  <ThemedText type="small" themeColor="textSecondary">
-                    last {formatDate(last)}
-                  </ThemedText>
-                </View>
-              </Pressable>
-            ))
-          )}
-        </View>
-
-        {mine.length > 0 ? (
           <OceanButton
             title="Log another sighting"
             variant="secondary"
+            icon="plus"
             onPress={() =>
               router.push({ pathname: '/log/new', params: { speciesId: species.id } })
             }
           />
-        ) : null}
-      </ScrollView>
-    </ThemedView>
+        </>
+      ) : (
+        <OceanButton
+          title="I saw one! Log it"
+          variant="log"
+          icon="plus"
+          onPress={() =>
+            router.push({ pathname: '/log/new', params: { speciesId: species.id } })
+          }
+        />
+      )}
+
+      <SectionHeader title="Where it’s been seen" />
+      {seenAt.length === 0 ? (
+        <View style={[styles.empty, { borderColor: theme.rule }]}>
+          <Icon name="binoculars" size={26} color={theme.textSecondary} />
+          <ThemedText type="caption" themeColor="textSecondary" style={styles.center}>
+            No logged sightings yet — it’s out there somewhere.
+          </ThemedText>
+        </View>
+      ) : (
+        <View style={styles.sites}>
+          {seenAt.map(({ site, count, last }) => (
+            <SiteCard key={site.id} site={site} count={count} last={last} />
+          ))}
+        </View>
+      )}
+    </Screen>
+  );
+}
+
+/** A site this species has been seen at: how many times, and when last. */
+function SiteCard({ site, count, last }: { site: DiveSite; count: number; last: string }) {
+  const theme = useTheme();
+  return (
+    <PaperButton
+      onPress={() => router.push(`/site/${site.id}`)}
+      accessibilityRole="button"
+      accessibilityLabel={`${site.name}, ${site.region}, ${site.country}: seen ${count} ${count === 1 ? 'time' : 'times'}, last on ${formatDate(last)}`}
+      style={styles.site}>
+      <View style={[styles.siteIcon, { backgroundColor: theme.backgroundSelected }]}>
+        <Icon name="pin" size={22} />
+      </View>
+      <View style={styles.siteBody}>
+        <Text numberOfLines={1} style={[styles.siteName, { color: theme.text }]}>
+          {site.name}
+        </Text>
+        <ThemedText type="small" themeColor="textSecondary" numberOfLines={1}>
+          {site.region}, {site.country}
+        </ThemedText>
+      </View>
+      <View style={styles.siteStats}>
+        <Text style={[styles.siteCount, { color: theme.text }]}>×{count}</Text>
+        <ThemedText type="small" themeColor="textSecondary">
+          last {formatDate(last)}
+        </ThemedText>
+      </View>
+    </PaperButton>
   );
 }
 
 const styles = StyleSheet.create({
-  content: {
-    padding: Spacing.three,
-    gap: Spacing.three,
+  center: {
+    textAlign: 'center',
   },
   missing: {
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
+    gap: Spacing.two,
+    padding: Spacing.four,
   },
-  hero: {
-    width: '100%',
-    height: 220,
-    borderRadius: 18,
-  },
-  heroFallback: {
-    width: '100%',
-    height: 220,
-    borderRadius: 18,
+  missingArt: {
+    width: 112,
+    height: 78,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  attribution: {
-    marginTop: 4,
-    fontSize: 12,
+  // The plate, set in a fine frame like the island on Home.
+  plateCard: {
+    padding: 8,
+    paddingBottom: 18,
+    gap: 14,
   },
-  tagRow: {
+  mount: {
+    borderWidth: 1,
+    borderRadius: Radius.md + 4,
+    paddingTop: 12,
+    paddingBottom: 18,
+    paddingHorizontal: 14,
+    alignItems: 'center',
+    gap: 10,
+  },
+  plateTop: {
+    alignSelf: 'stretch',
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    gap: 12,
+  },
+  art: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginVertical: 6,
+  },
+  pencilNote: {
+    textAlign: 'center',
+    marginTop: -4,
+  },
+  names: {
+    paddingHorizontal: 12,
+    gap: 4,
+  },
+  tags: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    marginTop: 6,
+  },
+  photoBlock: {
+    gap: 6,
+  },
+  print: {
+    padding: 6,
+  },
+  photo: {
+    width: '100%',
+    height: 220,
+    borderRadius: Radius.md,
+  },
+  credit: {
+    fontSize: 13,
+    lineHeight: 18,
+    paddingHorizontal: 4,
+  },
+  empty: {
+    borderWidth: 1.5,
+    borderStyle: 'dashed',
+    borderRadius: Radius.lg,
+    padding: 20,
+    alignItems: 'center',
+    gap: 8,
+  },
+  sites: {
+    gap: 10,
+  },
+  site: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: Spacing.two,
-    marginTop: 4,
+    gap: 12,
+    paddingVertical: 12,
+    paddingHorizontal: 14,
   },
-  mine: {
-    borderRadius: 14,
-    padding: Spacing.three,
-    gap: 2,
-  },
-  siteRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: Spacing.two,
+  siteIcon: {
+    width: 42,
+    height: 42,
     borderRadius: 12,
-    padding: Spacing.two + 2,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  siteBody: {
+    flex: 1,
+    gap: 1,
+  },
+  siteName: {
+    fontFamily: Type.bodyHeavy,
+    fontSize: 15,
+    lineHeight: 20,
+  },
+  siteStats: {
+    alignItems: 'flex-end',
+    gap: 1,
+  },
+  siteCount: {
+    fontFamily: Type.display,
+    fontSize: 20,
+    lineHeight: 24,
   },
 });

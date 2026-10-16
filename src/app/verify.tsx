@@ -1,14 +1,18 @@
 import { Image } from 'expo-image';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
+import { Pressable, StyleSheet, TextInput, View } from 'react-native';
 
+import { Icon, type IconName } from '@/components/icon';
+import { Paper } from '@/components/journal/paper';
+import { Screen } from '@/components/journal/screen';
+import { Seal } from '@/components/journal/stamp';
+import { Wash } from '@/components/journal/wash';
 import { OceanButton } from '@/components/ocean-button';
 import { formatDate } from '@/components/sighting-row';
 import { SpeciesAvatar } from '@/components/species-avatar';
 import { ThemedText } from '@/components/themed-text';
-import { ThemedView } from '@/components/themed-view';
-import { Spacing } from '@/constants/theme';
+import { Radius, Spacing, Type } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { announce } from '@/lib/announce';
 import { CATALOG_BY_ID } from '@/lib/catalog';
@@ -43,6 +47,7 @@ export default function VerifyScreen() {
   const user = useAppStore((s) => s.user);
   const sites = useAllSites();
   const [code, setCode] = useState(() => formatCode(typeof params.code === 'string' ? params.code : ''));
+  const [focused, setFocused] = useState(false);
   const [preview, setPreview] = useState<CodePreview | null>(null);
   const [role, setRole] = useState<VerifierRole>('buddy');
   const [busy, setBusy] = useState(false);
@@ -52,9 +57,10 @@ export default function VerifyScreen() {
   const [answered, setAnswered] = useState<{ decision: Decision; status?: SightingStatus } | null>(null);
 
   if (!client) {
-    return <ThemedView style={styles.content}>
-      <ThemedText>Buddy verification needs a ScubaGo account, and this build has no server to sign in to.</ThemedText>
-    </ThemedView>;
+    return <Screen contentStyle={styles.centred}>
+      <Emblem icon="verified" />
+      <ThemedText style={styles.center}>Buddy verification needs a ScubaGo account, and this build has no server to sign in to.</ThemedText>
+    </Screen>;
   }
 
   const species = preview ? CATALOG_BY_ID.get(preview.speciesId) : undefined;
@@ -108,27 +114,39 @@ export default function VerifyScreen() {
 
   if (answered && preview) {
     const confirmed = answered.decision === 'saw_it';
-    return <ThemedView style={{ flex: 1 }}>
-      <View style={styles.content}>
-        <ThemedText style={{ fontSize: 44, lineHeight: 54, textAlign: 'center' }} importantForAccessibility="no" accessibilityElementsHidden>{confirmed ? '🤝' : '👍'}</ThemedText>
-        <ThemedText type="subtitle" style={{ textAlign: 'center' }} accessibilityRole="header">{confirmed ? 'Thanks for confirming' : 'Thanks for answering'}</ThemedText>
-        <ThemedText style={{ textAlign: 'center' }}>
-          {`Your answer is on @${preview.owner}’s ${speciesName} sighting`}
-          {answered.status ? `, which now shows “${STATUS_LABEL[answered.status]}”.` : '.'}
-        </ThemedText>
-        <OceanButton title="Done" onPress={close} />
-      </View>
-    </ThemedView>;
+    return <Screen contentStyle={styles.centred}>
+      {/* Their answer has just gone in: a "yes" is sealed (stamped in, unless Reduce Motion is on). */}
+      {confirmed ? <Seal label="Confirmed" size={104} rotate={-8} animate /> : <Emblem icon="checkCircle" />}
+      <ThemedText type="display" style={styles.center} accessibilityRole="header">{confirmed ? 'Thanks for confirming' : 'Thanks for answering'}</ThemedText>
+      <ThemedText style={styles.center}>
+        {`Your answer is on @${preview.owner}’s ${speciesName} sighting`}
+        {answered.status ? `, which now shows “${STATUS_LABEL[answered.status]}”.` : '.'}
+      </ThemedText>
+      <OceanButton title="Done" onPress={close} style={styles.stretch} />
+    </Screen>;
   }
 
+  const complete = isCompleteCode(code);
+  const photoUri = user && preview ? previewPhoto(preview, user.id) : undefined;
+
   return (
-    <ThemedView style={{ flex: 1 }}>
-      <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
-        <ThemedText type="small" themeColor="textSecondary">
+    <Screen>
+      <View style={styles.intro}>
+        <Emblem icon="verified" />
+        <ThemedText type="small" themeColor="textSecondary" style={styles.center}>
           A buddy logged something you both saw? Enter the code they sent you. You’ll see what they logged before
           you answer.
         </ThemedText>
+      </View>
 
+      {/* The code, typed in typewriter letters on a ticket. */}
+      <Paper raised={!preview} style={styles.ticket}>
+        <View style={styles.ticketLabel}>
+          <Icon name="code" size={18} color={theme.textSecondary} wash={theme.textSecondary} washOpacity={0.2} />
+          <ThemedText type="label" importantForAccessibility="no" accessibilityElementsHidden>
+            Code from your buddy
+          </ThemedText>
+        </View>
         <TextInput
           value={code}
           onChangeText={(text) => {
@@ -136,6 +154,8 @@ export default function VerifyScreen() {
             setPreview(null);
             setProblem(null);
           }}
+          onFocus={() => setFocused(true)}
+          onBlur={() => setFocused(false)}
           placeholder="XXXXX-XXXXX"
           placeholderTextColor={theme.textSecondary}
           autoCapitalize="characters"
@@ -147,141 +167,249 @@ export default function VerifyScreen() {
             if (user && isCompleteCode(code) && !busy) void lookUp();
           }}
           accessibilityLabel="Code from your buddy"
-          style={[styles.code, { backgroundColor: theme.backgroundElement, color: theme.text }]}
+          style={[
+            styles.code,
+            {
+              backgroundColor: theme.background,
+              color: theme.text,
+              borderColor: focused || complete ? theme.tint : theme.rule,
+              borderStyle: focused || complete ? 'solid' : 'dashed',
+            },
+          ]}
         />
 
         {!user ? (
-          <View style={{ gap: Spacing.two }}>
+          <View style={styles.stack}>
             <ThemedText type="small" themeColor="textSecondary">
               Sign in first: your buddy will see your username next to your answer.
             </ThemedText>
-            <OceanButton title="Sign in" onPress={() => router.push('/auth')} />
+            <OceanButton title="Sign in" icon="account" onPress={() => router.push('/auth')} />
           </View>
         ) : !preview ? (
           <OceanButton
             title={busy ? 'Looking it up…' : 'Look it up'}
-            disabled={busy || !isCompleteCode(code)}
+            icon="search"
+            disabled={busy || !complete}
             onPress={() => void lookUp()}
           />
         ) : null}
+      </Paper>
 
-        {user && preview ? (
-          <View style={{ gap: Spacing.three }}>
-            <View style={[styles.card, { backgroundColor: theme.backgroundElement }]}>
-              <View style={styles.header}>
-                {species ? <SpeciesAvatar species={species} size={56} showRarityRing /> : null}
-                <View style={{ flex: 1, gap: 2 }}>
-                  <ThemedText type="subtitle" style={{ fontSize: 20, lineHeight: 26 }}>{speciesName}</ThemedText>
-                  <ThemedText type="small" themeColor="textSecondary">Logged by @{preview.owner}</ThemedText>
-                </View>
+      {user && preview ? (
+        <>
+          {/* What the buddy logged, as a page from their logbook. */}
+          <Paper raised padded={false}>
+            <View style={styles.previewHead}>
+              {species ? <SpeciesAvatar species={species} size={64} showRarityRing /> : null}
+              <View style={styles.flex}>
+                <ThemedText style={styles.speciesName}>{speciesName}</ThemedText>
+                <ThemedText type="small" themeColor="textSecondary">Logged by @{preview.owner}</ThemedText>
               </View>
-              <Fact label="Site">{siteName}</Fact>
-              <Fact label="Date">{formatDate(preview.sightedOn)}</Fact>
-              {preview.notes ? <ThemedText type="small">“{preview.notes}”</ThemedText> : null}
-              <Photo preview={preview} viewerId={user.id} />
             </View>
+            <Fact icon="pin" label="Site">{siteName}</Fact>
+            <Fact icon="calendar" label="Date">{formatDate(preview.sightedOn)}</Fact>
+            {preview.notes || photoUri ? (
+              <View style={[styles.previewFoot, { borderTopColor: theme.rule }]}>
+                {preview.notes ? <ThemedText type="caption">“{preview.notes}”</ThemedText> : null}
+                {photoUri ? <Image source={{ uri: photoUri }} style={styles.photo} contentFit="cover" accessibilityLabel={`Photo by @${preview.owner}`} /> : null}
+              </View>
+            ) : null}
+          </Paper>
 
-            {preview.answered ? (
-              <ThemedText>
+          {preview.answered ? (
+            <Paper tone="sand" style={styles.noteCard}>
+              <Icon name="checkCircle" size={22} color={theme.tint} />
+              <ThemedText style={styles.flex}>
                 You’ve already answered: you said you {preview.answered === 'saw_it' ? 'saw it too' : preview.answered === 'did_not_see' ? 'didn’t see it' : 'weren’t on this dive'}.
               </ThemedText>
-            ) : (
-              <>
-                <ThemedText type="small">
+            </Paper>
+          ) : (
+            <>
+              <Paper tone="sand" style={styles.noteCard}>
+                <Icon name="info" size={22} wash={theme.sun} />
+                <ThemedText type="small" style={styles.flex}>
                   Only say yes if you saw it yourself on this dive. @{preview.owner} will see your answer and your
                   username.
                 </ThemedText>
-                <View style={{ gap: Spacing.one }}>
-                  <ThemedText type="smallBold">On this dive, you were…</ThemedText>
-                  <View style={styles.roles} accessibilityRole="radiogroup" accessibilityLabel="On this dive, you were">
-                    {ROLES.map((r) => {
-                      const selected = r === role;
-                      return (
-                        <Pressable
-                          key={r}
-                          onPress={() => setRole(r)}
-                          accessibilityRole="radio"
-                          aria-checked={selected}
-                          style={[styles.role, { borderColor: selected ? theme.text : theme.backgroundSelected, borderWidth: selected ? 2 : 1, backgroundColor: selected ? theme.backgroundElement : 'transparent' }]}>
-                          <ThemedText type={selected ? 'smallBold' : 'small'}>
-                            {ROLE_LABEL[r]}
-                          </ThemedText>
-                        </Pressable>
-                      );
-                    })}
-                  </View>
-                  <ThemedText type="small" themeColor="textSecondary">
-                    ScubaGo doesn’t check this yet: it’s shown as what you said, not as a certification.
-                  </ThemedText>
+              </Paper>
+              <View style={styles.stack}>
+                <ThemedText type="label">On this dive, you were…</ThemedText>
+                <View style={styles.roles} accessibilityRole="radiogroup" accessibilityLabel="On this dive, you were">
+                  {ROLES.map((r) => {
+                    const selected = r === role;
+                    return (
+                      <Pressable
+                        key={r}
+                        onPress={() => setRole(r)}
+                        accessibilityRole="radio"
+                        aria-checked={selected}
+                        style={({ pressed }) => [
+                          styles.role,
+                          {
+                            backgroundColor: selected ? theme.text : pressed ? theme.backgroundSelected : theme.backgroundElement,
+                            borderColor: selected ? theme.text : theme.rule,
+                          },
+                        ]}>
+                        {/* A tick as well as the ink, so the choice isn't told by colour alone. */}
+                        {selected ? <Icon name="check" size={14} color={theme.background} weight="bold" /> : null}
+                        <ThemedText type="smallBold" style={{ fontFamily: Type.bodyHeavy, color: selected ? theme.background : theme.text }}>
+                          {ROLE_LABEL[r]}
+                        </ThemedText>
+                      </Pressable>
+                    );
+                  })}
                 </View>
-                <OceanButton title="Yes, I saw it too" disabled={busy} onPress={() => void answer('saw_it')} />
-                <OceanButton title="No, I didn’t see it" variant="secondary" disabled={busy} onPress={() => void answer('did_not_see')} />
-                <Pressable onPress={() => void answer('was_not_there')} disabled={busy} accessibilityRole="button" style={styles.link}>
-                  <ThemedText type="small" themeColor="textSecondary" style={{ opacity: busy ? 0.4 : 1 }}>
+                <ThemedText type="caption" themeColor="textSecondary">
+                  ScubaGo doesn’t check this yet: it’s shown as what you said, not as a certification.
+                </ThemedText>
+              </View>
+              <View style={styles.stack}>
+                <OceanButton title="Yes, I saw it too" icon="check" disabled={busy} onPress={() => void answer('saw_it')} />
+                <OceanButton title="No, I didn’t see it" icon="close" variant="secondary" disabled={busy} onPress={() => void answer('did_not_see')} />
+                <Pressable
+                  onPress={() => void answer('was_not_there')}
+                  disabled={busy}
+                  accessibilityRole="button"
+                  style={({ pressed }) => [styles.link, { opacity: busy ? 0.4 : pressed ? 0.6 : 1 }]}>
+                  <ThemedText type="smallBold" themeColor="textSecondary">
                     I wasn’t on this dive
                   </ThemedText>
                 </Pressable>
-              </>
-            )}
-          </View>
-        ) : null}
+              </View>
+            </>
+          )}
+        </>
+      ) : null}
 
-        {problem ? <ThemedText type="small" themeColor="danger" accessibilityLiveRegion="polite">{problem}</ThemedText> : null}
-      </ScrollView>
-    </ThemedView>
+      {problem ? (
+        <View style={styles.problem}>
+          <Icon name="warning" size={20} color={theme.danger} wash={theme.danger} washOpacity={0.2} />
+          <ThemedText type="small" themeColor="danger" accessibilityLiveRegion="polite" style={styles.flex}>{problem}</ThemedText>
+        </View>
+      ) : null}
+    </Screen>
   );
 }
 
-function Fact({ label, children }: { label: string; children: React.ReactNode }) {
+/** A large icon on a watercolour wash, heading the screen. */
+function Emblem({ icon }: { icon: IconName }) {
+  const theme = useTheme();
   return (
-    <View style={styles.fact}>
-      <ThemedText type="small" themeColor="textSecondary" style={{ minWidth: 44 }}>{label}</ThemedText>
-      <ThemedText type="smallBold" style={{ flex: 1, textAlign: 'right' }}>{children}</ThemedText>
+    <View style={styles.emblem}>
+      <Wash width={112} height={78} color={theme.wash} seed={59} style={StyleSheet.absoluteFill} />
+      <Icon name={icon} size={42} />
+    </View>
+  );
+}
+
+/** A ruled line of the preview: an icon, a typewriter label, and the value on the right. */
+function Fact({ icon, label, children }: { icon: IconName; label: string; children: React.ReactNode }) {
+  const theme = useTheme();
+  return (
+    <View style={[styles.fact, { borderTopColor: theme.rule }]}>
+      <Icon name={icon} size={18} color={theme.textSecondary} wash={theme.textSecondary} washOpacity={0.2} />
+      <ThemedText type="label" style={styles.factLabel}>{label}</ThemedText>
+      <ThemedText type="smallBold" style={styles.factValue}>{children}</ThemedText>
     </View>
   );
 }
 
 /** Their photo, if it's one ScubaGo stored for them (never an arbitrary URL). */
-function Photo({ preview, viewerId }: { preview: CodePreview; viewerId: string }) {
-  const uri = preview.ownerId
+function previewPhoto(preview: CodePreview, viewerId: string): string | undefined {
+  return preview.ownerId
     ? displayablePhoto({ photoUri: preview.photoUrl, userId: preview.ownerId }, viewerId, process.env.EXPO_PUBLIC_SUPABASE_URL)
     : undefined;
-  if (!uri) return null;
-  return <Image source={{ uri }} style={styles.photo} contentFit="cover" accessibilityLabel={`Photo by @${preview.owner}`} />;
 }
 
 const styles = StyleSheet.create({
-  content: {
-    padding: Spacing.four,
-    gap: Spacing.three,
+  flex: {
+    flex: 1,
   },
-  code: {
-    fontSize: 24,
-    fontWeight: '700',
-    letterSpacing: 3,
+  center: {
     textAlign: 'center',
-    paddingVertical: Spacing.three,
-    borderRadius: 12,
   },
-  card: {
-    borderRadius: 14,
-    padding: Spacing.three,
-    gap: Spacing.two,
+  stretch: {
+    alignSelf: 'stretch',
   },
-  header: {
+  centred: {
+    flexGrow: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: Spacing.four,
+  },
+  intro: {
+    alignItems: 'center',
+    gap: 10,
+    paddingHorizontal: Spacing.two,
+  },
+  emblem: {
+    width: 112,
+    height: 78,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  ticket: {
+    gap: 12,
+  },
+  ticketLabel: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: Spacing.three,
+    gap: 6,
+  },
+  code: {
+    fontFamily: Type.label,
+    fontSize: 28,
+    letterSpacing: 3,
+    textAlign: 'center',
+    minHeight: 64,
+    paddingVertical: Spacing.three,
+    paddingHorizontal: Spacing.two,
+    borderWidth: 1.5,
+    borderRadius: Radius.md,
+  },
+  stack: {
+    gap: 10,
+  },
+  previewHead: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 14,
+    padding: Spacing.three,
+  },
+  speciesName: {
+    fontFamily: Type.display,
+    fontSize: 22,
+    lineHeight: 28,
   },
   fact: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: Spacing.two,
+    gap: 8,
+    minHeight: 48,
+    paddingHorizontal: Spacing.three,
+    borderTopWidth: 1,
+  },
+  factLabel: {
+    minWidth: 44,
+  },
+  factValue: {
+    flex: 1,
+    textAlign: 'right',
+  },
+  previewFoot: {
+    gap: 10,
+    padding: Spacing.three,
+    borderTopWidth: 1,
   },
   photo: {
     width: '100%',
     height: 200,
-    borderRadius: 12,
+    borderRadius: Radius.md,
+  },
+  noteCard: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 10,
   },
   roles: {
     flexDirection: 'row',
@@ -289,16 +417,24 @@ const styles = StyleSheet.create({
     gap: Spacing.two,
   },
   role: {
-    borderWidth: 1,
-    borderRadius: 999,
-    paddingHorizontal: Spacing.three,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    borderWidth: 1.5,
+    borderRadius: Radius.sm,
+    paddingHorizontal: 14,
     minHeight: 44,
-    justifyContent: 'center',
   },
   link: {
     alignSelf: 'center',
     paddingVertical: Spacing.two,
+    paddingHorizontal: Spacing.three,
     minHeight: 44,
     justifyContent: 'center',
+  },
+  problem: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 8,
   },
 });
