@@ -3,10 +3,13 @@ import { useState } from 'react';
 import { ScrollView, StyleSheet, View } from 'react-native';
 
 import { FormField } from '@/components/form-field';
+import { Icon } from '@/components/icon';
+import { Paper } from '@/components/journal/paper';
 import { OceanButton } from '@/components/ocean-button';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
-import { Spacing } from '@/constants/theme';
+import { MaxContentWidth, Spacing } from '@/constants/theme';
+import { useTheme } from '@/hooks/use-theme';
 import { announce } from '@/lib/announce';
 import { notifySiteAdded } from '@/lib/site-added';
 import { useAppStore } from '@/lib/store';
@@ -15,6 +18,7 @@ export default function AddSiteScreen() {
   /** `then=log`: opened from the log screen, which carries on with the new site. `name` pre-fills a search. */
   const params = useLocalSearchParams<{ lat?: string; lng?: string; then?: string; name?: string }>();
   const addSite = useAppStore((s) => s.addSite);
+  const theme = useTheme();
 
   const [name, setName] = useState(params.name ?? '');
   const [region, setRegion] = useState('');
@@ -65,22 +69,30 @@ export default function AddSiteScreen() {
   return (
     <ThemedView style={{ flex: 1 }}>
       <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
-        <ThemedText type="small" themeColor="textSecondary">
-          Know a site that’s missing? Add it and it appears on your map right away.
-        </ThemedText>
+        <View style={styles.intro}>
+          <ThemedText type="label">A new page for the chart</ThemedText>
+          <ThemedText type="caption" themeColor="textSecondary">
+            Know a site that’s missing? Add it and it appears on your map right away.
+          </ThemedText>
+        </View>
 
         <FormField label="Site name (required)" value={name} onChangeText={setName} placeholder="e.g. Shark Point" />
-        <ThemedText type="small" themeColor="textSecondary">
-          Where it is: long-press the map to fill these in, or copy them from a map app.
-        </ThemedText>
-        <View style={styles.rowFields}>
-          <View style={{ flex: 1 }}>
-            <FormField label="Latitude (required)" value={lat} onChangeText={setLat} keyboardType="numbers-and-punctuation" placeholder="7.81" />
+        <Paper style={styles.card}>
+          <View style={styles.where}>
+            <Icon name="pin" size={20} wash={theme.coral} />
+            <ThemedText type="small" themeColor="textSecondary" style={{ flex: 1 }}>
+              Where it is: long-press the map to fill these in, or copy them from a map app.
+            </ThemedText>
           </View>
-          <View style={{ flex: 1 }}>
-            <FormField label="Longitude (required)" value={lng} onChangeText={setLng} keyboardType="numbers-and-punctuation" placeholder="98.54" />
+          <View style={styles.rowFields}>
+            <View style={{ flex: 1 }}>
+              <FormField label="Latitude (required)" value={lat} onChangeText={setLat} keyboardType="numbers-and-punctuation" placeholder="7.81" />
+            </View>
+            <View style={{ flex: 1 }}>
+              <FormField label="Longitude (required)" value={lng} onChangeText={setLng} keyboardType="numbers-and-punctuation" placeholder="98.54" />
+            </View>
           </View>
-        </View>
+        </Paper>
         <View style={styles.rowFields}>
           <View style={{ flex: 1 }}>
             <FormField label="Region" value={region} onChangeText={setRegion} placeholder="Phuket" />
@@ -97,6 +109,7 @@ export default function AddSiteScreen() {
         ) : null}
         <OceanButton
           title={saving ? 'Saving…' : params.then === 'log' ? 'Add site' : 'Add site & log a sighting'}
+          icon={saving ? undefined : 'addSite'}
           onPress={save}
           disabled={saving}
         />
@@ -108,7 +121,22 @@ export default function AddSiteScreen() {
 const styles = StyleSheet.create({
   content: {
     padding: Spacing.three,
+    paddingBottom: Spacing.five,
+    gap: Spacing.three + 2,
+    width: '100%',
+    maxWidth: MaxContentWidth,
+    alignSelf: 'center',
+  },
+  intro: {
+    gap: 2,
+  },
+  card: {
     gap: Spacing.three,
+  },
+  where: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 8,
   },
   rowFields: {
     flexDirection: 'row',
