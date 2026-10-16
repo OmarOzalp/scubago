@@ -7,6 +7,10 @@ import { SHARKS_TOP } from './species/sharks-top';
 import { RAYS } from './species/rays';
 import { TURTLES } from './species/turtles';
 import { MAMMALS } from './species/mammals';
+import { BIG_FISH } from './species/bigfish';
+import { REEF_FISH_1 } from './species/reef1';
+import { ODD_FISH } from './species/oddfish';
+import { REEF_FISH_2 } from './species/reef2';
 import type { Palette, PlateGeom } from './types';
 
 export interface PlateDef {
@@ -21,4 +25,8 @@ export const PLATES: Record<string, PlateDef> = {
   ...RAYS,
   ...TURTLES,
   ...MAMMALS,
+  ...BIG_FISH,
+  ...REEF_FISH_1,
+  ...ODD_FISH,
+  ...REEF_FISH_2,
 };
