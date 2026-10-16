@@ -707,9 +707,13 @@ export function updateDive(dive: Dive, sightings: Sighting[] = []): Promise<void
     await d.withTransactionAsync(async () => {
       const { changes } = await d.runAsync(
         `UPDATE dives SET ${DIVE_DATA_COLUMNS.map((c) => `${c} = ?`).join(', ')},
-           updated_at = ?, synced = 0, sync_error = NULL, version = version + 1
+           remote_signatures = ?, updated_at = ?, synced = 0, sync_error = NULL, version = version + 1
          WHERE id = ? AND deleted = 0`,
-        ...diveValues(dive), dive.updatedAt ?? new Date().toISOString(), dive.id,
+        ...diveValues(dive),
+        // Buddies' signatures come from the server; a page moved to another site or day loses them.
+        dive.remoteSignatures?.length ? JSON.stringify(dive.remoteSignatures) : null,
+        dive.updatedAt ?? new Date().toISOString(),
+        dive.id,
       );
       if (changes === 0) throw new Error('This dive is no longer in your log.');
       for (const s of sightings) {

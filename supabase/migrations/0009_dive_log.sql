@@ -63,6 +63,7 @@ create index if not exists dives_user_idx on public.dives (user_id, number);
 
 alter table public.dives enable row level security;
 revoke all on public.dives from anon;
+drop policy if exists "own dives" on public.dives;
 create policy "own dives" on public.dives for all to authenticated
   using (user_id = (select auth.uid()))
   with check (user_id = (select auth.uid()));
@@ -87,6 +88,25 @@ drop trigger if exists sightings_3_own_dive on public.sightings;
 create trigger sightings_3_own_dive before insert or update on public.sightings
   for each row execute function public.sighting_on_own_dive();
 
+-- A page moved to another site or day loses its signatures: they were given for the old facts, as
+-- a buddy's confirmation of a sighting is (0006). Renumbering keeps them: it is the same dive.
+-- Definer, because nobody may delete signatures directly.
+create or replace function public.dive_void_signatures() returns trigger
+language plpgsql security definer set search_path = '' as $$
+begin
+  if new.site_id is distinct from old.site_id or new.dived_on is distinct from old.dived_on then
+    delete from public.dive_signatures where dive_id = new.id;
+    new.signature_name := null;
+    new.signature_svg := null;
+    new.signature_role := null;
+    new.signed_at := null;
+  end if;
+  return new;
+end $$;
+drop trigger if exists dives_void_signatures on public.dives;
+create trigger dives_void_signatures before update on public.dives
+  for each row execute function public.dive_void_signatures();
+
 -- ── Signatures from a buddy's own phone ────────────────────────────────────────────────────
 create table if not exists public.dive_signature_requests (
   id uuid primary key default gen_random_uuid(),
@@ -102,6 +122,7 @@ create table if not exists public.dive_signature_requests (
 create index if not exists dive_signature_requests_dive_idx on public.dive_signature_requests (dive_id);
 create index if not exists dive_signature_requests_requester_idx on public.dive_signature_requests (requester_id, created_at);
 alter table public.dive_signature_requests enable row level security;
+drop policy if exists "own dive signature requests" on public.dive_signature_requests;
 create policy "own dive signature requests" on public.dive_signature_requests for select
   using (requester_id = (select auth.uid()));
 revoke insert, update, delete, truncate on public.dive_signature_requests from anon, authenticated;
@@ -121,6 +142,7 @@ create table if not exists public.dive_signatures (
 create index if not exists dive_signatures_signer_idx on public.dive_signatures (signer_id, created_at);
 alter table public.dive_signatures enable row level security;
 -- The page's owner sees every signature on it; a signer sees their own.
+drop policy if exists "signatures on own dives or by me" on public.dive_signatures;
 create policy "signatures on own dives or by me" on public.dive_signatures for select using (
   signer_id = (select auth.uid())
   or exists (select 1 from public.dives d where d.id = dive_id and d.user_id = (select auth.uid()))
@@ -260,3 +282,4 @@ grant execute on function public.sign_dive(text, text, text, text, integer, text
 grant execute on function public.revoke_dive_signature_request(uuid) to authenticated;
 -- Trigger functions are not callable as RPCs.
 revoke all on function public.sighting_on_own_dive() from public, anon, authenticated;
+revoke all on function public.dive_void_signatures() from public, anon, authenticated;

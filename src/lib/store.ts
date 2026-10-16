@@ -356,7 +356,10 @@ export const useAppStore = create<StoreState>((set, get) => {
 
     updateDive: async (id, fields) => {
       const before = myDive(id);
-      const clean = cleanDive({ ...fields, signature: fields.signature });
+      // A page moved to another site or day loses its signatures: they were given for the old facts
+      // (the server does the same, migration 0009). A new number keeps them.
+      const moved = before.siteId !== fields.siteId || before.divedOn !== fields.divedOn;
+      const clean = cleanDive({ ...fields, signature: moved ? undefined : fields.signature });
       checkDive(clean);
       const now = new Date().toISOString();
       const after: Dive = {
@@ -366,10 +369,9 @@ export const useAppStore = create<StoreState>((set, get) => {
         createdAt: before.createdAt,
         updatedAt: now,
         synced: false,
-        ...(before.remoteSignatures ? { remoteSignatures: before.remoteSignatures } : {}),
+        ...(before.remoteSignatures && !moved ? { remoteSignatures: before.remoteSignatures } : {}),
       };
       // Its sightings follow the page to a new site or day (and lose any confirmation, as an edit would).
-      const moved = before.siteId !== after.siteId || before.divedOn !== after.divedOn;
       const onPage = moved ? get().sightings.filter((s) => s.diveId === id && canEditSighting(s, ownerId())) : [];
       const movedSightings = onPage.map((s) => applyEdit(s, { ...s, siteId: after.siteId, sightedOn: after.divedOn }, now));
       await updateDiveRows(after, movedSightings);

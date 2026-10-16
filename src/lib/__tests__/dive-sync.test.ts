@@ -170,6 +170,35 @@ describeSqlite('the dive log, offline and across phones', () => {
     expect(await second.sighting(sightings[0].id)).toMatchObject({ diveId: dive.id });
   });
 
+  it('a signed page moved to another day loses its signatures here and on the server', async () => {
+    const server = newServer();
+    const p = phone(server, 'alice', A);
+    await p.ready();
+    const { dive } = await p.write({ signature: { name: 'Maya', svg: 'M1,1L20,20', at: '2026-10-01T12:00:00.000Z' } });
+    await p.sync();
+    server.tables.dive_signatures.push({ dive_id: dive.id, signer_id: B, signer_name: 'Bob', role: 'buddy', signature_svg: null, created_at: '2026-10-02T08:00:00+00:00' });
+    await p.sync();
+    expect((await p.dive(dive.id))?.remoteSignatures).toHaveLength(1);
+
+    // Renumbered: the same dive, still signed.
+    await p.db.setDivesBefore(A, 10, 10);
+    await p.sync();
+    expect(server.dive(dive.id)).toMatchObject({ number: dive.number + 10, signature_name: 'Maya' });
+    expect(server.tables.dive_signatures).toHaveLength(1);
+
+    // Moved to another day (as the store saves it): the signatures were for the old one.
+    const current = (await p.dive(dive.id))!;
+    await p.db.updateDive({ ...current, divedOn: '2026-10-02', signature: undefined, remoteSignatures: undefined, updatedAt: new Date().toISOString() });
+    expect((await p.dive(dive.id))?.remoteSignatures).toBeUndefined();
+    await p.sync();
+    expect(server.dive(dive.id)).toMatchObject({ dived_on: '2026-10-02', signature_name: null });
+    expect(server.tables.dive_signatures).toEqual([]);
+    const after = await p.dive(dive.id);
+    expect(after?.synced).toBe(true);
+    expect(after?.signature).toBeUndefined();
+    expect(after?.remoteSignatures).toBeUndefined();
+  });
+
   it('nobody else sees a diver’s pages, and a sighting can’t be put on someone else’s', async () => {
     const server = newServer();
     const alice = phone(server, 'alice', A);

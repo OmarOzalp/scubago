@@ -117,9 +117,12 @@ checks(section, item, detail, verdict) as (
   select 'Migrations', 'dive log (0009)',
          case when to_regclass('public.dives') is null then 'not applied: dive pages stay on the device until it is'
               when not exists (select 1 from pg_trigger where tgname = 'sightings_3_own_dive' and tgrelid = 'public.sightings'::regclass)
-                then 'own-dive trigger missing' else 'applied' end,
+                then 'own-dive trigger missing'
+              when not exists (select 1 from pg_trigger where tgname = 'dives_void_signatures' and tgrelid = to_regclass('public.dives'))
+                then 'signature trigger missing' else 'applied' end,
          case when to_regclass('public.dives') is not null
                and exists (select 1 from pg_trigger where tgname = 'sightings_3_own_dive' and tgrelid = 'public.sightings'::regclass)
+               and exists (select 1 from pg_trigger where tgname = 'dives_void_signatures' and tgrelid = to_regclass('public.dives'))
               then 'ok' else 'ACTION' end
   union all
   -- "Something else" sightings (migration 0007): the placeholder species and the diver's own name.
@@ -160,7 +163,7 @@ checks(section, item, detail, verdict) as (
   where n.nspname = 'public' and p.prosecdef and p.proname not in ('delete_own_account', 'create_verification_request',
     'revoke_verification_request', 'preview_verification', 'attest', 'refresh_sighting_status', 'verification_lookup',
     'sighting_facts_changed', 'attestation_removed', 'create_dive_signature_request', 'revoke_dive_signature_request',
-    'preview_dive_signature', 'sign_dive', 'dive_signature_lookup')
+    'preview_dive_signature', 'sign_dive', 'dive_signature_lookup', 'dive_void_signatures')
 )
 select section, item, detail, verdict from checks
 order by case verdict when 'ACTION' then 0 when 'info' then 2 else 1 end, section, item;

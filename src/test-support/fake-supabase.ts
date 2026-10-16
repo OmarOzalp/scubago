@@ -348,6 +348,7 @@ class FakeQuery implements PromiseLike<Result> {
           if (this.op === 'insert') return { data: null, error: { message: 'duplicate key value', code: '23505' } };
           if (this.opts.ignoreDuplicates) continue;
           if (this.owner(existing) !== userId) return { data: null, error: rls(this.table) };
+          if (this.table === 'dives') voidMovedSignatures(server, existing, row);
           Object.assign(existing, row);
           written.push(existing);
         } else {
@@ -371,7 +372,10 @@ class FakeQuery implements PromiseLike<Result> {
       if ('user_id' in this.payload && this.payload.user_id !== userId && targets.length > 0) {
         return { data: null, error: rls(this.table) };
       }
-      for (const r of targets) Object.assign(r, this.payload);
+      for (const r of targets) {
+        if (this.table === 'dives') voidMovedSignatures(server, r, this.payload);
+        Object.assign(r, this.payload);
+      }
       log(targets.map((r) => r[key]), columns);
       return reply(targets);
     }
@@ -393,4 +397,15 @@ class FakeQuery implements PromiseLike<Result> {
     log(targets.map((r) => r[key]));
     return reply(targets);
   }
+}
+
+/**
+ * A page moved to another site or day loses its signatures, as the trigger in 0009 does: they were
+ * given for the old facts. A new number keeps them.
+ */
+function voidMovedSignatures(server: FakeServer, before: Row, after: Row): void {
+  const moved = ('site_id' in after && after.site_id !== before.site_id) || ('dived_on' in after && after.dived_on !== before.dived_on);
+  if (!moved) return;
+  server.tables.dive_signatures = server.tables.dive_signatures.filter((x) => x.dive_id !== before.id);
+  Object.assign(after, { signature_name: null, signature_svg: null, signature_role: null, signed_at: null });
 }

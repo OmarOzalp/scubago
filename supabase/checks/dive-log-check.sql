@@ -146,6 +146,16 @@ begin
   select count(*) into n from public.dive_signatures where dive_id = 'dcheck-49';
   if n = 1 then passed := passed + 1; report := report || E'\n  ok    the diver sees the buddy''s signature on their page';
   else failed := failed + 1; report := report || format(E'\n  FAIL  the diver sees %s signatures', n); end if;
+  update public.dives set notes = 'lovely dive', number = 149 where id = 'dcheck-49';
+  select count(*) into n from public.dive_signatures where dive_id = 'dcheck-49';
+  select signature_name into v from public.dives where id = 'dcheck-49';
+  if n = 1 and v = 'Maya' then passed := passed + 1; report := report || E'\n  ok    new notes or a new number keep the page''s signatures';
+  else failed := failed + 1; report := report || format(E'\n  FAIL  editing notes left %s signatures and %s', n, coalesce(v, 'no signature')); end if;
+  update public.dives set dived_on = current_date - 1 where id = 'dcheck-49';
+  select count(*) into n from public.dive_signatures where dive_id = 'dcheck-49';
+  select signature_name into v from public.dives where id = 'dcheck-49';
+  if n = 0 and v is null then passed := passed + 1; report := report || E'\n  ok    moving a page to another day takes its signatures off';
+  else failed := failed + 1; report := report || format(E'\n  FAIL  a moved page kept %s signatures and %s', n, coalesce(v, 'no signature')); end if;
   delete from public.dives where id = 'dcheck-49';
   select dive_id into v from public.sightings where id = 'dcheck-s1';
   select count(*) into n from public.dive_signatures where dive_id = 'dcheck-49';
