@@ -1,14 +1,18 @@
 import * as Linking from 'expo-linking';
 import { router } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
-import { ActivityIndicator, Platform, Pressable, ScrollView, StyleSheet, TextInput } from 'react-native';
+import { ActivityIndicator, Platform, Pressable, StyleSheet, TextInput, View } from 'react-native';
 
 import { FormField } from '@/components/form-field';
+import { Icon, type IconName } from '@/components/icon';
+import { Paper } from '@/components/journal/paper';
+import { Screen, ScreenHeader } from '@/components/journal/screen';
+import { Wash } from '@/components/journal/wash';
 import { OceanButton } from '@/components/ocean-button';
 import { Segmented } from '@/components/segmented';
 import { ThemedText } from '@/components/themed-text';
-import { ThemedView } from '@/components/themed-view';
 import { Spacing } from '@/constants/theme';
+import { useTheme } from '@/hooks/use-theme';
 import { announce } from '@/lib/announce';
 import {
   MIN_PASSWORD_LENGTH,
@@ -36,6 +40,16 @@ type Mode = 'sign-in' | 'create' | 'reset-request' | 'reset-sent' | 'reset-code'
 /** Reset links already used in this session (on the web, the address keeps the link's fragment). */
 const finishedRecoveryLinks = new Set<string>();
 
+/** The picture beside each step's title. */
+const MODE_ICON: Record<Mode, IconName> = {
+  'sign-in': 'account',
+  create: 'logbook',
+  'reset-request': 'key',
+  'reset-sent': 'email',
+  'reset-code': 'email',
+  'reset-new': 'lock',
+};
+
 export default function AuthScreen() {
   const user = useAppStore((s) => s.user);
   const client = getSupabase();
@@ -47,15 +61,19 @@ export default function AuthScreen() {
 
   if (!client) {
     return (
-      <ThemedView style={styles.container}>
-        <ThemedText>Sync isn&apos;t configured in this build.</ThemedText>
-      </ThemedView>
+      <Screen>
+        <Paper style={styles.centred}>
+          <WashIcon icon="sync" width={120} height={84} size={44} />
+          <ThemedText style={styles.centreText}>Sync isn&apos;t configured in this build.</ThemedText>
+        </Paper>
+      </Screen>
     );
   }
   return user && !recovering ? <Account username={user.username} /> : <SignInForm url={url} />;
 }
 
 function Account({ username }: { username: string }) {
+  const theme = useTheme();
   const signOutUser = useAppStore((s) => s.signOutUser);
   const deleteAccount = useAppStore((s) => s.deleteAccount);
   const pending = usePendingChanges();
@@ -101,38 +119,48 @@ function Account({ username }: { username: string }) {
   };
 
   return (
-    <ThemedView style={styles.container}>
-      <ThemedText type="subtitle" accessibilityRole="header">
-        @{username}
-      </ThemedText>
-      <ThemedText type="small" themeColor="textSecondary">
-        Your sightings back up automatically and follow you to any device.
-      </ThemedText>
-      {pending.count > 0 ? (
-        <ThemedText type="small" themeColor="textSecondary">
-          {pending.count} {pending.count === 1 ? 'change is' : 'changes are'} waiting to sync.
+    <Screen>
+      {/* The account, like the name plate inside a logbook's cover. */}
+      <Paper raised style={styles.centred}>
+        <WashIcon icon="account" width={120} height={84} size={44} />
+        <View style={styles.nameplate}>
+          <ThemedText type="label">Signed in as</ThemedText>
+          <ThemedText type="display" accessibilityRole="header" style={styles.centreText}>
+            @{username}
+          </ThemedText>
+        </View>
+        <ThemedText type="small" themeColor="textSecondary" style={styles.centreText}>
+          Your sightings back up automatically and follow you to any device.
         </ThemedText>
-      ) : null}
-      <OceanButton title="Sign out" disabled={busy} onPress={signOut} />
-      {error ? (
-        <ThemedText type="small" themeColor="danger" accessibilityLiveRegion="polite">
-          {error}
-        </ThemedText>
-      ) : null}
+        {pending.count > 0 ? (
+          <View style={styles.pending}>
+            <Icon name="sync" size={18} color={theme.textSecondary} />
+            <ThemedText type="small" themeColor="textSecondary" style={styles.pendingText}>
+              {pending.count} {pending.count === 1 ? 'change is' : 'changes are'} waiting to sync.
+            </ThemedText>
+          </View>
+        ) : null}
+      </Paper>
+      <OceanButton title="Sign out" variant="secondary" icon="signOut" disabled={busy} onPress={signOut} />
+      {error ? <ErrorNote message={error} /> : null}
       {busy ? (
-        <ActivityIndicator accessibilityLabel="Deleting your account" />
+        <View style={styles.spinner}>
+          <ActivityIndicator color={theme.tint} accessibilityLabel="Deleting your account" />
+        </View>
       ) : (
-        <Pressable onPress={removeAccount} accessibilityRole="button" style={styles.textButton}>
-          <ThemedText type="small" themeColor="danger">
+        <Pressable onPress={removeAccount} accessibilityRole="button" style={({ pressed }) => [styles.textButton, { opacity: pressed ? 0.6 : 1 }]}>
+          <Icon name="trash" size={18} color={theme.danger} wash={theme.danger} washOpacity={0.15} />
+          <ThemedText type="smallBold" themeColor="danger">
             Delete account
           </ThemedText>
         </Pressable>
       )}
-    </ThemedView>
+    </Screen>
   );
 }
 
 function SignInForm({ url }: { url: string | null }) {
+  const theme = useTheme();
   const client = getSupabase()!;
   const onSignedIn = useAppStore((s) => s.onSignedIn);
   const [mode, setMode] = useState<Mode>('sign-in');
@@ -275,8 +303,13 @@ function SignInForm({ url }: { url: string | null }) {
             : 'Sign in';
 
   return (
-    <ThemedView style={{ flex: 1 }}>
-      <ScrollView contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled">
+    <Screen>
+      <ScreenHeader title={title} accessory={<WashIcon icon={MODE_ICON[mode]} />} />
+      <ThemedText themeColor="textSecondary" style={styles.intro}>
+        {intro}
+      </ThemedText>
+
+      <Paper raised style={styles.form}>
         {!resetting ? (
           <Segmented
             accessibilityLabel="Account"
@@ -288,17 +321,7 @@ function SignInForm({ url }: { url: string | null }) {
             onChange={switchMode}
           />
         ) : null}
-        <ThemedText type="subtitle" accessibilityRole="header" style={styles.title}>
-          {title}
-        </ThemedText>
-        <ThemedText type="small" themeColor="textSecondary">
-          {intro}
-        </ThemedText>
-        {linkError && mode === 'sign-in' ? (
-          <ThemedText type="small" themeColor="danger" accessibilityLiveRegion="polite">
-            {linkError}
-          </ThemedText>
-        ) : null}
+        {linkError && mode === 'sign-in' ? <ErrorNote message={linkError} /> : null}
 
         {mode !== 'reset-new' && mode !== 'reset-sent' ? (
           <FormField
@@ -362,34 +385,65 @@ function SignInForm({ url }: { url: string | null }) {
           />
         ) : null}
 
-        {error ? (
-          <ThemedText type="small" themeColor="danger" accessibilityLiveRegion="polite">
-            {error}
-          </ThemedText>
-        ) : null}
+        {error ? <ErrorNote message={error} /> : null}
+        {/* The spinner takes the button's place at the button's height, so nothing below jumps. */}
         {busy ? (
-          <ActivityIndicator accessibilityLabel="Working" />
+          <View style={styles.spinner}>
+            <ActivityIndicator color={theme.tint} accessibilityLabel="Working" />
+          </View>
         ) : (
           <OceanButton title={action} onPress={submit} variant={mode === 'reset-sent' ? 'secondary' : 'primary'} />
         )}
 
-        {mode === 'sign-in' ? (
-          <TextButton label="Forgot your password?" onPress={() => switchMode('reset-request')} />
-        ) : null}
-        {mode === 'reset-sent' ? (
-          <TextButton label="The email has a code instead" onPress={() => switchMode('reset-code')} />
-        ) : null}
-        {mode === 'reset-code' ? <TextButton label="Send a new link or code" onPress={() => switchMode('reset-request')} /> : null}
-        {resetting && mode !== 'reset-new' ? <TextButton label="Back to sign in" onPress={() => switchMode('sign-in')} /> : null}
-      </ScrollView>
-    </ThemedView>
+        <View style={styles.links}>
+          {mode === 'sign-in' ? <TextButton label="Forgot your password?" onPress={() => switchMode('reset-request')} /> : null}
+          {mode === 'reset-sent' ? <TextButton label="The email has a code instead" onPress={() => switchMode('reset-code')} /> : null}
+          {mode === 'reset-code' ? <TextButton label="Send a new link or code" onPress={() => switchMode('reset-request')} /> : null}
+          {resetting && mode !== 'reset-new' ? <TextButton label="Back to sign in" onPress={() => switchMode('sign-in')} /> : null}
+        </View>
+      </Paper>
+
+      {/* Profiles hold only a generated username (diver-…); the email stays with the sign-in service. */}
+      {!resetting ? (
+        <View style={styles.privacy}>
+          <Icon name="lock" size={16} color={theme.textSecondary} wash={theme.textSecondary} washOpacity={0.2} style={styles.privacyIcon} />
+          <ThemedText type="caption" themeColor="textSecondary" style={styles.privacyText}>
+            Other divers see your username, never your email.
+          </ThemedText>
+        </View>
+      ) : null}
+    </Screen>
+  );
+}
+
+/** An icon on a watercolour wash: the picture beside a title. Decorative. */
+function WashIcon({ icon, width = 76, height = 60, size = 32 }: { icon: IconName; width?: number; height?: number; size?: number }) {
+  const theme = useTheme();
+  return (
+    <View style={{ width, height, alignItems: 'center', justifyContent: 'center' }}>
+      <Wash width={width} height={height} color={theme.wash} seed={23} style={StyleSheet.absoluteFill} />
+      <Icon name={icon} size={size} wash={theme.lagoon} washOpacity={0.3} />
+    </View>
+  );
+}
+
+/** A problem to fix, read out as it appears. */
+function ErrorNote({ message }: { message: string }) {
+  const theme = useTheme();
+  return (
+    <View style={styles.error}>
+      <Icon name="warning" size={18} color={theme.danger} wash={theme.danger} washOpacity={0.15} style={styles.errorIcon} />
+      <ThemedText type="small" themeColor="danger" accessibilityLiveRegion="polite" style={styles.errorText}>
+        {message}
+      </ThemedText>
+    </View>
   );
 }
 
 function TextButton({ label, onPress }: { label: string; onPress: () => void }) {
   return (
-    <Pressable onPress={onPress} accessibilityRole="button" style={styles.textButton}>
-      <ThemedText type="smallBold" themeColor="textSecondary">
+    <Pressable onPress={onPress} accessibilityRole="button" style={({ pressed }) => [styles.textButton, { opacity: pressed ? 0.6 : 1 }]}>
+      <ThemedText type="smallBold" themeColor="tint">
         {label}
       </ThemedText>
     </Pressable>
@@ -397,7 +451,74 @@ function TextButton({ label, onPress }: { label: string; onPress: () => void }) 
 }
 
 const styles = StyleSheet.create({
-  container: { flexGrow: 1, padding: Spacing.four, gap: Spacing.three },
-  title: { fontSize: 26, lineHeight: 32 },
-  textButton: { alignSelf: 'center', minHeight: 44, justifyContent: 'center', paddingHorizontal: Spacing.two },
+  intro: {
+    marginTop: -8,
+  },
+  form: {
+    gap: Spacing.three,
+  },
+  spinner: {
+    minHeight: 48,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  links: {
+    alignItems: 'center',
+    marginTop: -Spacing.two,
+  },
+  textButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    alignSelf: 'center',
+    gap: 6,
+    minHeight: 44,
+    paddingHorizontal: Spacing.two,
+  },
+  error: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 8,
+  },
+  errorIcon: {
+    marginTop: 1,
+  },
+  errorText: {
+    flex: 1,
+  },
+  privacy: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    paddingHorizontal: Spacing.two,
+  },
+  privacyIcon: {
+    marginTop: 1,
+  },
+  privacyText: {
+    flexShrink: 1,
+    textAlign: 'center',
+  },
+  centred: {
+    alignItems: 'center',
+    gap: 12,
+    paddingVertical: Spacing.four,
+  },
+  centreText: {
+    textAlign: 'center',
+  },
+  nameplate: {
+    alignItems: 'center',
+    gap: 2,
+  },
+  pending: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+  },
+  pendingText: {
+    flexShrink: 1,
+    textAlign: 'center',
+  },
 });

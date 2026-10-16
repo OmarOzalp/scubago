@@ -23,8 +23,8 @@ export default function Root({ children }: PropsWithChildren) {
         <meta name="mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-status-bar-style" content="default" />
-        <meta name="theme-color" media="(prefers-color-scheme: light)" content="#ffffff" />
-        <meta name="theme-color" media="(prefers-color-scheme: dark)" content="#000000" />
+        <meta name="theme-color" media="(prefers-color-scheme: light)" content="#FBF6EC" />
+        <meta name="theme-color" media="(prefers-color-scheme: dark)" content="#0F1B2E" />
         <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
         <link rel="manifest" href="/manifest.webmanifest" />
 
@@ -37,5 +37,5 @@ export default function Root({ children }: PropsWithChildren) {
 }
 
 const responsiveBackground = `
-body { background-color: #fff; }
-@media (prefers-color-scheme: dark) { body { background-color: #000; } }`;
+body { background-color: #FBF6EC; }
+@media (prefers-color-scheme: dark) { body { background-color: #0F1B2E; } }`;
