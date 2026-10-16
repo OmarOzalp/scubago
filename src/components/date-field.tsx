@@ -1,10 +1,10 @@
 import { useState } from 'react';
 import { Modal, Pressable, StyleSheet, View } from 'react-native';
 
+import { Icon, type IconName } from '@/components/icon';
 import { ThemedText } from '@/components/themed-text';
-import { Ocean } from '@/constants/palette';
-import { Spacing } from '@/constants/theme';
-import { useTheme } from '@/hooks/use-theme';
+import { OnFill, Radius, Shadow, Spacing } from '@/constants/theme';
+import { useSchemeName, useTheme } from '@/hooks/use-theme';
 import { longDate, monthGrid } from '@/lib/calendar';
 import { localIsoDate, shiftIsoDate } from '@/lib/sighting-edit';
 
@@ -26,7 +26,7 @@ export function DateField({ value, onChange, label = 'When' }: { value: string; 
 
   return (
     <View style={styles.field}>
-      <ThemedText type="smallBold" accessibilityRole="header">
+      <ThemedText type="label" accessibilityRole="header">
         {label}
       </ThemedText>
       <View style={styles.row}>
@@ -36,11 +36,10 @@ export function DateField({ value, onChange, label = 'When' }: { value: string; 
           onPress={() => setOpen(true)}
           accessibilityRole="button"
           accessibilityLabel={`Date: ${longDate(value, 'long')}. Choose another date`}
-          style={[styles.pick, { backgroundColor: theme.backgroundElement, borderColor: theme.textSecondary }]}>
+          style={({ pressed }) => [styles.pick, { backgroundColor: pressed ? theme.backgroundSelected : theme.backgroundElement, borderColor: theme.rule }]}>
+          <Icon name="calendar" size={18} />
           <ThemedText type="smallBold">{longDate(value)}</ThemedText>
-          <ThemedText type="small" themeColor="textSecondary" importantForAccessibility="no" accessibilityElementsHidden>
-            {' '}▾
-          </ThemedText>
+          <Icon name="chevronDown" size={14} color={theme.textSecondary} weight="bold" />
         </Pressable>
       </View>
       {open ? (
@@ -67,9 +66,11 @@ function QuickDate({ label, selected, onPress }: { label: string; selected: bool
       aria-checked={selected}
       style={[
         styles.quick,
-        { backgroundColor: theme.backgroundElement, borderColor: selected ? theme.text : 'transparent' },
+        { backgroundColor: selected ? theme.text : theme.backgroundElement, borderColor: selected ? theme.text : theme.rule },
       ]}>
-      <ThemedText type={selected ? 'smallBold' : 'small'}>{label}</ThemedText>
+      <ThemedText type="smallBold" style={{ color: selected ? theme.background : theme.text }}>
+        {label}
+      </ThemedText>
     </Pressable>
   );
 }
@@ -86,6 +87,7 @@ function Calendar({
   onClose: () => void;
 }) {
   const theme = useTheme();
+  const scheme = useSchemeName();
   const [y0, m0] = value.split('-').map(Number);
   const [cursor, setCursor] = useState({ year: y0, month: m0 - 1 });
   const maxMonth = max.slice(0, 7);
@@ -109,19 +111,22 @@ function Calendar({
     <Modal transparent animationType="fade" onRequestClose={onClose} accessibilityViewIsModal>
       <Pressable style={styles.backdrop} onPress={onClose} accessibilityLabel="Close the calendar" accessibilityRole="button">
         {/* A Pressable that does nothing keeps taps inside the card from closing it. */}
-        <Pressable style={[styles.card, { backgroundColor: theme.background }]} onPress={() => undefined} accessible={false}>
+        <Pressable
+          style={[styles.card, { backgroundColor: theme.backgroundElement, borderColor: theme.cardBorder, boxShadow: Shadow[scheme].raised }]}
+          onPress={() => undefined}
+          accessible={false}>
           <View style={styles.header}>
-            <NavButton label="‹‹" a11y="Previous year" onPress={() => move(-12)} />
-            <NavButton label="‹" a11y="Previous month" onPress={() => move(-1)} />
-            <ThemedText type="smallBold" style={styles.title} accessibilityRole="header" accessibilityLiveRegion="polite">
+            <NavButton icon="yearBack" a11y="Previous year" onPress={() => move(-12)} />
+            <NavButton icon="chevronLeft" a11y="Previous month" onPress={() => move(-1)} />
+            <ThemedText type="heading" style={styles.title} accessibilityRole="header" accessibilityLiveRegion="polite">
               {title}
             </ThemedText>
-            <NavButton label="›" a11y="Next month" onPress={() => move(1)} disabled={atMax} />
-            <NavButton label="››" a11y="Next year" onPress={() => move(12)} disabled={atMax} />
+            <NavButton icon="chevronRight" a11y="Next month" onPress={() => move(1)} disabled={atMax} />
+            <NavButton icon="yearForward" a11y="Next year" onPress={() => move(12)} disabled={atMax} />
           </View>
           <View style={styles.grid} importantForAccessibility="no" accessibilityElementsHidden>
             {WEEKDAYS.map((d, i) => (
-              <ThemedText key={i} type="small" themeColor="textSecondary" style={styles.weekday}>
+              <ThemedText key={i} type="label" style={styles.weekday}>
                 {d}
               </ThemedText>
             ))}
@@ -140,11 +145,11 @@ function Calendar({
                   accessibilityLabel={longDate(iso, 'long')}
                   aria-selected={selected}
                   aria-disabled={future}
-                  style={[styles.day, selected && { backgroundColor: Ocean.primary, borderRadius: 22 }]}>
+                  style={[styles.day, selected && { backgroundColor: theme.lagoon, borderRadius: Radius.sm }, iso === max && !selected && { borderWidth: 1.5, borderColor: theme.rule, borderRadius: Radius.sm }]}>
                   <ThemedText
                     type={selected ? 'smallBold' : 'small'}
                     themeColor={future ? 'textSecondary' : 'text'}
-                    style={[selected && { color: Ocean.onPrimary }, future && { opacity: 0.5 }]}>
+                    style={[selected && { color: OnFill[scheme].lagoon }, future && { opacity: 0.5 }]}>
                     {Number(iso.slice(8))}
                   </ThemedText>
                 </Pressable>
@@ -162,7 +167,8 @@ function Calendar({
   );
 }
 
-function NavButton({ label, a11y, onPress, disabled = false }: { label: string; a11y: string; onPress: () => void; disabled?: boolean }) {
+function NavButton({ icon, a11y, onPress, disabled = false }: { icon: IconName; a11y: string; onPress: () => void; disabled?: boolean }) {
+  const theme = useTheme();
   return (
     <Pressable
       onPress={onPress}
@@ -171,20 +177,18 @@ function NavButton({ label, a11y, onPress, disabled = false }: { label: string; 
       accessibilityLabel={a11y}
       aria-disabled={disabled}
       style={styles.nav}>
-      <ThemedText type="smallBold" themeColor={disabled ? 'textSecondary' : 'text'} style={disabled && { opacity: 0.4 }}>
-        {label}
-      </ThemedText>
+      <Icon name={icon} size={18} weight="bold" color={disabled ? theme.textSecondary : theme.text} style={disabled && { opacity: 0.4 }} />
     </Pressable>
   );
 }
 
 const styles = StyleSheet.create({
-  field: { gap: Spacing.one },
+  field: { gap: 6 },
   row: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.two, alignItems: 'center' },
   quick: {
     minHeight: 44,
     paddingHorizontal: 14,
-    borderRadius: 22,
+    borderRadius: Radius.sm,
     borderWidth: 1.5,
     alignItems: 'center',
     justifyContent: 'center',
@@ -192,13 +196,14 @@ const styles = StyleSheet.create({
   pick: {
     minHeight: 44,
     paddingHorizontal: 14,
-    borderRadius: 22,
-    borderWidth: StyleSheet.hairlineWidth,
+    borderRadius: Radius.sm,
+    borderWidth: 1.5,
     flexDirection: 'row',
     alignItems: 'center',
+    gap: 8,
   },
-  backdrop: { flex: 1, backgroundColor: '#0008', justifyContent: 'center', padding: Spacing.three },
-  card: { borderRadius: 18, padding: Spacing.three, gap: Spacing.two, maxWidth: 420, width: '100%', alignSelf: 'center' },
+  backdrop: { flex: 1, backgroundColor: 'rgba(15, 27, 46, 0.55)', justifyContent: 'center', padding: Spacing.three },
+  card: { borderRadius: Radius.xl, borderWidth: 1, padding: Spacing.three, gap: Spacing.two, maxWidth: 420, width: '100%', alignSelf: 'center' },
   header: { flexDirection: 'row', alignItems: 'center' },
   title: { flex: 1, textAlign: 'center' },
   nav: { minWidth: 44, minHeight: 44, alignItems: 'center', justifyContent: 'center' },

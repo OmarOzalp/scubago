@@ -18,9 +18,9 @@ export function ProgressRing({ fraction, size = 66, color, accessibilityLabel }:
   const target = Math.max(0, Math.min(1, fraction));
   const drawn = useSharedValue(reduced ? target : 0);
   useEffect(() => {
-    drawn.value = reduced ? target : withDelay(200, withTiming(target, { duration: 1200 }));
+    drawn.set(reduced ? target : withDelay(200, withTiming(target, { duration: 1200 })));
   }, [drawn, reduced, target]);
-  const animatedProps = useAnimatedProps(() => ({ strokeDashoffset: length * (1 - drawn.value) }));
+  const animatedProps = useAnimatedProps(() => ({ strokeDashoffset: length * (1 - drawn.get()) }));
   return (
     <View accessible accessibilityRole="image" accessibilityLabel={accessibilityLabel} style={{ width: size, height: size }}>
       <Svg width={size} height={size}>

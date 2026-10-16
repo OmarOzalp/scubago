@@ -1,8 +1,8 @@
-import { forwardRef } from 'react';
+import { forwardRef, useState } from 'react';
 import { StyleSheet, TextInput, View, type TextInputProps } from 'react-native';
 
 import { ThemedText } from '@/components/themed-text';
-import { Spacing } from '@/constants/theme';
+import { Radius, Spacing, Type } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 
 type Props = TextInputProps & {
@@ -12,12 +12,16 @@ type Props = TextInputProps & {
   hint?: string;
 };
 
-/** A labelled text field: the label is visible and is the field's accessible name. */
-export const FormField = forwardRef<TextInput, Props>(function FormField({ label, hint, style, ...input }, ref) {
+/**
+ * A labelled text field: a typewriter label over a paper box that takes a lagoon edge while you type.
+ * The label is visible and is the field's accessible name.
+ */
+export const FormField = forwardRef<TextInput, Props>(function FormField({ label, hint, style, onFocus, onBlur, ...input }, ref) {
   const theme = useTheme();
+  const [focused, setFocused] = useState(false);
   return (
     <View style={styles.field}>
-      <ThemedText type="smallBold" importantForAccessibility="no" accessibilityElementsHidden>
+      <ThemedText type="label" importantForAccessibility="no" accessibilityElementsHidden>
         {label}
       </ThemedText>
       <TextInput
@@ -25,7 +29,19 @@ export const FormField = forwardRef<TextInput, Props>(function FormField({ label
         accessibilityLabel={label}
         accessibilityHint={hint}
         placeholderTextColor={theme.textSecondary}
-        style={[styles.input, { backgroundColor: theme.backgroundElement, color: theme.text }, style]}
+        onFocus={(e) => {
+          setFocused(true);
+          onFocus?.(e);
+        }}
+        onBlur={(e) => {
+          setFocused(false);
+          onBlur?.(e);
+        }}
+        style={[
+          styles.input,
+          { backgroundColor: theme.backgroundElement, color: theme.text, borderColor: focused ? theme.tint : theme.rule },
+          style,
+        ]}
         {...input}
       />
       {hint ? (
@@ -38,14 +54,14 @@ export const FormField = forwardRef<TextInput, Props>(function FormField({ label
 });
 
 const styles = StyleSheet.create({
-  field: { gap: Spacing.one },
+  field: { gap: 6 },
   input: {
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: '#8886',
-    borderRadius: 10,
-    paddingHorizontal: Spacing.two + 2,
-    paddingVertical: Spacing.two,
-    minHeight: 48,
+    borderWidth: 1.5,
+    borderRadius: Radius.sm,
+    paddingHorizontal: Spacing.three - 2,
+    paddingVertical: Spacing.two + 2,
+    minHeight: 50,
     fontSize: 16,
+    fontFamily: Type.body,
   },
 });

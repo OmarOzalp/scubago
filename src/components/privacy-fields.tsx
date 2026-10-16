@@ -31,7 +31,7 @@ export function PrivacyFields({
   const shared = value.visibility === 'public';
   return (
     <View style={styles.section}>
-      <ThemedText type="smallBold" accessibilityRole="header">
+      <ThemedText type="label" accessibilityRole="header">
         Who can see this
       </ThemedText>
       <Choice label={count > 1 ? 'Sightings' : 'Sighting'}>
@@ -67,7 +67,7 @@ export function PrivacyFields({
           ) : null}
         </>
       ) : null}
-      <ThemedText type="small" themeColor="textSecondary" accessibilityLiveRegion="polite">
+      <ThemedText type="caption" themeColor="textSecondary" accessibilityLiveRegion="polite">
         {privacyExplanation(value, { photo, count })}
       </ThemedText>
     </View>
@@ -77,7 +77,7 @@ export function PrivacyFields({
 function Choice({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <View style={styles.choice}>
-      <ThemedText type="small" style={styles.label} importantForAccessibility="no" accessibilityElementsHidden>
+      <ThemedText type="smallBold" style={styles.label} importantForAccessibility="no" accessibilityElementsHidden>
         {label}
       </ThemedText>
       <View style={styles.control}>{children}</View>
@@ -86,7 +86,7 @@ function Choice({ label, children }: { label: string; children: React.ReactNode 
 }
 
 const styles = StyleSheet.create({
-  section: { gap: Spacing.two },
+  section: { gap: Spacing.two + 2 },
   choice: { flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: Spacing.two },
   label: { minWidth: 72 },
   control: { flex: 1, minWidth: 200 },

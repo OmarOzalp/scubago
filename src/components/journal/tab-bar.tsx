@@ -86,7 +86,6 @@ function Tab({
       onPress={onPress}
       onLongPress={onLongPress}
       accessibilityRole="tab"
-      accessibilityState={{ selected: focused }}
       aria-selected={focused}
       accessibilityLabel={accessibilityLabel ?? label}
       testID={testID}

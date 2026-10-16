@@ -174,5 +174,5 @@ export function usable(r: RequestInfo, now = Date.now()): boolean {
 /** The share message: the code first, and a link that opens it in the app where the app is installed. */
 export function shareMessage(speciesName: string, code: string, expiresAt: string): string {
   const until = new Date(expiresAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
-  return `Can you confirm my ${speciesName} sighting on ScubaGo? In the app, go to My Log → Confirm a buddy’s sighting and enter ${code} (valid until ${until}).\n\nscubago://verify?code=${code}`;
+  return `Can you confirm my ${speciesName} sighting on ScubaGo? In the app, go to Logbook → Confirm a buddy’s sighting and enter ${code} (valid until ${until}).\n\nscubago://verify?code=${code}`;
 }

@@ -8,7 +8,7 @@ How a diver's changes reach the server, including offline. The code is in `src/l
 
 ## What the diver sees
 
-- **My Log → a sighting** opens its page (`/sighting/[id]`). It shows the species, the site, the
+- **Logbook → a sighting** opens its page (`/sighting/[id]`). It shows the species, the site, the
   date, the dive (not linked yet: dive logs don't exist), notes, verification status, evidence,
   who logged it and when, and, for the diver's own sightings, whether it has synced.
 - **Edit sighting** reopens the logging screen with everything filled in. It uses the same steps
@@ -19,7 +19,7 @@ How a diver's changes reach the server, including offline. The code is in `src/l
 - Only the diver who logged a sighting sees Edit and Delete. The store refuses anyone else, and
   so does the server (row-level security, `supabase/checks/rls-isolation.sql`).
 - While signed in, changes that haven't synced show as **Waiting to sync** (on the row and the
-  page), with a count and a **Sync now** link at the top of My Log. A failure shows why, and it's
+  page), with a count and a **Sync now** link at the top of the logbook. A failure shows why, and it's
   retried automatically.
 
 ## Rules

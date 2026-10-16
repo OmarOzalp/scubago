@@ -10,6 +10,12 @@ who turn motion off. These are the rules the screens follow; new screens should 
 | `OceanButton` | Any button with a text label | Button role, disabled state, 48pt height, optional `accessibilityLabel` |
 | `FormField` | Every text input | A visible label that is also the field's accessible name, and a hint that stays visible (a placeholder disappears once you type) |
 | `Segmented` | Two or three tabs | Tab roles, selected state, an outline on the selected tab |
+| `JournalTabBar` (`components/journal/tab-bar.tsx`) | The app's tabs | A tab list; each tab has its name and selected state; the raised "Log dive" is a button labelled "Log a dive" |
+| `Chip` | Filters (field guide groups, species groups) | Button role and selected state; selected is ink-filled, not told by colour alone |
+| `Tag`, `RarityChip`, `StatusChip` | Small labels on cards | The words are the label; colour only repeats them |
+| `SpeciesArt`, `SpeciesAvatar`, `Wash` | Drawings | Hidden from screen readers: the species' name is always written next to them |
+| `Stamp`, `Seal` | Rubber stamps | Decorative unless given an `accessibilityLabel` (`Seal` always has one) |
+| `ProgressBar`, `ProgressRing` | Progress | A progress bar role or an image with the figures in words ("4 of 8 species …") |
 | `announce()` (`lib/announce.ts`) | Errors, "saved", step changes | Reads the message aloud on iOS and Android. Pair it with `accessibilityLiveRegion="polite"` on the visible text, which covers the web app |
 | `confirmAction()` (`lib/confirm.ts`) | Anything that can't be undone | A confirm dialog that also works in the web app |
 

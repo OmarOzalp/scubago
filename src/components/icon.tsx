@@ -7,13 +7,17 @@ import { View, type ColorValue, type StyleProp, type ViewStyle } from 'react-nat
 
 import { AirplaneTiltIcon } from 'phosphor-react-native/src/icons/AirplaneTilt';
 import { ArrowLeftIcon } from 'phosphor-react-native/src/icons/ArrowLeft';
-import { ArrowSquareOutIcon } from 'phosphor-react-native/src/icons/ArrowSquareOut';
 import { ArrowsClockwiseIcon } from 'phosphor-react-native/src/icons/ArrowsClockwise';
+import { ArrowSquareOutIcon } from 'phosphor-react-native/src/icons/ArrowSquareOut';
 import { BellIcon } from 'phosphor-react-native/src/icons/Bell';
 import { BinocularsIcon } from 'phosphor-react-native/src/icons/Binoculars';
+import { BoatIcon } from 'phosphor-react-native/src/icons/Boat';
 import { BookOpenTextIcon } from 'phosphor-react-native/src/icons/BookOpenText';
 import { CalendarBlankIcon } from 'phosphor-react-native/src/icons/CalendarBlank';
 import { CameraIcon } from 'phosphor-react-native/src/icons/Camera';
+import { CameraPlusIcon } from 'phosphor-react-native/src/icons/CameraPlus';
+import { CaretDoubleLeftIcon } from 'phosphor-react-native/src/icons/CaretDoubleLeft';
+import { CaretDoubleRightIcon } from 'phosphor-react-native/src/icons/CaretDoubleRight';
 import { CaretDownIcon } from 'phosphor-react-native/src/icons/CaretDown';
 import { CaretLeftIcon } from 'phosphor-react-native/src/icons/CaretLeft';
 import { CaretRightIcon } from 'phosphor-react-native/src/icons/CaretRight';
@@ -21,11 +25,14 @@ import { CheckIcon } from 'phosphor-react-native/src/icons/Check';
 import { CheckCircleIcon } from 'phosphor-react-native/src/icons/CheckCircle';
 import { ClockIcon } from 'phosphor-react-native/src/icons/Clock';
 import { CompassIcon } from 'phosphor-react-native/src/icons/Compass';
+import { CopyIcon } from 'phosphor-react-native/src/icons/Copy';
 import { CrosshairIcon } from 'phosphor-react-native/src/icons/Crosshair';
 import { DropIcon } from 'phosphor-react-native/src/icons/Drop';
+import { EnvelopeSimpleIcon } from 'phosphor-react-native/src/icons/EnvelopeSimple';
 import { ExportIcon } from 'phosphor-react-native/src/icons/Export';
 import { EyeIcon } from 'phosphor-react-native/src/icons/Eye';
 import { FishIcon } from 'phosphor-react-native/src/icons/Fish';
+import { FunnelSimpleIcon } from 'phosphor-react-native/src/icons/FunnelSimple';
 import { GlobeHemisphereWestIcon } from 'phosphor-react-native/src/icons/GlobeHemisphereWest';
 import { HouseIcon } from 'phosphor-react-native/src/icons/House';
 import { ImageIcon } from 'phosphor-react-native/src/icons/Image';
@@ -35,16 +42,19 @@ import { ListBulletsIcon } from 'phosphor-react-native/src/icons/ListBullets';
 import { LockSimpleIcon } from 'phosphor-react-native/src/icons/LockSimple';
 import { MagnifyingGlassIcon } from 'phosphor-react-native/src/icons/MagnifyingGlass';
 import { MapPinIcon } from 'phosphor-react-native/src/icons/MapPin';
+import { MapPinPlusIcon } from 'phosphor-react-native/src/icons/MapPinPlus';
 import { MapTrifoldIcon } from 'phosphor-react-native/src/icons/MapTrifold';
 import { MedalIcon } from 'phosphor-react-native/src/icons/Medal';
+import { NavigationArrowIcon } from 'phosphor-react-native/src/icons/NavigationArrow';
+import { NoteIcon } from 'phosphor-react-native/src/icons/Note';
 import { PauseIcon } from 'phosphor-react-native/src/icons/Pause';
 import { PencilSimpleIcon } from 'phosphor-react-native/src/icons/PencilSimple';
 import { PlayIcon } from 'phosphor-react-native/src/icons/Play';
 import { PlusIcon } from 'phosphor-react-native/src/icons/Plus';
 import { QrCodeIcon } from 'phosphor-react-native/src/icons/QrCode';
 import { SealCheckIcon } from 'phosphor-react-native/src/icons/SealCheck';
-import { SignOutIcon } from 'phosphor-react-native/src/icons/SignOut';
 import { SignatureIcon } from 'phosphor-react-native/src/icons/Signature';
+import { SignOutIcon } from 'phosphor-react-native/src/icons/SignOut';
 import { SparkleIcon } from 'phosphor-react-native/src/icons/Sparkle';
 import { StampIcon } from 'phosphor-react-native/src/icons/Stamp';
 import { ThermometerIcon } from 'phosphor-react-native/src/icons/Thermometer';
@@ -67,18 +77,25 @@ const ICONS = {
   sync: ArrowsClockwiseIcon,
   bell: BellIcon,
   binoculars: BinocularsIcon,
+  boat: BoatIcon,
   logbook: BookOpenTextIcon,
   calendar: CalendarBlankIcon,
   camera: CameraIcon,
+  addPhoto: CameraPlusIcon,
   chevronDown: CaretDownIcon,
   chevronLeft: CaretLeftIcon,
   chevronRight: CaretRightIcon,
+  yearBack: CaretDoubleLeftIcon,
+  yearForward: CaretDoubleRightIcon,
   check: CheckIcon,
   checkCircle: CheckCircleIcon,
   clock: ClockIcon,
+  copy: CopyIcon,
   explore: CompassIcon,
   locate: CrosshairIcon,
   drop: DropIcon,
+  email: EnvelopeSimpleIcon,
+  filter: FunnelSimpleIcon,
   share: ExportIcon,
   eye: EyeIcon,
   fieldGuide: FishIcon,
@@ -90,8 +107,11 @@ const ICONS = {
   lock: LockSimpleIcon,
   search: MagnifyingGlassIcon,
   pin: MapPinIcon,
+  addSite: MapPinPlusIcon,
   map: MapTrifoldIcon,
   medal: MedalIcon,
+  directions: NavigationArrowIcon,
+  notes: NoteIcon,
   pause: PauseIcon,
   edit: PencilSimpleIcon,
   play: PlayIcon,

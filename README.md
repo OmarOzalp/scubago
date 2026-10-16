@@ -67,7 +67,13 @@ project's settings with those dev defaults.
 
 ## What's in the slice
 
-- **My Home tab** — a stylized 3D sanctuary: a sculpted island, coral lagoon, or rocky
+- **Reef Journal look** — warm paper and navy ink with reef colours (lagoon, coral, sun), a
+  "night dive" dark scheme, Fraunces / Figtree / Courier Prime type, Phosphor duotone icons and a
+  watercolour field-guide drawing for every species; calm motion that stops under Reduce Motion
+  ([docs/design.md](docs/design.md)).
+- **Five tabs** — Home, Explore, a raised coral **Log dive** button, Logbook and Field guide: one
+  tab bar drawn by the app on iOS, Android and the web.
+- **Home tab** — a stylized 3D sanctuary: a sculpted island, coral lagoon, or rocky
   cove in caustic-lit water, seen from an oblique orthographic camera. Discovered
   sharks, rays, fish, the ocean sunfish and the green sea turtle swim around it as
   rigged, animated models, passing one another in lanes and keeping their own
@@ -83,18 +89,19 @@ project's settings with those dev defaults.
   when the tab is unfocused, the app is backgrounded, reduced motion is on, or you tap
   Pause. If 3D rendering is unavailable the illustrated SVG island takes over.
 - **First launch** — three short intro cards (log, collect, grow your island), once per install.
-- **Map tab** — ~65 famous dive sites worldwide; search "where can I see a…" to
+- **Explore tab** — ~65 famous dive sites worldwide; search "where can I see a…" to
   highlight sites where a species has been spotted; tap a pin for the site card;
   "Add a site" (or long-press the map) to add a missing one; a List view for screen readers.
-- **My Log tab** — your sightings, and a species dex of 120 curated species with
-  rarity tiers (common → legendary). Signed out, a card says how many sightings live only
-  on this phone and offers to back them up.
+- **Logbook tab** — your totals and every sighting under the day it was made. Signed out, a
+  card says how many sightings live only on this phone and offers to back them up.
+- **Field guide tab** — all 120 curated species by group, with rarity tiers (common →
+  legendary): painted in watercolour once you've seen them, a pencil sketch until then.
 - **Log flow** — site → species → details for a whole dive at once: tick every species you saw
   (what's often seen at that site comes first), pick the date from a calendar, save once. Search
   forgives accents, spelling variants, other names and typos (`src/lib/text-search.ts`). Animals
   outside the catalogue can be logged as "Something else" in your own words (migration 0007);
-  they don't count towards the collection. A summary follows every save, with a celebration for
-  new species.
+  they don't count towards the collection. A summary follows every save: a "Logged" stamp, or for
+  a new species a field-guide card that turns over and is stamped "First record".
 - **Discovery moments** — a new species swims into your island with a small "New" tag, and a
   level-up gets a banner as the island grows (islets rise from the water)
   ([docs/discovery-moments.md](docs/discovery-moments.md)).
@@ -103,7 +110,7 @@ project's settings with those dev defaults.
 - **Privacy** — "Who can see this" on the log screen: each sighting is shared with everyone or kept
   to yourself, and a shared one can keep its notes and photo private (migration 0008). Private
   notes and photos never go to the public row or photo bucket; private sightings say "Only you" in
-  My Log ([docs/sighting-sync.md](docs/sighting-sync.md#who-can-see-it)).
+  the logbook ([docs/sighting-sync.md](docs/sighting-sync.md#who-can-see-it)).
 - **Ask a buddy** — send a buddy a code; signed in, they see the sighting and confirm it, and it
   reads **Buddy verified**. The server checks everything (migration 0006,
   [docs/buddy-verification.md](docs/buddy-verification.md)).
@@ -127,10 +134,11 @@ project's settings with those dev defaults.
 ## Project layout
 
 ```
-src/app/            expo-router screens ((tabs)/index = My Home, (tabs)/map = Map,
-                    (tabs)/logbook = My Log,
+src/app/            expo-router screens ((tabs)/index = Home, (tabs)/map = Explore,
+                    (tabs)/logbook = Logbook, (tabs)/field-guide = Field guide,
                     log/new, site/[id], species/[id], add-site)
-src/components/     shared UI (species avatar, rarity chip, map w/ web fallback, …)
+src/components/     shared UI (species art, map w/ web fallback, …); journal/ holds the
+                    Reef Journal pieces (tab bar, paper, stamp, wash, ledger, …)
 src/lib/            domain logic: db (SQLite), store (zustand), dex, demo data, sync
 src/data/           curated seed data: species, sites, fetched photo map
 scripts/            fetch-species-photos.mjs (iNaturalist photo seeding)

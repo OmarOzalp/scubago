@@ -317,8 +317,8 @@ What's in the repo for this:
 - `netlify.toml`: the build command, the folder to publish, and rewrites for the
   `/species/…`, `/site/…` and `/sighting/…` pages.
 - `src/app/+html.tsx` and `public/`: the home-screen name, icon and full-screen settings.
-- `src/app/(tabs)/_layout.web.tsx`: a bottom tab bar for the web build. The iOS and Android apps keep
-  their native tabs.
+- `src/app/(tabs)/_layout.tsx`: one tab bar drawn by the app (`src/components/journal/tab-bar.tsx`),
+  the same on the web, iOS and Android.
 - `npm run build:web`: builds into `dist/`. It refuses to build without the Supabase settings, or if
   a secret key is set (see `check:env`).
 
@@ -346,7 +346,7 @@ What's in the repo for this:
 
 1. Open the Netlify address in **Safari** (on Android, Chrome).
 2. Tap **Share → Add to Home Screen**. On Android: **⋮ → Add to Home screen** or **Install app**.
-3. Open ScubaGo from the new icon. Go to **My Log → Sign in to sync** and sign in with your usual account.
+3. Open ScubaGo from the new icon. Go to **Logbook → Sign in or create an account** (the account button at the top) and sign in with your usual account.
 
 Signing in matters. The home-screen app keeps its own storage, separate from Safari tabs and from
 Expo Go. Your sightings reach it, and are backed up, through the account sync.

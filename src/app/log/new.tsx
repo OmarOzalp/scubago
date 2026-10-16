@@ -2,18 +2,23 @@ import * as ImagePicker from 'expo-image-picker';
 import { Image } from 'expo-image';
 import { Stack, router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import Animated, { useAnimatedStyle, useReducedMotion, useSharedValue, withDelay, withTiming } from 'react-native-reanimated';
 
 import { DateField } from '@/components/date-field';
 import { FormField } from '@/components/form-field';
+import { Icon } from '@/components/icon';
+import { Chip } from '@/components/journal/chip';
+import { Paper, PaperButton } from '@/components/journal/paper';
+import { NewBadge, Stamp } from '@/components/journal/stamp';
 import { OceanButton } from '@/components/ocean-button';
 import { PrivacyFields } from '@/components/privacy-fields';
 import { RarityChip } from '@/components/rarity-chip';
+import { SpeciesArt } from '@/components/species-art';
 import { SpeciesAvatar } from '@/components/species-avatar';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
-import { Ocean } from '@/constants/palette';
-import { Spacing } from '@/constants/theme';
+import { OnFill, Radius, Shadow, Spacing, Type } from '@/constants/theme';
 import { usePhotoUrl } from '@/hooks/use-photo-url';
 import { useSchemeName, useTheme } from '@/hooks/use-theme';
 import { announce } from '@/lib/announce';
@@ -21,7 +26,8 @@ import { CATALOG, CATALOG_BY_ID, UNLISTED_ID, UNLISTED_NAME_MAX, speciesForSight
 import { recentDiveDate, rememberDiveDate } from '@/lib/last-dive-date';
 import { keepPhoto } from '@/lib/photo-files';
 import { DEFAULT_PRIVACY, lastPrivacyChoice, rememberPrivacyChoice, type PrivacySettings } from '@/lib/privacy-choice';
-import { CATEGORY_LABEL, CATEGORY_ORDER, RARITY_TEXT } from '@/lib/rarity';
+import { CATEGORY_LABEL, CATEGORY_ORDER } from '@/lib/rarity';
+import { artFor } from '@/lib/species-art';
 import { canEditSighting, isMaterialChange, localIsoDate } from '@/lib/sighting-edit';
 import { siteAddedBy } from '@/lib/site-details';
 import { onSiteAdded } from '@/lib/site-added';
@@ -43,6 +49,7 @@ const STEP_ORDER: Step[] = ['site', 'species', 'details'];
 export default function LogSightingScreen() {
   const params = useLocalSearchParams<{ siteId?: string; speciesId?: string; edit?: string }>();
   const theme = useTheme();
+  const scheme = useSchemeName();
   const sites = useAllSites();
   const mySightings = useMySightings();
   const myUserId = useMyUserId();
@@ -275,35 +282,59 @@ export default function LogSightingScreen() {
     { step: 'details', label: 'Details', enabled: !!site && chosen.length > 0 },
   ];
 
+  const stepIndex = STEP_ORDER.indexOf(step);
+
   return (
     <ThemedView style={styles.container}>
-      {editing ? <Stack.Screen options={{ title: 'Edit sighting' }} /> : null}
-      <View style={styles.breadcrumbs} accessibilityRole="tablist" accessibilityLabel="Steps">
-        {crumbs.map((c, i) => (
-          <View key={c.step} style={styles.crumbWrap}>
-            {i > 0 ? (
-              <ThemedText themeColor="textSecondary" importantForAccessibility="no" accessibilityElementsHidden>
-                ›
-              </ThemedText>
-            ) : null}
-            <Pressable
-              onPress={() => c.enabled && goTo(c.step)}
-              disabled={!c.enabled}
-              accessibilityRole="tab"
-              accessibilityLabel={`Step ${i + 1}, ${STEP_NAMES[c.step]}${c.label !== STEP_NAMES[c.step] ? `: ${c.label}` : ''}`}
-              aria-selected={step === c.step}
-              aria-disabled={!c.enabled}
-              style={styles.crumb}>
-              <ThemedText
-                type="smallBold"
-                themeColor={step === c.step || c.enabled ? 'text' : 'textSecondary'}
-                numberOfLines={1}
-                style={step === c.step && styles.crumbActive}>
-                {c.label}
-              </ThemedText>
-            </Pressable>
-          </View>
-        ))}
+      {/* Set in full: the new-species page turns the header twilight, and "Log more" comes back here. */}
+      <Stack.Screen
+        options={{
+          title: editing ? 'Edit sighting' : 'Log a dive',
+          headerStyle: { backgroundColor: theme.background },
+          headerTintColor: theme.text,
+          headerTitleStyle: { fontFamily: Type.display, fontSize: 19, color: theme.text },
+        }}
+      />
+      {/* The three steps, numbered like the pages of a form: done ones ticked, the current one inked in. */}
+      <View style={[styles.steps, { borderBottomColor: theme.rule }]} accessibilityRole="tablist" accessibilityLabel="Steps">
+        {crumbs.map((c, i) => {
+          const current = step === c.step;
+          const done = i < stepIndex && c.enabled;
+          return (
+            <View key={c.step} style={styles.stepWrap}>
+              {i > 0 ? <View style={[styles.stepRule, { backgroundColor: i <= stepIndex ? theme.lagoon : theme.rule }]} /> : null}
+              <Pressable
+                onPress={() => c.enabled && goTo(c.step)}
+                disabled={!c.enabled}
+                accessibilityRole="tab"
+                accessibilityLabel={`Step ${i + 1}, ${STEP_NAMES[c.step]}${c.label !== STEP_NAMES[c.step] ? `: ${c.label}` : ''}`}
+                aria-selected={current}
+                aria-disabled={!c.enabled}
+                style={({ pressed }) => [styles.step, { opacity: pressed ? 0.6 : 1 }]}>
+                <View
+                  style={[
+                    styles.stepDot,
+                    current
+                      ? { backgroundColor: theme.lagoon, borderColor: theme.lagoon }
+                      : done
+                        ? { backgroundColor: theme.backgroundElement, borderColor: theme.lagoon }
+                        : { backgroundColor: theme.backgroundElement, borderColor: theme.rule },
+                  ]}>
+                  {done ? (
+                    <Icon name="check" size={14} color={theme.tint} weight="bold" />
+                  ) : (
+                    <Text style={[styles.stepNumber, { color: current ? OnFill[scheme].lagoon : theme.textSecondary }]}>{i + 1}</Text>
+                  )}
+                </View>
+                <Text
+                  numberOfLines={1}
+                  style={[styles.stepLabel, { color: current ? theme.text : c.enabled ? theme.text : theme.textSecondary, fontFamily: current ? Type.bodyHeavy : Type.bodyBold }]}>
+                  {c.label}
+                </Text>
+              </Pressable>
+            </View>
+          );
+        })}
       </View>
 
       {step === 'site' && (
@@ -322,17 +353,22 @@ export default function LogSightingScreen() {
       )}
       {step === 'details' && site && chosen.length > 0 && (
         <ScrollView contentContainerStyle={styles.details} keyboardShouldPersistTaps="handled">
-          <View style={{ gap: Spacing.two }}>
-            <ThemedText type="smallBold" accessibilityRole="header">
-              {chosen.length === 1 ? 'What you saw' : `${chosen.length} species`} at {site.name}
-            </ThemedText>
-            {chosen.map((s) => (
-              <View key={s.id} style={[styles.summary, { backgroundColor: theme.backgroundElement }]}>
-                <SpeciesAvatar species={s} size={40} showRarityRing={s.id !== UNLISTED_ID} />
-                <ThemedText type="smallBold" style={{ flex: 1 }} numberOfLines={2}>
-                  {s.commonName}
-                </ThemedText>
-                {s.id !== UNLISTED_ID ? <RarityChip rarity={s.rarity} small /> : null}
+          <Paper style={styles.sawCard}>
+            <View style={styles.sawHeader}>
+              <ThemedText type="label">{editing ? 'Logbook entry' : 'New logbook entry'}</ThemedText>
+              <ThemedText type="heading" accessibilityRole="header">
+                {chosen.length === 1 ? 'What you saw' : `${chosen.length} species`} at {site.name}
+              </ThemedText>
+            </View>
+            {chosen.map((s, i) => (
+              <View key={s.id} style={[styles.summary, i > 0 && { borderTopWidth: 1, borderTopColor: theme.rule }]}>
+                <SpeciesAvatar species={s} size={48} showRarityRing={s.id !== UNLISTED_ID} />
+                <View style={{ flex: 1, gap: 3 }}>
+                  <ThemedText type="smallBold" numberOfLines={2} style={{ fontFamily: Type.bodyHeavy, fontSize: 15 }}>
+                    {s.commonName}
+                  </ThemedText>
+                  {s.id !== UNLISTED_ID ? <RarityChip rarity={s.rarity} small /> : null}
+                </View>
                 {multi ? (
                   <Pressable
                     onPress={() => {
@@ -343,22 +379,21 @@ export default function LogSightingScreen() {
                     accessibilityRole="button"
                     accessibilityLabel={`Remove ${s.commonName}`}
                     hitSlop={8}
-                    style={styles.iconButton}>
-                    <ThemedText type="smallBold" themeColor="textSecondary">
-                      ✕
-                    </ThemedText>
+                    style={({ pressed }) => [styles.iconButton, { backgroundColor: pressed ? theme.backgroundSelected : 'transparent' }]}>
+                    <Icon name="close" size={18} color={theme.textSecondary} weight="bold" />
                   </Pressable>
                 ) : null}
               </View>
             ))}
             {multi ? (
               <Pressable onPress={() => goTo('species')} accessibilityRole="button" style={styles.textButton}>
+                <Icon name="plus" size={16} color={theme.tint} weight="bold" />
                 <ThemedText type="smallBold" themeColor="tint">
-                  ＋ Add another species
+                  Add another species
                 </ThemedText>
               </Pressable>
             ) : null}
-          </View>
+          </Paper>
 
           {unlisted ? (
             <FormField
@@ -371,18 +406,20 @@ export default function LogSightingScreen() {
             />
           ) : null}
 
-          <DateField
-            value={date}
-            onChange={(iso) => {
-              setDate(iso);
-              setDateTouched(true);
-            }}
-          />
-          {!dateTouched && date !== localIsoDate(new Date()) ? (
-            <ThemedText type="small" themeColor="textSecondary">
-              Same date as your last log.
-            </ThemedText>
-          ) : null}
+          <View style={{ gap: 6 }}>
+            <DateField
+              value={date}
+              onChange={(iso) => {
+                setDate(iso);
+                setDateTouched(true);
+              }}
+            />
+            {!dateTouched && date !== localIsoDate(new Date()) ? (
+              <ThemedText type="caption" themeColor="textSecondary">
+                Same date as your last log.
+              </ThemedText>
+            ) : null}
+          </View>
 
           <FormField
             label={chosen.length > 1 ? 'Notes (optional, added to each sighting)' : 'Notes (optional)'}
@@ -394,19 +431,20 @@ export default function LogSightingScreen() {
           />
 
           {chosen.length === 1 ? (
-            <View style={{ gap: Spacing.one }}>
-              <ThemedText type="smallBold" accessibilityRole="header">
+            <View style={{ gap: 6 }}>
+              <ThemedText type="label" accessibilityRole="header">
                 Photo (optional)
               </ThemedText>
               {photoUri ? (
                 <>
                   <Image
                     source={photoPreview ? { uri: photoPreview } : undefined}
-                    style={[styles.photoPreview, { backgroundColor: theme.backgroundElement }]}
+                    style={[styles.photoPreview, { backgroundColor: theme.backgroundElement, borderColor: theme.cardBorder }]}
                     contentFit="cover"
                     accessibilityLabel={`Your photo of the ${chosen[0].commonName}`}
                   />
                   <Pressable onPress={() => setPhotoUri(undefined)} accessibilityRole="button" style={styles.textButton}>
+                    <Icon name="trash" size={16} color={theme.textSecondary} />
                     <ThemedText type="smallBold" themeColor="textSecondary">
                       Remove photo
                     </ThemedText>
@@ -418,23 +456,26 @@ export default function LogSightingScreen() {
                     Sightings with a photo get a credibility badge.
                   </ThemedText>
                   <View style={styles.photoButtons}>
-                    <OceanButton title="Take photo" variant="secondary" onPress={() => pickPhoto('camera')} style={{ flex: 1 }} />
-                    <OceanButton title="Choose photo" variant="secondary" onPress={() => pickPhoto('library')} style={{ flex: 1 }} />
+                    <OceanButton title="Take photo" icon="camera" variant="secondary" onPress={() => pickPhoto('camera')} style={{ flex: 1 }} />
+                    <OceanButton title="Choose photo" icon="image" variant="secondary" onPress={() => pickPhoto('library')} style={{ flex: 1 }} />
                   </View>
                 </>
               )}
             </View>
           ) : (
-            <ThemedText type="small" themeColor="textSecondary">
-              Photos go with one sighting each: add one afterwards from the sighting in My Log.
+            <ThemedText type="caption" themeColor="textSecondary">
+              Photos go with one sighting each: add one afterwards from the sighting in your logbook.
             </ThemedText>
           )}
 
           {losesVerification ? (
-            <ThemedText type="small" themeColor="textSecondary">
-              Changing the species, site or date removes this sighting’s verification. It can be confirmed again
-              afterwards.
-            </ThemedText>
+            <Paper tone="sand" style={styles.warning}>
+              <Icon name="warning" size={20} wash={theme.sun} />
+              <ThemedText type="small" style={{ flex: 1 }}>
+                Changing the species, site or date removes this sighting’s verification. It can be confirmed again
+                afterwards.
+              </ThemedText>
+            </Paper>
           ) : null}
           {/* Without a backend nothing leaves the phone, so there is nobody to keep it from. */}
           {backendEnabled ? (
@@ -457,6 +498,8 @@ export default function LogSightingScreen() {
             title={
               saving ? 'Saving…' : editing ? 'Save changes' : chosen.length > 1 ? `Log ${chosen.length} sightings` : 'Log it'
             }
+            variant={editing ? 'primary' : 'log'}
+            icon={editing || saving ? undefined : 'stamp'}
             onPress={save}
             disabled={saving || (unlisted && !customName.trim())}
           />
@@ -517,13 +560,13 @@ function SitePicker({
       />
       {!searching && recent.length > 0 ? (
         <>
-          <ThemedText type="smallBold" themeColor="textSecondary" accessibilityRole="header">
+          <ThemedText type="label" accessibilityRole="header" style={styles.groupLabel}>
             Recent
           </ThemedText>
           {recent.map((s) => (
-            <SiteRow key={`recent-${s.id}`} site={s} userId={userId} onPress={() => onPick(s)} />
+            <SiteRow key={`recent-${s.id}`} site={s} userId={userId} recent onPress={() => onPick(s)} />
           ))}
-          <ThemedText type="smallBold" themeColor="textSecondary" accessibilityRole="header">
+          <ThemedText type="label" accessibilityRole="header" style={styles.groupLabel}>
             All sites
           </ThemedText>
         </>
@@ -532,38 +575,40 @@ function SitePicker({
         <SiteRow key={s.id} site={s} userId={userId} onPress={() => onPick(s)} />
       ))}
       {searching && listed.length === 0 ? (
-        <ThemedText type="small" themeColor="textSecondary" accessibilityLiveRegion="polite">
+        <ThemedText type="caption" themeColor="textSecondary" accessibilityLiveRegion="polite">
           No site matches “{query.trim()}”.
         </ThemedText>
       ) : null}
       <OceanButton
         title="Can’t find it? Add a dive site"
+        icon="addSite"
         variant="secondary"
         onPress={() => router.push({ pathname: '/add-site', params: { then: 'log', name: query.trim() } })}
+        style={{ marginTop: Spacing.two }}
       />
     </ScrollView>
   );
 }
 
-function SiteRow({ site, userId, onPress }: { site: DiveSite; userId: string | undefined; onPress: () => void }) {
+function SiteRow({ site, userId, recent = false, onPress }: { site: DiveSite; userId: string | undefined; recent?: boolean; onPress: () => void }) {
   const theme = useTheme();
   const addedBy = siteAddedBy(site, userId);
   const where = `${site.region}, ${site.country}${addedBy ? ` · added by ${addedBy}` : ''}`;
   return (
-    <Pressable
-      onPress={onPress}
-      accessibilityRole="button"
-      accessibilityLabel={`${site.name}, ${where}`}
-      style={({ pressed }) => [styles.row, { backgroundColor: pressed ? theme.backgroundSelected : theme.backgroundElement }]}>
-      <View style={{ flex: 1 }}>
-        <ThemedText type="smallBold" numberOfLines={2}>
+    <PaperButton onPress={onPress} accessibilityLabel={`${site.name}, ${where}`} style={styles.row}>
+      <View style={[styles.rowIcon, { backgroundColor: recent ? `${theme.wash}66` : theme.backgroundSelected }]}>
+        <Icon name={recent ? 'clock' : 'pin'} size={20} />
+      </View>
+      <View style={{ flex: 1, gap: 1 }}>
+        <Text numberOfLines={2} style={[styles.rowTitle, { color: theme.text }]}>
           {site.name}
-        </ThemedText>
+        </Text>
         <ThemedText type="small" themeColor="textSecondary" numberOfLines={2}>
           {where}
         </ThemedText>
       </View>
-    </Pressable>
+      <Icon name="chevronRight" size={16} color={theme.textSecondary} weight="bold" />
+    </PaperButton>
   );
 }
 
@@ -609,7 +654,7 @@ function SpeciesPicker({
 
   return (
     <View style={{ flex: 1 }}>
-      <View style={styles.picker}>
+      <View style={[styles.picker, styles.pickerTop]}>
         <FormField
           label={multi ? 'What did you see? Tick everything' : 'What did you see?'}
           value={query}
@@ -618,30 +663,27 @@ function SpeciesPicker({
           autoCorrect={false}
           returnKeyType="search"
         />
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chips} accessibilityLabel="Filter by group">
-          {CATEGORY_ORDER.map((cat) => {
-            const on = category === cat;
-            return (
-              <Pressable
-                key={cat}
-                onPress={() => setCategory(on ? null : cat)}
-                accessibilityRole="button"
-                accessibilityLabel={`${CATEGORY_LABEL[cat]} only`}
-                aria-selected={on}
-                style={[
-                  styles.chip,
-                  { backgroundColor: on ? theme.backgroundSelected : theme.backgroundElement, borderColor: on ? theme.text : 'transparent' },
-                ]}>
-                <ThemedText type={on ? 'smallBold' : 'small'}>{CATEGORY_LABEL[cat]}</ThemedText>
-              </Pressable>
-            );
-          })}
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          style={styles.chipsScroll}
+          contentContainerStyle={styles.chips}
+          accessibilityLabel="Filter by group">
+          {CATEGORY_ORDER.map((cat) => (
+            <Chip
+              key={cat}
+              label={CATEGORY_LABEL[cat]}
+              accessibilityLabel={`${CATEGORY_LABEL[cat]} only`}
+              selected={category === cat}
+              onPress={() => setCategory(category === cat ? null : cat)}
+            />
+          ))}
         </ScrollView>
       </View>
-      <ScrollView contentContainerStyle={[styles.picker, multi && { paddingBottom: 96 }]} keyboardShouldPersistTaps="handled">
+      <ScrollView contentContainerStyle={[styles.picker, multi && { paddingBottom: 104 }]} keyboardShouldPersistTaps="handled">
         {likely.length > 0 ? (
           <>
-            <ThemedText type="smallBold" themeColor="textSecondary" accessibilityRole="header">
+            <ThemedText type="label" accessibilityRole="header" style={styles.groupLabel}>
               Often seen at {site!.name}
             </ThemedText>
             {likely.map(renderRow)}
@@ -649,20 +691,20 @@ function SpeciesPicker({
         ) : null}
         {recent.length > 0 ? (
           <>
-            <ThemedText type="smallBold" themeColor="textSecondary" accessibilityRole="header">
+            <ThemedText type="label" accessibilityRole="header" style={styles.groupLabel}>
               You’ve logged recently
             </ThemedText>
             {recent.map(renderRow)}
           </>
         ) : null}
         {likely.length > 0 || recent.length > 0 ? (
-          <ThemedText type="smallBold" themeColor="textSecondary" accessibilityRole="header">
+          <ThemedText type="label" accessibilityRole="header" style={styles.groupLabel}>
             All species
           </ThemedText>
         ) : null}
         {rest.map(renderRow)}
         {searching && rest.length === 0 ? (
-          <ThemedText type="small" themeColor="textSecondary" accessibilityLiveRegion="polite">
+          <ThemedText type="caption" themeColor="textSecondary" accessibilityLiveRegion="polite">
             Nothing in the catalogue matches “{query.trim()}”.
           </ThemedText>
         ) : null}
@@ -676,7 +718,7 @@ function SpeciesPicker({
         />
       </ScrollView>
       {multi ? (
-        <View style={[styles.doneBar, { backgroundColor: theme.background, borderTopColor: theme.backgroundSelected }]}>
+        <View style={[styles.doneBar, { backgroundColor: theme.background, borderTopColor: theme.rule }]}>
           <OceanButton
             title={count === 0 ? 'Tick what you saw' : `Next · ${count} ${count === 1 ? 'species' : 'species'}`}
             onPress={onDone}
@@ -704,6 +746,7 @@ function SpeciesRow({
   onPress: () => void;
 }) {
   const theme = useTheme();
+  const scheme = useSchemeName();
   const unlisted = species.id === UNLISTED_ID;
   const name = title ?? species.commonName;
   const detail = subtitle ?? species.scientificName;
@@ -715,165 +758,349 @@ function SpeciesRow({
       accessibilityLabel={unlisted ? `${name}. ${detail}` : `${name}, ${species.rarity}`}
       style={({ pressed }) => [
         styles.row,
+        styles.speciesRow,
         {
-          backgroundColor: pressed ? theme.backgroundSelected : theme.backgroundElement,
-          borderColor: checked ? Ocean.primary : 'transparent',
+          backgroundColor: pressed ? theme.backgroundSelected : checked ? `${theme.wash}40` : theme.backgroundElement,
+          borderColor: checked ? theme.lagoon : theme.cardBorder,
+          boxShadow: Shadow[scheme].card,
         },
       ]}>
-      <SpeciesAvatar species={species} size={44} showRarityRing={!unlisted} />
-      <View style={{ flex: 1 }}>
-        <ThemedText type="smallBold" numberOfLines={2}>
+      <SpeciesAvatar species={species} size={48} showRarityRing={!unlisted} />
+      <View style={{ flex: 1, gap: 1 }}>
+        <Text numberOfLines={2} style={[styles.rowTitle, { color: theme.text }]}>
           {name}
-        </ThemedText>
-        <ThemedText type="small" themeColor="textSecondary" numberOfLines={2} style={!unlisted && styles.scientific}>
+        </Text>
+        <ThemedText type={unlisted ? 'small' : 'caption'} themeColor="textSecondary" numberOfLines={2} style={!unlisted && styles.scientific}>
           {detail}
         </ThemedText>
       </View>
       {!unlisted ? <RarityChip rarity={species.rarity} small /> : null}
       {multi ? (
         <View
-          style={[styles.check, { borderColor: checked ? Ocean.primary : theme.textSecondary, backgroundColor: checked ? Ocean.primary : 'transparent' }]}
+          style={[styles.check, { borderColor: checked ? theme.lagoon : theme.rule, backgroundColor: checked ? theme.lagoon : theme.backgroundElement }]}
           importantForAccessibility="no-hide-descendants"
           accessibilityElementsHidden>
-          {checked ? <ThemedText style={styles.checkMark}>✓</ThemedText> : null}
+          {checked ? <Icon name="check" size={16} color={OnFill[scheme].lagoon} weight="bold" /> : null}
         </View>
       ) : null}
     </Pressable>
   );
 }
 
+/** Ink on the twilight page of the new-species moment. */
+const ON_TWILIGHT = { text: '#FFFFFF', soft: '#C9D3FF' };
+
+/**
+ * After saving. A new species turns over a field-guide card and stamps it "First record"; an
+ * ordinary log gets a "Logged" stamp. Nothing moves under Reduce Motion.
+ */
 function Saved({ result, onLogMore }: { result: Result; onLogMore?: () => void }) {
-  const scheme = useSchemeName();
+  const theme = useTheme();
   const { newSpecies, count, siteName } = result;
+  if (newSpecies.length === 0) {
+    return (
+      <ThemedView style={styles.centered}>
+        <Paper raised style={styles.savedCard}>
+          <Stamp lines={['Logged', siteName.toUpperCase().slice(0, 22)]} animate delay={150} rotate={-6} style={{ alignSelf: 'center' }} />
+          <ThemedText type="display" accessibilityRole="header" style={styles.center}>
+            Saved
+          </ThemedText>
+          <ThemedText style={styles.center} themeColor="textSecondary">
+            {count === 1 ? 'Your sighting is' : `${count} sightings are`} in your log, at {siteName}.
+          </ThemedText>
+          <OceanButton title="Done" onPress={() => router.back()} style={styles.stretch} />
+          {onLogMore ? (
+            <OceanButton title={`Log more at ${siteName}`} variant="secondary" onPress={onLogMore} style={styles.stretch} />
+          ) : null}
+        </Paper>
+      </ThemedView>
+    );
+  }
   const first = newSpecies[0];
   return (
-    <ThemedView style={styles.centered}>
-      {newSpecies.length > 0 ? (
-        <>
-          <ThemedText style={styles.party} importantForAccessibility="no" accessibilityElementsHidden>
-            🎉
-          </ThemedText>
-          <ThemedText type="subtitle" accessibilityRole="header" style={[styles.savedTitle, newSpecies.length === 1 && { color: RARITY_TEXT[scheme][first.rarity] }]}>
-            {newSpecies.length === 1 ? 'New species!' : `${newSpecies.length} new species!`}
-          </ThemedText>
-          {newSpecies.length === 1 ? (
-            <>
-              <SpeciesAvatar species={first} size={140} showRarityRing />
-              <ThemedText type="smallBold" style={styles.savedName}>
-                {first.commonName}
-              </ThemedText>
-              <RarityChip rarity={first.rarity} />
-              <ThemedText type="small" themeColor="textSecondary" style={styles.center}>
-                #{result.dexNumber} in your collection · A new resident for your home
-              </ThemedText>
-            </>
-          ) : (
+    <View style={[styles.twilight, { backgroundColor: theme.twilight }]}>
+      <Stack.Screen
+        options={{
+          headerStyle: { backgroundColor: theme.twilight },
+          headerTintColor: ON_TWILIGHT.text,
+          headerTitleStyle: { fontFamily: Type.display, fontSize: 19, color: ON_TWILIGHT.text },
+          title: 'Logged',
+        }}
+      />
+      <Bubbles />
+      <ScrollView contentContainerStyle={styles.twilightContent}>
+        <View style={{ alignItems: 'center', gap: 4 }}>
+          <Text style={[styles.twilightEyebrow, { color: ON_TWILIGHT.soft }]}>
+            {count === 1 ? 'ONE SIGHTING' : `${count} SIGHTINGS`} · {siteName.toUpperCase()}
+          </Text>
+          <Text accessibilityRole="header" style={[styles.twilightTitle, { color: ON_TWILIGHT.text }]}>
+            {newSpecies.length === 1 ? 'A first record' : `${newSpecies.length} first records`}
+          </Text>
+          <Text style={[styles.twilightSub, { color: ON_TWILIGHT.soft }]}>
+            {newSpecies.length === 1 ? `Entry ${result.dexNumber} in your field guide` : `Your field guide now has ${result.dexNumber} species`}
+          </Text>
+        </View>
+        {newSpecies.length === 1 ? (
+          <FlipCard species={first} dexNumber={result.dexNumber} />
+        ) : (
+          <Paper raised style={styles.manyCard}>
+            <Stamp lines={['First records', `×${newSpecies.length}`]} animate delay={400} rotate={-5} style={{ alignSelf: 'center' }} />
             <View style={styles.newGrid}>
               {newSpecies.slice(0, 9).map((s) => (
                 <View key={s.id} style={styles.newCell}>
-                  <SpeciesAvatar species={s} size={64} showRarityRing />
-                  <ThemedText type="small" style={styles.center} numberOfLines={2}>
+                  <View style={[styles.newPlate, { backgroundColor: `${artFor(s).wash}26`, borderColor: theme.cardBorder }]}>
+                    <SpeciesArt species={s} width={76} />
+                  </View>
+                  <ThemedText type="small" style={[styles.center, { fontFamily: Type.bodyBold, fontSize: 13, lineHeight: 16 }]} numberOfLines={2}>
                     {s.commonName}
                   </ThemedText>
                 </View>
               ))}
             </View>
-          )}
-          {count > newSpecies.length ? (
-            <ThemedText type="small" themeColor="textSecondary" style={styles.center}>
-              {count} sightings saved at {siteName}.
-            </ThemedText>
-          ) : null}
-          <OceanButton title="Visit my home" onPress={() => router.dismissTo('/(tabs)')} style={styles.stretch} />
-        </>
-      ) : (
-        <>
-          <ThemedText style={styles.party} importantForAccessibility="no" accessibilityElementsHidden>
-            ✅
+            {newSpecies.length > 9 ? (
+              <ThemedText type="caption" themeColor="textSecondary" style={styles.center}>
+                and {newSpecies.length - 9} more
+              </ThemedText>
+            ) : null}
+          </Paper>
+        )}
+        <View style={styles.gains}>
+          <Gain mark={`+${newSpecies.length}`} text={newSpecies.length === 1 ? 'A new resident swims to your island' : `${newSpecies.length} new residents swim to your island`} />
+          {count > newSpecies.length ? <Gain mark={`${count}`} text={`${count} sightings saved at ${siteName}`} /> : null}
+        </View>
+        <OceanButton title="Visit my home" variant="log" icon="home" onPress={() => router.dismissTo('/(tabs)')} style={styles.stretch} />
+        {onLogMore ? (
+          <OceanButton title={`Log more at ${siteName}`} variant="secondary" onPress={onLogMore} style={styles.stretch} />
+        ) : null}
+      </ScrollView>
+    </View>
+  );
+}
+
+function Gain({ mark, text }: { mark: string; text: string }) {
+  const theme = useTheme();
+  return (
+    <View style={styles.gain}>
+      {/* Navy ink on turquoise, the same in both schemes (7:1). */}
+      <View style={[styles.gainMark, { backgroundColor: theme.turquoise }]}>
+        <Text style={[styles.gainMarkText, { color: '#1D2B45' }]}>{mark}</Text>
+      </View>
+      <Text style={[styles.gainText, { color: ON_TWILIGHT.text }]}>{text}</Text>
+    </View>
+  );
+}
+
+/**
+ * The new species' field-guide card. It arrives face down and turns over by itself; tap to turn it
+ * again. Under Reduce Motion it is simply face up.
+ */
+function FlipCard({ species, dexNumber }: { species: Species; dexNumber: number }) {
+  const theme = useTheme();
+  const scheme = useSchemeName();
+  const reduced = useReducedMotion();
+  const [faceUp, setFaceUp] = useState(true);
+  const angle = useSharedValue(reduced ? 0 : 180);
+  useEffect(() => {
+    if (!reduced) angle.set(withDelay(450, withTiming(0, { duration: 750 })));
+  }, [angle, reduced]);
+  const flip = () => {
+    const next = !faceUp;
+    setFaceUp(next);
+    angle.set(reduced ? (next ? 0 : 180) : withTiming(next ? 0 : 180, { duration: 650 }));
+  };
+  const front = useAnimatedStyle(() => ({ transform: [{ perspective: 1100 }, { rotateY: `${angle.get()}deg` }] }));
+  const back = useAnimatedStyle(() => ({ transform: [{ perspective: 1100 }, { rotateY: `${angle.get() + 180}deg` }] }));
+  const { wash } = artFor(species);
+  const label = faceUp
+    ? `${species.commonName}, ${species.scientificName}, ${species.rarity}. First record, entry ${dexNumber} in your field guide. Tap to turn the card over.`
+    : 'The card is face down. Tap to turn it over.';
+  return (
+    <Pressable onPress={flip} accessibilityRole="button" accessibilityLabel={label} style={styles.flip}>
+      <Animated.View style={[styles.face, { backgroundColor: theme.backgroundElement, boxShadow: '0px 18px 40px -14px rgba(0, 0, 0, 0.5)' }, front]}>
+        <View style={[styles.plate, { backgroundColor: `${wash}33`, borderBottomColor: theme.cardBorder }]}>
+          <SpeciesArt species={species} width={220} paper={theme.backgroundElement} />
+          <View style={styles.plateTag}>
+            <RarityChip rarity={species.rarity} small />
+          </View>
+          <Stamp lines={['First record']} animate={!reduced} delay={1150} rotate={9} style={styles.plateStamp} />
+          <NewBadge style={styles.plateBadge} />
+        </View>
+        <View style={styles.faceText}>
+          <ThemedText style={styles.faceName} numberOfLines={2}>
+            {species.commonName}
           </ThemedText>
-          <ThemedText type="subtitle" accessibilityRole="header" style={styles.savedTitle}>
-            Saved
+          <ThemedText type="caption" themeColor="textSecondary" numberOfLines={1}>
+            {species.scientificName}
           </ThemedText>
-          <ThemedText style={styles.center}>
-            {count === 1 ? 'Your sighting is' : `${count} sightings are`} in your log, at {siteName}.
+          <ThemedText type="small" numberOfLines={4} style={{ marginTop: 6 }}>
+            {species.blurb}
           </ThemedText>
-          <OceanButton title="Done" onPress={() => router.back()} style={styles.stretch} />
-        </>
-      )}
-      {onLogMore ? (
-        <OceanButton title={`Log more at ${siteName}`} variant="secondary" onPress={onLogMore} style={styles.stretch} />
-      ) : null}
-    </ThemedView>
+        </View>
+        <View style={[styles.faceFoot, { borderTopColor: theme.rule }]}>
+          <ThemedText type="label">Entry no. {dexNumber}</ThemedText>
+          <ThemedText type="label">{CATEGORY_LABEL[species.category]}</ThemedText>
+        </View>
+      </Animated.View>
+      <Animated.View style={[styles.face, styles.faceBack, { backgroundColor: theme.lagoon, boxShadow: '0px 18px 40px -14px rgba(0, 0, 0, 0.5)' }, back]}>
+        <View style={[styles.backRing, { borderColor: theme.sun }]}>
+          <View style={[styles.backRingInner, { borderColor: theme.sun }]}>
+            <Icon name="fieldGuide" size={56} color={OnFill[scheme].lagoon} wash={theme.sun} washOpacity={0.7} />
+          </View>
+        </View>
+        <Text style={[styles.backTitle, { color: OnFill[scheme].lagoon }]}>ScubaGo field guide</Text>
+        <Text style={[styles.backHint, { color: OnFill[scheme].lagoon }]}>Tap to turn over</Text>
+      </Animated.View>
+    </Pressable>
+  );
+}
+
+const BUBBLES = [
+  { left: '8%', size: 14, delay: 0 },
+  { left: '18%', size: 8, delay: -3000 },
+  { left: '84%', size: 12, delay: -1500 },
+  { left: '76%', size: 6, delay: -5000 },
+  { left: '90%', size: 9, delay: -7000 },
+  { left: '12%', size: 10, delay: -6000 },
+] as const;
+
+/** Bubbles rising slowly behind the card. Decorative; none under Reduce Motion. */
+function Bubbles() {
+  const reduced = useReducedMotion();
+  if (reduced) return null;
+  return (
+    <View pointerEvents="none" style={StyleSheet.absoluteFill} importantForAccessibility="no-hide-descendants" accessibilityElementsHidden>
+      {BUBBLES.map((b) => (
+        <Animated.View
+          key={b.left}
+          style={{
+            position: 'absolute',
+            left: b.left,
+            bottom: -20,
+            width: b.size,
+            height: b.size,
+            borderRadius: b.size / 2,
+            borderWidth: 1.5,
+            borderColor: 'rgba(255, 255, 255, 0.45)',
+            animationName: {
+              '0%': { transform: [{ translateY: 0 }], opacity: 0 },
+              '10%': { opacity: 1 },
+              '100%': { transform: [{ translateY: -900 }], opacity: 0 },
+            },
+            animationDuration: '9s',
+            animationDelay: `${b.delay}ms`,
+            animationIterationCount: 'infinite',
+            animationTimingFunction: 'ease-in',
+          }}
+        />
+      ))}
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  breadcrumbs: {
+  steps: {
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: Spacing.three,
-    paddingVertical: Spacing.one,
-    gap: Spacing.one,
+    paddingVertical: 6,
+    borderBottomWidth: 1,
   },
-  crumbWrap: { flexDirection: 'row', alignItems: 'center', gap: Spacing.one, flexShrink: 1 },
-  crumb: { minHeight: 44, justifyContent: 'center', flexShrink: 1, paddingHorizontal: 2 },
-  crumbActive: { textDecorationLine: 'underline' },
-  picker: { paddingHorizontal: Spacing.three, paddingBottom: Spacing.three, gap: Spacing.two },
-  chips: { gap: Spacing.one + 2, paddingVertical: 2 },
-  chip: {
-    borderRadius: 999,
-    borderWidth: 1.5,
-    paddingHorizontal: 14,
-    minHeight: 44,
-    justifyContent: 'center',
-  },
+  stepWrap: { flexDirection: 'row', alignItems: 'center', flexShrink: 1, flexGrow: 1 },
+  stepRule: { width: 14, height: 2, borderRadius: 1, marginHorizontal: 4 },
+  step: { minHeight: 44, flexDirection: 'row', alignItems: 'center', gap: 6, flexShrink: 1 },
+  stepDot: { width: 24, height: 24, borderRadius: 12, borderWidth: 1.5, alignItems: 'center', justifyContent: 'center' },
+  stepNumber: { fontFamily: Type.display, fontSize: 13, lineHeight: 16 },
+  stepLabel: { fontSize: 14, lineHeight: 18, flexShrink: 1 },
+  picker: { paddingHorizontal: Spacing.three, paddingBottom: Spacing.three, gap: Spacing.two + 2 },
+  pickerTop: { paddingTop: Spacing.three, paddingBottom: Spacing.two },
+  groupLabel: { marginTop: Spacing.two },
+  chipsScroll: { marginHorizontal: -Spacing.three, flexGrow: 0 },
+  chips: { gap: Spacing.two, paddingVertical: 2, paddingHorizontal: Spacing.three },
   row: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: Spacing.two + 2,
-    borderRadius: 12,
-    borderWidth: 2,
-    padding: Spacing.two + 2,
-    minHeight: 56,
+    gap: 12,
+    borderRadius: Radius.md,
+    padding: 10,
+    paddingRight: 12,
+    minHeight: 64,
   },
-  scientific: { fontStyle: 'italic' },
+  speciesRow: { borderWidth: 1.5 },
+  rowIcon: { width: 40, height: 40, borderRadius: Radius.sm, alignItems: 'center', justifyContent: 'center' },
+  rowTitle: { fontFamily: Type.bodyHeavy, fontSize: 15, lineHeight: 20 },
+  scientific: { fontSize: 14, lineHeight: 19 },
   check: {
     width: 28,
     height: 28,
-    borderRadius: 8,
-    borderWidth: 2,
+    borderRadius: Radius.xs,
+    borderWidth: 1.5,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  checkMark: { color: Ocean.onPrimary, fontWeight: '700', fontSize: 16, lineHeight: 20 },
   doneBar: {
     position: 'absolute',
     left: 0,
     right: 0,
     bottom: 0,
     padding: Spacing.three,
-    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopWidth: 1,
   },
-  details: { padding: Spacing.three, gap: Spacing.four, paddingBottom: Spacing.six },
+  details: { padding: Spacing.three, gap: Spacing.four, paddingBottom: Spacing.six, width: '100%', maxWidth: 720, alignSelf: 'center' },
+  sawCard: { gap: 4, paddingBottom: 8 },
+  sawHeader: { gap: 2, marginBottom: 8 },
   summary: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: Spacing.two + 2,
-    borderRadius: 14,
-    padding: Spacing.two,
+    gap: 12,
+    paddingVertical: 10,
   },
-  iconButton: { minWidth: 44, minHeight: 44, alignItems: 'center', justifyContent: 'center' },
-  textButton: { alignSelf: 'flex-start', minHeight: 44, justifyContent: 'center' },
-  notes: { minHeight: 96, textAlignVertical: 'top' },
+  iconButton: { width: 44, height: 44, borderRadius: 22, alignItems: 'center', justifyContent: 'center' },
+  textButton: { alignSelf: 'flex-start', minHeight: 44, flexDirection: 'row', alignItems: 'center', gap: 6 },
+  notes: { minHeight: 104, textAlignVertical: 'top' },
   photoButtons: { flexDirection: 'row', gap: Spacing.two },
-  photoPreview: { width: '100%', height: 200, borderRadius: 12 },
-  centered: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: Spacing.three, padding: Spacing.five },
-  party: { fontSize: 32, lineHeight: 40 },
-  savedTitle: { textAlign: 'center', fontSize: 28, lineHeight: 36 },
-  savedName: { fontSize: 20, lineHeight: 28, textAlign: 'center' },
+  photoPreview: { width: '100%', height: 220, borderRadius: Radius.md, borderWidth: 1 },
+  warning: { flexDirection: 'row', alignItems: 'flex-start', gap: 10 },
+  centered: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: Spacing.three, padding: Spacing.four },
+  savedCard: { width: '100%', maxWidth: 420, alignItems: 'center', gap: Spacing.three, paddingVertical: Spacing.four },
   center: { textAlign: 'center' },
   stretch: { alignSelf: 'stretch' },
+  twilight: { flex: 1 },
+  twilightContent: { padding: Spacing.three, paddingTop: Spacing.four, paddingBottom: Spacing.six, gap: 20, alignItems: 'center', width: '100%', maxWidth: 440, alignSelf: 'center' },
+  twilightEyebrow: { fontFamily: Type.label, fontSize: 12, letterSpacing: 1.4, textAlign: 'center' },
+  twilightTitle: { fontFamily: Type.display, fontSize: 32, lineHeight: 38, textAlign: 'center' },
+  twilightSub: { fontFamily: Type.bodySemiBold, fontSize: 15, lineHeight: 20, textAlign: 'center' },
+  flip: { width: 288, height: 380 },
+  face: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, borderRadius: Radius.lg, overflow: 'hidden', backfaceVisibility: 'hidden' },
+  faceBack: { alignItems: 'center', justifyContent: 'center', gap: 14 },
+  plate: { height: 200, alignItems: 'center', justifyContent: 'center', borderBottomWidth: 1 },
+  plateTag: { position: 'absolute', top: 12, left: 12 },
+  plateBadge: { position: 'absolute', top: 12, right: 12 },
+  plateStamp: { position: 'absolute', right: 12, bottom: 12 },
+  faceText: { padding: 16, gap: 2, flex: 1 },
+  faceFoot: { flexDirection: 'row', justifyContent: 'space-between', borderTopWidth: 1, marginHorizontal: 16, paddingVertical: 10 },
+  faceName: { fontFamily: Type.display, fontSize: 25, lineHeight: 30 },
+  backRing: { width: 124, height: 124, borderRadius: 62, borderWidth: 1.5, padding: 5 },
+  backRingInner: { flex: 1, borderRadius: 999, borderWidth: 1.5, alignItems: 'center', justifyContent: 'center' },
+  backTitle: { fontFamily: Type.display, fontSize: 22 },
+  backHint: { fontFamily: Type.bodyBold, fontSize: 14, opacity: 0.85 },
+  manyCard: { alignSelf: 'stretch', gap: Spacing.three, paddingVertical: Spacing.four },
   newGrid: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', gap: Spacing.three },
-  newCell: { width: 88, alignItems: 'center', gap: Spacing.one },
+  newCell: { width: 92, alignItems: 'center', gap: 6 },
+  newPlate: { width: 92, height: 72, borderRadius: Radius.md, borderWidth: 1, alignItems: 'center', justifyContent: 'center' },
+  gains: { alignSelf: 'stretch', gap: 8 },
+  gain: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    backgroundColor: 'rgba(255, 255, 255, 0.08)',
+    borderColor: 'rgba(255, 255, 255, 0.14)',
+    borderWidth: 1,
+    borderRadius: Radius.md,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+  },
+  gainMark: { minWidth: 34, height: 34, paddingHorizontal: 6, borderRadius: 17, alignItems: 'center', justifyContent: 'center' },
+  gainMarkText: { fontFamily: Type.display, fontSize: 15 },
+  gainText: { flex: 1, fontFamily: Type.bodySemiBold, fontSize: 14, lineHeight: 19 },
 });
