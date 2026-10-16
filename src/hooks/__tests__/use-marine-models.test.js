@@ -1,4 +1,4 @@
-import React, { act } from 'react';
+import React, { act, useEffect } from 'react';
 import { create } from 'react-test-renderer';
 import { useMarineModels } from '@/components/home/three/use-marine-models';
 import { getLoadedMarineModels, loadMarineModels } from '@/components/home/three/marine-loader';
@@ -6,7 +6,11 @@ import { getLoadedMarineModels, loadMarineModels } from '@/components/home/three
 jest.mock('@/components/home/three/marine-loader', () => ({ loadMarineModels: jest.fn(), getLoadedMarineModels: jest.fn(() => null) }));
 let current;
 let root;
-function Harness({ requested = ['shark'] }) { current = useMarineModels(requested); return null; }
+function Harness({ requested = ['shark'] }) {
+  const result = useMarineModels(requested);
+  useEffect(() => { current = result; });
+  return null;
+}
 beforeEach(() => { global.IS_REACT_ACT_ENVIRONMENT = true; });
 afterEach(async () => {
   if (root) await act(async () => root.unmount());

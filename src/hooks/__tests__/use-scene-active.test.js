@@ -1,4 +1,4 @@
-import React, { act } from 'react';
+import React, { act, useEffect } from 'react';
 import { create } from 'react-test-renderer';
 import { AccessibilityInfo, AppState } from 'react-native';
 import { useSceneActive } from '../use-scene-active';
@@ -9,7 +9,11 @@ let root;
 let onMotion;
 let onApp;
 const stateDescriptor = Object.getOwnPropertyDescriptor(AppState, 'currentState');
-function Harness({ paused = false }) { active = useSceneActive(paused); return null; }
+function Harness({ paused = false }) {
+  const value = useSceneActive(paused);
+  useEffect(() => { active = value; });
+  return null;
+}
 beforeEach(() => {
   global.IS_REACT_ACT_ENVIRONMENT = true;
   Object.defineProperty(AppState, 'currentState', { configurable: true, writable: true, value: 'active' });

@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Animated, Easing, Pressable, StyleSheet, View } from 'react-native';
 import { router } from 'expo-router';
 import { CreatureArt } from './creature-art';
@@ -8,7 +8,8 @@ import type { Habitat } from '@/lib/home';
 import type { DexEntry, Species } from '@/lib/types';
 
 function Resident({ species, index, total, width, active }: { species: Species; index: number; total: number; width: number; active: boolean }) {
-  const phase = useRef(new Animated.Value(0)).current;
+  // Created once and read during render (the interpolations below), so it lives in state rather than a ref.
+  const [phase] = useState(() => new Animated.Value(0));
   const start = index / total;
   const inputRange = Array.from({ length: 33 }, (_, i) => i / 32);
   const angles = inputRange.map((value) => (value + start) * Math.PI * 2);

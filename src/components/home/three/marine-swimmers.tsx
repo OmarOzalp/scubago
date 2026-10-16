@@ -14,6 +14,7 @@ import { TunaSchoolMesh } from './tuna-school-mesh';
 
 /** Tuning overlay (EXPO_PUBLIC_MARINE_DEBUG=1, then restart Metro with --clear), loaded only when switched on. */
 const MarineDebug: ComponentType<{ motion: MarineMotion }> | null =
+  // eslint-disable-next-line @typescript-eslint/no-require-imports -- deliberate: a static import would load the overlay even when it is off
   process.env.EXPO_PUBLIC_MARINE_DEBUG === '1' ? require('./marine-debug').MarineDebug : null;
 
 /**
