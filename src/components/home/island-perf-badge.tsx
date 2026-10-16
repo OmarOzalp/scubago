@@ -15,7 +15,7 @@ export function IslandPerfBadge() {
   }, []);
   if (!snapshot) return null;
   const [first, second] = formatFrameSnapshot(snapshot);
-  return <View pointerEvents="none" style={styles.badge}>
+  return <View style={[styles.badge, { pointerEvents: 'none' }]}>
     <Text style={styles.text}>{first}</Text>
     <Text style={styles.text}>{second}</Text>
   </View>;

@@ -18,7 +18,7 @@ export function LevelUpBanner({ level, reward, visible, still }: { level: number
   useEffect(() => {
     if (visible) AccessibilityInfo.announceForAccessibility(`Island level ${level}. New growth unlocked: ${reward}.`);
   }, [visible, level, reward]);
-  return <Animated.View pointerEvents="none" style={[styles.banner, {
+  return <Animated.View style={[styles.banner, { pointerEvents: 'none',
     opacity: shown,
     transform: still ? [] : [{ translateY: shown.interpolate({ inputRange: [0, 1], outputRange: [-14, 0] }) }],
   }]}>
@@ -33,7 +33,7 @@ export function DiscoveryNote({ text, visible, still }: { text: string; visible:
   useEffect(() => {
     if (visible) AccessibilityInfo.announceForAccessibility(text);
   }, [visible, text]);
-  return <Animated.View pointerEvents="none" style={[styles.note, { opacity: shown }]}>
+  return <Animated.View style={[styles.note, { pointerEvents: 'none', opacity: shown }]}>
     <Text style={styles.noteText} numberOfLines={2}>{text}</Text>
   </Animated.View>;
 }
@@ -55,8 +55,8 @@ export function NewTag({ label, x, y, inView, visible, onWidth }: {
   useEffect(() => {
     if (visible) AccessibilityInfo.announceForAccessibility(`New species: ${label} has arrived at your island.`);
   }, [visible, label]);
-  return <Animated.View pointerEvents="none" onLayout={(event) => onWidth(event.nativeEvent.layout.width)}
-    style={[styles.tag, { opacity: Animated.multiply(shown, inView), transform: [{ translateX: x }, { translateY: y }] }]}>
+  return <Animated.View onLayout={(event) => onWidth(event.nativeEvent.layout.width)}
+    style={[styles.tag, { pointerEvents: 'none', opacity: Animated.multiply(shown, inView), transform: [{ translateX: x }, { translateY: y }] }]}>
     <View style={styles.tagDot} />
     <Text style={styles.tagText} numberOfLines={1}><Text style={styles.tagNew}>New </Text>{label}</Text>
   </Animated.View>;

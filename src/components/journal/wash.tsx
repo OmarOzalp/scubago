@@ -1,5 +1,5 @@
 import { useMemo } from 'react';
-import type { StyleProp, ViewStyle } from 'react-native';
+import { View, type StyleProp, type ViewStyle } from 'react-native';
 import Svg, { Path } from 'react-native-svg';
 
 import { washPath } from '@/lib/wash';
@@ -25,10 +25,13 @@ export function Wash({ width, height, color, seed = 1, opacity = 1, style }: Pro
     [seed, width, height],
   );
   return (
-    <Svg width={width} height={height} style={style} pointerEvents="none" accessibilityElementsHidden importantForAccessibility="no-hide-descendants">
-      <Path d={outer} fill={color} opacity={0.7 * opacity} />
-      <Path d={inner} fill={color} opacity={0.35 * opacity} />
-      <Path d={outer} fill="none" stroke={color} strokeWidth={1.4} opacity={0.5 * opacity} />
-    </Svg>
+    // Hidden and untouchable on the wrapper: on the web, Svg hands its props straight to the <svg> element.
+    <View aria-hidden style={[{ width, height, pointerEvents: 'none' }, style]}>
+      <Svg width={width} height={height}>
+        <Path d={outer} fill={color} opacity={0.7 * opacity} />
+        <Path d={inner} fill={color} opacity={0.35 * opacity} />
+        <Path d={outer} fill="none" stroke={color} strokeWidth={1.4} opacity={0.5 * opacity} />
+      </Svg>
+    </View>
   );
 }

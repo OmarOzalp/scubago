@@ -968,7 +968,7 @@ function Bubbles() {
   const reduced = useReducedMotion();
   if (reduced) return null;
   return (
-    <View pointerEvents="none" style={StyleSheet.absoluteFill} importantForAccessibility="no-hide-descendants" accessibilityElementsHidden>
+    <View aria-hidden style={[StyleSheet.absoluteFill, { pointerEvents: 'none' }]}>
       {BUBBLES.map((b) => (
         <Animated.View
           key={b.left}

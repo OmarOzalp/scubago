@@ -155,7 +155,7 @@ export function Icon({ name, size = 22, color, wash, washOpacity = 0.55, weight 
   const Component = ICONS[name];
   const ink = (color as string | undefined) ?? theme.text;
   return (
-    <View style={style} pointerEvents="none" accessibilityElementsHidden importantForAccessibility="no-hide-descendants">
+    <View aria-hidden style={[{ pointerEvents: 'none' }, style]}>
       <Component size={size} color={ink} weight={weight} duotoneColor={wash ?? theme.wash} duotoneOpacity={washOpacity} />
     </View>
   );

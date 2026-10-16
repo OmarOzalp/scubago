@@ -45,7 +45,7 @@ export function IslandScene({ habitat, level, residents, paused = false }: { hab
   }, [active, pages]);
   const visible = residents.slice((page % Math.max(1, pages)) * 12, (page % Math.max(1, pages)) * 12 + 12);
   return <View style={styles.scene} onLayout={(event) => setWidth(event.nativeEvent.layout.width)}>
-    <View pointerEvents="none" style={StyleSheet.absoluteFill} accessible accessibilityRole="image" accessibilityLabel={`Level ${level} ${habitat}, home to ${residents.length} discovered species`}>
+    <View style={[StyleSheet.absoluteFill, { pointerEvents: 'none' }]} accessible accessibilityRole="image" accessibilityLabel={`Level ${level} ${habitat}, home to ${residents.length} discovered species`}>
       <IslandArt habitat={habitat} level={level} />
     </View>
     {visible.map((entry, index) => <Resident key={entry.species.id} species={entry.species} index={index} total={visible.length} width={width} active={active} />)}
