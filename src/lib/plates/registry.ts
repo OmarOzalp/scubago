@@ -11,6 +11,7 @@ import { BIG_FISH } from './species/bigfish';
 import { REEF_FISH_1 } from './species/reef1';
 import { ODD_FISH } from './species/oddfish';
 import { REEF_FISH_2 } from './species/reef2';
+import { CEPHALOPODS } from './species/cephalopods';
 import type { Palette, PlateGeom } from './types';
 
 export interface PlateDef {
@@ -29,4 +30,5 @@ export const PLATES: Record<string, PlateDef> = {
   ...REEF_FISH_1,
   ...ODD_FISH,
   ...REEF_FISH_2,
+  ...CEPHALOPODS,
 };
