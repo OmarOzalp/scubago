@@ -59,7 +59,7 @@ export function OceanButton({
         style,
       ]}>
       <View style={styles.row}>
-        {icon ? <Icon name={icon} size={log ? 22 : 20} color={ink} wash={ink} washOpacity={0.2} /> : null}
+        {icon ? <Icon name={icon} size={log ? 22 : 20} color={ink} wash={ink} washOpacity={0.2} weight={icon === 'plus' ? 'bold' : 'duotone'} /> : null}
         <Text style={[log ? styles.logTitle : styles.title, { color: ink }]}>{title}</Text>
       </View>
     </Pressable>

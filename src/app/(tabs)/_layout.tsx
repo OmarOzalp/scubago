@@ -1,34 +1,16 @@
-import { NativeTabs } from 'expo-router/unstable-native-tabs';
-import { useColorScheme } from 'react-native';
+import { Tabs } from 'expo-router/js-tabs';
 
-import { Colors } from '@/constants/theme';
+import { JournalTabBar } from '@/components/journal/tab-bar';
 
+// One tab bar, drawn by the app, on iOS, Android and the web: four tabs and the coral "Log dive"
+// button in the middle (see JournalTabBar).
 export default function TabLayout() {
-  const scheme = useColorScheme();
-  const colors = Colors[scheme === 'dark' ? 'dark' : 'light'];
-
   return (
-    <NativeTabs
-      backgroundColor={colors.background}
-      indicatorColor={colors.backgroundElement}
-      labelStyle={{ selected: { color: colors.text } }}>
-      <NativeTabs.Trigger name="index">
-        <NativeTabs.Trigger.Label>My Home</NativeTabs.Trigger.Label>
-        <NativeTabs.Trigger.Icon sf={{ default: 'house', selected: 'house.fill' }} md="home" />
-      </NativeTabs.Trigger>
-
-      <NativeTabs.Trigger name="map">
-        <NativeTabs.Trigger.Label>Map</NativeTabs.Trigger.Label>
-        <NativeTabs.Trigger.Icon sf={{ default: 'map', selected: 'map.fill' }} md="map" />
-      </NativeTabs.Trigger>
-
-      <NativeTabs.Trigger name="logbook">
-        <NativeTabs.Trigger.Label>My Log</NativeTabs.Trigger.Label>
-        <NativeTabs.Trigger.Icon
-          sf={{ default: 'book', selected: 'book.fill' }}
-          md="menu_book"
-        />
-      </NativeTabs.Trigger>
-    </NativeTabs>
+    <Tabs tabBar={(props) => <JournalTabBar {...props} />} screenOptions={{ headerShown: false }}>
+      <Tabs.Screen name="index" options={{ title: 'Home' }} />
+      <Tabs.Screen name="map" options={{ title: 'Explore' }} />
+      <Tabs.Screen name="logbook" options={{ title: 'Logbook' }} />
+      <Tabs.Screen name="field-guide" options={{ title: 'Field guide' }} />
+    </Tabs>
   );
 }

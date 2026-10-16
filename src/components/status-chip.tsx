@@ -1,33 +1,18 @@
-import { StyleSheet, Text, View } from 'react-native';
-
+import { Tag } from '@/components/journal/tag';
 import { useSchemeName } from '@/hooks/use-theme';
-import { STATUS_COLOR, STATUS_LABEL, STATUS_TEXT } from '@/lib/verification';
 import type { SightingStatus } from '@/lib/types';
+import { STATUS_COLOR, STATUS_LABEL, STATUS_TEXT } from '@/lib/verification';
 
-/** Small colored pill naming a sighting's verification status. */
+/** A small tag naming a sighting's verification status. */
 export function StatusChip({ status, small = false }: { status: SightingStatus; small?: boolean }) {
   const scheme = useSchemeName();
-  const color = STATUS_COLOR[status];
   return (
-    <View
-      style={[styles.chip, { backgroundColor: `${color}22`, borderColor: color }]}
-      accessibilityLabel={`Verification: ${STATUS_LABEL[status]}`}>
-      <Text style={[styles.label, { color: STATUS_TEXT[scheme][status], fontSize: small ? 12 : 13 }]}>
-        {STATUS_LABEL[status]}
-      </Text>
-    </View>
+    <Tag
+      label={STATUS_LABEL[status]}
+      color={STATUS_COLOR[status]}
+      text={STATUS_TEXT[scheme][status]}
+      small={small}
+      accessibilityLabel={`Verification: ${STATUS_LABEL[status]}`}
+    />
   );
 }
-
-const styles = StyleSheet.create({
-  chip: {
-    borderRadius: 999,
-    borderWidth: 1,
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-    alignSelf: 'flex-start',
-  },
-  label: {
-    fontWeight: '700',
-  },
-});

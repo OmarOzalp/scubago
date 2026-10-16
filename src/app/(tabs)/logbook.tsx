@@ -1,30 +1,29 @@
 import { router } from 'expo-router';
-import { useMemo, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useMemo } from 'react';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 
+import { Icon } from '@/components/icon';
+import { IconButton } from '@/components/journal/icon-button';
+import { Ledger } from '@/components/journal/ledger';
+import { LinkRow } from '@/components/journal/link-row';
+import { Paper } from '@/components/journal/paper';
+import { Screen, ScreenHeader, SectionHeader } from '@/components/journal/screen';
+import { Wash } from '@/components/journal/wash';
 import { OceanButton } from '@/components/ocean-button';
-import { Segmented } from '@/components/segmented';
-import { SightingRow } from '@/components/sighting-row';
-import { SpeciesAvatar } from '@/components/species-avatar';
+import { formatEntryDate, SightingRow } from '@/components/sighting-row';
 import { ThemedText } from '@/components/themed-text';
-import { ThemedView } from '@/components/themed-view';
-import { Ocean } from '@/constants/palette';
-import { BottomTabInset, Spacing } from '@/constants/theme';
+import { Type } from '@/constants/theme';
 import { useSchemeName, useTheme } from '@/hooks/use-theme';
 import { CATALOG, CATALOG_BY_ID, speciesForSighting } from '@/lib/catalog';
 import { deriveDex } from '@/lib/dex';
-import { CATEGORY_LABEL, CATEGORY_ORDER, RARITY_LABEL, RARITY_TEXT, rarityRank } from '@/lib/rarity';
+import { RARITY_LABEL, RARITY_TEXT } from '@/lib/rarity';
 import { useAllSites, useAppStore, useMySightings, usePendingChanges } from '@/lib/store';
-import type { Category, DexEntry, Species } from '@/lib/types';
+import type { Sighting } from '@/lib/types';
 
-type Mode = 'sightings' | 'species';
-
+/** The diver's own log: totals, then every sighting under the day it was made. */
 export default function LogbookScreen() {
-  const insets = useSafeAreaInsets();
   const user = useAppStore((s) => s.user);
   const backendEnabled = useAppStore((s) => s.backendEnabled);
-  const [mode, setMode] = useState<Mode>('sightings');
   const mySightings = useMySightings();
   const pending = usePendingChanges();
   const syncing = useAppStore((s) => s.syncing);
@@ -36,327 +35,206 @@ export default function LogbookScreen() {
   const scheme = useSchemeName();
 
   const dex = useMemo(() => deriveDex(mySightings, CATALOG_BY_ID), [mySightings]);
-  const dexById = useMemo(() => new Map(dex.map((d) => [d.species.id, d])), [dex]);
   const rarest = dex[0];
 
-  const sorted = useMemo(
-    () =>
-      [...mySightings].sort((a, b) =>
-        b.sightedOn === a.sightedOn
-          ? b.createdAt.localeCompare(a.createdAt)
-          : b.sightedOn.localeCompare(a.sightedOn),
-      ),
-    [mySightings],
-  );
-
-  const byCategory = useMemo(() => {
-    const groups = new Map<Category, Species[]>();
-    for (const cat of CATEGORY_ORDER) groups.set(cat, []);
-    for (const s of CATALOG) groups.get(s.category)?.push(s);
-    for (const list of groups.values()) {
-      list.sort((a, b) => rarityRank(a.rarity) - rarityRank(b.rarity));
+  // Newest day first; within a day, the latest logged first.
+  const days = useMemo(() => {
+    const sorted = [...mySightings].sort((a, b) =>
+      b.sightedOn === a.sightedOn ? b.createdAt.localeCompare(a.createdAt) : b.sightedOn.localeCompare(a.sightedOn),
+    );
+    const groups: { date: string; sightings: Sighting[] }[] = [];
+    for (const s of sorted) {
+      const last = groups[groups.length - 1];
+      if (last?.date === s.sightedOn) last.sightings.push(s);
+      else groups.push({ date: s.sightedOn, sightings: [s] });
     }
     return groups;
-  }, []);
+  }, [mySightings]);
 
   return (
-    <ThemedView style={styles.container}>
-      <ScrollView
-        contentContainerStyle={[
-          styles.content,
-          { paddingTop: insets.top + Spacing.three, paddingBottom: BottomTabInset + Spacing.six },
-        ]}>
-        <View style={styles.titleRow}>
-          <ThemedText type="subtitle" accessibilityRole="header">
-            My Log
-          </ThemedText>
-          <Pressable
-            onPress={() => router.push('/log/new')}
-            accessibilityRole="button"
-            accessibilityLabel="Log a sighting"
-            style={({ pressed }) => [styles.addButton, { backgroundColor: pressed ? Ocean.primaryPressed : Ocean.primary }]}>
-            <ThemedText style={styles.addButtonText} importantForAccessibility="no" accessibilityElementsHidden>
-              ＋ Log
-            </ThemedText>
-          </Pressable>
-        </View>
-        {backendEnabled && user ? (
-          <Pressable onPress={() => router.push('/auth')} accessibilityRole="button" accessibilityLabel={`Account, signed in as ${user.username}`} style={styles.accountRow}>
-            <ThemedText type="smallBold" themeColor="textSecondary">
-              @{user.username} · Account ›
-            </ThemedText>
-          </Pressable>
-        ) : null}
-        {/* Signed out, the log lives only in this phone's storage: say so, and offer the way to keep it. */}
-        {backendEnabled && !user ? (
-          <View style={[styles.backup, { backgroundColor: theme.backgroundElement }]}>
-            <ThemedText type="smallBold">
+    <Screen tab>
+      <ScreenHeader
+        eyebrow={backendEnabled && user ? `@${user.username}` : 'Your logbook'}
+        title="Logbook"
+        accessory={
+          backendEnabled ? (
+            <IconButton
+              icon="account"
+              onPress={() => router.push('/auth')}
+              accessibilityLabel={user ? `Account, signed in as ${user.username}` : 'Sign in or create an account'}
+            />
+          ) : null
+        }
+      />
+
+      {/* Signed out, the log lives only in this phone's storage: say so, and offer the way to keep it. */}
+      {backendEnabled && !user ? (
+        <Paper tone="sand" style={styles.backup}>
+          <View style={styles.backupTitle}>
+            <Icon name="warning" size={22} wash={theme.sun} />
+            <ThemedText type="smallBold" style={{ flex: 1 }}>
               {mySightings.length > 0
                 ? `${mySightings.length} ${mySightings.length === 1 ? 'sighting is' : 'sightings are'} only on this phone`
                 : 'Back up your log'}
             </ThemedText>
-            <ThemedText type="small" themeColor="textSecondary">
-              {mySightings.length > 0
-                ? 'Sign in or create a free account to back them up and see them on any device.'
-                : 'Sign in to see a log you’ve already backed up, or create an account so new sightings are kept safe.'}
-            </ThemedText>
-            <OceanButton
-              title={mySightings.length > 0 ? 'Back up my log' : 'Sign in or create an account'}
-              variant={mySightings.length > 0 ? 'primary' : 'secondary'}
-              onPress={() => router.push('/auth')}
-            />
           </View>
-        ) : null}
-        {pending.count > 0 ? (
-          <Pressable onPress={() => void requestSync()} accessibilityRole="button" accessibilityHint="Tries to sync now" style={styles.syncRow}>
-            <ThemedText type="small" themeColor="textSecondary">
-              {syncing
-                ? 'Syncing…'
-                : `${pending.count} ${pending.count === 1 ? 'change' : 'changes'} waiting to sync${
-                    syncProblem || pending.failing > 0 ? ' · will retry automatically' : ''
-                  } · Sync now`}
-            </ThemedText>
-          </Pressable>
-        ) : null}
+          <ThemedText type="small" themeColor="textSecondary">
+            {mySightings.length > 0
+              ? 'Sign in or create a free account to back them up and see them on any device.'
+              : 'Sign in to see a log you’ve already backed up, or create an account so new sightings are kept safe.'}
+          </ThemedText>
+          <OceanButton
+            title={mySightings.length > 0 ? 'Back up my log' : 'Sign in or create an account'}
+            variant={mySightings.length > 0 ? 'primary' : 'secondary'}
+            onPress={() => router.push('/auth')}
+          />
+        </Paper>
+      ) : null}
 
-        {/* Stats */}
-        <View style={styles.statsRow}>
-          <Stat value={dex.length} label={`of ${CATALOG.length} species`} />
-          <Stat value={mySightings.length} label="sightings" />
-          {rarest ? (
-            <View style={styles.stat}>
-              <ThemedText
-                type="smallBold"
-                style={{ color: RARITY_TEXT[scheme][rarest.species.rarity], fontSize: 18 }}
-                numberOfLines={1}>
-                {rarest.species.commonName}
-              </ThemedText>
-              <ThemedText type="small" themeColor="textSecondary">
-                rarest find ({RARITY_LABEL[rarest.species.rarity].toLowerCase()})
-              </ThemedText>
-            </View>
-          ) : null}
-        </View>
+      {pending.count > 0 ? (
+        <Pressable onPress={() => void requestSync()} accessibilityRole="button" accessibilityHint="Tries to sync now" style={styles.syncRow}>
+          <Icon name="sync" size={18} color={theme.textSecondary} />
+          <ThemedText type="small" themeColor="textSecondary" style={{ flex: 1 }}>
+            {syncing
+              ? 'Syncing…'
+              : `${pending.count} ${pending.count === 1 ? 'change' : 'changes'} waiting to sync${
+                  syncProblem || pending.failing > 0 ? ' · will retry automatically' : ''
+                } · `}
+            {syncing ? null : <Text style={{ fontFamily: Type.bodyHeavy, color: theme.tint }}>Sync now</Text>}
+          </ThemedText>
+        </Pressable>
+      ) : null}
 
-        {backendEnabled ? (
-          <Pressable onPress={() => router.push('/verify')} accessibilityRole="link" accessibilityLabel="Got a code from a buddy? Confirm a buddy’s sighting" style={styles.syncRow}>
-            <ThemedText type="small" themeColor="textSecondary">
-              Got a code from a buddy? <ThemedText type="smallBold" themeColor="tint">Confirm a buddy’s sighting ›</ThemedText>
-            </ThemedText>
-          </Pressable>
-        ) : null}
+      <Ledger
+        items={[
+          { value: String(mySightings.length), label: mySightings.length === 1 ? 'Sighting' : 'Sightings' },
+          { value: String(dex.length), label: `of ${CATALOG.length} species`, accessibilityLabel: `${dex.length} of ${CATALOG.length} species seen` },
+          rarest
+            ? {
+                value: rarest.species.commonName,
+                label: `Rarest · ${RARITY_LABEL[rarest.species.rarity]}`,
+                color: RARITY_TEXT[scheme][rarest.species.rarity],
+                accessibilityLabel: `Rarest find: ${rarest.species.commonName}, ${RARITY_LABEL[rarest.species.rarity].toLowerCase()}`,
+              }
+            : { value: '–', label: 'Rarest find', accessibilityLabel: 'No rarest find yet' },
+        ]}
+      />
 
-        <Segmented<Mode>
-          accessibilityLabel="Show"
-          options={[
-            { value: 'sightings', label: 'Sightings' },
-            { value: 'species', label: `Species ${dex.length}/${CATALOG.length}` },
-          ]}
-          value={mode}
-          onChange={setMode}
+      {backendEnabled ? (
+        <LinkRow
+          icon="verified"
+          title="Confirm a buddy’s sighting"
+          detail="Got a code from a buddy? Enter it here."
+          role="link"
+          onPress={() => router.push('/verify')}
         />
+      ) : null}
 
-        {mode === 'sightings' ? (
-          sorted.length === 0 ? (
-            <EmptyState />
-          ) : (
-            <View style={styles.list}>
-              {sorted.map((s) => {
-                const species = speciesForSighting(s);
-                if (!species) return null;
-                return (
-                  <SightingRow
-                    key={s.id}
-                    sighting={s}
-                    species={species}
-                    site={sitesById.get(s.siteId)}
-                    pending={!!user && !s.synced}
-                    onPress={() => router.push(`/sighting/${s.id}`)}
-                  />
-                );
-              })}
+      <SectionHeader
+        title="Entries"
+        accessory={
+          <Pressable onPress={() => router.push('/field-guide')} accessibilityRole="link" style={styles.textLink}>
+            <ThemedText type="smallBold" themeColor="tint">
+              Field guide ›
+            </ThemedText>
+          </Pressable>
+        }
+      />
+
+      {days.length === 0 ? (
+        <EmptyState />
+      ) : (
+        days.map(({ date, sightings }) => (
+          <View key={date} style={styles.day}>
+            <View style={styles.dayHeader}>
+              <ThemedText type="label" accessibilityRole="header">
+                {formatEntryDate(date)}
+              </ThemedText>
+              <View style={[styles.dayRule, { backgroundColor: theme.rule }]} />
             </View>
-          )
-        ) : (
-          <View style={styles.dex}>
-            {CATEGORY_ORDER.map((cat) => {
-              const speciesList = byCategory.get(cat) ?? [];
-              if (speciesList.length === 0) return null;
-              const seenCount = speciesList.filter((s) => dexById.has(s.id)).length;
+            {sightings.map((s) => {
+              const species = speciesForSighting(s);
+              if (!species) return null;
               return (
-                <View key={cat} style={styles.dexSection}>
-                  <View style={styles.dexHeader} accessibilityRole="header" accessible accessibilityLabel={`${CATEGORY_LABEL[cat]}, ${seenCount} of ${speciesList.length} seen`}>
-                    <ThemedText type="smallBold">{CATEGORY_LABEL[cat]}</ThemedText>
-                    <ThemedText type="small" themeColor="textSecondary">
-                      {seenCount}/{speciesList.length}
-                    </ThemedText>
-                  </View>
-                  <View style={styles.dexGrid}>
-                    {speciesList.map((s) => (
-                      <DexCell key={s.id} species={s} entry={dexById.get(s.id)} />
-                    ))}
-                  </View>
-                </View>
+                <SightingRow
+                  key={s.id}
+                  sighting={s}
+                  species={species}
+                  site={sitesById.get(s.siteId)}
+                  pending={!!user && !s.synced}
+                  hideDate
+                  onPress={() => router.push(`/sighting/${s.id}`)}
+                />
               );
             })}
           </View>
-        )}
-      </ScrollView>
-    </ThemedView>
-  );
-}
-
-function Stat({ value, label }: { value: number; label: string }) {
-  return (
-    <View style={styles.stat}>
-      <ThemedText type="smallBold" style={{ fontSize: 18 }}>
-        {value}
-      </ThemedText>
-      <ThemedText type="small" themeColor="textSecondary">
-        {label}
-      </ThemedText>
-    </View>
+        ))
+      )}
+    </Screen>
   );
 }
 
 function EmptyState() {
-  return (
-    <View style={styles.empty}>
-      <ThemedText style={{ fontSize: 44, lineHeight: 52 }} importantForAccessibility="no" accessibilityElementsHidden>
-        🤿
-      </ThemedText>
-      <ThemedText type="smallBold">Nothing logged yet</ThemedText>
-      <ThemedText type="small" themeColor="textSecondary" style={{ textAlign: 'center' }}>
-        Log your first sighting and start your collection.
-      </ThemedText>
-      <OceanButton title="Log a sighting" onPress={() => router.push('/log/new')} />
-    </View>
-  );
-}
-
-function DexCell({ species, entry }: { species: Species; entry?: DexEntry }) {
   const theme = useTheme();
-  const seen = !!entry;
-  // Seen vs not seen is otherwise shown only by greying out, so say it.
-  const label = `${species.commonName}, ${RARITY_LABEL[species.rarity].toLowerCase()}, ${
-    seen ? (entry.count > 1 ? `seen ${entry.count} times` : 'seen once') : 'not seen yet'
-  }`;
   return (
-    <Pressable
-      onPress={() => router.push(`/species/${species.id}`)}
-      accessibilityRole="button"
-      accessibilityLabel={label}
-      style={styles.dexCell}>
-      <View>
-        <SpeciesAvatar species={species} size={60} showRarityRing muted={!seen} />
-        {seen && entry.count > 1 ? (
-          <View style={[styles.countBadge, { backgroundColor: theme.text }]}>
-            <ThemedText type="small" style={[styles.countBadgeText, { color: theme.background }]}>
-              ×{entry.count}
-            </ThemedText>
-          </View>
-        ) : null}
+    <Paper style={styles.empty}>
+      <View style={styles.emptyArt}>
+        <Wash width={120} height={84} color={theme.wash} seed={47} style={StyleSheet.absoluteFill} />
+        <Icon name="logbook" size={44} />
       </View>
-      <ThemedText type="small" themeColor={seen ? 'text' : 'textSecondary'} style={styles.dexName} numberOfLines={2}>
-        {species.commonName}
+      <ThemedText type="heading" style={{ textAlign: 'center' }}>
+        Your first page is blank
       </ThemedText>
-    </Pressable>
+      <ThemedText type="small" themeColor="textSecondary" style={{ textAlign: 'center' }}>
+        Log a dive and what you saw, and it is written in here, ready for the next one.
+      </ThemedText>
+      <OceanButton title="Log a dive" variant="log" icon="plus" onPress={() => router.push('/log/new')} style={{ alignSelf: 'stretch' }} />
+    </Paper>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
-  content: {
-    paddingHorizontal: Spacing.three,
-    gap: Spacing.three,
-  },
-  titleRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  addButton: {
-    minHeight: 44,
-    minWidth: 44,
-    borderRadius: 22,
-    paddingHorizontal: 16,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  addButtonText: {
-    color: Ocean.onPrimary,
-    fontWeight: '700',
-  },
-  accountRow: {
-    minHeight: 44,
-    justifyContent: 'center',
-    alignSelf: 'flex-start',
-  },
   backup: {
-    borderRadius: 14,
-    padding: Spacing.three,
-    gap: Spacing.two,
+    gap: 10,
+  },
+  backupTitle: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
   },
   syncRow: {
     minHeight: 44,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  textLink: {
+    minHeight: 44,
     justifyContent: 'center',
   },
-  statsRow: {
+  day: {
+    gap: 8,
+  },
+  dayHeader: {
     flexDirection: 'row',
-    gap: Spacing.four,
+    alignItems: 'center',
+    gap: 10,
+    marginTop: 2,
   },
-  stat: {
-    gap: 1,
-    flexShrink: 1,
-  },
-  list: {
-    gap: Spacing.two,
+  dayRule: {
+    flex: 1,
+    height: 1,
   },
   empty: {
     alignItems: 'center',
-    gap: Spacing.two + 2,
-    paddingVertical: Spacing.six,
-    paddingHorizontal: Spacing.four,
+    gap: 10,
+    paddingVertical: 24,
   },
-  dex: {
-    gap: Spacing.four,
-  },
-  dexSection: {
-    gap: Spacing.two,
-  },
-  dexHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'baseline',
-  },
-  dexGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: Spacing.two,
-  },
-  dexCell: {
-    width: '22.5%',
+  emptyArt: {
+    width: 120,
+    height: 84,
     alignItems: 'center',
-    gap: 4,
-  },
-  dexName: {
-    textAlign: 'center',
-    fontSize: 12,
-    lineHeight: 15,
-  },
-  countBadge: {
-    position: 'absolute',
-    right: -4,
-    top: -4,
-    borderRadius: 999,
-    paddingHorizontal: 5,
-    paddingVertical: 1,
-  },
-  countBadgeText: {
-    fontSize: 12,
-    lineHeight: 16,
-    fontWeight: '700',
+    justifyContent: 'center',
+    marginBottom: 4,
   },
 });

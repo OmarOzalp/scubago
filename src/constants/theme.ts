@@ -157,7 +157,8 @@ export const Shadow = {
   },
 } as const;
 
-export const BottomTabInset = Platform.select({ ios: 50, android: 80 }) ?? 0;
 /** Height of the custom tab bar (above the home indicator). */
 export const TabBarHeight = 64;
-export const MaxContentWidth = 800;
+/** How far the raised "Log dive" button reaches above the tab bar: tab screens leave this much room. */
+export const TabBarOverhang = 24;
+export const MaxContentWidth = 720;
