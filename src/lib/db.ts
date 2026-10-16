@@ -2,6 +2,7 @@ import * as SQLite from 'expo-sqlite';
 
 import { SITES } from '@/data/sites';
 import { CATALOG_BY_ID } from '@/lib/catalog';
+import { claimDatabase } from '@/lib/db-lock';
 import { generateDemoSightings } from '@/lib/demo';
 import type { DiveSite, Sighting, SightingStatus, Visibility } from '@/lib/types';
 
@@ -12,6 +13,17 @@ const DEMO_VERSION = '1';
 const TOMBSTONE_DAYS = 30;
 
 let db: SQLite.SQLiteDatabase | null = null;
+
+/** The log is open in another browser tab (the web build allows one at a time). */
+export class DatabaseBusyError extends Error {
+  constructor() {
+    super('ScubaGo is open in another tab.');
+    this.name = 'DatabaseBusyError';
+  }
+}
+
+/** How a browser reports that another tab has the file (if the lock was missing or bypassed). */
+const FILE_IN_USE = /createSyncAccessHandle|NoModificationAllowed|Invalid VFS state/;
 
 /**
  * Every exported function runs through this queue, one at a time. The app has one connection, and
@@ -50,94 +62,106 @@ const SIGHTING_COLUMNS_V6: [name: string, definition: string][] = [
 
 async function getDb(): Promise<SQLite.SQLiteDatabase> {
   if (!db) {
-    db = await SQLite.openDatabaseAsync('scubago.db');
-    await db.execAsync(`
-      PRAGMA journal_mode = WAL;
-      CREATE TABLE IF NOT EXISTS meta (
-        key TEXT PRIMARY KEY,
-        value TEXT NOT NULL
-      );
-      CREATE TABLE IF NOT EXISTS sightings (
-        id TEXT PRIMARY KEY,
-        user_id TEXT NOT NULL,
-        username TEXT NOT NULL,
-        species_id TEXT NOT NULL,
-        site_id TEXT NOT NULL,
-        sighted_on TEXT NOT NULL,
-        notes TEXT,
-        photo_uri TEXT,
-        is_demo INTEGER NOT NULL DEFAULT 0,
-        synced INTEGER NOT NULL DEFAULT 0,
-        created_at TEXT NOT NULL,
-        ${SIGHTING_COLUMNS_V3.map(([name, definition]) => `${name} ${definition}`).join(',\n        ')}
-      );
-      CREATE INDEX IF NOT EXISTS idx_sightings_site ON sightings(site_id);
-      CREATE INDEX IF NOT EXISTS idx_sightings_species ON sightings(species_id);
-      CREATE TABLE IF NOT EXISTS user_sites (
-        id TEXT PRIMARY KEY,
-        name TEXT NOT NULL,
-        lat REAL NOT NULL,
-        lng REAL NOT NULL,
-        region TEXT NOT NULL,
-        country TEXT NOT NULL,
-        blurb TEXT NOT NULL,
-        synced INTEGER NOT NULL DEFAULT 0,
-        created_at TEXT NOT NULL,
-        created_by TEXT
-      );
-    `);
+    if (!(await claimDatabase())) throw new DatabaseBusyError();
+    try {
+      db = await openAndMigrate();
+    } catch (e) {
+      db = null;
+      throw e instanceof Error && FILE_IN_USE.test(`${e.name} ${e.message}`) ? new DatabaseBusyError() : e;
+    }
+  }
+  return db;
+}
 
-    const ver = await db.getFirstAsync<{ user_version: number }>('PRAGMA user_version');
-    if ((ver?.user_version ?? 0) < 2) {
-      const cols = await db.getAllAsync<{ name: string }>(`PRAGMA table_info(user_sites)`);
-      if (!cols.some((c) => c.name === 'synced')) {
-        await db.execAsync('ALTER TABLE user_sites ADD COLUMN synced INTEGER NOT NULL DEFAULT 0');
-      }
-      await db.execAsync('PRAGMA user_version = 2');
+/** Opens the database and brings its tables up to date. */
+async function openAndMigrate(): Promise<SQLite.SQLiteDatabase> {
+  const db = await SQLite.openDatabaseAsync('scubago.db');
+  await db.execAsync(`
+    PRAGMA journal_mode = WAL;
+    CREATE TABLE IF NOT EXISTS meta (
+      key TEXT PRIMARY KEY,
+      value TEXT NOT NULL
+    );
+    CREATE TABLE IF NOT EXISTS sightings (
+      id TEXT PRIMARY KEY,
+      user_id TEXT NOT NULL,
+      username TEXT NOT NULL,
+      species_id TEXT NOT NULL,
+      site_id TEXT NOT NULL,
+      sighted_on TEXT NOT NULL,
+      notes TEXT,
+      photo_uri TEXT,
+      is_demo INTEGER NOT NULL DEFAULT 0,
+      synced INTEGER NOT NULL DEFAULT 0,
+      created_at TEXT NOT NULL,
+      ${SIGHTING_COLUMNS_V3.map(([name, definition]) => `${name} ${definition}`).join(',\n        ')}
+    );
+    CREATE INDEX IF NOT EXISTS idx_sightings_site ON sightings(site_id);
+    CREATE INDEX IF NOT EXISTS idx_sightings_species ON sightings(species_id);
+    CREATE TABLE IF NOT EXISTS user_sites (
+      id TEXT PRIMARY KEY,
+      name TEXT NOT NULL,
+      lat REAL NOT NULL,
+      lng REAL NOT NULL,
+      region TEXT NOT NULL,
+      country TEXT NOT NULL,
+      blurb TEXT NOT NULL,
+      synced INTEGER NOT NULL DEFAULT 0,
+      created_at TEXT NOT NULL,
+      created_by TEXT
+    );
+  `);
+
+  const ver = await db.getFirstAsync<{ user_version: number }>('PRAGMA user_version');
+  if ((ver?.user_version ?? 0) < 2) {
+    const cols = await db.getAllAsync<{ name: string }>(`PRAGMA table_info(user_sites)`);
+    if (!cols.some((c) => c.name === 'synced')) {
+      await db.execAsync('ALTER TABLE user_sites ADD COLUMN synced INTEGER NOT NULL DEFAULT 0');
     }
-    if ((ver?.user_version ?? 0) < 3) {
-      const cols = await db.getAllAsync<{ name: string }>(`PRAGMA table_info(sightings)`);
-      for (const [name, definition] of SIGHTING_COLUMNS_V3) {
-        if (!cols.some((c) => c.name === name)) {
-          await db.execAsync(`ALTER TABLE sightings ADD COLUMN ${name} ${definition}`);
-        }
+    await db.execAsync('PRAGMA user_version = 2');
+  }
+  if ((ver?.user_version ?? 0) < 3) {
+    const cols = await db.getAllAsync<{ name: string }>(`PRAGMA table_info(sightings)`);
+    for (const [name, definition] of SIGHTING_COLUMNS_V3) {
+      if (!cols.some((c) => c.name === name)) {
+        await db.execAsync(`ALTER TABLE sightings ADD COLUMN ${name} ${definition}`);
       }
-      // Rows that already synced are on the server (pushed, or pulled from it).
-      await db.execAsync(`
-        UPDATE sightings SET remote = 1,
-          synced_photo_url = CASE WHEN photo_uri LIKE 'http%' THEN photo_uri END
-        WHERE synced = 1 AND is_demo = 0;
-        PRAGMA user_version = 3;
-      `);
     }
-    if ((ver?.user_version ?? 0) < 4) {
-      // Who added each user site, so only your own say "added by you". Sites downloaded before
-      // this stay unknown until the next sync fills it in.
-      const cols = await db.getAllAsync<{ name: string }>(`PRAGMA table_info(user_sites)`);
-      if (!cols.some((c) => c.name === 'created_by')) {
-        await db.execAsync('ALTER TABLE user_sites ADD COLUMN created_by TEXT');
+    // Rows that already synced are on the server (pushed, or pulled from it).
+    await db.execAsync(`
+      UPDATE sightings SET remote = 1,
+        synced_photo_url = CASE WHEN photo_uri LIKE 'http%' THEN photo_uri END
+      WHERE synced = 1 AND is_demo = 0;
+      PRAGMA user_version = 3;
+    `);
+  }
+  if ((ver?.user_version ?? 0) < 4) {
+    // Who added each user site, so only your own say "added by you". Sites downloaded before
+    // this stay unknown until the next sync fills it in.
+    const cols = await db.getAllAsync<{ name: string }>(`PRAGMA table_info(user_sites)`);
+    if (!cols.some((c) => c.name === 'created_by')) {
+      await db.execAsync('ALTER TABLE user_sites ADD COLUMN created_by TEXT');
+    }
+    await db.execAsync('PRAGMA user_version = 4');
+  }
+  if ((ver?.user_version ?? 0) < 5) {
+    // "Something else" sightings carry the diver's own name for the animal.
+    const cols = await db.getAllAsync<{ name: string }>(`PRAGMA table_info(sightings)`);
+    if (!cols.some((c) => c.name === 'custom_name')) {
+      await db.execAsync('ALTER TABLE sightings ADD COLUMN custom_name TEXT');
+    }
+    await db.execAsync('PRAGMA user_version = 5');
+  }
+  if ((ver?.user_version ?? 0) < 6) {
+    // Who can see each sighting, its notes and its photo (migration 0008). Existing sightings
+    // stay as they were: shared with everyone.
+    const cols = await db.getAllAsync<{ name: string }>(`PRAGMA table_info(sightings)`);
+    for (const [name, definition] of SIGHTING_COLUMNS_V6) {
+      if (!cols.some((c) => c.name === name)) {
+        await db.execAsync(`ALTER TABLE sightings ADD COLUMN ${name} ${definition}`);
       }
-      await db.execAsync('PRAGMA user_version = 4');
     }
-    if ((ver?.user_version ?? 0) < 5) {
-      // "Something else" sightings carry the diver's own name for the animal.
-      const cols = await db.getAllAsync<{ name: string }>(`PRAGMA table_info(sightings)`);
-      if (!cols.some((c) => c.name === 'custom_name')) {
-        await db.execAsync('ALTER TABLE sightings ADD COLUMN custom_name TEXT');
-      }
-      await db.execAsync('PRAGMA user_version = 5');
-    }
-    if ((ver?.user_version ?? 0) < 6) {
-      // Who can see each sighting, its notes and its photo (migration 0008). Existing sightings
-      // stay as they were: shared with everyone.
-      const cols = await db.getAllAsync<{ name: string }>(`PRAGMA table_info(sightings)`);
-      for (const [name, definition] of SIGHTING_COLUMNS_V6) {
-        if (!cols.some((c) => c.name === name)) {
-          await db.execAsync(`ALTER TABLE sightings ADD COLUMN ${name} ${definition}`);
-        }
-      }
-      await db.execAsync('PRAGMA user_version = 6');
-    }
+    await db.execAsync('PRAGMA user_version = 6');
   }
   return db;
 }

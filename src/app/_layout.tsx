@@ -13,6 +13,7 @@ import { useEffect } from 'react';
 import { Platform } from 'react-native';
 
 import { AnimatedSplashOverlay } from '@/components/animated-icon';
+import { StorageProblem } from '@/components/storage-problem';
 import { Colors, Type } from '@/constants/theme';
 import { useSchemeName } from '@/hooks/use-theme';
 import { useAppStore } from '@/lib/store';
@@ -82,6 +83,7 @@ export default function RootLayout() {
         <Stack.Screen name="species/[id]" options={{ title: '' }} />
         <Stack.Screen name="sighting/[id]" options={{ title: '' }} />
       </Stack>
+      <StorageProblem />
     </ThemeProvider>
   );
 }

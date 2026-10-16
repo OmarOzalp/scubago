@@ -7,6 +7,7 @@ import { ensureProfile, getSessionUserId, signOut as authSignOut, usernameForUse
 import { CATALOG_BY_ID, UNLISTED_ID } from '@/lib/catalog';
 import {
   claimLocalSightings,
+  DatabaseBusyError,
   deleteLocalUserData,
   deleteSighting as deleteSightingRow,
   initDb,
@@ -58,6 +59,11 @@ interface StoreState {
   syncing: boolean;
   /** Why the last sync couldn't run (usually no connection), or null once one succeeds. */
   syncProblem: string | null;
+  /**
+   * The log couldn't be opened: 'busy' when the web app is open in another tab, otherwise why.
+   * Nothing works until it is (init() tries again).
+   */
+  storageProblem: 'busy' | string | null;
   init: () => Promise<void>;
   /** Logs a sighting; returns whether it was the user's first of this species. */
   addSighting: (input: NewSighting) => Promise<{ sighting: Sighting; isNewSpecies: boolean }>;
@@ -119,13 +125,20 @@ export const useAppStore = create<StoreState>((set, get) => {
     backendEnabled: getSupabase() !== null,
     syncing: false,
     syncProblem: null,
+    storageProblem: null,
 
     init: async () => {
       if (get().ready) return;
       // Demo community sightings only keep a local-only build's map alive; with a real backend
       // they would pass for other divers' reports.
-      const local = await initDb({ demo: !get().backendEnabled });
-      set({ ...local, ready: true });
+      let local: Awaited<ReturnType<typeof initDb>>;
+      try {
+        local = await initDb({ demo: !get().backendEnabled });
+      } catch (e) {
+        set({ storageProblem: e instanceof DatabaseBusyError ? 'busy' : errorMessage(e) });
+        return;
+      }
+      set({ ...local, ready: true, storageProblem: null });
 
       // Restore a persisted session, then sync in the background.
       const client = getSupabase();
