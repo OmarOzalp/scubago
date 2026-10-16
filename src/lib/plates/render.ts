@@ -100,7 +100,7 @@ export function drawPlate(g: PlateGeom, palette: Palette, { width, found = true,
     if (detailed)
       for (const l of g.lines) if (!l.detail || width >= 140) shapes.push({ d: pathOf(l.pts), stroke: PENCIL, strokeWidth: fine * 1.1, dash });
     for (const e of g.eyes) shapes.push({ d: circle(e.c, e.r * 0.8), stroke: PENCIL, strokeWidth: fine * 1.2 });
-    return { trunk, body, shapes };
+    return { trunk, body, shapes: merged(shapes) };
   }
 
   // Washes are pulled towards the paper, dark ones less so (a black manta stays nearly black).
@@ -141,7 +141,7 @@ export function drawPlate(g: PlateGeom, palette: Palette, { width, found = true,
       if (step > 1 && i % step) return;
       if (l.taper) {
         const o = l.o ?? opacity;
-        const d = pathOf(swell(l.pts, l.w * weight * fine * (step > 1 ? 1.25 : 1), l.taper), true, 0.05);
+        const d = pathOf(wound(swell(l.pts, l.w * weight * fine * (step > 1 ? 1.25 : 1), l.taper)), true, 0.05);
         if (d) cuts.set(o, [...(cuts.get(o) ?? []), d]);
         return;
       }
@@ -160,14 +160,14 @@ export function drawPlate(g: PlateGeom, palette: Palette, { width, found = true,
   };
   const fill = (f: Fill) =>
     shapes.push({
-      d: pathOf(f.poly, true),
+      d: pathOf(wound(f.poly), true),
       fill: paint(f.paint),
       fillOpacity: f.o,
       clip: f.clip,
       ...(f.edge ? { stroke: INK, strokeWidth: fine * f.edge, strokeOpacity: 0.75 } : {}),
     });
   const drawPart = (p: Part, outline = true) => {
-    shapes.push({ d: pathOf(p.poly, true), fill: paint(p.paint) });
+    shapes.push({ d: pathOf(wound(p.poly), true), fill: paint(p.paint) });
     if (thin) strokeLines(p.lines, 1, 0.6, thin > 1 ? 2 : 1);
     // Fin markings sit over the hatching (a white tip is left clean).
     p.marks?.forEach(fill);
@@ -201,7 +201,32 @@ export function drawPlate(g: PlateGeom, palette: Palette, { width, found = true,
     } else shapes.push({ d: circle(e.c, r), fill: INK });
     shapes.push({ d: circle([e.c[0] - r * 0.3, e.c[1] - r * 0.32], Math.max(r * 0.2, 0.35 / scale)), fill: mix(paper, '#FFFFFF', 0.4) });
   }
-  return { trunk, body, shapes };
+  return { trunk, body, shapes: merged(shapes) };
+}
+
+/**
+ * Every polygon wound the same way round, so that shapes of one colour can share a path without
+ * their overlaps cancelling out.
+ */
+function wound(poly: Pt[]): Pt[] {
+  let a = 0;
+  for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) a += (poly[j][0] - poly[i][0]) * (poly[j][1] + poly[i][1]);
+  return a < 0 ? poly.slice().reverse() : poly;
+}
+
+/** Runs of shapes drawn the same way, joined into one path each (far fewer elements to draw). */
+function merged(shapes: PlateShape[]): PlateShape[] {
+  const out: PlateShape[] = [];
+  const style = (x: PlateShape) => `${x.fill}|${x.fillOpacity}|${x.stroke}|${x.strokeWidth}|${x.strokeOpacity}|${x.dash}|${x.clip}`;
+  let key = '';
+  for (const sh of shapes) {
+    if (!sh.d) continue;
+    const k = style(sh);
+    if (out.length && k === key) out[out.length - 1] = { ...out[out.length - 1], d: out[out.length - 1].d + sh.d };
+    else out.push(sh);
+    key = k;
+  }
+  return out;
 }
 
 function circle(c: Pt, r: number): string {

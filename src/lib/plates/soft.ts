@@ -34,21 +34,29 @@ export function softUnion(lobes: Lobe[], k = 0.2, step = 0.4): Pt[] {
     return { cx: l.c[0], cy: l.c[1], rx: l.rx, ry: l.ry, cos: Math.cos(a), sin: Math.sin(a) };
   });
   // The field: a smooth minimum of each lobe's scaled distance; the outline is where it equals 1.
-  const field = (x: number, y: number) => {
-    let s = 0;
-    for (const l of prepared) {
-      const dx = x - l.cx;
-      const dy = y - l.cy;
-      const u = (dx * l.cos + dy * l.sin) / l.rx;
-      const v = (-dx * l.sin + dy * l.cos) / l.ry;
-      s += Math.exp(-Math.sqrt(u * u + v * v) / k);
-    }
-    return s > 0 ? -k * Math.log(s) - 1 : 10;
-  };
+  // Each lobe only reaches the cells near it (beyond about twice its size its share is negligible),
+  // so the sums are gathered lobe by lobe over its own patch of the grid.
   const nx = Math.ceil((x1 - x0) / step) + 1;
   const ny = Math.ceil((y1 - y0) / step) + 1;
-  const v: number[] = new Array(nx * ny);
-  for (let j = 0; j < ny; j++) for (let i = 0; i < nx; i++) v[j * nx + i] = field(x0 + i * step, y0 + j * step);
+  const sum = new Float64Array(nx * ny);
+  const reach = 1 + 6 * k;
+  for (const l of prepared) {
+    const r = Math.max(l.rx, l.ry) * reach;
+    const i0 = Math.max(0, Math.floor((l.cx - r - x0) / step));
+    const i1 = Math.min(nx - 1, Math.ceil((l.cx + r - x0) / step));
+    const j0 = Math.max(0, Math.floor((l.cy - r - y0) / step));
+    const j1 = Math.min(ny - 1, Math.ceil((l.cy + r - y0) / step));
+    for (let j = j0; j <= j1; j++) {
+      const dy = y0 + j * step - l.cy;
+      for (let i = i0; i <= i1; i++) {
+        const dx = x0 + i * step - l.cx;
+        const u = (dx * l.cos + dy * l.sin) / l.rx;
+        const w = (-dx * l.sin + dy * l.cos) / l.ry;
+        sum[j * nx + i] += Math.exp(-Math.sqrt(u * u + w * w) / k);
+      }
+    }
+  }
+  const v = Array.from(sum, (s) => (s > 0 ? -k * Math.log(s) - 1 : 10));
   const val = (i: number, j: number) => v[j * nx + i];
   const point = new Map<string, Pt>();
   const link = new Map<string, string[]>();

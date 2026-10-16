@@ -14,7 +14,7 @@ illustrations. It should feel crafted and calm, and stay easy to read for any di
 | Icons (Phosphor, duotone) | `src/components/icon.tsx` |
 | Paper card, stamp, seal, wash, chip, tag, ledger, link row, icon button, progress bar and ring, screen headers, tab bar | `src/components/journal/` |
 | Buttons (`primary`, `log`, `secondary`, `quiet`) | `src/components/ocean-button.tsx` |
-| Species drawings | `src/lib/species-illustrations.ts` (one drawing per animal group), `src/lib/species-art.ts` (each species' drawing, colours and markings; `composeArt`), `src/components/species-art.tsx` (draws it) |
+| Species plates | `src/lib/plates/` (one engraved plate per species; see [species-plates.md](species-plates.md)), `src/components/species-art.tsx` (draws it). Divers' own species fall back to the group drawings in `src/lib/species-illustrations.ts` and `src/lib/species-art.ts` |
 
 ## Colour
 
@@ -55,21 +55,21 @@ current tab's icon sits on a watercolour wash.
 
 ## Species art
 
-Each animal group has one detailed drawing in a 200×128 box (about fifty: requiem shark, whale
-shark, hammerhead, manta, turtle, dolphin, orca, angelfish, tuna, seahorse, octopus, nudibranch and
-so on), drawn from the angle people know it by: sharks, fish and whales from the side facing left,
-rays, hammerheads and turtles from above with the head up. A drawing is layers of plain SVG paths:
-far-side fins, the body (shaded from a darker back to a paler belly, or lit from the middle when
-seen from above), the belly, markings, shade and shine, the outline, near fins, fine lines (gills,
-fin rays, scales) and eyes.
+Every species in the catalogue has its own plate, drawn like a hand-tinted engraving in an old field
+guide: fine tapering engraved lines for shading, muted washes of colour that keep dark animals dark,
+a confident ink outline and a bright eye. Each plate shows the animal from the angle that shows what
+makes it that species (the whale shark's broad flat head and checkerboard of spots, the great
+white's pointed conical snout, the hammerhead's head from above, the coconut octopus in its shell),
+so a diver can tell what it is without reading the label. A species still to find is the same plate
+as a dashed pencil outline; fine detail is thinned out on small plates.
 
-A species picks its group's drawing in `species-art.ts` and paints it with its own palette (back,
-belly, an accent for fins or patches, fin tips) and pattern (spots, bands, bars, mottling, rings…),
-kept inside the body outline. Fine lines are left off small plates; a species still to find is a
-dashed pencil outline of the same drawing.
+Plates are built from code in `src/lib/plates/` (builders for sharks, rays, turtles, bony fish, eels,
+cephalopods and the rest, with each species' field marks in `species/`), drawn into a 200×128 box and
+rendered by `SpeciesArt` with react-native-svg. [species-plates.md](species-plates.md) explains how
+they are made, how each group is told apart, and how to review a change (`npm run plates:sheet`).
 
-To check drawings, render the preview sheet (see the comment at the top of
-`species-illustrations.ts`), which draws them through the same `composeArt` as the app.
+A species a diver adds themselves has no plate and keeps its group's drawing from
+`species-art.ts`, painted in its colours.
 
 ## Motion
 
