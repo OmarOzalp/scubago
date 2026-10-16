@@ -1,6 +1,7 @@
 import { Pressable, StyleSheet, View } from 'react-native';
 
 import { ThemedText } from '@/components/themed-text';
+import { Radius, Type } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 
 interface Props<T extends string> {
@@ -20,7 +21,7 @@ export function Segmented<T extends string>({ options, value, onChange, accessib
     <View
       accessibilityRole={choice ? 'radiogroup' : 'tablist'}
       accessibilityLabel={accessibilityLabel}
-      style={[styles.track, { backgroundColor: theme.backgroundElement }]}>
+      style={[styles.track, { backgroundColor: theme.backgroundSelected }]}>
       {options.map((opt) => {
         const selected = opt.value === value;
         return (
@@ -33,9 +34,9 @@ export function Segmented<T extends string>({ options, value, onChange, accessib
             style={[
               styles.segment,
               // The outline keeps the choice visible where the two greys are too close to tell apart.
-              selected && { backgroundColor: theme.background, borderColor: theme.textSecondary },
+              selected && { backgroundColor: theme.backgroundElement, borderColor: theme.text },
             ]}>
-            <ThemedText type="smallBold" themeColor={selected ? 'text' : 'textSecondary'}>
+            <ThemedText type="smallBold" themeColor={selected ? 'text' : 'textSecondary'} style={{ fontFamily: Type.bodyHeavy }}>
               {opt.label}
             </ThemedText>
           </Pressable>
@@ -48,8 +49,9 @@ export function Segmented<T extends string>({ options, value, onChange, accessib
 const styles = StyleSheet.create({
   track: {
     flexDirection: 'row',
-    borderRadius: 12,
+    borderRadius: Radius.md,
     padding: 3,
+    gap: 3,
   },
   segment: {
     flex: 1,
@@ -58,8 +60,8 @@ const styles = StyleSheet.create({
     minHeight: 44,
     paddingVertical: 8,
     paddingHorizontal: 4,
-    borderRadius: 9,
-    borderWidth: 1,
+    borderRadius: Radius.sm,
+    borderWidth: 1.5,
     borderColor: 'transparent',
   },
 });
