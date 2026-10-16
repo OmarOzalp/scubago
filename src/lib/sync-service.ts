@@ -2,21 +2,31 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { File } from 'expo-file-system';
 
 import {
+  forgetDive,
   forgetSighting,
+  getDiveOutbox,
+  getRemoteDiveIds,
   getSightingOutbox,
   getUnsyncedUserSites,
   markDeletionSynced,
+  markDiveDeletionSynced,
+  markDivePushed,
+  markDiveSyncFailed,
   markPushed,
   markSitesSynced,
   markSyncFailed,
+  mergePulledDives,
   mergePulledSightings,
   upsertUserSites,
+  type OutboxDive,
   type OutboxSighting,
   type PullScope,
 } from '@/lib/db';
 import { discardKeptPhoto } from '@/lib/photo-files';
 import { isLocalPhoto, PRIVATE_PHOTO_BUCKET, PrivacyNotReadyError, privatePhotoRef, sharesPhoto } from '@/lib/privacy';
 import {
+  diveFacts,
+  diveToRemoteRow,
   drainOutbox,
   PHOTO_BUCKET,
   PHOTO_CONTENT_TYPES,
@@ -24,6 +34,7 @@ import {
   photoObjectPath,
   privateDetailsRow,
   pushableSightings,
+  remoteRowToDive,
   remoteRowToSighting,
   remoteSiteRowToSite,
   sightingFacts,
@@ -32,10 +43,12 @@ import {
   storedPhoto,
   withPrivateDetails,
   type RemoteDetailsRow,
+  type RemoteDiveRow,
+  type RemoteDiveSignatureRow,
   type RemoteSightingRow,
   type RemoteSiteRow,
 } from '@/lib/sync';
-import type { DiveSite, Sighting, Visibility } from '@/lib/types';
+import type { Dive, DiveSite, Sighting, Visibility } from '@/lib/types';
 
 /** The public photo bucket, or the private one (migration 0008) that only each photo's owner can read. */
 export type PhotoBucket = typeof PHOTO_BUCKET | typeof PRIVATE_PHOTO_BUCKET;
@@ -49,7 +62,7 @@ const SIGHTING_COLUMNS = 'id,user_id,species_id,site_id,sighted_on,notes,photo_u
  * rest of the session, so sightings sync as before (unverified, "something else" without its name,
  * and every sighting public).
  */
-const OPTIONAL_COLUMNS = ['status', 'custom_name', 'visibility'] as const;
+const OPTIONAL_COLUMNS = ['status', 'custom_name', 'visibility', 'dive_id'] as const;
 const missingColumns = new Set<string>();
 
 type PostgrestReply = { data: unknown; error: { code?: string; message?: string } | null };
@@ -68,16 +81,21 @@ const isMissingBucket = (error: { message?: string } | null) => /bucket not foun
  * Write a sighting row. A project without migration 0008 has no visibility column, and every
  * sighting there is public: a public one is written without it, and a private one isn't written at
  * all (it waits, with the reason, until the server is ready). A private one always asks the server,
- * so it goes as soon as the migration is applied.
+ * so it goes as soon as the migration is applied. A project without migration 0009 has no dive_id
+ * column: the sighting goes without its dive (it keeps it here, and sends it once the server can).
  */
-async function writeRow<T extends { visibility?: Visibility | null }>(
+async function writeRow<T extends { visibility?: Visibility | null; dive_id?: string | null }>(
   row: T,
   write: (row: T) => PromiseLike<PostgrestReply>,
 ): Promise<{ id: string }[] | null> {
   for (;;) {
     let out = row;
     if (row.visibility === 'public' && missingColumns.has('visibility')) {
-      const { visibility: _, ...rest } = row;
+      const { visibility: _, ...rest } = out;
+      out = rest as T;
+    }
+    if ('dive_id' in out && missingColumns.has('dive_id')) {
+      const { dive_id: _, ...rest } = out;
       out = rest as T;
     }
     const { data, error } = await write(out);
@@ -86,10 +104,31 @@ async function writeRow<T extends { visibility?: Visibility | null }>(
       if (out.visibility === 'private') throw new PrivacyNotReadyError();
       continue;
     }
+    if ('dive_id' in out && isMissingColumn(error, 'dive_id', error?.message)) {
+      missingColumns.add('dive_id');
+      continue;
+    }
     if (error) throw error;
     // The column is there (the migration may have been applied since): pulls ask for it again.
     if ('visibility' in out) missingColumns.delete('visibility');
+    if ('dive_id' in out) missingColumns.delete('dive_id');
     return data as { id: string }[] | null;
+  }
+}
+
+/** The project has no dive log yet (migration 0009): pages wait on this device, with this reason. */
+export class DiveLogNotReadyError extends Error {
+  constructor() {
+    super('Waiting for the server to be updated for the dive log; your pages are safe on this device.');
+    this.name = 'DiveLogNotReadyError';
+  }
+}
+
+/** A sighting whose page couldn't reach the server this time: it waits so it never points at nothing. */
+export class DiveNotSyncedError extends Error {
+  constructor() {
+    super('Waiting for its dive to sync.');
+    this.name = 'DiveNotSyncedError';
   }
 }
 
@@ -118,6 +157,14 @@ export interface SyncDeps {
   markDeletionSynced: (id: string) => Promise<void>;
   forgetSighting: (id: string) => Promise<void>;
   mergePulledSightings: (pulled: Sighting[], scope: PullScope) => Promise<unknown>;
+  getDiveOutbox: (userId: string) => Promise<OutboxDive[]>;
+  /** The diver's pages the server already has. */
+  getRemoteDiveIds: (userId: string) => Promise<Set<string>>;
+  markDivePushed: (id: string, version: number) => Promise<boolean>;
+  markDiveSyncFailed: (id: string, message: string) => Promise<void>;
+  markDiveDeletionSynced: (id: string) => Promise<void>;
+  forgetDive: (id: string) => Promise<void>;
+  mergePulledDives: (pulled: Dive[], ownerId: string, complete: boolean) => Promise<unknown>;
   /** Upload a photo from the device; returns what the sighting points at (a public URL, or a private ref). */
   uploadPhoto: (client: SupabaseClient, userId: string, sightingId: string, uri: string, bucket: PhotoBucket) => Promise<string>;
   /** Copy one of the diver's uploaded photos to the other bucket, at the same path. */
@@ -182,6 +229,13 @@ const defaultDeps: SyncDeps = {
   markDeletionSynced,
   forgetSighting,
   mergePulledSightings,
+  getDiveOutbox,
+  getRemoteDiveIds,
+  markDivePushed,
+  markDiveSyncFailed,
+  markDiveDeletionSynced,
+  forgetDive,
+  mergePulledDives,
   uploadPhoto: uploadPhotoImpl,
   copyPhoto: copyPhotoImpl,
   removePhotos: removePhotosImpl,
@@ -251,7 +305,11 @@ async function pushSighting(
   userId: string,
   s: OutboxSighting,
   deps: SyncDeps,
+  dives: DiveState,
 ): Promise<'pushed' | 'dropped'> {
+  // 0. Its page must be on the server first (unless the server has no dive log at all yet).
+  const sendDive = !!s.diveId && !dives.notReady && !missingColumns.has('dive_id');
+  if (sendDive && !dives.remote.has(s.diveId!)) throw new DiveNotSyncedError();
   // 1. The photo, in the bucket for who may see it.
   const bucket: PhotoBucket = sharesPhoto(s) ? PHOTO_BUCKET : PRIVATE_PHOTO_BUCKET;
   let photo: string | null = s.photoUri ?? null;
@@ -272,6 +330,7 @@ async function pushSighting(
     photo = await placePhoto(client, userId, photo, bucket, deps);
   }
   const row = sightingToRemoteRow(s, photo);
+  if (!sendDive) delete row.dive_id;
 
   // 2. The row everyone may read (if the sighting is shared).
   let saved = false;
@@ -348,8 +407,65 @@ async function pullDetails(client: SupabaseClient, userId: string): Promise<Map<
   return new Map((data as RemoteDetailsRow[]).map((d) => [d.sighting_id, d]));
 }
 
+/** What a sync knows about the diver's pages while it sends sightings. */
+interface DiveState {
+  /** Pages the server has. */
+  remote: Set<string>;
+  /** The server has no dive log (migration 0009). */
+  notReady: boolean;
+}
+
+/** Send one new or edited page; 'dropped' if it was deleted on another device meanwhile. */
+async function pushDive(client: SupabaseClient, userId: string, d: OutboxDive, deps: SyncDeps): Promise<'pushed' | 'dropped'> {
+  const row = diveToRemoteRow(d);
+  let saved = false;
+  if (!d.remote) {
+    const { data, error } = await client.from('dives').upsert(row, { onConflict: 'id', ignoreDuplicates: true }).select('id');
+    if (error) throw isMissingTable(error) ? new DiveLogNotReadyError() : error;
+    saved = ((data as unknown[] | null)?.length ?? 0) > 0;
+  }
+  if (!saved) {
+    const { data, error } = await client.from('dives').update(diveFacts(row)).eq('id', d.id).eq('user_id', userId).select('id');
+    if (error) throw isMissingTable(error) ? new DiveLogNotReadyError() : error;
+    if (((data as unknown[] | null)?.length ?? 0) === 0) {
+      if (!d.remote) throw new Error('Another dive on the server already uses this id.');
+      await deps.forgetDive(d.id);
+      return 'dropped';
+    }
+  }
+  await deps.markDivePushed(d.id, d.version);
+  return 'pushed';
+}
+
+async function deleteDiveRemote(client: SupabaseClient, userId: string, d: OutboxDive, deps: SyncDeps): Promise<void> {
+  const { error } = await client.from('dives').delete().eq('id', d.id).eq('user_id', userId);
+  // Nothing to delete on a project without the dive log: the page never left this device.
+  if (error && !isMissingTable(error)) throw error;
+  await deps.markDiveDeletionSynced(d.id);
+}
+
+/** The diver's own pages and the signatures buddies sent for them; null on a project without the dive log. */
+async function pullDives(client: SupabaseClient, userId: string): Promise<{ dives: Dive[]; complete: boolean } | null> {
+  const { data, error } = await client.from('dives').select('*').eq('user_id', userId).order('created_at', { ascending: false }).limit(OWN_PULL_LIMIT);
+  if (error) {
+    if (isMissingTable(error)) return null;
+    throw error;
+  }
+  const rows = data as RemoteDiveRow[];
+  const mine = new Set(rows.map((r) => r.id));
+  const { data: signed, error: signedError } = await client
+    .from('dive_signatures')
+    .select('dive_id,signer_name,role,signature_svg,created_at')
+    .limit(OWN_PULL_LIMIT);
+  if (signedError && !isMissingTable(signedError)) throw signedError;
+  // Row-level security also returns pages this diver signed for others: only their own are kept.
+  const signatures = ((signed as RemoteDiveSignatureRow[] | null) ?? []).filter((x) => mine.has(x.dive_id));
+  return { dives: rows.map((r) => remoteRowToDive(r, signatures)), complete: rows.length < OWN_PULL_LIMIT };
+}
+
 export interface SyncResult {
   pushedSites: number;
+  pushedDives: number;
   pushedSightings: number;
   deletedSightings: number;
   /** Local edits dropped because the sighting was deleted on another device. */
@@ -389,7 +505,27 @@ export async function syncNow(
   }
   await deps.markSitesSynced(siteResult.synced);
 
-  // 2. Send the diver's changes: new and edited sightings, then deletions.
+  // 2. New and edited pages of the log, before the sightings that point at them.
+  const diveOutbox = await deps.getDiveOutbox(userId);
+  const dives: DiveState = { remote: new Set(), notReady: false };
+  let pushedDives = 0;
+  const diveResult = await drainOutbox(
+    diveOutbox.filter((d) => !d.deleted),
+    async (d) => {
+      // Once the server says it has no dive log, the rest wait without asking again.
+      if (dives.notReady) throw new DiveLogNotReadyError();
+      try {
+        if ((await pushDive(client, userId, d, deps)) === 'pushed') pushedDives++;
+      } catch (e) {
+        if (e instanceof DiveLogNotReadyError) dives.notReady = true;
+        throw e;
+      }
+    },
+  );
+  for (const id of diveResult.failed) await deps.markDiveSyncFailed(id, diveResult.errors[id]);
+  dives.remote = await deps.getRemoteDiveIds(userId);
+
+  // 3. Send the diver's changes: new and edited sightings, then deletions.
   const outbox = pushableSightings(await deps.getSightingOutbox(userId), userId);
   let pushed = 0;
   let deleted = 0;
@@ -398,7 +534,7 @@ export async function syncNow(
     if (s.deleted) {
       await deleteSightingRemote(client, userId, s, deps);
       deleted++;
-    } else if ((await pushSighting(client, userId, s, deps)) === 'dropped') {
+    } else if ((await pushSighting(client, userId, s, deps, dives)) === 'dropped') {
       dropped++;
     } else {
       pushed++;
@@ -406,7 +542,19 @@ export async function syncNow(
   });
   for (const id of sightingResult.failed) await deps.markSyncFailed(id, sightingResult.errors[id]);
 
-  // 3. Pull: community + own sightings (restores the log on a fresh install).
+  // 4. Deleted pages, once their sightings are gone.
+  const diveDeletion = await drainOutbox(diveOutbox.filter((d) => d.deleted), (d) => deleteDiveRemote(client, userId, d, deps));
+  for (const id of diveDeletion.failed) await deps.markDiveSyncFailed(id, diveDeletion.errors[id]);
+
+  // 5. Pull: the diver's pages first (sightings point at them), then community + own sightings
+  // (restores the log on a fresh install).
+  const pulledDives = await pullDives(client, userId);
+  if (pulledDives) {
+    await deps.mergePulledDives(pulledDives.dives, userId, pulledDives.complete);
+    // The dive log is there (migration 0009), so sightings.dive_id is too: pulls ask for it again.
+    missingColumns.delete('dive_id');
+  }
+
   const { data: siteRows, error: sitesError } = await client
     .from('dive_sites')
     .select('id,name,lat,lng,region,country,blurb,notable_species,source,created_by')
@@ -442,14 +590,16 @@ export async function syncNow(
     ownComplete: own.length < OWN_PULL_LIMIT,
     communitySince:
       community.length < PULL_LIMIT ? null : new Date(community[community.length - 1].created_at).toISOString(),
+    diveIds: !missingColumns.has('dive_id'),
   });
 
   return {
     pushedSites: siteResult.synced.length,
+    pushedDives,
     pushedSightings: pushed,
     deletedSightings: deleted,
     droppedSightings: dropped,
-    failed: sightingResult.failed.length + siteResult.failed.length,
+    failed: sightingResult.failed.length + siteResult.failed.length + diveResult.failed.length + diveDeletion.failed.length,
     pulled: pulled.length,
   };
 }

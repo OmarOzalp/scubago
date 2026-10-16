@@ -18,13 +18,19 @@ expected_policies(tbl, policy) as (values
   ('verification_requests', 'own requests'), ('attestations', 'attestations on own sightings or by me'),
   -- Migration 0008 (privacy).
   ('sighting_details', 'own sighting details'), ('objects', 'owners read own private photos'), ('objects', 'owners add own private photos'),
-  ('objects', 'owners replace own private photos'), ('objects', 'owners delete own private photos')
+  ('objects', 'owners replace own private photos'), ('objects', 'owners delete own private photos'),
+  -- Migration 0009 (dive log).
+  ('dives', 'own dives'), ('dive_signature_requests', 'own dive signature requests'), ('dive_signatures', 'signatures on own dives or by me')
 ),
 -- Migration 0006 (buddy verification): who may call each function.
 verification_functions(fn, app_calls) as (values
   ('public.create_verification_request(text)', true), ('public.revoke_verification_request(uuid)', true),
   ('public.preview_verification(text)', true), ('public.attest(text,text,text,text,text,date)', true),
-  ('public.refresh_sighting_status(text)', false), ('public.verification_lookup(text,uuid)', false)
+  ('public.refresh_sighting_status(text)', false), ('public.verification_lookup(text,uuid)', false),
+  -- Migration 0009 (dive log): buddies sign pages only through these.
+  ('public.create_dive_signature_request(text)', true), ('public.revoke_dive_signature_request(uuid)', true),
+  ('public.preview_dive_signature(text)', true), ('public.sign_dive(text,text,text,text,integer,text,date)', true),
+  ('public.dive_signature_lookup(text,uuid)', false)
 ),
 bucket as (select * from storage.buckets where id = 'sighting-photos'),
 checks(section, item, detail, verdict) as (
@@ -107,6 +113,15 @@ checks(section, item, detail, verdict) as (
                and exists (select 1 from storage.buckets where id = 'sighting-photos-private' and not public)
               then 'ok' else 'ACTION' end
   union all
+  -- The dive log (migration 0009): private pages, sightings on them, buddies' signatures.
+  select 'Migrations', 'dive log (0009)',
+         case when to_regclass('public.dives') is null then 'not applied: dive pages stay on the device until it is'
+              when not exists (select 1 from pg_trigger where tgname = 'sightings_3_own_dive' and tgrelid = 'public.sightings'::regclass)
+                then 'own-dive trigger missing' else 'applied' end,
+         case when to_regclass('public.dives') is not null
+               and exists (select 1 from pg_trigger where tgname = 'sightings_3_own_dive' and tgrelid = 'public.sightings'::regclass)
+              then 'ok' else 'ACTION' end
+  union all
   -- "Something else" sightings (migration 0007): the placeholder species and the diver's own name.
   select 'Migrations', 'something else (0007)',
          case when exists (select 1 from information_schema.columns where table_schema = 'public' and table_name = 'sightings' and column_name = 'custom_name')
@@ -125,7 +140,9 @@ checks(section, item, detail, verdict) as (
          case when to_regprocedure(f.fn) is not null
                and not has_function_privilege('anon', f.fn, 'EXECUTE')
                and has_function_privilege('authenticated', f.fn, 'EXECUTE') = f.app_calls then 'ok' else 'ACTION' end
-  from verification_functions f where to_regclass('public.attestations') is not null
+  from verification_functions f
+  where (f.fn not like '%dive%' and to_regclass('public.attestations') is not null)
+     or (f.fn like '%dive%' and to_regclass('public.dives') is not null)
   union all
   -- Account deletion (migration 0004): callable when signed in, never anonymously.
   select 'Functions', 'delete_own_account (in-app account deletion)',
@@ -142,7 +159,8 @@ checks(section, item, detail, verdict) as (
   from pg_proc p join pg_namespace n on n.oid = p.pronamespace
   where n.nspname = 'public' and p.prosecdef and p.proname not in ('delete_own_account', 'create_verification_request',
     'revoke_verification_request', 'preview_verification', 'attest', 'refresh_sighting_status', 'verification_lookup',
-    'sighting_facts_changed', 'attestation_removed')
+    'sighting_facts_changed', 'attestation_removed', 'create_dive_signature_request', 'revoke_dive_signature_request',
+    'preview_dive_signature', 'sign_dive', 'dive_signature_lookup')
 )
 select section, item, detail, verdict from checks
 order by case verdict when 'ACTION' then 0 when 'info' then 2 else 1 end, section, item;

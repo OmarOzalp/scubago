@@ -8,6 +8,10 @@
  * written to or removed from the uploader's own folder (the private bucket is read by its owner
  * alone, too). `sightingUpdateColumns`, when set, mimics column privileges (only those columns may
  * be updated). `privacy = false` is a project without migration 0008.
+ *
+ * Dives (migration 0009): a diver reads and writes only their own pages, a sighting may only point
+ * at its owner's page (and loses it when the page is deleted), and dive_signatures are read by the
+ * page's owner or the signer. `diveLog = false` is a project without migration 0009.
  */
 export const FAKE_SUPABASE_URL = 'https://test-project.supabase.co';
 
@@ -33,7 +37,7 @@ export const PUBLIC_BUCKET = 'sighting-photos';
 export const PRIVATE_BUCKET = 'sighting-photos-private';
 
 export class FakeServer {
-  tables: Record<string, Row[]> = { sightings: [], dive_sites: [], profiles: [], sighting_details: [] };
+  tables: Record<string, Row[]> = { sightings: [], dive_sites: [], profiles: [], sighting_details: [], dives: [], dive_signatures: [] };
   /** Bucket contents, by bucket: path → owner folder. */
   buckets: Record<string, Map<string, string>> = { [PUBLIC_BUCKET]: new Map(), [PRIVATE_BUCKET]: new Map() };
   /** The public photo bucket. */
@@ -55,6 +59,12 @@ export class FakeServer {
   customNameColumn = true;
   /** The project has migration 0008: sightings.visibility, sighting_details and the private bucket. */
   privacy = true;
+  /** The project has migration 0009: dives, dive_signatures and sightings.dive_id. */
+  diveLog = true;
+
+  dive(id: string): Row | undefined {
+    return this.tables.dives.find((r) => r.id === id);
+  }
 
   details(sightingId: string): Row | undefined {
     return this.tables.sighting_details.find((r) => r.sighting_id === sightingId);
@@ -248,11 +258,15 @@ class FakeQuery implements PromiseLike<Result> {
     if (this.table === 'sighting_details' && !server.privacy) {
       return { data: null, error: { message: "Could not find the table 'public.sighting_details' in the schema cache", code: 'PGRST205', details: '', hint: '' } };
     }
-    // RLS: a private sighting is visible to its owner alone; private details only to theirs.
+    if ((this.table === 'dives' || this.table === 'dive_signatures') && !server.diveLog) {
+      return { data: null, error: { message: `Could not find the table 'public.${this.table}' in the schema cache`, code: 'PGRST205', details: '', hint: '' } };
+    }
+    // RLS: a private sighting is visible to its owner alone; private details and pages only to theirs.
     const visible = (r: Row) =>
-      this.table === 'sighting_details' ? r.user_id === userId
+      this.table === 'sighting_details' || this.table === 'dives' ? r.user_id === userId
         : this.table === 'sightings' ? r.visibility !== 'private' || r.user_id === userId
-          : true;
+          : this.table === 'dive_signatures' ? r.signer_id === userId || server.tables.dives.some((d) => d.id === r.dive_id && d.user_id === userId)
+            : true;
 
     if (this.op === 'select') {
       if (this.table === 'sightings' && !server.privacy && this.columns.split(',').includes('visibility')) {
@@ -263,6 +277,9 @@ class FakeQuery implements PromiseLike<Result> {
       }
       if (this.table === 'sightings' && !server.customNameColumn && this.columns.split(',').includes('custom_name')) {
         return { data: null, error: { message: 'column sightings.custom_name does not exist', code: '42703', details: '', hint: '' } };
+      }
+      if (this.table === 'sightings' && !server.diveLog && this.columns.split(',').includes('dive_id')) {
+        return { data: null, error: { message: 'column sightings.dive_id does not exist', code: '42703', details: '', hint: '' } };
       }
       let out = rows.filter((r) => this.matches(r) && visible(r));
       if (this.orderBy) {
@@ -288,6 +305,14 @@ class FakeQuery implements PromiseLike<Result> {
     }
     if (this.table === 'sightings' && !server.privacy && writes.some((r: Row) => 'visibility' in r)) {
       return { data: null, error: { message: "Could not find the 'visibility' column of 'sightings' in the schema cache", code: 'PGRST204' } };
+    }
+    if (this.table === 'sightings' && !server.diveLog && writes.some((r: Row) => 'dive_id' in r)) {
+      return { data: null, error: { message: "Could not find the 'dive_id' column of 'sightings' in the schema cache", code: 'PGRST204' } };
+    }
+    // A sighting may only point at a page that exists and is its owner's (the foreign key and the
+    // ownership trigger in 0009).
+    if (this.table === 'sightings' && writes.some((r: Row) => r.dive_id && !server.tables.dives.some((d) => d.id === r.dive_id && d.user_id === userId))) {
+      return { data: null, error: { message: 'A sighting can only be on your own dive', code: '42501' } };
     }
     if (this.table === 'sightings' && writes.some((r: Row) => r.visibility !== undefined && !['public', 'private'].includes(r.visibility))) {
       return { data: null, error: { message: 'new row violates check constraint "sightings_visibility_check"', code: '23514' } };
@@ -358,6 +383,12 @@ class FakeQuery implements PromiseLike<Result> {
     if (this.table === 'sightings') {
       const gone = new Set(targets.map((r) => r.id));
       server.tables.sighting_details = server.tables.sighting_details.filter((d) => !gone.has(d.sighting_id));
+    }
+    // Deleting a page takes it off its sightings (on delete set null) and removes its signatures.
+    if (this.table === 'dives') {
+      const gone = new Set(targets.map((r) => r.id));
+      for (const sighting of server.tables.sightings) if (gone.has(sighting.dive_id)) sighting.dive_id = null;
+      server.tables.dive_signatures = server.tables.dive_signatures.filter((x) => !gone.has(x.dive_id));
     }
     log(targets.map((r) => r[key]));
     return reply(targets);

@@ -66,6 +66,13 @@ function setup(queued: OutboxSighting[], sites: DiveSite[] = []) {
       if (error) throw error;
     },
     discardLocalPhoto: () => {},
+    getDiveOutbox: async () => [],
+    getRemoteDiveIds: async () => new Set(),
+    markDivePushed: async () => true,
+    markDiveSyncFailed: async () => {},
+    markDiveDeletionSynced: async () => {},
+    forgetDive: async () => {},
+    mergePulledDives: async () => {},
   };
   return { server, device, deps, calls, run: () => syncNow(device.client, UID, deps) };
 }
@@ -162,7 +169,7 @@ describe('syncNow', () => {
     const result = await run();
     expect(result.pulled).toBe(1);
     expect(calls.merged[0][0]).toHaveLength(1);
-    expect(calls.merged[0][1]).toEqual({ ownerId: UID, ownComplete: true, communitySince: null });
+    expect(calls.merged[0][1]).toEqual({ ownerId: UID, ownComplete: true, communitySince: null, diveIds: true });
   });
 
   it('pulls each sighting\'s verification status, which only the server sets', async () => {

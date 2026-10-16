@@ -1,7 +1,9 @@
+import { columnsToDive, diveToColumns } from '@/lib/dive-rows';
+import { isSignaturePath } from '@/lib/dives';
 import { isPrivatePhotoRef, PRIVATE_PHOTO_BUCKET, privatePhotoPath, privatePhotoRef, sharesNotes, sharesPhoto } from '@/lib/privacy';
-import type { DiveSite, Sighting, SightingStatus, Visibility } from '@/lib/types';
+import type { Dive, DiveSignature, DiveSite, Sighting, SightingStatus, Visibility } from '@/lib/types';
 
-export type PushFn<T extends Sighting = Sighting> = (sighting: T) => Promise<void>;
+export type PushFn<T extends { id: string } = Sighting> = (item: T) => Promise<void>;
 
 export interface DrainResult {
   synced: string[];
@@ -18,21 +20,21 @@ export function errorMessage(e: unknown): string {
 }
 
 /**
- * Push every unsynced sighting through `push`, collecting ids that succeeded.
+ * Push every unsynced item (sighting or page) through `push`, collecting ids that succeeded.
  * Failures are kept in the outbox for the next drain; one failure never blocks the rest.
  */
-export async function drainOutbox<T extends Sighting>(unsynced: T[], push: PushFn<T>): Promise<DrainResult> {
+export async function drainOutbox<T extends { id: string }>(unsynced: T[], push: PushFn<T>): Promise<DrainResult> {
   const synced: string[] = [];
   const failed: string[] = [];
   const errors: Record<string, string> = {};
-  for (const sighting of unsynced) {
+  for (const item of unsynced) {
     try {
-      await push(sighting);
-      synced.push(sighting.id);
+      await push(item);
+      synced.push(item.id);
     } catch (e) {
-      console.warn(`push failed for sighting ${sighting.id}`, e);
-      failed.push(sighting.id);
-      errors[sighting.id] = errorMessage(e);
+      console.warn(`push failed for ${item.id}`, e);
+      failed.push(item.id);
+      errors[item.id] = errorMessage(e);
     }
   }
   return { synced, failed, errors };
@@ -59,6 +61,8 @@ export interface RemoteSightingRow {
   custom_name?: string | null;
   /** Who can see it (migration 0008); absent from projects without it, where every sighting is public. */
   visibility?: Visibility | null;
+  /** The dive it was made on (migration 0009); absent from projects without it. */
+  dive_id?: string | null;
 }
 
 /** What only the owner can read about one of their sightings (sighting_details, migration 0008). */
@@ -93,13 +97,15 @@ export function sightingToRemoteRow(
     ...(s.customName ? { custom_name: s.customName } : {}),
     // Likewise for 0008 (a project without it has only public sightings; see sync-service.ts).
     ...(s.visibility ? { visibility: s.visibility } : {}),
+    // And 0009: the dive goes with the sighting once the server has the page (sync-service.ts).
+    ...(s.diveId ? { dive_id: s.diveId } : {}),
   };
 }
 
 /** The columns an owner may change after logging (the rest are fixed once the row exists). */
 export type SightingFacts = Pick<
   RemoteSightingRow,
-  'species_id' | 'site_id' | 'sighted_on' | 'notes' | 'photo_url' | 'custom_name' | 'visibility'
+  'species_id' | 'site_id' | 'sighted_on' | 'notes' | 'photo_url' | 'custom_name' | 'visibility' | 'dive_id'
 >;
 
 export function sightingFacts(row: Omit<RemoteSightingRow, 'profiles'>): SightingFacts {
@@ -111,6 +117,7 @@ export function sightingFacts(row: Omit<RemoteSightingRow, 'profiles'>): Sightin
     photo_url: row.photo_url,
     ...(row.custom_name ? { custom_name: row.custom_name } : {}),
     ...(row.visibility ? { visibility: row.visibility } : {}),
+    ...('dive_id' in row ? { dive_id: row.dive_id } : {}),
   };
 }
 
@@ -158,6 +165,61 @@ export function remoteRowToSighting(row: RemoteSightingRow): Sighting {
     // A name left behind after an edit to a catalogue species means nothing any more.
     ...(row.species_id === 'unlisted' && row.custom_name ? { customName: row.custom_name } : {}),
     ...(row.visibility === 'public' || row.visibility === 'private' ? { visibility: row.visibility } : {}),
+    ...(row.dive_id ? { diveId: row.dive_id } : {}),
+  };
+}
+
+// ── Dives (migration 0009) ───────────────────────────────────────────────────
+
+/** A page of the log as the server's dives table holds it: only its owner can read or write it. */
+export type RemoteDiveRow = Record<string, unknown> & { id: string; user_id: string; created_at: string; updated_at?: string | null };
+
+/** A signature sent from a buddy's own phone with a code (dive_signatures). */
+export interface RemoteDiveSignatureRow {
+  dive_id: string;
+  signer_name: string;
+  role: string | null;
+  signature_svg: string | null;
+  created_at: string;
+}
+
+export function diveToRemoteRow(d: Dive): RemoteDiveRow {
+  return {
+    id: d.id,
+    user_id: d.userId,
+    created_at: d.createdAt,
+    updated_at: d.updatedAt ?? d.createdAt,
+    ...diveToColumns(d, 'array'),
+  };
+}
+
+/** The columns an owner may change once the page exists (id, owner and creation time are fixed). */
+export function diveFacts(row: RemoteDiveRow): Record<string, unknown> {
+  const { id: _id, user_id: _user, created_at: _created, ...facts } = row;
+  return facts;
+}
+
+const SIGNER_ROLES = new Set(['buddy', 'instructor', 'divemaster', 'guide', 'other']);
+
+export function remoteRowToDive(row: RemoteDiveRow, signatures: RemoteDiveSignatureRow[] = []): Dive {
+  const remoteSignatures: DiveSignature[] = signatures
+    .filter((x) => x.dive_id === row.id)
+    .sort((a, b) => a.created_at.localeCompare(b.created_at))
+    .map((x) => ({
+      name: x.signer_name,
+      at: new Date(x.created_at).toISOString(),
+      // Drawn on someone else's phone: only path data the app understands is kept.
+      ...(isSignaturePath(x.signature_svg ?? undefined) ? { svg: x.signature_svg! } : {}),
+      ...(x.role && SIGNER_ROLES.has(x.role) ? { role: x.role as DiveSignature['role'] } : {}),
+    }));
+  return {
+    ...columnsToDive(row),
+    id: row.id,
+    userId: row.user_id,
+    synced: true,
+    createdAt: new Date(row.created_at).toISOString(),
+    ...(row.updated_at ? { updatedAt: new Date(row.updated_at).toISOString() } : {}),
+    ...(remoteSignatures.length ? { remoteSignatures } : {}),
   };
 }
 

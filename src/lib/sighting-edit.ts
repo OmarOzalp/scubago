@@ -15,6 +15,8 @@ export interface SightingInput {
   visibility?: Sighting['visibility'];
   notesPrivate?: boolean;
   photoPrivate?: boolean;
+  /** The page it goes on; its site and date then come from the dive. */
+  diveId?: string;
 }
 
 /** The privacy choice from the logging flow, falling back to an existing sighting's for anything it leaves out. */

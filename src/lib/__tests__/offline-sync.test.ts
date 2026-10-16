@@ -454,7 +454,10 @@ describeSqlite('the local database upgrade', () => {
       // A site that never synced was added on this phone; a downloaded one waits for the next sync to say who.
       expect(userSites.map((s) => [s.id, s.createdBy])).toEqual([['site-mine', 'local'], ['site-pulled', undefined]]);
       const raw = sqliteHooks.last;
-      expect({ ...raw.prepare('PRAGMA user_version').get() }).toEqual({ user_version: 6 });
+      expect({ ...raw.prepare('PRAGMA user_version').get() }).toEqual({ user_version: 7 });
+      // The dive log (version 7): a pages table, and a dive on each sighting, empty until the store binds them.
+      expect(raw.prepare(`SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'dives'`).all()).toHaveLength(1);
+      expect(raw.prepare('SELECT COUNT(*) AS n FROM sightings WHERE dive_id IS NOT NULL').get()).toEqual({ n: 0 });
       const rows = raw.prepare('SELECT id, remote, synced_photo_url, deleted, version FROM sightings ORDER BY id').all();
       expect(rows.map((r: object) => ({ ...r }))).toEqual([
         { id: 'old-pending', remote: 0, synced_photo_url: null, deleted: 0, version: 0 },
