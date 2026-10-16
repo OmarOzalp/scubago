@@ -10,10 +10,11 @@ import { useFonts } from 'expo-font';
 import { DarkTheme, DefaultTheme, Stack, ThemeProvider } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { useEffect } from 'react';
-import { Platform, useColorScheme } from 'react-native';
+import { Platform } from 'react-native';
 
 import { AnimatedSplashOverlay } from '@/components/animated-icon';
 import { Colors, Type } from '@/constants/theme';
+import { useSchemeName } from '@/hooks/use-theme';
 import { useAppStore } from '@/lib/store';
 
 SplashScreen.preventAutoHideAsync();
@@ -31,8 +32,8 @@ const FONTS = {
 };
 
 export default function RootLayout() {
-  const colorScheme = useColorScheme();
-  const scheme = colorScheme === 'dark' ? 'dark' : 'light';
+  // The hydration-safe scheme: on the web the page is pre-rendered light, then switches once loaded.
+  const scheme = useSchemeName();
   const colors = Colors[scheme];
   const init = useAppStore((s) => s.init);
   // If a font can't load, the app carries on in the system faces rather than waiting forever.
