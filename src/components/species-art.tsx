@@ -1,86 +1,76 @@
-import { memo } from 'react';
-import type { StyleProp, ViewStyle } from 'react-native';
-import Svg, { Circle, G, Path } from 'react-native-svg';
+import { memo, useId, useMemo } from 'react';
+import { View, type StyleProp, type ViewStyle } from 'react-native';
+import Svg, { Circle, ClipPath, Defs, LinearGradient, Path, RadialGradient, Stop } from 'react-native-svg';
 
 import { useSchemeName, useTheme } from '@/hooks/use-theme';
-import { ART_BOX, artFor } from '@/lib/species-art';
+import { ART_BOX, artFor, composeArt, type ArtShape } from '@/lib/species-art';
 import type { Species } from '@/lib/types';
-
-/** Pencil for species still to find. */
-const PENCIL = { light: '#9C9381', dark: '#6F829A' };
-/** The wash sits a hair off the ink, as when a print or a painting is slightly out of register. */
-const OFFSET = 'translate(1.6 1.4)';
 
 interface Props {
   species: Pick<Species, 'id' | 'category'>;
-  /** Width in points; the drawing is 100×64, so the height follows. */
+  /** Width in points; the drawing is 200×128, so the height follows. */
   width: number;
-  /** false: a dashed pencil outline, no colour (a species still to find). */
+  /** false: a dashed pencil outline (a species still to find). */
   found?: boolean;
-  /** The paper behind the drawing (fills the inside of eels and tails). */
+  /** The paper behind the drawing (fills a pencil outline). */
   paper?: string;
   style?: StyleProp<ViewStyle>;
 }
 
-/** A field-guide drawing of a species: ink line art with a watercolour wash. Decorative. */
+/**
+ * A field-guide drawing of a species: its group's drawing in its own colours and markings, shaded
+ * and outlined. Decorative: its name is always written next to it.
+ */
 export const SpeciesArt = memo(function SpeciesArt({ species, width, found = true, paper, style }: Props) {
   const theme = useTheme();
   const scheme = useSchemeName();
-  const { shape, wash } = artFor(species);
+  // Gradient and clip ids must be unique on the page (the web shares one document).
+  const id = `sa${useId().replace(/[^a-zA-Z0-9]/g, '')}`;
   const height = (width * ART_BOX.height) / ART_BOX.width;
-  const scale = width / ART_BOX.width;
-  // About 1.3pt of ink on screen at any size (a little more on big plates).
-  const ink = found ? theme.text : PENCIL[scheme];
-  const sw = Math.min(1.9, Math.max(1.15, width / 70)) / scale;
-  const dash = found ? undefined : `${3.2 / scale / 1.4} ${2.6 / scale / 1.4}`;
-  const ground = paper ?? theme.backgroundElement;
+  const art = useMemo(
+    () => composeArt(artFor(species), { width, found, scheme, paper: paper ?? theme.backgroundElement }),
+    [species, width, found, scheme, paper, theme.backgroundElement],
+  );
+  const { shading } = art;
+
+  const props = (s: ArtShape) => ({
+    fill: s.fill === '@body' ? `url(#${id}-body)` : (s.fill ?? 'none'),
+    fillOpacity: s.fillOpacity,
+    stroke: s.stroke,
+    strokeWidth: s.strokeWidth,
+    strokeOpacity: s.strokeOpacity,
+    strokeDasharray: s.dash,
+    strokeLinejoin: 'round' as const,
+    strokeLinecap: 'round' as const,
+    clipPath: s.clip ? `url(#${id}-clip)` : undefined,
+  });
 
   return (
-    <Svg
-      width={width}
-      height={height}
-      viewBox={`0 0 ${ART_BOX.width} ${ART_BOX.height}`}
-      style={style}
-      pointerEvents="none"
-      accessibilityElementsHidden
-      importantForAccessibility="no-hide-descendants">
-      {found ? (
-        <G transform={OFFSET}>
-          <Path d={shape.body} fill={wash} opacity={0.82} />
-          {shape.limbs?.map((limb) => (
-            <Path key={limb.d} d={limb.d} fill="none" stroke={wash} strokeWidth={limb.width} strokeLinecap="round" opacity={0.82} />
-          ))}
-          <Path d={shape.body} fill="none" stroke={wash} strokeWidth={2.4} strokeLinejoin="round" opacity={0.5} />
-        </G>
-      ) : null}
-      {shape.limbs?.map((limb) => (
-        <G key={limb.d}>
-          <Path d={limb.d} fill="none" stroke={ink} strokeWidth={limb.width + sw * 2} strokeLinecap="round" strokeDasharray={dash} />
-          <Path d={limb.d} fill="none" stroke={ground} strokeWidth={limb.width} strokeLinecap="round" />
-          {found ? <Path d={limb.d} fill="none" stroke={wash} strokeWidth={limb.width} strokeLinecap="round" opacity={0.82} /> : null}
-        </G>
-      ))}
-      {found
-        ? shape.light?.map((mark) => (
-            <Path
-              key={mark.d}
-              d={mark.d}
-              fill={mark.width ? 'none' : '#FFFFFF'}
-              fillOpacity={0.85}
-              stroke={mark.width ? '#FFFFFF' : 'none'}
-              strokeOpacity={0.85}
-              strokeWidth={mark.width ?? 0}
-              strokeLinecap="round"
-            />
-          ))
-        : null}
-      {found ? shape.spots?.map(([x, y, r]) => <Circle key={`${x},${y}`} cx={x} cy={y} r={r} fill="#FFFFFF" fillOpacity={0.9} />) : null}
-      <Path d={shape.body} fill="none" stroke={ink} strokeWidth={sw} strokeLinejoin="round" strokeLinecap="round" strokeDasharray={dash} />
-      {shape.detail ? (
-        <Path d={shape.detail} fill="none" stroke={ink} strokeWidth={sw * 0.8} strokeLinejoin="round" strokeLinecap="round" strokeDasharray={dash} opacity={found ? 0.9 : 0.8} />
-      ) : null}
-      {found ? shape.dots?.map(([x, y, r]) => <Circle key={`${x},${y}`} cx={x} cy={y} r={r} fill={ink} />) : null}
-      {shape.eyes?.map(([x, y, r]) => <Circle key={`${x},${y}`} cx={x} cy={y} r={r} fill={ink} />)}
-    </Svg>
+    // Hidden and untouchable on the wrapper: on the web, Svg hands its props straight to the <svg> element.
+    <View aria-hidden style={[{ width, height, pointerEvents: 'none' }, style]}>
+      <Svg width={width} height={height} viewBox={`0 0 ${ART_BOX.width} ${ART_BOX.height}`}>
+        <Defs>
+          {shading.type === 'linear' ? (
+            <LinearGradient id={`${id}-body`} x1="0" y1={shading.y1} x2="0" y2={shading.y2} gradientUnits="userSpaceOnUse">
+              {shading.stops.map((st) => (
+                <Stop key={st.offset} offset={st.offset} stopColor={st.color} />
+              ))}
+            </LinearGradient>
+          ) : (
+            <RadialGradient id={`${id}-body`} cx={shading.cx} cy={shading.cy} r={shading.r} gradientUnits="userSpaceOnUse">
+              {shading.stops.map((st) => (
+                <Stop key={st.offset} offset={st.offset} stopColor={st.color} />
+              ))}
+            </RadialGradient>
+          )}
+          <ClipPath id={`${id}-clip`}>
+            <Path d={art.clip} />
+          </ClipPath>
+        </Defs>
+        {art.shapes.map((s, i) =>
+          s.kind === 'circle' ? <Circle key={i} cx={s.cx} cy={s.cy} r={s.r} {...props(s)} /> : <Path key={i} d={s.d} {...props(s)} />,
+        )}
+      </Svg>
+    </View>
   );
 });
