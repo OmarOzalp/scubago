@@ -315,7 +315,9 @@ rebuilds by itself each time you push.
 What's in the repo for this:
 
 - `netlify.toml`: the build command, the folder to publish, and rewrites for the
-  `/species/…`, `/site/…` and `/sighting/…` pages.
+  `/species/…`, `/site/…`, `/sighting/…` and `/dive/…` pages. Every species and curated site
+  also has its own pre-rendered page, so its HTML matches what the app draws (no hydration
+  warning); the rewrites cover ids the build can't know, such as sites divers add.
 - `src/app/+html.tsx` and `public/`: the home-screen name, icon and full-screen settings.
 - `src/app/(tabs)/_layout.tsx`: one tab bar drawn by the app (`src/components/journal/tab-bar.tsx`),
   the same on the web, iOS and Android.

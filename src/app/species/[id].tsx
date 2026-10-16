@@ -24,6 +24,14 @@ import { speciesMarineModel } from '@/lib/swimming';
 import type { DiveSite } from '@/lib/types';
 
 /** A species' page in the field guide: its plate, what it is, and the diver's own record of it. */
+/**
+ * The web build pre-renders a page for every species in the catalogue, so each one's HTML matches
+ * what the app draws for it (one shared page for all would not, and React would redraw it).
+ */
+export function generateStaticParams(): { id: string }[] {
+  return CATALOG.map((s) => ({ id: s.id }));
+}
+
 export default function SpeciesDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const theme = useTheme();

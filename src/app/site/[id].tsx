@@ -14,6 +14,7 @@ import { ThemedText } from '@/components/themed-text';
 import { Radius, Type } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { regionPath } from '@/data/regions';
+import { SITES } from '@/data/sites';
 import { CATALOG_BY_ID, speciesForSighting } from '@/lib/catalog';
 import { deriveDex } from '@/lib/dex';
 import { siteAddedBy, siteFacts, siteSourceList } from '@/lib/site-details';
@@ -32,6 +33,14 @@ const FACT_ICON: Record<string, IconName> = {
 const GAP = 10;
 
 /** A dive site's page in the journal: its facts ruled off like a log entry, what lives there, and who saw what. */
+/**
+ * The web build pre-renders a page for every curated site, so each one's HTML matches what the app
+ * draws for it. Sites divers add aren't known at build time: they share the generic page.
+ */
+export function generateStaticParams(): { id: string }[] {
+  return SITES.map((s) => ({ id: s.id }));
+}
+
 export default function SiteDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const theme = useTheme();

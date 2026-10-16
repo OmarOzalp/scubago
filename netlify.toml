@@ -13,7 +13,10 @@
 [build.environment]
   NODE_VERSION = "22"
 
-# Each dynamic route is exported once, as a page named after its parameter.
+# Every species and curated site has its own pre-rendered page (generateStaticParams in
+# src/app/species/[id].tsx and src/app/site/[id].tsx), which Netlify serves first. These rewrites are
+# the fallback for ids the build can't know: sites divers add, sightings and dives. Each such route
+# is exported once, as a page named after its parameter.
 [[redirects]]
   from = "/species/*"
   to = "/species/[id].html"
@@ -27,6 +30,27 @@
 [[redirects]]
   from = "/sighting/*"
   to = "/sighting/[id].html"
+  status = 200
+
+# /dive/edit, /dive/sign and /dive/count are pages of their own, matched before any page id.
+[[redirects]]
+  from = "/dive/edit"
+  to = "/dive/edit.html"
+  status = 200
+
+[[redirects]]
+  from = "/dive/sign"
+  to = "/dive/sign.html"
+  status = 200
+
+[[redirects]]
+  from = "/dive/count"
+  to = "/dive/count.html"
+  status = 200
+
+[[redirects]]
+  from = "/dive/*"
+  to = "/dive/[id].html"
   status = 200
 
 [[redirects]]
