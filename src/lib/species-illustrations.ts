@@ -6,6 +6,9 @@
  * Layers, back to front: far-side fins, the body (shaded from a darker back to a paler belly, or lit
  * from the middle when seen from above), the belly, the species' pattern, marks, shade and shine
  * (all kept inside the body), the outline, near fins and their tips, fine lines, eyes.
+ *
+ * To see them, compose each species with `composeArt` and write the shapes out as SVG (a
+ * contact sheet in a browser shows every group at plate and card sizes, painted and in pencil).
  */
 import { mirror, symmetric } from '@/lib/art-path';
 

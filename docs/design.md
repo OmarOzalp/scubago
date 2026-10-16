@@ -2,8 +2,8 @@
 
 ScubaGo looks like a diver's logbook that has been out on the boat: warm paper and navy ink, with
 the bright colours of a reef. Headings are set in a serif, everything you read in a clean sans,
-and small logbook labels in a typewriter face. Species are drawn as field-guide watercolours. It
-should feel crafted and calm, and stay easy to read for any diver.
+and small logbook labels in a typewriter face. Species are drawn as detailed field-guide
+illustrations. It should feel crafted and calm, and stay easy to read for any diver.
 
 ## Where things live
 
@@ -14,7 +14,7 @@ should feel crafted and calm, and stay easy to read for any diver.
 | Icons (Phosphor, duotone) | `src/components/icon.tsx` |
 | Paper card, stamp, seal, wash, chip, tag, ledger, link row, icon button, progress bar and ring, screen headers, tab bar | `src/components/journal/` |
 | Buttons (`primary`, `log`, `secondary`, `quiet`) | `src/components/ocean-button.tsx` |
-| Species drawings | `src/lib/species-art.ts` (shapes and colours), `src/components/species-art.tsx` (drawing) |
+| Species drawings | `src/lib/species-illustrations.ts` (one drawing per animal group), `src/lib/species-art.ts` (each species' drawing, colours and markings; `composeArt`), `src/components/species-art.tsx` (draws it) |
 
 ## Colour
 
@@ -55,10 +55,21 @@ current tab's icon sits on a watercolour wash.
 
 ## Species art
 
-About forty body shapes (shark, manta, turtle, nudibranch, …) cover the whole catalogue; each
-species picks its shape and its own wash colour in `species-art.ts`. A species is drawn in ink over
-a watercolour wash once you've seen it, and as a dashed pencil outline until then. Plain SVG paths,
-so it looks the same on iOS, Android and the web.
+Each animal group has one detailed drawing in a 200×128 box (about fifty: requiem shark, whale
+shark, hammerhead, manta, turtle, dolphin, orca, angelfish, tuna, seahorse, octopus, nudibranch and
+so on), drawn from the angle people know it by: sharks, fish and whales from the side facing left,
+rays, hammerheads and turtles from above with the head up. A drawing is layers of plain SVG paths:
+far-side fins, the body (shaded from a darker back to a paler belly, or lit from the middle when
+seen from above), the belly, markings, shade and shine, the outline, near fins, fine lines (gills,
+fin rays, scales) and eyes.
+
+A species picks its group's drawing in `species-art.ts` and paints it with its own palette (back,
+belly, an accent for fins or patches, fin tips) and pattern (spots, bands, bars, mottling, rings…),
+kept inside the body outline. Fine lines are left off small plates; a species still to find is a
+dashed pencil outline of the same drawing.
+
+To check drawings, render the preview sheet (see the comment at the top of
+`species-illustrations.ts`), which draws them through the same `composeArt` as the app.
 
 ## Motion
 
