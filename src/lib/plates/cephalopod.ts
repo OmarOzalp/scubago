@@ -47,9 +47,14 @@ export function makeArm(spec: ArmSpec): Arm {
     const ts = Array.from({ length: 8 }, (_, k) => t0 + ((t1 - t0) * k) / 7);
     return [...ts.map((t) => pt(t, f0)), ...ts.reverse().map((t) => pt(t, f1))];
   };
-  // A rounded tip.
+  // A rounded tip: a half circle round the end.
   const tipDir = norm(sub(center[n - 1], center[n - 3]));
-  const poly = [...offsetLine(center, (t) => width(t)), add(center[n - 1], mul(tipDir, w1 * 0.9)), ...offsetLine(center, (t) => -width(t)).reverse()];
+  const tipN = perp(tipDir);
+  const cap = Array.from({ length: 7 }, (_, i) => {
+    const a = (Math.PI * (i + 1)) / 8;
+    return add(center[n - 1], add(mul(tipN, Math.cos(a) * w1), mul(tipDir, Math.sin(a) * w1)));
+  });
+  const poly = [...offsetLine(center, (t) => width(t)), ...cap, ...offsetLine(center, (t) => -width(t)).reverse()];
   return { center, width, poly, at: pt, band, spec };
 }
 
