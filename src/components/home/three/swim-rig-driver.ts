@@ -7,7 +7,7 @@ import { createSwimRig, RIG_EULER_ORDER, type SwimDrive, type SwimRigModel } fro
  * heading change bends the body along its path (in body lengths, hence `size`),
  * and rising or sinking through the water column changes stroke strength.
  */
-export function swimDrive(pose: Pick<MarinePose, 'pace' | 'turn' | 'speed' | 'climb'> & Partial<Pick<MarinePose, 'air' | 'rest' | 'jet' | 'ground'>> | undefined, size: number, sink = 0): SwimDrive {
+export function swimDrive(pose: Pick<MarinePose, 'pace' | 'turn' | 'speed' | 'climb'> & Partial<Pick<MarinePose, 'air' | 'rest' | 'jet' | 'ground' | 'sail'>> | undefined, size: number, sink = 0): SwimDrive {
   const turn = pose?.turn ?? 0;
   return {
     effort: pose?.pace ?? 1,
@@ -18,6 +18,8 @@ export function swimDrive(pose: Pick<MarinePose, 'pace' | 'turn' | 'speed' | 'cl
     air: pose?.air ?? 0,
     // Reef animals: resting in place, jetting, walking on the bottom (reef-life.ts).
     rest: pose?.rest, jet: pose?.jet, ground: pose?.ground,
+    // A sailfish raises its sail to display and folds it for a dash (marine-motion.ts).
+    sail: pose?.sail,
   };
 }
 

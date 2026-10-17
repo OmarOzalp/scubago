@@ -19,8 +19,8 @@ import { sampleDive } from '../src/lib/ocean-depth.ts';
 
 const ocean = createOceanUniforms('island');
 const MODELS = ['shark', 'manta', 'reef-fish', 'whale-shark', 'tiger-shark', 'great-white-shark', 'scalloped-hammerhead', 'reef-manta', 'mola-mola', 'green-turtle', 'bottlenose-dolphin',
-  'day-octopus', 'giant-cuttlefish', 'giant-moray'];
-const REEF = ['day-octopus', 'giant-cuttlefish', 'giant-moray'];
+  'day-octopus', 'giant-cuttlefish', 'giant-moray', 'great-barracuda', 'sailfish', 'california-sea-lion', 'spotted-eagle-ray', 'golden-jellyfish', 'clownfish'];
+const REEF = ['day-octopus', 'giant-cuttlefish', 'giant-moray', 'clownfish'];
 const loadModel = async (name) => {
   const bytes = readFileSync(new URL(`../assets/models/marine/${name}.glb`, import.meta.url));
   return new GLTFLoader().parseAsync(bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength), '');
@@ -262,7 +262,7 @@ for (const lite of [false, true]) {
     camera.updateMatrixWorld();
     const screen = (p) => { const v = p.clone().project(camera); return new Vector2(v.x, v.y); };
     const hits = (p, mesh) => { raycaster.setFromCamera(screen(p), camera); return raycaster.intersectObject(mesh).length > 0; };
-    for (const name of ['bottlenose-dolphin', 'reef-fish']) {
+    for (const name of ['bottlenose-dolphin', 'reef-fish', 'great-barracuda', 'golden-jellyfish']) {
       const size = MARINE_SIZE[name], instance = clone((await loadModel(name)).scene), target = tapTarget(instance, size, scale);
       assert(target, `${name}: slender, so it gets a tap target`);
       for (const [pitch, y] of [[0, -.8], [-1, .2]]) {

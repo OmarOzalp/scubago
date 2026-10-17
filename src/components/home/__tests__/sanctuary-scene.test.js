@@ -19,6 +19,7 @@ jest.mock('../three/animated-marine', () => ({ AnimatedMarine: ({ model, onPress
 jest.mock('../three/tuna-school-mesh', () => ({ TunaSchoolMesh: ({ onPress }) => <school onPress={onPress} /> }));
 jest.mock('../three/marine-splashes', () => ({ MarineSplashes: () => null }));
 jest.mock('../three/reef-rocks', () => ({ ReefRocks: ({ morays, octopuses }) => <rocks morays={morays} octopuses={octopuses} /> }));
+jest.mock('../three/reef-anemone', () => ({ ReefAnemones: ({ count }) => <anemones data-count={count} /> }));
 jest.mock('../island-scene', () => ({ IslandScene: () => <fallback /> }));
 jest.mock('expo-router', () => ({ router: { push: jest.fn() } }));
 
@@ -48,7 +49,7 @@ test('a new island’s ocean stays empty until the first discovery: no visitors,
 const logged = (id, category) => ({ species: { id, commonName: id, scientificName: id, category, rarity: 'common', blurb: '' }, count: 1, firstSeenOn: '2026-01-01', firstSeenSiteId: 'x', lastSeenOn: '2026-01-01' });
 test('a logged tuna is shown by the school alone, never also as a generic fish, and other fish still swim', async () => {
   useMarineModels.mockReturnValue({ models: { 'reef-fish': {} }, failed: false, retry: jest.fn() });
-  const residents = [logged('dogtooth-tuna', 'fish'), logged('clownfish', 'fish')];
+  const residents = [logged('dogtooth-tuna', 'fish'), logged('clown-triggerfish', 'fish')];
   await act(async () => { root = create(<SanctuaryScene {...props} residents={residents} />); });
   expect(useMarineModels).toHaveBeenLastCalledWith(['reef-fish']);
   expect(root.root.findAllByType('swimmer').map((swimmer) => swimmer.props.model)).toEqual(['reef-fish']);
@@ -57,11 +58,11 @@ test('a logged tuna is shown by the school alone, never also as a generic fish, 
   root.root.findByType('school').props.onPress();
   expect(router.push).toHaveBeenLastCalledWith('/species/dogtooth-tuna');
   root.root.findByType('swimmer').props.onPress();
-  expect(router.push).toHaveBeenLastCalledWith('/species/clownfish');
+  expect(router.push).toHaveBeenLastCalledWith('/species/clown-triggerfish');
 });
 test('no tuna swim unless one is logged, and deleting the last one takes the school away', async () => {
   useMarineModels.mockReturnValue({ models: { 'reef-fish': {} }, failed: false, retry: jest.fn() });
-  const clownfish = logged('clownfish', 'fish');
+  const clownfish = logged('clown-triggerfish', 'fish');
   await act(async () => { root = create(<SanctuaryScene {...props} residents={[clownfish]} />); });
   expect(root.root.findAllByType('school')).toHaveLength(0);
   expect(root.root.findByProps({ accessibilityRole: 'image' }).props.accessibilityLabel).not.toContain('tuna');
@@ -115,4 +116,21 @@ test('reef animals swim as one animal each, opening their own page, with rocks o
   await act(async () => root.update(<SanctuaryScene {...props} residents={[cuttlefish]} />));
   expect(root.root.findAllByType('rocks')).toHaveLength(0);
   expect(root.root.findAllByType('swimmer').map((swimmer) => swimmer.props.model)).toEqual(['giant-cuttlefish']);
+});
+test('a logged clownfish swims as a pair in its anemone, both opening its page; the open-water newcomers swim in their groups', async () => {
+  useMarineModels.mockReturnValue({ models: { clownfish: {}, 'spotted-eagle-ray': {}, 'great-barracuda': {} }, failed: false, retry: jest.fn() });
+  const clownfish = logged('clownfish', 'fish'), ray = logged('spotted-eagle-ray', 'ray'), barracuda = logged('great-barracuda', 'fish');
+  await act(async () => { root = create(<SanctuaryScene {...props} residents={[clownfish, ray, barracuda]} />); });
+  const swimmers = root.root.findAllByType('swimmer');
+  // The ray's squadron and the lone barracuda first (the open water's), then the clownfish pair on the reef.
+  expect(swimmers.filter((s) => s.props.model === 'clownfish')).toHaveLength(2);
+  expect(swimmers.filter((s) => s.props.model === 'great-barracuda')).toHaveLength(1);
+  expect(swimmers.filter((s) => s.props.model === 'spotted-eagle-ray').length).toBeGreaterThanOrEqual(3);
+  for (const s of swimmers.filter((s) => s.props.model === 'clownfish')) {
+    s.props.onPress();
+    expect(router.push).toHaveBeenLastCalledWith('/species/clownfish');
+  }
+  // One anemone for the pair, and no rocks (no moray or octopus).
+  expect(root.root.findByType('anemones').props).toEqual({ 'data-count': 1 });
+  expect(root.root.findAllByType('rocks')).toHaveLength(0);
 });

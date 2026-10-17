@@ -64,10 +64,17 @@ export const SCHOOL_REACTIONS: Record<MarineModel, { threat: number; gap: number
   // Not a threat to the school: the fish make room and flow around it.
   'bottlenose-dolphin': { threat: 0, gap: .28 },
   'reef-fish': { threat: 0, gap: .08 },
+  // Fish-eaters the school keeps an eye on and gives room to, without being hunted.
+  sailfish: { threat: .45, gap: .35 },
+  'california-sea-lion': { threat: .4, gap: .3 },
+  'great-barracuda': { threat: .3, gap: .3 },
+  'spotted-eagle-ray': { threat: 0, gap: .22 },
+  'golden-jellyfish': { threat: 0, gap: .1 },
   // Reef animals keep to the reef (reef-life.ts): the school never meets them.
   'day-octopus': { threat: 0, gap: 0 },
   'giant-cuttlefish': { threat: 0, gap: 0 },
   'giant-moray': { threat: 0, gap: 0 },
+  clownfish: { threat: 0, gap: 0 },
 };
 
 /** The great white's hunting behavior (used by src/lib/marine-motion.ts). */

@@ -99,20 +99,24 @@ A species that swims in a group is still one species: one discovery, one of the
 animated species (`MAX_ANIMATED`), one tap destination (every member opens its page)
 and one slot in the dive schedule. Its extra members come from a budget of their own
 (`GROUP_BUDGET`: 6 extra animals, 3 where the GPU is emulated), given to the dolphins'
-pods first, then hammerheads, then shoals. Each visit picks the group sizes afresh
-within each species' range (`GROUP_SIZES` in `src/lib/marine-groups.ts`):
+pods first, then the sea lions, a jellyfish swarm (alone, a jellyfish is hardly one),
+hammerheads, eagle rays, barracuda schools and shoals. Each visit picks the group sizes
+afresh within each species' range (`GROUP_SIZES` in `src/lib/marine-groups.ts`):
 
 | Species | Animals | Why |
 | --- | ---: | --- |
 | Bottlenose and spinner dolphins | 2–3 | Dolphins travel in pods |
 | Scalloped hammerhead | 1–2 | They school, so now and then a second one swims along; great hammerheads are solitary and stay alone |
-| Chevron barracuda | 3–5 | Tornado schools |
+| Chevron barracuda | 3–5 | Tornado schools (drawn with the great barracuda's model; great barracuda hunt alone) |
 | Giant trevally, bumphead parrotfish | 2–3 | Packs and herds |
 | Raccoon butterflyfish | 2 | They go about in pairs |
+| California sea lion | 2–3 | They play in small groups |
+| Spotted eagle ray | 3–4 | They fly in squadrons |
+| Golden jellyfish | 4–6 | They drift in swarms (millions, in Palau's Jellyfish Lake) |
 
-Other candidates were left alone for now: spotted eagle rays fly in squadrons and
-Munk's devil rays school, but both share the family ray model, and a squadron of
-wide rays would crowd the ring of water at low levels.
+Clownfish always come as a pair, but on the reef (see [Reef habitats](#reef-habitats)),
+outside this budget. Munk's devil rays school too, but share the family ray model, and
+a second squadron of wide rays would crowd the ring of water at low levels.
 
 **How a group swims** (`GROUP_STYLES`, per model). The leader roams, passes others in
 lanes and avoids the island exactly as a lone animal does, but with its footprint and
@@ -146,6 +150,14 @@ member has its own tail phase and depth (`depthSpread`).
 | `swapEvery` / `swapTime` | 38 s / 4.5 s | 80 s / 7 s | 16 s / 2.6 s |
 | `dip` / `depthSpread` | 0.32 / 0.08 | 0.38 / 0.16 | 0.16 / 0.07 |
 | `stagger` / `skip` | 2.4 s / 0.4 | – | – |
+
+| | Sea lions | Eagle-ray squadron | Barracuda school | Jellyfish swarm |
+| --- | --- | --- | --- | --- |
+| `places` (across, behind) | (0.5, 0.45), (−0.48, 0.95) | (0.85, 0.62), (−0.85, 0.62), (0, 1.25) | (0.3, 0.35), (−0.3, 0.5), (0.05, 0.9), (−0.35, 1.05) | (0.5, 0.25), (−0.42, 0.45), (0.18, 0.85), (−0.6, 1.0), (0.55, 1.2) |
+| `wander` / `wanderPeriod` | 0.22 / 8 s | 0.07 / 17 s | 0.1 / 12 s | 0.2 / 11 s |
+| `swapEvery` / `swapTime` | 18 s / 3 s | never (they hold formation) | 30 s / 4 s | never |
+| `dip` / `depthSpread` | 0.3 / 0.09 | 0.2 / 0.07 | 0.14 / 0.06 | 0.08 / 0.1 |
+| `stagger` / `skip` | 1.6 s / 0.3 | – | – | – |
 
 To add a group species, give it a range in `GROUP_SIZES`; its model needs a style in
 `GROUP_STYLES` (with at least as many places as its largest group has followers).
@@ -247,6 +259,7 @@ water's in the same fixed 60 Hz steps:
 | Day octopus (`day-octopus`) | `seabed` | Its patch of the sandy shelf beside its rock | Walks a short way, pauses, rests coiled by its rock; now and then a short jet |
 | Giant cuttlefish (`giant-cuttlefish`) | `reef-edge` | Its stretch of the reef edge, where the bottom drops away, higher in the water | Hovers, glides to a new spot, rises and sinks; a rare jet |
 | Giant moray (`giant-moray`) | `crevice` | Its den in the rocks, head out; now and then its other den nearby | Lies still breathing, slides out, swims along the shelf, goes in head first |
+| Ocellaris clownfish (`clownfish`) | `anemone` | A pair over their anemone on the shelf | Hover rowing with their pectorals, dart about in short hops, now and then one ventures out and darts back; duck down into the tentacles when a big animal comes close |
 
 **Kept apart from the open water.** The open-water animals, their groups, the dolphins'
 leaps and the tuna school never see the reef's animals: they are not among the animals
@@ -259,8 +272,10 @@ the dolphin, while big animals that eat neither barely count.
 
 **Anchors and zones, no pathfinding.** The places are found once per level from the island's
 outline and the seabed's profile (`reefRocks()`): each moray's two dens, facing each other
-along the coast (`MORAY_DENS`), and each octopus's rock (`OCTOPUS_ROCKS`); each cuttlefish has
-a stretch of reef edge (`CUTTLEFISH_REEFS`). They are given as an angle around the island and a
+along the coast (`MORAY_DENS`), each octopus's rock (`OCTOPUS_ROCKS`) and each clownfish pair's
+anemone (`ANEMONES`, at 70° and 195°, reach 0.7: the open stretches of shelf clear of the corals,
+rocks and dens at every level); each cuttlefish has a stretch of reef edge (`CUTTLEFISH_REEFS`).
+The anemone counts as a rock for the octopus, which walks round it. They are given as an angle around the island and a
 *reach*, the seabed's own distance from the shore (`seabedProfile` in `src/lib/ocean.ts`: the
 beach slopes down to the flat shelf by 0.62, and the reef edge drops away past 0.78). All are
 clear of the corals and the reef rock (`SEABED_PROPS` in `island-outline.ts`, which the
@@ -320,17 +335,33 @@ turns round out of sight (1.5–3 s) and comes out again to rest facing the way 
 animal (half-length 0.9 or more) passing within 0.15 of its head (`retreat`) sends it back into
 its den (`hidden` 0.82: only its head showing) until the water has been clear for 3 s.
 
+### The clownfish
+
+A pair (the second has a follower's lane, `followerLane(lane, 1)`, and opens the same page) live
+over one anemone (`REEF_ANEMONE`: tentacles reaching 0.46 from its middle, their tips 0.17 off the
+bottom), drawn by `reef-anemone.tsx` with its tentacles swaying in the swell. They hover 0.5–2.2 s
+(`hover`) 0.2–0.32 above the bottom, rowing in place and turning to look about, then dart 0.08–0.3
+to a new spot over the anemone (`dart` 0.34 units/s, `turnRate` 3.2 rad/s: a quick turn, a dash and
+a hard stop), never more than 0.36 from its middle (`radius`). The first picks the spots; the
+second keeps 0.1–0.2 from the first's next spot (`mate`). Now and then (`venture.chance` 0.12) the
+first darts a little way out (0.7) and the next dart brings it back. A large animal (half-length
+0.6 or more) within 0.45 of the anemone (`wary`, apparent gap) sends both down into the tentacles
+(`nestle`, 0.1 off the bottom, near the middle) until the water has been clear for 2 s. Sharks,
+sea lions, dolphins and the barracuda are alarming to the reef (`REEF_THREAT`); the clownfish
+hide from anything big enough, as they would in their anemone.
+
 ### Arriving
 
 A new reef discovery arrives the reef's way, not from beyond the view: the octopus edges out
 from beside its rock as it fades in, arms first; the cuttlefish glides in from the deep side of
-its reef edge, rising and fading in; the moray comes out of its den head first. With reduced
-motion or a paused scene it is simply there.
+its reef edge, rising and fading in; the moray comes out of its den head first; the clownfish
+pair dart in over their anemone from a little way off. With reduced motion or a paused scene it
+is simply there.
 
 ### Tuning
 
-All in `REEF` (`src/lib/reef-life.ts`). Places: `MORAY_DENS`, `OCTOPUS_ROCKS`, `CUTTLEFISH_REEFS`
-and `REEF_ROCK` in the same file. How alarming each open-water species is: `REEF_THREAT`. Sizes in
+All in `REEF` (`src/lib/reef-life.ts`). Places: `MORAY_DENS`, `OCTOPUS_ROCKS`, `CUTTLEFISH_REEFS`,
+`ANEMONES`, `REEF_ROCK` and `REEF_ANEMONE` in the same file. How alarming each open-water species is: `REEF_THREAT`. Sizes in
 the scene: `REEF_SIZE`. The arms', fin skirt's and body's motion: `SWIM_RIGS` in
 `src/lib/marine-rigs.ts`. A third octopus or a second moray takes the next place in the list
 (three rocks, two pairs of dens); only two species share the moray's model, so two pairs are
@@ -372,6 +403,40 @@ The preferred depths are layered: the dolphin shallowest, the hammerhead in
 mid-water, and the whale shark deepest and farthest out, so the busiest scenes stay
 readable.
 
+The six newest (batch v4), each told apart by how it moves as much as by its shape:
+
+| | Great barracuda | Sailfish | California sea lion | Spotted eagle ray | Golden jellyfish |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| `cruise` (units/s) | 0.34 | 0.55 | 0.46 | 0.36 | 0.08 |
+| `surge` | 0 | 0.15 | 0.25 | 0 | 0 |
+| `turnRate` / `turnEase` | 0.45 / 0.6 | 0.5 / 0.65 | 0.75 / 1.0 | 0.34 / 0.5 | 0.14 / 0.3 |
+| `bank` / `bankMax` | 0.4 / 0.14 | 0.55 / 0.22 | 0.9 / 0.45 | 1.4 / 0.32 | 0 / 0 |
+| `halfLength` × `halfWidth` | 0.8 × 0.13 | 1.1 × 0.18 | 0.7 × 0.3 | 0.5 × 0.7 | 0.25 × 0.25 |
+| `islandClearance` / `roam` | 0.8 / 0.1–0.75 | 1.05 / 0.35–1.1 | 0.8 / 0–0.8 | 1.0 / 0.15–0.9 | 0.7 / 0–0.75 |
+| `depth` / `bob` | −0.04 / 0.025 | +0.12 / 0.03 | +0.12 / 0.09 | −0.02 / 0.07 | +0.2 / 0.05 |
+| `weave` (rad, over s) | – | – | 0.3, 7 | – | 0.45, 23 |
+| Group | alone | alone | 2–3 | 3–4 | 4–6 |
+| Special | `pause` (lurk, dash) | `pause` (sail display, dash) | `breathe`, `barrel` | – | – |
+
+- **Pauses** (`pause`): every `every` seconds it slows to `slow` of its cruise for `hold`
+  seconds, then dashes at `burst` times its cruise for `dash` seconds (a group pauses on its
+  leader's clock; never while arriving, hunting, leaping or on a dive). The **great barracuda**
+  hangs almost motionless for 7 s of every 24 (`slow` 0.07, its rig's `hover` stilling the
+  tail), then shoots off at 2.6× for 1.4 s. The **sailfish** slows to 0.42 for 4.5 s of every
+  32 with its sail fully raised (`MarinePose.sail` 1) and rolls 0.5 rad onto its side to show
+  it, alternating sides, then folds the sail flat (0) and bursts away at 2.3× for 2.2 s.
+- **Barrel rolls** (`barrel`): the **sea lion** rolls a full turn about its length over 1.5 s,
+  in about four of every ten 16 s windows, never while breathing, leaping or diving (the roll is
+  added to its bank and interpolated the short way, so it ends where it began). It also comes up
+  to breathe every 30 s (`breathe`), and twists through the tightest turns of all, its whole
+  body bending.
+- The **spotted eagle rays** fly a steady, deep-banked course in formation; the **jellyfish**
+  drift slowly just under the surface on meandering courses, their bells pulsing; the
+  **clownfish** never leave the reef (above).
+
+Their depths layer too: the jellyfish just under the surface, the sailfish and sea lions high,
+the eagle rays and barracuda in mid-water.
+
 How these map to the usual names: `cruise` is cruise speed, and `turnRate` and
 `turnEase` are turn speed. `halfLength`/`halfWidth` are the body radius, as an
 ellipse, because these animals are long or wide. `personalSpace` is the avoidance
@@ -410,6 +475,8 @@ start above their bands.
 | A higher, longer or slower leap | `apex`, `length`, `air` | The launch angle is atan(4 × apex / length): keep it between about 35° and 65° |
 | Leaps nearer the island or the view's edges | lower `islandMargin`, raise `frameEdge` or `view` | Above `view` 0.6 the leap reaches the haze at the top and bottom |
 | Bigger or smaller groups | `GROUP_SIZES` (per species), `GROUP_BUDGET` (extra animals in all) | A model's style needs a place for each follower |
+| Longer or shorter lurks and displays | a species' `pause` (`every`, `hold`, `slow`, `burst`, `dash`, `roll`) | Keep `hold + dash + 2` under `every` |
+| More or fewer barrel rolls | `barrel.every` (and the 0.6 chance in `barrel()`) | `time` below about 1.2 s reads as a twitch |
 | Looser or tighter groups | a style's `places` and `wander` | Places closer than about 0.55 across make dolphins touch |
 | More or less place trading | `swapEvery`, `swapTime`, `dip` | 0 `swapEvery` means never |
 | More or less room at higher levels | `OCEAN_GROWTH.scale` and `.roam` | Keep level 6 at about 1.2 or less, so the island stays readable |
@@ -553,3 +620,10 @@ touching the open water's programs.
   out between them only briefly.
 - The day octopus model stands in for the other octopuses and the giant cuttlefish for the
   broadclub and flamboyant cuttlefish, with the day octopus's and giant cuttlefish's colors.
+- The sailfish's sail stands up from its back, so seen from almost overhead it shows best when
+  the fish crosses the view or rolls it into sight in a display; heading straight toward or away
+  from the camera it is mostly the long dark body and bill. Chevron barracuda borrow the great
+  barracuda's bars and blotches.
+- The jellyfish dive out of sight on the island's dive schedule like every open-water species,
+  though the real ones keep near the surface; their swarm is drawn from the shared group budget,
+  so with several other groups logged it may be only two or three.

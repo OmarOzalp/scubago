@@ -70,7 +70,7 @@ test('exact species receive distinct art before family fallbacks', () => {
 });
 
 test('logged tuna swim in the school, never also as a generic reef fish; other fish keep the family model', () => {
-  const residents = [entry('clownfish', 'fish'), entry('yellowfin-tuna', 'fish'), entry('whale-shark', 'shark'), entry('dogtooth-tuna', 'fish'), entry('napoleon-wrasse', 'fish')];
+  const residents = [entry('clown-triggerfish', 'fish'), entry('yellowfin-tuna', 'fish'), entry('whale-shark', 'shark'), entry('dogtooth-tuna', 'fish'), entry('napoleon-wrasse', 'fish')];
   expect(pickSwimmers(residents)).toEqual([
     { species: residents[0].species, model: 'reef-fish', lane: 0 },
     { species: residents[2].species, model: 'whale-shark', lane: 1 },
@@ -78,7 +78,7 @@ test('logged tuna swim in the school, never also as a generic reef fish; other f
   ]);
   expect(swimsInSchool('yellowfin-tuna')).toBe(true);
   expect(swimsInSchool('dogtooth-tuna')).toBe(true);
-  expect(swimsInSchool('clownfish')).toBe(false);
+  expect(swimsInSchool('clown-triggerfish')).toBe(false);
   // The family fallback itself is untouched.
   expect(marineModelFor(residents[1].species)).toBe('reef-fish');
   expect(marineModelFor('fish')).toBe('reef-fish');
@@ -155,4 +155,18 @@ test('the reef species swim as their own models; their close relatives borrow th
   // One species, one animal: each logged reef species takes one place among the island's animals.
   expect(pickSwimmers([entry('day-octopus', 'cephalopod'), entry('mimic-octopus', 'cephalopod'), entry('green-moray', 'fish')]).map((s) => [s.species.id, s.model]))
     .toEqual([['day-octopus', 'day-octopus'], ['mimic-octopus', 'day-octopus'], ['green-moray', 'giant-moray']]);
+});
+
+test('the six newer species swim as their own models; chevron barracuda borrow the great barracuda; the mammals and jellies without one stay off the island', () => {
+  expect(marineModelFor(entry('great-barracuda', 'fish').species)).toBe('great-barracuda');
+  expect(marineModelFor(entry('sailfish', 'fish').species)).toBe('sailfish');
+  expect(marineModelFor(entry('clownfish', 'fish').species)).toBe('clownfish');
+  expect(marineModelFor(entry('california-sea-lion', 'mammal').species)).toBe('california-sea-lion');
+  expect(marineModelFor(entry('spotted-eagle-ray', 'ray').species)).toBe('spotted-eagle-ray');
+  expect(marineModelFor(entry('golden-jellyfish', 'other').species)).toBe('golden-jellyfish');
+  expect(marineModelFor(entry('chevron-barracuda', 'fish').species)).toBe('great-barracuda');
+  expect(speciesMarineModel('chevron-barracuda')).toBeNull();
+  // A true seal is not a sea lion, and other jellies are not golden: still no model of their own.
+  expect(islandPresence(entry('harbor-seal', 'mammal').species)).toBeNull();
+  expect(islandPresence(entry('moon-jellyfish', 'other').species)).toBeNull();
 });

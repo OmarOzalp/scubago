@@ -19,6 +19,7 @@ const SIZE: Record<MarineModel, number> = MARINE_SIZE;
 const GAIT: Record<MarineModel, number> = {
   shark: .58, manta: .85, 'reef-fish': .68, 'whale-shark': 1, 'tiger-shark': 1, 'great-white-shark': 1, 'scalloped-hammerhead': 1, 'reef-manta': 1, 'mola-mola': 1,
   'green-turtle': 1, 'bottlenose-dolphin': 1, 'day-octopus': 1, 'giant-cuttlefish': 1, 'giant-moray': 1,
+  'great-barracuda': 1, sailfish: 1, 'california-sea-lion': 1, 'spotted-eagle-ray': 1, 'golden-jellyfish': 1, clownfish: 1,
 };
 const rigModel = (model: MarineModel) => (Object.hasOwn(SWIM_RIGS, model) ? model as SwimRigModel : null);
 /** The reef's animals draw with their own look: those on the bottom set back, all with color states (and the moray's den). */
@@ -26,9 +27,14 @@ function reefLook(model: MarineModel): ReefLook | undefined {
   const habitat = MOVEMENT[model].habitat ?? 'open-water';
   return habitat === 'open-water' ? undefined : { bias: habitat === 'reef-edge' ? 0 : FLOOR_BIAS };
 }
-/** In the close-up the reef's animals show their own way of moving: the octopus walking, the cuttlefish hovering, the moray breathing in its den. */
+/**
+ * In the close-up some animals show their own way of moving: the octopus walking, the cuttlefish
+ * hovering, the moray breathing in its den, the clownfish rowing in place, the barracuda lurking, the
+ * sailfish with its sail raised, the jellyfish pulsing gently.
+ */
 const CLOSE_UP: Partial<Record<MarineModel, Partial<SwimDrive>>> = {
   'day-octopus': { effort: .8 }, 'giant-cuttlefish': { effort: .25 }, 'giant-moray': { effort: .25, rest: 1 },
+  clownfish: { effort: .3 }, 'great-barracuda': { effort: .3 }, sailfish: { effort: .5, sail: 1 }, 'golden-jellyfish': { effort: .6 },
 };
 
 export function AnimatedMarine({ model, gltf, lane, active, inspect = false, population = 1, motion, onPress, tapScale = 1 }: {

@@ -26,8 +26,9 @@ const SHOWCASE = process.env.EXPO_PUBLIC_ISLAND_SHOWCASE === '1';
 /** Frame timing over the card, for measuring the island on real phones (set in the EAS preview profile). */
 const ISLAND_PERF = process.env.EXPO_PUBLIC_ISLAND_PERF === '1';
 const SHOWCASE_SWIMMERS = (['whale-shark', 'great-white-shark', 'tiger-shark', 'reef-manta', 'mola-mola', 'green-turtle', 'scalloped-hammerhead', 'bottlenose-dolphin',
-  // The reef's animals keep to their own places on the reef (reef-life.ts): the moray's den, the octopus's rock, the cuttlefish's reef edge.
-  'giant-moray', 'day-octopus', 'giant-cuttlefish'] as const)
+  'great-barracuda', 'sailfish', 'california-sea-lion', 'spotted-eagle-ray', 'golden-jellyfish',
+  // The reef's animals keep to their own places on the reef (reef-life.ts): the moray's den, the octopus's rock, the cuttlefish's reef edge, the clownfish's anemone.
+  'giant-moray', 'day-octopus', 'giant-cuttlefish', 'clownfish'] as const)
   .map((model, lane) => ({ model, lane }));
 
 /** A mostly overhead orthographic view gives the island an illustrated 2.5D appearance. */

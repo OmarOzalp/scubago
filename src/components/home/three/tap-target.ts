@@ -1,10 +1,14 @@
 import { Box3, Vector3, type Object3D } from 'three';
 import { REEF_SIZE } from '@/lib/reef-life';
 
-/** World length of each model (the reef manta is measured across its wings, the octopus across its arms). */
+/**
+ * World length of each model (the reef manta and eagle ray are measured across their wings, the
+ * octopus across its arms, the jellyfish across its bell).
+ */
 export const MARINE_SIZE = {
   shark: 2.45, manta: 2.25, 'reef-fish': .85, 'whale-shark': 3, 'tiger-shark': 2.45, 'great-white-shark': 2.5,
   'scalloped-hammerhead': 2.25, 'reef-manta': 2.2, 'mola-mola': 1.8, 'green-turtle': 1.2, 'bottlenose-dolphin': 1.55,
+  'great-barracuda': 1.6, sailfish: 2.2, 'california-sea-lion': 1.35, 'spotted-eagle-ray': 1.4, 'golden-jellyfish': .48,
   ...REEF_SIZE,
 } as const;
 
@@ -16,14 +20,15 @@ export const MIN_TAP = .42;
 
 /**
  * Fixed tap targets for the reef's animals, in model units (the middle along the body, half-width and
- * half-length): over the octopus's mantle and inner arms, a compact oval over the cuttlefish, and along
- * the moray's front, the part out of its den. Their bodies themselves are never ray-tested (eight
+ * half-length): over the octopus's mantle and inner arms, a compact oval over the cuttlefish, along
+ * the moray's front, the part out of its den, and over each clownfish (grown to the minimum size). Their bodies themselves are never ray-tested (eight
  * arms, a long body): animated-marine.tsx turns that off.
  */
 export const TAP_SHAPES: Partial<Record<keyof typeof MARINE_SIZE, { z: number; halfWidth: number; halfLength: number }>> = {
   'day-octopus': { z: -.04, halfWidth: .3, halfLength: .32 },
   'giant-cuttlefish': { z: 0, halfWidth: .22, halfLength: .45 },
   'giant-moray': { z: .22, halfWidth: .09, halfLength: .3 },
+  clownfish: { z: 0, halfWidth: .2, halfLength: .45 },
 };
 
 /**

@@ -1,6 +1,6 @@
 import { breachFlight, breachHeight, DOLPHIN_BREACH, type BreachConfig, type BreachStage } from './breach';
 import { createShoreField } from './island-outline';
-import { GROUP_STYLES, type GroupStyle } from './marine-groups';
+import { followerLane, GROUP_STYLES, type GroupStyle } from './marine-groups';
 import { OCEAN } from './ocean';
 import { sampleDive, surfaceShift, SWIM_LEVEL } from './ocean-depth';
 import { createReefLife, isReefModel, REEF_THREAT, type MarineHabitat, type ReefVisitor } from './reef-life';
@@ -17,8 +17,7 @@ export { WORLD } from './steering';
 export type MarineMember = { model: MarineModel; lane: number; group?: number };
 /** An animal the scene draws: a species' leader (`index` 0, `leader` its own lane) or a follower in its group. */
 export type MarineSwimmer = { model: MarineModel; lane: number; leader: number; index: number };
-/** Followers' lanes: clear of the species' own (0 to 7) and one per group member. */
-export const followerLane = (leader: number, index: number) => 100 + leader * 8 + index;
+export { followerLane } from './marine-groups';
 /**
  * `effort` drives artist swim clips (never below .65); `pace` is speed relative to the
  * species' cruise and drives procedural rigs. `turn` is the heading change in rad/s
@@ -34,6 +33,8 @@ export type MarinePose = {
    * (shares of its length from the tail and from the head).
    */
   rest?: number; jet?: number; ground?: number; tone?: [number, number, number]; hide?: [number, number];
+  /** A sailfish's sail, 0 (folded flat for a dash) to 1 (raised in a display); its rig's cruising setting unless set. */
+  sail?: number;
 };
 
 /**
@@ -73,6 +74,15 @@ export type Movement = {
   pitch?: number;
   /** Now and then a breath becomes a leap clear of the water (see breach.ts). */
   breach?: BreachConfig;
+  /**
+   * Now and then it stops, then dashes away: every `every` seconds it slows to `slow` of its cruise
+   * and hangs there for `hold` seconds (a barracuda lurking; a sailfish rolling `roll` rad onto its side
+   * to show off its sail), then dashes off at `burst` times its cruise for `dash` seconds. With `sail`
+   * the sail stands fully raised while it slows and folds flat for the dash. A group pauses with its leader.
+   */
+  pause?: { every: number; hold: number; slow: number; burst: number; dash: number; roll?: number; sail?: boolean };
+  /** A playful full roll about its own length, now and then (about every `every` seconds), taking `time` seconds (a sea lion). */
+  barrel?: { every: number; time: number };
   /**
    * Where it lives: the open water around the island (the default, steered here), or on the reef
    * itself (reef-life.ts, which has the reef animals' behavior; the fields above only give their size).
@@ -137,11 +147,51 @@ export const MOVEMENT: Record<MarineModel, Movement> = {
     depth: .16, bob: .1, bobPeriod: 11, reverseEvery: 60, weave: .2, weavePeriod: 9,
     breathe: { every: 26, rise: 3.2, hold: 1.8, clearance: .2 }, pitch: 1.3, breach: DOLPHIN_BREACH,
   },
+  // A lurker: hangs almost motionless in mid-water for long spells (only its fins scull), then shoots
+  // off in a short, fast dash before settling into an easy cruise. Alone, slender and silver.
+  'great-barracuda': {
+    cruise: .34, swing: .1, swingPeriod: 21, surge: 0, turnRate: .45, turnEase: .6, bank: .4, bankMax: .14, bankEase: 1.6, lazyRoll: 0, tilt: 0,
+    halfLength: .8, halfWidth: .13, personalSpace: .25, avoidance: .85, islandClearance: .8, roam: [.1, .75], roamPeriod: 40, patrol: .5,
+    depth: -.04, bob: .025, bobPeriod: 24, reverseEvery: 90,
+    pause: { every: 24, hold: 7, slow: .07, burst: 2.6, dash: 1.4 },
+  },
+  // The fastest fish: cruises fast and straight high in the water, far offshore, the sail half raised.
+  // Now and then it slows, raises the sail fully and rolls onto its side to show it off, then folds it
+  // flat and bursts away.
+  sailfish: {
+    cruise: .55, swing: .08, swingPeriod: 25, surge: .15, turnRate: .5, turnEase: .65, bank: .55, bankMax: .22, bankEase: 1.8, lazyRoll: 0, tilt: 0,
+    halfLength: 1.1, halfWidth: .18, personalSpace: .3, avoidance: .85, islandClearance: 1.05, roam: [.35, 1.1], roamPeriod: 50, patrol: .6,
+    depth: .12, bob: .03, bobPeriod: 18, reverseEvery: 110,
+    pause: { every: 32, hold: 4.5, slow: .42, burst: 2.3, dash: 2.2, roll: .5, sail: true },
+  },
+  // Playful and acrobatic: quick, twisting, with tight turns and deep banks, swimming high in the water,
+  // a full barrel roll now and then, and up to the surface to breathe; usually two or three together.
+  'california-sea-lion': {
+    cruise: .46, swing: .2, swingPeriod: 10, surge: .25, turnRate: .75, turnEase: 1, bank: .9, bankMax: .45, bankEase: 2.2, lazyRoll: 0, tilt: 0,
+    halfLength: .7, halfWidth: .3, personalSpace: .2, avoidance: 1, islandClearance: .8, roam: [0, .8], roamPeriod: 26, patrol: 0,
+    depth: .12, bob: .09, bobPeriod: 9, reverseEvery: 50, weave: .3, weavePeriod: 7,
+    breathe: { every: 30, rise: 2.6, hold: 1.4, clearance: .18 }, pitch: 1, barrel: { every: 16, time: 1.5 },
+  },
+  // Flies with steady, deep wingbeats in mid-water, banking gracefully through wide turns; usually a
+  // squadron of three or four keeping formation.
+  'spotted-eagle-ray': {
+    cruise: .36, swing: .1, swingPeriod: 16, surge: 0, turnRate: .34, turnEase: .5, bank: 1.4, bankMax: .32, bankEase: 1.2, lazyRoll: 0, tilt: 0,
+    halfLength: .5, halfWidth: .7, personalSpace: .25, avoidance: .8, islandClearance: 1, roam: [.15, .9], roamPeriod: 44, patrol: 0,
+    depth: -.02, bob: .07, bobPeriod: 15, reverseEvery: 85,
+  },
+  // Drifts slowly just under the surface, pulsing along on lazy, meandering courses; a swarm of them,
+  // yielding to everything.
+  'golden-jellyfish': {
+    cruise: .08, swing: .3, swingPeriod: 9, surge: 0, turnRate: .14, turnEase: .3, bank: 0, bankMax: 0, bankEase: 1, lazyRoll: 0, tilt: 0,
+    halfLength: .25, halfWidth: .25, personalSpace: .1, avoidance: 1, islandClearance: .7, roam: [0, .75], roamPeriod: 70, patrol: 0,
+    depth: .2, bob: .05, bobPeriod: 8, reverseEvery: 0, weave: .45, weavePeriod: 23,
+  },
   // Reef animals keep to the reef: the octopus on the seabed shelf, the cuttlefish over the reef edge,
-  // the moray in its crevice (their behavior is in reef-life.ts).
+  // the moray in its crevice, the clownfish in their anemone (their behavior is in reef-life.ts).
   'day-octopus': { ...FAMILY, cruise: .075, turnRate: .9, halfLength: .5, halfWidth: .55, habitat: 'seabed' },
   'giant-cuttlefish': { ...FAMILY, cruise: .13, turnRate: .55, halfLength: .43, halfWidth: .2, habitat: 'reef-edge' },
   'giant-moray': { ...FAMILY, cruise: .2, turnRate: .75, halfLength: .83, halfWidth: .09, habitat: 'crevice' },
+  clownfish: { ...FAMILY, cruise: .16, turnRate: 3, halfLength: .25, halfWidth: .1, habitat: 'anemone' },
   // Family representatives stand in for species without their own model.
   shark: FAMILY,
   manta: { ...FAMILY, cruise: .31, turnRate: .3, turnEase: .45, halfLength: .9, halfWidth: .8, islandClearance: 1.05 },
@@ -156,6 +206,7 @@ export const MOVEMENT: Record<MarineModel, Movement> = {
  */
 export const ARRIVAL_PACE: Partial<Record<MarineModel, number>> = {
   'great-white-shark': 1.35, 'tiger-shark': 1.15, 'scalloped-hammerhead': 1.15, 'bottlenose-dolphin': 1.25, shark: 1.1, 'reef-fish': 1.1,
+  sailfish: 1.3, 'california-sea-lion': 1.25, 'great-barracuda': 1.2,
 };
 /** An arrival that takes longer than this (s) counts as arrived anyway. */
 const ARRIVAL_LIMIT = 30;
@@ -277,6 +328,8 @@ type Animal = {
   leap: Leap | null;
   /** Body pitch (rad, positive nose down), how far out of the water it is (0..1), and its world height last step. */
   pitch: number; air: number; worldY: number;
+  /** A barrel roll's progress (rad, 0 between rolls), on top of its bank. */
+  spin: number;
   x: number; z: number; y: number; heading: number; speed: number; turn: number; bank: number; climb: number;
   /** Apparent offset toward the viewer (see apparentShift), and how much closer than its island clearance it may pass islets. */
   shift: number; allowance: number;
@@ -286,7 +339,7 @@ type Animal = {
   want: number;
   /** Slowing (0..1) and rise (units) while making room for another animal; the pace of one it waits behind; how involved it is with others (0..1). */
   brake: number; lift: number; follow: number; followSpeed: number; busy: number;
-  previous: { x: number; z: number; y: number; heading: number; bank: number; pitch: number };
+  previous: { x: number; z: number; y: number; heading: number; bank: number; pitch: number; spin: number };
   /** Its depth before any breath at the surface (air-breathers rise from it and settle back to it). */
   level: number;
   pose: MarinePose;
@@ -367,13 +420,13 @@ export function createMarineMotion(everyMember: readonly MarineMember[], level =
       model: member.model, lane: member.lane, group, m, base, x, z, y, heading, speed: m.cruise, turn: 0, bank: m.tilt, climb: 0, shift, allowance,
       direction, halfTurn: 0, nextReverse: m.reverseEvery ? m.reverseEvery * (.5 + variation(member.lane, 1)) : Infinity, reversals: 0,
       want: 0, brake: 0, lift: 0, follow: 0, followSpeed: m.cruise, busy: 0,
-      previous: { x, z, y, heading, bank: m.tilt, pitch: 0 }, level: y,
+      previous: { x, z, y, heading, bank: m.tilt, pitch: 0, spin: 0 }, level: y,
       pose: { x, y, z, heading, bank: m.tilt, effort: 1, pace: 1, turn: 0, speed: m.cruise, climb: 0, pitch: 0, air: 0 },
       steering: { roam: [0, 0], island: [0, 0], animals: [0, 0], frame: [0, 0], band: target, lane: target },
       hunt: school && SCHOOL_REACTIONS[member.model].hunts
         ? { phase: 'normal' as HuntPhase, since: 0, encounters: 0, attack: false, charges: 0, away: true, rested: 0, aimX: 0, aimZ: 0, committed: false, line: 0, waiting: '' }
         : null,
-      index: 0, place: null, slotX: x, slotZ: z, delay: 0, cycle: NaN, leapt: NaN, waiting: -Infinity, leap: null, pitch: 0, air: 0, worldY: NaN,
+      index: 0, place: null, slotX: x, slotZ: z, delay: 0, cycle: NaN, leapt: NaN, waiting: -Infinity, leap: null, pitch: 0, air: 0, worldY: NaN, spin: 0,
     };
     group.members.push(animal);
     if (group.style) group.nextSwap = group.style.swapEvery ? group.style.swapEvery * (.5 + variation(member.lane + 17, 0)) : Infinity;
@@ -394,12 +447,12 @@ export function createMarineMotion(everyMember: readonly MarineMember[], level =
         model: head.model, lane, group: head.group, m, base: m, x, z, y, heading: head.heading, speed: head.speed, turn: 0, bank: m.tilt, climb: 0,
         shift: head.shift, allowance, direction: head.direction, halfTurn: 0, nextReverse: Infinity, reversals: 0,
         want: 0, brake: 0, lift: 0, follow: 0, followSpeed: m.cruise, busy: 0,
-        previous: { x, z, y, heading: head.heading, bank: m.tilt, pitch: 0 }, level: y,
+        previous: { x, z, y, heading: head.heading, bank: m.tilt, pitch: 0, spin: 0 }, level: y,
         pose: { x, y, z, heading: head.heading, bank: m.tilt, effort: 1, pace: 1, turn: 0, speed: m.cruise, climb: 0, pitch: 0, air: 0 },
         steering: { roam: [0, 0], island: [0, 0], animals: [0, 0], frame: [0, 0], band: 0, lane: 0 },
         hunt: null,
         index, place: { from: style.places[index - 1], to: style.places[index - 1], since: Infinity, dip: 0 }, slotX: x, slotZ: z,
-        delay: index * DIVE_STAGGER, cycle: NaN, leapt: NaN, waiting: -Infinity, leap: null, pitch: 0, air: 0, worldY: NaN,
+        delay: index * DIVE_STAGGER, cycle: NaN, leapt: NaN, waiting: -Infinity, leap: null, pitch: 0, air: 0, worldY: NaN, spin: 0,
       };
       head.group.members.push(follower);
       followers.push(follower);
@@ -635,15 +688,43 @@ export function createMarineMotion(everyMember: readonly MarineMember[], level =
     a.pitch += (target - a.pitch) * ease(flying ? 30 : a.leap ? 9 : 1.6, STEP);
     a.air = smoothstep(SURFACE - .05, SURFACE + .3, y);
   }
-  /** Roll into turns (a slow lazy roll for some species), settling around any resting tilt. */
+  /**
+   * Where it is in a pause (Movement.pause): how far it has slowed (0..1), how hard it is dashing
+   * (0..1), and which way a display rolls it. Only while its group swims as usual, up in the water:
+   * not arriving, hunting or on a dive. A group pauses on its leader's clock.
+   */
+  const NO_PAUSE = { slow: 0, dash: 0, side: 1 };
+  function pausing(a: Animal) {
+    const p = a.base.pause, head = a.group.members[0];
+    if (!p || !settled(head) || (head.hunt && head.hunt.phase !== 'normal') || head.leap) return NO_PAUSE;
+    const at = time + head.lane * 5.3, index = Math.floor(at / p.every), into = at - index * p.every;
+    const up = 1 - clamp(diveOf(head, time).depth * 4, 0, 1);
+    return {
+      slow: up * smoothstep(0, 1.8, into) * (1 - smoothstep(p.hold, p.hold + .5, into)),
+      dash: up * smoothstep(p.hold, p.hold + .4, into) * (1 - smoothstep(p.hold + p.dash, p.hold + p.dash + 1.6, into)),
+      side: variation(head.lane, index) < .5 ? 1 : -1,
+    };
+  }
+  /** A barrel roll's progress (rad): now and then (not every time), up in the water and not breathing or leaping. */
+  function barrel(a: Animal) {
+    const b = a.base.barrel;
+    if (!b || !settled(a) || a.leap || breathing(a) > 0) return 0;
+    const at = time + a.lane * 3.7, index = Math.floor(at / b.every), into = at - index * b.every;
+    if (into > b.time || variation(a.lane + 31, index) > .6 || diveOf(a, time - into).depth > 0) return 0;
+    return (variation(a.lane + 47, index) < .5 ? 1 : -1) * TAU * smoothstep(0, b.time, into);
+  }
+  /** Roll into turns (a slow lazy roll for some species, a sailfish's display), settling around any resting tilt; a barrel roll on top. */
   function roll(a: Animal) {
     const m = a.m, lazy = m.lazyRoll * Math.sin(time * TAU / 27 + a.lane * 2.1) ** 5;
-    const bank = clamp(-a.turn * m.bank + lazy, -m.bankMax, m.bankMax) + m.tilt * (1 + .12 * Math.sin(time * TAU / 31 + a.lane));
+    const pause = m.pause?.roll ? pausing(a) : NO_PAUSE;
+    const display = (m.pause?.roll ?? 0) * pause.slow * pause.side;
+    const bank = clamp(-a.turn * m.bank + lazy, -m.bankMax, m.bankMax) + display + m.tilt * (1 + .12 * Math.sin(time * TAU / 31 + a.lane));
     a.bank += (bank - a.bank) * ease(m.bankEase, STEP);
+    a.spin = barrel(a);
   }
   function remember(a: Animal) {
     const p = a.previous;
-    p.x = a.x; p.z = a.z; p.y = a.y; p.heading = a.heading; p.bank = a.bank; p.pitch = a.pitch;
+    p.x = a.x; p.z = a.z; p.y = a.y; p.heading = a.heading; p.bank = a.bank; p.pitch = a.pitch; p.spin = a.spin;
   }
 
   /**
@@ -977,6 +1058,12 @@ export function createMarineMotion(everyMember: readonly MarineMember[], level =
         const unseen = Math.abs(a.x) - r > view.x || z + r < view.top || z - r > view.bottom;
         target *= (1 + ((ARRIVAL_PACE[a.model] ?? 1) - 1) * near) * (unseen ? UNSEEN_PACE : 1);
       }
+      // A pause (Movement.pause): it slows to hang in the water, then dashes off.
+      const pause = pausing(a);
+      if (pause.slow > 0 || pause.dash > 0) {
+        target *= (1 - (1 - m.pause!.slow) * pause.slow) * (1 + (m.pause!.burst - 1) * pause.dash);
+        response = pause.dash > .05 ? 2.8 : 1.4;
+      }
       const leaping = leapSpeed(a);
       a.speed = leaping ?? a.speed + (target - a.speed) * ease(response, STEP);
       a.x += Math.sin(a.heading) * a.speed * STEP;
@@ -1160,7 +1247,7 @@ export function createMarineMotion(everyMember: readonly MarineMember[], level =
     for (const a of g.members) {
       const [across, behind] = a.place ? a.place.to : [0, 0];
       a.x = x + hz * across - hx * behind; a.z = z - hx * across - hz * behind;
-      a.heading = heading; a.turn = 0; a.want = 0; a.halfTurn = 0; a.bank = a.m.tilt;
+      a.heading = heading; a.turn = 0; a.want = 0; a.halfTurn = 0; a.bank = a.m.tilt; a.spin = 0;
       a.speed = a.base.cruise; a.slotX = a.x; a.slotZ = a.z;
       a.worldY = a.y + diveOf(a, time).y;
       remember(a);
@@ -1200,7 +1287,8 @@ export function createMarineMotion(everyMember: readonly MarineMember[], level =
       pose.z = p.z + (a.z - p.z) * t;
       pose.y = p.y + (a.y - p.y) * t;
       pose.heading = p.heading + wrap(a.heading - p.heading) * t;
-      pose.bank = p.bank + (a.bank - p.bank) * t;
+      // A barrel roll ends a full turn round, where it began: interpolated the short way.
+      pose.bank = p.bank + (a.bank - p.bank) * t + p.spin + wrap(a.spin - p.spin) * t;
       pose.pitch = p.pitch + (a.pitch - p.pitch) * t;
       pose.turn = a.turn;
       pose.speed = a.speed;
@@ -1208,6 +1296,10 @@ export function createMarineMotion(everyMember: readonly MarineMember[], level =
       pose.air = a.air;
       pose.pace = a.speed / a.base.cruise;
       pose.effort = .65 + .35 * pose.pace;
+      if (a.base.pause?.sail) {
+        const pause = pausing(a);
+        pose.sail = pause.dash > .05 ? 0 : pause.slow > .05 ? 1 : undefined;
+      }
     }
     reef?.publish(t);
     // The school's last step is up to one simulation step older than the animals'.
