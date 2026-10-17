@@ -169,7 +169,7 @@ export const MOVEMENT: Record<MarineModel, Movement> = {
   'california-sea-lion': {
     cruise: .46, swing: .2, swingPeriod: 10, surge: .25, turnRate: .75, turnEase: 1, bank: .9, bankMax: .45, bankEase: 2.2, lazyRoll: 0, tilt: 0,
     halfLength: .7, halfWidth: .3, personalSpace: .2, avoidance: 1, islandClearance: .8, roam: [0, .8], roamPeriod: 26, patrol: 0,
-    depth: .12, bob: .09, bobPeriod: 9, reverseEvery: 50, weave: .3, weavePeriod: 7,
+    depth: .15, bob: .09, bobPeriod: 9, reverseEvery: 50, weave: .3, weavePeriod: 7,
     breathe: { every: 30, rise: 2.6, hold: 1.4, clearance: .18 }, pitch: 1, barrel: { every: 16, time: 1.5 },
   },
   // Flies with steady, deep wingbeats in mid-water, banking gracefully through wide turns; usually a

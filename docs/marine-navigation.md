@@ -413,7 +413,7 @@ The six newest (batch v4), each told apart by how it moves as much as by its sha
 | `bank` / `bankMax` | 0.4 / 0.14 | 0.55 / 0.22 | 0.9 / 0.45 | 1.4 / 0.32 | 0 / 0 |
 | `halfLength` × `halfWidth` | 0.8 × 0.13 | 1.1 × 0.18 | 0.7 × 0.3 | 0.5 × 0.7 | 0.25 × 0.25 |
 | `islandClearance` / `roam` | 0.8 / 0.1–0.75 | 1.05 / 0.35–1.1 | 0.8 / 0–0.8 | 1.0 / 0.15–0.9 | 0.7 / 0–0.75 |
-| `depth` / `bob` | −0.04 / 0.025 | +0.12 / 0.03 | +0.12 / 0.09 | −0.02 / 0.07 | +0.2 / 0.05 |
+| `depth` / `bob` | −0.04 / 0.025 | +0.12 / 0.03 | +0.15 / 0.09 | −0.02 / 0.07 | +0.2 / 0.05 |
 | `weave` (rad, over s) | – | – | 0.3, 7 | – | 0.45, 23 |
 | Group | alone | alone | 2–3 | 3–4 | 4–6 |
 | Special | `pause` (lurk, dash) | `pause` (sail display, dash) | `breathe`, `barrel` | – | – |

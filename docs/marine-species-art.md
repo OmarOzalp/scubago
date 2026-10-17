@@ -271,7 +271,10 @@ column under a crown of seventy round, finger-like tentacles, sand-colored with 
 2,000 triangles, 1,160 in lite), and sways the tentacles on the CPU.
 
 Previews: `docs/art-previews/great-barracuda.png`, `sailfish.png`, `california-sea-lion.png`,
-`spotted-eagle-ray.png`, `golden-jellyfish.png` and `clownfish.png` (the same studio framing).
+`spotted-eagle-ray.png`, `golden-jellyfish.png` and `clownfish.png` (the same studio framing), and
+`island-batch-v4.png`: the six around a level 3 island as the app's camera sees them, eight
+seconds apart (left: the eagle-ray squadron, the barracuda, the sailfish cruising, the jellyfish
+swarm and the clownfish's anemone; right: the sailfish rolled into its display, the sea lions).
 
 The island's tuna school is not a glTF asset: each tuna is a low-poly mesh built at runtime
 (`src/components/home/three/tuna-geometry.ts`, 167 triangles, or 83 in lite quality). It has a

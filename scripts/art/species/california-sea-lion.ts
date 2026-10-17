@@ -11,7 +11,7 @@ import { SWIM_RIGS, type PinnipedRig } from '../../../src/lib/marine-rigs';
 import { blendSkins, curve, fin, hex, mix, noise, smoothstep, type RGB } from './kit';
 import { sharkContext, type SharkDesign } from './shark';
 
-const BACK = hex('#704a2b'), UPPER = hex('#8c5f3c'), FLANK = hex('#a97c51'), BELLY = hex('#c49b6b'), MUZZLE = hex('#9a7550');
+const BACK = hex('#8b5530'), UPPER = hex('#a86b3c'), FLANK = hex('#c48a55'), BELLY = hex('#dcb07a'), MUZZLE = hex('#b98a5c');
 const FLIPPER = hex('#2b221d'), SOLE = hex('#3a2f28'), NOSE = hex('#120f0d'), EYE = hex('#0a0807'), WHISKER = hex('#efe7d3'), EAR = hex('#45342a');
 const MOUTH = hex('#2a1f18');
 
