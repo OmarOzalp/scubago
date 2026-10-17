@@ -33,6 +33,8 @@ export type OceanPalette = {
 export const OCEAN = {
   /** Height of the calm water surface. */
   surfaceLevel: -.18,
+  /** The water surface reaches this far from the island's middle (units) each way: past it there is no water to see. */
+  waterExtent: 8.6,
 
   // Waves: several layers traveling in different directions so the surface never repeats.
   waves: {

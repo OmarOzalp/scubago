@@ -17,6 +17,15 @@ export const MARINE_SIZE = {
  * about 14 pt on a phone, so the whole target is at least a comfortable 28 pt across.
  */
 export const MIN_TAP = .42;
+/**
+ * A press that moved farther than this between finger down and up (pixels) was a drag across the
+ * water (the explorer pans), not a tap on an animal.
+ */
+export const TAP_SLOP = 8;
+/** MIN_TAP on screen (points): the half-size a tap target keeps, at any zoom. */
+export const MIN_TAP_POINTS = 14;
+/** The `scale` tapTarget takes in the island explorer, zoomed to `zoom` points per unit: targets stay MIN_TAP_POINTS however close it looks. */
+export const tapScaleAt = (zoom: number) => MIN_TAP_POINTS / (MIN_TAP * zoom);
 
 /**
  * Fixed tap targets for the reef's animals, in model units (the middle along the body, half-width and

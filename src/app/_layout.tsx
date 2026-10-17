@@ -78,6 +78,7 @@ export default function RootLayout() {
         <Stack.Screen name="add-site" options={{ presentation: 'modal', title: 'Add a dive site' }} />
         <Stack.Screen name="auth" options={{ presentation: 'modal', title: 'Account' }} />
         <Stack.Screen name="inspect" options={{ presentation: 'modal', title: 'A closer look' }} />
+        <Stack.Screen name="explore" options={{ presentation: 'fullScreenModal', animation: 'fade', headerShown: false, title: 'Explore your ocean' }} />
         <Stack.Screen name="verify" options={{ presentation: 'modal', title: 'Buddy code' }} />
         <Stack.Screen name="dive/edit" options={{ presentation: 'modal', title: 'Edit page' }} />
         <Stack.Screen name="dive/sign" options={{ presentation: 'modal', title: 'Sign the page' }} />

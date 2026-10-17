@@ -5,7 +5,7 @@ import { OceanContext } from './ocean-context';
 import { useSceneQuality } from './scene-quality';
 import { FLOOR_BIAS, prepareUnderwater, type ReefLook } from './underwater-material';
 import { attachSwimRig, swimDrive } from './swim-rig-driver';
-import { MARINE_SIZE, TAP_SHAPES, tapTarget } from './tap-target';
+import { MARINE_SIZE, TAP_SHAPES, TAP_SLOP, tapTarget } from './tap-target';
 import { MOVEMENT, type MarineMotion } from '@/lib/marine-motion';
 import { SWIM_RIGS, type SwimDrive, type SwimRigModel } from '@/lib/marine-rigs';
 import { sampleDive } from '@/lib/ocean-depth';
@@ -130,7 +130,7 @@ export function AnimatedMarine({ model, gltf, lane, active, inspect = false, pop
 
   const pose = motion?.get(lane) ?? sampleSwimPath(0, lane);
   const dive = motion ? motion.dive(lane, 0) : sampleDive(0, lane, population);
-  return <group ref={group} position={inspect ? [0, .2, 0] : [pose.x, pose.y + dive.y, pose.z]} rotation={[0, inspect ? -1.05 : pose.heading, 0]} scale={inspect ? 4.5 : SIZE[model]} onClick={(event) => { if (onPress && group.current?.visible && (motion ? motion.dive(lane) : sampleDive(elapsed.current, lane, population)).opacity > .2) { event.stopPropagation(); onPress(); } }}>
+  return <group ref={group} position={inspect ? [0, .2, 0] : [pose.x, pose.y + dive.y, pose.z]} rotation={[0, inspect ? -1.05 : pose.heading, 0]} scale={inspect ? 4.5 : SIZE[model]} onClick={(event) => { if (onPress && event.delta <= TAP_SLOP && group.current?.visible && (motion ? motion.dive(lane) : sampleDive(elapsed.current, lane, population)).opacity > .2) { event.stopPropagation(); onPress(); } }}>
     <primitive object={instance} dispose={null} />
     {target && <mesh visible={false} position={[target.x, target.y, target.z]} rotation={[-Math.PI / 2, 0, 0]} scale={[target.halfWidth, target.halfLength, 1]}>
       <circleGeometry args={[1, 16]} />
