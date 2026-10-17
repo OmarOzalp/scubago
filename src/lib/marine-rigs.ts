@@ -12,7 +12,8 @@
  */
 
 export type SwimRigModel = 'tiger-shark' | 'whale-shark' | 'great-white-shark' | 'scalloped-hammerhead' | 'reef-manta' | 'mola-mola' | 'green-turtle' | 'bottlenose-dolphin'
-  | 'day-octopus' | 'giant-cuttlefish' | 'giant-moray';
+  | 'day-octopus' | 'giant-cuttlefish' | 'giant-moray' | 'great-barracuda' | 'sailfish' | 'clownfish'
+  | 'spotted-eagle-ray' | 'california-sea-lion' | 'golden-jellyfish';
 
 export const SHARK_BONES = [
   'Root', 'Head', 'Spine1', 'Spine2', 'RearBody', 'TailBase', 'Tail', 'TailUpper', 'TailLower',
@@ -64,6 +65,22 @@ export const CUTTLEFISH_FINS = Array.from({ length: 7 }, (_, i) => {
 export const CUTTLEFISH_BONES: readonly string[] = ['Root', 'Mantle', 'Head',
   ...CUTTLEFISH_FINS.map((_, i) => `FinL${i + 1}`), ...CUTTLEFISH_FINS.map((_, i) => `FinR${i + 1}`),
   'ArmLU1', 'ArmLU2', 'ArmRU1', 'ArmRU2', 'ArmLD1', 'ArmLD2', 'ArmRD1', 'ArmRD2'];
+/**
+ * Sea lions: the shark's spine chain (`Head` at the base of the long neck, `Tail` the hind flippers'
+ * root), the long fore flippers in two parts (`ForeL1` the arm, `ForeL2` the hand) and the hind flippers.
+ */
+export const PINNIPED_BONES = [
+  'Root', 'Head', 'Spine1', 'Spine2', 'RearBody', 'TailBase', 'Tail', 'ForeL1', 'ForeL2', 'ForeR1', 'ForeR2', 'HindL', 'HindR',
+] as const;
+/**
+ * The jellyfish: `Bell` (its dome) and `Rim` (the margin) scale to pulse; eight oral arms hang from
+ * under the bell, each in two parts (`Arm1A`, `Arm1B`), the first at `jellyArmAngle(0)` (rad from +Z
+ * toward +X). Shared with the generator.
+ */
+export const JELLY_ARMS = 8;
+export const jellyArmAngle = (i: number) => (i + .5) * Math.PI * 2 / JELLY_ARMS;
+export const JELLY_BONES: readonly string[] = ['Root', 'Bell', 'Rim',
+  ...Array.from({ length: JELLY_ARMS }, (_, i) => [`Arm${i + 1}A`, `Arm${i + 1}B`]).flat()];
 /** The moray: `Root` at the neck, `Head` and its lower `Jaw` ahead of it, and eight body bones behind it to the tail. */
 export const MORAY_BONES = ['Root', 'Head', 'Jaw', 'Body1', 'Body2', 'Body3', 'Body4', 'Body5', 'Body6', 'Body7', 'Body8'] as const;
 export type SharkBone = typeof SHARK_BONES[number];
@@ -94,12 +111,27 @@ export type SharkRig = {
   lobes: { upper: number; lower: number; upperAngle: number; lowerAngle: number; lag: number };
   /** Secondary sway of the first dorsal fin (rad). */
   dorsal: number;
-  /** Pectoral fins: cyclic flap and pitch (rad), plus responses to turning (per rad/s) and climbing. */
-  pectoral: { flap: number; pitch: number; turn: number; climb: number };
+  /**
+   * Pectoral fins: cyclic flap and pitch (rad), plus responses to turning (per rad/s) and climbing.
+   * `row` (rad) sweeps them back and forth like oars, one after the other (a clownfish), harder as a
+   * hovering fish's tail rests.
+   */
+  pectoral: { flap: number; pitch: number; turn: number; climb: number; row?: number };
   /** Body roll with each tail beat (rad). */
   roll: number;
   /** Share of the path curvature expressed as a bend in the body when turning. */
   bend: number;
+  /**
+   * A fish that hangs still in the water (a lurking barracuda): the share of its tail stroke left at
+   * its slowest (1 unless set), so it holds its place with barely a flicker and the pectorals sculling.
+   */
+  hover?: number;
+  /**
+   * A sail on `Dorsal` that folds down into its groove (a sailfish): its height when folded (share of
+   * full height), and how far it stands raised when nothing says otherwise. `SwimDrive.sail` sets it
+   * (0 folded, 1 fully raised); sideways it still sways with the stroke.
+   */
+  sail?: { folded: number; cruise: number };
 };
 
 export type MantaRig = {
@@ -257,7 +289,43 @@ export type MorayRig = {
   drape: number; sway: number; look: number; gape: number; breathRate: number; curve: number;
 };
 
-export type SwimRigSpec = SharkRig | MantaRig | SunfishRig | TurtleRig | CetaceanRig | OctopusRig | CuttlefishRig | MorayRig;
+export type PinnipedRig = {
+  kind: 'pinniped';
+  /** Spine joints from the nose (0) to the hind flipper tips (1): the neck's base (`Head`, `Spine1`), `Spine2`, `RearBody`, the hips (`TailBase`) and the hind flippers' root (`Tail`). */
+  joints: readonly [number, number, number, number, number];
+  /** Fore flipper strokes per second while actively swimming. */
+  frequency: number;
+  /** Fore flipper stroke: raise and lower, sweep fore and aft, feathering twist, and the hand's lagging flex (rad). */
+  flap: number; sweep: number; feather: number; wrist: number;
+  /** Glide pose: fore flippers swept back along the flanks and a little lowered (rad). */
+  glideSweep: number; glideDroop: number;
+  /** Strokes per bout (min, max) and glide seconds between bouts (min, max); each bout varies. */
+  bout: readonly [number, number]; glide: readonly [number, number];
+  /** Body pitch (rad) and rise (body lengths) with each stroke, and a gentle wave running down the spine (rad). */
+  pitch: number; bob: number; wave: number;
+  /** Share of the path curvature taken up as a bend along the whole supple body. */
+  bend: number;
+  /** The head on its long neck: a nod against each stroke (rad), leading into turns (rad per rad/s), and looking about while gliding (rad; looks per second). */
+  head: number; lead: number; look: number; lookRate: number;
+  /** Hind flippers: following the body's curve in turns (rad per rad/s), and parting a little on each stroke (rad). */
+  rudder: number; splay: number;
+};
+
+export type JellyRig = {
+  kind: 'jelly';
+  /** Bell pulses per second at its cruising pace. */
+  frequency: number;
+  /** A pulse narrows the rim (scale fraction; the dome half as much) and deepens the bell; `contract` is the share of each cycle spent contracting, the rest the slower relaxation. */
+  squeeze: number; stretch: number; contract: number;
+  /** Oral arms: their swing in and out behind the pulse (rad), the lag down each arm (rad), and how far they trail behind the drift (rad). */
+  sway: number; lag: number; trail: number;
+  /** The bell tilts into its drift (rad at cruising pace) and turns slowly about its axis (rad per second). */
+  tilt: number; spin: number;
+  /** Rise with each pulse (bell diameters). */
+  bob: number;
+};
+
+export type SwimRigSpec = SharkRig | MantaRig | SunfishRig | TurtleRig | CetaceanRig | OctopusRig | CuttlefishRig | MorayRig | PinnipedRig | JellyRig;
 
 /**
  * Species animation configuration. Swimming speed and turning live in
@@ -300,6 +368,28 @@ export const SWIM_RIGS: Record<SwimRigModel, SwimRigSpec> = {
     twist: [0, .03, .06, .1, .14], glideDihedral: [.015, .02, .025, .03, .035],
     turnAsymmetry: .5, climbGain: .6, bob: .012, pitch: .02, cephalic: .12, tail: [.05, .09, .14],
   },
+  // Smaller and quicker than the manta: deep, steady wingbeats from the shoulders out to the pointed
+  // tips (it flies rather than glides), the long whip of a tail trailing its own slow wave.
+  'spotted-eagle-ray': {
+    kind: 'manta', frequency: .5,
+    flap: [.1, .16, .2, .22, .24], waveLag: .3,
+    twist: [0, .04, .08, .12, .16], glideDihedral: [.02, .025, .03, .035, .04],
+    turnAsymmetry: .5, climbGain: .5, bob: .014, pitch: .025, cephalic: 0, tail: [.04, .06, .09],
+  },
+  // Flies with its long fore flippers: a bout of one or two strong strokes, then a glide with them
+  // pressed back along its flanks; the supple body bends right round in turns, the head leading on its
+  // long neck and looking about as it glides.
+  'california-sea-lion': {
+    kind: 'pinniped', joints: [.2, .38, .55, .7, .82], frequency: .8,
+    flap: .55, sweep: .5, feather: .5, wrist: .3, glideSweep: .9, glideDroop: .2,
+    bout: [1, 2], glide: [1.4, 2.8], pitch: .05, bob: .006, wave: .08, bend: .9,
+    head: .08, lead: .4, look: .35, lookRate: .15, rudder: .4, splay: .12,
+  },
+  // Rows with its bell: a quick squeeze and a slower relaxation, the frilly oral arms swinging behind
+  // each pulse; it drifts bell-first, tilted into its path, turning slowly about its axis.
+  'golden-jellyfish': {
+    kind: 'jelly', frequency: .9, squeeze: .16, stretch: .12, contract: .38, sway: .22, lag: .9, trail: .12, tilt: .35, spin: .25, bob: .02,
+  },
   // Lift-based fin flapping: the tall dorsal and anal fins beat together from side to side while the
   // stiff disc barely flexes; the scalloped clavus trims and steers.
   'mola-mola': {
@@ -336,6 +426,32 @@ export const SWIM_RIGS: Record<SwimRigModel, SwimRigSpec> = {
   },
   // Anguilliform: the whole long body waves, the wave growing toward the tail; resting in its den it
   // lies in a lazy curve, looking about and breathing through its slowly opening mouth.
+  // Subcarangiform and stiff-bodied: the stroke lives in the rear third and the forked tail. Lurking,
+  // it hangs almost motionless (the tail barely flickers, the pectorals scull); bursts beat hard.
+  'great-barracuda': {
+    kind: 'shark', joints: [.29, .45, .59, .71, .815], dorsalParent: 'Spine2', dorsalAt: .425,
+    frequency: .82, wavelength: 1.05, tailAmplitude: .085, rootAmplitude: .003, headAmplitude: .004, envelope: 2.6,
+    lobes: { upper: .07, lower: .07, upperAngle: .8, lowerAngle: .8, lag: .9 },
+    dorsal: .03, pectoral: { flap: .12, pitch: .06, turn: .5, climb: .25 }, roll: .012, bend: .8, hover: .12,
+  },
+  // Built for speed: a stiff, near-thunniform stroke packed into the keeled tail stock and the tall
+  // crescent tail. The sail stands partly raised cruising, rises fully as it slows and turns, and
+  // folds flat into its groove for a burst.
+  sailfish: {
+    kind: 'shark', joints: [.33, .48, .61, .72, .83], dorsalParent: 'Spine1', dorsalAt: .4,
+    frequency: .95, wavelength: 1.3, tailAmplitude: .07, rootAmplitude: .0025, headAmplitude: .003, envelope: 3.2,
+    lobes: { upper: .05, lower: .05, upperAngle: .9, lowerAngle: .9, lag: .8 },
+    dorsal: .04, pectoral: { flap: .03, pitch: .03, turn: .55, climb: .25 }, roll: .01, bend: .7, hover: .35,
+    sail: { folded: .07, cruise: .72 },
+  },
+  // Labriform with a waggle: it rows with its paddle pectorals, the deep little body wagging from
+  // the head back to the rounded tail; by its anemone it all but stops the tail and hovers on its oars.
+  clownfish: {
+    kind: 'shark', joints: [.3, .45, .58, .69, .78], dorsalParent: 'Spine2', dorsalAt: .56,
+    frequency: 2.1, wavelength: .95, tailAmplitude: .1, rootAmplitude: .006, headAmplitude: .018, envelope: 1.6,
+    lobes: { upper: .12, lower: .12, upperAngle: 1.15, lowerAngle: 1.15, lag: 1 },
+    dorsal: .05, pectoral: { flap: .12, pitch: .08, turn: .6, climb: .3, row: .55 }, roll: .03, bend: .9, hover: .3,
+  },
   'giant-moray': {
     kind: 'moray', joints: [.13, .25, .37, .49, .6, .71, .81, .9],
     frequency: .85, wavelength: .62, amplitude: .085, headAmplitude: .012, envelope: 1.1, bend: .9,
@@ -345,15 +461,17 @@ export const SWIM_RIGS: Record<SwimRigModel, SwimRigSpec> = {
 
 const BONES: Record<SwimRigSpec['kind'], readonly string[]> = {
   shark: SHARK_BONES, manta: MANTA_BONES, sunfish: SUNFISH_BONES, turtle: TURTLE_BONES, cetacean: DOLPHIN_BONES,
-  octopus: OCTOPUS_BONES, cuttlefish: CUTTLEFISH_BONES, moray: MORAY_BONES,
+  octopus: OCTOPUS_BONES, cuttlefish: CUTTLEFISH_BONES, moray: MORAY_BONES, pinniped: PINNIPED_BONES, jelly: JELLY_BONES,
 };
 export function rigBones(model: SwimRigModel): readonly string[] {
   return BONES[SWIM_RIGS[model].kind];
 }
 /** Bones a rig also scales (the mantles that breathe and squeeze), besides rotating them. */
 export function scaledBones(model: SwimRigModel): readonly string[] {
-  const kind = SWIM_RIGS[model].kind;
-  return kind === 'octopus' || kind === 'cuttlefish' ? ['Mantle'] : [];
+  const spec = SWIM_RIGS[model];
+  if (spec.kind === 'shark' && spec.sail) return ['Dorsal'];
+  if (spec.kind === 'jelly') return ['Bell', 'Rim'];
+  return spec.kind === 'octopus' || spec.kind === 'cuttlefish' ? ['Mantle'] : [];
 }
 
 export type SwimDrive = {
@@ -369,6 +487,8 @@ export type SwimDrive = {
   air?: number;
   /** Reef animals (0 to 1): settled and resting (the moray in its den), jetting, and on the seabed rather than swimming (1 unless set). */
   rest?: number; jet?: number; ground?: number;
+  /** A sailfish's sail, 0 (folded into its groove) to 1 (fully raised); its rig's cruising setting unless set. */
+  sail?: number;
 };
 export const CRUISE: SwimDrive = { effort: 1, turn: 0, curvature: 0, climb: 0 };
 
@@ -400,8 +520,10 @@ export function createSwimRig(model: SwimRigModel, phase = 0) {
     activity: 1, strokes: 0, glide: 0, bouts: Math.floor(phase * 7),
     // Reef animals only: resting, jetting, on the seabed, and their breathing's own phase.
     rest: 0, jet: 0, ground: 1, breath: ((phase * 1.7) % TAU + TAU) % TAU,
+    // Sailfish only: how far the sail stands.
+    sail: spec.kind === 'shark' && spec.sail ? spec.sail.cruise : 1,
   };
-  if (spec.kind === 'turtle') state.strokes = spec.bout[0];
+  if (spec.kind === 'turtle' || spec.kind === 'pinniped') state.strokes = spec.bout[0];
   const slot = Object.fromEntries(bones.map((bone, index) => [bone, index * 3])) as Record<string, number>;
   const set = (bone: string, x: number, y: number, z: number) => {
     const i = slot[bone];
@@ -412,16 +534,19 @@ export function createSwimRig(model: SwimRigModel, phase = 0) {
     scale[i] = x; scale[i + 1] = y; scale[i + 2] = z;
   };
   const pose = () => {
-    if (spec.kind === 'shark') poseShark(spec, state, set, offset);
+    if (spec.kind === 'shark') poseShark(spec, state, set, offset, setScale);
     else if (spec.kind === 'manta') poseManta(spec, state, set, offset);
     else if (spec.kind === 'sunfish') poseSunfish(spec, state, set, offset);
     else if (spec.kind === 'cetacean') poseCetacean(spec, state, set, offset);
     else if (spec.kind === 'octopus') poseOctopus(spec, state, set, offset, setScale);
     else if (spec.kind === 'cuttlefish') poseCuttlefish(spec, state, set, offset, setScale);
     else if (spec.kind === 'moray') poseMoray(spec, state, set, offset);
+    else if (spec.kind === 'pinniped') posePinniped(spec, state, set, offset);
+    else if (spec.kind === 'jelly') poseJelly(spec, state, set, offset, setScale);
     else poseTurtle(spec, state, set, offset);
   };
-  const breathRate = 'breathRate' in spec ? spec.breathRate : 0;
+  // A slow phase of its own: reef animals breathe on it, a sea lion looks about, a jellyfish turns.
+  const breathRate = 'breathRate' in spec ? spec.breathRate : spec.kind === 'pinniped' ? spec.lookRate : spec.kind === 'jelly' ? spec.spin / TAU : 0;
   pose();
   return {
     model, spec, bones, rotation, offset,
@@ -441,8 +566,13 @@ export function createSwimRig(model: SwimRigModel, phase = 0) {
       state.jet = ease(state.jet, jet, jet > state.jet ? 9 : 2.4, dt);
       state.rest = ease(state.rest, clamp(drive.rest ?? 0, 0, 1), 1.6, dt);
       state.ground = ease(state.ground, clamp(drive.ground ?? 1, 0, 1), 3, dt);
+      // A sail folds quickly for a burst and rises more slowly.
+      if (spec.kind === 'shark' && spec.sail) {
+        const sail = clamp(drive.sail ?? spec.sail.cruise, 0, 1);
+        state.sail = ease(state.sail, sail, sail < state.sail ? 3.5 : 1.8, dt);
+      }
       state.breath = (state.breath + TAU * breathRate * dt) % TAU;
-      if (spec.kind === 'turtle') stepTurtle(spec, state, dt);
+      if (spec.kind === 'turtle' || spec.kind === 'pinniped') stepBouts(spec, state, dt);
       else state.phase = (state.phase + TAU * strokeFrequency(spec, state.effort) * dt) % TAU;
       pose();
     },
@@ -452,8 +582,9 @@ export function createSwimRig(model: SwimRigModel, phase = 0) {
       state.effort = clamp(drive.effort, .25, 1.6);
       state.turn = drive.turn; state.curvature = drive.curvature; state.climb = drive.climb; state.air = drive.air ?? 0;
       state.rest = drive.rest ?? 0; state.jet = drive.jet ?? 0; state.ground = drive.ground ?? 1;
-      // One breath per stroke while baking, so the loop stays seamless.
-      state.breath = state.phase;
+      if (spec.kind === 'shark' && spec.sail) state.sail = clamp(drive.sail ?? spec.sail.cruise, 0, 1);
+      // One breath per stroke while baking, so the loop stays seamless (and no turning for a jellyfish).
+      state.breath = spec.kind === 'jelly' ? 0 : state.phase;
       state.activity = 1;
       pose();
     },
@@ -465,6 +596,7 @@ type RigState = {
   phase: number; effort: number; turn: number; curvature: number; climb: number; air: number;
   activity: number; strokes: number; glide: number; bouts: number;
   rest: number; jet: number; ground: number; breath: number;
+  sail: number;
 };
 type SetBone = (bone: string, x: number, y: number, z: number) => void;
 
@@ -491,10 +623,12 @@ function hingeRotation(set: SetBone, bone: string, psi: number, alpha: number) {
  * midline angle across its segment, so the caudal fin lags the peduncle the way
  * a real tail stroke does. Turning adds a C-shaped bend toward the inside.
  */
-function poseShark(spec: SharkRig, s: RigState, set: SetBone, offset: { x: number; y: number; z: number }) {
+function poseShark(spec: SharkRig, s: RigState, set: SetBone, offset: { x: number; y: number; z: number }, setScale: SetBone) {
   const [root, spine2, rearBody, tailBase, tail] = spec.joints;
   const k = TAU / spec.wavelength;
-  const strength = .7 + .3 * s.effort;
+  // A hovering fish all but stops its tail below half its cruising pace.
+  const still = spec.hover === undefined ? 1 : 1 - (1 - spec.hover) * clamp((.65 - s.effort) / .35, 0, 1) ** 1.5;
+  const strength = (.7 + .3 * s.effort) * still;
   const bend = .5 * spec.bend * s.curvature;
   const envelope = (x: number) => x >= root
     ? spec.rootAmplitude + (spec.tailAmplitude - spec.rootAmplitude) * ((x - root) / (1 - root)) ** spec.envelope
@@ -525,13 +659,21 @@ function poseShark(spec: SharkRig, s: RigState, set: SetBone, offset: { x: numbe
   set('TailUpper', 0, upper * Math.cos(spec.lobes.upperAngle), upper * Math.sin(spec.lobes.upperAngle));
   set('TailLower', 0, lower * Math.cos(spec.lobes.lowerAngle), -lower * Math.sin(spec.lobes.lowerAngle));
   set('Dorsal', 0, 0, spec.dorsal * strength * Math.cos(s.phase - k * (spec.dorsalAt - root) - .6));
+  // A sail folds down onto the back: its height shrinks toward the fold (its length stays).
+  if (spec.sail) setScale('Dorsal', 1, spec.sail.folded + (1 - spec.sail.folded) * s.sail, 1);
 
-  // Pectorals: a slight rhythmic trim, the inside fin dips in a turn, both pitch up to climb.
-  const trim = spec.pectoral.flap * Math.sin(s.phase + 1.3);
+  // Pectorals: a slight rhythmic trim, the inside fin dips in a turn, both pitch up to climb. A
+  // hovering fish sculls them harder to hold its place.
+  const trim = spec.pectoral.flap * (1 + 1.5 * (1 - still)) * Math.sin(s.phase + 1.3);
   const lift = spec.pectoral.pitch * Math.sin(s.phase + 2.2) - spec.pectoral.climb * s.climb;
   const turn = spec.pectoral.turn * s.turn;
-  set('PectoralL', lift, 0, trim - Math.max(0, turn) + .4 * Math.max(0, -turn));
-  set('PectoralR', lift, 0, -(trim - Math.max(0, -turn) + .4 * Math.max(0, turn)));
+  // Rowing: each fin sweeps back broadside and returns feathered, the right half a stroke behind the
+  // left (mirrored, so the same yaw on both fins puts them in opposite phases).
+  const row = (spec.pectoral.row ?? 0) * (1 + .6 * (1 - still));
+  const sweep = row * Math.sin(s.phase + .4);
+  const feather = .45 * row * Math.cos(s.phase + .4);
+  set('PectoralL', lift + feather, sweep, trim - Math.max(0, turn) + .4 * Math.max(0, -turn));
+  set('PectoralR', lift - feather, sweep, -(trim - Math.max(0, -turn) + .4 * Math.max(0, turn)));
 }
 
 /**
@@ -647,10 +789,11 @@ function poseSunfish(spec: SunfishRig, s: RigState, set: SetBone, offset: { x: n
 }
 
 /**
- * Bouts of strokes, then glides. A stroke cycle starts and ends with the flippers swept back
- * (phase 0), so a bout can end at any cycle boundary and ease straight into the glide pose.
+ * Bouts of strokes, then glides (turtles and sea lions). A stroke cycle starts and ends with the
+ * flippers swept back (phase 0), so a bout can end at any cycle boundary and ease straight into the
+ * glide pose.
  */
-function stepTurtle(spec: TurtleRig, s: RigState, dt: number) {
+function stepBouts(spec: TurtleRig | PinnipedRig, s: RigState, dt: number) {
   if (s.glide > 0) {
     s.glide = Math.max(0, s.glide - dt);
     s.activity = ease(s.activity, 0, 1.4, dt);
@@ -701,6 +844,79 @@ function poseTurtle(spec: TurtleRig, s: RigState, set: SetBone, offset: { x: num
   set('RearL', 0, steer + paddle, 0);
   set('RearR', 0, steer - paddle, 0);
   set('Tail', 0, .6 * steer, 0);
+}
+
+/**
+ * Sea lions fly with their long fore flippers: a bout of strokes, raised and forward on the
+ * recovery, then down and back on the power stroke until they press along the flanks, and a glide
+ * with them held there. The body heaves a little with each stroke and the hind flippers trail
+ * together; turns bend the whole supple body, the head on its long neck leading and, gliding,
+ * looking about.
+ */
+function posePinniped(spec: PinnipedRig, s: RigState, set: SetBone, offset: { x: number; y: number; z: number }) {
+  const a = s.activity;
+  const strength = (.75 + .25 * clamp(s.effort, .25, 1.6)) * (1 + .2 * s.climb);
+  const asymmetry = clamp(.4 * s.turn, -.35, .35);
+  for (const [side, mirror, power] of [['L', 1, 1 - asymmetry], ['R', -1, 1 + asymmetry]] as const) {
+    const stroke = strength * power;
+    // Stroke pose blended with the glide pose; mirrored axes keep both flippers moving the same way.
+    const flap = spec.flap * stroke * Math.sin(s.phase) * a - spec.glideDroop * (1 - a);
+    const sweep = spec.sweep * stroke * -Math.cos(s.phase) * a - spec.glideSweep * (1 - a);
+    // Edge-on while recovering, angled to push on the power stroke.
+    const feather = -spec.feather * stroke * Math.sin(s.phase) * a;
+    set(`Fore${side}1`, feather, -mirror * sweep, mirror * flap);
+    set(`Fore${side}2`, .5 * feather, mirror * .3 * spec.glideSweep * (1 - a), mirror * spec.wrist * stroke * Math.sin(s.phase - .8) * a);
+  }
+  offset.x = 0;
+  offset.y = spec.bob * a * Math.sin(s.phase + .3);
+  offset.z = 0;
+  set('Root', spec.pitch * a * Math.sin(s.phase + .6) - .06 * s.climb, 0, 0);
+  // The whole body curves into a turn (a left turn swings the rear toward +X, as the sharks' does),
+  // and a gentle wave runs down the spine with each stroke.
+  const bend = spec.bend * clamp(s.curvature, -1.5, 1.5);
+  const chain = ['Spine1', 'Spine2', 'RearBody', 'TailBase', 'Tail'];
+  chain.forEach((bone, i) => set(bone, spec.wave * a * Math.sin(s.phase - .9 - .7 * i) * (i + 1) / chain.length, -.25 * bend, 0));
+  set('Head', -spec.head * a * Math.sin(s.phase + 1.2), spec.lead * clamp(s.turn, -1.2, 1.2) + spec.look * (1 - a) * Math.sin(s.breath), 0);
+  // The hind flippers carry on the body's curve, and part a little as each stroke drives.
+  const steer = -clamp(spec.rudder * s.turn, -.5, .5);
+  const part = spec.splay * a * (.5 + .5 * Math.sin(s.phase - .5));
+  set('HindL', 0, steer - part, 0);
+  set('HindR', 0, steer + part, 0);
+}
+
+/**
+ * A jellyfish rows with its bell: a quick contraction (the bell narrows and deepens, its rim most)
+ * and a slower relaxation, rising a little with each. The oral arms swing in and out behind the
+ * pulse, the lag growing down each arm, and trail behind its drift; the bell tilts into the drift
+ * (and into a turn) and turns slowly about its axis.
+ */
+function poseJelly(spec: JellyRig, s: RigState, set: SetBone, offset: { x: number; y: number; z: number }, setScale: SetScale) {
+  const strength = .6 + .4 * clamp(s.effort, .25, 1.6);
+  const pulse = (phase: number) => {
+    const t = (((phase % TAU) + TAU) % TAU) / TAU, c = spec.contract;
+    return t < c ? Math.sin(.5 * Math.PI * t / c) : .5 + .5 * Math.cos(Math.PI * (t - c) / (1 - c));
+  };
+  const k = pulse(s.phase) * strength;
+  setScale('Bell', 1 - .5 * spec.squeeze * k, 1 + .5 * spec.stretch * k, 1 - .5 * spec.squeeze * k);
+  setScale('Rim', 1 - spec.squeeze * k, 1 + spec.stretch * k, 1 - spec.squeeze * k);
+  offset.x = 0;
+  offset.y = spec.bob * (pulse(s.phase - 1.2) - .5) * strength;
+  offset.z = 0;
+  // Tilted into its drift, and sideways into a turn (a left turn tips the top toward +X).
+  const drift = clamp(s.effort, 0, 1.6), spin = s.breath;
+  set('Root', spec.tilt * drift, spin, -.6 * spec.tilt * clamp(s.turn, -1, 1));
+  // The arms hang in the bell's turning frame, so trailing (tips toward -Z in the world) is a swing
+  // about an axis that turns with it.
+  const trail = spec.trail * drift;
+  for (let i = 0; i < JELLY_ARMS; i++) {
+    const phi = jellyArmAngle(i), c = Math.cos(phi), sn = Math.sin(phi);
+    for (const [segment, lag, gain, share] of [['A', spec.lag, 1, 1], ['B', 2 * spec.lag, 1.3, .5]] as const) {
+      // Out (positive) as the bell relaxes, in as it squeezes; a little sideways sway of their own.
+      const swing = spec.sway * gain * (.5 - pulse(s.phase - lag)) * strength;
+      const sway = .35 * spec.sway * gain * Math.sin(s.phase - lag + 1.3 * i);
+      set(`Arm${i + 1}${segment}`, -swing * c + sway * sn + share * trail * Math.cos(spin), 0, swing * sn + sway * c + share * trail * Math.sin(spin));
+    }
+  }
 }
 
 /**

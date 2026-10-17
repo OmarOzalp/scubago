@@ -10,18 +10,22 @@ real wildlife.
 The catalog contains **120 species** (119, plus the giant cuttlefish added with the
 reef animals). 119 have photo URLs, but none have recorded human identity review; the
 giant cuttlefish has none yet (run `node scripts/fetch-species-photos.mjs`, then
-review the result as below). Fourteen animated GLBs now exist: three family
+review the result as below). Twenty animated GLBs now exist: three family
 representatives and species drafts for whale shark, tiger shark, great white shark,
 scalloped hammerhead, reef manta ray, ocean sunfish, green sea turtle, bottlenose
-dolphin, day octopus, giant cuttlefish and giant moray. The mapping in
-`src/lib/swimming.ts` resolves these exact IDs before category fallbacks, and draws
-close relatives with them (great hammerheads as the scalloped hammerhead, spinner
-dolphins as the bottlenose, the giant Pacific, blue-ringed, mimic and coconut
+dolphin, day octopus, giant cuttlefish, giant moray, great barracuda, sailfish,
+California sea lion, spotted eagle ray, golden jellyfish and ocellaris clownfish. The
+mapping in `src/lib/swimming.ts` resolves these exact IDs before category fallbacks,
+and draws close relatives with them (great hammerheads as the scalloped hammerhead,
+spinner dolphins as the bottlenose, the giant Pacific, blue-ringed, mimic and coconut
 octopuses as the day octopus, the broadclub and flamboyant cuttlefish as the giant
-cuttlefish, the green moray as the giant moray; like family representatives, these
-are not offered as the relative's own 3D model). Before the reef animals no
-cephalopod had any island presence; squid and the nautilus still have none. This is
-**11 of 120 species with dedicated draft art**, not 120 approved models.
+cuttlefish, the green moray as the giant moray, chevron barracuda as the great
+barracuda; like family representatives, these are not offered as the relative's own 3D
+model). Before the reef animals no cephalopod had any island presence; squid and the
+nautilus still have none. Before batch v4 no marine mammal but the dolphins and no
+jellyfish had any either; the other mammals (whales, the harbor seal, the sea otter)
+and the other jellies still have none. This is **17 of 120 species with dedicated draft
+art**, not 120 approved models.
 
 The existing photo map contains 26 "all rights reserved" images, 67 CC BY-NC,
 10 CC BY-NC-SA, 2 CC BY-NC-ND, 10 CC BY and 4 CC BY-SA. It is a reference catalog,
@@ -221,6 +225,54 @@ tone in their material, not new vertex colors. Their tap targets are simple shap
 Previews: `docs/art-previews/day-octopus.png`, `giant-cuttlefish.png` and `giant-moray.png`
 (the same studio framing as the others, walking, cruising and swimming).
 
+## Batch v4: six more animals
+
+Six animals chosen to be told apart at a glance by shape, swimming and numbers (the full
+behavior is in `docs/marine-navigation.md`). Built the same way, one design file each in
+`scripts/art/species/`; the fish reuse the sharks' lofted body (`shark.ts`, whose
+`midlineFin` now takes a `chordPoints` count for a long-based fin such as the sail), the ray
+the manta's airfoil sheet.
+
+| Species | Model | Motion | Triangles | GLB bytes |
+| --- | --- | --- | ---: | ---: |
+| Great barracuda | A long, slender silver torpedo with a pointed head and a jutting lower jaw lined with fangs; about twenty dark bars across the blue-gray back and black blotches low on the rear flanks; two small dorsal fins set far apart, small low pectorals and a forked tail with pale tips. Drawn 1.6 units long | Stiff and subcarangiform, the stroke in the rear third and the tail. Lurking, it hangs all but still (`hover`: an eighth of its stroke left), only the pectorals sculling; a dash beats hard. 0.82 beats/s | 4,336 | 188,396 |
+| Sailfish | A long, slim body behind a spear of a bill; a huge sail of a first dorsal fin, taller than the body is deep, navy with black spots; long thin pelvic streamers; a keeled tail stock and a tall crescent tail; dark metallic blue above, silver below, rows of pale blue spots on the flanks. Drawn 2.2 units long | Near-thunniform: a stiff body, the stroke packed into the tail. The sail is a scaled bone (`Dorsal`): half raised cruising, fully raised in a display, folded flat into its groove for a dash. 0.95 beats/s | 4,836 | 216,852 |
+| California sea lion | A sleek brown torpedo on a long, thick neck; a dog-like head with big dark eyes, small ear flaps, a black nose and long pale whiskers; long, broad, near-black fore flippers; short hind flippers trailing together, fanning to their toes. Drawn 1.35 units long | A new `pinniped` rig: bouts of one or two strokes of the fore flippers (raised and forward, then down and back until they press along the flanks), then a glide with them held there; the body heaves a little with each stroke, bends right round in turns, the head leads on its neck and looks about as it glides; the hind flippers trail and follow the curve. 0.8 strokes/s | 3,432 | 139,692 |
+| Spotted eagle ray | A diamond of long, pointed, swept-back wings (a convex leading edge, a concave trailing edge), a domed head jutting ahead of them in a flat duck-bill snout, a very long whip of a tail; inky blue-black above with seventy-odd white spots and rings scattered at random, white below. Drawn 1.4 units across | The manta's rig (`manta`), quicker and deeper: steady wingbeats travel out to the tips, the tail trails its own slow wave and swings in turns. 0.5 beats/s | 3,612 | 177,780 |
+| Golden jellyfish | A deep, rounded, translucent bell (per-vertex alpha, see below), golden amber richest over the crown, paler toward the scalloped margin; under it a stout column dividing into eight thick, frilly, three-winged oral arms, each ending in a short pale club. Drawn 0.48 units across | A new `jelly` rig: each pulse squeezes the bell quickly (`Rim` scaled most, `Bell` half as much) and relaxes it slowly, the arms swinging in and out behind it with a lag growing down each arm; the bell tilts into its drift and into turns and turns slowly about its axis. 0.9 pulses/s | 2,400 | 118,376 |
+| Ocellaris clownfish | A small, deep, oval body with a blunt snout and big eyes; bright orange with three white bands edged in black (a head bar bowing back behind the eye, a middle bar bulging forward, a narrow tail bar); a notched dorsal fin, rounded anal fin and tail, and paddle pectorals, every fin rimmed in black. Drawn 0.46 units long | The sharks' rig with a new pectoral `row`: hovering, it rows with its pectorals, one after the other (sweeping back broadside and returning feathered), the tail all but still; darting, the whole deep body wags. 2.1 beats/s | 3,900 | 165,024 |
+
+### Rigs and building blocks
+
+- **Pectoral rowing** (`pectoral.row` on a shark rig): a fore-and-aft sweep with a feathering
+  twist, the right fin half a stroke behind the left, stronger as a hovering fish's tail rests.
+- **Hover** (`hover`): the share of the stroke a fish keeps at its slowest, so a lurking
+  barracuda barely flickers while its pectorals scull harder.
+- **Sail** (`sail: { folded, cruise }`): the `Dorsal` bone's height scales between folded (7%)
+  and fully raised; `SwimDrive.sail` sets it, folding quickly (rate 3.5) and rising slowly (1.8).
+- **Pinniped** (`PINNIPED_BONES`): the sharks' spine chain (`Head` at the neck's base), the fore
+  flippers in two parts (`ForeL1` the arm, `ForeL2` the hand) and `HindL/R`. Its bouts of strokes
+  and glides share the turtle's stepping (`stepBouts`). Inputs: speed, turn, curvature, climb.
+- **Jelly** (`JELLY_BONES`): `Root`, the scaled `Bell` and `Rim`, and two bones down each of the
+  eight arms (`Arm1A`, `Arm1B`, …; their directions `jellyArmAngle`). Its slow turn rides the
+  rig's own slow phase (`spin`), never baked into the swim clip.
+- **Translucency.** `MeshBuilder` takes an optional alpha per vertex (an `RGBA` color); any
+  translucent vertex makes the GLB's colors RGBA and its material blended (`alphaMode: BLEND`),
+  and three.js reads the alpha from the vertex colors. The jellyfish's triangles are ordered so
+  that, drawn in index order through the translucent bell, the arms show, then its inside, then
+  its outside.
+
+Tuning: `SWIM_RIGS` in `src/lib/marine-rigs.ts` (for the pinniped `frequency`, `flap`, `sweep`,
+`feather`, `wrist`, `glideSweep`, `glideDroop`, `bout`, `glide`, `pitch`, `bob`, `wave`, `bend`,
+`head`, `lead`, `look`, `lookRate`, `rudder`, `splay`; for the jelly `frequency`, `squeeze`,
+`stretch`, `contract`, `sway`, `lag`, `trail`, `tilt`, `spin`, `bob`). The clownfish's anemone is
+not a glTF asset: `src/components/home/three/reef-anemone.tsx` builds it at runtime (a magenta
+column under a crown of seventy round, finger-like tentacles, sand-colored with lime tips: about
+2,000 triangles, 1,160 in lite), and sways the tentacles on the CPU.
+
+Previews: `docs/art-previews/great-barracuda.png`, `sailfish.png`, `california-sea-lion.png`,
+`spotted-eagle-ray.png`, `golden-jellyfish.png` and `clownfish.png` (the same studio framing).
+
 The island's tuna school is not a glTF asset: each tuna is a low-poly mesh built at runtime
 (`src/components/home/three/tuna-geometry.ts`, 167 triangles, or 83 in lite quality). It has a
 spindle body, pointed snout, forked crescent tail, sickle fins and yellow finlets, metallic blue
@@ -240,6 +292,12 @@ References used for proportions and pattern placement:
 - [WoRMS: Octopus cyanea](https://www.marinespecies.org/aphia.php?p=taxlist&tName=Octopus%20cyanea)
 - [WoRMS: Sepia apama](https://www.marinespecies.org/aphia.php?p=taxlist&tName=Sepia%20apama)
 - [WoRMS: Gymnothorax javanicus](https://www.marinespecies.org/aphia.php?p=taxlist&tName=Gymnothorax%20javanicus)
+- [Florida Museum: great barracuda](https://www.floridamuseum.ufl.edu/discover-fish/species-profiles/sphyraena-barracuda/)
+- [NOAA Fisheries: Atlantic sailfish](https://www.fisheries.noaa.gov/species/atlantic-sailfish)
+- [NOAA Fisheries: California sea lion](https://www.fisheries.noaa.gov/species/california-sea-lion)
+- [Florida Museum: spotted eagle ray](https://www.floridamuseum.ufl.edu/discover-fish/species-profiles/aetobatus-narinari/)
+- [WoRMS: Mastigias papua](https://www.marinespecies.org/aphia.php?p=taxdetails&id=135288)
+- [WoRMS: Amphiprion ocellaris](https://www.marinespecies.org/aphia.php?p=taxdetails&id=278398)
 
 These simplified drafts still need human comparison against multiple views,
 especially fin contours, mouth detail and individual marking variation, and the

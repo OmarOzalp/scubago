@@ -61,13 +61,17 @@ export function assemble(model: SwimRigModel, mesh: MeshBuilder, layout: BoneSpe
   const geometry = new BufferGeometry();
   geometry.setAttribute('position', new Float32BufferAttribute(mesh.positions, 3));
   geometry.setAttribute('normal', new Float32BufferAttribute(mesh.normals, 3));
-  geometry.setAttribute('color', new Float32BufferAttribute(mesh.colors, 3));
+  // Opaque models keep plain RGB colors; any translucent vertex makes them RGBA and the material blended.
+  const translucent = mesh.alphas.some((a) => a < 1);
+  geometry.setAttribute('color', translucent
+    ? new Float32BufferAttribute(mesh.alphas.flatMap((a, i) => [mesh.colors[i * 3], mesh.colors[i * 3 + 1], mesh.colors[i * 3 + 2], a]), 4)
+    : new Float32BufferAttribute(mesh.colors, 3));
   geometry.setAttribute('skinIndex', new Uint8BufferAttribute(joints, 4));
   geometry.setAttribute('skinWeight', new Float32BufferAttribute(weights, 4));
   geometry.setIndex(new Uint16BufferAttribute(mesh.indices, 1));
   geometry.computeBoundingBox();
   geometry.computeBoundingSphere();
-  const material = new MeshStandardMaterial({ name: 'Painted skin', vertexColors: true, roughness: .8, metalness: 0, side: DoubleSide });
+  const material = new MeshStandardMaterial({ name: 'Painted skin', vertexColors: true, roughness: .8, metalness: 0, side: DoubleSide, transparent: translucent });
   const skinned = new SkinnedMesh(geometry, material);
   skinned.name = `${model}-body`;
   const group = new Group();
