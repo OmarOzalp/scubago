@@ -7,12 +7,19 @@ import { clone } from 'three/examples/jsm/utils/SkeletonUtils.js';
 import { createSwimRig, RIG_EULER_ORDER } from '../src/lib/marine-rigs.ts';
 
 const SPECIES = ['whale-shark', 'tiger-shark', 'great-white-shark', 'scalloped-hammerhead', 'reef-manta', 'mola-mola', 'green-turtle', 'bottlenose-dolphin',
-  'day-octopus', 'giant-cuttlefish', 'giant-moray'];
-/** The reef's animals: each also has a pose of its own to check (resting, jetting) beyond swimming and turning. */
-const REEF_POSES = {
+  'day-octopus', 'giant-cuttlefish', 'giant-moray',
+  'great-barracuda', 'sailfish', 'california-sea-lion', 'spotted-eagle-ray', 'golden-jellyfish', 'clownfish'];
+/**
+ * Animals with a pose of their own to check beyond swimming and turning: the reef's (resting,
+ * jetting), the barracuda hanging still, the sailfish's sail, the clownfish rowing in place.
+ */
+const POSES = {
   'day-octopus': [{ effort: 1, turn: 0, curvature: 0, climb: 0, ground: 1 }, { effort: 1.5, turn: 0, curvature: 0, climb: 0, jet: 1, ground: 0 }, 'arms bundle for a jet'],
   'giant-cuttlefish': [{ effort: .25, turn: 0, curvature: 0, climb: 0 }, { effort: 1.5, turn: 0, curvature: 0, climb: 0, jet: 1 }, 'fin skirt folds for a jet'],
   'giant-moray': [{ effort: 1, turn: 0, curvature: 0, climb: 0 }, { effort: .25, turn: 0, curvature: 0, climb: 0, rest: 1 }, 'body settles in its den'],
+  'great-barracuda': [{ effort: 1.5, turn: 0, curvature: 0, climb: 0 }, { effort: .25, turn: 0, curvature: 0, climb: 0 }, 'tail stills as it hangs in the water'],
+  sailfish: [{ effort: 1, turn: 0, curvature: 0, climb: 0, sail: 1 }, { effort: 1, turn: 0, curvature: 0, climb: 0, sail: 0 }, 'sail folds into its groove'],
+  clownfish: [{ effort: .25, turn: 0, curvature: 0, climb: 0 }, { effort: 1.5, turn: 0, curvature: 0, climb: 0 }, 'darting wags the body'],
 };
 for (const name of ['shark', 'manta', 'reef-fish', ...SPECIES]) {
   const bytes = readFileSync(new URL(`../assets/models/marine/${name}.glb`, import.meta.url));
@@ -75,13 +82,18 @@ for (const name of ['shark', 'manta', 'reef-fish', ...SPECIES]) {
     const rest = pose(0), stroke = pose(Math.PI / 2), turning = pose(0, { effort: 1, turn: .4, curvature: .8, climb: 0 });
     assert(Math.max(...rest.map((value, i) => Math.abs(value - stroke[i]))) > .01, `${name}: procedural stroke does not deform the body`);
     assert(Math.max(...rest.map((value, i) => Math.abs(value - turning[i]))) > .005, `${name}: turning does not change the pose`);
-    if (REEF_POSES[name]) {
-      const [from, to, what] = REEF_POSES[name], a1 = pose(1, from), b1 = pose(1, to);
+    if (POSES[name]) {
+      const [from, to, what] = POSES[name], a1 = pose(1, from), b1 = pose(1, to);
       assert(Math.max(...a1.map((value, i) => Math.abs(value - b1[i]))) > .02, `${name}: ${what} does not show`);
       if (name === 'giant-moray') {
         // Resting, the mouth opens and closes as it breathes: the jaw moves the skin.
         const closed = pose(-Math.PI / 2, to), open = pose(Math.PI / 2, to);
         assert(Math.max(...closed.map((value, i) => Math.abs(value - open[i]))) > .004, `${name}: breathing does not open the mouth`);
+      }
+      if (name === 'clownfish') {
+        // Hovering, it rows with its pectoral fins: they sweep back and forth while the tail barely moves.
+        const back = pose(-Math.PI / 2, from), forth = pose(Math.PI / 2, from);
+        assert(Math.max(...back.map((value, i) => Math.abs(value - forth[i]))) > .01, `${name}: hovering, its pectorals do not row`);
       }
     }
   }

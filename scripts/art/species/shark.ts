@@ -5,7 +5,7 @@
  * as thin conforming decals and places the swim rig's spine bones.
  */
 import { Vector3 } from 'three';
-import type { CetaceanRig, SharkRig } from '../../../src/lib/marine-rigs';
+import type { CetaceanRig, PinnipedRig, SharkRig } from '../../../src/lib/marine-rigs';
 import { blendSkins, chainSkin, clamp, curve, eye, fin, MeshBuilder, smoothstep, TAU, type RGB, type Skin } from './kit';
 import type { BoneSpec } from './export';
 
@@ -13,7 +13,7 @@ type Points = readonly (readonly [number, number])[];
 
 export type SharkDesign = {
   /** The spine joints the body is skinned to (a dolphin's body is lofted the same way). */
-  rig: Pick<SharkRig | CetaceanRig, 'joints'>;
+  rig: Pick<SharkRig | CetaceanRig | PinnipedRig, 'joints'>;
   /** Z of the snout tip; the model origin sits near the center of mass. */
   nose: number;
   /** Axial position where the body loft ends inside the caudal fin. */
@@ -148,6 +148,8 @@ export function sharkContext(design: SharkDesign) {
   function midlineFin(options: {
     le: Points; te: Points; height: number; thickness: number; ventral?: boolean; bone?: string; stations?: number;
     color: (p: Vector3, v: number, u: number) => RGB; sink?: number;
+    /** Points along each section (default 6); a long-based fin such as a sailfish's sail needs more to follow the back. */
+    chordPoints?: number;
   }) {
     const le = curve(options.le), te = curve(options.te);
     const sink = options.sink ?? .012;
@@ -156,6 +158,7 @@ export function sharkContext(design: SharkDesign) {
     const height = (v: number) => -sink + v * (options.height + sink);
     fin(mesh, {
       stations: options.stations ?? 7,
+      chordPoints: options.chordPoints,
       le: (v) => at(le(height(v)), height(v)),
       te: (v) => at(te(height(v)), height(v)),
       thickness: (v) => options.thickness * (1 - .75 * v),

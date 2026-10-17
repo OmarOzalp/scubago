@@ -7,6 +7,8 @@
 import { Color, Vector3 } from 'three';
 
 export type RGB = [number, number, number];
+/** A color with its opacity (a jellyfish's translucent bell); RGB alone is opaque. */
+export type RGBA = [number, number, number, number];
 export type Skin = Record<string, number>;
 export const TAU = Math.PI * 2;
 
@@ -119,6 +121,8 @@ export class MeshBuilder {
   positions: number[] = [];
   normals: number[] = [];
   colors: number[] = [];
+  /** Per-vertex opacity, 1 unless a vertex's color carries its own. */
+  alphas: number[] = [];
   skins: Skin[] = [];
   indices: number[] = [];
   private start = { vertex: 0, index: 0 };
@@ -128,10 +132,11 @@ export class MeshBuilder {
 
   begin() { this.start = { vertex: this.vertexCount, index: this.indices.length }; }
 
-  vertex(p: Vector3, color: RGB, skin: Skin, normal?: Vector3) {
+  vertex(p: Vector3, color: RGB | RGBA, skin: Skin, normal?: Vector3) {
     this.positions.push(p.x, p.y, p.z);
     this.normals.push(normal?.x ?? 0, normal?.y ?? 0, normal?.z ?? 0);
-    this.colors.push(...color);
+    this.colors.push(color[0], color[1], color[2]);
+    this.alphas.push(color[3] ?? 1);
     this.skins.push(skin);
     return this.vertexCount - 1;
   }
@@ -202,7 +207,7 @@ export type FinSpec = {
   /** Rough thickness direction, used only to keep section orientation consistent. */
   side: Vector3;
   /** `face` is +1 on the surface facing `side`, -1 on the other. */
-  color: (p: Vector3, v: number, u: number, face: number) => RGB;
+  color: (p: Vector3, v: number, u: number, face: number) => RGB | RGBA;
   skin: (p: Vector3, v: number, u: number) => Skin;
   chordPoints?: number;
   /** Station distribution; default packs sections toward the tip where the outline turns fastest. */

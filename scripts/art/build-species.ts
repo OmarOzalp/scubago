@@ -25,6 +25,12 @@ import { buildBottlenoseDolphin } from './species/bottlenose-dolphin';
 import { buildDayOctopus } from './species/day-octopus';
 import { buildGiantCuttlefish } from './species/giant-cuttlefish';
 import { buildGiantMoray } from './species/giant-moray';
+import { buildGreatBarracuda } from './species/great-barracuda';
+import { buildSailfish } from './species/sailfish';
+import { buildClownfish } from './species/clownfish';
+import { buildSpottedEagleRay } from './species/spotted-eagle-ray';
+import { buildCaliforniaSeaLion } from './species/california-sea-lion';
+import { buildGoldenJellyfish } from './species/golden-jellyfish';
 
 const OUT = resolve(dirname(process.argv[1]), '../../assets/models/marine') + '/';
 
@@ -39,6 +45,12 @@ const SPECIES: Partial<Record<SwimRigModel, { build: () => { mesh: MeshBuilder; 
   'bottlenose-dolphin': { build: buildBottlenoseDolphin, scientificName: 'Tursiops truncatus', reference: 'https://www.fisheries.noaa.gov/species/common-bottlenose-dolphin' },
   'giant-cuttlefish': { build: buildGiantCuttlefish, scientificName: 'Sepia apama', reference: 'https://www.marinespecies.org/aphia.php?p=taxlist&tName=Sepia%20apama' },
   'giant-moray': { build: buildGiantMoray, scientificName: 'Gymnothorax javanicus', reference: 'https://www.marinespecies.org/aphia.php?p=taxlist&tName=Gymnothorax%20javanicus' },
+  'great-barracuda': { build: buildGreatBarracuda, scientificName: 'Sphyraena barracuda', reference: 'https://www.floridamuseum.ufl.edu/discover-fish/species-profiles/sphyraena-barracuda/' },
+  sailfish: { build: buildSailfish, scientificName: 'Istiophorus platypterus', reference: 'https://www.fisheries.noaa.gov/species/atlantic-sailfish' },
+  'spotted-eagle-ray': { build: buildSpottedEagleRay, scientificName: 'Aetobatus narinari', reference: 'https://www.floridamuseum.ufl.edu/discover-fish/species-profiles/aetobatus-narinari/' },
+  'california-sea-lion': { build: buildCaliforniaSeaLion, scientificName: 'Zalophus californianus', reference: 'https://www.fisheries.noaa.gov/species/california-sea-lion' },
+  'golden-jellyfish': { build: buildGoldenJellyfish, scientificName: 'Mastigias papua', reference: 'https://www.marinespecies.org/aphia.php?p=taxdetails&id=135288' },
+  clownfish: { build: buildClownfish, scientificName: 'Amphiprion ocellaris', reference: 'https://www.marinespecies.org/aphia.php?p=taxdetails&id=278398' },
   'day-octopus': { build: buildDayOctopus, scientificName: 'Octopus cyanea', reference: 'https://www.marinespecies.org/aphia.php?p=taxlist&tName=Octopus%20cyanea' },
 };
 

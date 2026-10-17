@@ -8,6 +8,7 @@ import type { MarineModels } from './marine-loader';
 import { AnimatedMarine } from './animated-marine';
 import { MarineSplashes } from './marine-splashes';
 import { projectPoint } from './project-point';
+import { ReefAnemones } from './reef-anemone';
 import { ReefRocks } from './reef-rocks';
 import { useSceneQuality } from './scene-quality';
 import { TunaSchoolMesh } from './tuna-school-mesh';
@@ -146,9 +147,10 @@ export function MarineSwimmers({ residents, models, active, level = 1, school = 
   });
   const byLane = new Map(residents.map((resident) => [resident.lane, resident]));
   const tapScale = oceanScale(level);
-  // The reef's rocks: two dens for each moray, a rock for each octopus.
-  const reef = motion.swimmers.map((s) => (isReefModel(s.model) ? REEF_SPECIES[s.model] : null));
+  // The reef's rocks: two dens for each moray, a rock for each octopus; an anemone for each pair of clownfish.
+  const reef = motion.swimmers.map((s) => (isReefModel(s.model) && s.index === 0 ? REEF_SPECIES[s.model] : null));
   const morays = reef.filter((kind) => kind === 'moray').length, octopuses = reef.filter((kind) => kind === 'octopus').length;
+  const anemones = reef.filter((kind) => kind === 'clownfish').length;
   return <>
     {motion.swimmers.map((swimmer) => {
       const resident = byLane.get(swimmer.leader);
@@ -157,6 +159,7 @@ export function MarineSwimmers({ residents, models, active, level = 1, school = 
         active={active} population={residents.length} motion={motion} onPress={resident.onPress} tapScale={tapScale} />;
     })}
     {morays + octopuses > 0 && <ReefRocks level={level} morays={morays} octopuses={octopuses} />}
+    {anemones > 0 && <ReefAnemones level={level} count={anemones} />}
     <MarineSplashes motion={motion} lite={lite} />
     {motion.school && <TunaSchoolMesh school={motion.school} onPress={onSchoolPress} />}
     {MarineDebug && <MarineDebug motion={motion} />}

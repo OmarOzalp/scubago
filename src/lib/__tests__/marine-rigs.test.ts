@@ -3,7 +3,8 @@ import { createSwimRig, CRUISE, CUTTLEFISH_FINS, OCTOPUS_ARMS, octopusArmBone, O
 
 const SHARKS = ['tiger-shark', 'whale-shark', 'great-white-shark', 'scalloped-hammerhead'] as const;
 const REEF = ['day-octopus', 'giant-cuttlefish', 'giant-moray'] as const;
-const ALL: SwimRigModel[] = [...SHARKS, 'reef-manta', 'mola-mola', 'green-turtle', 'bottlenose-dolphin', ...REEF];
+const ALL: SwimRigModel[] = [...SHARKS, 'reef-manta', 'mola-mola', 'green-turtle', 'bottlenose-dolphin', ...REEF,
+  'great-barracuda', 'sailfish', 'california-sea-lion', 'spotted-eagle-ray', 'golden-jellyfish', 'clownfish'];
 const SPINE = ['Spine1', 'Spine2', 'RearBody', 'TailBase', 'Tail'];
 
 /** Sample one stroke; returns per-sample rotations keyed by bone. */
