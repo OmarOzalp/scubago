@@ -298,3 +298,18 @@ test('every move is heard (so a scene drawn on demand redraws), and held still t
   explorer.zoomAt(1.1, 0, 0);
   expect(moves).toBe(heard);
 });
+
+test('focusing on a spot eases over to it and in, never back out, within the limits', () => {
+  const explorer = opened(PHONE), range = zoomRange(PHONE);
+  explorer.focus(1.2, -.8, range.min * 4);
+  settle(explorer, 180);
+  expect(explorer.view).toEqual(clampView(PHONE, { x: 1.2, z: -.8, zoom: range.min * 4 }));
+  expect(explorer.view.x).toBeCloseTo(1.2, 6);
+  // Already closer than asked: it keeps the zoom; somewhere past the limits: as near as they allow.
+  explorer.focus(0, 0, range.min * 2);
+  settle(explorer, 180);
+  expect(explorer.view.zoom).toBeCloseTo(range.min * 4, 6);
+  explorer.focus(50, 0, range.min * 4);
+  settle(explorer, 180);
+  expect(explorer.view.x).toBeCloseTo(panLimit(PHONE, range.min * 4).x, 6);
+});

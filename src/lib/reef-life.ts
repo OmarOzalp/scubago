@@ -160,13 +160,14 @@ export type ReefRock = {
   spotX: number; spotZ: number; dirX: number; dirZ: number;
 };
 
-type Place = { x: number; z: number; nx: number; nz: number; floor: number; reach: number };
+/** A place on the shelf: where it is, the way out to sea (unit), the bottom's height there and its reach. */
+export type Place = { x: number; z: number; nx: number; nz: number; floor: number; reach: number };
 const reachOn = (polygons: Float32Array[], x: number, z: number) => { const d = shoreDistance(polygons, x, z); return d > 0 ? d / shelfStretch(x, z) : d; };
 /**
  * Where `reach` is along the ray at `angle` (degrees) from the main island's middle, and the bottom's
  * height there exactly as the seabed is drawn (islets included).
  */
-function locate(polygons: Float32Array[], angle: number, reach: number): Place {
+export function locate(polygons: Float32Array[], angle: number, reach: number): Place {
   const main = polygons.slice(0, 1), a = angle * Math.PI / 180, ux = Math.cos(a), uz = Math.sin(a);
   let lo = 0, hi = 9;
   for (let i = 0; i < 26; i++) { const mid = (lo + hi) / 2; if (reachOn(main, ux * mid, uz * mid) < reach) lo = mid; else hi = mid; }

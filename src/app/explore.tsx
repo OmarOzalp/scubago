@@ -14,11 +14,14 @@ import { useHomePreferences } from '@/hooks/use-home-preferences';
 import { CATALOG_BY_ID } from '@/lib/catalog';
 import { createExplorer, EXPLORER } from '@/lib/explorer-view';
 import { deriveHome, HABITATS } from '@/lib/home';
+import { macroResidents } from '@/lib/macro-life';
 import { useAppStore, useMySightings, useMyUserId } from '@/lib/store';
 import type { MarineModel } from '@/lib/swimming';
 
 /** Ink on the island's water (the scene's own colours, the same in both schemes). */
 const ON_WATER = '#1F4B40';
+/** How to look about, shown when the explorer opens. */
+const GESTURES = 'Pinch or double-tap to look closer · drag to look around';
 /** How long the gesture hint stays before it fades (ms). */
 const HINT_MS = 5000;
 
@@ -99,6 +102,9 @@ export default function ExploreScreen() {
     return () => clearTimeout(timer);
   }, [hint, reduced]);
 
+  // The reef's small life shows only up close: say it is there to find.
+  const hiding = macroResidents(home.residents).length;
+  const small = hiding === 0 ? '' : hiding === 1 ? 'A small creature lives on the reef: zoom in close to find it' : `${hiding} small creatures live on the reef: zoom in close to find them`;
   const close = () => (router.canGoBack() ? router.back() : router.replace('/'));
   const inspect = (model: MarineModel) => router.push({ pathname: '/inspect', params: { model, preview: '1' } });
   const button = (icon: IconName, label: string, onPress: () => void) => (
@@ -112,7 +118,7 @@ export default function ExploreScreen() {
     <GestureDetector gesture={gesture}>
       <View ref={surface} style={styles.root} onLayout={onLayout} collapsable={false}>
         <SanctuaryScene habitat={habitat.id} level={home.level} residents={home.residents} loading={loading} onInspect={inspect}
-          explorer={{ camera: <ExplorerCamera explorer={explorer} />, tapScale }} />
+          explorer={{ camera: <ExplorerCamera explorer={explorer} />, tapScale, zoom: () => explorer.view.zoom, focus: (x, z, zoom) => explorer.focus(x, z, zoom) }} />
       </View>
     </GestureDetector>
     <View style={[styles.top, { paddingTop: insets.top + 10 }]} pointerEvents="box-none">
@@ -126,7 +132,7 @@ export default function ExploreScreen() {
       {button('locate', 'Show the whole ocean', () => explorer.showAll())}
     </View>
     <Animated.View style={[styles.hint, { bottom: insets.bottom + 26, opacity: hint }]} pointerEvents="none">
-      <Text style={styles.hintText}>Pinch or double-tap to look closer · drag to look around</Text>
+      <Text style={styles.hintText}>{small ? `${GESTURES}\n${small}` : GESTURES}</Text>
     </Animated.View>
   </GestureHandlerRootView>;
 }

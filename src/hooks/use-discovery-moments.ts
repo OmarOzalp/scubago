@@ -15,6 +15,7 @@ import {
   type Moment,
 } from '@/lib/discoveries';
 import { HOME_STAGES } from '@/lib/home';
+import { isMacroSpecies } from '@/lib/macro-life';
 import { islandPresence } from '@/lib/swimming';
 import type { DexEntry, Sighting } from '@/lib/types';
 
@@ -177,7 +178,9 @@ export function useDiscoveryMoments({ owner, ready, residents, sightings, level,
   const levelStep = visit?.steps?.find((m): m is Extract<Moment, { kind: 'level' }> => m.kind === 'level');
   const bannerUp = step?.kind === 'level' && (phase === 'banner' || phase === 'grow');
   const noteStep = step?.kind === 'note' && phase === 'note' ? step : null;
-  const noteNames = noteStep?.speciesIds.map((id) => byId.get(id)?.commonName ?? id) ?? [];
+  const noteIds = noteStep?.speciesIds ?? [];
+  const name = (id: string) => byId.get(id)?.commonName ?? id;
+  const reefNames = noteIds.filter(isMacroSpecies).map(name), otherNames = noteIds.filter((id) => !isMacroSpecies(id)).map(name);
   const featured = useMemo(() => [...new Set([...featuredSpecies(plan), ...(visit?.arrived ?? [])])], [plan, visit?.arrived]);
   const waiting = useMemo(() => plan.flatMap((m) => (m.kind === 'arrive' ? m.speciesIds : [])), [plan]);
   const tagSpecies = arriving ? byId.get(arriving.speciesIds[0]) : undefined;
@@ -197,8 +200,11 @@ export function useDiscoveryMoments({ owner, ready, residents, sightings, level,
     now: arriving?.speciesIds[0] ?? null,
     tag: tagSpecies ? { speciesId: tagSpecies.id, label: arriving!.speciesIds.length > 1 ? `${tagSpecies.commonName} and more` : tagSpecies.commonName } : null,
     onArrived,
-    /** A note about new species the island can't show. */
-    note: noteNames.length ? `New in your collection: ${listNames(noteNames)}` : null,
+    /** A note about new species the island can't show (the reef's small life shows only up close, in the explorer). */
+    note: noteIds.length ? [
+      otherNames.length ? `New in your collection: ${listNames(otherNames)}` : '',
+      reefNames.length ? `New on your reef: ${listNames(reefNames)}. Go full screen and zoom in close to find ${reefNames.length === 1 ? 'it' : 'them'}` : '',
+    ].filter(Boolean).join('. ') : null,
     /** Moments are playing: hold the island's paging still. */
     busy: !!visit?.steps && visit.index < visit.steps.length,
   };

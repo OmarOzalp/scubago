@@ -30,8 +30,11 @@ export const EXPLORER = {
   frame: .6,
   /** How far past the swimming area the view may roam (units, up to the water's edge). */
   margin: 2,
-  /** Zoomed all the way in, the screen's shorter side spans this much water (units): an animal up close. */
-  closest: 1.6,
+  /**
+   * Zoomed all the way in, the screen's shorter side spans this much water (units): close enough to
+   * find the reef's small life (macro-life.ts), a nudibranch a sixth of a phone's width.
+   */
+  closest: 1.1,
   /** How much each zoom button press zooms (×), and a double tap. */
   step: 1.6, doubleTap: 2,
   /** How quickly an eased move (a button, a double tap) settles, and a fling's glide slows (1/s). */
@@ -217,6 +220,8 @@ export function createExplorer(initial: ExplorerFrame) {
     },
     /** Ease out to the whole ocean. */
     showAll() { head(overview(frame)); },
+    /** Ease over to a point on the water (x, z) and in to at least `zoom` (a reef creature's home tapped from afar). */
+    focus(x: number, z: number, zoom: number) { head(clampView(frame, { x, z, zoom: Math.max(zoom, (goal ?? view).zoom) })); },
     /** Advance an eased move or a glide by `dt` seconds; the view to draw. */
     step(dt: number) {
       const t = Math.max(0, Math.min(dt, .1));
