@@ -167,7 +167,9 @@ describe('site mapping', () => {
     const row = siteToRemoteRow(site, 'uid-1');
     expect(row.created_by).toBe('uid-1');
     expect(row.source).toBe('user');
-    expect(remoteSiteRowToSite(row)).toEqual(site);
+    // Pulled back, the site knows who added it (so only its owner sees "added by you").
+    expect(remoteSiteRowToSite(row)).toEqual({ ...site, createdBy: 'uid-1' });
+    expect(remoteSiteRowToSite({ ...row, created_by: null })).toEqual(site);
   });
 });
 

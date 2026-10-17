@@ -47,15 +47,18 @@ npm run check:supabase         # the live project, checked from outside with the
 npm run check:buddy            # "Ask a buddy" end to end, with two test accounts (after migration 0006)
 ```
 
-Then run `supabase/checks/audit.sql`, `supabase/checks/rls-isolation.sql` and
-`supabase/checks/verification-check.sql` in the SQL editor (see
+Then run `supabase/checks/audit.sql`, `supabase/checks/rls-isolation.sql`,
+`supabase/checks/verification-check.sql`, `supabase/checks/unlisted-check.sql`,
+`supabase/checks/privacy-check.sql` and `supabase/checks/dive-log-check.sql` in the SQL editor (see
 [docs/ios-distribution.md](docs/ios-distribution.md#6-supabase-after-a-reset)).
 
 Auth is email + password with auto-confirm, which needs email confirmation turned off:
 in the Supabase dashboard, go to **Authentication → Providers → Email** and turn off
 **"Confirm email"**. This is deliberate: Supabase's free tier can't customize hosted
 email templates, and the default templates don't carry a token for an OTP-code flow,
-so sign-in avoids the email round-trip entirely.
+so sign-in avoids the email round-trip entirely. The one email ScubaGo sends, a password
+reset, uses the default template's link: add `exp://**` and `scubago://**` under
+**Authentication → URL Configuration → Redirect URLs** so it opens the app.
 
 Do this in the dashboard, not with `npx supabase config push` — `supabase/config.toml`
 is the unmodified local-dev CLI default (`site_url = "http://127.0.0.1:3000"`, a
@@ -64,7 +67,13 @@ project's settings with those dev defaults.
 
 ## What's in the slice
 
-- **My Home tab** — a stylized 3D sanctuary: a sculpted island, coral lagoon, or rocky
+- **Reef Journal look** — warm paper and navy ink with reef colours (lagoon, coral, sun), a
+  "night dive" dark scheme, Fraunces / Figtree / Courier Prime type, Phosphor duotone icons and a
+  watercolour field-guide drawing for every species; calm motion that stops under Reduce Motion
+  ([docs/design.md](docs/design.md)).
+- **Five tabs** — Home, Explore, a raised coral **Log dive** button, Logbook and Field guide: one
+  tab bar drawn by the app on iOS, Android and the web.
+- **Home tab** — a stylized 3D sanctuary: a sculpted island, coral lagoon, or rocky
   cove in caustic-lit water, seen from an oblique orthographic camera. Discovered
   sharks, rays, fish, the ocean sunfish and the green sea turtle swim around it as
   rigged, animated models, passing one another in lanes and keeping their own
@@ -75,43 +84,70 @@ project's settings with those dev defaults.
   and species-specific motion; other species use CC0 Quaternius family
   representatives. Unique
   species unlock six growth stages; home name and habitat are saved on this device per
-  account. An empty ocean shows a clearly labeled preview shark and manta that never
-  count as discoveries, and either can be opened for a closer look. Animation pauses
+  account. Only your own discoveries swim there: a new island's ocean is empty until you
+  log your first sighting. Animation pauses
   when the tab is unfocused, the app is backgrounded, reduced motion is on, or you tap
   Pause. If 3D rendering is unavailable the illustrated SVG island takes over.
-- **Map tab** — ~65 famous dive sites worldwide; search "where can I see a…" to
+- **First launch** — three short intro cards (log, collect, grow your island), once per install.
+- **Explore tab** — ~65 famous dive sites worldwide; search "where can I see a…" to
   highlight sites where a species has been spotted; tap a pin for the site card;
-  long-press the map to add a missing site.
-- **My Log tab** — your sightings, and a species dex of 120 curated species with
-  rarity tiers (common → legendary). First-of-species logs get a celebration.
-- **Log flow** — site → species → date/notes/photo, designed for speed.
+  "Add a site" (or long-press the map) to add a missing one; a List view for screen readers.
+- **Logbook tab** — your lifetime totals and every page of your dive log, newest first, with
+  **Begin entry No. N** and **Dives before ScubaGo** (so pages carry your real dive numbers).
+  Signed out, a card says how much of the log lives only on this phone and offers to back it up.
+- **Field guide tab** — all 120 curated species by group, with rarity tiers (common →
+  legendary): painted in watercolour once you've seen them, a pencil sketch until then.
+- **Log flow** — site → species → the page for a whole dive at once: tick every species you saw
+  (what's often seen at that site comes first, and none is fine), then the dive number, date,
+  time in, bottom time and depth, with conditions, gas and gear, buddy, dive centre and a rating
+  under "More details"; save once. Search
+  forgives accents, spelling variants, other names and typos (`src/lib/text-search.ts`). Animals
+  outside the catalogue can be logged as "Something else" in your own words (migration 0007);
+  they don't count towards the collection. A summary follows every save: the entry's stamp ("No. 49"),
+  a bookplate on milestone dives, or for a new species a field-guide card that turns over and is
+  stamped "First record".
+- **Dive log** — every dive is a numbered page you can turn through: the measurements, notes, the
+  animals seen, a buddy's signature (signed on your phone, or from theirs with a code) and a
+  dive-centre stamp drawn from the name you wrote, marked "not verified". Earlier sightings become
+  pages, one per site and day. Pages sync and restore like sightings (migration 0009,
+  [docs/dive-log.md](docs/dive-log.md)).
 - **Discovery moments** — a new species swims into your island with a small "New" tag, and a
   level-up gets a banner as the island grows (islets rise from the water)
   ([docs/discovery-moments.md](docs/discovery-moments.md)).
 - **Sighting pages** — tap a sighting for its details, verification status and provenance;
   your own can be edited (through the same log flow) or deleted, offline too.
+- **Privacy** — "Who can see this" on the log screen: each sighting is shared with everyone or kept
+  to yourself, and a shared one can keep its notes and photo private (migration 0008). Private
+  notes and photos never go to the public row or photo bucket; private sightings say "Only you" in
+  the logbook ([docs/sighting-sync.md](docs/sighting-sync.md#who-can-see-it)).
 - **Ask a buddy** — send a buddy a code; signed in, they see the sighting and confirm it, and it
   reads **Buddy verified**. The server checks everything (migration 0006,
   [docs/buddy-verification.md](docs/buddy-verification.md)).
 - **Offline-first writes** — sightings, edits and deletions save to SQLite immediately and wait
   in an outbox that syncs with retries once a backend is configured
   ([docs/sighting-sync.md](docs/sighting-sync.md)).
-- **Accounts** — email + password sign-in; the account is created automatically on
-  first sign-in, no separate signup step. Account → Delete account removes the account,
-  its sightings and photos (migration 0004).
+- **Accounts** — email + password, with "Sign in" and "Create account" kept apart so a typo
+  can't start a new account; new passwords are typed twice. "Forgot your password?" emails a
+  link that opens the app to choose a new one (redirect URLs: see
+  [docs/ios-distribution.md](docs/ios-distribution.md#6-supabase-after-a-reset)). Account →
+  Delete account removes the account, its sightings and photos, private ones included (migration 0004).
+- **Accessibility** — screen-reader labels, roles and headings, announced errors, text that
+  scales, 4.5:1 contrast and 44pt targets; conventions in
+  [docs/accessibility.md](docs/accessibility.md).
 - **Cloud sync** — your sightings push to Supabase and restore on a fresh install;
   photos upload to Supabase Storage; writes stay offline-first and drain the outbox
   once you're back online.
-- **Community sightings** — other divers' sightings pull into the map and site cards
+- **Community sightings** — other divers' public sightings pull into the map and site cards
   alongside your own.
 
 ## Project layout
 
 ```
-src/app/            expo-router screens ((tabs)/index = My Home, (tabs)/map = Map,
-                    (tabs)/logbook = My Log,
+src/app/            expo-router screens ((tabs)/index = Home, (tabs)/map = Explore,
+                    (tabs)/logbook = Logbook, (tabs)/field-guide = Field guide,
                     log/new, site/[id], species/[id], add-site)
-src/components/     shared UI (species avatar, rarity chip, map w/ web fallback, …)
+src/components/     shared UI (species art, map w/ web fallback, …); journal/ holds the
+                    Reef Journal pieces (tab bar, paper, stamp, wash, ledger, …)
 src/lib/            domain logic: db (SQLite), store (zustand), dex, demo data, sync
 src/data/           curated seed data: species, sites, fetched photo map
 scripts/            fetch-species-photos.mjs (iNaturalist photo seeding)
@@ -141,10 +177,11 @@ The staged plan is in [docs/roadmap/](docs/roadmap/README.md):
 - a bigger, properly sourced dive-site database;
 - reports from dive operators and marine organizations, labeled by where they came from;
 - community sightings verified by a photo (a buddy's confirmation is in: "Ask a buddy");
-- a faster, offline-first dive log.
+- importing dives from dive computers and other logbooks (the dive log itself is in:
+  [docs/dive-log.md](docs/dive-log.md)).
 
-From the original spec, still open: seasonality, downloadable offline map regions, and
-password reset (needs a custom SMTP provider for Supabase).
+From the original spec, still open: seasonality and downloadable offline map regions. Password
+reset works; for it to reach people outside your Supabase team, set up a custom SMTP provider.
 
 ### My Home development
 

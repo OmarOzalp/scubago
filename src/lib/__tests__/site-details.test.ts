@@ -1,5 +1,5 @@
-import { expect, test } from '@jest/globals';
-import { depthLabel, siteFacts, siteSourceList } from '@/lib/site-details';
+import { describe, expect, it, test } from '@jest/globals';
+import { depthLabel, siteAddedBy, siteFacts, siteSourceList } from '@/lib/site-details';
 import type { DiveSite } from '@/lib/types';
 
 const site = (details: Partial<DiveSite>): DiveSite => ({
@@ -22,4 +22,22 @@ test('only known facts are listed, and each source is named once', () => {
   expect(siteSourceList(site({ sources: [
     { fields: ['depth'], source: 'Operator A', url: 'https://a.example' }, { fields: ['access'], source: 'Operator A' }, { fields: ['dive_types'], source: 'Register B', license: 'CC BY 4.0' },
   ] }))).toEqual([{ source: 'Operator A', url: 'https://a.example', license: undefined }, { source: 'Register B', url: undefined, license: 'CC BY 4.0' }]);
+});
+
+describe('siteAddedBy', () => {
+  const site = (createdBy?: string) => ({ source: 'user' as const, createdBy });
+
+  it('says nothing for curated sites', () => {
+    expect(siteAddedBy({ source: 'seed' }, 'me')).toBeNull();
+  });
+  it('credits you only for sites you added', () => {
+    expect(siteAddedBy(site('me'), 'me')).toBe('you');
+    expect(siteAddedBy(site('local'), undefined)).toBe('you');
+    expect(siteAddedBy(site('local'), 'me')).toBe('you');
+  });
+  it('credits another diver for everyone else’s sites, and for ones not yet attributed', () => {
+    expect(siteAddedBy(site('someone-else'), 'me')).toBe('a diver');
+    expect(siteAddedBy(site('me'), undefined)).toBe('a diver');
+    expect(siteAddedBy(site(undefined), 'me')).toBe('a diver');
+  });
 });

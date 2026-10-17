@@ -5,7 +5,7 @@ import { Dimensions, StyleSheet, View } from 'react-native';
 import Animated, { Easing, Keyframe } from 'react-native-reanimated';
 import { scheduleOnRN } from 'react-native-worklets';
 
-import { Ocean } from '@/constants/palette';
+import { Colors } from '@/constants/theme';
 
 const INITIAL_SCALE_FACTOR = Dimensions.get('screen').height / 90;
 const DURATION = 600;
@@ -145,9 +145,10 @@ const styles = StyleSheet.create({
     width: 120,
     height: 120,
   },
+  // The brand lagoon in both schemes: the native splash it continues is a single colour too.
   splashOverlay: {
     ...StyleSheet.absoluteFill,
-    backgroundColor: Ocean.primary,
+    backgroundColor: Colors.light.lagoon,
     alignItems: 'center',
     justifyContent: 'center',
     zIndex: 1000,

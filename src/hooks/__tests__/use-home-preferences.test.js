@@ -1,4 +1,4 @@
-import React, { act } from 'react';
+import React, { act, useEffect } from 'react';
 import { create } from 'react-test-renderer';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useHomePreferences } from '../use-home-preferences';
@@ -6,7 +6,8 @@ import { useHomePreferences } from '../use-home-preferences';
 let current;
 let root;
 function Harness({ owner }) {
-  current = useHomePreferences(owner);
+  const preferences = useHomePreferences(owner);
+  useEffect(() => { current = preferences; });
   return null;
 }
 

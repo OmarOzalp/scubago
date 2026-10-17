@@ -1,20 +1,26 @@
 import { router, useLocalSearchParams } from 'expo-router';
 import { useState } from 'react';
-import { ScrollView, StyleSheet, TextInput, View } from 'react-native';
+import { ScrollView, StyleSheet, View } from 'react-native';
 
+import { FormField } from '@/components/form-field';
+import { Icon } from '@/components/icon';
+import { Paper } from '@/components/journal/paper';
 import { OceanButton } from '@/components/ocean-button';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
-import { Spacing } from '@/constants/theme';
+import { MaxContentWidth, Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
+import { announce } from '@/lib/announce';
+import { notifySiteAdded } from '@/lib/site-added';
 import { useAppStore } from '@/lib/store';
 
 export default function AddSiteScreen() {
-  const params = useLocalSearchParams<{ lat?: string; lng?: string }>();
-  const theme = useTheme();
+  /** `then=log`: opened from the log screen, which carries on with the new site. `name` pre-fills a search. */
+  const params = useLocalSearchParams<{ lat?: string; lng?: string; then?: string; name?: string }>();
   const addSite = useAppStore((s) => s.addSite);
+  const theme = useTheme();
 
-  const [name, setName] = useState('');
+  const [name, setName] = useState(params.name ?? '');
   const [region, setRegion] = useState('');
   const [country, setCountry] = useState('');
   const [blurb, setBlurb] = useState('');
@@ -24,15 +30,24 @@ export default function AddSiteScreen() {
 
   const latNum = Number(lat);
   const lngNum = Number(lng);
-  const valid =
-    name.trim().length > 1 &&
-    Number.isFinite(latNum) &&
-    Math.abs(latNum) <= 90 &&
-    Number.isFinite(lngNum) &&
-    Math.abs(lngNum) <= 180;
+  // Said out loud and on screen, instead of a button that is greyed out for no stated reason.
+  const problem =
+    name.trim().length < 2
+      ? 'Give the site a name.'
+      : lat.trim() === '' || !Number.isFinite(latNum) || Math.abs(latNum) > 90
+        ? 'Enter a latitude between -90 and 90 (e.g. 7.81).'
+        : lng.trim() === '' || !Number.isFinite(lngNum) || Math.abs(lngNum) > 180
+          ? 'Enter a longitude between -180 and 180 (e.g. 98.54).'
+          : null;
+  const [showProblem, setShowProblem] = useState(false);
 
   const save = async () => {
-    if (!valid || saving) return;
+    if (saving) return;
+    if (problem) {
+      setShowProblem(true);
+      announce(problem);
+      return;
+    }
     setSaving(true);
     const site = await addSite({
       name: name.trim(),
@@ -42,84 +57,93 @@ export default function AddSiteScreen() {
       country: country.trim() || 'Unknown',
       blurb: blurb.trim() || 'Added by the community.',
     });
+    if (params.then === 'log') {
+      notifySiteAdded(site.id);
+      router.back();
+      return;
+    }
     router.dismiss();
     router.push({ pathname: '/log/new', params: { siteId: site.id } });
   };
 
-  const inputStyle = [styles.input, { backgroundColor: theme.backgroundElement, color: theme.text }];
-
   return (
     <ThemedView style={{ flex: 1 }}>
       <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
-        <ThemedText type="small" themeColor="textSecondary">
-          Know a site that’s missing? Add it and it appears on your map right away.
-        </ThemedText>
-
-        <Field label="Site name *">
-          <TextInput value={name} onChangeText={setName} placeholder="e.g. Shark Point" placeholderTextColor={theme.textSecondary} style={inputStyle} />
-        </Field>
-        <View style={styles.rowFields}>
-          <Field label="Latitude *" style={{ flex: 1 }}>
-            <TextInput value={lat} onChangeText={setLat} keyboardType="numbers-and-punctuation" placeholder="7.81" placeholderTextColor={theme.textSecondary} style={inputStyle} />
-          </Field>
-          <Field label="Longitude *" style={{ flex: 1 }}>
-            <TextInput value={lng} onChangeText={setLng} keyboardType="numbers-and-punctuation" placeholder="98.54" placeholderTextColor={theme.textSecondary} style={inputStyle} />
-          </Field>
+        <View style={styles.intro}>
+          <ThemedText type="label">A new page for the chart</ThemedText>
+          <ThemedText type="caption" themeColor="textSecondary">
+            Know a site that’s missing? Add it and it appears on your map right away.
+          </ThemedText>
         </View>
-        <View style={styles.rowFields}>
-          <Field label="Region" style={{ flex: 1 }}>
-            <TextInput value={region} onChangeText={setRegion} placeholder="Phuket" placeholderTextColor={theme.textSecondary} style={inputStyle} />
-          </Field>
-          <Field label="Country" style={{ flex: 1 }}>
-            <TextInput value={country} onChangeText={setCountry} placeholder="Thailand" placeholderTextColor={theme.textSecondary} style={inputStyle} />
-          </Field>
-        </View>
-        <Field label="Description">
-          <TextInput value={blurb} onChangeText={setBlurb} multiline placeholder="What makes this site special?" placeholderTextColor={theme.textSecondary} style={[...inputStyle, styles.multiline]} />
-        </Field>
 
-        <OceanButton title={saving ? 'Saving…' : 'Add site & log a sighting'} onPress={save} disabled={!valid || saving} />
+        <FormField label="Site name (required)" value={name} onChangeText={setName} placeholder="e.g. Shark Point" />
+        <Paper style={styles.card}>
+          <View style={styles.where}>
+            <Icon name="pin" size={20} wash={theme.coral} />
+            <ThemedText type="small" themeColor="textSecondary" style={{ flex: 1 }}>
+              Where it is: long-press the map to fill these in, or copy them from a map app.
+            </ThemedText>
+          </View>
+          <View style={styles.rowFields}>
+            <View style={{ flex: 1 }}>
+              <FormField label="Latitude (required)" value={lat} onChangeText={setLat} keyboardType="numbers-and-punctuation" placeholder="7.81" />
+            </View>
+            <View style={{ flex: 1 }}>
+              <FormField label="Longitude (required)" value={lng} onChangeText={setLng} keyboardType="numbers-and-punctuation" placeholder="98.54" />
+            </View>
+          </View>
+        </Paper>
+        <View style={styles.rowFields}>
+          <View style={{ flex: 1 }}>
+            <FormField label="Region" value={region} onChangeText={setRegion} placeholder="Phuket" />
+          </View>
+          <View style={{ flex: 1 }}>
+            <FormField label="Country" value={country} onChangeText={setCountry} placeholder="Thailand" />
+          </View>
+        </View>
+        <FormField label="Description" value={blurb} onChangeText={setBlurb} multiline placeholder="What makes this site special?" style={styles.multiline} />
+        {showProblem && problem ? (
+          <ThemedText type="small" themeColor="danger" accessibilityLiveRegion="polite">
+            {problem}
+          </ThemedText>
+        ) : null}
+        <OceanButton
+          title={saving ? 'Saving…' : params.then === 'log' ? 'Add site' : 'Add site & log a sighting'}
+          icon={saving ? undefined : 'addSite'}
+          onPress={save}
+          disabled={saving}
+        />
       </ScrollView>
     </ThemedView>
-  );
-}
-
-function Field({
-  label,
-  children,
-  style,
-}: {
-  label: string;
-  children: React.ReactNode;
-  style?: object;
-}) {
-  return (
-    <View style={[{ gap: Spacing.one }, style]}>
-      <ThemedText type="smallBold">{label}</ThemedText>
-      {children}
-    </View>
   );
 }
 
 const styles = StyleSheet.create({
   content: {
     padding: Spacing.three,
+    paddingBottom: Spacing.five,
+    gap: Spacing.three + 2,
+    width: '100%',
+    maxWidth: MaxContentWidth,
+    alignSelf: 'center',
+  },
+  intro: {
+    gap: 2,
+  },
+  card: {
     gap: Spacing.three,
+  },
+  where: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 8,
   },
   rowFields: {
     flexDirection: 'row',
     gap: Spacing.two,
   },
-  input: {
-    borderRadius: 12,
-    paddingHorizontal: Spacing.three,
-    height: 44,
-    fontSize: 16,
-  },
   multiline: {
     minHeight: 80,
-    paddingTop: 10,
     textAlignVertical: 'top',
-    height: undefined,
   },
 });

@@ -18,6 +18,18 @@ export const STATUS_COLOR: Record<SightingStatus, string> = {
   disputed: '#C0392B',
 };
 
+/** Status colors for text, at least 4.5:1 on the app's backgrounds and on a tinted chip. */
+export const STATUS_TEXT: Record<'light' | 'dark', Record<SightingStatus, string>> = {
+  light: {
+    unverified: '#4B5563', evidence_submitted: '#92400E', confirmed: '#166534', accepted: '#166534',
+    rejected: '#B42318', disputed: '#B42318',
+  },
+  dark: {
+    unverified: '#C3CAD2', evidence_submitted: '#FCD34D', confirmed: '#86EFAC', accepted: '#86EFAC',
+    rejected: '#FF8A7A', disputed: '#FF8A7A',
+  },
+};
+
 /** One line on what the status means, in plain words. */
 export const STATUS_EXPLANATION: Record<SightingStatus, string> = {
   unverified: 'The diver’s own report. No one else has confirmed it yet.',

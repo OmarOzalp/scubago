@@ -22,5 +22,5 @@ export function SpeciesPhoto({ species }: { species: Species }) {
 
 const styles = StyleSheet.create({
   frame: { width: '100%', height: 78, borderRadius: 10, overflow: 'hidden', backgroundColor: '#E8EEE6', alignItems: 'center', justifyContent: 'center' },
-  placeholder: { color: '#526B61', fontSize: 10, textAlign: 'center', padding: 8 },
+  placeholder: { color: '#46594F', fontSize: 12, textAlign: 'center', padding: 8 },
 });

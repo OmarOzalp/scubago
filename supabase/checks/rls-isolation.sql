@@ -233,7 +233,7 @@ begin
   perform set_config('request.jwt.claims', '{"role":"anon"}', true);
   select count(*) into n from public.sightings where id = 'rls-check-a';
   reset role;
-  report := report || format(E'\n  info  anonymous visitors %s read other divers'' sightings (ScubaGo''s current "public by default" design)', case when n > 0 then 'can' else 'cannot' end);
+  report := report || format(E'\n  info  anonymous visitors %s read other divers'' public sightings (private ones, migration 0008, only their owner can)', case when n > 0 then 'can' else 'cannot' end);
 
   raise exception '%', format(E'RLS isolation check: %s passed, %s failed. Nothing was saved (this error rolls the check back).%s', passed, failed, report);
 end $$;

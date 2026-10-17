@@ -16,7 +16,7 @@ through it. The school scatters and then regroups.
 | `src/lib/swimming.ts` | Which logged species the school shows instead of a generic fish (`SCHOOL_SPECIES`) |
 
 The school swims only once you've logged a tuna (Yellowfin or Dogtooth), and leaves again if you
-delete your last tuna sighting. The empty-ocean preview has no tuna. It stands for the catalog's
+delete your last tuna sighting (an island with nothing logged has an empty ocean). The school stands for the catalog's
 tuna, and tapping it opens their species page (see
 [The school as a species](#the-school-as-a-species)). Set `TUNA_SCHOOL.size` to 0 to leave it out
 everywhere.
@@ -228,7 +228,7 @@ Tuna, the species it is drawn after, then Dogtooth Tuna. The school owns their v
   catalog's fish family, so before this rule a logged tuna also swam as the generic `reef-fish`
   model beside the school.
 - Every other fish without its own model still swims as the `reef-fish` model.
-- A collection holding only tuna is not a preview: the school shows it.
+- A collection holding only tuna is not an empty ocean: the school shows it.
 - With the school left out (`TUNA_SCHOOL.size` 0), tuna swim as fish again.
 
 ## Tapping the school
@@ -354,7 +354,7 @@ The tests cover:
 `src/lib/__tests__/swimming.test.ts` and `src/components/home/__tests__/sanctuary-scene.test.js`
 cover the ownership rule:
 
-- the school swims only while a tuna is logged (never in the preview);
+- the school swims only while a tuna is logged (never in an empty ocean);
 - a logged tuna is shown by the school only, never also as a generic fish;
 - other fish keep the fish model;
 - a tap on the school opens the right tuna.

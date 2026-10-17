@@ -3,6 +3,9 @@
   "main": "expo-router/entry",
   "version": "1.0.0",
   "dependencies": {
+    "@expo-google-fonts/courier-prime": "^0.4.1",
+    "@expo-google-fonts/figtree": "^0.4.1",
+    "@expo-google-fonts/fraunces": "^0.4.1",
     "@expo/ui": "~57.0.12",
     "@react-native-async-storage/async-storage": "2.2.0",
     "@react-three/fiber": "^9.7.0",
@@ -25,6 +28,7 @@
     "expo-symbols": "~57.0.2",
     "expo-system-ui": "~57.0.2",
     "expo-web-browser": "~57.0.2",
+    "phosphor-react-native": "^3.0.6",
     "react": "19.2.3",
     "react-dom": "19.2.3",
     "react-native": "0.86.2",
@@ -62,6 +66,7 @@
     "verify:underwater": "tsx scripts/verify-underwater.mjs",
     "verify:ocean": "tsx scripts/verify-ocean.mjs",
     "build:species": "tsx scripts/art/build-species.ts",
+    "plates:sheet": "tsx scripts/art/plates-sheet.ts",
     "seed:supabase": "tsx scripts/seed-supabase.ts",
     "check:env": "tsx scripts/check-public-env.ts",
     "eas-build-post-install": "tsx scripts/check-public-env.ts --eas",
@@ -75,6 +80,11 @@
       "^@react-native-async-storage/async-storage$": "@react-native-async-storage/async-storage/jest/async-storage-mock",
       "^@/assets/(.*)$": "<rootDir>/assets/$1",
       "^@/(.*)$": "<rootDir>/src/$1"
-    }
+    },
+    "transformIgnorePatterns": [
+      "/node_modules/(?!(.pnpm|react-native|@react-native|@react-native-community|expo|@expo|@expo-google-fonts|react-navigation|@react-navigation|@sentry/react-native|native-base|standard-navigation|phosphor-react-native))",
+      "/node_modules/react-native-reanimated/plugin/",
+      "/node_modules/@react-native/babel-preset/"
+    ]
   }
 }

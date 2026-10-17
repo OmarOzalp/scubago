@@ -1,61 +1,89 @@
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
+import { Icon } from '@/components/icon';
+import { Tag } from '@/components/journal/tag';
 import { SpeciesAvatar } from '@/components/species-avatar';
 import { StatusChip } from '@/components/status-chip';
-import { ThemedText } from '@/components/themed-text';
-import { Spacing } from '@/constants/theme';
-import { useTheme } from '@/hooks/use-theme';
+import { Radius, Shadow, Type } from '@/constants/theme';
+import { useSchemeName, useTheme } from '@/hooks/use-theme';
 import type { DiveSite, Sighting, Species } from '@/lib/types';
+import { STATUS_LABEL } from '@/lib/verification';
 
 interface Props {
   sighting: Sighting;
   species: Species;
   site?: DiveSite;
-  /** Show who logged it (used on site details); My Log hides it. */
+  /** Show who logged it (used on site details); the logbook hides it. */
   showUsername?: boolean;
-  /** The diver's change hasn't reached the server yet (My Log, when signed in). */
+  /** The diver's change hasn't reached the server yet (the logbook, when signed in). */
   pending?: boolean;
+  /** Leave the date out (the logbook already groups entries under their date). */
+  hideDate?: boolean;
   onPress?: () => void;
 }
 
-export function SightingRow({ sighting, species, site, showUsername = false, pending = false, onPress }: Props) {
+/** One entry in a log: the species' plate, its name, where and when. */
+export function SightingRow({ sighting, species, site, showUsername = false, pending = false, hideDate = false, onPress }: Props) {
   const theme = useTheme();
+  const scheme = useSchemeName();
+  const showStatus = !!sighting.status && sighting.status !== 'unverified' && !pending;
+  // Only the diver who logged a private sighting ever has it.
+  const hidden = sighting.visibility === 'private';
+  // One sentence for screen readers instead of five separate bits of text.
+  const label = [
+    species.commonName,
+    showUsername && !sighting.isDemo ? `logged by @${sighting.username}` : null,
+    site?.name,
+    formatDate(sighting.sightedOn),
+    sighting.photoUri ? 'with photo' : null,
+    hidden ? 'only you can see it' : null,
+    sighting.isDemo ? 'example data, not a real sighting' : null,
+    pending ? (sighting.syncError ? 'not synced yet' : 'waiting to sync') : null,
+    showStatus ? STATUS_LABEL[sighting.status!] : null,
+  ]
+    .filter(Boolean)
+    .join(', ');
+  const where = [showUsername && !sighting.isDemo ? `@${sighting.username}` : null, site?.name, hideDate ? null : formatDate(sighting.sightedOn)]
+    .filter(Boolean)
+    .join(' · ');
   return (
     <Pressable
       onPress={onPress}
+      disabled={!onPress}
+      accessibilityRole={onPress ? 'button' : undefined}
+      accessibilityLabel={label}
       style={({ pressed }) => [
         styles.row,
-        { backgroundColor: pressed ? theme.backgroundSelected : theme.backgroundElement },
+        {
+          backgroundColor: pressed ? theme.backgroundSelected : theme.backgroundElement,
+          borderColor: theme.cardBorder,
+          boxShadow: Shadow[scheme].card,
+          transform: [{ translateY: pressed ? 1 : 0 }],
+        },
       ]}>
-      <SpeciesAvatar species={species} size={44} showRarityRing />
+      <SpeciesAvatar species={species} size={52} showRarityRing />
       <View style={styles.body}>
-        <View style={styles.title}>
-          <ThemedText type="smallBold" numberOfLines={1} style={styles.name}>
-            {species.commonName}
-          </ThemedText>
-          {/* Demo community data (local-only builds): never passed off as another diver's report. */}
-          {sighting.isDemo ? (
-            <View style={[styles.example, { borderColor: theme.textSecondary }]} accessibilityLabel="Example data, not a real sighting">
-              <Text style={[styles.exampleLabel, { color: theme.textSecondary }]}>Example</Text>
-            </View>
-          ) : null}
-          {/* Unverified is the usual case, so only the others are named here. */}
-          {sighting.status && sighting.status !== 'unverified' && !pending ? <StatusChip status={sighting.status} small /> : null}
-          {pending ? (
-            <View style={[styles.example, { borderColor: theme.textSecondary, borderStyle: 'dashed' }]} accessibilityLabel="Waiting to sync">
-              <Text style={[styles.exampleLabel, { color: theme.textSecondary }]}>
-                {sighting.syncError ? 'Not synced' : 'Waiting to sync'}
-              </Text>
-            </View>
-          ) : null}
-        </View>
-        <ThemedText type="small" themeColor="textSecondary" numberOfLines={1}>
-          {showUsername && !sighting.isDemo ? `@${sighting.username} · ` : ''}
-          {site ? `${site.name} · ` : ''}
-          {formatDate(sighting.sightedOn)}
-        </ThemedText>
+        <Text numberOfLines={1} style={[styles.name, { color: theme.text }]}>
+          {species.commonName}
+        </Text>
+        {where ? (
+          <Text numberOfLines={1} style={[styles.where, { color: theme.textSecondary }]}>
+            {where}
+          </Text>
+        ) : null}
+        {sighting.isDemo || hidden || showStatus || pending ? (
+          <View style={styles.tags}>
+            {/* Demo community data (local-only builds): never passed off as another diver's report. */}
+            {sighting.isDemo ? <Tag label="Example" small accessibilityLabel="Example data, not a real sighting" /> : null}
+            {hidden ? <Tag label="Only you" small /> : null}
+            {/* Unverified is the usual case, so only the others are named here. */}
+            {showStatus ? <StatusChip status={sighting.status!} small /> : null}
+            {pending ? <Tag label={sighting.syncError ? 'Not synced' : 'Waiting to sync'} dashed small /> : null}
+          </View>
+        ) : null}
       </View>
-      {sighting.photoUri ? <ThemedText type="small">📷</ThemedText> : null}
+      {sighting.photoUri ? <Icon name="camera" size={20} color={theme.textSecondary} /> : null}
+      {onPress ? <Icon name="chevronRight" size={18} color={theme.textSecondary} weight="bold" /> : null}
     </Pressable>
   );
 }
@@ -71,34 +99,47 @@ export function formatDate(isoDate: string): string {
   });
 }
 
+/** A logbook date heading: "Saturday 12 October", with the year when it isn't this year's. */
+export function formatEntryDate(isoDate: string, thisYear = new Date().getFullYear()): string {
+  const [y, m, d] = isoDate.split('-').map(Number);
+  const date = new Date(Date.UTC(y, m - 1, d));
+  return date.toLocaleDateString(undefined, {
+    weekday: 'long',
+    day: 'numeric',
+    month: 'long',
+    year: y === thisYear ? undefined : 'numeric',
+    timeZone: 'UTC',
+  });
+}
+
 const styles = StyleSheet.create({
   row: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: Spacing.three,
-    padding: Spacing.two + 2,
-    borderRadius: 14,
+    gap: 12,
+    padding: 10,
+    paddingRight: 12,
+    borderRadius: Radius.md,
+    borderWidth: 1,
   },
   body: {
     flex: 1,
-    gap: 1,
-  },
-  title: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: Spacing.two,
+    gap: 2,
   },
   name: {
-    flexShrink: 1,
+    fontFamily: Type.bodyHeavy,
+    fontSize: 16,
+    lineHeight: 21,
   },
-  example: {
-    borderRadius: 999,
-    borderWidth: 1,
-    paddingHorizontal: 6,
-    paddingVertical: 1,
+  where: {
+    fontFamily: Type.body,
+    fontSize: 14,
+    lineHeight: 19,
   },
-  exampleLabel: {
-    fontSize: 10,
-    fontWeight: '700',
+  tags: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 6,
+    marginTop: 3,
   },
 });

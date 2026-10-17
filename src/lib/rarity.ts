@@ -11,13 +11,19 @@ export const RARITY_LABEL: Record<Rarity, string> = {
   legendary: 'Legendary',
 };
 
-/** Tier accent colors (work on light and dark backgrounds). */
+/** Tier accent colors for plate edges and fills (work on light and dark paper); not for text. */
 export const RARITY_COLOR: Record<Rarity, string> = {
-  common: '#8E9AA6',
-  uncommon: '#3BA55D',
-  rare: '#3B82F6',
-  epic: '#A855F7',
-  legendary: '#F59E0B',
+  common: '#A3B3B9',
+  uncommon: '#5DBB83',
+  rare: '#5F8EEA',
+  epic: '#A877EC',
+  legendary: '#F0B42E',
+};
+
+/** Tier colors for text, at least 4.5:1 on the app's backgrounds and on a tinted chip. */
+export const RARITY_TEXT: Record<'light' | 'dark', Record<Rarity, string>> = {
+  light: { common: '#50666C', uncommon: '#1B6E3E', rare: '#2459C6', epic: '#7A3FC4', legendary: '#8A5A00' },
+  dark: { common: '#C3CAD2', uncommon: '#86EFAC', rare: '#93C5FD', epic: '#D8B4FE', legendary: '#FCD34D' },
 };
 
 export function rarityRank(rarity: Rarity): number {

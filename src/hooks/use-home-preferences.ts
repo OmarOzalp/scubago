@@ -1,18 +1,23 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { DEFAULT_HOME, parseHomePreferences, type HomePreferences } from '@/lib/home';
+
+/** A home whose saved settings are still loading. */
+const loadingHome = (key: string) => ({ key, preferences: DEFAULT_HOME, loading: true, error: '' });
 
 export function useHomePreferences(ownerId: string) {
   const key = `scubago:home:v1:${ownerId}`;
+  // The key on screen, so a save that finishes after an account switch is dropped. Updated on commit, not during render.
   const currentKey = useRef(key);
-  currentKey.current = key;
-  const [state, setState] = useState({ key: '', preferences: DEFAULT_HOME, loading: true, error: '' });
+  useLayoutEffect(() => { currentKey.current = key; }, [key]);
+  const [state, setState] = useState(() => loadingHome(key));
+  // Another account: start its home from loading, adjusting state during render rather than in the load effect.
+  if (state.key !== key) setState(loadingHome(key));
   const [saving, setSaving] = useState(false);
   const savingRef = useRef(false);
 
   useEffect(() => {
     let cancelled = false;
-    setState({ key, preferences: DEFAULT_HOME, loading: true, error: '' });
     AsyncStorage.getItem(key).then((raw) => {
       if (!cancelled) setState({ key, preferences: parseHomePreferences(raw), loading: false, error: '' });
     }).catch(() => {

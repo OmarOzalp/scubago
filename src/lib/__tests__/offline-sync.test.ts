@@ -41,12 +41,12 @@ function phone(server: FakeServer, name: string, userId: string) {
   const discarded: string[] = [];
   const overrides = {
     // The real uploader reads the file from disk; this one only checks it "exists".
-    uploadPhoto: async (client: any, uid: string, sightingId: string, uri: string) => {
+    uploadPhoto: async (client: any, uid: string, sightingId: string, uri: string, bucket: import('@/lib/sync-service').PhotoBucket) => {
       if (uri.includes('missing')) throw new sync.MissingPhotoError();
       const path = photoObjectPath(uid, sightingId, uri);
-      const { error } = await client.storage.from(PHOTO_BUCKET).upload(path, new Uint8Array([1]), { upsert: true });
+      const { error } = await client.storage.from(bucket).upload(path, new Uint8Array([1]), { upsert: true });
       if (error) throw error;
-      return client.storage.from(PHOTO_BUCKET).getPublicUrl(path).data.publicUrl as string;
+      return sync.photoRef(client, bucket, path);
     },
     discardLocalPhoto: (uri: string) => {
       discarded.push(uri);
@@ -438,6 +438,9 @@ describeSqlite('the local database upgrade', () => {
           ('old-synced', '${A}', 'alice', 'reef-manta', 'blue-corner', '2026-01-01', NULL,
            'https://x.supabase.co/storage/v1/object/public/sighting-photos/${A}/old-synced.jpg', 0, 1, '2026-01-01T00:00:00.000Z'),
           ('old-pending', '${A}', 'alice', 'whale-shark', 'blue-corner', '2026-01-02', 'n', NULL, 0, 0, '2026-01-02T00:00:00.000Z');
+        INSERT INTO user_sites VALUES
+          ('site-mine', 'Mine', 1, 2, 'R', 'C', '', 0, '2026-01-01T00:00:00.000Z'),
+          ('site-pulled', 'Pulled', 1, 2, 'R', 'C', '', 1, '2026-01-01T00:00:00.000Z');
         PRAGMA user_version = 2;
       `);
     };
@@ -446,10 +449,15 @@ describeSqlite('the local database upgrade', () => {
       db = require('@/lib/db');
     });
     try {
-      const { sightings } = await db.initDb({ demo: false });
+      const { sightings, userSites } = await db.initDb({ demo: false });
       expect(sightings.map((s) => s.id).sort()).toEqual(['old-pending', 'old-synced']);
+      // A site that never synced was added on this phone; a downloaded one waits for the next sync to say who.
+      expect(userSites.map((s) => [s.id, s.createdBy])).toEqual([['site-mine', 'local'], ['site-pulled', undefined]]);
       const raw = sqliteHooks.last;
-      expect({ ...raw.prepare('PRAGMA user_version').get() }).toEqual({ user_version: 3 });
+      expect({ ...raw.prepare('PRAGMA user_version').get() }).toEqual({ user_version: 7 });
+      // The dive log (version 7): a pages table, and a dive on each sighting, empty until the store binds them.
+      expect(raw.prepare(`SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'dives'`).all()).toHaveLength(1);
+      expect(raw.prepare('SELECT COUNT(*) AS n FROM sightings WHERE dive_id IS NOT NULL').get()).toEqual({ n: 0 });
       const rows = raw.prepare('SELECT id, remote, synced_photo_url, deleted, version FROM sightings ORDER BY id').all();
       expect(rows.map((r: object) => ({ ...r }))).toEqual([
         { id: 'old-pending', remote: 0, synced_photo_url: null, deleted: 0, version: 0 },

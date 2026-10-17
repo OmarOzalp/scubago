@@ -7,8 +7,11 @@ import { Colors } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 
 export function useTheme() {
-  const scheme = useColorScheme();
-  const theme = scheme === 'unspecified' ? 'light' : scheme;
+  return Colors[useSchemeName()];
+}
 
-  return Colors[theme];
+/** 'light' or 'dark', for colours that need a variant per scheme (rarity and status text). */
+export function useSchemeName(): 'light' | 'dark' {
+  const scheme = useColorScheme();
+  return scheme === 'dark' ? 'dark' : 'light';
 }

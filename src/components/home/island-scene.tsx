@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Animated, Easing, Pressable, StyleSheet, View } from 'react-native';
 import { router } from 'expo-router';
 import { CreatureArt } from './creature-art';
@@ -8,7 +8,8 @@ import type { Habitat } from '@/lib/home';
 import type { DexEntry, Species } from '@/lib/types';
 
 function Resident({ species, index, total, width, active }: { species: Species; index: number; total: number; width: number; active: boolean }) {
-  const phase = useRef(new Animated.Value(0)).current;
+  // Created once and read during render (the interpolations below), so it lives in state rather than a ref.
+  const [phase] = useState(() => new Animated.Value(0));
   const start = index / total;
   const inputRange = Array.from({ length: 33 }, (_, i) => i / 32);
   const angles = inputRange.map((value) => (value + start) * Math.PI * 2);
@@ -45,7 +46,7 @@ export function IslandScene({ habitat, level, residents, paused = false }: { hab
   }, [active, pages]);
   const visible = residents.slice((page % Math.max(1, pages)) * 12, (page % Math.max(1, pages)) * 12 + 12);
   return <View style={styles.scene} onLayout={(event) => setWidth(event.nativeEvent.layout.width)}>
-    <View pointerEvents="none" style={StyleSheet.absoluteFill} accessible accessibilityRole="image" accessibilityLabel={`Level ${level} ${habitat}, home to ${residents.length} discovered species`}>
+    <View style={[StyleSheet.absoluteFill, { pointerEvents: 'none' }]} accessible accessibilityRole="image" accessibilityLabel={`Level ${level} ${habitat}, home to ${residents.length} discovered species`}>
       <IslandArt habitat={habitat} level={level} />
     </View>
     {visible.map((entry, index) => <Resident key={entry.species.id} species={entry.species} index={index} total={visible.length} width={width} active={active} />)}

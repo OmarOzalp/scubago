@@ -1,29 +1,29 @@
 import { router } from 'expo-router';
-import { useMemo, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useMemo } from 'react';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 
+import { DiveRow } from '@/components/dive/dive-row';
+import { Icon } from '@/components/icon';
+import { IconButton } from '@/components/journal/icon-button';
+import { Ledger } from '@/components/journal/ledger';
+import { LinkRow } from '@/components/journal/link-row';
+import { Paper, PaperButton } from '@/components/journal/paper';
+import { Screen, ScreenHeader, SectionHeader } from '@/components/journal/screen';
+import { Wash } from '@/components/journal/wash';
 import { OceanButton } from '@/components/ocean-button';
-import { Segmented } from '@/components/segmented';
-import { SightingRow } from '@/components/sighting-row';
-import { SpeciesAvatar } from '@/components/species-avatar';
 import { ThemedText } from '@/components/themed-text';
-import { ThemedView } from '@/components/themed-view';
-import { Ocean } from '@/constants/palette';
-import { BottomTabInset, Spacing } from '@/constants/theme';
-import { CATALOG, CATALOG_BY_ID } from '@/lib/catalog';
+import { OnFill, Radius, Type } from '@/constants/theme';
+import { useSchemeName, useTheme } from '@/hooks/use-theme';
+import { CATALOG, CATALOG_BY_ID, speciesForSighting } from '@/lib/catalog';
 import { deriveDex } from '@/lib/dex';
-import { CATEGORY_LABEL, CATEGORY_ORDER, RARITY_COLOR, RARITY_LABEL, rarityRank } from '@/lib/rarity';
-import { useAllSites, useAppStore, useMySightings, usePendingChanges } from '@/lib/store';
-import type { Category, DexEntry, Species } from '@/lib/types';
+import { formatDepth, formatDiveNumber, formatMinutes, logTotals, nextMilestone, milestoneName, sortDives } from '@/lib/dives';
+import { useAllSites, useAppStore, useDivesBefore, useMyDives, useMySightings, useNextDiveNumber, usePendingChanges } from '@/lib/store';
+import type { Species } from '@/lib/types';
 
-type Mode = 'sightings' | 'species';
-
+/** The diver's own log: lifetime totals, then every page, newest first. */
 export default function LogbookScreen() {
-  const insets = useSafeAreaInsets();
   const user = useAppStore((s) => s.user);
   const backendEnabled = useAppStore((s) => s.backendEnabled);
-  const [mode, setMode] = useState<Mode>('sightings');
   const mySightings = useMySightings();
   const pending = usePendingChanges();
   const syncing = useAppStore((s) => s.syncing);
@@ -31,265 +31,258 @@ export default function LogbookScreen() {
   const requestSync = useAppStore((s) => s.requestSync);
   const sites = useAllSites();
   const sitesById = useMemo(() => new Map(sites.map((s) => [s.id, s])), [sites]);
+  const theme = useTheme();
+  const dives = useMyDives();
+  const divesBefore = useDivesBefore();
+  const next = useNextDiveNumber();
 
   const dex = useMemo(() => deriveDex(mySightings, CATALOG_BY_ID), [mySightings]);
-  const dexById = useMemo(() => new Map(dex.map((d) => [d.species.id, d])), [dex]);
-  const rarest = dex[0];
-
-  const sorted = useMemo(
-    () =>
-      [...mySightings].sort((a, b) =>
-        b.sightedOn === a.sightedOn
-          ? b.createdAt.localeCompare(a.createdAt)
-          : b.sightedOn.localeCompare(a.sightedOn),
-      ),
-    [mySightings],
-  );
-
-  const byCategory = useMemo(() => {
-    const groups = new Map<Category, Species[]>();
-    for (const cat of CATEGORY_ORDER) groups.set(cat, []);
-    for (const s of CATALOG) groups.get(s.category)?.push(s);
-    for (const list of groups.values()) {
-      list.sort((a, b) => rarityRank(a.rarity) - rarityRank(b.rarity));
+  const totals = useMemo(() => logTotals(dives), [dives]);
+  const pages = useMemo(() => sortDives(dives), [dives]);
+  // The animals on each page, in the order they were logged.
+  const speciesByDive = useMemo(() => {
+    const map = new Map<string, Species[]>();
+    for (const s of [...mySightings].sort((a, b) => a.createdAt.localeCompare(b.createdAt))) {
+      const species = s.diveId ? speciesForSighting(s) : undefined;
+      if (!species || !s.diveId) continue;
+      map.set(s.diveId, [...(map.get(s.diveId) ?? []), species]);
     }
-    return groups;
-  }, []);
+    return map;
+  }, [mySightings]);
+  const lifetime = Math.max(totals.lifetime, divesBefore);
+  const ahead = nextMilestone(next);
 
   return (
-    <ThemedView style={styles.container}>
-      <ScrollView
-        contentContainerStyle={[
-          styles.content,
-          { paddingTop: insets.top + Spacing.three, paddingBottom: BottomTabInset + Spacing.six },
-        ]}>
-        <View style={styles.titleRow}>
-          <ThemedText type="subtitle">My Log</ThemedText>
-          {backendEnabled ? (
-            <Pressable onPress={() => router.push('/auth')} hitSlop={8}>
-              <ThemedText type="smallBold" themeColor="textSecondary">
-                {user ? `@${user.username}` : 'Sign in to sync'}
-              </ThemedText>
-            </Pressable>
-          ) : null}
-        </View>
-        {pending.count > 0 ? (
-          <Pressable onPress={() => void requestSync()} accessibilityRole="button" accessibilityHint="Tries to sync now">
-            <ThemedText type="small" themeColor="textSecondary">
-              {syncing
-                ? 'Syncing…'
-                : `${pending.count} ${pending.count === 1 ? 'change' : 'changes'} waiting to sync${
-                    syncProblem || pending.failing > 0 ? ' · will retry automatically' : ''
-                  } · Sync now`}
+    <Screen tab>
+      <ScreenHeader
+        eyebrow={backendEnabled && user ? `@${user.username}` : 'Your logbook'}
+        title="Logbook"
+        accessory={
+          backendEnabled ? (
+            <IconButton
+              icon="account"
+              onPress={() => router.push('/auth')}
+              accessibilityLabel={user ? `Account, signed in as ${user.username}` : 'Sign in or create an account'}
+            />
+          ) : null
+        }
+      />
+
+      {/* Signed out, the log lives only in this phone's storage: say so, and offer the way to keep it. */}
+      {backendEnabled && !user ? (
+        <Paper tone="sand" style={styles.backup}>
+          <View style={styles.backupTitle}>
+            <Icon name="warning" size={22} wash={theme.sun} />
+            <ThemedText type="smallBold" style={{ flex: 1 }}>
+              {dives.length > 0
+                ? `${dives.length} ${dives.length === 1 ? 'page is' : 'pages are'} only on this phone`
+                : mySightings.length > 0
+                  ? `${mySightings.length} ${mySightings.length === 1 ? 'sighting is' : 'sightings are'} only on this phone`
+                  : 'Back up your log'}
             </ThemedText>
-          </Pressable>
-        ) : null}
-
-        {/* Stats */}
-        <View style={styles.statsRow}>
-          <Stat value={dex.length} label={`of ${CATALOG.length} species`} />
-          <Stat value={mySightings.length} label="sightings" />
-          {rarest ? (
-            <View style={styles.stat}>
-              <ThemedText
-                type="smallBold"
-                style={{ color: RARITY_COLOR[rarest.species.rarity], fontSize: 18 }}
-                numberOfLines={1}>
-                {rarest.species.commonName}
-              </ThemedText>
-              <ThemedText type="small" themeColor="textSecondary">
-                rarest find ({RARITY_LABEL[rarest.species.rarity].toLowerCase()})
-              </ThemedText>
-            </View>
-          ) : null}
-        </View>
-
-        {backendEnabled ? (
-          <Pressable onPress={() => router.push('/verify')} accessibilityRole="link" hitSlop={6}>
-            <ThemedText type="small" themeColor="textSecondary">
-              Got a code from a buddy? <ThemedText type="smallBold" style={{ color: Ocean.primary }}>Confirm a buddy’s sighting ›</ThemedText>
-            </ThemedText>
-          </Pressable>
-        ) : null}
-
-        <Segmented<Mode>
-          options={[
-            { value: 'sightings', label: 'Sightings' },
-            { value: 'species', label: `Species ${dex.length}/${CATALOG.length}` },
-          ]}
-          value={mode}
-          onChange={setMode}
-        />
-
-        {mode === 'sightings' ? (
-          sorted.length === 0 ? (
-            <EmptyState />
-          ) : (
-            <View style={styles.list}>
-              {sorted.map((s) => {
-                const species = CATALOG_BY_ID.get(s.speciesId);
-                if (!species) return null;
-                return (
-                  <SightingRow
-                    key={s.id}
-                    sighting={s}
-                    species={species}
-                    site={sitesById.get(s.siteId)}
-                    pending={!!user && !s.synced}
-                    onPress={() => router.push(`/sighting/${s.id}`)}
-                  />
-                );
-              })}
-            </View>
-          )
-        ) : (
-          <View style={styles.dex}>
-            {CATEGORY_ORDER.map((cat) => {
-              const speciesList = byCategory.get(cat) ?? [];
-              if (speciesList.length === 0) return null;
-              const seenCount = speciesList.filter((s) => dexById.has(s.id)).length;
-              return (
-                <View key={cat} style={styles.dexSection}>
-                  <View style={styles.dexHeader}>
-                    <ThemedText type="smallBold">{CATEGORY_LABEL[cat]}</ThemedText>
-                    <ThemedText type="small" themeColor="textSecondary">
-                      {seenCount}/{speciesList.length}
-                    </ThemedText>
-                  </View>
-                  <View style={styles.dexGrid}>
-                    {speciesList.map((s) => (
-                      <DexCell key={s.id} species={s} entry={dexById.get(s.id)} />
-                    ))}
-                  </View>
-                </View>
-              );
-            })}
           </View>
-        )}
-      </ScrollView>
-    </ThemedView>
+          <ThemedText type="small" themeColor="textSecondary">
+            {mySightings.length > 0
+              ? 'Sign in or create a free account to back them up and see them on any device.'
+              : 'Sign in to see a log you’ve already backed up, or create an account so new sightings are kept safe.'}
+          </ThemedText>
+          <OceanButton
+            title={mySightings.length > 0 ? 'Back up my log' : 'Sign in or create an account'}
+            variant={mySightings.length > 0 ? 'primary' : 'secondary'}
+            onPress={() => router.push('/auth')}
+          />
+        </Paper>
+      ) : null}
+
+      {pending.count > 0 ? (
+        <Pressable onPress={() => void requestSync()} accessibilityRole="button" accessibilityHint="Tries to sync now" style={styles.syncRow}>
+          <Icon name="sync" size={18} color={theme.textSecondary} />
+          <ThemedText type="small" themeColor="textSecondary" style={{ flex: 1 }}>
+            {syncing
+              ? 'Syncing…'
+              : `${pending.count} ${pending.count === 1 ? 'change' : 'changes'} waiting to sync${
+                  syncProblem || pending.failing > 0 ? ' · will retry automatically' : ''
+                } · `}
+            {syncing ? null : <Text style={{ fontFamily: Type.bodyHeavy, color: theme.tint }}>Sync now</Text>}
+          </ThemedText>
+        </Pressable>
+      ) : null}
+
+      <Ledger
+        items={[
+          { value: lifetime.toLocaleString('en'), label: lifetime === 1 ? 'Dive' : 'Dives', accessibilityLabel: `${lifetime} dives in your lifetime log` },
+          { value: totals.bottomMinutes ? formatMinutes(totals.bottomMinutes) : '–', label: 'Time', accessibilityLabel: totals.bottomMinutes ? `${formatMinutes(totals.bottomMinutes)} underwater in ScubaGo` : 'No bottom time yet' },
+          { value: totals.deepest ? formatDepth(totals.deepest.depth) : '–', label: 'Deepest', accessibilityLabel: totals.deepest ? `Deepest dive ${formatDepth(totals.deepest.depth)}` : 'No depth yet' },
+          { value: String(dex.length), label: `of ${CATALOG.length} species`, accessibilityLabel: `${dex.length} of ${CATALOG.length} species seen` },
+        ]}
+      />
+
+      {/* The next page, waiting to be written. */}
+      <PaperButtonRow
+        number={next}
+        title={`Begin entry ${formatDiveNumber(next)}`}
+        detail={
+          ahead && ahead.remaining === 0
+            ? `Your ${milestoneName(ahead.at)} dive!`
+            : ahead && ahead.remaining <= 5
+              ? `${ahead.remaining + 1} dives to your ${milestoneName(ahead.at)}`
+              : dives.length === 0
+                ? 'Your first page in ScubaGo'
+                : `${totals.sites} ${totals.sites === 1 ? 'site' : 'sites'} · ${totals.signed} signed`
+        }
+        onPress={() => router.push('/log/new')}
+      />
+
+      <LinkRow
+        icon="logbook"
+        title="Dives before ScubaGo"
+        detail={divesBefore > 0 ? `${divesBefore.toLocaleString('en')} logged elsewhere; your pages are numbered after them` : 'Logged dives elsewhere? Number your pages from there'}
+        onPress={() => router.push('/dive/count')}
+      />
+
+      {backendEnabled ? (
+        <LinkRow
+          icon="verified"
+          title="Buddy code"
+          detail="Confirm a buddy’s sighting or sign their dive"
+          role="link"
+          onPress={() => router.push('/verify')}
+        />
+      ) : null}
+
+      <SectionHeader
+        title="Pages"
+        eyebrow={dives.length ? `${dives.length} in ScubaGo` : undefined}
+        accessory={
+          <Pressable onPress={() => router.push('/field-guide')} accessibilityRole="link" style={styles.textLink}>
+            <ThemedText type="smallBold" themeColor="tint">
+              Field guide ›
+            </ThemedText>
+          </Pressable>
+        }
+      />
+
+      {pages.length === 0 ? (
+        <EmptyState />
+      ) : (
+        pages.map((d) => (
+          <DiveRow
+            key={d.id}
+            dive={d}
+            siteName={sitesById.get(d.siteId)?.name ?? 'Unknown site'}
+            species={speciesByDive.get(d.id) ?? []}
+            pending={!!user && !d.synced}
+            onPress={() => router.push(`/dive/${d.id}`)}
+          />
+        ))
+      )}
+    </Screen>
   );
 }
 
-function Stat({ value, label }: { value: number; label: string }) {
+/** The next page as a card in the margin style of the index: its number, and a line about it. */
+function PaperButtonRow({ number, title, detail, onPress }: { number: number; title: string; detail: string; onPress: () => void }) {
+  const theme = useTheme();
+  const scheme = useSchemeName();
   return (
-    <View style={styles.stat}>
-      <ThemedText type="smallBold" style={{ fontSize: 18 }}>
-        {value}
-      </ThemedText>
-      <ThemedText type="small" themeColor="textSecondary">
-        {label}
-      </ThemedText>
-    </View>
+    <PaperButton onPress={onPress} accessibilityLabel={`${title}. ${detail}`} style={styles.nextRow}>
+      <View style={[styles.nextNumber, { backgroundColor: theme.coral, borderColor: theme.text }]}>
+        <Text style={[styles.nextNo, { color: OnFill[scheme].coral }]}>NO.</Text>
+        <Text numberOfLines={1} adjustsFontSizeToFit style={[styles.nextValue, { color: OnFill[scheme].coral }]}>
+          {number.toLocaleString('en')}
+        </Text>
+      </View>
+      <View style={styles.flex}>
+        <Text style={[styles.nextTitle, { color: theme.text }]}>{title}</Text>
+        <ThemedText type="small" themeColor="textSecondary">
+          {detail}
+        </ThemedText>
+      </View>
+      <Icon name="plus" size={20} color={theme.tint} weight="bold" />
+    </PaperButton>
   );
 }
 
 function EmptyState() {
+  const theme = useTheme();
   return (
-    <View style={styles.empty}>
-      <ThemedText style={{ fontSize: 44 }}>🤿</ThemedText>
-      <ThemedText type="smallBold">Nothing logged yet</ThemedText>
-      <ThemedText type="small" themeColor="textSecondary" style={{ textAlign: 'center' }}>
-        Log your first sighting and start your collection.
-      </ThemedText>
-      <OceanButton title="Log a sighting" onPress={() => router.push('/log/new')} />
-    </View>
-  );
-}
-
-function DexCell({ species, entry }: { species: Species; entry?: DexEntry }) {
-  const seen = !!entry;
-  return (
-    <Pressable onPress={() => router.push(`/species/${species.id}`)} style={styles.dexCell}>
-      <View>
-        <SpeciesAvatar species={species} size={60} showRarityRing muted={!seen} />
-        {seen && entry.count > 1 ? (
-          <View style={[styles.countBadge, { backgroundColor: RARITY_COLOR[species.rarity] }]}>
-            <ThemedText type="small" style={styles.countBadgeText}>
-              ×{entry.count}
-            </ThemedText>
-          </View>
-        ) : null}
+    <Paper style={styles.empty}>
+      <View style={styles.emptyArt}>
+        <Wash width={120} height={84} color={theme.wash} seed={47} style={StyleSheet.absoluteFill} />
+        <Icon name="logbook" size={44} />
       </View>
-      <ThemedText
-        type="small"
-        themeColor={seen ? 'text' : 'textSecondary'}
-        style={[styles.dexName, !seen && { opacity: 0.6 }]}
-        numberOfLines={2}>
-        {species.commonName}
+      <ThemedText type="heading" style={{ textAlign: 'center' }}>
+        Your first page is blank
       </ThemedText>
-    </Pressable>
+      <ThemedText type="small" themeColor="textSecondary" style={{ textAlign: 'center' }}>
+        Log a dive and what you saw, and it is written in here, ready for the next one.
+      </ThemedText>
+      <OceanButton title="Log a dive" variant="log" icon="plus" onPress={() => router.push('/log/new')} style={{ alignSelf: 'stretch' }} />
+    </Paper>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
+  backup: {
+    gap: 10,
+  },
+  backupTitle: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  syncRow: {
+    minHeight: 44,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  textLink: {
+    minHeight: 44,
+    justifyContent: 'center',
+  },
+  flex: {
     flex: 1,
   },
-  content: {
-    paddingHorizontal: Spacing.three,
-    gap: Spacing.three,
-  },
-  titleRow: {
+  nextRow: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'baseline',
+    alignItems: 'center',
+    gap: 12,
+    padding: 10,
+    paddingRight: 14,
   },
-  statsRow: {
-    flexDirection: 'row',
-    gap: Spacing.four,
+  nextNumber: {
+    width: 64,
+    borderRadius: Radius.md,
+    borderWidth: 1.5,
+    alignItems: 'center',
+    paddingVertical: 6,
   },
-  stat: {
-    gap: 1,
-    flexShrink: 1,
+  nextNo: {
+    fontFamily: Type.label,
+    fontSize: 12,
+    letterSpacing: 1,
   },
-  list: {
-    gap: Spacing.two,
+  nextValue: {
+    fontFamily: Type.display,
+    fontSize: 24,
+    lineHeight: 28,
+  },
+  nextTitle: {
+    fontFamily: Type.bodyHeavy,
+    fontSize: 16,
+    lineHeight: 21,
   },
   empty: {
     alignItems: 'center',
-    gap: Spacing.two + 2,
-    paddingVertical: Spacing.six,
-    paddingHorizontal: Spacing.four,
+    gap: 10,
+    paddingVertical: 24,
   },
-  dex: {
-    gap: Spacing.four,
-  },
-  dexSection: {
-    gap: Spacing.two,
-  },
-  dexHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'baseline',
-  },
-  dexGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: Spacing.two,
-  },
-  dexCell: {
-    width: '22.5%',
+  emptyArt: {
+    width: 120,
+    height: 84,
     alignItems: 'center',
-    gap: 4,
-  },
-  dexName: {
-    textAlign: 'center',
-    fontSize: 11,
-    lineHeight: 14,
-  },
-  countBadge: {
-    position: 'absolute',
-    right: -4,
-    top: -4,
-    borderRadius: 999,
-    paddingHorizontal: 5,
-    paddingVertical: 1,
-  },
-  countBadgeText: {
-    color: '#fff',
-    fontSize: 10,
-    lineHeight: 14,
-    fontWeight: '700',
+    justifyContent: 'center',
+    marginBottom: 4,
   },
 });

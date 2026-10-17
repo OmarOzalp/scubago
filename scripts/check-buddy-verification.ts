@@ -15,7 +15,7 @@ import { randomUUID } from 'node:crypto';
 import { join } from 'node:path';
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 
-import { ensureProfile, signInWithPassword } from '../src/lib/auth';
+import { createAccount, ensureProfile, signIn as signInToAccount } from '../src/lib/auth';
 import { checkSupabaseConfig, describeSupabaseConfig } from '../src/lib/supabase-env';
 import { answerCode, askBuddy, lookUpCode, verificationSummary } from '../src/lib/verification-api';
 import { envSources, supabaseSettings } from './lib/env-files';
@@ -42,7 +42,11 @@ async function signIn(email: string, password: string) {
   const client = createClient(config.status === 'ok' ? config.url : '', config.status === 'ok' ? config.key : '', {
     auth: { persistSession: false, autoRefreshToken: false },
   });
-  const { id } = await signInWithPassword(client, email, password);
+  // Test accounts are created on first use (the app itself never does that from sign-in).
+  const { id } = await signInToAccount(client, email, password).catch((e: Error) => {
+    if (/don’t match an account/.test(e.message)) return createAccount(client, email, password);
+    throw e;
+  });
   return { client, id, username: await ensureProfile(client, id) };
 }
 

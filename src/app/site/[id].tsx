@@ -1,27 +1,58 @@
 import { Stack, router, useLocalSearchParams } from 'expo-router';
-import { useMemo } from 'react';
-import { ScrollView, StyleSheet, View } from 'react-native';
+import { useMemo, useState } from 'react';
+import { StyleSheet, Text, View } from 'react-native';
 
 import { ExternalLink } from '@/components/external-link';
+import { Icon, type IconName } from '@/components/icon';
+import { Paper } from '@/components/journal/paper';
+import { Screen, SectionHeader } from '@/components/journal/screen';
+import { Wash } from '@/components/journal/wash';
 import { OceanButton } from '@/components/ocean-button';
 import { SightingRow } from '@/components/sighting-row';
+import { SpeciesCard } from '@/components/species-card';
 import { ThemedText } from '@/components/themed-text';
-import { ThemedView } from '@/components/themed-view';
-import { Spacing } from '@/constants/theme';
+import { Radius, Type } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { regionPath } from '@/data/regions';
-import { CATALOG_BY_ID } from '@/lib/catalog';
-import { CATEGORY_EMOJI } from '@/lib/rarity';
-import { siteFacts, siteSourceList } from '@/lib/site-details';
-import { useAllSites, useAppStore } from '@/lib/store';
+import { SITES } from '@/data/sites';
+import { CATALOG_BY_ID, speciesForSighting } from '@/lib/catalog';
+import { deriveDex } from '@/lib/dex';
+import { siteAddedBy, siteFacts, siteSourceList } from '@/lib/site-details';
+import { useAllSites, useAppStore, useMySightings } from '@/lib/store';
+import type { Species } from '@/lib/types';
+import { hashSeed } from '@/lib/wash';
+
+/** An icon for each of the facts siteFacts() can give. */
+const FACT_ICON: Record<string, IconName> = {
+  Depth: 'drop',
+  Level: 'medal',
+  Type: 'waves',
+  Access: 'boat',
+};
+
+const GAP = 10;
+
+/** A dive site's page in the journal: its facts ruled off like a log entry, what lives there, and who saw what. */
+/**
+ * The web build pre-renders a page for every curated site, so each one's HTML matches what the app
+ * draws for it. Sites divers add aren't known at build time: they share the generic page.
+ */
+export function generateStaticParams(): { id: string }[] {
+  return SITES.map((s) => ({ id: s.id }));
+}
 
 export default function SiteDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const theme = useTheme();
   const sites = useAllSites();
   const sightings = useAppStore((s) => s.sightings);
+  const userId = useAppStore((s) => s.user?.id);
+  const mySightings = useMySightings();
+  // The column's width, measured: a phone's to begin with (the static web render has no window).
+  const [inner, setInner] = useState(358);
 
   const site = sites.find((s) => s.id === id);
+  const addedBy = site ? siteAddedBy(site, userId) : null;
 
   const siteSightings = useMemo(
     () =>
@@ -32,150 +63,316 @@ export default function SiteDetailScreen() {
   );
 
   const speciesCount = useMemo(
-    () => new Set(siteSightings.map((s) => s.speciesId)).size,
+    () => new Set(siteSightings.map((s) => s.speciesId).filter((id) => CATALOG_BY_ID.has(id))).size,
     [siteSightings],
+  );
+
+  // How often the diver has seen each species anywhere: painted in once seen, in pencil until then,
+  // as in the field guide.
+  const myCounts = useMemo(
+    () => new Map(deriveDex(mySightings, CATALOG_BY_ID).map((entry) => [entry.species.id, entry.count])),
+    [mySightings],
   );
 
   if (!site) {
     return (
-      <ThemedView style={styles.missing}>
-        <ThemedText>Site not found.</ThemedText>
-      </ThemedView>
+      <View style={[styles.missing, { backgroundColor: theme.background }]}>
+        <View style={styles.missingArt}>
+          <Wash width={120} height={84} color={theme.wash} seed={23} style={StyleSheet.absoluteFill} />
+          <Icon name="pin" size={40} />
+        </View>
+        <ThemedText type="heading">Site not found.</ThemedText>
+      </View>
     );
   }
 
+  const facts = siteFacts(site);
+  const sources = siteSourceList(site);
+  const notable = site.notableSpecies.map((speciesId) => CATALOG_BY_ID.get(speciesId)).filter((s): s is Species => !!s);
+  const hasNotes = facts.length > 0 || !!site.conditions;
+  // Three plates a row on a phone, more on a wide screen.
+  const columns = Math.max(3, Math.min(6, Math.floor(inner / 150)));
+  const cardWidth = Math.floor((inner - GAP * (columns - 1)) / columns);
+
   return (
-    <ThemedView style={{ flex: 1 }}>
+    <>
       <Stack.Screen options={{ title: site.name }} />
-      <ScrollView contentContainerStyle={styles.content}>
-        <View style={{ gap: 2 }}>
-          <ThemedText type="subtitle" style={{ fontSize: 26, lineHeight: 32 }}>
-            {site.name}
-          </ThemedText>
-          <ThemedText type="small" themeColor="textSecondary">
-            {regionPath(site.regionId) ?? site.region}, {site.country}
-            {site.source === 'user' ? ' · added by you' : ''}
-          </ThemedText>
+      <Screen>
+        {/* The page's head: a typewriter eyebrow, the site's name and where it is, and its own watercolour. */}
+        <View style={styles.head}>
+          <View style={styles.headText}>
+            <ThemedText type="label">Dive site</ThemedText>
+            <ThemedText type="display" accessibilityRole="header">
+              {site.name}
+            </ThemedText>
+            <View style={styles.place}>
+              <Icon name="pin" size={16} color={theme.textSecondary} wash={theme.coral} washOpacity={0.4} style={styles.placeIcon} />
+              <ThemedText type="small" themeColor="textSecondary" style={{ flex: 1 }}>
+                {regionPath(site.regionId) ?? site.region}, {site.country}
+                {addedBy ? ` · added by ${addedBy}` : ''}
+              </ThemedText>
+            </View>
+          </View>
+          <View style={styles.headArt}>
+            <Wash width={84} height={64} color={theme.wash} seed={hashSeed(site.id)} style={StyleSheet.absoluteFill} />
+            <Icon name="waves" size={34} />
+          </View>
         </View>
 
         <ThemedText>{site.blurb}</ThemedText>
 
-        {/* Only facts with a source are ever filled in (src/data/__tests__/integrity.test.ts). */}
-        {siteFacts(site).length > 0 ? (
-          <View style={styles.chipsRow}>
-            {siteFacts(site).map((fact) => (
-              <View key={fact.label} style={[styles.chip, { backgroundColor: theme.backgroundElement }]}>
-                <ThemedText type="small">
-                  <ThemedText type="smallBold">{fact.label}</ThemedText> {fact.value}
-                </ThemedText>
+        {/* The log entry: what's known about the site, one ruled line each, with the totals at the foot. */}
+        <Paper style={styles.entry}>
+          {/* Only facts with a source are ever filled in (src/data/__tests__/integrity.test.ts). */}
+          {facts.map((fact, index) => (
+            <View
+              key={fact.label}
+              accessible
+              accessibilityLabel={`${fact.label} ${fact.value}`}
+              style={[styles.fact, index > 0 && { borderTopWidth: 1, borderTopColor: theme.rule }]}>
+              <Icon name={FACT_ICON[fact.label] ?? 'info'} size={20} />
+              <ThemedText type="label" style={styles.factLabel}>
+                {fact.label}
+              </ThemedText>
+              <Text style={[styles.factValue, { color: theme.text }]}>{fact.value}</Text>
+            </View>
+          ))}
+          {site.conditions ? (
+            <View style={[styles.conditions, facts.length > 0 && { borderTopWidth: 1, borderTopColor: theme.rule }]}>
+              <View style={styles.conditionsTitle}>
+                <Icon name="current" size={20} />
+                <ThemedText type="label">Conditions</ThemedText>
               </View>
-            ))}
+              <ThemedText type="small" themeColor="textSecondary">
+                {site.conditions}
+              </ThemedText>
+            </View>
+          ) : null}
+          {/* A double rule above the totals, as at the foot of a logbook page. */}
+          {hasNotes ? <View style={[styles.doubleRule, { borderColor: theme.rule }]} /> : null}
+          <View style={styles.totals} accessible accessibilityLabel={`${siteSightings.length} sightings, ${speciesCount} species`}>
+            <Total value={siteSightings.length} label={siteSightings.length === 1 ? 'Sighting' : 'Sightings'} />
+            <View style={[styles.totalRule, { backgroundColor: theme.rule }]} />
+            <Total value={speciesCount} label="Species" />
           </View>
-        ) : null}
-        {site.conditions ? <ThemedText type="small" themeColor="textSecondary">{site.conditions}</ThemedText> : null}
+        </Paper>
 
-        <View style={styles.statsRow}>
-          <ThemedText type="smallBold">{siteSightings.length}</ThemedText>
-          <ThemedText type="small" themeColor="textSecondary">
-            sightings
-          </ThemedText>
-          <ThemedText type="smallBold" style={{ marginLeft: Spacing.three }}>
-            {speciesCount}
-          </ThemedText>
-          <ThemedText type="small" themeColor="textSecondary">
-            species
-          </ThemedText>
-        </View>
-
-        {site.notableSpecies.length > 0 ? (
-          <View style={{ gap: Spacing.two }}>
-            <ThemedText type="smallBold">What divers see here</ThemedText>
-            <View style={styles.chipsRow}>
-              {site.notableSpecies.map((speciesId) => {
-                const species = CATALOG_BY_ID.get(speciesId);
-                if (!species) return null;
-                return (
-                  <View
-                    key={speciesId}
-                    style={[styles.chip, { backgroundColor: theme.backgroundElement }]}>
-                    <ThemedText type="small">
-                      {species.emoji ?? CATEGORY_EMOJI[species.category]} {species.commonName}
-                    </ThemedText>
-                  </View>
-                );
-              })}
+        {notable.length > 0 ? (
+          <View style={styles.section}>
+            <SectionHeader title="What divers see here" />
+            <ThemedText type="caption" themeColor="textSecondary">
+              Painted in once you’ve logged them; the pencil sketches are still to find.
+            </ThemedText>
+            <View style={styles.grid} onLayout={(e) => setInner(Math.floor(e.nativeEvent.layout.width))}>
+              {notable.map((species) => (
+                <SpeciesCard
+                  key={species.id}
+                  species={species}
+                  width={cardWidth}
+                  count={myCounts.get(species.id) ?? 0}
+                  onPress={() => router.push(`/species/${species.id}`)}
+                />
+              ))}
             </View>
           </View>
         ) : null}
 
         <OceanButton
           title="Log a sighting here"
+          variant="log"
+          icon="plus"
           onPress={() => router.push({ pathname: '/log/new', params: { siteId: site.id } })}
         />
 
-        <View style={{ gap: Spacing.two }}>
-          <ThemedText type="smallBold">Recent sightings</ThemedText>
+        <View style={styles.section}>
+          <SectionHeader title="Recent sightings" />
           {siteSightings.length === 0 ? (
-            <ThemedText type="small" themeColor="textSecondary">
-              None yet — be the first to log one.
-            </ThemedText>
+            <View style={[styles.empty, { borderColor: theme.rule }]}>
+              <Icon name="binoculars" size={30} />
+              <ThemedText type="caption" themeColor="textSecondary" style={{ textAlign: 'center' }}>
+                None yet — be the first to log one.
+              </ThemedText>
+            </View>
           ) : (
-            siteSightings.slice(0, 30).map((s) => {
-              const species = CATALOG_BY_ID.get(s.speciesId);
-              if (!species) return null;
-              return (
-                <SightingRow
-                  key={s.id}
-                  sighting={s}
-                  species={species}
-                  showUsername
-                  onPress={() => router.push(`/sighting/${s.id}`)}
-                />
-              );
-            })
+            <View style={styles.rows}>
+              {siteSightings.slice(0, 30).map((s) => {
+                const species = speciesForSighting(s);
+                if (!species) return null;
+                return (
+                  <SightingRow
+                    key={s.id}
+                    sighting={s}
+                    species={species}
+                    showUsername
+                    onPress={() => router.push(`/sighting/${s.id}`)}
+                  />
+                );
+              })}
+            </View>
           )}
         </View>
 
-        {siteSourceList(site).length > 0 ? (
-          <ThemedText type="small" themeColor="textSecondary">
-            Sources:{' '}
-            {siteSourceList(site).map((source, i) => (
-              <ThemedText key={source.source} type="small" themeColor="textSecondary">
-                {i > 0 ? ' · ' : ''}
-                {source.url ? <ExternalLink href={source.url}>{source.source}</ExternalLink> : source.source}
-                {source.license ? ` (${source.license})` : ''}
-              </ThemedText>
-            ))}
-          </ThemedText>
+        {sources.length > 0 ? (
+          <View style={[styles.sources, { borderTopColor: theme.rule }]}>
+            <ThemedText type="label">Sources</ThemedText>
+            <ThemedText type="small" themeColor="textSecondary">
+              {sources.map((source, i) => (
+                <ThemedText key={source.source} type="small" themeColor="textSecondary">
+                  {i > 0 ? ' · ' : ''}
+                  {source.url ? (
+                    <ExternalLink href={source.url} style={[styles.link, { color: theme.tint }]}>
+                      {source.source}
+                    </ExternalLink>
+                  ) : (
+                    source.source
+                  )}
+                  {source.license ? ` (${source.license})` : ''}
+                </ThemedText>
+              ))}
+            </ThemedText>
+          </View>
         ) : null}
-      </ScrollView>
-    </ThemedView>
+      </Screen>
+    </>
+  );
+}
+
+/** One figure in the totals; the row around it is read as one sentence. */
+function Total({ value, label }: { value: number; label: string }) {
+  const theme = useTheme();
+  return (
+    <View style={styles.total}>
+      <Text style={[styles.totalValue, { color: theme.text }]}>{value}</Text>
+      <Text style={[styles.totalLabel, { color: theme.textSecondary }]}>{label.toUpperCase()}</Text>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  content: {
-    padding: Spacing.three,
-    gap: Spacing.three,
-  },
   missing: {
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
+    gap: 12,
+    padding: 24,
   },
-  statsRow: {
+  missingArt: {
+    width: 120,
+    height: 84,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  head: {
     flexDirection: 'row',
-    alignItems: 'baseline',
-    gap: Spacing.one,
+    alignItems: 'flex-start',
+    gap: 12,
   },
-  chipsRow: {
+  headText: {
+    flex: 1,
+    gap: 2,
+  },
+  place: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 6,
+    marginTop: 4,
+  },
+  placeIcon: {
+    marginTop: 2,
+  },
+  headArt: {
+    width: 84,
+    height: 64,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 8,
+  },
+  entry: {
+    paddingVertical: 4,
+  },
+  fact: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    minHeight: 48,
+    paddingVertical: 10,
+  },
+  factLabel: {
+    minWidth: 64,
+  },
+  factValue: {
+    flex: 1,
+    textAlign: 'right',
+    fontFamily: Type.bodyBold,
+    fontSize: 15,
+    lineHeight: 20,
+  },
+  conditions: {
+    gap: 6,
+    paddingVertical: 12,
+  },
+  conditionsTitle: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  doubleRule: {
+    height: 4,
+    borderTopWidth: 1,
+    borderBottomWidth: 1,
+    marginTop: 2,
+  },
+  totals: {
+    flexDirection: 'row',
+    alignItems: 'stretch',
+    paddingVertical: 12,
+  },
+  total: {
+    flex: 1,
+    alignItems: 'center',
+    gap: 2,
+  },
+  totalRule: {
+    width: 1,
+  },
+  totalValue: {
+    fontFamily: Type.display,
+    fontSize: 26,
+    lineHeight: 32,
+  },
+  totalLabel: {
+    fontFamily: Type.bodyHeavy,
+    fontSize: 12,
+    lineHeight: 15,
+    letterSpacing: 0.8,
+  },
+  section: {
+    gap: 14,
+  },
+  grid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: Spacing.one + 2,
+    gap: GAP,
   },
-  chip: {
-    borderRadius: 999,
-    paddingHorizontal: 10,
-    paddingVertical: 4,
+  rows: {
+    gap: 8,
+  },
+  empty: {
+    borderWidth: 1.5,
+    borderStyle: 'dashed',
+    borderRadius: Radius.lg,
+    padding: 20,
+    alignItems: 'center',
+    gap: 8,
+  },
+  sources: {
+    borderTopWidth: 1,
+    paddingTop: 14,
+    marginTop: 4,
+    gap: 4,
+  },
+  link: {
+    fontFamily: Type.bodyBold,
+    textDecorationLine: 'underline',
   },
 });

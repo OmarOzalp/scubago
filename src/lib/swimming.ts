@@ -71,8 +71,8 @@ function swimming(residents: DexEntry[]) {
 export function swimmerPages(residents: DexEntry[], limit = MAX_ANIMATED) {
   return Math.max(1, Math.ceil(swimming(residents).length / limit));
 }
-/** An empty ocean gets a clearly labeled visiting shark and ray instead of nothing. */
-export function showsPreview(residents: DexEntry[]) {
+/** None of the diver's discoveries is drawn for the island (or there are none yet): its ocean is empty. */
+export function noneSwim(residents: DexEntry[]) {
   return shown(residents).length === 0;
 }
 /**

@@ -1,67 +1,42 @@
-import { Image } from 'expo-image';
-import { StyleSheet, Text, View } from 'react-native';
+import { View } from 'react-native';
 
+import { SpeciesArt } from '@/components/species-art';
+import { Radius } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
-import { CATEGORY_EMOJI, RARITY_COLOR } from '@/lib/rarity';
+import { RARITY_COLOR } from '@/lib/rarity';
+import { artFor } from '@/lib/species-art';
 import type { Species } from '@/lib/types';
 
 interface Props {
   species: Species;
   size?: number;
-  /** Draw the rarity-colored ring (used in the dex and pickers). */
+  /** Edge the plate in the species' rarity colour (the field guide and pickers). */
   showRarityRing?: boolean;
-  /** Grey out (unseen dex entries). */
+  /** A species still to find: a pencil outline on bare paper. */
   muted?: boolean;
 }
 
-/** Circular species image with emoji fallback and optional rarity ring. */
+/** A small field-guide plate: the species' drawing on a pale wash of its colour. Decorative. */
 export function SpeciesAvatar({ species, size = 48, showRarityRing = false, muted = false }: Props) {
   const theme = useTheme();
-  const emoji = species.emoji ?? CATEGORY_EMOJI[species.category];
-  const ring = showRarityRing ? RARITY_COLOR[species.rarity] : 'transparent';
-
+  const { wash } = artFor(species);
+  const paper = muted ? theme.backgroundElement : `${wash}26`;
   return (
     <View
-      style={[
-        styles.ring,
-        {
-          width: size,
-          height: size,
-          borderRadius: size / 2,
-          borderColor: muted ? theme.backgroundSelected : ring,
-          borderWidth: showRarityRing ? 2 : 0,
-        },
-      ]}>
-      {species.photoUrl && !muted ? (
-        <Image
-          source={{ uri: species.photoUrl }}
-          style={{ width: '100%', height: '100%', borderRadius: size / 2 }}
-          contentFit="cover"
-          transition={150}
-        />
-      ) : (
-        <View
-          style={[
-            styles.fallback,
-            { backgroundColor: theme.backgroundElement, borderRadius: size / 2 },
-          ]}>
-          <Text style={{ fontSize: size * 0.5, opacity: muted ? 0.35 : 1 }}>{emoji}</Text>
-        </View>
-      )}
+      accessibilityElementsHidden
+      importantForAccessibility="no-hide-descendants"
+      style={{
+        width: size,
+        height: size,
+        borderRadius: Math.min(Radius.md, size * 0.28),
+        backgroundColor: paper,
+        borderWidth: showRarityRing ? 2 : 1,
+        borderColor: showRarityRing && !muted ? RARITY_COLOR[species.rarity] : theme.cardBorder,
+        alignItems: 'center',
+        justifyContent: 'center',
+        overflow: 'hidden',
+      }}>
+      <SpeciesArt species={species} width={size * 0.86} found={!muted} paper={muted ? theme.backgroundElement : undefined} />
     </View>
   );
 }
-
-const styles = StyleSheet.create({
-  ring: {
-    overflow: 'hidden',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  fallback: {
-    width: '100%',
-    height: '100%',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-});
