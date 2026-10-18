@@ -123,12 +123,15 @@ function hand(fingers: readonly Finger[]) {
  * The explorer's camera state, driven by the fingers and buttons and read by the camera every frame
  * (explorer-camera.tsx). The fingers move the view directly (`touch`, every time any finger moves,
  * lands or lifts): their middle drags the water and their spread zooms about it, so the water under
- * them stays under them, with one finger or five. When a finger lands or lifts the view doesn't
- * move: it carries on from where the fingers are then. Let go of a single finger moving fast and the
- * view glides on and slows. A button or a double tap eases to its goal. `subscribe` hears the zoom
- * when a move ends (and as the mouse wheel turns), so tap targets follow it without re-drawing the
- * island mid-gesture; `watch` hears every move, so a scene that draws only on demand (reduced motion)
- * redraws. Held still (reduced motion), buttons and double taps jump to their goal and nothing glides.
+ * them stays under them, with one finger or five. Moves wait for the view to be read (by the next
+ * frame), so fingers moved one at a time count as one move: on the web each finger's move comes as
+ * an event of its own, and moved one at a time they could meet a limit halfway that moving them
+ * together would not. When a finger lands or lifts the view doesn't move: it carries on from where
+ * the fingers are then. Let go of a single finger moving fast and the view glides on and slows. A
+ * button or a double tap eases to its goal. `subscribe` hears the zoom when a move ends (and as the
+ * mouse wheel turns), so tap targets follow it without re-drawing the island mid-gesture; `watch`
+ * hears every move, so a scene that draws only on demand (reduced motion) redraws. Held still
+ * (reduced motion), buttons and double taps jump to their goal and nothing glides.
  */
 export function createExplorer(initial: ExplorerFrame) {
   let frame = initial, sized = false, still = false;
@@ -136,6 +139,8 @@ export function createExplorer(initial: ExplorerFrame) {
   let vx = 0, vz = 0, reported = view.zoom;
   // The fingers down now, whether this touch has had two at once, and where its middle was lately (for the release speed).
   let fingers: Finger[] = [], pinched = false, trail: { t: number; x: number; y: number }[] = [];
+  // Where the same fingers have moved since the view was last read.
+  let pending: Finger[] | null = null;
   const listeners = new Set<(zoom: number) => void>(), watchers = new Set<() => void>();
   const report = (force = false) => {
     if (!force && Math.abs(Math.log(view.zoom / reported)) < .1) return;
@@ -144,8 +149,19 @@ export function createExplorer(initial: ExplorerFrame) {
   };
   const moved = () => watchers.forEach((watcher) => watcher());
   const stop = () => { goal = null; vx = 0; vz = 0; };
+  // Follow the fingers' moves since the view was last read, all at once.
+  const settle = () => {
+    if (!pending) return;
+    const next = pending, before = new Map(fingers.map((f) => [f.id, f]));
+    pending = null;
+    const was = hand(next.map((f) => before.get(f.id)!)), now = hand(next);
+    const pinching = next.length > 1 && was.spread >= EXPLORER.pinchFloor && now.spread >= EXPLORER.pinchFloor;
+    view = followFingers(frame, view, was, now, pinching ? now.spread / was.spread : 1);
+    fingers = next;
+  };
   // Ease to a view (or, held still, go straight there).
   const head = (next: ExplorerView) => {
+    settle();
     vx = 0; vz = 0;
     if (still) { view = next; goal = null; report(true); } else goal = next;
     moved();
@@ -167,12 +183,13 @@ export function createExplorer(initial: ExplorerFrame) {
     moved();
   };
   return {
-    get view() { return view; },
+    get view() { settle(); return view; },
     get frame() { return frame; },
     /** Whether the view is still moving on its own (an eased move or a glide), so the camera keeps drawing. */
     get moving() { return !!goal || vx !== 0 || vz !== 0; },
     /** The screen's size (and the island's level) changed. The first real size starts at the overview. */
     resize(next: ExplorerFrame) {
+      settle();
       frame = next;
       view = sized ? clampView(frame, view) : overview(frame);
       if (goal) goal = clampView(frame, goal);
@@ -192,38 +209,43 @@ export function createExplorer(initial: ExplorerFrame) {
      * without a jump. `cancelled`: the touch was taken away (by the system), so nothing glides.
      */
     touch(next: readonly Finger[], time = clock(), cancelled = false) {
+      const ids = new Set(fingers.map((f) => f.id));
+      if (fingers.length > 0 && next.length === fingers.length && next.every((f) => ids.has(f.id))) {
+        // The same fingers moved: followed when the view is next read.
+        pending = next.map((f) => ({ ...f }));
+        const now = hand(next);
+        trail.push({ t: time, x: now.x, y: now.y });
+        if (trail.length > 12) trail.shift();
+        moved();
+        return;
+      }
+      settle();
       if (next.length === 0) { if (fingers.length > 0) release(time, !cancelled); return; }
       // A new touch stops any glide or eased move where it is.
-      if (fingers.length === 0) { stop(); pinched = false; trail = []; }
-      const before = new Map(fingers.map((f) => [f.id, f]));
-      const same = next.length === fingers.length && next.every((f) => before.has(f.id));
-      const now = hand(next);
-      if (same) {
-        const was = hand(next.map((f) => before.get(f.id)!));
-        const pinching = next.length > 1 && was.spread >= EXPLORER.pinchFloor && now.spread >= EXPLORER.pinchFloor;
-        view = followFingers(frame, view, was, now, pinching ? now.spread / was.spread : 1);
-        moved();
-      } else trail = [];
+      if (fingers.length === 0) { stop(); pinched = false; }
+      // A finger landed or lifted: the view carries on from here.
       if (next.length > 1) pinched = true;
-      trail.push({ t: time, x: now.x, y: now.y });
-      if (trail.length > 12) trail.shift();
+      const now = hand(next);
+      trail = [{ t: time, x: now.x, y: now.y }];
       fingers = next.map((f) => ({ ...f }));
     },
     /** Zoom by `factor` about a point at once (the mouse wheel; screen points from the middle). */
-    zoomAt(factor: number, fx: number, fy: number) { stop(); view = zoomAbout(frame, view, factor, fx, fy); report(); moved(); },
+    zoomAt(factor: number, fx: number, fy: number) { settle(); stop(); view = zoomAbout(frame, view, factor, fx, fy); report(); moved(); },
     /** Ease the zoom by `factor` about a point (screen points from the middle). */
-    zoomBy(factor: number, fx = 0, fy = 0) { head(zoomAbout(frame, goal ?? view, factor, fx, fy)); },
+    zoomBy(factor: number, fx = 0, fy = 0) { settle(); head(zoomAbout(frame, goal ?? view, factor, fx, fy)); },
     /** A double tap: closer in on that spot, or all the way out again once as close as it goes. */
     zoomToward(fx: number, fy: number) {
+      settle();
       if ((goal ?? view).zoom >= zoomRange(frame).max * .98) this.showAll();
       else this.zoomBy(EXPLORER.doubleTap, fx, fy);
     },
     /** Ease out to the whole ocean. */
     showAll() { head(overview(frame)); },
     /** Ease over to a point on the water (x, z) and in to at least `zoom` (a reef creature's home tapped from afar). */
-    focus(x: number, z: number, zoom: number) { head(clampView(frame, { x, z, zoom: Math.max(zoom, (goal ?? view).zoom) })); },
+    focus(x: number, z: number, zoom: number) { settle(); head(clampView(frame, { x, z, zoom: Math.max(zoom, (goal ?? view).zoom) })); },
     /** Advance an eased move or a glide by `dt` seconds; the view to draw. */
     step(dt: number) {
+      settle();
       const t = Math.max(0, Math.min(dt, .1));
       if (goal) {
         const k = 1 - Math.exp(-EXPLORER.ease * t);

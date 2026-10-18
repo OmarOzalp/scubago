@@ -74,6 +74,11 @@ pinch or a drag to be recognized and then catching up in a jump:
   in one go, keeping the water that was under their middle under it at the new zoom,
   and only then kept inside the limits (`followFingers`), so the limits of the old zoom
   never stop a move the new one allows.
+- The fingers' moves are followed when the camera next draws, all together. On the web
+  each finger's move comes as an event of its own: followed one finger at a time, a
+  pinch near the edge could zoom out halfway, meet the edge's limit there (it draws in
+  as the view zooms out), and leave the water slipping under the fingers. Phones send
+  every finger's move at once.
 - When a finger lands or lifts, the fingers' middle jumps, so the view stays exactly
   where it is and carries on from there.
 - Fingers closer together than `pinchFloor` (12 pt from their middle) only drag: real
@@ -198,6 +203,8 @@ The tests cover:
 - one finger keeping the water under it, move by move;
 - two fingers zooming with their spread and keeping the water between them as they
   move; fingers almost together only dragging;
+- fingers moved one at a time, as the web sends them, counting as one move, so a limit
+  met halfway (near the edge) holds nothing back;
 - a finger landing or lifting never moving the view, and no glide after a pinch;
 - a fast release gliding (no faster than the top speed); a slow one, one that stopped
   first, or a cancelled one staying put;
