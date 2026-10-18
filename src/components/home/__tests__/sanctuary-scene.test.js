@@ -20,6 +20,7 @@ jest.mock('../three/tuna-school-mesh', () => ({ TunaSchoolMesh: ({ onPress }) =>
 jest.mock('../three/marine-splashes', () => ({ MarineSplashes: () => null }));
 jest.mock('../three/reef-rocks', () => ({ ReefRocks: ({ morays, octopuses }) => <rocks morays={morays} octopuses={octopuses} /> }));
 jest.mock('../three/reef-anemone', () => ({ ReefAnemones: ({ count }) => <anemones data-count={count} /> }));
+jest.mock('../three/macro-life', () => ({ MacroLife: ({ species, onPress, onFocus }) => <macro data-species={species} onPress={onPress} onFocus={onFocus} /> }));
 jest.mock('../island-scene', () => ({ IslandScene: () => <fallback /> }));
 jest.mock('expo-router', () => ({ router: { push: jest.fn() } }));
 
@@ -133,4 +134,23 @@ test('a logged clownfish swims as a pair in its anemone, both opening its page; 
   // One anemone for the pair, and no rocks (no moray or octopus).
   expect(root.root.findByType('anemones').props).toEqual({ 'data-count': 1 });
   expect(root.root.findAllByType('rocks')).toHaveLength(0);
+});
+
+test('the reef’s small life lives only in the explorer: logged macro species, each opening its page', async () => {
+  useMarineModels.mockReturnValue({ models: { manta: {} }, failed: false, retry: jest.fn() });
+  const residents = [logged('pygmy-seahorse', 'macro'), logged('reef-manta-ray', 'ray'), logged('giant-clam', 'macro')];
+  await act(async () => { root = create(<SanctuaryScene {...props} residents={residents} />); });
+  expect(root.root.findAllByType('macro')).toHaveLength(0);
+  const explorer = { camera: null, tapScale: 1, zoom: () => 200, focus: jest.fn() };
+  await act(async () => root.update(<SanctuaryScene {...props} residents={residents} explorer={explorer} />));
+  expect(root.root.findByType('macro').props['data-species']).toEqual(['pygmy-seahorse', 'giant-clam']);
+  expect(root.root.findByProps({ accessibilityRole: 'image' }).props.accessibilityLabel).toContain('2 small creatures on the reef to find up close');
+  root.root.findByType('macro').props.onPress('giant-clam');
+  expect(router.push).toHaveBeenLastCalledWith('/species/giant-clam');
+  // From afar, a tap on a home looks closer through the explorer.
+  root.root.findByType('macro').props.onFocus(1, 2, 240);
+  expect(explorer.focus).toHaveBeenCalledWith(1, 2, 240);
+  // Nothing small logged, nothing on the reef.
+  await act(async () => root.update(<SanctuaryScene {...props} residents={[logged('reef-manta-ray', 'ray')]} explorer={explorer} />));
+  expect(root.root.findAllByType('macro')).toHaveLength(0);
 });

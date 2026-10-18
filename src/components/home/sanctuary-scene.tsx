@@ -8,12 +8,14 @@ import { IslandPerfProbe, ScenePerformance } from './three/scene-performance';
 import { router } from 'expo-router';
 import { DiscoveryNote, LevelUpBanner, NewTag } from './discovery-overlays';
 import { IslandScene } from './island-scene';
+import { MacroLife } from './three/macro-life';
 import { MarineSwimmers, type Arrivals } from './three/marine-swimmers';
 import { SanctuaryEnvironment } from './three/sanctuary-environment';
 import { useMarineModels } from './three/use-marine-models';
 import { useSceneActive, useSceneVisible } from '@/hooks/use-scene-active';
 import { EXPLORER } from '@/lib/explorer-view';
 import type { Habitat } from '@/lib/home';
+import { MACRO_SPECIES, macroResidents, type MacroSpecies } from '@/lib/macro-life';
 import { clamp, oceanScale } from '@/lib/steering';
 import { hasSchool, MAX_ANIMATED, pickSwimmers, SCHOOL_SPECIES, schoolSpeciesFor, swimmerPages, swimsInSchool, type MarineModel } from '@/lib/swimming';
 import type { DexEntry } from '@/lib/types';
@@ -31,6 +33,8 @@ const SHOWCASE_SWIMMERS = (['whale-shark', 'great-white-shark', 'tiger-shark', '
   // The reef's animals keep to their own places on the reef (reef-life.ts): the moray's den, the octopus's rock, the cuttlefish's reef edge, the clownfish's anemone.
   'giant-moray', 'day-octopus', 'giant-cuttlefish', 'clownfish'] as const)
   .map((model, lane) => ({ model, lane }));
+/** And the reef's small life, every one, in the explorer. */
+const SHOWCASE_MACRO = Object.keys(MACRO_SPECIES) as MacroSpecies[];
 
 /** A mostly overhead orthographic view gives the island an illustrated 2.5D appearance. */
 export const SCENE_CAMERA = { position: [0, 12, 6] as [number, number, number], zoom: 31, near: .1, far: 60 };
@@ -53,10 +57,15 @@ const TAG = { above: 46, margin: 8, height: 24 };
 
 /**
  * The island explorer (src/app/explore.tsx) draws the same island full screen: its own camera
- * (ExplorerCamera, which goes inside the island's environment) in place of the card's, and tap
- * targets sized for its zoom (tapScaleAt).
+ * (ExplorerCamera, which goes inside the island's environment) in place of the card's, tap targets
+ * sized for its zoom (tapScaleAt), and the reef's small life (MacroLife), which comes into view as
+ * it zooms in (`zoom`, its points per world unit now).
  */
-export type ExplorerScene = { camera: ReactNode; tapScale: number };
+export type ExplorerScene = {
+  camera: ReactNode; tapScale: number; zoom: () => number;
+  /** Look closely at a point on the water (x, z): ease over and in to at least `zoom`. */
+  focus: (x: number, z: number, zoom: number) => void;
+};
 
 export function SanctuaryScene({ habitat, level, residents, paused = false, loading = false, onInspect, moments, explorer }: {
   habitat: Habitat; level: number; residents: DexEntry[]; paused?: boolean; loading?: boolean; onInspect: (model: MarineModel) => void;
@@ -116,7 +125,10 @@ export function SanctuaryScene({ habitat, level, residents, paused = false, load
   };
 
   const tuna = school ? ', and a school of tuna' : '';
-  const explore = explorer ? '. Pinch or use the zoom buttons to look closer, and drag to look around' : '';
+  // The reef's small life lives only in the explorer, too small for the card.
+  const macro = !explorer ? [] : preview ? SHOWCASE_MACRO : macroResidents(residents);
+  const small = macro.length === 0 ? '' : macro.length === 1 ? ', and a small creature on the reef to find up close' : `, and ${macro.length} small creatures on the reef to find up close`;
+  const explore = explorer ? `${small}. Pinch or use the zoom buttons to look closer, and drag to look around` : '';
   const description = (loading ? 'Your island; loading your discoveries' : preview
     ? `Level ${level} ${habitat} with ${SHOWCASE_SWIMMERS.length} visiting species (showcase)${tuna}`
     : residents.length === 0
@@ -143,6 +155,8 @@ export function SanctuaryScene({ habitat, level, residents, paused = false, load
               ? visitors.map((s) => ({ ...s, id: s.model, onPress: () => onInspect(s.model) }))
               : swimmers.map((s) => ({ ...s, id: s.species.id, onPress: () => router.push(`/species/${s.species.id}`) }))}
             onSchoolPress={() => router.push(`/species/${schoolSpecies}`)} school={school} schoolSpecies={SCHOOLED} arrivals={arrivals} />}
+          {explorer && !loading && macro.length > 0 && <MacroLife level={level} species={macro} zoom={explorer.zoom} tapScale={explorer.tapScale} active={active}
+            onPress={(id) => router.push(`/species/${id}`)} onFocus={explorer.focus} />}
         </SanctuaryEnvironment>
       </Canvas>
       </View>

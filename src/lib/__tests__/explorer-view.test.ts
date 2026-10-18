@@ -104,6 +104,37 @@ test('two fingers pinch: the zoom follows their spread, and the spot between the
   explorer.touch([], t += 16);
 });
 
+test('fingers moved one at a time (as the web sends them) count as one move: a limit met halfway holds nothing back', () => {
+  // Zoomed in a little near the far edge, where the limit draws in as the view zooms out (a case found driving the web build with multi-touch).
+  const place = () => {
+    const explorer = opened(PHONE);
+    explorer.zoomAt(89.16 / explorer.view.zoom, 0, 0);
+    explorer.touch([{ id: 9, x: 100, y: 100 }], 0);
+    explorer.touch([{ id: 9, x: -64, y: 65.5 }], 16);
+    explorer.touch([], 1000);
+    explorer.touch([{ id: 1, x: 109, y: 7.5 }, { id: 2, x: 73.9, y: 65.8 }], 1100);
+    return explorer;
+  };
+  const a = { id: 1, x: 114.7, y: 3.6 }, b = { id: 2, x: 81.8, y: 60.4 }, was = { x: (109 + 73.9) / 2, y: (7.5 + 65.8) / 2 };
+  const together = place(), apart = place(), halfway = place(), start = together.view;
+  expect(start.z).toBeLessThan(panLimit(PHONE, start.zoom).z);
+  together.touch([a, b], 1116);
+  // The second finger's move first, then the first's, as two events.
+  apart.touch([{ id: 1, x: 109, y: 7.5 }, b], 1116);
+  apart.touch([a, b], 1116);
+  expect(apart.view).toEqual(together.view);
+  // Followed only as the fingers both moved: the water between them stayed there, the zoom with their spread.
+  const m = middle([a, b]);
+  expect(under(together.view, m.x, m.y).x).toBeCloseTo(under(start, was.x, was.y).x, 9);
+  expect(under(together.view, m.x, m.y).z).toBeCloseTo(under(start, was.x, was.y).z, 9);
+  expect(together.view.zoom).toBeCloseTo(start.zoom * spread([a, b]) / spread([{ id: 1, x: 109, y: 7.5 }, { id: 2, x: 73.9, y: 65.8 }]), 9);
+  // Followed a finger at a time, the first half pinches in, meets the drawn-in limit, and the water slips.
+  halfway.touch([{ id: 1, x: 109, y: 7.5 }, b], 1116);
+  expect(halfway.view.z).toBeCloseTo(panLimit(PHONE, halfway.view.zoom).z, 9);
+  halfway.touch([a, b], 1116);
+  expect(Math.abs(halfway.view.z - together.view.z) * together.view.zoom / k).toBeGreaterThan(5);
+});
+
 test('a finger landing or lifting never moves the view, however far from the others; nothing glides after a pinch', () => {
   const explorer = opened(PHONE);
   explorer.zoomAt(2.5, 0, 0);
@@ -297,4 +328,19 @@ test('every move is heard (so a scene drawn on demand redraws), and held still t
   unwatch();
   explorer.zoomAt(1.1, 0, 0);
   expect(moves).toBe(heard);
+});
+
+test('focusing on a spot eases over to it and in, never back out, within the limits', () => {
+  const explorer = opened(PHONE), range = zoomRange(PHONE);
+  explorer.focus(1.2, -.8, range.min * 4);
+  settle(explorer, 180);
+  expect(explorer.view).toEqual(clampView(PHONE, { x: 1.2, z: -.8, zoom: range.min * 4 }));
+  expect(explorer.view.x).toBeCloseTo(1.2, 6);
+  // Already closer than asked: it keeps the zoom; somewhere past the limits: as near as they allow.
+  explorer.focus(0, 0, range.min * 2);
+  settle(explorer, 180);
+  expect(explorer.view.zoom).toBeCloseTo(range.min * 4, 6);
+  explorer.focus(50, 0, range.min * 4);
+  settle(explorer, 180);
+  expect(explorer.view.x).toBeCloseTo(panLimit(PHONE, range.min * 4).x, 6);
 });

@@ -23,6 +23,7 @@ import { CATALOG_BY_ID } from '@/lib/catalog';
 import { formatDiveNumber, milestoneName, nextMilestone } from '@/lib/dives';
 import { deriveHome, HABITATS, HOME_STAGES } from '@/lib/home';
 import { useAppStore, useMyDives, useMySightings, useMyUserId, useNextDiveNumber } from '@/lib/store';
+import { macroResidents } from '@/lib/macro-life';
 import { noneSwim, type MarineModel } from '@/lib/swimming';
 
 /** Ink on the island's water (the scene's own colours, the same in both schemes). */
@@ -59,13 +60,18 @@ export default function HomeScreen() {
   const loading = !ready || saved.loading || moments.loading;
   // Only the diver's own discoveries swim here (the showcase build, for development, brings visitors).
   const inspect = (model: MarineModel) => router.push({ pathname: '/inspect', params: { model, preview: '1' } });
-  // Something swims here, so there is something to explore.
-  const swimming = !loading && count > 0 && !noneSwim(home.residents);
+  // Something swims here, or small life lives on the reef (seen only up close, full screen): there is something to explore.
+  const small = macroResidents(home.residents).length, none = noneSwim(home.residents);
+  const swimming = !loading && count > 0 && (!none || small > 0);
   const sceneHint = count === 0
     ? 'Your ocean is empty for now. Log a sighting and that animal comes to live here.'
-    : noneSwim(home.residents)
-      ? `Your ${count === 1 ? 'species isn’t' : `${count} species aren’t`} drawn for the island yet. Sharks, rays, reef fish and some turtles, dolphins and octopuses swim here; the rest live in your field guide.`
-      : 'Tap a swimming resident to revisit your discovery, or go full screen to look closer';
+    : none && small > 0
+      ? `${small === 1 ? 'Your small creature lives' : `Your ${small} small creatures live`} on the reef, too small to see from here: go full screen and zoom in close to find ${small === 1 ? 'it' : 'them'}.`
+      : none
+        ? `Your ${count === 1 ? 'species isn’t' : `${count} species aren’t`} drawn for the island yet. Sharks, rays, reef fish and some turtles, dolphins and octopuses swim here, and small reef life lives up close in the full-screen view; the rest live in your field guide.`
+        : small > 0
+          ? 'Tap a swimming resident to revisit your discovery, or go full screen and zoom in to find the small life on the reef'
+          : 'Tap a swimming resident to revisit your discovery, or go full screen to look closer';
   return <View style={[styles.root, { backgroundColor: theme.background }]}>
     <Screen tab>
       <ScreenHeader
