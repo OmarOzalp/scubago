@@ -15,13 +15,13 @@ explorer draws the same `SanctuaryScene` and only replaces its camera. The route
 | --- | --- | --- | --- |
 | Look closer or farther | Pinch, about the fingers | Wheel (or a trackpad pinch), about the pointer | **+** and **−** (1.6× a press) |
 | Look closer at a spot | Double tap (2×) | Double click | |
-| Look around | Drag; let go mid-drag to glide on | Drag | |
+| Look around | Drag with one finger (let go fast to glide on), or move two fingers together | Drag | |
 | See the whole ocean again | Double tap when all the way in | | **⌖** "Show the whole ocean" |
 | Revisit a discovery | Tap the animal | Click it | |
 
 A hint ("Pinch or double-tap to look closer · drag to look around") shows for five
-seconds when it opens. Two fingers both pinch and pan, so a two-finger move zooms and
-slides at once.
+seconds when it opens. It opens as the Home card frames the island, so nothing jumps
+when it opens; pinch in from there to look closer, or out to see a little more ocean.
 
 ## How it works
 
@@ -32,28 +32,42 @@ angle foreshortens the water's depth, so a drag up the screen covers
 `depthStretch` (about 1.115) times the water a drag sideways does; panning and zooming
 use it so the spot under the finger stays under it.
 
-**How far out.** All the way out, the screen is all water: the view never shows past
-the water surface's edge (`OCEAN.waterExtent`, 8.6 units, less `edge`). It shows the
-whole swimming area plus `margin` when the screen's shape allows. A tall phone shows
-the area's full depth and a slice of its width, and pans across the rest:
+**Where it opens, and how far out.** It opens as the Home card frames the island:
+the swimming area (`CARD_SPAN`, 10.8 units at the first level, more as the ocean grows)
+across the screen's shorter side, the same rule `SceneCamera` uses for the card. From
+there it zooms out to `furthest` (0.7) of that, but never so far that the screen's sides
+show past the water surface's edge (`OCEAN.waterExtent`, 8.6 units, less `edge`). A
+landscape screen already sees the water's full width as it opens, so it starts all the
+way out.
 
-| Screen | Level | Zoom range (pt/unit) | Water across × deep, all the way out | All the way in |
-| --- | ---: | --- | --- | --- |
-| Phone, 390 × 844 | 1 | 57 – 177 (3.1×) | 6.9 × 16.6 units | 2.2 units across |
-| Tablet, 1180 × 820 | 6 | 78 – 373 (4.8×) | 15.1 × 11.7 units | 2.2 units down |
-| Laptop, 1440 × 900 | 1 | 100 – 409 (4.1×) | 14.3 × 10 units | 2.2 units down |
+| Screen | Level | Zoom range (pt/unit) | Opens at | Water across × deep as it opens | All the way in |
+| --- | ---: | --- | ---: | --- | --- |
+| Phone, 390 × 844 | 1 | 25 – 177 (7×) | 36 | 10.8 × 26 units | 2.2 units across |
+| Tablet, 1180 × 820 | 6 | 71 – 373 (5.2×) | 71 | 16.6 × 12.9 units | 2.2 units down |
+| Laptop, 1440 × 900 | 1 | 87 – 409 (4.7×) | 87 | 16.6 × 11.6 units | 2.2 units down |
 
-The Home card shows the island at 31 pt per unit (`SCENE_CAMERA`), so on a phone the
-explorer starts nearly twice as close as the card and goes nearly six times as close.
+**Seeing past the water.** A tall phone sees more depth than the water has (26 units
+deep against 17.2), so its top and bottom look past the water's near and far edges.
+The haze comes in to meet them (`hazeFor`): it is complete just before each edge,
+and the scene's background beyond is the same color, so the view fades into the card's
+pale water as the Home card's does, never ending in a line. Closer in, the haze is the
+explorer's usual thin band (`haze`).
 
-**How far across.** The view's edges stay inside the swimming area plus `margin`
-(`panLimit`), so an animal at the edge of its range is in full view and the water's
-own edge never is.
+**How far across.** The middle of the view may roam until the view's edges are `margin`
+(2 units) past the swimming area, or at the water's edge if that is nearer
+(`panLimit`): an animal at the edge of its range is in full view, and a tall phone,
+once zoomed in a little, can move up and down as well as across.
 
-**Moves.** A drag or pinch moves the view at once. Letting go mid-drag glides on at the
-finger's speed and slows (`friction`). Buttons and double taps ease to their goal
-(`ease`, zoom eased in log space so it feels even); a finger coming down stops any
-glide or eased move where it is.
+**Moves.** One finger drags the view at once; let go fast (over `flick`, 250 pt/s) and it
+glides on at the finger's speed (at most `topSpeed`, 2,500 pt/s) and slows (`friction`);
+let go slowly and it stays. Two fingers pinch: the pinch alone both zooms about the
+fingers and moves with them, so the water under them stays under them, and the
+one-finger drag waits until it is over. When a finger lands or lifts mid-pinch, the
+fingers' middle jumps, so the move starts again from there; the finger left down
+after a pinch starts afresh too, and nothing glides after a pinch. Buttons and double
+taps ease to their goal (`ease`, zoom eased in log space so it feels even); a finger
+coming down stops any glide or eased move where it is. The mouse wheel zooms at once,
+about the pointer (`zoomAt`).
 
 **Tap targets.** Slender animals have invisible tap targets at least 28 pt across
 (`MIN_TAP`, see [island navigation](marine-navigation.md#a-growing-ocean)). In the
@@ -62,9 +76,6 @@ hug the body instead of covering its neighbours. The explorer reports its zoom o
 when it has changed by a tenth or more, or when a move ends, so the targets follow it
 without a React render every frame. A press that moves more than `TAP_SLOP` (8 px) is
 a drag, not a tap, so looking around never opens an animal's page.
-
-**Haze.** On the Home card the top and bottom of the view fade into haze; the explorer
-fills the screen, so it keeps only a thin fade (`haze`).
 
 **Drawing.** The canvas draws continuously while the animals swim. When they are
 still (Reduce Motion, or still loading) the island draws only on demand, so the camera
@@ -85,14 +96,16 @@ settles. Home's own island pauses while the explorer is open (its screen loses f
 
 | `EXPLORER` | Default | What it does |
 | --- | ---: | --- |
-| `margin` | 0.7 | Water kept in view beyond the swimming area (units) |
-| `edge` | 0.3 | How close the water surface's edge may come to the screen's (units) |
+| `margin` | 2 | How far past the swimming area the view may roam (units, up to the water's edge) |
+| `edge` | 0.3 | How close the water surface's edge may come to the screen's sides (units) |
+| `furthest` | 0.7 | How far out it zooms, as a share of the Home card's zoom |
 | `closest` | 2.2 | Water the shorter side spans all the way in (units); lower to zoom closer |
 | `step` | 1.6 | Zoom per button press (×) |
 | `doubleTap` | 2 | Zoom per double tap (×) |
 | `ease` | 6 | How quickly a button's or double tap's move settles (1/s) |
-| `friction` | 3.2 | How quickly a glide slows (1/s) |
-| `haze` | [0.88, 1.04] | Where the top and bottom haze begins and ends (clip space) |
+| `friction` | 4.5 | How quickly a glide slows (1/s) |
+| `flick`, `topSpeed` | 250, 2500 | Slowest release that glides, and the fastest glide (pt/s) |
+| `haze` | [0.88, 1.04] | Where the top and bottom haze begins and ends (clip space), unless the water's edge is on screen |
 
 ## Verifying
 
@@ -103,13 +116,18 @@ npx jest src/lib/__tests__/explorer-view.test.ts src/components/home/__tests__/e
 The tests cover:
 
 - the depth stretch matching the island camera;
-- all the way out, never showing past the water on phones, tablets and laptops, and a
-  phone showing the area's full depth;
-- panning keeping the spot under the finger and stopping at the limits;
+- opening as the Home card frames the island, zooming out a little past it, never past
+  the water at the sides, on phones, tablets and laptops;
+- the haze complete before the water's edges whenever they are on screen, and thin
+  closer in;
+- panning keeping the spot under the finger, stopping a little past the swimming area,
+  and a phone zoomed in a little moving up and down;
 - a pinch keeping the spot between the fingers in place, and the zoom limits;
-- the controller: starting at the whole ocean once it knows the screen, buttons easing,
-  flings gliding and stopping, double taps zooming in and back out, and the zoom
-  reported as it changes;
+- two fingers zooming and moving the view together, without a jump as fingers come and
+  go, the drag waiting out the pinch, and no glide after it;
+- a fast release gliding (no faster than the top speed) and a slow one staying;
+- the controller: starting at the overview once it knows the screen, buttons easing,
+  double taps going all the way in and back out, and the zoom reported as it changes;
 - every move heard (for on-demand drawing), and Reduce Motion jumping instead of sweeping;
 - the screen: starting at the whole ocean, the buttons, tap targets following the zoom,
   closing, and the hint.

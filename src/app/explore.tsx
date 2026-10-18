@@ -23,11 +23,12 @@ const ON_WATER = '#1F4B40';
 const HINT_MS = 5000;
 
 /**
- * The island explorer: the diver's island full screen, to zoom in on and look around. Pinch (or the
- * mouse wheel, on the web) zooms about the fingers, a drag moves across the water and glides on, a
- * double tap zooms in on that spot (and back out once as close as it goes); buttons do the same for
- * anyone who can't pinch. Tapping an animal opens its page, as on Home. The island, its animals and
- * their behavior are Home's; only the camera is the explorer's (explorer-view.ts).
+ * The island explorer: the diver's island full screen, to zoom in on and look around. It opens as
+ * the Home card frames the island. Pinch (or the mouse wheel, on the web) zooms about the fingers
+ * and moves with them, a drag moves across the water (and glides on, let go fast), a double tap
+ * zooms in on that spot (and back out once as close as it goes); buttons do the same for anyone who
+ * can't pinch. Tapping an animal opens its page, as on Home. The island, its animals and their
+ * behavior are Home's; only the camera is the explorer's (explorer-view.ts).
  */
 export default function ExploreScreen() {
   const insets = useSafeAreaInsets();
@@ -56,14 +57,17 @@ export default function ExploreScreen() {
 
   const gesture = useMemo(() => {
     const fromMiddle = (x: number, y: number) => [x - explorer.frame.width / 2, y - explorer.frame.height / 2] as const;
-    // Two fingers both pan (their middle) and pinch, so a two-finger move zooms and slides at once.
-    const pan = Gesture.Pan().runOnJS(true).minDistance(8).averageTouches(true)
+    // One finger drags the water (and glides on, let go fast). Two fingers pinch: the pinch alone both
+    // zooms about them and moves with them, and the drag waits it out, so the two never fight.
+    const pan = Gesture.Pan().runOnJS(true).minDistance(6).averageTouches(true)
       .onBegin(() => explorer.grab())
       .onChange((event) => explorer.pan(event.changeX, event.changeY))
-      .onEnd((event) => explorer.fling(event.velocityX, event.velocityY));
+      .onEnd((event, success) => { if (success) explorer.fling(event.velocityX, event.velocityY); });
     const pinch = Gesture.Pinch().runOnJS(true)
       .onBegin(() => explorer.grab())
-      .onChange((event) => { const [fx, fy] = fromMiddle(event.focalX, event.focalY); explorer.pinch(event.scaleChange, fx, fy); });
+      .onStart(() => explorer.pinchStart())
+      .onChange((event) => { const [fx, fy] = fromMiddle(event.focalX, event.focalY); explorer.pinch(event.scaleChange, fx, fy, event.numberOfPointers); })
+      .onFinalize(() => explorer.pinchEnd());
     const doubleTap = Gesture.Tap().runOnJS(true).numberOfTaps(2)
       .onEnd((event, success) => { if (success) { const [fx, fy] = fromMiddle(event.x, event.y); explorer.zoomToward(fx, fy); } });
     return Gesture.Simultaneous(pan, pinch, doubleTap);
@@ -78,8 +82,7 @@ export default function ExploreScreen() {
     const wheel = (event: WheelEvent) => {
       event.preventDefault();
       const box = node.getBoundingClientRect();
-      explorer.grab();
-      explorer.pinch(Math.exp(-event.deltaY * (event.ctrlKey ? .01 : .0015)), event.clientX - box.left - box.width / 2, event.clientY - box.top - box.height / 2);
+      explorer.zoomAt(Math.exp(-event.deltaY * (event.ctrlKey ? .01 : .0015)), event.clientX - box.left - box.width / 2, event.clientY - box.top - box.height / 2);
     };
     node.addEventListener('wheel', wheel, { passive: false });
     return () => node.removeEventListener('wheel', wheel);
