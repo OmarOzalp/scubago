@@ -12,6 +12,7 @@ import { MarineSwimmers, type Arrivals } from './three/marine-swimmers';
 import { SanctuaryEnvironment } from './three/sanctuary-environment';
 import { useMarineModels } from './three/use-marine-models';
 import { useSceneActive, useSceneVisible } from '@/hooks/use-scene-active';
+import { EXPLORER } from '@/lib/explorer-view';
 import type { Habitat } from '@/lib/home';
 import { clamp, oceanScale } from '@/lib/steering';
 import { hasSchool, MAX_ANIMATED, pickSwimmers, SCHOOL_SPECIES, schoolSpeciesFor, swimmerPages, swimsInSchool, type MarineModel } from '@/lib/swimming';
@@ -135,7 +136,7 @@ export function SanctuaryScene({ habitat, level, residents, paused = false, load
         {__DEV__ && <ScenePerformance ready={!!models && !loading} active={active} />}
         {ISLAND_PERF && <IslandPerfProbe />}
         {/* The animals swim inside the island's water, which tints and refracts them. */}
-        <SanctuaryEnvironment habitat={habitat} level={level} active={active} growIn={active && !loading}>
+        <SanctuaryEnvironment habitat={habitat} level={level} active={active} growIn={active && !loading} reach={explorer ? EXPLORER.reach : undefined}>
           {explorer?.camera}
           {models && !loading && <MarineSwimmers models={models} active={active} level={level} tapScale={explorer?.tapScale}
             residents={preview

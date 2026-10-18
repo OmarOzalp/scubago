@@ -389,9 +389,9 @@ void main() {
   gl_FragColor = linearToOutputTexel(vec4(color, 1.0));
 }`;
 
-/** A jittered triangle lattice: irregular low-poly facets instead of a visible grid. */
-function waterLattice(field: DepthField, config: OceanConfig) {
-  const s = config.facetSize, h = s * Math.sqrt(3) / 2, extent = OCEAN.waterExtent;
+/** A jittered triangle lattice: irregular low-poly facets instead of a visible grid, `extent` units each way from the island's middle. */
+function waterLattice(field: DepthField, config: OceanConfig, extent: number) {
+  const s = config.facetSize, h = s * Math.sqrt(3) / 2;
   const cols = Math.ceil(extent * 2 / s) + 1, rows = Math.ceil(extent * 2 / h) + 1;
   const positions: number[] = [], shoaling: number[] = [], indices: number[] = [];
   for (let r = 0; r < rows; r++) {
@@ -418,8 +418,9 @@ function waterLattice(field: DepthField, config: OceanConfig) {
   return geometry;
 }
 
-export function createWaterMesh(uniforms: OceanUniforms, field: DepthField, config: OceanConfig = OCEAN) {
-  const geometry = waterLattice(field, config);
+/** The water's surface, reaching `extent` units each way (the Home card's view never sees past OCEAN.waterExtent; the explorer's water reaches farther). */
+export function createWaterMesh(uniforms: OceanUniforms, field: DepthField, config: OceanConfig = OCEAN, extent = OCEAN.waterExtent) {
+  const geometry = waterLattice(field, config, extent);
   const material = new ShaderMaterial({
     uniforms, vertexShader: WATER_VERTEX, fragmentShader: WATER_FRAGMENT,
     transparent: true, depthWrite: false, premultipliedAlpha: true, side: DoubleSide,
@@ -436,11 +437,11 @@ export function createWaterMesh(uniforms: OceanUniforms, field: DepthField, conf
  * Lite tier: the same wave lattice drawn once as an opaque backdrop, colored from
  * the baked map (see buildLiteOceanMap). Replaces the seabed and surface meshes.
  */
-export function createLiteOceanMesh(uniforms: OceanUniforms, field: DepthField, config: OceanConfig = OCEAN) {
+export function createLiteOceanMesh(uniforms: OceanUniforms, field: DepthField, config: OceanConfig = OCEAN, extent = OCEAN.waterExtent) {
   const material = new ShaderMaterial({
     uniforms, vertexShader: LITE_VERTEX, fragmentShader: LITE_FRAGMENT, depthWrite: false, depthTest: false, side: DoubleSide,
   });
-  const mesh = new Mesh(waterLattice(field, config), material);
+  const mesh = new Mesh(waterLattice(field, config, extent), material);
   mesh.name = 'ocean-lite';
   mesh.renderOrder = -1;
   mesh.frustumCulled = false;
@@ -451,11 +452,15 @@ export function createLiteOceanMesh(uniforms: OceanUniforms, field: DepthField, 
 /**
  * The seabed: a radial terrain around the island (beach slope, sandy shelf,
  * reef drop-off, deep floor) with a little relief. It is a backdrop drawn first
- * without depth testing, so swimmers are never hidden behind it.
+ * without depth testing, so swimmers are never hidden behind it. Under water that
+ * reaches past OCEAN.waterExtent (`reach`, the explorer's), the deep floor goes on
+ * under all of it, past the water's corners.
  */
-export function createSeabedMesh(uniforms: OceanUniforms, field: DepthField, level: number) {
+export function createSeabedMesh(uniforms: OceanUniforms, field: DepthField, level: number, reach = OCEAN.waterExtent) {
   const rays = 96;
-  const offsets = [-.12, -.04, 0, .04, .08, .12, .17, .23, .3, .38, .47, .57, .68, .8, .95, 1.15, 1.4, 1.75, 2.2, 2.8, 3.6, 4.6, 6, 8, 10.5];
+  const near = [-.12, -.04, 0, .04, .08, .12, .17, .23, .3, .38, .47, .57, .68, .8, .95, 1.15, 1.4, 1.75, 2.2, 2.8, 3.6, 4.6, 6, 8, 10.5];
+  const corner = reach * Math.SQRT2 + 1;
+  const offsets = corner > 12 ? [...near, ...[14, 18, 23, 28].filter((o, i, all) => o < corner || all[i - 1] < corner)] : near;
   const outline = shoreline().getPoints(24).map((p) => [p.x * islandScale(level), -p.y * islandScale(level)] as const);
   // Distance from the island center to its shore along each ray.
   const shoreRadius = (angle: number) => {

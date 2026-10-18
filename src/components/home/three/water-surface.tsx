@@ -1,6 +1,7 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { useFrame } from '@react-three/fiber';
 import type { Habitat } from '@/lib/home';
+import { OCEAN } from '@/lib/ocean';
 import { advanceSwimTime } from '@/lib/swimming';
 import {
   applyOceanPalette, buildDepthField, buildLiteOceanMap, createLiteOceanMesh, createOceanUniforms, createSeabedMesh, createWaterMesh,
@@ -12,13 +13,14 @@ import type { SceneQuality } from './scene-quality';
  * Build the island's water once per level; the palette follows the habitat without rebuilding.
  * Full quality draws a seabed and a separate wave surface; lite draws one baked, faceted layer.
  */
-export function useOcean(habitat: Habitat, level: number, card: string, quality: SceneQuality = 'full') {
+/** The island's ocean: its uniforms, depth field and meshes, the water reaching `reach` units each way (farther in the explorer). */
+export function useOcean(habitat: Habitat, level: number, card: string, quality: SceneQuality = 'full', reach = OCEAN.waterExtent) {
   // One uniforms object for the scene's lifetime, so swimmers keep their materials across changes.
   const [uniforms] = useState(() => createOceanUniforms(habitat, card));
   const field = useMemo(() => buildDepthField(level), [level]);
   const lite = quality === 'lite';
-  const meshes = useMemo(() => lite ? [createLiteOceanMesh(uniforms, field)]
-    : [createSeabedMesh(uniforms, field, level), createWaterMesh(uniforms, field)], [lite, uniforms, field, level]);
+  const meshes = useMemo(() => lite ? [createLiteOceanMesh(uniforms, field, OCEAN, reach)]
+    : [createSeabedMesh(uniforms, field, level, reach), createWaterMesh(uniforms, field, OCEAN, reach)], [lite, uniforms, field, level, reach]);
   const liteMap = useMemo(() => lite ? buildLiteOceanMap(field, habitat) : null, [lite, field, habitat]);
   useLayoutEffect(() => { applyOceanPalette(uniforms, habitat, card); }, [uniforms, habitat, card]);
   useLayoutEffect(() => {

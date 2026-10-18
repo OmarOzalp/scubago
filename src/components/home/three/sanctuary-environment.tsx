@@ -77,9 +77,9 @@ function useSeabedProp(ocean: Ocean, habitat: Habitat, level: number, x: number,
   }, [ocean, habitat, scale, x, z, color, lift]);
 }
 
-function IslandWorld({ habitat, level, active, growIn, children }: { habitat: Habitat; level: number; active: boolean; growIn: boolean; children?: ReactNode }) {
+function IslandWorld({ habitat, level, active, growIn, reach, children }: { habitat: Habitat; level: number; active: boolean; growIn: boolean; reach?: number; children?: ReactNode }) {
   const quality = useSceneQuality();
-  const ocean = useOcean(habitat, level, WATER[habitat], quality);
+  const ocean = useOcean(habitat, level, WATER[habitat], quality, reach);
   const growth = useMemo(() => ({
     animate: growIn, duration: GROWTH_SECONDS[quality],
     submerge: (group: Object3D) => submerge(group, ocean.uniforms, quality === 'lite'),
@@ -126,15 +126,17 @@ function IslandWorld({ habitat, level, active, growIn, children }: { habitat: Ha
 }
 
 /** Lights and backdrop for every scene; the island and its ocean only outside the close-up. */
-export function SanctuaryEnvironment({ habitat, level, active, inspect = false, growIn = false, children }: {
+export function SanctuaryEnvironment({ habitat, level, active, inspect = false, growIn = false, reach, children }: {
   habitat: Habitat; level: number; active: boolean; inspect?: boolean;
   /** A new level's additions rise or grow in (see Growth), rather than simply being there. */
-  growIn?: boolean; children?: ReactNode;
+  growIn?: boolean;
+  /** How far the water reaches from the island's middle (units): farther than the card's in the island explorer, which fills a whole screen with it. */
+  reach?: number; children?: ReactNode;
 }) {
   return <>
     <color attach="background" args={[WATER[habitat]]} />
     <hemisphereLight args={['#F4F7EC', '#5E8F91', 1.15]} />
     <directionalLight position={OCEAN.sun} intensity={1.7} />
-    {inspect ? children : <IslandWorld habitat={habitat} level={level} active={active} growIn={growIn}>{children}</IslandWorld>}
+    {inspect ? children : <IslandWorld habitat={habitat} level={level} active={active} growIn={growIn} reach={reach}>{children}</IslandWorld>}
   </>;
 }
