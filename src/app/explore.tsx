@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Animated, Platform, Pressable, StyleSheet, Text, View, type LayoutChangeEvent } from 'react-native';
-import { Gesture, GestureDetector, GestureHandlerRootView } from 'react-native-gesture-handler';
+import { Gesture, GestureDetector, GestureHandlerRootView, type GestureTouchEvent } from 'react-native-gesture-handler';
 import { useReducedMotion } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
@@ -23,12 +23,13 @@ const ON_WATER = '#1F4B40';
 const HINT_MS = 5000;
 
 /**
- * The island explorer: the diver's island full screen, to zoom in on and look around. It opens as
- * the Home card frames the island. Pinch (or the mouse wheel, on the web) zooms about the fingers
- * and moves with them, a drag moves across the water (and glides on, let go fast), a double tap
- * zooms in on that spot (and back out once as close as it goes); buttons do the same for anyone who
- * can't pinch. Tapping an animal opens its page, as on Home. The island, its animals and their
- * behavior are Home's; only the camera is the explorer's (explorer-view.ts).
+ * The island explorer: the diver's island full screen, to zoom in on and look around. It opens all
+ * the way out, the whole ocean and every animal in view, its water filling the screen. Pinch (or the
+ * mouse wheel, on the web) zooms in about the fingers to see the smaller things, and back out; a drag
+ * moves across the water (and glides on, let go fast); a double tap zooms in on that spot (and back
+ * out once as close as it goes); buttons do the same for anyone who can't pinch. Tapping an animal
+ * opens its page, as on Home. The island, its animals and their behavior are Home's; only the camera
+ * and the reach of the water are the explorer's (explorer-view.ts).
  */
 export default function ExploreScreen() {
   const insets = useSafeAreaInsets();
@@ -57,20 +58,23 @@ export default function ExploreScreen() {
 
   const gesture = useMemo(() => {
     const fromMiddle = (x: number, y: number) => [x - explorer.frame.width / 2, y - explorer.frame.height / 2] as const;
-    // One finger drags the water (and glides on, let go fast). Two fingers pinch: the pinch alone both
-    // zooms about them and moves with them, and the drag waits it out, so the two never fight.
-    const pan = Gesture.Pan().runOnJS(true).minDistance(6).averageTouches(true)
-      .onBegin(() => explorer.grab())
-      .onChange((event) => explorer.pan(event.changeX, event.changeY))
-      .onEnd((event, success) => { if (success) explorer.fling(event.velocityX, event.velocityY); });
-    const pinch = Gesture.Pinch().runOnJS(true)
-      .onBegin(() => explorer.grab())
-      .onStart(() => explorer.pinchStart())
-      .onChange((event) => { const [fx, fy] = fromMiddle(event.focalX, event.focalY); explorer.pinch(event.scaleChange, fx, fy, event.numberOfPointers); })
-      .onFinalize(() => explorer.pinchEnd());
+    // The fingers down (points from the middle of the screen); a lifting finger is still listed with the touch that lifts it.
+    const fingers = (event: GestureTouchEvent, lifting = false) => {
+      const gone = new Set(lifting ? event.changedTouches.map((t) => t.id) : []);
+      return event.allTouches.filter((t) => !gone.has(t.id)).map((t) => { const [x, y] = fromMiddle(t.x, t.y); return { id: t.id, x, y }; });
+    };
+    // The explorer follows the fingers themselves, from the first touch: their middle drags the water and their
+    // spread zooms, so the view never waits for a gesture to be recognized and then jumps to catch up. The drag
+    // and the pinch are here to claim the touch once it moves or spreads, so it never also taps an animal.
+    const drag = Gesture.Pan().runOnJS(true).minDistance(6).averageTouches(true)
+      .onTouchesDown((event) => explorer.touch(fingers(event)))
+      .onTouchesMove((event) => explorer.touch(fingers(event)))
+      .onTouchesUp((event) => explorer.touch(fingers(event, true)))
+      .onTouchesCancelled(() => explorer.touch([], undefined, true));
+    const pinch = Gesture.Pinch();
     const doubleTap = Gesture.Tap().runOnJS(true).numberOfTaps(2)
       .onEnd((event, success) => { if (success) { const [fx, fy] = fromMiddle(event.x, event.y); explorer.zoomToward(fx, fy); } });
-    return Gesture.Simultaneous(pan, pinch, doubleTap);
+    return Gesture.Simultaneous(drag, pinch, doubleTap);
   }, [explorer]);
 
   // The web: the mouse wheel (and a trackpad's pinch, which arrives as a wheel with ctrl held) zooms about the pointer.

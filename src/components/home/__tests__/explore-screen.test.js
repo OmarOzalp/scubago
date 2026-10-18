@@ -3,7 +3,7 @@ import React, { act } from 'react';
 import { create } from 'react-test-renderer';
 import { router } from 'expo-router';
 import ExploreScreen from '@/app/explore';
-import { EXPLORER, zoomRange } from '@/lib/explorer-view';
+import { zoomRange } from '@/lib/explorer-view';
 
 jest.mock('react-native-gesture-handler', () => {
   const chain = () => new Proxy({}, { get: (_, key) => (key === 'then' ? undefined : () => chain()) });
@@ -39,24 +39,23 @@ test('the explorer draws the island full screen with its own camera, and its but
   const scene = () => root.root.findByType('scene');
   const explorer = scene().props.explorer.camera.props.explorer;
   expect(scene().props.habitat).toBe('island');
-  // It learns the screen's size from layout, then starts at the whole ocean, as the Home card frames it.
+  // It learns the screen's size from layout, then starts all the way out, the whole ocean in view.
   const surface = root.root.findAll((node) => typeof node.props.onLayout === 'function' && node.props.collapsable === false)[0];
   await act(async () => surface.props.onLayout({ nativeEvent: { layout: { width: 390, height: 844 } } }));
   const range = zoomRange({ width: 390, height: 844, level: 1 });
-  expect(explorer.view.zoom).toBeCloseTo(range.start, 6);
-  expect(scene().props.explorer.tapScale).toBeCloseTo(tapScaleAt(range.start), 6);
+  expect(explorer.view.zoom).toBeCloseTo(range.min, 6);
+  expect(scene().props.explorer.tapScale).toBeCloseTo(tapScaleAt(range.min), 6);
 
   // Zoom in with the button: once the move settles, tap targets shrink in the world to keep their size on screen.
   const press = (label) => root.root.findByProps({ accessibilityLabel: label }).props.onPress();
   await act(async () => { press('Zoom in'); for (let i = 0; i < 120; i++) explorer.step(1 / 60); });
-  expect(explorer.view.zoom).toBeGreaterThan(range.start * 1.5);
+  expect(explorer.view.zoom).toBeGreaterThan(range.min * 1.5);
   expect(scene().props.explorer.tapScale).toBeCloseTo(tapScaleAt(explorer.view.zoom), 6);
   await act(async () => { press('Show the whole ocean'); for (let i = 0; i < 120; i++) explorer.step(1 / 60); });
-  expect(explorer.view.zoom).toBeCloseTo(range.start, 6);
-  // From there it pulls back a little further, no further than its limit.
+  expect(explorer.view.zoom).toBeCloseTo(range.min, 6);
+  // All the way out already: zooming out leaves it there.
   await act(async () => { press('Zoom out'); for (let i = 0; i < 120; i++) explorer.step(1 / 60); });
-  expect(explorer.view.zoom).toBeCloseTo(Math.max(range.min, range.start / EXPLORER.step), 6);
-  expect(explorer.view.zoom).toBeLessThan(range.start);
+  expect(explorer.view.zoom).toBeCloseTo(range.min, 6);
 
   press('Close the explorer');
   expect(router.back).toHaveBeenCalled();
