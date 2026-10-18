@@ -391,7 +391,7 @@ void main() {
 
 /** A jittered triangle lattice: irregular low-poly facets instead of a visible grid. */
 function waterLattice(field: DepthField, config: OceanConfig) {
-  const s = config.facetSize, h = s * Math.sqrt(3) / 2, extent = 8.6;
+  const s = config.facetSize, h = s * Math.sqrt(3) / 2, extent = OCEAN.waterExtent;
   const cols = Math.ceil(extent * 2 / s) + 1, rows = Math.ceil(extent * 2 / h) + 1;
   const positions: number[] = [], shoaling: number[] = [], indices: number[] = [];
   for (let r = 0; r < rows; r++) {

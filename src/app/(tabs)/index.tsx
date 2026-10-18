@@ -59,11 +59,13 @@ export default function HomeScreen() {
   const loading = !ready || saved.loading || moments.loading;
   // Only the diver's own discoveries swim here (the showcase build, for development, brings visitors).
   const inspect = (model: MarineModel) => router.push({ pathname: '/inspect', params: { model, preview: '1' } });
+  // Something swims here, so there is something to explore.
+  const swimming = !loading && count > 0 && !noneSwim(home.residents);
   const sceneHint = count === 0
     ? 'Your ocean is empty for now. Log a sighting and that animal comes to live here.'
     : noneSwim(home.residents)
       ? `Your ${count === 1 ? 'species isn’t' : `${count} species aren’t`} drawn for the island yet. Sharks, rays, reef fish and some turtles, dolphins and octopuses swim here; the rest live in your field guide.`
-      : 'Tap a swimming resident to revisit your discovery';
+      : 'Tap a swimming resident to revisit your discovery, or go full screen to look closer';
   return <View style={[styles.root, { backgroundColor: theme.background }]}>
     <Screen tab>
       <ScreenHeader
@@ -78,13 +80,23 @@ export default function HomeScreen() {
           <View style={[styles.hero, { backgroundColor: WATER[habitat.id] }]}>
             <View style={styles.heroHeader}>
               <View style={styles.pill}><View style={styles.liveDot} /><Text style={styles.pillText}>YOUR SANCTUARY</Text></View>
-              <Pressable
-                accessibilityRole="button"
-                accessibilityLabel={paused ? 'Resume ocean animation' : 'Pause ocean animation'}
-                onPress={() => setPaused((value) => !value)}
-                style={({ pressed }) => [styles.motionButton, { opacity: pressed ? 0.7 : 1 }]}>
-                <Icon name={paused ? 'play' : 'pause'} size={20} color={ON_WATER} wash="#FFFFFF" washOpacity={0.6} />
-              </Pressable>
+              <View style={styles.heroButtons}>
+                {/* The island full screen, to zoom in on and look around (src/app/explore.tsx). */}
+                {swimming && <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel="Explore your ocean full screen"
+                  onPress={() => router.push('/explore')}
+                  style={({ pressed }) => [styles.motionButton, { opacity: pressed ? 0.7 : 1 }]}>
+                  <Icon name="expand" size={20} color={ON_WATER} wash="#FFFFFF" washOpacity={0.6} />
+                </Pressable>}
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel={paused ? 'Resume ocean animation' : 'Pause ocean animation'}
+                  onPress={() => setPaused((value) => !value)}
+                  style={({ pressed }) => [styles.motionButton, { opacity: pressed ? 0.7 : 1 }]}>
+                  <Icon name={paused ? 'play' : 'pause'} size={20} color={ON_WATER} wash="#FFFFFF" washOpacity={0.6} />
+                </Pressable>
+              </View>
             </View>
             <SanctuaryScene habitat={habitat.id} level={moments.level} residents={home.residents} loading={loading} paused={paused || editing || loading} onInspect={inspect}
               moments={{ featured: moments.featured, waiting: moments.waiting, now: moments.now, onArrived: moments.onArrived, tag: moments.tag, banner: moments.banner, note: moments.note, busy: moments.busy }} />
@@ -184,6 +196,7 @@ const styles = StyleSheet.create({
   hero: { borderRadius: Radius.md, overflow: 'hidden' },
   heroHeader: { paddingHorizontal: 14, paddingTop: 10, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   pill: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  heroButtons: { flexDirection: 'row', gap: 8 },
   liveDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: '#2E8B6F' },
   pillText: { color: ON_WATER, letterSpacing: 1.4, fontSize: 12, fontFamily: Type.label },
   motionButton: { width: 44, height: 44, borderRadius: 22, backgroundColor: 'rgba(255,255,255,0.55)', borderWidth: 1, borderColor: 'rgba(31,75,64,0.18)', alignItems: 'center', justifyContent: 'center' },

@@ -1,0 +1,137 @@
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { Animated, Platform, Pressable, StyleSheet, Text, View, type LayoutChangeEvent } from 'react-native';
+import { Gesture, GestureDetector, GestureHandlerRootView } from 'react-native-gesture-handler';
+import { useReducedMotion } from 'react-native-reanimated';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { router } from 'expo-router';
+import { SanctuaryScene } from '@/components/home/sanctuary-scene';
+import { ExplorerCamera } from '@/components/home/three/explorer-camera';
+import { WATER } from '@/components/home/three/sanctuary-environment';
+import { tapScaleAt } from '@/components/home/three/tap-target';
+import { Icon, type IconName } from '@/components/icon';
+import { Type } from '@/constants/theme';
+import { useHomePreferences } from '@/hooks/use-home-preferences';
+import { CATALOG_BY_ID } from '@/lib/catalog';
+import { createExplorer, EXPLORER } from '@/lib/explorer-view';
+import { deriveHome, HABITATS } from '@/lib/home';
+import { useAppStore, useMySightings, useMyUserId } from '@/lib/store';
+import type { MarineModel } from '@/lib/swimming';
+
+/** Ink on the island's water (the scene's own colours, the same in both schemes). */
+const ON_WATER = '#1F4B40';
+/** How long the gesture hint stays before it fades (ms). */
+const HINT_MS = 5000;
+
+/**
+ * The island explorer: the diver's island full screen, to zoom in on and look around. Pinch (or the
+ * mouse wheel, on the web) zooms about the fingers, a drag moves across the water and glides on, a
+ * double tap zooms in on that spot (and back out once as close as it goes); buttons do the same for
+ * anyone who can't pinch. Tapping an animal opens its page, as on Home. The island, its animals and
+ * their behavior are Home's; only the camera is the explorer's (explorer-view.ts).
+ */
+export default function ExploreScreen() {
+  const insets = useSafeAreaInsets();
+  const mine = useMySightings();
+  const owner = useMyUserId();
+  const ready = useAppStore((s) => s.ready);
+  const home = useMemo(() => deriveHome(mine, CATALOG_BY_ID), [mine]);
+  const saved = useHomePreferences(owner);
+  const habitat = HABITATS.find((h) => h.id === saved.preferences.habitat)!;
+  const loading = !ready || saved.loading;
+
+  const [explorer] = useState(() => createExplorer({ width: 1, height: 1, level: home.level }));
+  const [tapScale, setTapScale] = useState(() => tapScaleAt(explorer.view.zoom));
+  useEffect(() => explorer.subscribe((zoom) => setTapScale(tapScaleAt(zoom))), [explorer]);
+  // With reduced motion the view doesn't sweep: zoom buttons and double taps jump, and drags don't glide on.
+  const reduced = useReducedMotion();
+  useEffect(() => explorer.holdStill(reduced), [explorer, reduced]);
+  // The screen's size in points (the explorer keeps it, for its limits and the gestures' focal points).
+  const onLayout = ({ nativeEvent: { layout } }: LayoutChangeEvent) => {
+    if (layout.width > 0 && layout.height > 0) explorer.resize({ width: layout.width, height: layout.height, level: home.level });
+  };
+  useEffect(() => {
+    const { width, height, level } = explorer.frame;
+    if (width > 1 && height > 1 && level !== home.level) explorer.resize({ width, height, level: home.level });
+  }, [explorer, home.level]);
+
+  const gesture = useMemo(() => {
+    const fromMiddle = (x: number, y: number) => [x - explorer.frame.width / 2, y - explorer.frame.height / 2] as const;
+    // Two fingers both pan (their middle) and pinch, so a two-finger move zooms and slides at once.
+    const pan = Gesture.Pan().runOnJS(true).minDistance(8).averageTouches(true)
+      .onBegin(() => explorer.grab())
+      .onChange((event) => explorer.pan(event.changeX, event.changeY))
+      .onEnd((event) => explorer.fling(event.velocityX, event.velocityY));
+    const pinch = Gesture.Pinch().runOnJS(true)
+      .onBegin(() => explorer.grab())
+      .onChange((event) => { const [fx, fy] = fromMiddle(event.focalX, event.focalY); explorer.pinch(event.scaleChange, fx, fy); });
+    const doubleTap = Gesture.Tap().runOnJS(true).numberOfTaps(2)
+      .onEnd((event, success) => { if (success) { const [fx, fy] = fromMiddle(event.x, event.y); explorer.zoomToward(fx, fy); } });
+    return Gesture.Simultaneous(pan, pinch, doubleTap);
+  }, [explorer]);
+
+  // The web: the mouse wheel (and a trackpad's pinch, which arrives as a wheel with ctrl held) zooms about the pointer.
+  const surface = useRef<View>(null);
+  useEffect(() => {
+    if (Platform.OS !== 'web') return;
+    const node = surface.current as unknown as HTMLElement | null;
+    if (!node?.addEventListener) return;
+    const wheel = (event: WheelEvent) => {
+      event.preventDefault();
+      const box = node.getBoundingClientRect();
+      explorer.grab();
+      explorer.pinch(Math.exp(-event.deltaY * (event.ctrlKey ? .01 : .0015)), event.clientX - box.left - box.width / 2, event.clientY - box.top - box.height / 2);
+    };
+    node.addEventListener('wheel', wheel, { passive: false });
+    return () => node.removeEventListener('wheel', wheel);
+  }, [explorer]);
+
+  // The hint fades once it has been read (or simply goes, with reduced motion).
+  const [hint] = useState(() => new Animated.Value(1));
+  useEffect(() => {
+    const timer = setTimeout(() => Animated.timing(hint, { toValue: 0, duration: reduced ? 0 : 600, useNativeDriver: Platform.OS !== 'web' }).start(), HINT_MS);
+    return () => clearTimeout(timer);
+  }, [hint, reduced]);
+
+  const close = () => (router.canGoBack() ? router.back() : router.replace('/'));
+  const inspect = (model: MarineModel) => router.push({ pathname: '/inspect', params: { model, preview: '1' } });
+  const button = (icon: IconName, label: string, onPress: () => void) => (
+    <Pressable key={label} accessibilityRole="button" accessibilityLabel={label} onPress={onPress} hitSlop={6}
+      style={({ pressed }) => [styles.button, { opacity: pressed ? 0.7 : 1 }]}>
+      <Icon name={icon} size={22} color={ON_WATER} wash="#FFFFFF" washOpacity={0.6} weight="bold" />
+    </Pressable>
+  );
+
+  return <GestureHandlerRootView style={[styles.root, { backgroundColor: WATER[habitat.id] }]}>
+    <GestureDetector gesture={gesture}>
+      <View ref={surface} style={styles.root} onLayout={onLayout} collapsable={false}>
+        <SanctuaryScene habitat={habitat.id} level={home.level} residents={home.residents} loading={loading} onInspect={inspect}
+          explorer={{ camera: <ExplorerCamera explorer={explorer} />, tapScale }} />
+      </View>
+    </GestureDetector>
+    <View style={[styles.top, { paddingTop: insets.top + 10 }]} pointerEvents="box-none">
+      {button('close', 'Close the explorer', close)}
+      <View style={styles.pill}><Text style={styles.pillText}>EXPLORING · {habitat.name.toUpperCase()}</Text></View>
+      <View style={styles.spacer} />
+    </View>
+    <View style={[styles.controls, { paddingBottom: insets.bottom + 18, paddingRight: insets.right + 14 }]} pointerEvents="box-none">
+      {button('plus', 'Zoom in', () => explorer.zoomBy(EXPLORER.step))}
+      {button('minus', 'Zoom out', () => explorer.zoomBy(1 / EXPLORER.step))}
+      {button('locate', 'Show the whole ocean', () => explorer.showAll())}
+    </View>
+    <Animated.View style={[styles.hint, { bottom: insets.bottom + 26, opacity: hint }]} pointerEvents="none">
+      <Text style={styles.hintText}>Pinch or double-tap to look closer · drag to look around</Text>
+    </Animated.View>
+  </GestureHandlerRootView>;
+}
+
+const styles = StyleSheet.create({
+  root: { flex: 1 },
+  top: { position: 'absolute', top: 0, left: 0, right: 0, paddingHorizontal: 14, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  spacer: { width: 44 },
+  pill: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 14, backgroundColor: 'rgba(255,255,255,0.55)' },
+  pillText: { color: ON_WATER, letterSpacing: 1.4, fontSize: 12, fontFamily: Type.label },
+  controls: { position: 'absolute', right: 0, bottom: 0, gap: 10 },
+  button: { width: 44, height: 44, borderRadius: 22, backgroundColor: 'rgba(255,255,255,0.7)', borderWidth: 1, borderColor: 'rgba(31,75,64,0.18)', alignItems: 'center', justifyContent: 'center' },
+  hint: { position: 'absolute', left: 16, right: 76, alignItems: 'center' },
+  hintText: { color: ON_WATER, fontSize: 14, lineHeight: 20, fontFamily: Type.bodySemiBold, textAlign: 'center', backgroundColor: 'rgba(255,255,255,0.55)', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 14, overflow: 'hidden' },
+});

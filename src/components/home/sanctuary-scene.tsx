@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
 import { Animated, Platform, StyleSheet, View } from 'react-native';
 import { SceneCanvas as Canvas } from './three/scene-canvas';
 import { SceneBoundary, SceneUnavailable } from './scene-boundary';
@@ -50,9 +50,16 @@ const SCHOOLED = SCHOOL_SPECIES.filter(swimsInSchool);
 /** Where the tag sits over its animal (px): centered above it, kept inside the card. */
 const TAG = { above: 46, margin: 8, height: 24 };
 
-export function SanctuaryScene({ habitat, level, residents, paused = false, loading = false, onInspect, moments }: {
+/**
+ * The island explorer (src/app/explore.tsx) draws the same island full screen: its own camera
+ * (ExplorerCamera, which goes inside the island's environment) in place of the card's, and tap
+ * targets sized for its zoom (tapScaleAt).
+ */
+export type ExplorerScene = { camera: ReactNode; tapScale: number };
+
+export function SanctuaryScene({ habitat, level, residents, paused = false, loading = false, onInspect, moments, explorer }: {
   habitat: Habitat; level: number; residents: DexEntry[]; paused?: boolean; loading?: boolean; onInspect: (model: MarineModel) => void;
-  moments?: SceneMoments;
+  moments?: SceneMoments; explorer?: ExplorerScene;
 }) {
   const active = useSceneActive(paused);
   const visible = useSceneVisible();
@@ -100,34 +107,37 @@ export function SanctuaryScene({ habitat, level, residents, paused = false, load
   } : undefined;
 
   const fallback = <IslandScene habitat={habitat} level={level} residents={residents} paused={paused} />;
-  if (failed) return <View style={styles.scene}><SceneUnavailable onRetry={retry}>{fallback}</SceneUnavailable></View>;
+  const frame = explorer ? styles.fill : styles.scene;
+  if (failed) return <View style={frame}><SceneUnavailable onRetry={retry}>{fallback}</SceneUnavailable></View>;
   const onLayout = (event: { nativeEvent: { layout: { width: number; height: number } } }) => {
     layout.current.width = event.nativeEvent.layout.width;
     layout.current.height = event.nativeEvent.layout.height;
   };
 
   const tuna = school ? ', and a school of tuna' : '';
-  const description = loading ? 'Your island; loading your discoveries' : preview
+  const explore = explorer ? '. Pinch or use the zoom buttons to look closer, and drag to look around' : '';
+  const description = (loading ? 'Your island; loading your discoveries' : preview
     ? `Level ${level} ${habitat} with ${SHOWCASE_SWIMMERS.length} visiting species (showcase)${tuna}`
     : residents.length === 0
       ? `Level ${level} ${habitat}, its ocean still empty`
-      : `Level ${level} ${habitat}, home to ${residents.length} discovered species, ${swimmers.length} swimming${tuna}`;
+      : `Level ${level} ${habitat}, home to ${residents.length} discovered species, ${swimmers.length} swimming${tuna}`) + explore;
 
   // The 3D view is one labelled image for screen readers. The label sits inside the error boundary,
   // so if the scene fails, its fallback and "Try again" button can still be reached.
-  return <View style={styles.scene} onLayout={onLayout}>
+  return <View style={frame} onLayout={onLayout}>
     <SceneBoundary fallback={fallback}>
       <View style={styles.canvas} accessible accessibilityRole="image" accessibilityLabel={description}>
       <Canvas orthographic flat {...(Platform.OS === 'web' ? { dpr: 1.25 } : {})} frameloop={active && !!models && !loading ? 'always' : 'demand'} camera={SCENE_CAMERA}
         gl={{ antialias: Platform.OS === 'web' }}
         onCreated={({ camera }) => camera.lookAt(0, -.15, 0)} style={styles.canvas}>
         {/* The view pulls back as the island levels up and its ocean widens. */}
-        <SceneCamera scale={oceanScale(level)} />
+        {!explorer && <SceneCamera scale={oceanScale(level)} />}
         {__DEV__ && <ScenePerformance ready={!!models && !loading} active={active} />}
         {ISLAND_PERF && <IslandPerfProbe />}
         {/* The animals swim inside the island's water, which tints and refracts them. */}
         <SanctuaryEnvironment habitat={habitat} level={level} active={active} growIn={active && !loading}>
-          {models && !loading && <MarineSwimmers models={models} active={active} level={level}
+          {explorer?.camera}
+          {models && !loading && <MarineSwimmers models={models} active={active} level={level} tapScale={explorer?.tapScale}
             residents={preview
               ? visitors.map((s) => ({ ...s, id: s.model, onPress: () => onInspect(s.model) }))
               : swimmers.map((s) => ({ ...s, id: s.species.id, onPress: () => router.push(`/species/${s.species.id}`) }))}
@@ -146,5 +156,6 @@ export function SanctuaryScene({ habitat, level, residents, paused = false, load
 
 const styles = StyleSheet.create({
   scene: { width: '100%', aspectRatio: 420 / 390 },
+  fill: { flex: 1 },
   canvas: { flex: 1 },
 });

@@ -7,6 +7,7 @@ import { OceanContext } from './ocean-context';
 import { useSceneQuality } from './scene-quality';
 import { createSchoolHitArea } from './school-hit-area';
 import { createSchoolMaterial } from './school-material';
+import { TAP_SLOP } from './tap-target';
 import { createTunaGeometry } from './tuna-geometry';
 
 /**
@@ -68,5 +69,5 @@ function SchoolHitArea({ school, onPress }: { school: TunaSchool; onPress: () =>
   const hit = useMemo(() => createSchoolHitArea(), []);
   useEffect(() => () => hit.dispose(), [hit]);
   useFrame(({ camera }) => hit.update(school.hitArea, camera));
-  return <primitive object={hit.mesh} dispose={null} onClick={(event: ThreeEvent<MouseEvent>) => { event.stopPropagation(); onPress(); }} />;
+  return <primitive object={hit.mesh} dispose={null} onClick={(event: ThreeEvent<MouseEvent>) => { if (event.delta > TAP_SLOP) return; event.stopPropagation(); onPress(); }} />;
 }

@@ -56,8 +56,10 @@ const scratch = { x: 0, y: 0 };
  * The animals and the tuna school. A species that swims in a group (marine-groups.ts) is drawn as
  * several animals, all opening its one page; `onSchoolPress` makes the school one tap target too.
  */
-export function MarineSwimmers({ residents, models, active, level = 1, school = false, onSchoolPress, schoolSpecies = [], arrivals }: {
+export function MarineSwimmers({ residents, models, active, level = 1, school = false, onSchoolPress, schoolSpecies = [], arrivals, tapScale }: {
   residents: Resident[]; models: MarineModels; active: boolean; level?: number; onSchoolPress?: () => void;
+  /** How much larger tap targets are than the animals need at the first level's zoom: the level's pullback unless set (the explorer's zoom, tapScaleAt). */
+  tapScale?: number;
   /** Whether the tuna school swims here (a tuna is logged). */
   school?: boolean;
   /** The species the tuna school shows (logged tuna): a new one arrives with the whole school. */
@@ -146,7 +148,7 @@ export function MarineSwimmers({ residents, models, active, level = 1, school = 
     tag.anchor((scratch.x + 1) / 2 * size.width, (1 - scratch.y) / 2 * size.height, Math.abs(scratch.x) < 1 && Math.abs(scratch.y) < 1);
   });
   const byLane = new Map(residents.map((resident) => [resident.lane, resident]));
-  const tapScale = oceanScale(level);
+  const taps = tapScale ?? oceanScale(level);
   // The reef's rocks: two dens for each moray, a rock for each octopus; an anemone for each pair of clownfish.
   const reef = motion.swimmers.map((s) => (isReefModel(s.model) && s.index === 0 ? REEF_SPECIES[s.model] : null));
   const morays = reef.filter((kind) => kind === 'moray').length, octopuses = reef.filter((kind) => kind === 'octopus').length;
@@ -156,7 +158,7 @@ export function MarineSwimmers({ residents, models, active, level = 1, school = 
       const resident = byLane.get(swimmer.leader);
       return resident && <AnimatedMarine key={`${resident.id}:${swimmer.index}`}
         model={swimmer.model} lane={swimmer.lane} gltf={models[swimmer.model]!}
-        active={active} population={residents.length} motion={motion} onPress={resident.onPress} tapScale={tapScale} />;
+        active={active} population={residents.length} motion={motion} onPress={resident.onPress} tapScale={taps} />;
     })}
     {morays + octopuses > 0 && <ReefRocks level={level} morays={morays} octopuses={octopuses} />}
     {anemones > 0 && <ReefAnemones level={level} count={anemones} />}

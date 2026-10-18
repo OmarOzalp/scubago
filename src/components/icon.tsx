@@ -9,6 +9,7 @@ import { AirplaneTiltIcon } from 'phosphor-react-native/src/icons/AirplaneTilt';
 import { ArrowLeftIcon } from 'phosphor-react-native/src/icons/ArrowLeft';
 import { ArrowLineDownIcon } from 'phosphor-react-native/src/icons/ArrowLineDown';
 import { ArrowsClockwiseIcon } from 'phosphor-react-native/src/icons/ArrowsClockwise';
+import { ArrowsOutIcon } from 'phosphor-react-native/src/icons/ArrowsOut';
 import { ArrowSquareOutIcon } from 'phosphor-react-native/src/icons/ArrowSquareOut';
 import { BarbellIcon } from 'phosphor-react-native/src/icons/Barbell';
 import { BellIcon } from 'phosphor-react-native/src/icons/Bell';
@@ -49,6 +50,7 @@ import { MapPinIcon } from 'phosphor-react-native/src/icons/MapPin';
 import { MapPinPlusIcon } from 'phosphor-react-native/src/icons/MapPinPlus';
 import { MapTrifoldIcon } from 'phosphor-react-native/src/icons/MapTrifold';
 import { MedalIcon } from 'phosphor-react-native/src/icons/Medal';
+import { MinusIcon } from 'phosphor-react-native/src/icons/Minus';
 import { NavigationArrowIcon } from 'phosphor-react-native/src/icons/NavigationArrow';
 import { NoteIcon } from 'phosphor-react-native/src/icons/Note';
 import { PauseIcon } from 'phosphor-react-native/src/icons/Pause';
@@ -81,6 +83,7 @@ const ICONS = {
   back: ArrowLeftIcon,
   external: ArrowSquareOutIcon,
   sync: ArrowsClockwiseIcon,
+  expand: ArrowsOutIcon,
   bell: BellIcon,
   binoculars: BinocularsIcon,
   boat: BoatIcon,
@@ -116,6 +119,7 @@ const ICONS = {
   addSite: MapPinPlusIcon,
   map: MapTrifoldIcon,
   medal: MedalIcon,
+  minus: MinusIcon,
   directions: NavigationArrowIcon,
   notes: NoteIcon,
   pause: PauseIcon,
