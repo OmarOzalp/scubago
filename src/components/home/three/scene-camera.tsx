@@ -1,12 +1,13 @@
 import { useLayoutEffect, useRef } from 'react';
 import { useFrame, useThree, type RootState } from '@react-three/fiber';
 import { OrthographicCamera } from 'three';
+import { CARD_SPAN } from '@/lib/explorer-view';
 import { OCEAN_GROWTH } from '@/lib/steering';
 
 /** Fit the view: the swimming area at `scale` (1 at the first level) across the canvas's shorter side. */
 function fit({ camera, size, invalidate }: RootState, inspect: boolean, scale: number) {
   if (!(camera instanceof OrthographicCamera)) return;
-  camera.zoom = Math.max(1, Math.min(size.width, size.height)) / (inspect ? 6 : 10.8 * scale);
+  camera.zoom = Math.max(1, Math.min(size.width, size.height)) / (inspect ? 6 : CARD_SPAN * scale);
   camera.lookAt(0, inspect ? .2 : -.15, 0);
   camera.updateProjectionMatrix();
   invalidate();
