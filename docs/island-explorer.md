@@ -133,8 +133,9 @@ are too small for the Home card, so they are drawn only in the explorer
 
 **Where.** Each home is at a fixed angle around the island and reach out on the shelf
 (`HOMES`), moving out as the island grows. Every home stays clear of the corals, the
-reef rock and every moray den, octopus rock and anemone, even if all of them are on
-the island at once, and clear of the islets and of each other at every level. The
+reef rock and every moray den (and the moray resting half out of it, along the coast),
+octopus rock and anemone, even if all of them are on the island at once, and clear of
+the islets and of each other at every level. The
 camera side of the island is the most crowded, so the homes there sit nearer the
 beach.
 
@@ -246,5 +247,7 @@ npx jest src/lib/__tests__/macro-life.test.ts src/components/home/__tests__/sanc
   a nudibranch's rock, drawn above it.
 - The pygmy seahorse is about 32 pt tall on a phone all the way in: finding it is meant
   to take a moment.
+- On the first island a palm frond hangs over part of the ornate ghost pipefish's
+  feather star when zoomed all the way in; the pipefish itself stays in view.
 - Opening an animal's page from the explorer pushes it above the explorer, and back
   returns to the explorer where it was.

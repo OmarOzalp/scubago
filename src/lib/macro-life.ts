@@ -1,5 +1,5 @@
 import { islandScale, SEABED_PROPS, shoreDistance, shorePolygons } from './island-outline';
-import { locate, REEF_ANEMONE, reefRocks } from './reef-life';
+import { locate, REEF, REEF_ANEMONE, REEF_SIZE, reefRocks } from './reef-life';
 import { smoothstep } from './steering';
 import type { DexEntry } from './types';
 
@@ -39,19 +39,19 @@ export const MACRO = {
 /**
  * Each creature's home: degrees around the island (0 to the right of the view, 90 toward the
  * camera) and how far out on the shelf (reach: the beach meets the shelf at .62). Clear of the
- * corals, the reef rock, every moray's dens, octopus's rock and anemone (all at once), the islets
- * and one another, at every level; the camera side is the most crowded, so homes there sit nearer
- * the beach.
+ * corals, the reef rock, every moray's dens (and the moray resting half out of one), octopus's
+ * rock and anemone (all at once), the islets and one another, at every level; the camera side is
+ * the most crowded, so homes there sit nearer the beach.
  */
 const HOMES: Record<MacroKind, { angle: number; reach: number }> = {
-  clam: { angle: 0, reach: .5 },
+  lobster: { angle: 0, reach: .5 },
   pikachu: { angle: 30, reach: .5 },
   'tree-worms': { angle: 84, reach: .3 },
   seahorse: { angle: 111, reach: .32 },
   harlequin: { angle: 138, reach: .32 },
-  dancer: { angle: 180, reach: .5 },
+  dancer: { angle: 185, reach: .28 },
   mantis: { angle: 240, reach: .5 },
-  lobster: { angle: 270, reach: .55 },
+  clam: { angle: 264, reach: .44 },
   pipefish: { angle: 298, reach: .45 },
   chromodoris: { angle: 332, reach: .38 },
 };
@@ -72,6 +72,11 @@ export function reefProps(level: number) {
     ...Object.entries(SEABED_PROPS).map(([name, [x, z]]) => ({ x: x * scale, z: z * scale, radius: name === 'reefRock' ? .25 : .3 })),
     // A den's boulder with a smaller one either side; an octopus's rock with its stone.
     ...dens.flat().map((d) => ({ x: d.x, z: d.z, radius: .36 })),
+    // A moray resting half out of its den: its body along the seabed from the den's mouth to its head.
+    ...dens.flat().flatMap((d) => [0, .25, .5, .75, 1].map((t) => {
+      const out = t * (1 - REEF.moray.inside) * REEF_SIZE['giant-moray'];
+      return { x: d.spotX + d.dirX * out, z: d.spotZ + d.dirZ * out, radius: .1 };
+    })),
     ...rocks.map((r) => ({ x: r.x, z: r.z, radius: .3 })),
     ...anemones.map((a) => ({ x: a.x, z: a.z, radius: REEF_ANEMONE.radius })),
   ];
