@@ -1,9 +1,12 @@
 # Island explorer
 
-The diver's island full screen, to zoom in on and look around. It opens from the
-full-screen button (four arrows, "Explore your ocean full screen") beside the pause
-button on the Home card, once an animal swims there or small life lives on the reef,
-and closes with ✕. (It is not the **Explore** tab, which is the map of dive sites.)
+The diver's island full screen, to zoom in on and look around. It opens with a tap
+anywhere on the Home card's island that isn't an animal (a tap on an animal still opens
+its page), or from the full-screen button (four arrows, "Explore your ocean full
+screen") beside the pause button, once an animal swims there or small life lives on the
+reef, and closes with ✕. The card's tap is an invisible floor far below the seabed
+(`TapAnywhere`), so any animal's tap target is hit first; a press that moves more than
+`TAP_SLOP` is a drag or the page scrolling, not a tap. (It is not the **Explore** tab, which is the map of dive sites.)
 The island, its animals and their behavior are Home's: the explorer draws the same
 `SanctuaryScene`, with its own camera, water that reaches past every edge of the
 screen, and the reef's small life, too small for the card ([Macro life](#macro-life)). The route is
@@ -172,8 +175,8 @@ turning or sliding, and a few hundred vertices on the Spanish dancer's mantle.
 
 **On Home.** Logging a macro species shows "New on your reef: Pygmy Seahorse. Go full
 screen and zoom in close to find it" where an arriving animal would swim in. A
-collection of only small life still gets the full-screen button, and the card says the
-creatures live on the reef, too small to see from there.
+collection of only small life still opens full screen (the button, or a tap on the
+island), and the card says the creatures live on the reef, too small to see from there.
 
 ## Accessibility
 

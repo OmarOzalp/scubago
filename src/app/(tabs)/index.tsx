@@ -63,15 +63,17 @@ export default function HomeScreen() {
   // Something swims here, or small life lives on the reef (seen only up close, full screen): there is something to explore.
   const small = macroResidents(home.residents).length, none = noneSwim(home.residents);
   const swimming = !loading && count > 0 && (!none || small > 0);
+  // The island full screen, to zoom in on and look around (src/app/explore.tsx): the button, or a tap on the island.
+  const explore = () => router.push('/explore');
   const sceneHint = count === 0
     ? 'Your ocean is empty for now. Log a sighting and that animal comes to live here.'
     : none && small > 0
-      ? `${small === 1 ? 'Your small creature lives' : `Your ${small} small creatures live`} on the reef, too small to see from here: go full screen and zoom in close to find ${small === 1 ? 'it' : 'them'}.`
+      ? `${small === 1 ? 'Your small creature lives' : `Your ${small} small creatures live`} on the reef, too small to see from here: tap the island to go full screen and zoom in close to find ${small === 1 ? 'it' : 'them'}.`
       : none
         ? `Your ${count === 1 ? 'species isn’t' : `${count} species aren’t`} drawn for the island yet. Sharks, rays, reef fish and some turtles, dolphins and octopuses swim here, and small reef life lives up close in the full-screen view; the rest live in your field guide.`
         : small > 0
-          ? 'Tap a swimming resident to revisit your discovery, or go full screen and zoom in to find the small life on the reef'
-          : 'Tap a swimming resident to revisit your discovery, or go full screen to look closer';
+          ? 'Tap a swimming resident to revisit your discovery, or anywhere else to go full screen and find the small life on the reef'
+          : 'Tap a swimming resident to revisit your discovery, or anywhere else to go full screen';
   return <View style={[styles.root, { backgroundColor: theme.background }]}>
     <Screen tab>
       <ScreenHeader
@@ -87,11 +89,10 @@ export default function HomeScreen() {
             <View style={styles.heroHeader}>
               <View style={styles.pill}><View style={styles.liveDot} /><Text style={styles.pillText}>YOUR SANCTUARY</Text></View>
               <View style={styles.heroButtons}>
-                {/* The island full screen, to zoom in on and look around (src/app/explore.tsx). */}
                 {swimming && <Pressable
                   accessibilityRole="button"
                   accessibilityLabel="Explore your ocean full screen"
-                  onPress={() => router.push('/explore')}
+                  onPress={explore}
                   style={({ pressed }) => [styles.motionButton, { opacity: pressed ? 0.7 : 1 }]}>
                   <Icon name="expand" size={20} color={ON_WATER} wash="#FFFFFF" washOpacity={0.6} />
                 </Pressable>}
@@ -104,7 +105,7 @@ export default function HomeScreen() {
                 </Pressable>
               </View>
             </View>
-            <SanctuaryScene habitat={habitat.id} level={moments.level} residents={home.residents} loading={loading} paused={paused || editing || loading} onInspect={inspect}
+            <SanctuaryScene habitat={habitat.id} level={moments.level} residents={home.residents} loading={loading} paused={paused || editing || loading} onInspect={inspect} onOpen={swimming ? explore : undefined}
               moments={{ featured: moments.featured, waiting: moments.waiting, now: moments.now, onArrived: moments.onArrived, tag: moments.tag, banner: moments.banner, note: moments.note, busy: moments.busy }} />
             <View style={styles.heroFooter}>
               <Text style={styles.homeName}>{saved.preferences.name}</Text>
