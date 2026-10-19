@@ -5,10 +5,12 @@ import { router } from 'expo-router';
 import ExploreScreen from '@/app/explore';
 import { zoomRange } from '@/lib/explorer-view';
 
+// How many tap gestures the screen makes (none: the explorer tells a double tap from a quick pinch itself).
+let mockTapGestures = 0;
 jest.mock('react-native-gesture-handler', () => {
   const chain = () => new Proxy({}, { get: (_, key) => (key === 'then' ? undefined : () => chain()) });
   return {
-    Gesture: { Pan: chain, Pinch: chain, Tap: chain, Simultaneous: () => ({}) },
+    Gesture: { Pan: chain, Pinch: chain, Tap: () => { mockTapGestures++; return chain(); }, Simultaneous: () => ({}) },
     GestureDetector: ({ children }) => children,
     GestureHandlerRootView: ({ children, style }) => <root style={style}>{children}</root>,
   };
@@ -65,6 +67,11 @@ test('the explorer draws the island full screen with its own camera, and its but
   expect(router.back).toHaveBeenCalled();
   // The hint is there to start with, and fades.
   expect(root.root.findAll((node) => node.props.children === 'Pinch or double-tap to look closer · drag to look around').length).toBeGreaterThan(0);
+});
+
+test('no tap gesture on the screen: one would count two quick pinches as a double tap and zoom in', async () => {
+  await act(async () => { root = create(<ExploreScreen />); });
+  expect(mockTapGestures).toBe(0);
 });
 
 test('with small life on the reef, the hint says it is there to find up close', async () => {

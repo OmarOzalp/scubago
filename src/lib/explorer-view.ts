@@ -37,6 +37,18 @@ export const EXPLORER = {
   closest: 1.1,
   /** How much each zoom button press zooms (×), and a double tap. */
   step: 1.6, doubleTap: 2,
+  /**
+   * A tap is one finger, down no longer than `tapTime` (ms) and moving no farther than `tapSlop`
+   * (points); a double tap is two taps at most `tapGap` ms apart and `tapNear` points from each
+   * other. Fingers that pinch, drag or linger are never a tap, however quick.
+   */
+  tapTime: 300, tapSlop: 10, tapGap: 300, tapNear: 40,
+  /**
+   * How far past the zoom limits a pinch stretches (×, at most; out past the min, no farther than
+   * the water still fills the screen). The zoom gives more slowly the farther past, and springs back
+   * to the limit when the fingers lift.
+   */
+  stretch: 1.25,
   /** How quickly an eased move (a button, a double tap) settles, and a fling's glide slows (1/s). */
   ease: 6, friction: 4.5,
   /** A finger lifting slower than this (points per second) just stops; faster ones glide on, up to the top speed. */
@@ -71,7 +83,36 @@ export function zoomRange({ width, height, level }: ExplorerFrame) {
   const whole = Math.min(w / (2 * a.x), h * k / (2 * a.z));
   const cover = Math.max(w / (2 * water()), h * k / (2 * water()));
   const min = Math.max(whole, cover);
-  return { min, max: Math.max(min * 2, Math.min(w, h) / EXPLORER.closest) };
+  return { min, max: Math.max(min * 2, Math.min(w, h) / EXPLORER.closest), cover };
+}
+
+// Past a limit by `over` (log units), the zoom gives this much: as much at first, then less and less, never `most`; and back.
+const give = (over: number, most: number) => most * over / (over + most);
+const take = (given: number, most: number) => most * given / Math.max(1e-12, most - given);
+/** How far a pinch may stretch past each end of the zoom range (log units). */
+function stretchRoom(frame: ExplorerFrame) {
+  const range = zoomRange(frame);
+  return { range, over: Math.log(EXPLORER.stretch), under: Math.log(range.min / Math.max(range.min / EXPLORER.stretch, range.cover)) };
+}
+
+/**
+ * The zoom shown for fingers that ask for `zoom` (points per unit, their spread with no limits): the
+ * same inside the zoom range; past either end, stretching on with more and more resistance (to the
+ * `stretch` at most), to spring back once they lift.
+ */
+export function stretchZoom(frame: ExplorerFrame, zoom: number) {
+  const { range, over, under } = stretchRoom(frame);
+  if (zoom > range.max) return range.max * Math.exp(give(Math.log(zoom / range.max), over));
+  if (zoom < range.min) return range.min / Math.exp(give(Math.log(range.min / zoom), under));
+  return zoom;
+}
+
+/** The zoom fingers ask for to see `zoom` (stretchZoom backwards): for a touch landing as the view springs back. */
+function askedFor(frame: ExplorerFrame, zoom: number) {
+  const { range, over, under } = stretchRoom(frame);
+  if (zoom > range.max) return range.max * Math.exp(take(Math.log(zoom / range.max), over));
+  if (zoom < range.min) return range.min / Math.exp(take(Math.log(range.min / zoom), under));
+  return zoom;
 }
 
 /** How far the middle of the view may move from the island's (x, z) at this zoom: the view's edges stay near the swimming area, inside the water. */
@@ -103,14 +144,15 @@ export function zoomAbout(frame: ExplorerFrame, view: ExplorerView, factor: numb
 
 /**
  * The fingers moved: their middle from `was` to `now` (screen points from the middle of the view),
- * their spread by `factor`. The view that keeps the water that was under their middle under it at the
- * new zoom, found in one go and only then kept inside the limits (moving first and zooming after, the
- * limits of the old zoom would stop a move the new zoom allows, and the water would slip).
+ * to be seen at `zoom` (from their spread, stretched past the limits by stretchZoom). The view that
+ * keeps the water that was under their middle under it at the new zoom, found in one go and only
+ * then kept inside the limits for that zoom (moving first and zooming after, the limits of the old
+ * zoom would stop a move the new zoom allows, and the water would slip).
  */
-export function followFingers(frame: ExplorerFrame, view: ExplorerView, was: { x: number; y: number }, now: { x: number; y: number }, factor = 1): ExplorerView {
-  const range = zoomRange(frame), zoom = clamp(view.zoom * factor, range.min, range.max), k = EXPLORER.depthStretch;
+export function followFingers(frame: ExplorerFrame, view: ExplorerView, was: { x: number; y: number }, now: { x: number; y: number }, zoom = view.zoom): ExplorerView {
+  const k = EXPLORER.depthStretch, limit = panLimit(frame, zoom);
   const spot = { x: view.x + was.x / view.zoom, z: view.z + was.y * k / view.zoom };
-  return clampView(frame, { x: spot.x - now.x / zoom, z: spot.z - now.y * k / zoom, zoom });
+  return { x: clamp(spot.x - now.x / zoom, -limit.x, limit.x), z: clamp(spot.z - now.y * k / zoom, -limit.z, limit.z), zoom };
 }
 
 /** The fingers' middle and how far apart they are (their average distance from it). */
@@ -118,6 +160,9 @@ function hand(fingers: readonly Finger[]) {
   const x = fingers.reduce((sum, f) => sum + f.x, 0) / fingers.length, y = fingers.reduce((sum, f) => sum + f.y, 0) / fingers.length;
   return { x, y, spread: fingers.reduce((sum, f) => sum + Math.hypot(f.x - x, f.y - y), 0) / fingers.length };
 }
+
+/** A tap: where (points from the middle of the screen) and when (ms). */
+type Tap = { t: number; x: number; y: number };
 
 /**
  * The explorer's camera state, driven by the fingers and buttons and read by the camera every frame
@@ -127,11 +172,14 @@ function hand(fingers: readonly Finger[]) {
  * frame), so fingers moved one at a time count as one move: on the web each finger's move comes as
  * an event of its own, and moved one at a time they could meet a limit halfway that moving them
  * together would not. When a finger lands or lifts the view doesn't move: it carries on from where
- * the fingers are then. Let go of a single finger moving fast and the view glides on and slows. A
- * button or a double tap eases to its goal. `subscribe` hears the zoom when a move ends (and as the
- * mouse wheel turns), so tap targets follow it without re-drawing the island mid-gesture; `watch`
- * hears every move, so a scene that draws only on demand (reduced motion) redraws. Held still
- * (reduced motion), buttons and double taps jump to their goal and nothing glides.
+ * the fingers are then. Between the zoom limits the zoom is whatever the fingers make it; pinched
+ * past one it stretches (stretchZoom) and springs back once they lift. Let go of a single finger
+ * moving fast and the view glides on and slows. A double tap (two quick one-finger taps, told
+ * apart from quick pinches here) zooms closer in on that spot. A button or a double tap eases to
+ * its goal. `subscribe` hears the zoom when a move ends (and as the mouse wheel turns), so tap
+ * targets follow it without re-drawing the island mid-gesture; `watch` hears every move, so a
+ * scene that draws only on demand (reduced motion) redraws. Held still (reduced motion), buttons,
+ * double taps and spring backs jump to their goal and nothing glides.
  */
 export function createExplorer(initial: ExplorerFrame) {
   let frame = initial, sized = false, still = false;
@@ -139,8 +187,10 @@ export function createExplorer(initial: ExplorerFrame) {
   let vx = 0, vz = 0, reported = view.zoom;
   // The fingers down now, whether this touch has had two at once, and where its middle was lately (for the release speed).
   let fingers: Finger[] = [], pinched = false, trail: { t: number; x: number; y: number }[] = [];
-  // Where the same fingers have moved since the view was last read.
-  let pending: Finger[] | null = null;
+  // Where the same fingers have moved since the view was last read, and the zoom their spread asks for (with no limits).
+  let pending: Finger[] | null = null, asked = view.zoom;
+  // This touch as a tap (one finger that has barely moved: where and when it landed), and the last tap (where, and when it lifted).
+  let tap: Tap | null = null, lastTap: Tap | null = null;
   const listeners = new Set<(zoom: number) => void>(), watchers = new Set<() => void>();
   const report = (force = false) => {
     if (!force && Math.abs(Math.log(view.zoom / reported)) < .1) return;
@@ -156,7 +206,8 @@ export function createExplorer(initial: ExplorerFrame) {
     pending = null;
     const was = hand(next.map((f) => before.get(f.id)!)), now = hand(next);
     const pinching = next.length > 1 && was.spread >= EXPLORER.pinchFloor && now.spread >= EXPLORER.pinchFloor;
-    view = followFingers(frame, view, was, now, pinching ? now.spread / was.spread : 1);
+    if (pinching) asked *= now.spread / was.spread;
+    view = followFingers(frame, view, was, now, pinching ? stretchZoom(frame, asked) : view.zoom);
     fingers = next;
   };
   // Ease to a view (or, held still, go straight there).
@@ -166,10 +217,17 @@ export function createExplorer(initial: ExplorerFrame) {
     if (still) { view = next; goal = null; report(true); } else goal = next;
     moved();
   };
-  // The last finger lifts at `time`: a single finger still moving fast glides on.
-  const release = (time: number, glide: boolean) => {
-    const recent = trail.filter((p) => time - p.t <= EXPLORER.sample);
-    if (glide && !still && !pinched && recent.length >= 2) {
+  // A double tap: closer in on that spot, or all the way out again once as close as it goes.
+  const toward = (fx: number, fy: number) => {
+    settle();
+    if ((goal ?? view).zoom >= zoomRange(frame).max * .98) head(overview(frame));
+    else head(zoomAbout(frame, goal ?? view, EXPLORER.doubleTap, fx, fy));
+  };
+  // The last finger lifts at `time` (`lifted`: rather than the touch being taken away). A single finger still
+  // moving fast glides on; pinched past a zoom limit, the view springs back to it; a second quick tap zooms in.
+  const release = (time: number, lifted: boolean) => {
+    const recent = trail.filter((p) => time - p.t <= EXPLORER.sample), end = trail[trail.length - 1];
+    if (lifted && !still && !pinched && recent.length >= 2) {
       const first = recent[0], last = recent[recent.length - 1];
       // Over at least a frame's worth of time (touch events can arrive bunched together), and only if it hadn't stopped.
       const dt = Math.max(last.t - first.t, 50) / 1000, sx = (last.x - first.x) / dt, sy = (last.y - first.y) / dt, speed = Math.hypot(sx, sy);
@@ -178,9 +236,16 @@ export function createExplorer(initial: ExplorerFrame) {
         vx = -sx * cap / view.zoom; vz = -sy * cap * EXPLORER.depthStretch / view.zoom;
       }
     }
-    fingers = []; trail = []; pinched = false;
-    report(true);
-    moved();
+    const tapped = lifted && tap && time - tap.t <= EXPLORER.tapTime ? tap : null, range = zoomRange(frame);
+    fingers = []; trail = []; pinched = false; tap = null;
+    // About the fingers' middle as they lifted, so what was between them stays put.
+    if (view.zoom > range.max || view.zoom < range.min) head(zoomAbout(frame, view, 1, end?.x ?? 0, end?.y ?? 0));
+    else { report(true); moved(); }
+    if (!tapped) lastTap = null;
+    else if (lastTap && tapped.t - lastTap.t <= EXPLORER.tapGap && Math.hypot(tapped.x - lastTap.x, tapped.y - lastTap.y) <= EXPLORER.tapNear) {
+      toward(lastTap.x, lastTap.y);
+      lastTap = null;
+    } else lastTap = { t: time, x: tapped.x, y: tapped.y };
   };
   return {
     get view() { settle(); return view; },
@@ -213,6 +278,7 @@ export function createExplorer(initial: ExplorerFrame) {
       if (fingers.length > 0 && next.length === fingers.length && next.every((f) => ids.has(f.id))) {
         // The same fingers moved: followed when the view is next read.
         pending = next.map((f) => ({ ...f }));
+        if (tap && Math.hypot(next[0].x - tap.x, next[0].y - tap.y) > EXPLORER.tapSlop) tap = null;
         const now = hand(next);
         trail.push({ t: time, x: now.x, y: now.y });
         if (trail.length > 12) trail.shift();
@@ -221,8 +287,11 @@ export function createExplorer(initial: ExplorerFrame) {
       }
       settle();
       if (next.length === 0) { if (fingers.length > 0) release(time, !cancelled); return; }
-      // A new touch stops any glide or eased move where it is.
-      if (fingers.length === 0) { stop(); pinched = false; }
+      // A new touch stops any glide or eased move (a spring back too) where it is.
+      if (fingers.length === 0) {
+        stop(); pinched = false; asked = askedFor(frame, view.zoom);
+        tap = next.length === 1 ? { t: time, x: next[0].x, y: next[0].y } : null;
+      } else tap = null;
       // A finger landed or lifted: the view carries on from here.
       if (next.length > 1) pinched = true;
       const now = hand(next);
@@ -233,12 +302,8 @@ export function createExplorer(initial: ExplorerFrame) {
     zoomAt(factor: number, fx: number, fy: number) { settle(); stop(); view = zoomAbout(frame, view, factor, fx, fy); report(); moved(); },
     /** Ease the zoom by `factor` about a point (screen points from the middle). */
     zoomBy(factor: number, fx = 0, fy = 0) { settle(); head(zoomAbout(frame, goal ?? view, factor, fx, fy)); },
-    /** A double tap: closer in on that spot, or all the way out again once as close as it goes. */
-    zoomToward(fx: number, fy: number) {
-      settle();
-      if ((goal ?? view).zoom >= zoomRange(frame).max * .98) this.showAll();
-      else this.zoomBy(EXPLORER.doubleTap, fx, fy);
-    },
+    /** As a double tap there: closer in on that spot, or all the way out again once as close as it goes. */
+    zoomToward(fx: number, fy: number) { toward(fx, fy); },
     /** Ease out to the whole ocean. */
     showAll() { head(overview(frame)); },
     /** Ease over to a point on the water (x, z) and in to at least `zoom` (a reef creature's home tapped from afar). */

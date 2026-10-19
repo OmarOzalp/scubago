@@ -67,17 +67,16 @@ export default function ExploreScreen() {
       return event.allTouches.filter((t) => !gone.has(t.id)).map((t) => { const [x, y] = fromMiddle(t.x, t.y); return { id: t.id, x, y }; });
     };
     // The explorer follows the fingers themselves, from the first touch: their middle drags the water and their
-    // spread zooms, so the view never waits for a gesture to be recognized and then jumps to catch up. The drag
-    // and the pinch are here to claim the touch once it moves or spreads, so it never also taps an animal.
+    // spread zooms, so the view never waits for a gesture to be recognized and then jumps to catch up. It tells
+    // a double tap from them too (a tap gesture here would count two quick pinches as one). The drag and the
+    // pinch are here to claim the touch once it moves or spreads, so it never also taps an animal.
     const drag = Gesture.Pan().runOnJS(true).minDistance(6).averageTouches(true)
       .onTouchesDown((event) => explorer.touch(fingers(event)))
       .onTouchesMove((event) => explorer.touch(fingers(event)))
       .onTouchesUp((event) => explorer.touch(fingers(event, true)))
       .onTouchesCancelled(() => explorer.touch([], undefined, true));
     const pinch = Gesture.Pinch();
-    const doubleTap = Gesture.Tap().runOnJS(true).numberOfTaps(2)
-      .onEnd((event, success) => { if (success) { const [fx, fy] = fromMiddle(event.x, event.y); explorer.zoomToward(fx, fy); } });
-    return Gesture.Simultaneous(drag, pinch, doubleTap);
+    return Gesture.Simultaneous(drag, pinch);
   }, [explorer]);
 
   // The web: the mouse wheel (and a trackpad's pinch, which arrives as a wheel with ctrl held) zooms about the pointer.
