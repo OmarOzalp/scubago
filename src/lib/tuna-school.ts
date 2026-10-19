@@ -83,6 +83,13 @@ export const SCHOOL_REACTIONS: Record<MarineModel, { threat: number; gap: number
   'sea-otter': { threat: .05, gap: .2 },
   garibaldi: { threat: 0, gap: .08 },
   'leafy-seadragon': { threat: 0, gap: .06 },
+  // The Volcanic Pinnacle's: the thresher stuns schooling fish with its tail, the Galápagos shark and
+  // the trevally hunt them; the angelfish and the iguana are no danger.
+  'galapagos-shark': { threat: .65, gap: .4, startle: .5 },
+  'thresher-shark': { threat: .7, gap: .45, startle: .55 },
+  'giant-trevally': { threat: .55, gap: .3, startle: .5 },
+  'king-angelfish': { threat: 0, gap: .08 },
+  'marine-iguana': { threat: 0, gap: .12 },
   // Reef animals keep to the reef (reef-life.ts): the school never meets them.
   'day-octopus': { threat: 0, gap: 0 },
   'giant-cuttlefish': { threat: 0, gap: 0 },

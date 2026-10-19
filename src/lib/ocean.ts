@@ -64,6 +64,13 @@ export const OCEAN = {
       shallow: '#3D8475', mid: '#2A6F6B', deep: '#1A4F58', sandShallow: '#726D5C', sandWet: '#55514A', patch: '#866C66', sky: '#E2ECE8', sun: '#FFF6E2', foam: '#F2F7F4',
       clarity: { visibility: 1.5, seabed: .32, opacity: [.2, .38] },
     },
+    // Clear, current-swept oceanic water over black volcanic sand and rock: bright blue-teal shallows
+    // over the dark bottom, deepening fast to cobalt; clearer than the reef's, so the animals and the
+    // seabed show a long way down.
+    volcanic: {
+      shallow: '#2E9DBA', mid: '#2272B0', deep: '#174B93', sandShallow: '#5A5856', sandWet: '#3A3938', patch: '#44524B', sky: '#E4EDF6', sun: '#FFF8E8', foam: '#F5F9FC',
+      clarity: { visibility: 3.6, seabed: .55, opacity: [.13, .26] },
+    },
   } satisfies Record<Habitat, OceanPalette>,
 
   // Water depth at which the body color reaches each stop (shallow -> mid -> deep).

@@ -65,7 +65,8 @@ One ocean can hold several islands (`OceanIsland`: a middle and a habitat): one 
 card, every island found in the explorer (`docs/island-explorer.md#one-ocean`).
 
 - **Depth.** The map reaches 9 units past every island's middle at the same 7.1 texels a
-  unit (`DEPTH`), so with the Coral Reef and the Kelp Forest it is 139 × 217. Each texel's
+  unit (`DEPTH`), so with the Coral Reef and the Kelp Forest it is 139 × 217, and with the
+  Volcanic Pinnacle too, 167 × 302. Each texel's
   depth comes from the nearest island's shore, measured in that island's own frame, so its
   shelf is the one its kelp and reef animals stand on; past 10 units from an island
   (`ISLAND_REACH`) only open-ocean depth is left of its shelf, so its shore isn't measured.

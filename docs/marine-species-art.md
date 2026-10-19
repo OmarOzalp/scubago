@@ -316,20 +316,48 @@ All are within the 5,000-triangle, 220 KB budget (`npm run verify:marine`).
 
 | Species | Model | Motion | Triangles | GLB bytes |
 | --- | --- | --- | ---: | ---: |
-| Harbor seal | A plump, spindle-shaped body with hardly any neck; a round head with a short, dog-like muzzle, a V of nostrils on top, big dark eyes and beaded whiskers, and no ear flaps; short fore flippers with dark claws held against the flanks; broad, fan-shaped hind flippers held close together behind the hips in a shallow V. Silvery gray, darker along the back, dappled with dark spots of every size, a few ringed pale, sparser and paler toward the belly | `pinniped`, `stroke: 'hind'`: the rear body and hind flippers sweep from side to side, the flippers beating alternately; short bouts and long glides. 0.9 strokes/s | 4,162 | 188,948 |
-| Sea otter | A long, supple body in dense, dark chocolate fur frosted with paler guard hairs; a broad, rounded, pale cream-gray head with a blunt muzzle, dark nose, long pale whiskers and small rounded ears; short forelegs with mitten paws; a flat tail a third of its length; big webbed hind feet | `pinniped`, `stroke: 'otter'`: the body waves up and down and the hind feet paddle in quick bouts. At rest (`pose.rest`) it curls belly-up: head and feet raised, paws on its chest, the stroke stilled (the motion rolls it onto its back). 1.15 strokes/s | 3,262 | 133,620 |
-| Garibaldi | A deep, oval, compressed body with a steep, rounded forehead and small mouth; one long dorsal fin, low in front and rising to a rounded soft rear; a rounded anal fin; a broad tail with rounded lobes and a shallow fork; paddle pectorals. Brilliant orange, deeper on the back and fins, large eyes ringed in orange | The sharks' `shark` rig as a hovering fish: rows with its pectorals, the body nearly still, darting with quick tail beats. 1.6 beats/s | 3,328 | 133,908 |
-| Leafy seadragon | A long, slender body in bony rings; a long tubular snout; a thin, finless tail curling down at its tip; leafy, lobed appendages branching from the head, back, belly and tail; tiny see-through dorsal and pectoral fins. Yellow-ochre and olive with thin pale bands, rosy on the head, the leaves yellow-green | `shark`, almost stiff: the tiny fins flutter and the body barely bends. 1.4 beats/s | 4,168 | 169,116 |
-| Orca | A robust body with a blunt, rounded head and no beak; a tall, triangular dorsal fin standing straight up; big, broad paddle flippers; a thick tail stock and broad flukes. Glossy black, with crisp white markings (an oval patch above and behind each eye, the chin and throat, a band down the belly sweeping up into a lobe on each flank behind the dorsal fin, the flukes' undersides) and a pale gray saddle behind the dorsal fin | The dolphin's `cetacean` rig, stronger and slower: powerful beats of the broad flukes, the dorsal fin steady. 0.48 beats/s | 4,282 | 163,844 |
+| Harbor seal | A plump, spindle-shaped body; a big round head on a short neck, with a steep forehead over a short, blunt, dog-like muzzle, a V of nostrils on top, big dark eyes and beaded whiskers, and no ear flaps; short, stubby fore flippers with dark claws tucked in under the chest along the belly; broad, fan-shaped hind flippers held close together behind the hips in a shallow V. Silvery gray, darker along the back, dappled with dark spots of every size, a few ringed pale, sparser and paler toward the belly | `pinniped`, `stroke: 'hind'`: the rear body and hind flippers sweep from side to side, the flippers beating alternately; short bouts and long glides. 0.9 strokes/s | 4,162 | 188,992 |
+| Sea otter | A long, supple body in dense, dark chocolate fur frosted with paler guard hairs; a broad, round, pale cream-gray head with a short, blunt muzzle, dark nose, long pale whiskers and small rounded ears; short forelegs with mitten paws; a short, flat, broad tail with a rounded end; big webbed hind feet | `pinniped`, `stroke: 'otter'`: the body waves up and down and the hind feet paddle in quick bouts. At rest (`pose.rest`) it curls belly-up: head and feet raised, paws on its chest, the stroke stilled (the motion rolls it onto its back). 1.15 strokes/s | 3,262 | 133,620 |
+| Garibaldi | A deep, oval, compressed body (its depth nearly half its length) with a steep, rounded forehead and small mouth; one long dorsal fin, low in front and rising to a rounded soft rear; a rounded anal fin; a broad tail with rounded lobes and a shallow fork; paddle pectorals. Brilliant orange all over, fins included, a touch deeper on the back; large eyes ringed in orange, set on the side of the head | The sharks' `shark` rig as a hovering fish: rows with its pectorals, the body nearly still, darting with quick tail beats. 1.6 beats/s | 3,328 | 133,904 |
+| Leafy seadragon | An S-shaped body in bony rings: a small, horse-like head bowed a little on an arched neck, a long tubular snout, a deep, pot-bellied trunk, and a long, thin, finless tail curling down; rounded, frond-like lobes on short spines from the head, back, belly and tail, largest over the back and belly; tiny see-through dorsal and pectoral fins. Yellow-ochre and olive with thin pale bands, rosy on the head, the leaves yellow-green | `shark`, almost stiff: the tiny fins flutter and the body barely bends. 1.4 beats/s | 3,768 | 153,380 |
+| Orca | A robust body with a blunt, rounded head, the melon swelling over a short, broad snout, and no beak; a tall, triangular dorsal fin standing straight up; big, broad paddle flippers; a thick tail stock and broad flukes. Glossy black, with crisp white markings (a long oval patch above and behind each eye, sloping up toward its rear; the chin and throat; a band down the belly sweeping high up into a lobe on each flank behind the dorsal fin; the flukes' undersides) and a pale gray saddle behind the dorsal fin | The dolphin's `cetacean` rig, stronger and slower: powerful beats of the broad flukes, the dorsal fin steady. 0.48 beats/s | 4,314 | 165,928 |
 
-The orca's white edges are painted into the body's vertex colours along softened boundaries (48
-rings, 8 and 7 columns above and below) so they stay smooth rather than stepping between vertices;
-the seal's spots are small decals thrown at random over its back and flanks (none crowding another), since
+The orca's white is crisp along every curve: the body's columns meet in a seam that follows the white's
+edge (`ORCA.boundary` is the edge itself, its gap 0.025 radians), so the chin, belly band and flank lobe
+change colour exactly there, and the eye patches are smooth oval decals laid on the skin. Painted into
+the vertex colours with a soft boundary, the white stepped between vertices like a staircase, and an
+early, pointed snout read as a dolphin's beak. The seal's spots are small decals thrown at random over its back and flanks (none crowding another), since
 noise painted into the vertex colours fell between the vertices and blurred away.
 
 Previews: `docs/art-previews/harbor-seal.png`, `sea-otter.png`, `garibaldi.png`,
 `leafy-seadragon.png` and `orca.png` (the same studio framing), and `island-kelp-forest.png`: the
 five at a level 3 Kelp Forest island as the app's camera sees them, 22 seconds apart.
+
+## Batch v7: the Volcanic Pinnacle
+
+The first animals of the Volcanic Pinnacle's island (`docs/volcanic-pinnacle.md`), all on the sharks'
+lofted body (`shark.ts`) and `shark` rig. The four fish and sharks were drafted in parallel, each
+from the field marks, a reference and an existing design as a template, then reviewed in studio
+sheets and in the scene and refined; the iguana's legs are tubes along smooth paths (`tube()` in its
+design file), its crest a row of conical spines. All are within the 5,000-triangle, 220 KB budget
+(`npm run verify:marine`).
+
+| Species | Model | Motion | Triangles | GLB bytes |
+| --- | --- | --- | ---: | ---: |
+| Marine iguana | A short, blunt, box-like head with heavy jowls, crusted with pale salt and knobbly scales, small eyes in scaly lids; a thick neck and stout body; a long tail flattened side to side, more than half its length; a crest of spines from the nape (tallest there, pale-tipped) down the back and tail; short legs folded back along the flanks, long clawed toes trailing. Sooty black, mottled rust red and dull green on the flanks | `shark` as a lizard: the tail sweeps in waves that grow toward the tip, whose last third whips on `TailUpper` (`lobes` with a 0° angle flex it sideways, lagging the stroke); the head held steady (`headSteady`), the forelegs on the pectoral bones. 0.8 strokes/s | 4,400 | 180,152 |
+| Galápagos shark | A classic requiem shark: streamlined, a broadly rounded snout, round eyes; a tall, slightly falcate first dorsal over the pectorals' free rear tips and a low interdorsal ridge; long, sickle-shaped pectorals; a heterocercal tail with a subterminal notch. Bronze-gray above, white below, a faint pale band on the flank; fin tips and rear margins dusky | Steady, confident tail beats, the front stiff. 0.55 beats/s | 4,196 | 167,356 |
+| Pelagic thresher | A compact torpedo deepest at the pectorals (the body ends about halfway along it), a short conical snout and large eyes; long, straight pectorals with broad rounded tips; a medium first dorsal; the upper tail lobe a long, narrow scythe as long as the rest of the shark, arcing up, with a tiny terminal lobe. Deep blue-violet gray above, white below, the white staying below the pectoral bases | Slow, deep strokes; the long lobe is weighted to `TailUpper` in a ramp along its length, so it bends along its whole length rather than hinging at its base. 0.5 beats/s | 4,356 | 172,656 |
+| Giant trevally | A deep, compressed jack with a steep, blunt forehead, a large eye set low and forward and a sloping mouth; a low spiny first dorsal; the second dorsal and anal fins each a tall sickle lobe on a long low base; long sickle pectorals; a very narrow tail stock keeled with a row of darker scutes; a deeply forked tail. Silver, dark slate above, finely speckled, the fins dusky, the tail darkest | A stiff body, quick strong beats in the tail stock and forked tail. 1.1 beats/s | 4,144 | 182,668 |
+| King angelfish | A deep disc of a body, very compressed, with a steep forehead, a short snout, a small mouth and a spine at the corner of the gill cover; dorsal and anal fins sweeping back into long pointed streamers level with the tail tip; a rounded-square tail; long white pelvic fins. Slate navy with fine pale dots, one crisp white bar behind the head, the dorsal and anal fins edged in bright turquoise, a yellow-orange tail | `shark` as a hovering fish: rows with its pectorals, its dorsal swaying. 1.5 beats/s | 4,388 | 191,292 |
+
+The angelfish's dorsal and anal fins are free outlines (`sailFin`, `leafFin` in its design file),
+since a midline fin can't sweep back into streamers; its white bar is a decal ribbon, so its edges
+are crisp. The thresher's tail is two lofted fins of its own (`caudalFin` can't bend a lobe that
+long smoothly), and its eyes have 14 segments rather than the kit's eight.
+
+Previews: `docs/art-previews/marine-iguana.png`, `galapagos-shark.png`, `thresher-shark.png`,
+`giant-trevally.png` and `king-angelfish.png` (the same studio framing), and
+`island-volcanic-pinnacle.png`: the island's animals at a level 4 island as the app's camera sees them.
 
 The island's tuna school is not a glTF asset: each tuna is a low-poly mesh built at runtime
 (`src/components/home/three/tuna-geometry.ts`, 167 triangles, or 83 in lite quality). It has a
@@ -366,6 +394,11 @@ References used for proportions and pattern placement:
 - [WoRMS: Hypsypops rubicundus](https://www.marinespecies.org/aphia.php?p=taxlist&tName=Hypsypops%20rubicundus)
 - [WoRMS: Phycodurus eques](https://www.marinespecies.org/aphia.php?p=taxlist&tName=Phycodurus%20eques)
 - [NOAA Fisheries: killer whale](https://www.fisheries.noaa.gov/species/killer-whale)
+- [Galápagos Conservancy: marine iguana](https://www.galapagos.org/about_galapagos/about-galapagos/biodiversity/reptiles/)
+- [Florida Museum: Galápagos shark](https://www.floridamuseum.ufl.edu/discover-fish/species-profiles/carcharhinus-galapagensis/)
+- [IUCN Red List: pelagic thresher](https://www.iucnredlist.org/species/161597/68607857)
+- [FishBase: Caranx ignobilis](https://www.fishbase.se/summary/Caranx-ignobilis.html)
+- [FishBase: Holacanthus passer](https://www.fishbase.se/summary/Holacanthus-passer.html)
 
 These simplified drafts still need human comparison against multiple views,
 especially fin contours, mouth detail and individual marking variation, and the

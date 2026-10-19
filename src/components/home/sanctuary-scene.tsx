@@ -35,6 +35,7 @@ const SHOWCASE_SWIMMERS = (['whale-shark', 'great-white-shark', 'tiger-shark', '
   'humpback-whale', 'sperm-whale', 'oceanic-whitetip', 'leatherback-turtle', 'oceanic-manta',
   // The Kelp Forest's (shown on Home's island in the showcase, though they live at their own).
   'harbor-seal', 'sea-otter', 'garibaldi', 'leafy-seadragon', 'orca',
+  'marine-iguana', 'galapagos-shark', 'thresher-shark', 'giant-trevally', 'king-angelfish',
   // The reef's animals keep to their own places on the reef (reef-life.ts): the moray's den, the octopus's rock, the cuttlefish's reef edge, the clownfish's anemone.
   'giant-moray', 'day-octopus', 'giant-cuttlefish', 'clownfish'] as const)
   .map((model, lane) => ({ model, lane }));

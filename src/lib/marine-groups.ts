@@ -15,9 +15,9 @@ import type { MarineModel } from './swimming';
 export const GROUP_SIZES: Readonly<Record<string, readonly [number, number]>> = {
   'bottlenose-dolphin': [2, 3],
   'spinner-dolphin': [2, 3],
-  'scalloped-hammerhead': [1, 2],
+  'scalloped-hammerhead': [2, 3],
   'chevron-barracuda': [3, 5],
-  'giant-trevally': [2, 3],
+  'giant-trevally': [3, 5],
   'bumphead-parrotfish': [2, 3],
   'raccoon-butterflyfish': [2, 2],
   'california-sea-lion': [2, 3],
@@ -48,9 +48,10 @@ export const GROUP_STYLES: Partial<Record<MarineModel, GroupStyle>> = {
   'bottlenose-dolphin': {
     places: [[.62, .55], [-.6, 1.15]], wander: .16, wanderPeriod: 13, swapEvery: 38, swapTime: 4.5, dip: .32, depthSpread: .08, stagger: 2.4, skip: .4,
   },
-  // Two large sharks swimming loosely together, each still its own animal: well apart, wandering more.
+  // A small school of large sharks swimming loosely together, each still its own animal: well apart,
+  // wandering more.
   'scalloped-hammerhead': {
-    places: [[1.05, 1.25]], wander: .35, wanderPeriod: 27, swapEvery: 80, swapTime: 7, dip: .38, depthSpread: .16, stagger: 0, skip: 0,
+    places: [[1.05, 1.25], [-1.1, 2.1]], wander: .35, wanderPeriod: 27, swapEvery: 80, swapTime: 7, dip: .38, depthSpread: .16, stagger: 0, skip: 0,
   },
   // Playmates: close and busy, wandering and trading places often, one sliding under another.
   'california-sea-lion': {
@@ -76,6 +77,10 @@ export const GROUP_STYLES: Partial<Record<MarineModel, GroupStyle>> = {
   'sea-otter': {
     places: [[.42, .25], [-.38, .45]], wander: .14, wanderPeriod: 12, swapEvery: 0, swapTime: 4, dip: .1, depthSpread: .03, stagger: .6, skip: 0,
   },
+  // A hunting pack of trevally: tight and parallel, fanned out a little behind the leader.
+  'giant-trevally': {
+    places: [[.42, .38], [-.4, .5], [.15, .95], [-.48, 1.1]], wander: .08, wanderPeriod: 9, swapEvery: 22, swapTime: 2.8, dip: .14, depthSpread: .06, stagger: 0, skip: 0,
+  },
   // A small shoal: close together, busier, trading places more often.
   'reef-fish': {
     places: [[.34, .4], [-.32, .55], [.1, .92], [-.38, 1.08]], wander: .14, wanderPeriod: 7, swapEvery: 16, swapTime: 2.6, dip: .16, depthSpread: .07, stagger: 0, skip: 0,
@@ -93,7 +98,7 @@ export const GROUP_BUDGET = { full: 6, lite: 3 };
  * then a jellyfish swarm (alone, a jellyfish is hardly one), then hammerheads, eagle rays and shoals.
  */
 const PRIORITY: Partial<Record<MarineModel, number>> = {
-  'bottlenose-dolphin': 0, 'california-sea-lion': 1, orca: 1, 'sea-otter': 2, 'golden-jellyfish': 2, 'scalloped-hammerhead': 3, 'spotted-eagle-ray': 4, 'great-barracuda': 5, 'reef-fish': 6,
+  'bottlenose-dolphin': 0, 'california-sea-lion': 1, orca: 1, 'sea-otter': 2, 'golden-jellyfish': 2, 'scalloped-hammerhead': 3, 'spotted-eagle-ray': 4, 'giant-trevally': 4, 'great-barracuda': 5, 'reef-fish': 6,
 };
 
 const hash = (id: string) => { let h = 7; for (let i = 0; i < id.length; i++) h = (h * 31 + id.charCodeAt(i)) % 100003; return h; };

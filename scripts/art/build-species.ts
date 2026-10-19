@@ -41,6 +41,11 @@ import { buildSeaOtter } from './species/sea-otter';
 import { buildGaribaldi } from './species/garibaldi';
 import { buildLeafySeadragon } from './species/leafy-seadragon';
 import { buildOrca } from './species/orca';
+import { buildMarineIguana } from './species/marine-iguana';
+import { buildGalapagosShark } from './species/galapagos-shark';
+import { buildThresherShark } from './species/thresher-shark';
+import { buildGiantTrevally } from './species/giant-trevally';
+import { buildKingAngelfish } from './species/king-angelfish';
 
 const OUT = resolve(dirname(process.argv[1]), '../../assets/models/marine') + '/';
 
@@ -72,6 +77,11 @@ const SPECIES: Partial<Record<SwimRigModel, { build: () => { mesh: MeshBuilder; 
   garibaldi: { build: buildGaribaldi, scientificName: 'Hypsypops rubicundus', reference: 'https://www.marinespecies.org/aphia.php?p=taxdetails&id=280033' },
   'leafy-seadragon': { build: buildLeafySeadragon, scientificName: 'Phycodurus eques', reference: 'https://www.marinespecies.org/aphia.php?p=taxdetails&id=212287' },
   orca: { build: buildOrca, scientificName: 'Orcinus orca', reference: 'https://www.fisheries.noaa.gov/species/killer-whale' },
+  'marine-iguana': { build: buildMarineIguana, scientificName: 'Amblyrhynchus cristatus', reference: 'https://www.galapagos.org/about_galapagos/about-galapagos/biodiversity/reptiles/' },
+  'galapagos-shark': { build: buildGalapagosShark, scientificName: 'Carcharhinus galapagensis', reference: 'https://www.floridamuseum.ufl.edu/discover-fish/species-profiles/carcharhinus-galapagensis/' },
+  'thresher-shark': { build: buildThresherShark, scientificName: 'Alopias pelagicus', reference: 'https://www.iucnredlist.org/species/161597/68607857' },
+  'giant-trevally': { build: buildGiantTrevally, scientificName: 'Caranx ignobilis', reference: 'https://www.fishbase.se/summary/Caranx-ignobilis.html' },
+  'king-angelfish': { build: buildKingAngelfish, scientificName: 'Holacanthus passer', reference: 'https://www.fishbase.se/summary/Holacanthus-passer.html' },
 };
 
 async function main() {

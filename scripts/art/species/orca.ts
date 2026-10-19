@@ -8,7 +8,7 @@
  */
 import { Vector3 } from 'three';
 import { SWIM_RIGS, type CetaceanRig } from '../../../src/lib/marine-rigs';
-import { blendSkins, fin, hex, mix, noise, smoothstep, type RGB } from './kit';
+import { blendSkins, fin, hex, mix, smoothstep, TAU, type RGB } from './kit';
 import { sharkContext, type SharkDesign } from './shark';
 
 const BLACK = hex('#14171a'), SHEEN = hex('#22272c'), WHITE = hex('#eef0ec'), SADDLE = hex('#8a9095');
@@ -21,39 +21,62 @@ const whiteEdge = (s: number) => {
   const chin = 2.3 - .5 * smoothstep(.0, .06, s);
   const narrow = 2.75;
   const belly = 2.25;
-  const lobe = 1.35;
+  const lobe = 1.1;
   let edge = s < .2 ? chin + (narrow - chin) * smoothstep(.12, .24, s) : s < .4 ? narrow + (belly - narrow) * smoothstep(.32, .45, s) : belly;
   // The flank lobe sweeps up behind the dorsal fin and runs back down toward the tail.
-  edge -= (belly - lobe) * smoothstep(.5, .62, s) * (1 - smoothstep(.72, .86, s));
+  edge -= (belly - lobe) * smoothstep(.52, .6, s) * (1 - smoothstep(.68, .8, s));
   return edge;
 };
 
-function skinColor(s: number, theta: number, p: Vector3): RGB {
+/**
+ * The body's own colors: glossy black, the soft gray saddle behind the dorsal fin, and below the white
+ * edge (where the body's columns meet in a crisp seam, ORCA.boundary) the white chin, belly and flank lobe.
+ */
+function skinColor(s: number, theta: number): RGB {
   const t = Math.abs(theta);
-  let color = mix(BLACK, SHEEN, smoothstep(.6, 1.4, t) * .5);
-  // The gray saddle behind the dorsal fin.
-  const saddle = smoothstep(.5, .3, t) * smoothstep(.46, .5, s) * (1 - smoothstep(.58, .64, s));
-  color = mix(color, SADDLE, saddle * .8);
-  // The eye patch: an oval above and behind the eye, its long axis along the body.
-  const eye = ((s - .145) / .042) ** 2 + ((t - 1.22) / .17) ** 2;
-  const edge = whiteEdge(s) + .03 * noise(p.z * 30, 4);
-  const white = Math.max(smoothstep(edge - .02, edge + .1, t), smoothstep(1.15, .7, eye));
-  return mix(color, WHITE, white);
+  if (t > whiteEdge(s)) return mix(WHITE, hex('#dfe3df'), smoothstep(2.6, 3.1, t) * .5);
+  const color = mix(BLACK, SHEEN, smoothstep(.6, 1.4, t) * .5);
+  // The gray saddle behind the dorsal fin, fading at its edges.
+  const saddle = smoothstep(.62, .25, t) * smoothstep(.47, .52, s) * (1 - smoothstep(.58, .66, s));
+  return mix(color, SADDLE, saddle * .75);
 }
 
 export const ORCA: SharkDesign = {
-  rig, nose: .44, bodyEnd: .9, frontDome: .03,
-  // A blunt, rounded head, deep and broad behind it; a long, thick body tapering to a deep tail stock.
-  width: [[0, .01], [.02, .03], [.05, .05], [.09, .066], [.14, .078], [.2, .087], [.28, .093], [.36, .094], [.44, .09], [.52, .08], [.6, .066], [.67, .05], [.73, .037], [.79, .026], [.84, .019], [.88, .015], [.9, .013]],
-  top: [[0, .01], [.02, .03], [.05, .05], [.09, .068], [.14, .082], [.2, .092], [.28, .1], [.36, .102], [.44, .098], [.52, .088], [.6, .075], [.67, .062], [.73, .052], [.79, .043], [.84, .035], [.88, .027], [.9, .02]],
-  bottom: [[0, .01], [.02, .026], [.05, .044], [.09, .058], [.14, .07], [.2, .08], [.28, .09], [.36, .093], [.44, .09], [.52, .08], [.6, .067], [.67, .054], [.73, .044], [.79, .035], [.84, .028], [.88, .021], [.9, .016]],
-  center: [[0, -.012], [.06, -.006], [.15, -.002], [.3, 0], [.6, .004], [.85, .007], [.9, .007]],
+  rig, nose: .44, bodyEnd: .9, frontDome: .022,
+  // A blunt, rounded head with no beak (the melon swelling over a short, broad snout), deep and broad
+  // behind it; a long, thick body tapering to a deep tail stock.
+  width: [[0, .03], [.015, .044], [.04, .058], [.08, .07], [.14, .08], [.2, .087], [.28, .093], [.36, .094], [.44, .09], [.52, .08], [.6, .066], [.67, .05], [.73, .037], [.79, .026], [.84, .019], [.88, .015], [.9, .013]],
+  top: [[0, .03], [.015, .046], [.04, .062], [.08, .075], [.14, .086], [.2, .093], [.28, .1], [.36, .102], [.44, .098], [.52, .088], [.6, .075], [.67, .062], [.73, .052], [.79, .043], [.84, .035], [.88, .027], [.9, .02]],
+  bottom: [[0, .022], [.015, .034], [.04, .047], [.08, .06], [.14, .071], [.2, .08], [.28, .09], [.36, .093], [.44, .09], [.52, .08], [.6, .067], [.67, .054], [.73, .044], [.79, .035], [.84, .028], [.88, .021], [.9, .016]],
+  center: [[0, -.008], [.06, -.005], [.15, -.002], [.3, 0], [.6, .004], [.85, .007], [.9, .007]],
   squareTop: [[0, 2], [.3, 2.05], [.6, 2], [.75, 1.8], [.9, 1.65]],
   squareBottom: [[0, 2], [.3, 2.1], [.6, 2], [.75, 1.8], [.9, 1.65]],
   rings: 48, columnsAbove: 8, columnsBelow: 7,
-  boundary: () => 2.2, boundaryGap: .2,
+  // The white's edge is a seam in the body's columns, so it stays crisp along every curve of the marking.
+  boundary: whiteEdge, boundaryGap: .025,
   paint: skinColor,
 };
+
+/**
+ * A smooth oval decal on the body at (s, theta): `rs` long (body lengths) and `rt` across (radians),
+ * sloping by `slope` (radians of theta per body length: negative climbs toward the back on the left
+ * flank), a hair off the skin so it never flickers.
+ */
+function oval(ctx: ReturnType<typeof sharkContext>, s: number, theta: number, rs: number, rt: number, slope: number, color: RGB) {
+  const { mesh } = ctx;
+  mesh.begin();
+  const at = (a: number) => {
+    const u = rs * Math.cos(a);
+    return [s + u, theta + rt * Math.sin(a) + slope * u] as const;
+  };
+  const c = mesh.vertex(ctx.surface(s, theta, .0016), color, ctx.skin(s), ctx.normal(s, theta));
+  const ring = Array.from({ length: 16 }, (_, i) => {
+    const [ps, pt] = at(TAU * i / 16);
+    return mesh.vertex(ctx.surface(ps, pt, .0012), color, ctx.skin(ps), ctx.normal(ps, pt));
+  });
+  for (let i = 0; i < 16; i++) mesh.tri(c, ring[i], ring[(i + 1) % 16]);
+  mesh.end({ closed: false, normals: false, outward: (i) => new Vector3(mesh.normals[i * 3], mesh.normals[i * 3 + 1], mesh.normals[i * 3 + 2]) });
+}
 
 /** Half the fluke span, and the rounding at each tip (body lengths). */
 const FLUKE = .11, FLUKE_TIP = .012;
@@ -99,7 +122,10 @@ export function buildOrca() {
     skin: (p) => blendSkins({ Tail: 1 }, { [p.x >= 0 ? 'FlukeL' : 'FlukeR']: 1 }, smoothstep(.035, .1, Math.abs(p.x))),
   });
 
-  // Small eyes at the front of the eye patch, low on the head, and the blowhole.
+  // The eye patch: a long white oval above and behind the eye, tilting up toward its rear, laid on the
+  // skin (painted into the body, its curved edge would step between vertices).
+  for (const side of [1, -1]) oval(ctx, .152, side * 1.18, .058, .17, side * -3, WHITE);
+  // Small eyes just ahead of and below the patch, and the blowhole.
   ctx.eyes({ s: .098, theta: 1.62, radius: .006, color: EYE, sink: .35 });
   ctx.spot(.15, 0, .006, BLOWHOLE, .45);
 

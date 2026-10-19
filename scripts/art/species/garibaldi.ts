@@ -10,7 +10,7 @@ import { SWIM_RIGS, type SharkRig } from '../../../src/lib/marine-rigs';
 import { hex, mix, noise, smoothstep, type RGB } from './kit';
 import { sharkContext, type SharkDesign } from './shark';
 
-const ORANGE = hex('#ff6a0d'), DEEP = hex('#ef5704'), BRIGHT = hex('#ff8a2a'), FIN = hex('#f25f08');
+const ORANGE = hex('#ff6a0d'), DEEP = hex('#ef5704'), BRIGHT = hex('#ff8a2a'), FIN = hex('#ff7418');
 const EYE = hex('#ff8a2a'), PUPIL = hex('#0b0a0a'), MOUTH = hex('#b2420b');
 
 const rig = SWIM_RIGS.garibaldi as SharkRig;
@@ -20,15 +20,15 @@ const skin = (theta: number, p: Vector3): RGB => {
   const t = theta + .05 * noise(p.z * 40, 2);
   return mix(mix(DEEP, ORANGE, smoothstep(.2, 1.1, t)), BRIGHT, .45 * smoothstep(2, 2.9, t) + .12 * noise(p.z * 120 + p.y * 90, 6));
 };
-/** A fin's color: orange, a little deeper and more translucent-looking toward its edge. */
-const finColor = (v: number) => mix(FIN, DEEP, .4 * v);
+/** A fin's color: as brilliant an orange as the body, a touch deeper toward its edge. */
+const finColor = (v: number) => mix(FIN, ORANGE, .5 * v);
 
 export const GARIBALDI: SharkDesign = {
   rig, nose: .4, bodyEnd: .79, frontDome: .045,
   // Deep and oval with a steep rounded forehead, tallest a third of the way back, tapering to a stout tail stock.
   width: [[0, .03], [.03, .046], [.08, .06], [.16, .072], [.28, .076], [.4, .072], [.52, .061], [.62, .047], [.71, .034], [.79, .026]],
-  top: [[0, .05], [.03, .09], [.08, .13], [.16, .17], [.28, .19], [.4, .182], [.52, .155], [.62, .118], [.71, .08], [.79, .06]],
-  bottom: [[0, .04], [.03, .07], [.08, .1], [.16, .13], [.28, .148], [.4, .144], [.52, .122], [.62, .092], [.71, .066], [.79, .052]],
+  top: [[0, .05], [.03, .1], [.08, .148], [.16, .19], [.28, .208], [.4, .198], [.52, .166], [.62, .124], [.71, .082], [.79, .06]],
+  bottom: [[0, .04], [.03, .074], [.08, .108], [.16, .142], [.28, .162], [.4, .156], [.52, .13], [.62, .096], [.71, .067], [.79, .052]],
   center: [[0, -.03], [.08, -.016], [.2, -.004], [.4, .002], [.79, .002]],
   squareTop: [[0, 2], [.3, 2.2], [.79, 2.1]],
   squareBottom: [[0, 2], [.3, 2.2], [.79, 2.1]],
@@ -65,7 +65,7 @@ export function buildGaribaldi() {
     le: [[-.012, 0], [0, 0], [.025, .004], [.05, .016], [.07, .034], [.08, .058]],
     te: [[-.012, .066], [0, .068], [.03, .08], [.06, .082], [.074, .074], [.08, .058]],
     bone: (left) => (left ? 'PectoralL' : 'PectoralR'),
-    color: (_p, v) => mix(BRIGHT, FIN, .5 * v),
+    color: (_p, v) => mix(BRIGHT, FIN, .4 * v),
   });
   // A broad tail with rounded lobes and a shallow fork.
   const axis = ctx.center(rig.joints[4]);
@@ -75,11 +75,11 @@ export function buildGaribaldi() {
     te: [[axis - .125, .94], [axis - .105, .985], [axis - .075, 1], [axis - .04, .985], [axis, .955], [axis + .04, .985], [axis + .075, 1], [axis + .105, .985], [axis + .125, .94]],
     thickness: (y) => .004 + .014 * Math.max(0, 1 - Math.abs(y - axis) / .1) ** 1.2,
     upperPivot: .04, lowerPivot: .04, stations: 14,
-    color: (_p, _v, u) => mix(FIN, DEEP, .45 * u),
+    color: (_p, _v, u) => mix(FIN, ORANGE, .5 * u),
   });
   // Large eyes ringed in orange, and a small mouth at the tip of the snout.
-  ctx.eyes({ s: .085, theta: .98, radius: .03, color: EYE, sink: .42 });
-  ctx.eyes({ s: .081, theta: .96, radius: .014, color: PUPIL, sink: -.42 });
+  ctx.eyes({ s: .088, theta: 1.16, radius: .03, color: EYE, sink: .45 });
+  ctx.eyes({ s: .084, theta: 1.14, radius: .014, color: PUPIL, sink: -.25 });
   for (const side of [1, -1]) {
     ctx.ribbon(Array.from({ length: 5 }, (_, i) => [.01 + .026 * i / 4, side * (1.6 + .18 * i / 4)] as const), (t) => .0035 * (.5 + .5 * Math.sin(Math.PI * t)), MOUTH);
   }

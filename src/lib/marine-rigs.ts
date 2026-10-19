@@ -14,7 +14,8 @@
 export type SwimRigModel = 'tiger-shark' | 'whale-shark' | 'great-white-shark' | 'scalloped-hammerhead' | 'reef-manta' | 'mola-mola' | 'green-turtle' | 'bottlenose-dolphin'
   | 'day-octopus' | 'giant-cuttlefish' | 'giant-moray' | 'great-barracuda' | 'sailfish' | 'clownfish'
   | 'spotted-eagle-ray' | 'california-sea-lion' | 'golden-jellyfish' | 'humpback-whale' | 'sperm-whale' | 'oceanic-whitetip' | 'leatherback-turtle'
-  | 'oceanic-manta' | 'harbor-seal' | 'sea-otter' | 'garibaldi' | 'leafy-seadragon' | 'orca';
+  | 'oceanic-manta' | 'harbor-seal' | 'sea-otter' | 'garibaldi' | 'leafy-seadragon' | 'orca'
+  | 'marine-iguana' | 'galapagos-shark' | 'thresher-shark' | 'giant-trevally' | 'king-angelfish';
 
 export const SHARK_BONES = [
   'Root', 'Head', 'Spine1', 'Spine2', 'RearBody', 'TailBase', 'Tail', 'TailUpper', 'TailLower',
@@ -535,6 +536,46 @@ export const SWIM_RIGS: Record<SwimRigModel, SwimRigSpec> = {
     frequency: 2.1, wavelength: .95, tailAmplitude: .1, rootAmplitude: .006, headAmplitude: .018, envelope: 1.6,
     lobes: { upper: .12, lower: .12, upperAngle: 1.15, lowerAngle: 1.15, lag: 1 },
     dorsal: .05, pectoral: { flap: .12, pitch: .08, turn: .6, climb: .3, row: .55 }, roll: .03, bend: .9, hover: .3,
+  },
+  // A classic requiem shark of remote islands: steady, confident beats of the tail, the stiff front
+  // carrying the tall dorsal fin level, the broad pectorals trimming it through turns.
+  'galapagos-shark': {
+    kind: 'shark', joints: [.28, .44, .58, .69, .79], dorsalParent: 'Spine1', dorsalAt: .36,
+    frequency: .55, wavelength: 1.1, tailAmplitude: .095, rootAmplitude: .003, headAmplitude: .005, envelope: 2.6,
+    lobes: { upper: .12, lower: .06, upperAngle: .7, lowerAngle: .9, lag: 1 },
+    dorsal: .035, pectoral: { flap: .03, pitch: .03, turn: .55, climb: .28 }, roll: .02, bend: .8,
+  },
+  // Half of it is tail: a compact body swims with slow, deep strokes and the great scythe of the
+  // upper lobe, nearly level, trails each one in a long, lagging sweep.
+  'thresher-shark': {
+    kind: 'shark', joints: [.17, .28, .38, .46, .52], dorsalParent: 'Spine1', dorsalAt: .29,
+    frequency: .5, wavelength: .9, tailAmplitude: .13, rootAmplitude: .003, headAmplitude: .004, envelope: 1.9,
+    lobes: { upper: .12, lower: .05, upperAngle: .32, lowerAngle: 1, lag: 1.35 },
+    dorsal: .03, pectoral: { flap: .02, pitch: .025, turn: .5, climb: .25 }, roll: .016, bend: .85,
+  },
+  // A stiff-bodied jack: quick, strong beats packed into the narrow tail stock and the deeply forked
+  // tail, the deep silver body hardly bending; the sickle pectorals held out to steer.
+  'giant-trevally': {
+    kind: 'shark', joints: [.3, .45, .59, .7, .79], dorsalParent: 'Spine2', dorsalAt: .45,
+    frequency: 1.1, wavelength: 1.15, tailAmplitude: .095, rootAmplitude: .003, headAmplitude: .006, envelope: 2.8,
+    lobes: { upper: .11, lower: .11, upperAngle: .95, lowerAngle: .95, lag: .85 },
+    dorsal: .03, pectoral: { flap: .05, pitch: .04, turn: .35, climb: .25 }, roll: .015, bend: .75,
+  },
+  // An angelfish's unhurried rowing: the pectorals sweep it along by the rocks, the tall disc of a
+  // body tilting and turning on the spot, the tail adding a beat for a burst.
+  'king-angelfish': {
+    kind: 'shark', joints: [.3, .45, .58, .7, .8], dorsalParent: 'Spine2', dorsalAt: .45,
+    frequency: 1.5, wavelength: .95, tailAmplitude: .085, rootAmplitude: .005, headAmplitude: .012, envelope: 1.7,
+    lobes: { upper: .1, lower: .1, upperAngle: 1.05, lowerAngle: 1.05, lag: 1 },
+    dorsal: .08, pectoral: { flap: .1, pitch: .07, turn: .6, climb: .3, row: .5 }, roll: .03, bend: .85, hover: .35,
+  },
+  // Swims like a crocodile: legs folded back against its flanks, the long, flattened tail sweeping it
+  // along in slow waves that grow toward the whip of its tip, the head held steady and high.
+  'marine-iguana': {
+    kind: 'shark', joints: [.2, .33, .45, .58, .72], dorsalParent: 'Spine1', dorsalAt: .25,
+    frequency: .8, wavelength: .95, tailAmplitude: .1, rootAmplitude: .006, headAmplitude: .008, envelope: 1.5, headSteady: .5,
+    lobes: { upper: .22, lower: .22, upperAngle: 0, lowerAngle: 0, lag: 1.2 },
+    dorsal: 0, pectoral: { flap: .05, pitch: .04, turn: .3, climb: .2 }, roll: .02, bend: .9,
   },
   'giant-moray': {
     kind: 'moray', joints: [.13, .25, .37, .49, .6, .71, .81, .9],

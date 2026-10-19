@@ -25,13 +25,14 @@ const skin = (_s: number, theta: number, p: Vector3): RGB => {
 };
 
 export const HARBOR_SEAL: SharkDesign = {
-  rig, nose: .46, bodyEnd: .84, frontDome: .012,
-  // A short, blunt muzzle below a steep forehead; a round head, a little narrower behind it where the
-  // short neck is; the plump body deepest a little behind the middle, then a quick taper to the hips.
-  width: [[0, .013], [.02, .029], [.045, .041], [.07, .05], [.1, .056], [.13, .057], [.16, .055], [.2, .062], [.28, .078], [.36, .09], [.44, .095], [.52, .092], [.6, .082], [.67, .066], [.73, .05], [.79, .032], [.84, .016]],
-  top: [[0, .011], [.02, .022], [.045, .036], [.07, .049], [.1, .056], [.13, .056], [.16, .052], [.2, .059], [.28, .074], [.36, .085], [.44, .089], [.52, .086], [.6, .076], [.67, .061], [.73, .046], [.79, .03], [.84, .015]],
-  bottom: [[0, .01], [.02, .02], [.045, .031], [.07, .041], [.1, .047], [.13, .05], [.16, .052], [.2, .061], [.28, .076], [.36, .088], [.44, .092], [.52, .088], [.6, .077], [.67, .061], [.73, .045], [.79, .029], [.84, .014]],
-  center: [[0, -.008], [.06, -.004], [.14, 0], [.5, 0], [.84, .003]],
+  rig, nose: .46, bodyEnd: .84, frontDome: .014,
+  // A short, blunt, dog-like muzzle, low on the face, below a steep forehead; a big round head, a little
+  // narrower behind it where the short neck is; the plump body deepest a little behind the middle, then a
+  // quick taper to the hips.
+  width: [[0, .019], [.03, .03], [.055, .043], [.08, .054], [.11, .059], [.14, .058], [.17, .054], [.21, .063], [.28, .078], [.36, .09], [.44, .095], [.52, .092], [.6, .082], [.67, .066], [.73, .05], [.79, .032], [.84, .016]],
+  top: [[0, .015], [.03, .023], [.055, .043], [.08, .056], [.11, .06], [.14, .057], [.17, .051], [.21, .06], [.28, .074], [.36, .085], [.44, .089], [.52, .086], [.6, .076], [.67, .061], [.73, .046], [.79, .03], [.84, .015]],
+  bottom: [[0, .013], [.03, .021], [.055, .033], [.08, .042], [.11, .048], [.14, .051], [.17, .052], [.21, .062], [.28, .076], [.36, .088], [.44, .092], [.52, .088], [.6, .077], [.67, .061], [.73, .045], [.79, .029], [.84, .014]],
+  center: [[0, -.015], [.035, -.012], [.07, -.005], [.12, -.001], [.18, 0], [.5, 0], [.84, .003]],
   squareTop: [[0, 2], [.84, 2]],
   squareBottom: [[0, 2], [.4, 2.1], [.84, 2]],
   rings: 46, columnsAbove: 7, columnsBelow: 6,
@@ -47,7 +48,8 @@ export function buildHarborSeal() {
 
   // Short fore flippers low on the flanks behind the head, swept back along the body; dark claws at
   // their tips. The arm (`Fore?1`) carries the inner part, the hand (`Fore?2`) the outer.
-  const fore = { rootS: .25, theta: 2.15, span: .085, droop: .85, sweep: 1.25, sink: .012, thickness: .016, wrist: .5 };
+  // Short and stubby, held in under the chest and swept back along the belly, not out like a fish's fins.
+  const fore = { rootS: .24, theta: 2.25, span: .06, droop: 1, sweep: 1.45, sink: .012, thickness: .017, wrist: .5 };
   const foreLe = curve([[-.012, 0], [0, 0], [.03, .006], [.06, .016], [.08, .03], [.085, .042]]);
   const foreTe = curve([[-.012, .055], [0, .058], [.03, .062], [.06, .06], [.08, .052], [.085, .042]]);
   const foreBones: { arm: Vector3; hand: Vector3 }[] = [];
@@ -123,7 +125,7 @@ export function buildHarborSeal() {
   }
 
   // Big dark eyes, the V of nostrils on top of the muzzle, the mouth's line and beaded whiskers.
-  ctx.eyes({ s: .068, theta: .98, radius: .0145, color: EYE, sink: .3 });
+  ctx.eyes({ s: .082, theta: .95, radius: .0145, color: EYE, sink: .3 });
   for (const side of [1, -1]) {
     ctx.ribbon([[.01, side * .1], [.018, side * .32]], () => .0028, NOSE);
     ctx.ribbon(Array.from({ length: 6 }, (_, i) => [.008 + .034 * i / 5, side * (1.86 + .12 * i / 5)] as const), (t) => .0014 * (.5 + .5 * Math.sin(Math.PI * t)), MOUTH);

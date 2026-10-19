@@ -100,15 +100,16 @@ animated species (`MAX_ANIMATED`), one tap destination (every member opens its p
 and one slot in the dive schedule. Its extra members come from a budget of their own
 (`GROUP_BUDGET`: 6 extra animals, 3 where the GPU is emulated), given to the dolphins'
 pods first, then the sea lions, a jellyfish swarm (alone, a jellyfish is hardly one),
-hammerheads, eagle rays, barracuda schools and shoals. Each visit picks the group sizes
+hammerheads, eagle rays, trevally packs, barracuda schools and shoals. Each visit picks the group sizes
 afresh within each species' range (`GROUP_SIZES` in `src/lib/marine-groups.ts`):
 
 | Species | Animals | Why |
 | --- | ---: | --- |
 | Bottlenose and spinner dolphins | 2–3 | Dolphins travel in pods |
-| Scalloped hammerhead | 1–2 | They school, so now and then a second one swims along; great hammerheads are solitary and stay alone |
+| Scalloped hammerhead | 2–3 | They school (famously at the Volcanic Pinnacle's seamounts); great hammerheads are solitary and stay alone |
 | Chevron barracuda | 3–5 | Tornado schools (drawn with the great barracuda's model; great barracuda hunt alone) |
-| Giant trevally, bumphead parrotfish | 2–3 | Packs and herds |
+| Giant trevally | 3–5 | They hunt in packs, in tight formation (their own model and style) |
+| Bumphead parrotfish | 2–3 | Herds |
 | Raccoon butterflyfish | 2 | They go about in pairs |
 | California sea lion | 2–3 | They play in small groups |
 | Spotted eagle ray | 3–4 | They fly in squadrons |
@@ -143,9 +144,9 @@ member has its own tail phase and depth (`depthSpread`).
 - **Dives.** The group dives on its leader's cycle, each member 0.8 s after the one
   before, so a pod sinks one by one.
 
-| | Dolphin pod | Hammerhead pair | Reef-fish shoal |
+| | Dolphin pod | Hammerhead school | Reef-fish shoal |
 | --- | --- | --- | --- |
-| `places` (across, behind) | (0.62, 0.55), (−0.6, 1.15) | (1.05, 1.25) | (0.34, 0.4), (−0.32, 0.55), (0.1, 0.92), (−0.38, 1.08) |
+| `places` (across, behind) | (0.62, 0.55), (−0.6, 1.15) | (1.05, 1.25), (−1.1, 2.1) | (0.34, 0.4), (−0.32, 0.55), (0.1, 0.92), (−0.38, 1.08) |
 | `wander` / `wanderPeriod` | 0.16 / 13 s | 0.35 / 27 s | 0.14 / 7 s |
 | `swapEvery` / `swapTime` | 38 s / 4.5 s | 80 s / 7 s | 16 s / 2.6 s |
 | `dip` / `depthSpread` | 0.32 / 0.08 | 0.38 / 0.16 | 0.16 / 0.07 |
