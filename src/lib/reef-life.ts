@@ -113,6 +113,7 @@ export const REEF_THREAT: Partial<Record<MarineModel, number>> = {
   'great-barracuda': .5, 'whale-shark': .3, sailfish: .25, 'reef-manta': .2, manta: .2, 'spotted-eagle-ray': .15, 'mola-mola': .15, 'green-turtle': .1,
   'oceanic-whitetip': .9, 'sperm-whale': .3, 'oceanic-manta': .2, 'humpback-whale': .15, 'leatherback-turtle': .05,
   orca: 1, 'harbor-seal': .65, 'sea-otter': .55, garibaldi: .05, 'leafy-seadragon': 0,
+  'galapagos-shark': .9, 'thresher-shark': .5, 'giant-trevally': .6, 'king-angelfish': 0, 'marine-iguana': 0,
 };
 
 /**

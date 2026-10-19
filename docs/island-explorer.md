@@ -40,11 +40,12 @@ the reef: zoom in close to find them").
 ![The explorer on a phone: opened at the Coral Reef, sailed to the Kelp Forest, the whole archipelago, and opened at the Kelp Forest](art-previews/explorer-archipelago.png)
 
 Every island found so far lies in one ocean, at its own place (`ISLAND_PLACES` in
-`src/lib/archipelago.ts`): the Coral Reef, Home's, in the middle, and the Kelp Forest
-12.5 units to the north, far enough that each island's swimming area (at the last level)
-has water of its own, with open sea between. Each island's animals swim around it as on
-Home (each island runs its own simulation, in its own frame), and the water around each
-is its own: tropical turquoise around the reef, cold green around the kelp, blending
+`src/lib/archipelago.ts`): the Coral Reef, Home's, in the middle, the Kelp Forest
+12.5 units to the north and the Volcanic Pinnacle 12 to the south (and a little west), far
+enough that each island's swimming area (at the last level) has water of its own, with open
+sea between. Each island's animals swim around it as on Home (each island runs its own
+simulation, in its own frame), and the water around each is its own: tropical turquoise
+around the reef, cold green around the kelp, clear cobalt around the volcano, blending
 across the open sea between them ([Island ocean](ocean.md#islands-in-one-ocean)).
 
 - **Where it opens.** On the island chosen on Home (`/explore?island=kelp-forest`; Home's
@@ -158,7 +159,8 @@ where it is. The mouse wheel zooms at once, about the pointer (`zoomAt`).
 for a frame on every move, and keeps asking while a glide or an eased move settles.
 Home's own island pauses while the explorer is open (its screen loses focus). The
 explorer's larger water is about 8,700 vertices against the card's 2,058, and its
-seabed 2,784 against 2,400; with the Kelp Forest too, about 12,300 and 4,900.
+seabed 2,784 against 2,400; with the Kelp Forest too, about 12,300 and 4,900; with the
+Volcanic Pinnacle as well, 16,800 and 7,266.
 
 **Only what's in view.** Off screen, animals rest (`view-cull.ts`, `onScreen`: a point's place on
 screen as the camera last drew, with a margin):

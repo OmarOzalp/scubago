@@ -333,6 +333,32 @@ Previews: `docs/art-previews/harbor-seal.png`, `sea-otter.png`, `garibaldi.png`,
 `leafy-seadragon.png` and `orca.png` (the same studio framing), and `island-kelp-forest.png`: the
 five at a level 3 Kelp Forest island as the app's camera sees them, 22 seconds apart.
 
+## Batch v7: the Volcanic Pinnacle
+
+The first animals of the Volcanic Pinnacle's island (`docs/volcanic-pinnacle.md`), all on the sharks'
+lofted body (`shark.ts`) and `shark` rig. The four fish and sharks were drafted in parallel, each
+from the field marks, a reference and an existing design as a template, then reviewed in studio
+sheets and in the scene and refined; the iguana's legs are tubes along smooth paths (`tube()` in its
+design file), its crest a row of conical spines. All are within the 5,000-triangle, 220 KB budget
+(`npm run verify:marine`).
+
+| Species | Model | Motion | Triangles | GLB bytes |
+| --- | --- | --- | ---: | ---: |
+| Marine iguana | A short, blunt, box-like head with heavy jowls, crusted with pale salt and knobbly scales, small eyes in scaly lids; a thick neck and stout body; a long tail flattened side to side, more than half its length; a crest of spines from the nape (tallest there, pale-tipped) down the back and tail; short legs folded back along the flanks, long clawed toes trailing. Sooty black, mottled rust red and dull green on the flanks | `shark` as a lizard: the tail sweeps in waves that grow toward the tip, whose last third whips on `TailUpper` (`lobes` with a 0° angle flex it sideways, lagging the stroke); the head held steady (`headSteady`), the forelegs on the pectoral bones. 0.8 strokes/s | 4,400 | 180,152 |
+| Galápagos shark | A classic requiem shark: streamlined, a broadly rounded snout, round eyes; a tall, slightly falcate first dorsal over the pectorals' free rear tips and a low interdorsal ridge; long, sickle-shaped pectorals; a heterocercal tail with a subterminal notch. Bronze-gray above, white below, a faint pale band on the flank; fin tips and rear margins dusky | Steady, confident tail beats, the front stiff. 0.55 beats/s | 4,196 | 167,356 |
+| Pelagic thresher | A compact torpedo deepest at the pectorals (the body ends about halfway along it), a short conical snout and large eyes; long, straight pectorals with broad rounded tips; a medium first dorsal; the upper tail lobe a long, narrow scythe as long as the rest of the shark, arcing up, with a tiny terminal lobe. Deep blue-violet gray above, white below, the white staying below the pectoral bases | Slow, deep strokes; the long lobe is weighted to `TailUpper` in a ramp along its length, so it bends along its whole length rather than hinging at its base. 0.5 beats/s | 4,356 | 172,656 |
+| Giant trevally | A deep, compressed jack with a steep, blunt forehead, a large eye set low and forward and a sloping mouth; a low spiny first dorsal; the second dorsal and anal fins each a tall sickle lobe on a long low base; long sickle pectorals; a very narrow tail stock keeled with a row of darker scutes; a deeply forked tail. Silver, dark slate above, finely speckled, the fins dusky, the tail darkest | A stiff body, quick strong beats in the tail stock and forked tail. 1.1 beats/s | 4,144 | 182,668 |
+| King angelfish | A deep disc of a body, very compressed, with a steep forehead, a short snout, a small mouth and a spine at the corner of the gill cover; dorsal and anal fins sweeping back into long pointed streamers level with the tail tip; a rounded-square tail; long white pelvic fins. Slate navy with fine pale dots, one crisp white bar behind the head, the dorsal and anal fins edged in bright turquoise, a yellow-orange tail | `shark` as a hovering fish: rows with its pectorals, its dorsal swaying. 1.5 beats/s | 4,388 | 191,292 |
+
+The angelfish's dorsal and anal fins are free outlines (`sailFin`, `leafFin` in its design file),
+since a midline fin can't sweep back into streamers; its white bar is a decal ribbon, so its edges
+are crisp. The thresher's tail is two lofted fins of its own (`caudalFin` can't bend a lobe that
+long smoothly), and its eyes have 14 segments rather than the kit's eight.
+
+Previews: `docs/art-previews/marine-iguana.png`, `galapagos-shark.png`, `thresher-shark.png`,
+`giant-trevally.png` and `king-angelfish.png` (the same studio framing), and
+`island-volcanic-pinnacle.png`: the island's animals at a level 4 island as the app's camera sees them.
+
 The island's tuna school is not a glTF asset: each tuna is a low-poly mesh built at runtime
 (`src/components/home/three/tuna-geometry.ts`, 167 triangles, or 83 in lite quality). It has a
 spindle body, pointed snout, forked crescent tail, sickle fins and yellow finlets, metallic blue
@@ -368,6 +394,11 @@ References used for proportions and pattern placement:
 - [WoRMS: Hypsypops rubicundus](https://www.marinespecies.org/aphia.php?p=taxlist&tName=Hypsypops%20rubicundus)
 - [WoRMS: Phycodurus eques](https://www.marinespecies.org/aphia.php?p=taxlist&tName=Phycodurus%20eques)
 - [NOAA Fisheries: killer whale](https://www.fisheries.noaa.gov/species/killer-whale)
+- [Galápagos Conservancy: marine iguana](https://www.galapagos.org/about_galapagos/about-galapagos/biodiversity/reptiles/)
+- [Florida Museum: Galápagos shark](https://www.floridamuseum.ufl.edu/discover-fish/species-profiles/carcharhinus-galapagensis/)
+- [IUCN Red List: pelagic thresher](https://www.iucnredlist.org/species/161597/68607857)
+- [FishBase: Caranx ignobilis](https://www.fishbase.se/summary/Caranx-ignobilis.html)
+- [FishBase: Holacanthus passer](https://www.fishbase.se/summary/Holacanthus-passer.html)
 
 These simplified drafts still need human comparison against multiple views,
 especially fin contours, mouth detail and individual marking variation, and the

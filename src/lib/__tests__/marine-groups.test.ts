@@ -12,8 +12,8 @@ test('species that swim together come in small groups, within a budget of extra 
   const sizes = (id: string, model: MarineModel) => new Set(seeds.map((seed) => groupSizes([species(id, model)], 99, seed)[0]));
   expect(sizes('bottlenose-dolphin', 'bottlenose-dolphin')).toEqual(new Set([2, 3]));
   expect(sizes('spinner-dolphin', 'bottlenose-dolphin')).toEqual(new Set([2, 3]));
-  // Now and then a second scalloped hammerhead swims along; the great hammerhead is solitary.
-  expect(sizes('scalloped-hammerhead', 'scalloped-hammerhead')).toEqual(new Set([1, 2]));
+  // Scalloped hammerheads school, two or three at the pinnacle; the great hammerhead is solitary.
+  expect(sizes('scalloped-hammerhead', 'scalloped-hammerhead')).toEqual(new Set([2, 3]));
   expect(sizes('great-hammerhead', 'scalloped-hammerhead')).toEqual(new Set([1]));
   expect(sizes('chevron-barracuda', 'reef-fish')).toEqual(new Set([3, 4, 5]));
   expect(sizes('raccoon-butterflyfish', 'reef-fish')).toEqual(new Set([2]));

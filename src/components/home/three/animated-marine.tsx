@@ -23,6 +23,7 @@ const GAIT: Record<MarineModel, number> = {
   'great-barracuda': 1, sailfish: 1, 'california-sea-lion': 1, 'spotted-eagle-ray': 1, 'golden-jellyfish': 1, clownfish: 1,
   'humpback-whale': 1, 'sperm-whale': 1, 'oceanic-whitetip': 1, 'leatherback-turtle': 1, 'oceanic-manta': 1,
   'harbor-seal': 1, 'sea-otter': 1, garibaldi: 1, 'leafy-seadragon': 1, orca: 1,
+  'marine-iguana': 1, 'galapagos-shark': 1, 'thresher-shark': 1, 'giant-trevally': 1, 'king-angelfish': 1,
 };
 const rigModel = (model: MarineModel) => (Object.hasOwn(SWIM_RIGS, model) ? model as SwimRigModel : null);
 const where = new Vector3();
@@ -40,7 +41,7 @@ function reefLook(model: MarineModel): ReefLook | undefined {
 const CLOSE_UP: Partial<Record<MarineModel, Partial<SwimDrive>>> = {
   'day-octopus': { effort: .8 }, 'giant-cuttlefish': { effort: .25 }, 'giant-moray': { effort: .25, rest: 1 },
   clownfish: { effort: .3 }, 'great-barracuda': { effort: .3 }, sailfish: { effort: .5, sail: 1 }, 'golden-jellyfish': { effort: .6 },
-  garibaldi: { effort: .3 }, 'leafy-seadragon': { effort: .3 },
+  garibaldi: { effort: .3 }, 'leafy-seadragon': { effort: .3 }, 'king-angelfish': { effort: .3 },
 };
 
 export function AnimatedMarine({ model, gltf, lane, active, inspect = false, population = 1, motion, onPress, tapScale = 1 }: {

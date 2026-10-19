@@ -12,7 +12,7 @@ import { SWIM_RIGS, type SharkRig } from '../../../src/lib/marine-rigs';
 import { fin, hex, mix, noise, smoothstep, type RGB, type Skin } from './kit';
 import { sharkContext, type SharkDesign } from './shark';
 
-const BODY = hex('#b8913e'), OLIVE = hex('#8a8a3c'), BAND = hex('#e2d39a'), ROSE = hex('#b97e78'), SNOUT = hex('#a7794a');
+const BODY = hex('#b8913e'), OLIVE = hex('#8a8a3c'), BAND = hex('#e2d39a'), ROSE = hex('#b97e78');
 const LEAF = hex('#bdb556'), LEAF_TIP = hex('#ddd27e'), LEAF_DARK = hex('#8e8a38'), FIN = hex('#b39a52'), EYE = hex('#2a1f14');
 
 const rig = SWIM_RIGS['leafy-seadragon'] as SharkRig;

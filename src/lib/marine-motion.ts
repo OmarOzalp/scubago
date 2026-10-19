@@ -272,6 +272,46 @@ export const MOVEMENT: Record<MarineModel, Movement> = {
     depth: -.06, bob: .06, bobPeriod: 16, reverseEvery: 95,
     breathe: { every: 30, rise: 3.2, hold: 2.2, clearance: .2 }, pitch: .8,
   },
+  // The Volcanic Pinnacle's animals (they live at its island; docs/volcanic-pinnacle.md).
+  // Swims at the surface close to the shore, head held high, sweeping its tail; dives briefly, comes
+  // back up and lingers there, and now and then hangs still, drifting with the swell.
+  'marine-iguana': {
+    cruise: .15, swing: .25, swingPeriod: 11, surge: 0, turnRate: .55, turnEase: .7, bank: .25, bankMax: .1, bankEase: 1.5, lazyRoll: 0, tilt: 0,
+    halfLength: .46, halfWidth: .13, personalSpace: .15, avoidance: 1, islandClearance: .55, roam: [0, .35], roamPeriod: 30, patrol: 0,
+    depth: .48, bob: .03, bobPeriod: 9, reverseEvery: 40, weave: .35, weavePeriod: 10, sway: .04,
+    breathe: { every: 14, rise: 1.8, hold: 8, clearance: .05 }, pitch: .7,
+    pause: { every: 21, hold: 5, slow: .15, burst: 1.6, dash: 1.2 },
+  },
+  // A confident patroller of the island's drop-offs: steady and purposeful, close in along the reef
+  // edge, swinging out and back, the occasional surge.
+  'galapagos-shark': {
+    cruise: .45, swing: .1, swingPeriod: 26, surge: .15, turnRate: .45, turnEase: .6, bank: .5, bankMax: .2, bankEase: 1.6, lazyRoll: .05, tilt: 0,
+    halfLength: 1.05, halfWidth: .42, personalSpace: .28, avoidance: .85, islandClearance: .9, roam: [.15, .95], roamPeriod: 40, patrol: .45,
+    depth: -.06, bob: .035, bobPeriod: 19, reverseEvery: 90, weave: .12, weavePeriod: 15,
+  },
+  // Graceful and unhurried: long, wide arcs out in the blue and deeper down, the great tail sweeping
+  // behind; it swings in toward the island now and then.
+  'thresher-shark': {
+    cruise: .38, swing: .1, swingPeriod: 30, surge: .1, turnRate: .34, turnEase: .45, bank: .5, bankMax: .2, bankEase: 1.2, lazyRoll: 0, tilt: 0,
+    halfLength: 1.2, halfWidth: .4, personalSpace: .3, avoidance: .8, islandClearance: 1.1, roam: [.3, 1.05], roamPeriod: 55, patrol: .3,
+    depth: -.12, bob: .04, bobPeriod: 21, reverseEvery: 100, weave: .14, weavePeriod: 19,
+  },
+  // A hunting pack: fast and direct, cutting across in tight formation, easing off, then charging in a
+  // burst after prey.
+  'giant-trevally': {
+    cruise: .5, swing: .14, swingPeriod: 15, surge: .2, turnRate: .62, turnEase: .85, bank: .45, bankMax: .2, bankEase: 2.2, lazyRoll: 0, tilt: 0,
+    halfLength: .46, halfWidth: .16, personalSpace: .2, avoidance: .9, islandClearance: .75, roam: [.1, .85], roamPeriod: 34, patrol: .4,
+    depth: .02, bob: .04, bobPeriod: 13, reverseEvery: 60, weave: .18, weavePeriod: 11,
+    pause: { every: 22, hold: 2.5, slow: .55, burst: 2.2, dash: 1.3 },
+  },
+  // Keeps to the rocks in the shallows: rows slowly along them on its pectorals, turns on the spot to
+  // look, hangs a while, and swims on; it rocks with the surge.
+  'king-angelfish': {
+    cruise: .13, swing: .3, swingPeriod: 8, surge: 0, turnRate: 1.1, turnEase: 1.1, bank: .3, bankMax: .14, bankEase: 2.5, lazyRoll: 0, tilt: 0,
+    halfLength: .25, halfWidth: .1, personalSpace: .12, avoidance: 1, islandClearance: .55, roam: [0, .32], roamPeriod: 24, patrol: 0,
+    depth: .18, bob: .03, bobPeriod: 7, reverseEvery: 22, weave: .45, weavePeriod: 6, sway: .04,
+    pause: { every: 10, hold: 3.5, slow: .12, burst: 2.2, dash: .6 },
+  },
   // Reef animals keep to the reef: the octopus on the seabed shelf, the cuttlefish over the reef edge,
   // the moray in its crevice, the clownfish in their anemone (their behavior is in reef-life.ts).
   'day-octopus': { ...FAMILY, cruise: .075, turnRate: .9, halfLength: .5, halfWidth: .55, habitat: 'seabed' },
@@ -293,6 +333,7 @@ export const MOVEMENT: Record<MarineModel, Movement> = {
 export const ARRIVAL_PACE: Partial<Record<MarineModel, number>> = {
   'great-white-shark': 1.35, 'tiger-shark': 1.15, 'scalloped-hammerhead': 1.15, 'bottlenose-dolphin': 1.25, shark: 1.1, 'reef-fish': 1.1,
   sailfish: 1.3, 'california-sea-lion': 1.25, 'great-barracuda': 1.2, 'oceanic-whitetip': 1.1, orca: 1.2, 'harbor-seal': 1.15,
+  'galapagos-shark': 1.2, 'thresher-shark': 1.1, 'giant-trevally': 1.3,
 };
 /** An arrival that takes longer than this (s) counts as arrived anyway. */
 const ARRIVAL_LIMIT = 30;

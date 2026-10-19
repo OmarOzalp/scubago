@@ -134,8 +134,8 @@ Every species has a reaction in `SCHOOL_REACTIONS`:
 | Day octopus, giant cuttlefish, giant moray | 0 | 0 | Never seen: they keep to the reef (`src/lib/reef-life.ts`) and are not among the school's neighbors, so they can never alarm or panic it |
 
 A harmless animal in the school's path also steers the whole school around it a little, more for
-bigger animals. The school sees every animal on its own, a member of a pod or pair included, so a
-pair of hammerheads is two predators to watch (the alert follows the nearer one) and fish flow
+bigger animals. The school sees every animal on its own, a member of a pod or school included, so a
+school of hammerheads is several predators to watch (the alert follows the nearer one) and fish flow
 around each dolphin of a pod. A leaping dolphin is in the air above the fish and alarms them no more
 than one swimming by.
 
