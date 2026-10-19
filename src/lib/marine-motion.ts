@@ -341,7 +341,7 @@ export const MOVEMENT: Record<MarineModel, Movement> = {
   // then it settles on the bottom and rests.
   'southern-stingray': {
     cruise: .24, swing: .15, swingPeriod: 14, surge: 0, turnRate: .4, turnEase: .5, bank: .45, bankMax: .14, bankEase: 1.2, lazyRoll: 0, tilt: 0,
-    halfLength: .48, halfWidth: .5, personalSpace: .2, avoidance: .9, islandClearance: .7, roam: [0, .7], roamPeriod: 40, patrol: 0,
+    halfLength: .42, halfWidth: .45, personalSpace: .2, avoidance: .9, islandClearance: .7, roam: [0, .7], roamPeriod: 40, patrol: 0,
     depth: -.34, bob: .015, bobPeriod: 20, reverseEvery: 70, weave: .25, weavePeriod: 12,
     pause: { every: 30, hold: 9, slow: .05, burst: 1.5, dash: 1 },
   },
