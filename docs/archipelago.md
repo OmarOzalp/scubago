@@ -51,6 +51,11 @@ opens the explorer on it (`/explore?island=kelp-forest`). A new species arriving
 (`docs/discovery-moments.md`) switches the card to its own island, so the diver sees it arrive
 where it lives.
 
+The explorer shows them all together, in one ocean: each island at its place
+(`ISLAND_PLACES`; the Kelp Forest lies to the north of Home's, in colder water), to sail
+between by dragging across the water or with a button for each island
+(`docs/island-explorer.md#one-ocean`).
+
 ## The Open Ocean's animals
 
 ![The Open Ocean's five around the island](art-previews/island-open-ocean.png)

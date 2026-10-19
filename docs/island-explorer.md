@@ -1,15 +1,16 @@
 # Island explorer
 
-The diver's island full screen, to zoom in on and look around. It opens with a tap
+The diver's archipelago full screen: every island they have found, in one ocean, to sail
+between, zoom in on and look around ([One ocean](#one-ocean)). It opens with a tap
 anywhere on the Home card's island that isn't an animal (a tap on an animal still opens
 its page), or from the full-screen button (four arrows, "Explore your ocean full
 screen") beside the pause button, once an animal swims there or small life lives on the
 reef, and closes with ✕. The card's tap is an invisible floor far below the seabed
 (`TapAnywhere`), so any animal's tap target is hit first; a press that moves more than
 `TAP_SLOP` is a drag or the page scrolling, not a tap. (It is not the **Explore** tab, which is the map of dive sites.)
-The island, its animals and their behavior are Home's: the explorer draws the same
-`SanctuaryScene`, with its own camera, water that reaches past every edge of the
-screen, and the reef's small life, too small for the card ([Macro life](#macro-life)). The route is
+The islands, their animals and their behavior are Home's: the explorer draws the same
+`SanctuaryScene`, with every island in it, its own camera, water that reaches past every
+edge of the screen, and the reef's small life, too small for the card ([Macro life](#macro-life)). The route is
 `src/app/explore.tsx`; the camera maths, the gestures and every tunable are in
 `src/lib/explorer-view.ts` (`EXPLORER`); the camera itself is
 `src/components/home/three/explorer-camera.tsx`.
@@ -22,6 +23,7 @@ screen, and the reef's small life, too small for the card ([Macro life](#macro-l
 | Look closer at a spot | Double tap with one finger (2×) | Double click | |
 | Look around | Drag (let go fast to glide on), with one finger or several | Drag | |
 | See the whole ocean again | Double tap when all the way in | | **⌖** "Show the whole ocean" |
+| Go to another island | Drag across the water to it | Drag | Its name under the label ("Kelp Forest. Sail there") |
 | Revisit a discovery | Tap the animal | Click it | |
 | Find the reef's small life | Tap its home (a sea fan, a starfish…) to zoom in on it, then tap the creature | Click | |
 
@@ -32,6 +34,36 @@ either end, it stretches a little and springs back. A hint
 ("Pinch or double-tap to look closer · drag to look around") shows for five seconds,
 with a second line when small creatures live on the reef ("2 small creatures live on
 the reef: zoom in close to find them").
+
+## One ocean
+
+![The explorer on a phone: opened at the Coral Reef, sailed to the Kelp Forest, the whole archipelago, and opened at the Kelp Forest](art-previews/explorer-archipelago.png)
+
+Every island found so far lies in one ocean, at its own place (`ISLAND_PLACES` in
+`src/lib/archipelago.ts`): the Coral Reef, Home's, in the middle, and the Kelp Forest
+12.5 units to the north, far enough that each island's swimming area (at the last level)
+has water of its own, with open sea between. Each island's animals swim around it as on
+Home (each island runs its own simulation, in its own frame), and the water around each
+is its own: tropical turquoise around the reef, cold green around the kelp, blending
+across the open sea between them ([Island ocean](ocean.md#islands-in-one-ocean)).
+
+- **Where it opens.** On the island chosen on Home (`/explore?island=kelp-forest`; Home's
+  unless another is named), as the explorer would open on that island alone: its whole
+  swimming area on screen (`islandView`). If the collection is still loading as it opens,
+  it moves there once the islands are known, unless the view has already been moved
+  (`open`). On a tall phone that view is tall enough to show the next island too.
+- **Getting between them.** Drag across the water, or press an island's name under the
+  label (one button per island, with its area's coloured dot) to sail there (`visit`).
+  The middle of the view may go anywhere between the islands, and around each as far as
+  it could around an island alone (`panLimit`).
+- **The label** names the island the view is over (`nearestIsland`, heard through
+  `near`), or "Your archipelago" in the open sea between two (nearer one than the other
+  by less than `between`, 30%, of the way across). Screen readers hear it change; the
+  island's button is marked selected.
+- **All the way out** (and **⌖**) shows every island's swimming area at once.
+
+With Home's island alone, the explorer is exactly as it was: the same zoom range, limits
+and opening view.
 
 ## How it works
 
@@ -61,15 +93,16 @@ about as the card frames it, taller, and zooms in about ten times.
 **Water to every edge.** A tall phone all the way out sees far more depth than the
 Home card's water covers (it stops at `OCEAN.waterExtent`, 8.6 units, which the card's
 view never reaches past, and fades its top and bottom into the card). So in the
-explorer the water reaches `reach` (18 units) each way from the island's middle, the
+explorer the water reaches `reach` (18 units) each way from every island's middle, the
 deep floor under it, and there is no haze: open water runs to every edge of the
 screen at every zoom, and the view never goes past it. The Home card's own water is
 unchanged.
 
-**How far across.** The middle of the view may roam until the view's edges are `margin`
-(2 units) past the swimming area, or at the water's edge if that is nearer
-(`panLimit`): an animal at the edge of its range is in full view, and a phone zoomed in
-a little can move up and down as well as across.
+**How far across.** Around an island, the middle of the view may roam until the view's
+edges are `margin` (2 units) past the swimming area, or at the water's edge if that is
+nearer (`panLimit`): an animal at the edge of its range is in full view, and a phone
+zoomed in a little can move up and down as well as across. With more than one island,
+it may also go anywhere between them.
 
 **The fingers.** The explorer follows the fingers themselves, from the first touch
 (`touch`, every time any finger moves, lands or lifts), rather than waiting for a
@@ -125,7 +158,8 @@ where it is. The mouse wheel zooms at once, about the pointer (`zoomAt`).
 for a frame on every move, and keeps asking while a glide or an eased move settles.
 Home's own island pauses while the explorer is open (its screen loses focus). The
 explorer's larger water is about 8,700 vertices against the card's 2,058, and its
-seabed 2,784 against 2,400.
+seabed 2,784 against 2,400; with the Kelp Forest too, about 12,300 and 4,900, and the
+animals of both islands swim at once (up to `MAX_ANIMATED`, 8, at each).
 
 ## Macro life
 
@@ -265,10 +299,11 @@ npx jest src/lib/__tests__/macro-life.test.ts src/components/home/__tests__/sanc
 
 ## Known limitations
 
-- It explores the one island the diver chose on Home. More islands, one per habitat,
-  are the next step towards an archipelago.
 - Far out, the open water is the same deep blue all the way to the edge: there is
-  nothing out there yet.
+  nothing out there yet, and no animal swims from one island to another.
+- Every island's animals swim and draw at once, even those off screen; with more islands
+  found, the explorer will need to rest the ones out of view.
+- Islands not yet found aren't there at all, not even as a silhouette on the horizon.
 - Home's island stays mounted, paused, while the explorer is open, so two GL contexts
   are alive at once.
 - The reef's animals pay the small life no attention: a crawling octopus may pass over

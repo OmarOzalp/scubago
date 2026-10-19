@@ -1,5 +1,6 @@
 import { expect, test } from '@jest/globals';
-import { AREAS, areaOf, foundAreas, residentsOf } from '../archipelago';
+import { AREAS, areaOf, foundAreas, HOME_ISLAND, ISLAND_PLACES, ISLANDS, residentsOf } from '../archipelago';
+import { oceanScale, WORLD } from '../steering';
 import { SPECIES } from '@/data/species';
 import type { DexEntry, Species } from '../types';
 
@@ -45,4 +46,16 @@ test('areas appear in the order they were found, each with the species that rais
   expect(foundAreas([entry('humpback-whale', '2026-01-01'), entry('clownfish', '2026-01-01')]).map((f) => f.area.id)).toEqual(['coral-reef', 'open-ocean']);
   // A species the archipelago doesn't know raises nothing.
   expect(foundAreas([{ ...entry('clownfish', '2026-01-01'), species: { ...entry('clownfish', '2026-01-01').species, id: 'unknown' } }])).toEqual([]);
+});
+
+test('the islands lie in one ocean, Home\'s in the middle, each with water of its own: their swimming areas never meet, even at the last level', () => {
+  expect(ISLAND_PLACES[HOME_ISLAND]).toEqual([0, 0]);
+  expect(Object.keys(ISLAND_PLACES).sort()).toEqual(Object.keys(ISLANDS).sort());
+  const s = oceanScale(6), places = Object.values(ISLAND_PLACES);
+  for (const [i, a] of places.entries()) {
+    for (const b of places.slice(i + 1)) {
+      // Apart by both swimming areas and some open sea, across or up and down.
+      expect(Math.abs(a[0] - b[0]) >= 2 * WORLD.x * s + 1 || Math.abs(a[1] - b[1]) >= 2 * WORLD.z * s + 1).toBe(true);
+    }
+  }
 });

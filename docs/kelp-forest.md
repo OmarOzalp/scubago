@@ -2,7 +2,8 @@
 
 The archipelago's second island (`docs/archipelago.md`): a cold, rocky coast ringed with giant
 kelp. It rises the first time the diver logs a Kelp Forest species, and from then on Home's area
-pills switch between it and the Coral Reef. Its own animals (the five below, and any other Kelp
+pills switch between it and the Coral Reef; in the explorer it lies to the north of the reef, in
+the same ocean (`docs/island-explorer.md#one-ocean`). Its own animals (the five below, and any other Kelp
 Forest species swimming as a relative's model) swim here; everything else swims at Home's island.
 
 ![The Kelp Forest island with its animals](art-previews/island-kelp-forest.png)

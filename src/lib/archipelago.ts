@@ -77,6 +77,15 @@ export type IslandId = keyof typeof ISLANDS;
 export const HOME_ISLAND: IslandId = 'coral-reef';
 export const isIsland = (id: string): id is IslandId => Object.hasOwn(ISLANDS, id);
 
+/**
+ * Where each island lies in the archipelago's one ocean (world units from Home's island; x to the
+ * right and z toward the viewer, as the camera sees it): far enough apart that each island's
+ * animals keep to water of their own (its swimming area, WORLD in steering.ts, at the last level),
+ * with open ocean between. The Kelp Forest lies to the north, in colder water. The explorer shows
+ * them all together (src/app/explore.tsx); Home's card one at a time.
+ */
+export const ISLAND_PLACES: Record<IslandId, readonly [number, number]> = { 'coral-reef': [0, 0], 'kelp-forest': [1.5, -12.5] };
+
 /** The island a species swims at: its own area's, if that has an island, else Home's. */
 export function islandOf(speciesId: string): IslandId {
   const area = areaOf(speciesId);
