@@ -23,23 +23,23 @@ const EDGE_DARK = hex('#6a838c'), EDGE_MID = hex('#a2b3b9'), EDGE_BACK = hex('#6
 // Fins.
 const FIN = hex('#63767d'), FIN_DARK = hex('#34444b'), TAIL = hex('#2c3a41'), FIN_PALE = hex('#b3c1c3'), PELVIC = hex('#c2cdce');
 // Head details.
-const IRIS = hex('#e6d28c'), IRIS_RING = hex('#a58d3e'), PUPIL = hex('#05080a'), LID = hex('#c3d0ce'), MOUTH = hex('#262a2d'), NOSTRIL = hex('#1f2b31');
-const GILL_RIM = hex('#f4f8f6'), GILL_LINE = hex('#6d8189'), PLATE = hex('#f6f6f0'), PLATE_EDGE = hex('#cdd3cf'), LATERAL = hex('#6e8790');
+const IRIS = hex('#e6d28c'), IRIS_RING = hex('#a58d3e'), PUPIL = hex('#05080a'), LID = hex('#a3b1af'), MOUTH = hex('#262a2d'), NOSTRIL = hex('#1f2b31');
+const GILL_RIM = hex('#f4f8f6'), GILL_LINE = hex('#6d8189'), MAXILLA = hex('#d6dccf'), PLATE = hex('#f6f6f0'), PLATE_EDGE = hex('#cdd3cf'), LATERAL = hex('#6e8790');
 
 const rig = SWIM_RIGS.tarpon as SharkRig;
 
 // Body sections: [s, back y, belly y, half width]. The lower jaw tip is the most forward point and sits
-// low; the snout above it falls back steeply, then the forehead runs up in a long straight slope to a
-// fairly flat back, deepest about a third of the way along.
+// high, at the level of the eye's lower edge; the throat falls away steeply under it and the forehead runs
+// up in a long straight slope to a fairly flat back, deepest about a third of the way along.
 const SECTIONS: readonly (readonly [number, number, number, number])[] = [
-  [0, -.034, -.07, .012],
-  [.007, -.024, -.075, .022],
-  [.015, -.01, -.08, .031],
-  [.028, .006, -.086, .038],
-  [.048, .027, -.094, .044],
-  [.075, .047, -.1, .048],
-  [.105, .065, -.106, .05],
-  [.14, .081, -.11, .05],
+  [0, .008, -.022, .012],
+  [.007, .016, -.032, .022],
+  [.015, .025, -.044, .031],
+  [.028, .036, -.058, .038],
+  [.048, .05, -.075, .044],
+  [.075, .063, -.09, .048],
+  [.105, .074, -.101, .05],
+  [.14, .084, -.108, .05],
   [.19, .093, -.112, .05],
   [.25, .1, -.114, .05],
   [.33, .104, -.113, .049],
@@ -54,8 +54,8 @@ const SECTIONS: readonly (readonly [number, number, number, number])[] = [
 const column = (pick: (row: readonly number[]) => number) => SECTIONS.map((row) => [row[0], pick(row)] as const);
 const SQUARE = [[0, 2.1], [.2, 2.3], [.5, 2.3], [.8, 2.1]] as const;
 
-/** Height of the mouth line at axial position s: steep at the jutting lower jaw's tip, flattening toward the corner under the eye. */
-const cleftY = (s: number) => -.068 + .06 * (clamp(s / .105)) ** .8;
+/** Height of the mouth line at axial position s: high at the jutting lower jaw's tip, sloping down and back to the corner behind and below the eye. */
+const cleftY = (s: number) => -.004 - .028 * clamp((s - .008) / .117) ** 1.3;
 
 const skin = (s: number, theta: number, p: Vector3): RGB => {
   // The dark back reaches a little lower on the head; the flank reflects like a mirror: a blazing shoulder
@@ -149,7 +149,7 @@ function strip(ctx: SharkContext, line: readonly (readonly [number, number])[], 
  */
 function chin(ctx: SharkContext) {
   const { mesh } = ctx;
-  const stations = [[.045, -.0745, .026, .0095], [.03, -.0725, .0245, .0095], [.014, -.0695, .0215, .0093], [0, -.0665, .0178, .009], [-.012, -.0635, .0148, .0088], [-.024, -.0575, .0108, .0078], [-.032, -.0545, .0058, .005]];
+  const stations = [[.045, -.0233, .026, .013], [.03, -.02, .0245, .0125], [.014, -.017, .0215, .012], [0, -.0147, .0178, .0112], [-.012, -.0118, .0148, .0098], [-.024, -.0078, .0108, .0078], [-.032, -.004, .0058, .005]];
   const sides = 8;
   mesh.begin();
   const rings = stations.map(([s, y, w, h]) => Array.from({ length: sides }, (_, i) => {
@@ -271,6 +271,7 @@ export function buildTarpon() {
     thickness: (y) => .004 + .014 * Math.max(0, 1 - Math.abs(y - axis) / .1) ** 1.2,
     upperPivot: .04, lowerPivot: .04, stations,
     color: (p, v, u) => {
+      // Alternate sections lighten and darken a little, so the fan of rays shows; the base takes the body's silver.
       const ray = (Math.round(Math.acos(1 - 2 * v) / Math.PI * (stations + 1)) % 2 ? 1 : -1) * .09;
       const edge = mix(TAIL, FIN_DARK, .3 * u + .25 * Math.abs(2 * v - 1));
       return mix(mix(edge, FIN, ray + .1), SILVER, .75 * (1 - smoothstep(.785, .89, TARPON.nose - p.z)));
@@ -282,15 +283,14 @@ export function buildTarpon() {
   for (const side of [1, -1]) eyeball(ctx, eyeS, side * angle(eyeS, eyeY), .027);
 
   for (const side of [1, -1]) {
-    // The upturned mouth: a cleft sloping steeply up and back from the jutting lower jaw's tip to below the eye.
+    // The upturned mouth: a long cleft sloping down and back from the jutting lower jaw's tip to behind and below the eye.
     const cleft = Array.from({ length: 9 }, (_, i) => {
       const t = i / 8;
-      return [.008 + .097 * t, cleftY(.008 + .097 * t)] as const;
+      return [.008 + .117 * t, cleftY(.008 + .117 * t)] as const;
     });
-    const above = (dy: number) => cleft.map(([s, y]) => [s, y + dy] as const);
     ctx.ribbon(flank(side, cleft), (t) => (.0016 + .0022 * t) * smoothstep(-.1, .1, t) * (1 - .7 * smoothstep(.8, 1, t)), MOUTH, .0016);
     // The long maxilla riding the upper jaw, ending behind the eye's front edge.
-    ctx.ribbon(flank(side, above(.0105).slice(1)), (t) => .0056 * Math.sin(Math.PI * (.08 + .84 * t)) ** .6, hex('#d6dccf'), .0008);
+    ctx.ribbon(flank(side, cleft.slice(1).map(([s, y]) => [s, y + .0105] as const)), (t) => .0056 * Math.sin(Math.PI * (.08 + .84 * t)) ** .6, MAXILLA, .0008);
     // The gill cover: a bright silver rim in front of a fine dark line, and the preopercle's arc inside it.
     const cover = (shift: number) => Array.from({ length: 9 }, (_, j) => {
       const t = j / 8;

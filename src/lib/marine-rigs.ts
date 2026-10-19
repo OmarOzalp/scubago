@@ -615,7 +615,7 @@ export const SWIM_RIGS: Record<SwimRigModel, SwimRigSpec> = {
     kind: 'shark', joints: [.3, .45, .58, .7, .8], dorsalParent: 'Spine2', dorsalAt: .48,
     frequency: .8, wavelength: 1.1, tailAmplitude: .09, rootAmplitude: .003, headAmplitude: .005, envelope: 2.5,
     lobes: { upper: .08, lower: .08, upperAngle: .9, lowerAngle: .9, lag: .9 },
-    dorsal: .04, pectoral: { flap: .05, pitch: .04, turn: .45, climb: .25 }, roll: .015, bend: .75, hover: .3,
+    dorsal: .06, pectoral: { flap: .05, pitch: .04, turn: .45, climb: .25 }, roll: .015, bend: .75, hover: .3,
   },
   'giant-moray': {
     kind: 'moray', joints: [.13, .25, .37, .49, .6, .71, .81, .9],
