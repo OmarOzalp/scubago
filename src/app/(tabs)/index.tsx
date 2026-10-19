@@ -21,7 +21,8 @@ import { useSceneActive } from '@/hooks/use-scene-active';
 import { useTheme } from '@/hooks/use-theme';
 import { CATALOG_BY_ID } from '@/lib/catalog';
 import { formatDiveNumber, milestoneName, nextMilestone } from '@/lib/dives';
-import { deriveHome, HABITATS, HOME_STAGES } from '@/lib/home';
+import { AREAS, foundAreas } from '@/lib/archipelago';
+import { deriveHome, HOME_SHORE, HOME_STAGES } from '@/lib/home';
 import { useAppStore, useMyDives, useMySightings, useMyUserId, useNextDiveNumber } from '@/lib/store';
 import { macroResidents } from '@/lib/macro-life';
 import { noneSwim, type MarineModel } from '@/lib/swimming';
@@ -55,7 +56,9 @@ export default function HomeScreen() {
   // New species arriving and level-ups, played when Home is on screen (see useDiscoveryMoments).
   const moving = useSceneActive(paused || editing);
   const moments = useDiscoveryMoments({ owner, ready, residents: home.residents, sightings: mine, level: home.level, animate: moving });
-  const habitat = HABITATS.find((h) => h.id === saved.preferences.habitat)!;
+  // The archipelago's areas the diver has found, in the order they rose (src/lib/archipelago.ts).
+  const areas = useMemo(() => foundAreas(home.residents), [home.residents]);
+  const undiscovered = AREAS.length - areas.length;
   const count = home.residents.length;
   const loading = !ready || saved.loading || moments.loading;
   // Only the diver's own discoveries swim here (the showcase build, for development, brings visitors).
@@ -85,7 +88,7 @@ export default function HomeScreen() {
       {/* The island, mounted like a print on the page with a fine ink frame. */}
       <Paper raised padded={false} style={styles.islandCard}>
         <View style={[styles.mount, { borderColor: theme.text }]}>
-          <View style={[styles.hero, { backgroundColor: WATER[habitat.id] }]}>
+          <View style={[styles.hero, { backgroundColor: WATER[HOME_SHORE] }]}>
             <View style={styles.heroHeader}>
               <View style={styles.pill}><View style={styles.liveDot} /><Text style={styles.pillText}>YOUR SANCTUARY</Text></View>
               <View style={styles.heroButtons}>
@@ -105,12 +108,21 @@ export default function HomeScreen() {
                 </Pressable>
               </View>
             </View>
-            <SanctuaryScene habitat={habitat.id} level={moments.level} residents={home.residents} loading={loading} paused={paused || editing || loading} onInspect={inspect} onOpen={swimming ? explore : undefined}
+            <SanctuaryScene habitat={HOME_SHORE} level={moments.level} residents={home.residents} loading={loading} paused={paused || editing || loading} onInspect={inspect} onOpen={swimming ? explore : undefined}
               moments={{ featured: moments.featured, waiting: moments.waiting, now: moments.now, onArrived: moments.onArrived, tag: moments.tag, banner: moments.banner, note: moments.note, busy: moments.busy }} />
             <View style={styles.heroFooter}>
               <Text style={styles.homeName}>{saved.preferences.name}</Text>
-              <Text style={styles.heroSubtitle}>{loading ? habitat.name : `${habitat.name}  ·  ${home.stage.place}`}</Text>
+              <Text style={styles.heroSubtitle}>{loading ? ' ' : home.stage.place}</Text>
               <Text style={styles.sceneHint}>{loading ? ' ' : sceneHint}</Text>
+              {/* The archipelago so far: each area the diver has found, with how many of their species live there. */}
+              {!loading && areas.length > 0 && <View style={styles.areas} accessible accessibilityLabel={`Your archipelago: ${areas.map((a) => `${a.area.name}, ${a.count} species`).join('; ')}${undiscovered ? `; ${undiscovered} more ${undiscovered === 1 ? 'area' : 'areas'} to discover` : ''}`}>
+                {areas.map(({ area, count: living }) => <View key={area.id} style={styles.area}>
+                  <View style={[styles.areaDot, { backgroundColor: area.color }]} />
+                  <Text style={styles.areaName}>{area.name}</Text>
+                  <Text style={styles.areaCount}>{living}</Text>
+                </View>)}
+                {undiscovered > 0 && <View style={[styles.area, styles.areaAhead]}><Text style={styles.areaName}>+{undiscovered} to discover</Text></View>}
+              </View>}
             </View>
           </View>
         </View>
@@ -211,6 +223,12 @@ const styles = StyleSheet.create({
   homeName: { color: ON_WATER, fontSize: 24, lineHeight: 30, fontFamily: Type.display, textAlign: 'center' },
   heroSubtitle: { color: ON_WATER, fontSize: 14, lineHeight: 20, fontFamily: Type.bodySemiBold, textAlign: 'center' },
   sceneHint: { color: ON_WATER, fontSize: 13, lineHeight: 18, fontFamily: Type.body, textAlign: 'center', marginTop: 6 },
+  areas: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', gap: 6, marginTop: 10 },
+  area: { flexDirection: 'row', alignItems: 'center', gap: 6, minHeight: 30, paddingHorizontal: 11, borderRadius: 15, backgroundColor: 'rgba(255,255,255,0.55)', borderWidth: 1, borderColor: 'rgba(31,75,64,0.18)' },
+  areaAhead: { backgroundColor: 'transparent', borderStyle: 'dashed', borderColor: 'rgba(31,75,64,0.4)' },
+  areaDot: { width: 8, height: 8, borderRadius: 4 },
+  areaName: { color: ON_WATER, fontSize: 13, fontFamily: Type.bodySemiBold },
+  areaCount: { color: ON_WATER, fontSize: 13, fontFamily: Type.bodyHeavy },
   progress: { paddingHorizontal: 8, gap: 8 },
   progressHeading: { flexDirection: 'row', gap: 10, alignItems: 'baseline' },
   progressCount: { fontFamily: Type.bodyHeavy, fontSize: 14 },

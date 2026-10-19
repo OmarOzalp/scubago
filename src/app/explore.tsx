@@ -13,7 +13,7 @@ import { Type } from '@/constants/theme';
 import { useHomePreferences } from '@/hooks/use-home-preferences';
 import { CATALOG_BY_ID } from '@/lib/catalog';
 import { createExplorer, EXPLORER } from '@/lib/explorer-view';
-import { deriveHome, HABITATS } from '@/lib/home';
+import { deriveHome, HOME_SHORE } from '@/lib/home';
 import { macroResidents } from '@/lib/macro-life';
 import { useAppStore, useMySightings, useMyUserId } from '@/lib/store';
 import type { MarineModel } from '@/lib/swimming';
@@ -41,7 +41,6 @@ export default function ExploreScreen() {
   const ready = useAppStore((s) => s.ready);
   const home = useMemo(() => deriveHome(mine, CATALOG_BY_ID), [mine]);
   const saved = useHomePreferences(owner);
-  const habitat = HABITATS.find((h) => h.id === saved.preferences.habitat)!;
   const loading = !ready || saved.loading;
 
   const [explorer] = useState(() => createExplorer({ width: 1, height: 1, level: home.level }));
@@ -113,16 +112,16 @@ export default function ExploreScreen() {
     </Pressable>
   );
 
-  return <GestureHandlerRootView style={[styles.root, { backgroundColor: WATER[habitat.id] }]}>
+  return <GestureHandlerRootView style={[styles.root, { backgroundColor: WATER[HOME_SHORE] }]}>
     <GestureDetector gesture={gesture}>
       <View ref={surface} style={styles.root} onLayout={onLayout} collapsable={false}>
-        <SanctuaryScene habitat={habitat.id} level={home.level} residents={home.residents} loading={loading} onInspect={inspect}
+        <SanctuaryScene habitat={HOME_SHORE} level={home.level} residents={home.residents} loading={loading} onInspect={inspect}
           explorer={{ camera: <ExplorerCamera explorer={explorer} />, tapScale, zoom: () => explorer.view.zoom, focus: (x, z, zoom) => explorer.focus(x, z, zoom) }} />
       </View>
     </GestureDetector>
     <View style={[styles.top, { paddingTop: insets.top + 10 }]} pointerEvents="box-none">
       {button('close', 'Close the explorer', close)}
-      <View style={styles.pill}><Text style={styles.pillText}>EXPLORING · {habitat.name.toUpperCase()}</Text></View>
+      <View style={styles.pill}><Text style={styles.pillText}>EXPLORING · {saved.preferences.name.toUpperCase()}</Text></View>
       <View style={styles.spacer} />
     </View>
     <View style={[styles.controls, { paddingBottom: insets.bottom + 18, paddingRight: insets.right + 14 }]} pointerEvents="box-none">
