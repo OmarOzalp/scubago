@@ -1,5 +1,5 @@
 import { expect, test } from '@jest/globals';
-import { clampView, createExplorer, EXPLORER, overview, panBy, panLimit, zoomAbout, zoomRange, type ExplorerFrame, type ExplorerView, type Finger } from '../explorer-view';
+import { clampView, createExplorer, EXPLORER, overview, panBy, panLimit, stretchZoom, zoomAbout, zoomRange, type ExplorerFrame, type ExplorerView, type Finger } from '../explorer-view';
 import { oceanScale, WORLD } from '../steering';
 
 const PHONE: ExplorerFrame = { width: 390, height: 844, level: 1 };
@@ -208,12 +208,13 @@ test('let go of a fast drag and the view glides on and slows, capped in speed; s
   expect(explorer.moving).toBe(false);
 });
 
-test('random touches, hundreds of them: the water under the fingers stays under them, and nothing ever jumps or leaves the limits', () => {
+test('random touches, hundreds of them: the water under the fingers stays under them, nothing ever jumps, and every touch ends inside the limits', () => {
   for (let session = 0; session < 400; session++) {
     const rand = random(session + 1), frame = [PHONE, TABLET, { width: 430, height: 932, level: 3 }][session % 3];
     const explorer = opened(frame), range = zoomRange(frame);
     if (rand() < .5) explorer.zoomAt(1 + rand() * 4, 0, 0);
-    let fingers: Finger[] = [], next = 1, t = 0;
+    // The zoom the fingers' spread asks for, with no limits.
+    let fingers: Finger[] = [], next = 1, t = 0, asked = explorer.view.zoom;
     for (let step = 0; step < 80; step++) {
       const roll = rand();
       let moved: Finger[];
@@ -231,32 +232,133 @@ test('random touches, hundreds of them: the water under the fingers stays under 
         });
       }
       const before = explorer.view;
+      if (fingers.length === 0) asked = before.zoom;
       explorer.touch(moved, t += 16);
       const after = explorer.view, same = moved.length === fingers.length && moved.every((f) => fingers.some((g) => g.id === f.id));
-      // Always inside the limits.
-      expect(clampView(frame, after)).toEqual(after);
-      if (!same) {
+      // Mid-touch, never far past the limits: a pinch stretches a little past the zoom range, the view within the water for that zoom.
+      const limit = panLimit(frame, after.zoom);
+      expect(Math.abs(after.x)).toBeLessThanOrEqual(limit.x + 1e-9);
+      expect(Math.abs(after.z)).toBeLessThanOrEqual(limit.z + 1e-9);
+      expect(after.zoom).toBeLessThan(range.max * EXPLORER.stretch);
+      expect(after.zoom).toBeGreaterThan(range.min / EXPLORER.stretch);
+      if (moved.length === 0) {
+        // The last finger lifted: anywhere past the limits springs back inside them.
+        settle(explorer);
+        expect(clampView(frame, explorer.view)).toEqual(explorer.view);
+      } else if (!same) {
         // A finger landed or lifted: the view stays exactly where it was.
         expect(after).toEqual(before);
-      } else if (moved.length > 0) {
+      } else {
         const was = middle(fingers), now = middle(moved);
         const factor = moved.length > 1 && spread(fingers) >= EXPLORER.pinchFloor && spread(moved) >= EXPLORER.pinchFloor ? spread(moved) / spread(fingers) : 1;
-        const free = before.zoom * factor > range.min * 1.0001 && before.zoom * factor < range.max * .9999;
+        asked *= factor;
+        // The zoom is the fingers' own (stretched only past the limits)...
+        expect(after.zoom).toBeCloseTo(factor === 1 ? before.zoom : stretchZoom(frame, asked), 6);
+        // ...and unless the edge of the water stopped it, the spot that was under the fingers is under them still.
         const target = under(before, was.x, was.y), landed = under(after, now.x, now.y);
-        const limit = panLimit(frame, after.zoom), atEdge = Math.abs(Math.abs(after.x) - limit.x) < 1e-9 || Math.abs(Math.abs(after.z) - limit.z) < 1e-9;
-        if (free) expect(after.zoom).toBeCloseTo(before.zoom * factor, 6);
-        // Unless a limit stopped it, the spot that was under the fingers is under them still.
-        if (free && !atEdge) {
+        const atEdge = Math.abs(Math.abs(after.x) - limit.x) < 1e-9 || Math.abs(Math.abs(after.z) - limit.z) < 1e-9;
+        if (!atEdge) {
           expect(landed.x).toBeCloseTo(target.x, 6);
           expect(landed.z).toBeCloseTo(target.z, 6);
         }
-        // Never a jump: the zoom changes no more than the fingers' spread did, and the view no farther than they moved.
+        // Never a jump: the zoom changes no more than the fingers' spread did (past a limit, less).
         expect(Math.abs(Math.log(after.zoom / before.zoom))).toBeLessThanOrEqual(Math.abs(Math.log(factor)) + 1e-9);
       }
       fingers = moved;
     }
     explorer.touch([], t += 16);
+    settle(explorer);
+    expect(clampView(frame, explorer.view)).toEqual(explorer.view);
   }
+});
+
+test('quick pinches are never a double tap, however quick; two quick one-finger taps are', () => {
+  const explorer = opened(PHONE), range = zoomRange(PHONE);
+  explorer.zoomAt(4, 0, 0);
+  let t = 0;
+  const pinch = (from: number, to: number) => {
+    for (let i = 0; i <= 3; i++) { const d = from + (to - from) * i / 3; explorer.touch([{ id: 1, x: -d, y: 40 }, { id: 2, x: d, y: 40 }], t += 16); }
+    explorer.touch([], t += 16);
+  };
+  const tap = (x: number, y: number, hold = 60, drift = 0) => { explorer.touch([{ id: 5, x, y }], t); explorer.touch([{ id: 5, x: x + drift, y }], t += hold); explorer.touch([], t += 1); };
+  // Two quick pinches in a row to zoom out (each a tenth of a second, a tenth apart): out, and out again.
+  const start = explorer.view.zoom;
+  pinch(70, 50); t += 100; pinch(70, 50);
+  settle(explorer);
+  expect(explorer.view.zoom).toBeCloseTo(start * (50 / 70) ** 2, 6);
+  // Two quick taps with one finger: twice as close, about that spot.
+  const zoom = explorer.view.zoom, spot = under(explorer.view, 40, -60);
+  tap(40, -60); t += 120; tap(42, -58);
+  settle(explorer);
+  expect(explorer.view.zoom).toBeCloseTo(Math.min(zoom * EXPLORER.doubleTap, range.max), 6);
+  expect(under(explorer.view, 40, -60).x).toBeCloseTo(spot.x, 6);
+  // Not a double tap: a finger that drags, or lingers; taps too far apart in time or place; a tap then a pinch.
+  const was = explorer.view.zoom;
+  tap(0, 0, 60, 15); t += 100; tap(0, 0);
+  t += 1000; tap(0, 0, 400); t += 100; tap(0, 0);
+  t += 1000; tap(0, 0); t += 500; tap(0, 0);
+  t += 1000; tap(0, 0); t += 100; tap(80, 0);
+  t += 1000; tap(0, 0); t += 100; pinch(60, 61);
+  settle(explorer);
+  expect(explorer.view.zoom).toBeCloseTo(was * 61 / 60, 6);
+});
+
+test('pinched past either zoom limit, the zoom stretches with more and more resistance, and springs back once the fingers lift', () => {
+  const explorer = opened(PHONE), range = zoomRange(PHONE);
+  explorer.zoomAt(100, 0, 0);
+  expect(explorer.view.zoom).toBeCloseTo(range.max, 9);
+  // All the way in, the fingers spread to twice as far apart: past the limit, each step gives less than the last.
+  let t = 0, d = 40, last = explorer.view.zoom, gave = Infinity;
+  explorer.touch([{ id: 1, x: -d, y: 20 }, { id: 2, x: d, y: 20 }], t);
+  const spot = under(explorer.view, 0, 20);
+  for (let i = 0; i < 20; i++) {
+    d *= 2 ** (1 / 20);
+    explorer.touch([{ id: 1, x: -d, y: 20 }, { id: 2, x: d, y: 20 }], t += 16);
+    const zoom = explorer.view.zoom, step = Math.log(zoom / last);
+    expect(step).toBeGreaterThan(0);
+    expect(step).toBeLessThan(gave);
+    expect(zoom).toBeCloseTo(stretchZoom(PHONE, range.max * d / 40), 9);
+    gave = step; last = zoom;
+  }
+  expect(explorer.view.zoom).toBeGreaterThan(range.max * 1.1);
+  expect(explorer.view.zoom).toBeLessThan(range.max * EXPLORER.stretch);
+  // Stretched about the fingers: what was between them is there still.
+  expect(under(explorer.view, 0, 20).x).toBeCloseTo(spot.x, 6);
+  // They lift: back to the limit, easing, about the same spot.
+  explorer.touch([], t += 16);
+  expect(explorer.moving).toBe(true);
+  settle(explorer);
+  expect(explorer.view.zoom).toBeCloseTo(range.max, 6);
+  expect(under(explorer.view, 0, 20).x).toBeCloseTo(spot.x, 6);
+  // All the way out, pinched in: stretched out a little (never so far the water stops filling the screen), and back.
+  explorer.showAll(); settle(explorer);
+  explorer.touch([{ id: 3, x: -100, y: 0 }, { id: 4, x: 100, y: 0 }], t += 16);
+  explorer.touch([{ id: 3, x: -50, y: 0 }, { id: 4, x: 50, y: 0 }], t += 16);
+  expect(explorer.view.zoom).toBeLessThan(range.min);
+  expect(explorer.view.zoom).toBeGreaterThanOrEqual(Math.max(range.min / EXPLORER.stretch, range.cover));
+  explorer.touch([], t += 16);
+  settle(explorer);
+  expect(explorer.view).toEqual(overview(PHONE));
+  // A finger landing as it springs back stops it there, and the next move carries on from there without a jump.
+  explorer.zoomAt(100, 0, 0);
+  explorer.touch([{ id: 5, x: -40, y: 0 }, { id: 6, x: 40, y: 0 }], t += 16);
+  explorer.touch([{ id: 5, x: -70, y: 0 }, { id: 6, x: 70, y: 0 }], t += 16);
+  explorer.touch([], t += 16);
+  explorer.step(1 / 60);
+  const caught = explorer.view.zoom;
+  expect(caught).toBeGreaterThan(range.max);
+  explorer.touch([{ id: 7, x: -60, y: 0 }, { id: 8, x: 60, y: 0 }], t += 16);
+  explorer.touch([{ id: 7, x: -60.3, y: 0 }, { id: 8, x: 60.3, y: 0 }], t += 16);
+  expect(Math.abs(Math.log(explorer.view.zoom / caught))).toBeLessThan(Math.log(60.3 / 60) + 1e-9);
+  expect(explorer.view.zoom).toBeGreaterThan(caught);
+  explorer.touch([], t += 16);
+  // Held still (reduced motion), it is back at the limit as they lift.
+  settle(explorer);
+  explorer.holdStill(true);
+  explorer.touch([{ id: 9, x: -40, y: 0 }, { id: 10, x: 40, y: 0 }], t += 16);
+  explorer.touch([{ id: 9, x: -80, y: 0 }, { id: 10, x: 80, y: 0 }], t += 16);
+  explorer.touch([], t += 16);
+  expect(explorer.view.zoom).toBeCloseTo(range.max, 9);
 });
 
 test('a pinch only tells the tap targets its zoom once it ends, not move by move', () => {

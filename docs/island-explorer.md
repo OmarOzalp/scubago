@@ -15,15 +15,17 @@ screen, and the reef's small life, too small for the card ([Macro life](#macro-l
 
 | To | Touch | Mouse (web) | Buttons |
 | --- | --- | --- | --- |
-| Look closer or farther | Pinch, about the fingers | Wheel (or a trackpad pinch), about the pointer | **+** and **−** (1.6× a press) |
-| Look closer at a spot | Double tap (2×) | Double click | |
+| Look closer or farther | Pinch, about the fingers, to any zoom in between | Wheel (or a trackpad pinch), about the pointer | **+** and **−** (1.6× a press) |
+| Look closer at a spot | Double tap with one finger (2×) | Double click | |
 | Look around | Drag (let go fast to glide on), with one finger or several | Drag | |
 | See the whole ocean again | Double tap when all the way in | | **⌖** "Show the whole ocean" |
 | Revisit a discovery | Tap the animal | Click it | |
 | Find the reef's small life | Tap its home (a sea fan, a starfish…) to zoom in on it, then tap the creature | Click | |
 
 It opens all the way out: the whole ocean and every animal in view, the water filling
-the screen. Pinch in from there to see the smaller things, and back out. A hint
+the screen. Pinch in from there to see the smaller things, and back out: between all
+the way out and all the way in, the zoom is wherever the fingers leave it. Pinched past
+either end, it stretches a little and springs back. A hint
 ("Pinch or double-tap to look closer · drag to look around") shows for five seconds,
 with a second line when small creatures live on the reef ("2 small creatures live on
 the reef: zoom in close to find them").
@@ -81,6 +83,17 @@ pinch or a drag to be recognized and then catching up in a jump:
   every finger's move at once.
 - When a finger lands or lifts, the fingers' middle jumps, so the view stays exactly
   where it is and carries on from there.
+- Pinched past all the way in or out, the zoom stretches on (`stretchZoom`), giving less
+  the farther the fingers go, to `stretch` (1.25×) at most; out past all the way out,
+  never so far that the water stops filling the screen. When the fingers lift it eases
+  back to the limit, about where they were. A finger landing as it springs back catches
+  it there, and the fingers carry on from that zoom without a jump.
+- A double tap is two quick taps with one finger (each down no longer than `tapTime`,
+  300 ms, moving no farther than `tapSlop`, 10 pt, the second within `tapGap`, 300 ms,
+  and `tapNear`, 40 pt, of the first). The explorer tells it apart from the other
+  touches itself. A tap gesture from the gesture library counted any touch under half a
+  second as a tap, pinches included, however far the fingers moved: two quick pinches
+  to zoom out were a double tap, and zoomed back in twice as close.
 - Fingers closer together than `pinchFloor` (12 pt from their middle) only drag: real
   fingers are never much closer, and at that size a wobble would snap the zoom.
 - Let go of a single finger moving fast (over `flick`, 250 pt/s, measured over its last
@@ -89,7 +102,8 @@ pinch or a drag to be recognized and then catching up in a jump:
   pinch, or after a touch the system takes away.
 
 A drag and a pinch gesture are still attached, but only to claim the touch once it
-moves or spreads, so that looking around never also taps an animal.
+moves or spreads, so that looking around never also taps an animal. There is no tap
+gesture.
 
 **Tap targets.** Slender animals have invisible tap targets at least 28 pt across
 (`MIN_TAP`, see [island navigation](marine-navigation.md#a-growing-ocean)). In the
@@ -184,6 +198,9 @@ creatures live on the reef, too small to see from there.
 | `margin` | 2 | How far past the swimming area the view may roam (units, up to the water's edge) |
 | `closest` | 1.1 | Water the shorter side spans all the way in (units); lower to zoom closer |
 | `step`, `doubleTap` | 1.6, 2 | Zoom per button press, and per double tap (×) |
+| `stretch` | 1.25 | How far past the zoom limits a pinch stretches before springing back (×, at most) |
+| `tapTime`, `tapSlop` | 300, 10 | A tap: one finger, down at most this long (ms), moving at most this far (pt) |
+| `tapGap`, `tapNear` | 300, 40 | A double tap: the second tap within this long (ms) and this far (pt) of the first |
 | `ease` | 6 | How quickly a button's or double tap's move settles (1/s) |
 | `friction` | 4.5 | How quickly a glide slows (1/s) |
 | `flick`, `topSpeed` | 250, 2500 | Slowest release that glides, and the fastest glide (pt/s) |
@@ -207,19 +224,27 @@ The tests cover:
 - fingers moved one at a time, as the web sends them, counting as one move, so a limit
   met halfway (near the edge) holds nothing back;
 - a finger landing or lifting never moving the view, and no glide after a pinch;
+- quick pinches in a row never counting as a double tap, however quick, while two quick
+  one-finger taps do, about that spot; a finger that drags or lingers, taps too far apart
+  in time or place, or a tap then a pinch, doing nothing;
+- pinching past either limit stretching with more and more resistance, about the
+  fingers, and springing back as they lift; a finger landing as it springs back carrying
+  on without a jump; Reduce Motion going straight back;
 - a fast release gliding (no faster than the top speed); a slow one, one that stopped
   first, or a cancelled one staying put;
 - 400 random multi-finger sessions (drags, pinches, twists, fingers landing and lifting)
   on three screens: after every touch, the water under the fingers is still under them
-  unless a limit stopped it, the zoom changed exactly as their spread did, nothing
-  moved when a finger landed or lifted, and the view stayed inside its limits;
+  unless the water's edge stopped it, the zoom is exactly their spread's (stretched past
+  the limits), nothing moved when a finger landed or lifted, and every touch ends back
+  inside the limits;
 - tap targets hearing the zoom only when a pinch ends;
 - buttons and double taps easing in and back out, the wheel, and showing the whole ocean;
 - focusing on a spot (a reef creature's home tapped from afar): easing over and in, never
   back out, within the limits;
 - every move heard (for on-demand drawing), and Reduce Motion jumping instead of sweeping;
 - the screen: starting all the way out, the buttons, tap targets following the zoom,
-  closing, and the hint (with its line about small life on the reef).
+  closing, no tap gesture attached, and the hint (with its line about small life on the
+  reef).
 
 ```sh
 npx jest src/lib/__tests__/macro-life.test.ts src/components/home/__tests__/sanctuary-scene.test.js
