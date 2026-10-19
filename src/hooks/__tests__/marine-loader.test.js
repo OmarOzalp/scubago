@@ -30,6 +30,16 @@ jest.mock('@/assets/models/marine/california-sea-lion.glb', () => 17, { virtual:
 jest.mock('@/assets/models/marine/spotted-eagle-ray.glb', () => 18, { virtual: true });
 jest.mock('@/assets/models/marine/golden-jellyfish.glb', () => 19, { virtual: true });
 jest.mock('@/assets/models/marine/clownfish.glb', () => 20, { virtual: true });
+jest.mock('@/assets/models/marine/humpback-whale.glb', () => 21, { virtual: true });
+jest.mock('@/assets/models/marine/sperm-whale.glb', () => 22, { virtual: true });
+jest.mock('@/assets/models/marine/oceanic-whitetip.glb', () => 23, { virtual: true });
+jest.mock('@/assets/models/marine/leatherback-turtle.glb', () => 24, { virtual: true });
+jest.mock('@/assets/models/marine/oceanic-manta.glb', () => 25, { virtual: true });
+jest.mock('@/assets/models/marine/harbor-seal.glb', () => 26, { virtual: true });
+jest.mock('@/assets/models/marine/sea-otter.glb', () => 27, { virtual: true });
+jest.mock('@/assets/models/marine/garibaldi.glb', () => 28, { virtual: true });
+jest.mock('@/assets/models/marine/leafy-seadragon.glb', () => 29, { virtual: true });
+jest.mock('@/assets/models/marine/orca.glb', () => 30, { virtual: true });
 
 let loader, Asset, parse, THREE;
 beforeEach(() => {

@@ -3,11 +3,15 @@ import type { Category, DexEntry, Species } from '@/lib/types';
 
 export type SpeciesMarineModel = 'whale-shark' | 'tiger-shark' | 'great-white-shark' | 'scalloped-hammerhead' | 'reef-manta' | 'mola-mola' | 'green-turtle' | 'bottlenose-dolphin'
   | 'day-octopus' | 'giant-cuttlefish' | 'giant-moray'
-  | 'great-barracuda' | 'sailfish' | 'california-sea-lion' | 'spotted-eagle-ray' | 'golden-jellyfish' | 'clownfish';
+  | 'great-barracuda' | 'sailfish' | 'california-sea-lion' | 'spotted-eagle-ray' | 'golden-jellyfish' | 'clownfish'
+  | 'humpback-whale' | 'sperm-whale' | 'oceanic-whitetip' | 'leatherback-turtle' | 'oceanic-manta'
+  | 'harbor-seal' | 'sea-otter' | 'garibaldi' | 'leafy-seadragon' | 'orca';
 export type MarineModel = 'shark' | 'manta' | 'reef-fish' | SpeciesMarineModel;
 const SPECIES_MODELS: readonly string[] = ['whale-shark', 'tiger-shark', 'great-white-shark', 'scalloped-hammerhead', 'reef-manta', 'mola-mola', 'green-turtle', 'bottlenose-dolphin',
   'day-octopus', 'giant-cuttlefish', 'giant-moray',
-  'great-barracuda', 'sailfish', 'california-sea-lion', 'spotted-eagle-ray', 'golden-jellyfish', 'clownfish'] satisfies SpeciesMarineModel[];
+  'great-barracuda', 'sailfish', 'california-sea-lion', 'spotted-eagle-ray', 'golden-jellyfish', 'clownfish',
+  'humpback-whale', 'sperm-whale', 'oceanic-whitetip', 'leatherback-turtle', 'oceanic-manta',
+  'harbor-seal', 'sea-otter', 'garibaldi', 'leafy-seadragon', 'orca'] satisfies SpeciesMarineModel[];
 /**
  * Species drawn with a close relative's model: the nearest body plan in the set, like a family
  * representative (so not offered as their own 3D model), and far closer than the generic one.
@@ -23,6 +27,8 @@ const RELATIVES: Readonly<Record<string, SpeciesMarineModel>> = {
   'flamboyant-cuttlefish': 'giant-cuttlefish',
   'green-moray': 'giant-moray',
   'chevron-barracuda': 'great-barracuda',
+  'weedy-seadragon': 'leafy-seadragon',
+  'wolf-eel': 'giant-moray',
 };
 export function speciesMarineModel(id: string): SpeciesMarineModel | null {
   return SPECIES_MODELS.includes(id) ? id as SpeciesMarineModel : null;

@@ -3,7 +3,7 @@ import { Animated, Platform, Pressable, StyleSheet, Text, View, type LayoutChang
 import { Gesture, GestureDetector, GestureHandlerRootView, type GestureTouchEvent } from 'react-native-gesture-handler';
 import { useReducedMotion } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { router } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
 import { SanctuaryScene } from '@/components/home/sanctuary-scene';
 import { ExplorerCamera } from '@/components/home/three/explorer-camera';
 import { WATER } from '@/components/home/three/sanctuary-environment';
@@ -13,7 +13,8 @@ import { Type } from '@/constants/theme';
 import { useHomePreferences } from '@/hooks/use-home-preferences';
 import { CATALOG_BY_ID } from '@/lib/catalog';
 import { createExplorer, EXPLORER } from '@/lib/explorer-view';
-import { deriveHome, HABITATS } from '@/lib/home';
+import { AREAS, HOME_ISLAND, ISLANDS, isIsland, islandResidents } from '@/lib/archipelago';
+import { deriveHome } from '@/lib/home';
 import { macroResidents } from '@/lib/macro-life';
 import { useAppStore, useMySightings, useMyUserId } from '@/lib/store';
 import type { MarineModel } from '@/lib/swimming';
@@ -40,8 +41,11 @@ export default function ExploreScreen() {
   const owner = useMyUserId();
   const ready = useAppStore((s) => s.ready);
   const home = useMemo(() => deriveHome(mine, CATALOG_BY_ID), [mine]);
+  // Which island (src/lib/archipelago.ts): Home's unless another is named, its own shores and animals.
+  const params = useLocalSearchParams<{ island?: string }>();
+  const island = params.island && isIsland(params.island) ? params.island : HOME_ISLAND, habitat = ISLANDS[island];
+  const here = useMemo(() => islandResidents(home.residents, island), [home.residents, island]);
   const saved = useHomePreferences(owner);
-  const habitat = HABITATS.find((h) => h.id === saved.preferences.habitat)!;
   const loading = !ready || saved.loading;
 
   const [explorer] = useState(() => createExplorer({ width: 1, height: 1, level: home.level }));
@@ -102,7 +106,7 @@ export default function ExploreScreen() {
   }, [hint, reduced]);
 
   // The reef's small life shows only up close: say it is there to find.
-  const hiding = macroResidents(home.residents).length;
+  const hiding = macroResidents(here).length;
   const small = hiding === 0 ? '' : hiding === 1 ? 'A small creature lives on the reef: zoom in close to find it' : `${hiding} small creatures live on the reef: zoom in close to find them`;
   const close = () => (router.canGoBack() ? router.back() : router.replace('/'));
   const inspect = (model: MarineModel) => router.push({ pathname: '/inspect', params: { model, preview: '1' } });
@@ -113,16 +117,16 @@ export default function ExploreScreen() {
     </Pressable>
   );
 
-  return <GestureHandlerRootView style={[styles.root, { backgroundColor: WATER[habitat.id] }]}>
+  return <GestureHandlerRootView style={[styles.root, { backgroundColor: WATER[habitat] }]}>
     <GestureDetector gesture={gesture}>
       <View ref={surface} style={styles.root} onLayout={onLayout} collapsable={false}>
-        <SanctuaryScene habitat={habitat.id} level={home.level} residents={home.residents} loading={loading} onInspect={inspect}
+        <SanctuaryScene habitat={habitat} level={home.level} residents={here} loading={loading} onInspect={inspect}
           explorer={{ camera: <ExplorerCamera explorer={explorer} />, tapScale, zoom: () => explorer.view.zoom, focus: (x, z, zoom) => explorer.focus(x, z, zoom) }} />
       </View>
     </GestureDetector>
     <View style={[styles.top, { paddingTop: insets.top + 10 }]} pointerEvents="box-none">
       {button('close', 'Close the explorer', close)}
-      <View style={styles.pill}><Text style={styles.pillText}>EXPLORING · {habitat.name.toUpperCase()}</Text></View>
+      <View style={styles.pill}><Text style={styles.pillText}>EXPLORING · {(island === HOME_ISLAND ? saved.preferences.name : AREAS.find((a) => a.id === island)!.name).toUpperCase()}</Text></View>
       <View style={styles.spacer} />
     </View>
     <View style={[styles.controls, { paddingBottom: insets.bottom + 18, paddingRight: insets.right + 14 }]} pointerEvents="box-none">

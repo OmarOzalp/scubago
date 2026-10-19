@@ -11,6 +11,7 @@ import { IslandScene } from './island-scene';
 import { MacroLife } from './three/macro-life';
 import { MarineSwimmers, type Arrivals } from './three/marine-swimmers';
 import { SanctuaryEnvironment } from './three/sanctuary-environment';
+import { TapAnywhere } from './three/tap-anywhere';
 import { useMarineModels } from './three/use-marine-models';
 import { useSceneActive, useSceneVisible } from '@/hooks/use-scene-active';
 import { EXPLORER } from '@/lib/explorer-view';
@@ -30,6 +31,10 @@ const SHOWCASE = process.env.EXPO_PUBLIC_ISLAND_SHOWCASE === '1';
 const ISLAND_PERF = process.env.EXPO_PUBLIC_ISLAND_PERF === '1';
 const SHOWCASE_SWIMMERS = (['whale-shark', 'great-white-shark', 'tiger-shark', 'reef-manta', 'mola-mola', 'green-turtle', 'scalloped-hammerhead', 'bottlenose-dolphin',
   'great-barracuda', 'sailfish', 'california-sea-lion', 'spotted-eagle-ray', 'golden-jellyfish',
+  // The Open Ocean's animals, far out from the island.
+  'humpback-whale', 'sperm-whale', 'oceanic-whitetip', 'leatherback-turtle', 'oceanic-manta',
+  // The Kelp Forest's (shown on Home's island in the showcase, though they live at their own).
+  'harbor-seal', 'sea-otter', 'garibaldi', 'leafy-seadragon', 'orca',
   // The reef's animals keep to their own places on the reef (reef-life.ts): the moray's den, the octopus's rock, the cuttlefish's reef edge, the clownfish's anemone.
   'giant-moray', 'day-octopus', 'giant-cuttlefish', 'clownfish'] as const)
   .map((model, lane) => ({ model, lane }));
@@ -67,8 +72,10 @@ export type ExplorerScene = {
   focus: (x: number, z: number, zoom: number) => void;
 };
 
-export function SanctuaryScene({ habitat, level, residents, paused = false, loading = false, onInspect, moments, explorer }: {
+export function SanctuaryScene({ habitat, level, residents, paused = false, loading = false, onInspect, onOpen, moments, explorer }: {
   habitat: Habitat; level: number; residents: DexEntry[]; paused?: boolean; loading?: boolean; onInspect: (model: MarineModel) => void;
+  /** A tap anywhere on the island that no animal takes (the Home card: open it full screen). */
+  onOpen?: () => void;
   moments?: SceneMoments; explorer?: ExplorerScene;
 }) {
   const active = useSceneActive(paused);
@@ -145,6 +152,7 @@ export function SanctuaryScene({ habitat, level, residents, paused = false, load
         onCreated={({ camera }) => camera.lookAt(0, -.15, 0)} style={styles.canvas}>
         {/* The view pulls back as the island levels up and its ocean widens. */}
         {!explorer && <SceneCamera scale={oceanScale(level)} />}
+        {onOpen && !explorer && <TapAnywhere onTap={onOpen} />}
         {__DEV__ && <ScenePerformance ready={!!models && !loading} active={active} />}
         {ISLAND_PERF && <IslandPerfProbe />}
         {/* The animals swim inside the island's water, which tints and refracts them. */}

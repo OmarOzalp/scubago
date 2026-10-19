@@ -5,6 +5,8 @@
  * trailing tail, pale shoulder patches on a near-black back and a white belly
  * with dark wing margins. Wing skin weights follow five segments per side so
  * strokes can travel outward across the sheet.
+ *
+ * The oceanic manta shares the sheet and differs in its markings (`MantaLook`).
  */
 import { Vector3 } from 'three';
 import { blendSkins, chainSkin, clamp, curve, eye, fin, hex, MeshBuilder, mix, noise, smoothstep, TAU, type RGB, type Skin } from './kit';
@@ -14,8 +16,8 @@ const TOP = hex('#1f272b'), PALE = hex('#c3ccc9'), BELLY = hex('#eef0ec'), MARGI
 const MOUTH = hex('#2f393c'), GILL = hex('#9aa4a4'), SPOT = hex('#3e484c'), EYE = hex('#080d0f');
 
 /** Planform and section shape as functions of distance from the midline (half-span 0.5). */
-const leadingEdge = curve([[0, .205], [.045, .204], [.062, .198], [.078, .176], [.095, .163], [.15, .138], [.25, .087], [.35, .026], [.43, -.036], [.47, -.07], [.5, -.108]]);
-const trailingEdge = curve([[0, -.222], [.04, -.22], [.07, -.206], [.12, -.178], [.2, -.148], [.3, -.128], [.38, -.12], [.44, -.116], [.48, -.112], [.5, -.108]]);
+export const leadingEdge = curve([[0, .205], [.045, .204], [.062, .198], [.078, .176], [.095, .163], [.15, .138], [.25, .087], [.35, .026], [.43, -.036], [.47, -.07], [.5, -.108]]);
+export const trailingEdge = curve([[0, -.222], [.04, -.22], [.07, -.206], [.12, -.178], [.2, -.148], [.3, -.128], [.38, -.12], [.44, -.116], [.48, -.112], [.5, -.108]]);
 const thickness = curve([[0, .082], [.04, .075], [.07, .058], [.1, .036], [.15, .022], [.25, .0125], [.35, .0078], [.45, .0045], [.5, .002]]);
 const lift = curve([[0, .006], [.07, .004], [.12, 0], [.5, -.004]]);
 /** Joints of each wing chain, from the shoulder to near the tip. */
@@ -27,14 +29,14 @@ function half(u: number) {
   return 5 * (.2969 * Math.sqrt(u) - .126 * u - .3516 * u * u + .2843 * u ** 3 - .1036 * u ** 4);
 }
 /** Surface point at signed span x, chord fraction u (0 leading edge, 1 trailing edge), upper or lower side. */
-function sheet(x: number, u: number, upper: boolean) {
+export function sheet(x: number, u: number, upper: boolean) {
   const a = Math.min(.5, Math.abs(x));
   const le = leadingEdge(a), te = trailingEdge(a), t = thickness(a);
   const bulge = half(u) * t;
   // The back is domed; the belly is flatter.
   return new Vector3(x, lift(a) + (upper ? 1.18 : -.82) * bulge, le - u * (le - te));
 }
-function sheetNormal(x: number, u: number, upper: boolean) {
+export function sheetNormal(x: number, u: number, upper: boolean) {
   const du = Math.min(.01, u, 1 - u) || .005, dx = .004;
   const a = sheet(x + dx, u, upper).sub(sheet(x - dx, u, upper));
   const b = sheet(x, Math.min(1, u + du), upper).sub(sheet(x, Math.max(0, u - du), upper));
@@ -43,7 +45,7 @@ function sheetNormal(x: number, u: number, upper: boolean) {
   return n;
 }
 
-function wingSkin(x: number, z: number): Skin {
+export function wingSkin(x: number, z: number): Skin {
   const a = Math.abs(x);
   const side = x >= 0 ? 'L' : 'R';
   let skin = chainSkin(a, [0, ...WING_JOINTS], ['Root', ...WING_JOINTS.map((_, i) => `Wing${side}${i + 1}`)], .5);
@@ -52,6 +54,17 @@ function wingSkin(x: number, z: number): Skin {
   skin = blendSkins(skin, { Head: 1 }, smoothstep(.09, .15, z) * center);
   return blendSkins(skin, { Tail1: 1 }, smoothstep(-.17, -.21, z) * (1 - smoothstep(.02, .05, a)));
 }
+
+/** What tells one manta from another: the colours of its back and belly, its mouth and its belly spots. */
+export type MantaLook = {
+  back: RGB; belly: RGB; gill: RGB; mouth: RGB; spot: RGB;
+  top: (x: number, u: number) => RGB;
+  bottom: (x: number, u: number) => RGB;
+  /** The mouth's width across (a third of its half-width) at `t` from one corner to the other. */
+  mouthWidth: (t: number) => number;
+  /** Belly spots: signed span, chord fraction and radius. */
+  spots: readonly (readonly [number, number, number])[];
+};
 
 function topColor(x: number, u: number): RGB {
   const a = Math.abs(x);
@@ -71,7 +84,17 @@ function bottomColor(x: number, u: number): RGB {
   return mix(BELLY, MARGIN, clamp(margin));
 }
 
-export function buildReefManta() {
+const REEF_MANTA: MantaLook = {
+  back: TOP, belly: BELLY, gill: GILL, mouth: MOUTH, spot: SPOT, top: topColor, bottom: bottomColor,
+  mouthWidth: (t) => .0042 * Math.sin(Math.PI * (.08 + .84 * t)) ** .5,
+  // A few dark belly spots between the gill rows; the pattern is unique to each reef manta.
+  spots: [[-.012, .5, .007], [.009, .56, .006], [-.004, .64, .0055], [.016, .47, .005], [.004, .43, .0045], [-.019, .6, .005]],
+};
+
+export const buildReefManta = () => buildManta(REEF_MANTA);
+
+export function buildManta(look: MantaLook) {
+  const { back: TOP, belly: BELLY } = look;
   const mesh = new MeshBuilder();
   const bones: BoneSpec[] = [];
   // Stations across the span: dense over the body and toward the tips where the outline turns.
@@ -84,11 +107,11 @@ export function buildReefManta() {
     const ring: number[] = [];
     us.forEach((u) => {
       const p = sheet(x, u, true);
-      ring.push(mesh.vertex(p, topColor(x, u), wingSkin(x, p.z)));
+      ring.push(mesh.vertex(p, look.top(x, u), wingSkin(x, p.z)));
     });
     us.slice(1, -1).reverse().forEach((u) => {
       const p = sheet(x, u, false);
-      ring.push(mesh.vertex(p, bottomColor(x, u), wingSkin(x, p.z)));
+      ring.push(mesh.vertex(p, look.bottom(x, u), wingSkin(x, p.z)));
     });
     return ring;
   });
@@ -128,17 +151,16 @@ export function buildReefManta() {
     mesh.end({ closed: false, normals: false, outward: (i) => new Vector3(mesh.normals[i * 3], mesh.normals[i * 3 + 1], mesh.normals[i * 3 + 2]) });
   };
   // Terminal mouth across the front of the head, just under the leading edge.
-  decal(Array.from({ length: 9 }, (_, i) => [(i / 8 * 2 - 1) * .052, .018] as const), false, (t) => .0042 * Math.sin(Math.PI * (.08 + .84 * t)) ** .5, MOUTH);
+  decal(Array.from({ length: 9 }, (_, i) => [(i / 8 * 2 - 1) * .052, .018] as const), false, look.mouthWidth, look.mouth);
   // Five gill slits per side on the underside.
   for (const side of [1, -1]) {
     for (let i = 0; i < 5; i++) {
       const u = .19 + i * .045;
-      decal(Array.from({ length: 4 }, (_, j) => [side * (.026 + .03 * j / 3), u + .012 * (j / 3) ** 2] as const), false, () => .0016, GILL);
+      decal(Array.from({ length: 4 }, (_, j) => [side * (.026 + .03 * j / 3), u + .012 * (j / 3) ** 2] as const), false, () => .0016, look.gill);
     }
   }
-  // A few dark belly spots between the gill rows; the pattern is unique to each reef manta.
-  for (const [x, u, r] of [[-.012, .5, .007], [.009, .56, .006], [-.004, .64, .0055], [.016, .47, .005], [.004, .43, .0045], [-.019, .6, .005]] as const) {
-    decal(Array.from({ length: 3 }, (_, j) => [x + (j - 1) * r * .7, u] as const), false, (t) => r * Math.sin(Math.PI * (.15 + .7 * t)) ** .5, SPOT);
+  for (const [x, u, r] of look.spots) {
+    decal(Array.from({ length: 3 }, (_, j) => [x + (j - 1) * r * .7, u] as const), false, (t) => r * Math.sin(Math.PI * (.15 + .7 * t)) ** .5, look.spot);
   }
 
   // Cephalic lobes: rolled forward-pointing horns either side of the mouth.

@@ -16,10 +16,15 @@ import { MARINE_SIZE, MIN_TAP, TAP_SHAPES, tapTarget } from '../src/components/h
 import { oceanScale } from '../src/lib/steering.ts';
 import { createMarineMotion } from '../src/lib/marine-motion.ts';
 import { sampleDive } from '../src/lib/ocean-depth.ts';
+import { buildKelpGeometry, KELP_DETAIL } from '../src/components/home/three/kelp-geometry.ts';
+import { KELP, kelpPlants } from '../src/lib/kelp.ts';
+import { OCEAN } from '../src/lib/ocean.ts';
 
 const ocean = createOceanUniforms('island');
 const MODELS = ['shark', 'manta', 'reef-fish', 'whale-shark', 'tiger-shark', 'great-white-shark', 'scalloped-hammerhead', 'reef-manta', 'mola-mola', 'green-turtle', 'bottlenose-dolphin',
-  'day-octopus', 'giant-cuttlefish', 'giant-moray', 'great-barracuda', 'sailfish', 'california-sea-lion', 'spotted-eagle-ray', 'golden-jellyfish', 'clownfish'];
+  'day-octopus', 'giant-cuttlefish', 'giant-moray', 'great-barracuda', 'sailfish', 'california-sea-lion', 'spotted-eagle-ray', 'golden-jellyfish', 'clownfish',
+  'humpback-whale', 'sperm-whale', 'oceanic-whitetip', 'leatherback-turtle', 'oceanic-manta',
+  'harbor-seal', 'sea-otter', 'garibaldi', 'leafy-seadragon', 'orca'];
 const REEF = ['day-octopus', 'giant-cuttlefish', 'giant-moray', 'clownfish'];
 const loadModel = async (name) => {
   const bytes = readFileSync(new URL(`../assets/models/marine/${name}.glb`, import.meta.url));
@@ -299,5 +304,33 @@ for (const lite of [false, true]) {
       if (name === 'giant-moray') assert(target.z - target.halfLength < .05 && target.z + target.halfLength > .45, 'giant-moray: tap target misses its front');
       console.log(`${name} at level ${level}: tap shape ${across.toFixed(0)} pt across`);
     }
+  }
+}
+
+// The Kelp Forest's kelp (kelp-geometry.ts): within its triangle budget, every vertex finite and its
+// sway attributes in range, the holdfasts on the seabed and the canopy floating at the surface.
+for (const [quality, budget] of [['full', 17000], ['lite', 6000]]) {
+  for (const level of [1, 4, 6]) {
+    const plants = kelpPlants(level, KELP.plants[quality]);
+    const geometry = buildKelpGeometry(plants, KELP_DETAIL[quality]);
+    const position = geometry.getAttribute('position'), kelp = geometry.getAttribute('aKelp');
+    const triangles = position.count / 3;
+    assert(triangles < budget, `kelp (${quality}, level ${level}): ${triangles} triangles, over ${budget}`);
+    let canopy = 0, lowest = Infinity, highest = -Infinity;
+    for (let i = 0; i < position.count; i++) {
+      const x = position.getX(i), y = position.getY(i), z = position.getZ(i);
+      assert(Number.isFinite(x) && Number.isFinite(y) && Number.isFinite(z), `kelp (${quality}): vertex ${i} is not finite`);
+      const [rise, runner, , flutter] = [kelp.getX(i), kelp.getY(i), kelp.getZ(i), kelp.getW(i)];
+      assert(rise >= 0 && rise <= 1 && runner >= 0 && runner <= 1 && flutter >= 0 && flutter <= 1, `kelp (${quality}): vertex ${i} sways out of range`);
+      lowest = Math.min(lowest, y); highest = Math.max(highest, y);
+      if (runner > 0) {
+        canopy++;
+        assert(Math.abs(y - OCEAN.surfaceLevel) < .06, `kelp (${quality}): canopy vertex ${i} at ${y.toFixed(3)}, off the surface`);
+      }
+    }
+    assert(canopy > 0, `kelp (${quality}): no canopy`);
+    assert(lowest >= Math.min(...plants.map((p) => p.floor)) - .02, `kelp (${quality}): reaches below the seabed`);
+    geometry.dispose();
+    if (level === 1) console.log(`kelp (${quality}): ${plants.length} plants, ${triangles} triangles, ${lowest.toFixed(2)} to ${highest.toFixed(2)} (surface ${OCEAN.surfaceLevel})`);
   }
 }

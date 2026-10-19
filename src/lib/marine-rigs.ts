@@ -13,7 +13,8 @@
 
 export type SwimRigModel = 'tiger-shark' | 'whale-shark' | 'great-white-shark' | 'scalloped-hammerhead' | 'reef-manta' | 'mola-mola' | 'green-turtle' | 'bottlenose-dolphin'
   | 'day-octopus' | 'giant-cuttlefish' | 'giant-moray' | 'great-barracuda' | 'sailfish' | 'clownfish'
-  | 'spotted-eagle-ray' | 'california-sea-lion' | 'golden-jellyfish';
+  | 'spotted-eagle-ray' | 'california-sea-lion' | 'golden-jellyfish' | 'humpback-whale' | 'sperm-whale' | 'oceanic-whitetip' | 'leatherback-turtle'
+  | 'oceanic-manta' | 'harbor-seal' | 'sea-otter' | 'garibaldi' | 'leafy-seadragon' | 'orca';
 
 export const SHARK_BONES = [
   'Root', 'Head', 'Spine1', 'Spine2', 'RearBody', 'TailBase', 'Tail', 'TailUpper', 'TailLower',
@@ -309,6 +310,14 @@ export type PinnipedRig = {
   head: number; lead: number; look: number; lookRate: number;
   /** Hind flippers: following the body's curve in turns (rad per rad/s), and parting a little on each stroke (rad). */
   rudder: number; splay: number;
+  /**
+   * What drives it (fore, the default): the sea lion flies with its fore flippers. A true seal
+   * (`hind`) sweeps its hind flippers and rear body from side to side, its short fore flippers
+   * pressed to its flanks. A sea otter (`otter`) undulates its body up and down and paddles with its
+   * big hind feet, its small forepaws tucked; at rest (SwimDrive.rest) it floats on its back, paws
+   * on its chest, head and feet up, sculling with its tail.
+   */
+  stroke?: 'fore' | 'hind' | 'otter';
 };
 
 export type JellyRig = {
@@ -353,6 +362,14 @@ export const SWIM_RIGS: Record<SwimRigModel, SwimRigSpec> = {
     lobes: { upper: .07, lower: .05, upperAngle: .85, lowerAngle: .85, lag: .8 },
     dorsal: .025, pectoral: { flap: .02, pitch: .025, turn: .6, climb: .3 }, roll: .022, bend: .7,
   },
+  // A slow, deliberate cruiser of the open ocean: lazy beats of the tail, the long paddle pectorals held
+  // out wide like wings and steering in turns.
+  'oceanic-whitetip': {
+    kind: 'shark', joints: [.28, .45, .59, .7, .8], dorsalParent: 'Spine1', dorsalAt: .37,
+    frequency: .46, wavelength: 1.3, tailAmplitude: .085, rootAmplitude: .003, headAmplitude: .004, envelope: 3.1,
+    lobes: { upper: .07, lower: .05, upperAngle: .85, lowerAngle: .85, lag: .8 },
+    dorsal: .025, pectoral: { flap: .03, pitch: .03, turn: .7, climb: .35 }, roll: .028, bend: .75,
+  },
   // Agile and a little serpentine: the wave starts earlier in the body than the great white's and swells
   // toward the long upper lobe, while the wide head (the cephalofoil) stays almost still.
   'scalloped-hammerhead': {
@@ -367,6 +384,13 @@ export const SWIM_RIGS: Record<SwimRigModel, SwimRigSpec> = {
     flap: [.08, .125, .15, .16, .17], waveLag: .34,
     twist: [0, .03, .06, .1, .14], glideDihedral: [.015, .02, .025, .03, .035],
     turnAsymmetry: .5, climbGain: .6, bob: .012, pitch: .02, cephalic: .12, tail: [.05, .09, .14],
+  },
+  // The same flight as the reef manta's, slower and statelier for the larger ray.
+  'oceanic-manta': {
+    kind: 'manta', frequency: .25,
+    flap: [.08, .125, .15, .16, .17], waveLag: .36,
+    twist: [0, .03, .06, .1, .14], glideDihedral: [.015, .02, .025, .03, .035],
+    turnAsymmetry: .5, climbGain: .55, bob: .01, pitch: .018, cephalic: .1, tail: [.05, .09, .14],
   },
   // Smaller and quicker than the manta: deep, steady wingbeats from the shoulders out to the pointed
   // tips (it flies rather than glides), the long whip of a tail trailing its own slow wave.
@@ -384,6 +408,45 @@ export const SWIM_RIGS: Record<SwimRigModel, SwimRigSpec> = {
     flap: .55, sweep: .5, feather: .5, wrist: .3, glideSweep: .9, glideDroop: .2,
     bout: [1, 2], glide: [1.4, 2.8], pitch: .05, bob: .006, wave: .08, bend: .9,
     head: .08, lead: .4, look: .35, lookRate: .15, rudder: .4, splay: .12,
+  },
+  // Sweeps its rear body and hind flippers from side to side, the flippers beating alternately, its
+  // short fore flippers pressed to its flanks; short bouts of strokes and long, curious glides.
+  'harbor-seal': {
+    kind: 'pinniped', stroke: 'hind', joints: [.15, .32, .5, .67, .82], frequency: .9,
+    flap: .45, sweep: 0, feather: 0, wrist: 0, glideSweep: .35, glideDroop: .2,
+    bout: [2, 4], glide: [1.2, 2.8], pitch: .02, bob: .003, wave: .2, bend: .85,
+    head: .05, lead: .35, look: .3, lookRate: .12, rudder: .3, splay: .22,
+  },
+  // Undulates its long body up and down and paddles with its big webbed hind feet in quick bouts; at
+  // rest it floats on its back, paws on its chest, sculling with its tail.
+  'sea-otter': {
+    kind: 'pinniped', stroke: 'otter', joints: [.14, .3, .46, .6, .74], frequency: 1.15,
+    flap: .5, sweep: 0, feather: 0, wrist: 0, glideSweep: .3, glideDroop: .25,
+    bout: [2, 5], glide: [.8, 1.8], pitch: .04, bob: .004, wave: .28, bend: .85,
+    head: .06, lead: .3, look: .35, lookRate: .14, rudder: .3, splay: .12,
+  },
+  // A big damselfish: hovers by its rock rowing with its pectorals, the deep body nearly still, and
+  // darts with quick beats of its broad tail.
+  garibaldi: {
+    kind: 'shark', joints: [.3, .45, .58, .69, .78], dorsalParent: 'Spine2', dorsalAt: .5,
+    frequency: 1.6, wavelength: .95, tailAmplitude: .09, rootAmplitude: .005, headAmplitude: .014, envelope: 1.7,
+    lobes: { upper: .1, lower: .1, upperAngle: 1, lowerAngle: 1, lag: 1 },
+    dorsal: .04, pectoral: { flap: .1, pitch: .07, turn: .6, climb: .3, row: .5 }, roll: .03, bend: .85, hover: .35,
+  },
+  // Barely swims at all: its body held stiff, it drifts on tiny, fluttering transparent fins, the
+  // leafy lobes swaying with the water.
+  'leafy-seadragon': {
+    kind: 'shark', joints: [.22, .4, .56, .7, .84], dorsalParent: 'Spine2', dorsalAt: .5,
+    frequency: 1.4, wavelength: 1.4, tailAmplitude: .03, rootAmplitude: .004, headAmplitude: .006, envelope: 1.2,
+    lobes: { upper: .02, lower: .02, upperAngle: .6, lowerAngle: .6, lag: 1 },
+    dorsal: .25, pectoral: { flap: .3, pitch: .1, turn: .3, climb: .2, row: .4 }, roll: .02, bend: .5, hover: .6,
+  },
+  // The dolphin's stroke, stronger and slower in the much bigger body: powerful beats of the broad
+  // flukes, the tall dorsal fin steady, the paddle flippers trimming it through turns.
+  orca: {
+    kind: 'cetacean', joints: [.3, .5, .64, .76, .865], frequency: .48, wavelength: 1.3,
+    tailAmplitude: .07, rootAmplitude: .003, headAmplitude: .003, envelope: 3,
+    fluke: .17, flukeLag: 1.2, flukeFlex: .12, pectoral: { flap: .035, turn: .5, climb: .3 }, heave: .004, bend: .8,
   },
   // Rows with its bell: a quick squeeze and a slower relaxation, the frilly oral arms swinging behind
   // each pulse; it drifts bell-first, tilted into its path, turning slowly about its axis.
@@ -403,12 +466,33 @@ export const SWIM_RIGS: Record<SwimRigModel, SwimRigSpec> = {
     glideSweep: .62, glideDroop: .1, bout: [2, 3], glide: [2.5, 5.5],
     pitch: .04, bob: .006, head: .07, rudder: .55, paddle: .14,
   },
+  // The green turtle's stroke on the leatherback's enormous front flippers: deeper, slower and more
+  // wing-like, with long glides; an ocean traveller rather than a reef grazer.
+  'leatherback-turtle': {
+    kind: 'turtle', frequency: .34, flap: .7, sweep: .45, feather: .6, elbow: .3, offset: .12,
+    glideSweep: .66, glideDroop: .12, bout: [2, 4], glide: [3, 6],
+    pitch: .035, bob: .006, head: .05, rudder: .5, paddle: .12,
+  },
   // Up-and-down propulsion: the tail stock heaves the horizontal flukes, which angle into every beat,
   // while the head and front body stay steady. Quicker beats than any shark.
   'bottlenose-dolphin': {
     kind: 'cetacean', joints: [.3, .5, .64, .76, .865], frequency: .78, wavelength: 1.25,
     tailAmplitude: .075, rootAmplitude: .003, headAmplitude: .004, envelope: 2.9,
     fluke: .18, flukeLag: 1.2, flukeFlex: .12, pectoral: { flap: .04, turn: .5, climb: .3 }, heave: .004, bend: .85,
+  },
+  // The dolphin's stroke, slowed to a whale's: long, unhurried beats of the broad flukes, the huge
+  // body barely heaving; the long flippers trim and bank it through turns like wings.
+  'humpback-whale': {
+    kind: 'cetacean', joints: [.32, .5, .64, .76, .87], frequency: .3, wavelength: 1.4,
+    tailAmplitude: .062, rootAmplitude: .002, headAmplitude: .002, envelope: 3.1,
+    fluke: .2, flukeLag: 1.2, flukeFlex: .15, pectoral: { flap: .05, turn: .45, climb: .25 }, heave: .003, bend: .6,
+  },
+  // The great square head is held steady while the rear third of the body drives slow, deep strokes of
+  // the triangular flukes; the stubby flippers barely move.
+  'sperm-whale': {
+    kind: 'cetacean', joints: [.38, .55, .67, .78, .875], frequency: .26, wavelength: 1.5,
+    tailAmplitude: .06, rootAmplitude: .0015, headAmplitude: .0015, envelope: 3.4,
+    fluke: .18, flukeLag: 1.2, flukeFlex: .1, pectoral: { flap: .03, turn: .3, climb: .2 }, heave: .002, bend: .5,
   },
   // A crawler, not a swimmer: eight arms each with its own rhythm, reaching and pulling over the reef,
   // a slow wave running out along each; at rest they coil and the mantle settles and breathes; a jet
@@ -854,6 +938,7 @@ function poseTurtle(spec: TurtleRig, s: RigState, set: SetBone, offset: { x: num
  * looking about.
  */
 function posePinniped(spec: PinnipedRig, s: RigState, set: SetBone, offset: { x: number; y: number; z: number }) {
+  if (spec.stroke === 'hind' || spec.stroke === 'otter') { poseHindSwimmer(spec, s, set, offset); return; }
   const a = s.activity;
   const strength = (.75 + .25 * clamp(s.effort, .25, 1.6)) * (1 + .2 * s.climb);
   const asymmetry = clamp(.4 * s.turn, -.35, .35);
@@ -882,6 +967,54 @@ function posePinniped(spec: PinnipedRig, s: RigState, set: SetBone, offset: { x:
   const part = spec.splay * a * (.5 + .5 * Math.sin(s.phase - .5));
   set('HindL', 0, steer - part, 0);
   set('HindR', 0, steer + part, 0);
+}
+
+/**
+ * Seals and sea otters swim with their back ends. A harbor seal's stroke is a side-to-side sweep
+ * growing down its rear body to the hind flippers, which beat alternately (the one sweeping forward
+ * folds narrow, the one driving back spreads), its fore flippers held against the flanks and
+ * steering. A sea otter's is an up-and-down wave down its body to its big webbed hind feet. Both
+ * glide between bouts. At rest an otter floats on its back (the motion rolls it over): body arched
+ * with head and feet up out of the water, forepaws on its chest, its tail sculling slowly.
+ */
+function poseHindSwimmer(spec: PinnipedRig, s: RigState, set: SetBone, offset: { x: number; y: number; z: number }) {
+  const otter = spec.stroke === 'otter';
+  const rest = otter ? s.rest : 0, a = s.activity * (1 - rest);
+  const strength = (.75 + .25 * clamp(s.effort, .25, 1.6)) * (1 + .15 * s.climb);
+  const bend = spec.bend * clamp(s.curvature, -1.5, 1.5);
+  const chain = ['Spine1', 'Spine2', 'RearBody', 'TailBase', 'Tail'];
+  chain.forEach((bone, i) => {
+    const grow = (i + 1) / chain.length, wave = Math.sin(s.phase - .8 * i) * grow * grow;
+    // A seal sweeps sideways (about the vertical), an otter undulates (about the body's lateral axis).
+    const sweep = otter ? 0 : spec.wave * strength * a * wave, undulate = otter ? spec.wave * strength * a * wave : 0;
+    // Floating on its back, the otter curls toward its belly (skyward), head and tail end up out of the water.
+    const arch = -rest * [.05, .06, .05, .12, .15][i];
+    set(bone, undulate + arch, sweep - .25 * bend, 0);
+  });
+  offset.x = 0;
+  offset.y = spec.bob * a * Math.sin(s.phase + .3);
+  offset.z = 0;
+  set('Root', spec.pitch * a * Math.sin(s.phase + .6) - .06 * s.climb, 0, 0);
+  // The head steadies against the stroke, leads into turns and looks about while gliding; floating, it lifts.
+  set('Head', -spec.head * a * Math.sin(s.phase + 1.2) + .4 * rest, spec.lead * clamp(s.turn, -1.2, 1.2) + spec.look * (1 - a) * Math.sin(s.breath), 0);
+  // Fore flippers (forepaws) tucked along the flanks, steering a little; floating, paws on the chest.
+  const steer = clamp(spec.rudder * s.turn, -.5, .5);
+  for (const [side, mirror] of [['L', 1], ['R', -1]] as const) {
+    set(`Fore${side}1`, -.5 * rest, -mirror * (spec.glideSweep * (1 - rest) - .3 * steer * mirror), -mirror * (spec.glideDroop * (1 - rest) + 1.1 * rest));
+    set(`Fore${side}2`, -.3 * rest, 0, -mirror * .6 * rest);
+  }
+  // Hind flippers: a seal's beat alternately sideways, spreading on the drive; an otter's paddle up
+  // and down together with the wave; floating, the otter's feet rise and its tail sculls.
+  const beat = Math.sin(s.phase - 4 * .8 - .6) * strength * a;
+  if (otter) {
+    const scull = .25 * rest * Math.sin(s.breath * 3);
+    set('HindL', spec.flap * beat - .5 * rest, -spec.splay * a + scull, 0);
+    set('HindR', spec.flap * beat - .5 * rest, spec.splay * a + scull, 0);
+  } else {
+    const spread = spec.splay * (.5 + .5 * Math.sin(s.phase - 3.4));
+    set('HindL', 0, spec.flap * beat - spread * a - .4 * bend, 0);
+    set('HindR', 0, spec.flap * beat + spread * a - .4 * bend, 0);
+  }
 }
 
 /**

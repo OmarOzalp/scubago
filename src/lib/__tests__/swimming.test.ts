@@ -130,11 +130,25 @@ test('hammerheads and dolphins swim as their own models; their close relatives b
   expect(speciesMarineModel('great-hammerhead')).toBeNull();
   expect(speciesMarineModel('spinner-dolphin')).toBeNull();
   expect(speciesMarineModel('scalloped-hammerhead')).toBe('scalloped-hammerhead');
-  // Other mammals still have no model, so a collection of whales alone leaves the ocean empty.
-  expect(marineModelFor(entry('humpback-whale', 'mammal').species)).toBeNull();
-  expect(noneSwim([entry('humpback-whale', 'mammal')])).toBe(true);
-  expect(pickSwimmers([entry('humpback-whale', 'mammal'), entry('spinner-dolphin', 'mammal'), entry('great-hammerhead', 'shark')]).map((s) => s.model))
+  // Other mammals still have no model, so a collection of dugongs alone leaves the ocean empty.
+  expect(marineModelFor(entry('dugong', 'mammal').species)).toBeNull();
+  expect(noneSwim([entry('dugong', 'mammal')])).toBe(true);
+  expect(pickSwimmers([entry('dugong', 'mammal'), entry('spinner-dolphin', 'mammal'), entry('great-hammerhead', 'shark')]).map((s) => s.model))
     .toEqual(['bottlenose-dolphin', 'scalloped-hammerhead']);
+});
+
+test("the Open Ocean's whales, whitetip, leatherback and oceanic manta swim as their own models", () => {
+  const ocean = [entry('humpback-whale', 'mammal'), entry('sperm-whale', 'mammal'), entry('oceanic-whitetip', 'shark'),
+    entry('leatherback-turtle', 'turtle'), entry('oceanic-manta', 'ray')];
+  for (const { species } of ocean) {
+    expect(marineModelFor(species)).toBe(species.id);
+    expect(speciesMarineModel(species.id)).toBe(species.id);
+  }
+  expect(noneSwim([entry('humpback-whale', 'mammal')])).toBe(false);
+  expect(pickSwimmers(ocean).map((s) => s.model)).toEqual(['humpback-whale', 'sperm-whale', 'oceanic-whitetip', 'leatherback-turtle', 'oceanic-manta']);
+  // Other turtles still have none; the reef manta is not the oceanic's.
+  expect(marineModelFor(entry('olive-ridley-turtle', 'turtle').species)).toBeNull();
+  expect(marineModelFor(entry('reef-manta', 'ray').species)).toBe('reef-manta');
 });
 
 test('the reef species swim as their own models; their close relatives borrow them; squid and nautilus still have none', () => {
@@ -166,7 +180,19 @@ test('the six newer species swim as their own models; chevron barracuda borrow t
   expect(marineModelFor(entry('golden-jellyfish', 'other').species)).toBe('golden-jellyfish');
   expect(marineModelFor(entry('chevron-barracuda', 'fish').species)).toBe('great-barracuda');
   expect(speciesMarineModel('chevron-barracuda')).toBeNull();
-  // A true seal is not a sea lion, and other jellies are not golden: still no model of their own.
-  expect(islandPresence(entry('harbor-seal', 'mammal').species)).toBeNull();
+  // Other jellies are not golden: still no model of their own.
   expect(islandPresence(entry('moon-jellyfish', 'other').species)).toBeNull();
+});
+
+test("the Kelp Forest's seal, otter, garibaldi, seadragon and orca swim as their own models; their relatives borrow two", () => {
+  for (const [id, category] of [['harbor-seal', 'mammal'], ['sea-otter', 'mammal'], ['garibaldi', 'fish'], ['leafy-seadragon', 'fish'], ['orca', 'mammal']] as const) {
+    expect(marineModelFor(entry(id, category).species)).toBe(id);
+    expect(speciesMarineModel(id)).toBe(id);
+  }
+  // The weedy seadragon swims as the leafy one, the wolf eel as the giant moray: borrowed, never claimed.
+  expect(marineModelFor(entry('weedy-seadragon', 'fish').species)).toBe('leafy-seadragon');
+  expect(marineModelFor(entry('wolf-eel', 'fish').species)).toBe('giant-moray');
+  expect(speciesMarineModel('weedy-seadragon')).toBeNull();
+  // The giant sea bass and lingcod keep the fish family's model.
+  expect(marineModelFor(entry('giant-sea-bass', 'fish').species)).toBe('reef-fish');
 });

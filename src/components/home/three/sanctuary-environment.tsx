@@ -4,6 +4,9 @@ import type { Habitat } from '@/lib/home';
 import { SEABED_PROPS } from '@/lib/island-outline';
 import { OCEAN } from '@/lib/ocean';
 import { islandScale, shoreline } from './island-shape';
+import { KelpCoast } from './kelp-coast';
+import { KelpForest } from './kelp-forest';
+import { createKelpMovers, KelpMoversContext } from './kelp-movers';
 import { OceanContext } from './ocean-context';
 import { waterColorAt } from './ocean-mesh';
 import { useSceneQuality } from './scene-quality';
@@ -11,7 +14,7 @@ import { submerge } from './islet-material';
 import { GROWTH_SECONDS, GrowthContext, Unlock } from './unlock';
 import { useOcean, WaterSurface, type Ocean } from './water-surface';
 
-export const WATER: Record<Habitat, string> = { island: '#C5E3DF', lagoon: '#B9DEDC', cove: '#C5DCD3' };
+export const WATER: Record<Habitat, string> = { island: '#C5E3DF', lagoon: '#B9DEDC', cove: '#C5DCD3', kelp: '#BED2CB' };
 
 /** Flat layers of the dry island, stacked just above the water. */
 function ShoreLayer({ scale = 1, y, color, offset = [0, 0] }: {
@@ -88,6 +91,16 @@ function IslandWorld({ habitat, level, active, growIn, reach, children }: { habi
   const coralB = useSeabedProp(ocean, habitat, level, ...SEABED_PROPS.coralB, '#6E9C88');
   const coralC = useSeabedProp(ocean, habitat, level, ...SEABED_PROPS.coralC, '#B98A7C');
   const reefRock = useSeabedProp(ocean, habitat, level, ...SEABED_PROPS.reefRock, '#8FA394', .04);
+  // The kelp makes way for the animals swimming through it (kelp-movers.ts).
+  const movers = useMemo(createKelpMovers, []);
+  if (habitat === 'kelp') {
+    return <OceanContext.Provider value={ocean.uniforms}><GrowthContext.Provider value={growth}><KelpMoversContext.Provider value={movers}>
+      <WaterSurface ocean={ocean} active={active} />
+      <group scale={islandScale(level)}><KelpCoast level={level} /></group>
+      <KelpForest level={level} />
+      {children}
+    </KelpMoversContext.Provider></GrowthContext.Provider></OceanContext.Provider>;
+  }
   return <OceanContext.Provider value={ocean.uniforms}><GrowthContext.Provider value={growth}>
     <WaterSurface ocean={ocean} active={active} />
     <group scale={islandScale(level)}>

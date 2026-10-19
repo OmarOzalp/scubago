@@ -31,6 +31,16 @@ import { buildClownfish } from './species/clownfish';
 import { buildSpottedEagleRay } from './species/spotted-eagle-ray';
 import { buildCaliforniaSeaLion } from './species/california-sea-lion';
 import { buildGoldenJellyfish } from './species/golden-jellyfish';
+import { buildHumpbackWhale } from './species/humpback-whale';
+import { buildSpermWhale } from './species/sperm-whale';
+import { buildOceanicWhitetip } from './species/oceanic-whitetip';
+import { buildLeatherbackTurtle } from './species/leatherback-turtle';
+import { buildOceanicManta } from './species/oceanic-manta';
+import { buildHarborSeal } from './species/harbor-seal';
+import { buildSeaOtter } from './species/sea-otter';
+import { buildGaribaldi } from './species/garibaldi';
+import { buildLeafySeadragon } from './species/leafy-seadragon';
+import { buildOrca } from './species/orca';
 
 const OUT = resolve(dirname(process.argv[1]), '../../assets/models/marine') + '/';
 
@@ -52,6 +62,16 @@ const SPECIES: Partial<Record<SwimRigModel, { build: () => { mesh: MeshBuilder; 
   'golden-jellyfish': { build: buildGoldenJellyfish, scientificName: 'Mastigias papua', reference: 'https://www.marinespecies.org/aphia.php?p=taxdetails&id=135288' },
   clownfish: { build: buildClownfish, scientificName: 'Amphiprion ocellaris', reference: 'https://www.marinespecies.org/aphia.php?p=taxdetails&id=278398' },
   'day-octopus': { build: buildDayOctopus, scientificName: 'Octopus cyanea', reference: 'https://www.marinespecies.org/aphia.php?p=taxlist&tName=Octopus%20cyanea' },
+  'humpback-whale': { build: buildHumpbackWhale, scientificName: 'Megaptera novaeangliae', reference: 'https://www.fisheries.noaa.gov/species/humpback-whale' },
+  'sperm-whale': { build: buildSpermWhale, scientificName: 'Physeter macrocephalus', reference: 'https://www.fisheries.noaa.gov/species/sperm-whale' },
+  'oceanic-whitetip': { build: buildOceanicWhitetip, scientificName: 'Carcharhinus longimanus', reference: 'https://www.fisheries.noaa.gov/species/oceanic-whitetip-shark' },
+  'leatherback-turtle': { build: buildLeatherbackTurtle, scientificName: 'Dermochelys coriacea', reference: 'https://www.fisheries.noaa.gov/species/leatherback-turtle' },
+  'oceanic-manta': { build: buildOceanicManta, scientificName: 'Mobula birostris', reference: 'https://www.fisheries.noaa.gov/species/giant-manta-ray' },
+  'harbor-seal': { build: buildHarborSeal, scientificName: 'Phoca vitulina', reference: 'https://www.fisheries.noaa.gov/species/harbor-seal' },
+  'sea-otter': { build: buildSeaOtter, scientificName: 'Enhydra lutris', reference: 'https://www.fisheries.noaa.gov/species/sea-otter' },
+  garibaldi: { build: buildGaribaldi, scientificName: 'Hypsypops rubicundus', reference: 'https://www.marinespecies.org/aphia.php?p=taxdetails&id=280033' },
+  'leafy-seadragon': { build: buildLeafySeadragon, scientificName: 'Phycodurus eques', reference: 'https://www.marinespecies.org/aphia.php?p=taxdetails&id=212287' },
+  orca: { build: buildOrca, scientificName: 'Orcinus orca', reference: 'https://www.fisheries.noaa.gov/species/killer-whale' },
 };
 
 async function main() {

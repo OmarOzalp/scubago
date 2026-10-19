@@ -2,13 +2,15 @@ import { Box3, Vector3, type Object3D } from 'three';
 import { REEF_SIZE } from '@/lib/reef-life';
 
 /**
- * World length of each model (the reef manta and eagle ray are measured across their wings, the
+ * World length of each model (the mantas and eagle ray are measured across their wings, the
  * octopus across its arms, the jellyfish across its bell).
  */
 export const MARINE_SIZE = {
   shark: 2.45, manta: 2.25, 'reef-fish': .85, 'whale-shark': 3, 'tiger-shark': 2.45, 'great-white-shark': 2.5,
   'scalloped-hammerhead': 2.25, 'reef-manta': 2.2, 'mola-mola': 1.8, 'green-turtle': 1.2, 'bottlenose-dolphin': 1.55,
   'great-barracuda': 1.6, sailfish: 2.2, 'california-sea-lion': 1.35, 'spotted-eagle-ray': 1.4, 'golden-jellyfish': .48,
+  'humpback-whale': 3.3, 'sperm-whale': 3.1, 'oceanic-whitetip': 2.3, 'leatherback-turtle': 1.5, 'oceanic-manta': 2.6,
+  'harbor-seal': 1.3, 'sea-otter': 1, garibaldi: .5, 'leafy-seadragon': .56, orca: 2.4,
   ...REEF_SIZE,
 } as const;
 

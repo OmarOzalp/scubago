@@ -1,22 +1,30 @@
 import { deriveDex } from '@/lib/dex';
 import type { Sighting, Species } from '@/lib/types';
 
+/**
+ * The shores an island can be drawn with (sanctuary-environment.tsx). Home's island, the archipelago's
+ * Coral Reef (src/lib/archipelago.ts), is the sandy island; the Kelp Forest's is the kelp coast; the
+ * rocky and lagoon shores are there for the archipelago's other islands. The diver no longer picks one.
+ */
 export const HABITATS = [
   { id: 'island', name: 'Sandy island', description: 'Warm sand & swaying palms', water: '#BCE5DF', deep: '#88CFC8' },
   { id: 'lagoon', name: 'Coral lagoon', description: 'A sheltered, turquoise world', water: '#B9E4E9', deep: '#7EC9D3' },
   { id: 'cove', name: 'Rocky cove', description: 'Wild shores & quiet waters', water: '#CDDCD7', deep: '#9ABDB6' },
+  { id: 'kelp', name: 'Kelp coast', description: 'Cold green water & towering kelp', water: '#BFD3CB', deep: '#7FA39A' },
 ] as const;
 export type Habitat = typeof HABITATS[number]['id'];
-export type HomePreferences = { name: string; habitat: Habitat };
-export const DEFAULT_HOME: HomePreferences = { name: 'My little island', habitat: 'island' };
+/** The shores Home's island is drawn with: the Coral Reef's sandy island. */
+export const HOME_SHORE: Habitat = 'island';
+export type HomePreferences = { name: string };
+export const DEFAULT_HOME: HomePreferences = { name: 'My little island' };
 
 export const HOME_STAGES = [
   { at: 0, rank: 'New Explorer', place: 'A little beginning', reward: 'Your own little island' },
   { at: 3, rank: 'Reef Scout', place: 'Life takes root', reward: 'A coral garden' },
   { at: 8, rank: 'Ocean Wanderer', place: 'Room to roam', reward: 'Wider turquoise shallows' },
   { at: 15, rank: 'Reef Guardian', place: 'A thriving sanctuary', reward: 'A lush island grove' },
-  { at: 30, rank: 'Ocean Expert', place: 'Beyond the horizon', reward: 'A neighbouring island' },
-  { at: 60, rank: 'Ocean Legend', place: 'Your own archipelago', reward: 'A little archipelago' },
+  { at: 30, rank: 'Ocean Expert', place: 'Beyond the horizon', reward: 'A neighbouring islet' },
+  { at: 60, rank: 'Ocean Legend', place: 'Your own archipelago', reward: 'A second islet' },
 ] as const;
 
 /** The island's level (1 to 6) for a collection of `count` species. */
@@ -44,10 +52,8 @@ export function deriveHome(sightings: Sighting[], catalog: Map<string, Species>)
 export function parseHomePreferences(raw: string | null): HomePreferences {
   try {
     const value = raw ? JSON.parse(raw) : null;
-    return {
-      name: typeof value?.name === 'string' && value.name.trim() ? value.name.trim().slice(0, 32) : DEFAULT_HOME.name,
-      habitat: HABITATS.some((h) => h.id === value?.habitat) ? value.habitat : DEFAULT_HOME.habitat,
-    };
+    // (A shore saved before the archipelago, when the diver picked one, is left behind.)
+    return { name: typeof value?.name === 'string' && value.name.trim() ? value.name.trim().slice(0, 32) : DEFAULT_HOME.name };
   } catch {
     return { ...DEFAULT_HOME };
   }

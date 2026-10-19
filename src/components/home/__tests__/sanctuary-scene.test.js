@@ -20,6 +20,10 @@ jest.mock('../three/tuna-school-mesh', () => ({ TunaSchoolMesh: ({ onPress }) =>
 jest.mock('../three/marine-splashes', () => ({ MarineSplashes: () => null }));
 jest.mock('../three/reef-rocks', () => ({ ReefRocks: ({ morays, octopuses }) => <rocks morays={morays} octopuses={octopuses} /> }));
 jest.mock('../three/reef-anemone', () => ({ ReefAnemones: ({ count }) => <anemones data-count={count} /> }));
+// tap-target loads three.js, which jest can't; the Home card's catch-all tap only needs its slop.
+jest.mock('../three/tap-target', () => ({ TAP_SLOP: 8 }));
+// So does the kelp's mover uniform; the swimmers only need its size and (unprovided) context.
+jest.mock('../three/kelp-movers', () => ({ KELP_MOVERS: 12, KelpMoversContext: require('react').createContext(null) }));
 jest.mock('../three/macro-life', () => ({ MacroLife: ({ species, onPress, onFocus }) => <macro data-species={species} onPress={onPress} onFocus={onFocus} /> }));
 jest.mock('../island-scene', () => ({ IslandScene: () => <fallback /> }));
 jest.mock('expo-router', () => ({ router: { push: jest.fn() } }));
@@ -153,4 +157,30 @@ test('the reef’s small life lives only in the explorer: logged macro species, 
   // Nothing small logged, nothing on the reef.
   await act(async () => root.update(<SanctuaryScene {...props} residents={[logged('reef-manta-ray', 'ray')]} explorer={explorer} />));
   expect(root.root.findAllByType('macro')).toHaveLength(0);
+});
+
+test('on the Home card, a tap anywhere no animal takes opens the island full screen; a drag (or the page scrolling) does not', async () => {
+  useMarineModels.mockReturnValue({ models: { 'reef-fish': {} }, failed: false, retry: jest.fn() });
+  const onOpen = jest.fn(), residents = [logged('clown-triggerfish', 'fish')];
+  await act(async () => { root = create(<SanctuaryScene {...props} residents={residents} onOpen={onOpen} />); });
+  // An invisible catcher far below everything, so any animal's tap target is hit first.
+  const catcher = root.root.findAll((node) => node.type === 'mesh' && typeof node.props.onClick === 'function');
+  expect(catcher).toHaveLength(1);
+  expect(catcher[0].props.visible).toBe(false);
+  expect(catcher[0].props.position[1]).toBeLessThan(-5);
+  const stopPropagation = jest.fn();
+  catcher[0].props.onClick({ delta: 20, stopPropagation });
+  expect(onOpen).not.toHaveBeenCalled();
+  catcher[0].props.onClick({ delta: 3, stopPropagation });
+  expect(onOpen).toHaveBeenCalledTimes(1);
+  expect(stopPropagation).toHaveBeenCalledTimes(1);
+  // An animal still opens its own page.
+  root.root.findByType('swimmer').props.onPress();
+  expect(router.push).toHaveBeenLastCalledWith('/species/clown-triggerfish');
+  // Nothing to open: no catcher (nor in the explorer itself, which is already full screen).
+  await act(async () => root.update(<SanctuaryScene {...props} residents={residents} />));
+  expect(root.root.findAll((node) => node.type === 'mesh' && typeof node.props.onClick === 'function')).toHaveLength(0);
+  const explorer = { camera: null, tapScale: 1, zoom: () => 40, focus: jest.fn() };
+  await act(async () => root.update(<SanctuaryScene {...props} residents={residents} onOpen={onOpen} explorer={explorer} />));
+  expect(root.root.findAll((node) => node.type === 'mesh' && typeof node.props.onClick === 'function')).toHaveLength(0);
 });

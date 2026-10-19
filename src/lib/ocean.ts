@@ -28,6 +28,11 @@ export type OceanPalette = {
   sandShallow: string; sandWet: string; patch: string;
   /** Sky color the surface reflects, sun highlight color and the thin shore foam. */
   sky: string; sun: string; foam: string;
+  /**
+   * Murkier water than the defaults (OCEAN.underwater.visibility, seabedVisibility, opacity): how far
+   * animals and kelp can be seen into it, how quickly the seabed fades, and the surface's opacity.
+   */
+  clarity?: { visibility: number; seabed: number; opacity: readonly [number, number] };
 };
 
 export const OCEAN = {
@@ -52,6 +57,13 @@ export const OCEAN = {
     island: { shallow: '#45D3CA', mid: '#2DA5C0', deep: '#1F84A2', sandShallow: '#EEE5C4', sandWet: '#D9CEAB', patch: '#8FB29B', sky: '#EAF6F4', sun: '#FFF8E4', foam: '#F7FCFA' },
     lagoon: { shallow: '#4DDAC9', mid: '#33AEC2', deep: '#2189A5', sandShallow: '#F1E9CB', sandWet: '#DBD1AE', patch: '#93B8A0', sky: '#EAF6F4', sun: '#FFF8E4', foam: '#F7FCFA' },
     cove: { shallow: '#52CDBB', mid: '#34A2AE', deep: '#217C90', sandShallow: '#E3E1C2', sandWet: '#CFCBA8', patch: '#86A896', sky: '#E8F3EF', sun: '#FFF8E4', foam: '#F4FAF6' },
+    // Cold, plankton-rich water over a rocky reef: green-teal shallows over pale rock and coralline
+    // pink, deepening to a dark blue-green; murkier than the tropics, so the kelp and the animals fade
+    // into it with depth.
+    kelp: {
+      shallow: '#3D8475', mid: '#2A6F6B', deep: '#1A4F58', sandShallow: '#726D5C', sandWet: '#55514A', patch: '#866C66', sky: '#E2ECE8', sun: '#FFF6E2', foam: '#F2F7F4',
+      clarity: { visibility: 1.5, seabed: .32, opacity: [.2, .38] },
+    },
   } satisfies Record<Habitat, OceanPalette>,
 
   // Water depth at which the body color reaches each stop (shallow -> mid -> deep).

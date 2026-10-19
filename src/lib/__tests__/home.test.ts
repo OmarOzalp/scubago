@@ -42,10 +42,12 @@ test('final rank has complete progress and no next milestone', () => {
 });
 
 test('preferences validate stored values and safely recover corrupted data', () => {
-  expect(parseHomePreferences(null)).toEqual({ name: 'My little island', habitat: 'island' });
+  expect(parseHomePreferences(null)).toEqual({ name: 'My little island' });
   expect(parseHomePreferences('{')).toEqual(parseHomePreferences(null));
   expect(parseHomePreferences('null')).toEqual(parseHomePreferences(null));
-  expect(parseHomePreferences('{"name":"  Cove  ","habitat":"cove"}')).toEqual({ name: 'Cove', habitat: 'cove' });
-  expect(parseHomePreferences('{"name":"   ","habitat":"bad"}')).toEqual(parseHomePreferences(null));
-  expect(parseHomePreferences(JSON.stringify({ name: 'a'.repeat(100), habitat: 'lagoon' })).name).toHaveLength(32);
+  expect(parseHomePreferences('{"name":"  Cove  "}')).toEqual({ name: 'Cove' });
+  expect(parseHomePreferences('{"name":"   "}')).toEqual(parseHomePreferences(null));
+  expect(parseHomePreferences(JSON.stringify({ name: 'a'.repeat(100) })).name).toHaveLength(32);
+  // A shore picked before the archipelago is left behind: the islands are the diver's discoveries now.
+  expect(parseHomePreferences('{"name":"Quiet waters","habitat":"lagoon"}')).toEqual({ name: 'Quiet waters' });
 });
