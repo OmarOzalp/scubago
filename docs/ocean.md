@@ -46,7 +46,9 @@ The top and bottom of the view haze into the card color (`edgeFade`).
 uniforms through `OceanContext`. Each vertex measures its depth below the moving
 surface. Deeper parts take on more of the water color (`underwater.tintStrength`,
 `visibility`, `clearDepth`) and lose saturation (`desaturation`), and a small
-refraction offset follows the local wave slope (`distortion`). A diving animal
+refraction offset follows the wave slope (`distortion`), read at the animal's own middle so the
+whole animal shifts together: read at each vertex, a long whale's body bent with every passing
+wave, which showed close up in the explorer. A diving animal
 first sinks into the blue, then fades head first. Pitch follows the animal's
 actual rise and fall, and its gentle vertical drift runs on its own clock,
 separate from the waves.

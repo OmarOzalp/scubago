@@ -1,18 +1,20 @@
 import { useContext, useEffect, useMemo, useRef, useState, type ComponentType } from 'react';
 import { useFrame, useThree } from '@react-three/fiber';
+import type { Group } from 'three';
 import { GROUP_BUDGET, groupSizes } from '@/lib/marine-groups';
 import { createMarineMotion, MOVEMENT, type MarineMember, type MarineMotion } from '@/lib/marine-motion';
 import { isReefModel, REEF_SPECIES } from '@/lib/reef-life';
-import { oceanScale } from '@/lib/steering';
+import { oceanScale, worldFor } from '@/lib/steering';
 import type { MarineModels } from './marine-loader';
 import { AnimatedMarine } from './animated-marine';
-import { KELP_MOVERS, KelpMoversContext } from './kelp-movers';
+import { KELP_MOVERS, KelpMoversContext, setKelpMover } from './kelp-movers';
 import { MarineSplashes } from './marine-splashes';
 import { projectPoint } from './project-point';
 import { ReefAnemones } from './reef-anemone';
 import { ReefRocks } from './reef-rocks';
 import { useSceneQuality } from './scene-quality';
 import { TunaSchoolMesh } from './tuna-school-mesh';
+import { onScreen } from './view-cull';
 
 /** Tuning overlay (EXPO_PUBLIC_MARINE_DEBUG=1, then restart Metro with --clear), loaded only when switched on. */
 const MarineDebug: ComponentType<{ motion: MarineMotion }> | null =
@@ -126,23 +128,35 @@ export function MarineSwimmers({ residents, models, active, level = 1, school = 
     }
   }, [now, lane, instant, motion, schoolSpecies, aspect, invalidate, onArrived]);
 
-  // Advance the whole school before its individual meshes read their poses.
-  useFrame((_, delta) => motion.step(delta, active), -1);
+  // Advance the whole school before its individual meshes read their poses; while none of the island's water is
+  // on screen (the explorer looking at another island), its animals rest where they are.
+  const camera = useThree((state) => state.camera);
+  const origin = useRef<Group>(null), middle = useMemo(() => ({ x: 0, y: 0, z: 0 }), []);
+  const inView = useRef(true);
+  useFrame((_, delta) => {
+    if (origin.current) {
+      const at = origin.current.matrixWorld.elements;
+      middle.x = at[12]; middle.y = at[13]; middle.z = at[14];
+      const area = worldFor(level);
+      inView.current = onScreen(camera, middle, area.x + 2, area.z + 2);
+    }
+    if (inView.current) motion.step(delta, active);
+  }, -1);
   // In a kelp forest, tell the kelp where the animals are so it makes way for them (the nearest in sight first slots).
   const movers = useContext(KelpMoversContext);
   useFrame(() => {
-    if (!movers) return;
+    if (!movers || !inView.current) return;
     let slot = 0;
     for (const { model, lane } of motion.swimmers) {
       if (slot >= KELP_MOVERS) break;
       const pose = motion.get(lane), dive = motion.dive(lane), m = MOVEMENT[model];
       if (!pose || !m || dive.opacity < .3) continue;
-      movers.value[slot++].set(pose.x, pose.y + dive.y, pose.z, (m.halfLength + m.halfWidth) * .5 + .08);
+      // Its body: most of its length, and its girth (its footprint's half width less the fins, plus a little room).
+      setKelpMover(movers, slot++, pose.x, pose.y + dive.y, pose.z, pose.heading, m.halfLength * .85, m.halfWidth * .7 + .05);
     }
-    for (; slot < KELP_MOVERS; slot++) movers.value[slot].w = 0;
+    for (; slot < KELP_MOVERS; slot++) movers.value[slot * 2].w = 0;
   }, -1);
   // Report an arrival, and place the tag over the animal it follows.
-  const camera = useThree((state) => state.camera);
   useFrame(() => {
     if (now && reported.current !== now) {
       const done = schoolSpecies.includes(now) ? !motion.school?.arriving : lane !== undefined && motion.arrival(lane)?.stage === 'arrived';
@@ -168,6 +182,7 @@ export function MarineSwimmers({ residents, models, active, level = 1, school = 
   const morays = reef.filter((kind) => kind === 'moray').length, octopuses = reef.filter((kind) => kind === 'octopus').length;
   const anemones = reef.filter((kind) => kind === 'clownfish').length;
   return <>
+    <group ref={origin} />
     {motion.swimmers.map((swimmer) => {
       const resident = byLane.get(swimmer.leader);
       return resident && <AnimatedMarine key={`${resident.id}:${swimmer.index}`}

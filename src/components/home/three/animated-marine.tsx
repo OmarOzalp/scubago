@@ -1,11 +1,12 @@
 import { useContext, useEffect, useMemo, useRef } from 'react';
-import { useFrame } from '@react-three/fiber';
-import { AnimationMixer, Group, Mesh, SkinnedMesh } from 'three';
+import { useFrame, useThree } from '@react-three/fiber';
+import { AnimationMixer, Group, Mesh, SkinnedMesh, Vector3 } from 'three';
 import { OceanContext } from './ocean-context';
 import { useSceneQuality } from './scene-quality';
 import { FLOOR_BIAS, prepareUnderwater, type ReefLook } from './underwater-material';
 import { attachSwimRig, swimDrive } from './swim-rig-driver';
 import { MARINE_SIZE, TAP_SHAPES, TAP_SLOP, tapTarget } from './tap-target';
+import { onScreen } from './view-cull';
 import { MOVEMENT, type MarineMotion } from '@/lib/marine-motion';
 import { SWIM_RIGS, type SwimDrive, type SwimRigModel } from '@/lib/marine-rigs';
 import { sampleDive } from '@/lib/ocean-depth';
@@ -24,6 +25,7 @@ const GAIT: Record<MarineModel, number> = {
   'harbor-seal': 1, 'sea-otter': 1, garibaldi: 1, 'leafy-seadragon': 1, orca: 1,
 };
 const rigModel = (model: MarineModel) => (Object.hasOwn(SWIM_RIGS, model) ? model as SwimRigModel : null);
+const where = new Vector3();
 /** The reef's animals draw with their own look: those on the bottom set back, all with color states (and the moray's den). */
 function reefLook(model: MarineModel): ReefLook | undefined {
   const habitat = MOVEMENT[model].habitat ?? 'open-water';
@@ -75,6 +77,9 @@ export function AnimatedMarine({ model, gltf, lane, active, inspect = false, pop
   const elapsed = useRef(0);
   // Without a shared motion, pitch follows the rise and fall through the water, eased so it never snaps.
   const vertical = useRef({ y: NaN, pitch: 0 });
+  const camera = useThree((state) => state.camera);
+  // Whether it is on screen: off it, its skeleton rests and it isn't drawn (the swimming goes on, so it is where it should be when it comes back).
+  const seen = useRef(true);
 
   useEffect(() => {
     if (swimRig) return;
@@ -106,7 +111,11 @@ export function AnimatedMarine({ model, gltf, lane, active, inspect = false, pop
       // group member dives with its group).
       const clock = motion ? motion.clock() : next;
       const dive = motion ? motion.dive(lane, clock) : sampleDive(clock, lane, population);
-      if (swimRig && dt > 0) {
+      // Its place in the world (inside its island's frame), with a body length to spare.
+      where.set(pose.x, pose.y + dive.y, pose.z);
+      if (group.current.parent) where.applyMatrix4(group.current.parent.matrixWorld);
+      seen.current = onScreen(camera, where, SIZE[model]);
+      if (swimRig && dt > 0 && seen.current) {
         const sink = ((motion ? motion.dive(lane, clock - dt) : sampleDive(clock - dt, lane, population)).y - dive.y) / dt;
         swimRig.update(dt, swimDrive(swimming, SIZE[model], sink));
       }
@@ -118,7 +127,7 @@ export function AnimatedMarine({ model, gltf, lane, active, inspect = false, pop
         v.pitch += (nose - v.pitch) * (1 - Math.exp(-dt * 1.6));
       }
       v.y = y;
-      group.current.visible = dive.visible;
+      group.current.visible = dive.visible && seen.current;
       group.current.position.set(pose.x, y, pose.z);
       underwater?.setDepth(dive.depth, dive.surfacing);
       // Reef animals: a color state, and how much of it is out of sight in its den.
@@ -129,7 +138,7 @@ export function AnimatedMarine({ model, gltf, lane, active, inspect = false, pop
       // Yaw, then pitch about the animal's own lateral axis (positive = nose down), then roll into the turn.
       group.current.rotation.set(v.pitch, pose.heading, pose.bank, 'YXZ');
     }
-    if (!swimRig) mixer.update(dt * (inspect ? 1 : (swimming?.effort ?? 1)));
+    if (!swimRig && (inspect || seen.current)) mixer.update(dt * (inspect ? 1 : (swimming?.effort ?? 1)));
   });
 
   const pose = motion?.get(lane) ?? sampleSwimPath(0, lane);
