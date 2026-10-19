@@ -10,7 +10,8 @@ import { useSceneQuality } from './scene-quality';
  * The Mangroves & Seagrass island: a low island of tidal mud under a dense, glossy canopy of
  * mangroves, like the cays of Belize and the Florida Keys. Red mangroves stand at its edge in the
  * water on arching prop roots; a spit of pale sand runs out on its south-east side, where the canopy
- * opens; two white egrets wade at the water's edge. The seagrass meadows on the shelf around it are
+ * opens; two white egrets wade at the water's edge. A tidal creek winds in from the south-west shore to a
+ * lagoon in the island's heart (`CREEK`). The seagrass meadows on the shelf around it are
  * seagrass-meadow.tsx. Drawn in the island group's coordinates (scaled with the level).
  */
 const MUD = new Color('#4F4334'), MUD_WET = new Color('#3A3128'), LITTER = new Color('#65583F'), UNDER = new Color('#4E6A3A');
@@ -19,6 +20,7 @@ const LEAF = new Color('#2F5A2E'), LEAF_MID = new Color('#40703A'), LEAF_LIGHT =
 const BARK = new Color('#6A5D4C'), ROOT = new Color('#7A6B58'), ROOT_WET = new Color('#45392D');
 const BIRD = new Color('#F6F5EF'), BILL = new Color('#E2B33A'), LEGS = new Color('#222222');
 const PLANK = new Color('#9C8466'), PLANK_DARK = new Color('#7A6650'), SNAG = new Color('#B8B2A6');
+const CREEK_WATER = new Color('#33544A'), CREEK_SHEEN = new Color('#5E8A7A');
 /** Leaf tints: white mangroves paler and yellower, black and red mangroves darker. */
 const TINTS = [new Color('#7FA352'), new Color('#2A4E2B'), new Color('#4C7A3E')];
 const BANK = { wet: MUD_WET, rock: MUD, light: LITTER };
@@ -37,10 +39,42 @@ const angleTo = (a: number, b: number) => Math.abs(Math.atan2(Math.sin(a - b), M
 const spit = (x: number, z: number) => smoothstep(SPIT.width, SPIT.width * .5, angleTo(Math.atan2(z, x), SPIT.angle));
 const inside = (x: number, z: number) => -shoreDistance([OUTLINE], x, z);
 
+/**
+ * The tidal creek: from a mouth on the south-west shore it winds in under the canopy to a lagoon in the
+ * island's heart, its dark, tea-stained water lying flat at the tide's level. A cubic Bézier from the mouth
+ * to the lagoon's edge (`path`, sampled), narrowing as it goes in, and the lagoon, a ragged round pool.
+ */
+const CREEK = (() => {
+  const mouthAngle = 2.45, outline = outlinePoints(10).map(([x, y]) => [x, -y] as const);
+  const [mx, mz] = outline.reduce((best, p) => (angleTo(Math.atan2(p[1], p[0]), mouthAngle) < angleTo(Math.atan2(best[1], best[0]), mouthAngle) ? p : best));
+  const lagoon = { x: -.32, z: -.12, radius: .34 };
+  const c = [[mx * 1.06, mz * 1.06], [mx * .7 + .14, mz * .7 + .02], [mx * .42 - .12, mz * .42 - .02], [lagoon.x - .06, lagoon.z + .2]];
+  const path = Array.from({ length: 17 }, (_, i) => {
+    const t = i / 16, u = 1 - t;
+    return [0, 1].map((k) => u ** 3 * c[0][k] + 3 * u * u * t * c[1][k] + 3 * u * t * t * c[2][k] + t ** 3 * c[3][k]) as [number, number];
+  });
+  return { path, lagoon, width: (t: number) => .085 - .025 * t };
+})();
+/** How far (units) a point lies outside the creek's water: negative in it, its banks just past zero. */
+function creekMargin(x: number, z: number) {
+  const { path, lagoon, width } = CREEK;
+  let margin = Infinity;
+  for (let i = 0; i < path.length - 1; i++) {
+    const [ax, az] = path[i], [bx, bz] = path[i + 1], dx = bx - ax, dz = bz - az;
+    const u = Math.max(0, Math.min(1, ((x - ax) * dx + (z - az) * dz) / (dx * dx + dz * dz)));
+    margin = Math.min(margin, Math.hypot(x - ax - dx * u, z - az - dz * u) - width((i + u) / (path.length - 1)));
+  }
+  const a = Math.atan2(z - lagoon.z, x - lagoon.x);
+  const ragged = lagoon.radius * (1 + .1 * Math.sin(a * 3 + 1) + .06 * Math.sin(a * 5 - 2));
+  return Math.min(margin, Math.hypot(x - lagoon.x, z - lagoon.z) - ragged);
+}
+
 /** The ground's height at (x, z): tidal mud just above the water, a little higher inland, lumpy with roots. */
 function groundAt(x: number, z: number) {
   const lumps = (noise(x * 3.1 + 2, z * 3.1 - 1) - .5) * .02;
-  return TOP + .02 + (.06 + lumps) * smoothstep(.05, .6, Math.max(0, inside(x, z))) * (1 - .6 * spit(x, z));
+  const land = TOP + .02 + (.06 + lumps) * smoothstep(.05, .6, Math.max(0, inside(x, z))) * (1 - .6 * spit(x, z));
+  // The creek's water lies flat just above the tide line, its muddy banks sloping down to it.
+  return land + (WATER + .008 - land) * smoothstep(.035, -.005, creekMargin(x, z));
 }
 
 /** The island's ground: the outline filled with facets over a jittered lattice. Mud and leaf litter under the trees, pale sand on the spit. */
@@ -51,10 +85,23 @@ function ground(seed: number) {
   for (let z = -1.9; z <= 1.9; z += step * .87) {
     for (let x = -2.5; x <= 2.5; x += step) {
       const px = x + (Math.round(z / step) % 2) * step / 2 + (hash(x * 7 + seed, z * 3) - .5) * step * .45, pz = z + (hash(z * 5, x * 9 + seed) - .5) * step * .45;
-      if (-shoreDistance([rim], px, pz) > step * .5) points.push([px, pz]);
+      if (-shoreDistance([rim], px, pz) > step * .5 && Math.abs(creekMargin(px, pz)) > .03) points.push([px, pz]);
     }
   }
-  const height = (i: number) => (i < contour.length ? TOP + .02 : groundAt(points[i][0], points[i][1]));
+  // The creek's banks and the lagoon's rim get points of their own, so their edges stay clean.
+  const { path, lagoon, width } = CREEK, lip = (px: number, pz: number) => { if (-shoreDistance([rim], px, pz) > .03) points.push([px, pz]); };
+  path.forEach(([cx, cz], i) => {
+    const [nx, nz] = path[Math.min(i + 1, path.length - 1)], [ox, oz] = path[Math.max(i - 1, 0)], len = Math.hypot(nx - ox, nz - oz) || 1;
+    const sx = -(nz - oz) / len, sz = (nx - ox) / len, w = width(i / (path.length - 1));
+    lip(cx, cz);
+    for (const side of [-1, 1]) for (const d of [w, w + .045]) lip(cx + sx * side * d, cz + sz * side * d);
+  });
+  for (let k = 0; k < 28; k++) {
+    const a = k / 28 * Math.PI * 2;
+    for (const r of [.55, 1, 1.18]) lip(lagoon.x + Math.cos(a) * lagoon.radius * r, lagoon.z + Math.sin(a) * lagoon.radius * r);
+  }
+  lip(lagoon.x, lagoon.z);
+  const height = (i: number) => (i < contour.length ? Math.min(TOP + .02, groundAt(points[i][0], points[i][1])) : groundAt(points[i][0], points[i][1]));
   const positions: number[] = [];
   for (const [a, b, c] of delaunay(points)) {
     const cx = (points[a][0] + points[b][0] + points[c][0]) / 3, cz = (points[a][1] + points[b][1] + points[c][1]) / 3;
@@ -68,13 +115,17 @@ function ground(seed: number) {
     color.lerp(UNDER, smoothstep(.55, .75, noise(x * 2.4 + seed, z * 2.4)) * smoothstep(.2, .5, d) * .8);
     color.lerp(MUD_WET, smoothstep(.12, 0, d) * .7);
     color.lerp(SAND.clone().lerp(SAND_WET, smoothstep(.15, 0, d)), spit(x, z) * smoothstep(.85, .45, d));
+    // The creek: wet mud on its banks, dark tea-stained water catching a little of the sky.
+    const creek = creekMargin(x, z);
+    color.lerp(MUD_WET, smoothstep(.05, .01, creek));
+    if (creek < 0) color.copy(CREEK_WATER).lerp(CREEK_SHEEN, .25 * n + .35 * smoothstep(0, -.12, creek));
     return color.clone();
   });
 }
 
 /** A mangrove's crown: overlapping, flattened masses of glossy leaves, sunlit on top, each tree a little different in tone. */
 function crown(x: number, y: number, z: number, size: number, seed: number, lumps = 4) {
-  const parts: BufferGeometry[] = [], shade = new Color(), tint = TINTS[Math.floor(hash(seed, 1.3) * TINTS.length)], tone = .45 * hash(seed, 2.9);
+  const parts: BufferGeometry[] = [], shade = new Color(), tint = TINTS[Math.floor(hash(seed, 1.3) * TINTS.length)], tone = .6 * hash(seed, 2.9);
   for (let k = 0; k < lumps; k++) {
     const mass = new IcosahedronGeometry(1, 0), a = k * 2.4 + seed, w = (.13 + .06 * hash(seed, k)) * size;
     mass.scale(w, w * .55, w * .9);
@@ -206,14 +257,15 @@ function boardwalk(from: number, length: number, angle: number) {
 export function MangroveCoast({ level }: { level: number }) {
   const lite = useSceneQuality() === 'lite';
   const mesh = useMemo(() => {
-    const parts: BufferGeometry[] = [cliffs(BANK, FOOT, TOP), ground(1)];
+    // The banks lose their lids (the ground covers the island) and dip where the creek runs out to the sea.
+    const parts: BufferGeometry[] = [cliffs(BANK, FOOT, TOP, 1, 0, 0, 0, (x, z) => Math.min(TOP, groundAt(x, z) - .01)), ground(1)];
     // The canopy: trees on a jittered lattice inland, clear of the spit, with a few gaps where the mud shows.
     const step = .3;
     for (let z = -1.7; z <= 1.7; z += step * .87) {
       for (let x = -2.3; x <= 2.3; x += step) {
         const px = x + (Math.round(z / step) % 2) * step / 2 + (hash(x * 3 + 1, z * 7) - .5) * step * .5, pz = z + (hash(z * 5 + 2, x) - .5) * step * .5;
         const d = inside(px, pz);
-        if (d < .16 || spit(px, pz) > .35 || noise(px * 1.8 + 5, pz * 1.8 - 2) < .16) continue;
+        if (d < .16 || spit(px, pz) > .35 || creekMargin(px, pz) < .22 || noise(px * 1.8 + 5, pz * 1.8 - 2) < .16) continue;
         // Taller inland, so the canopy rises gently toward the island's middle.
         parts.push(...crown(px, groundAt(px, pz) + .2 + .07 * smoothstep(.2, 1, d) + .04 * hash(px, pz), pz, 1.35 + .35 * hash(pz, px) + .2 * smoothstep(.3, 1, d), Math.round(px * 31 + pz * 17)));
       }
@@ -223,7 +275,7 @@ export function MangroveCoast({ level }: { level: number }) {
     edge.forEach(([ox, oy], i) => {
       if (i % 2 && lite) return;
       const x = ox * (1.02 + .035 * hash(i, 3)), z = -oy * (1.02 + .035 * hash(i, 5));
-      if (spit(x, z) > .3) return;
+      if (spit(x, z) > .3 || creekMargin(x, z) < .12) return;
       parts.push(...redMangrove(x, z, 1.05 + .35 * hash(i, 7), i, lite ? 4 : 7));
     });
     // A few bleached snags among the living trees, and a boardwalk out from the spit.
@@ -231,6 +283,14 @@ export function MangroveCoast({ level }: { level: number }) {
     parts.push(...boardwalk(1.55, .85, SPIT.angle - .12));
     // Egrets wading off the spit.
     parts.push(...egret(Math.cos(SPIT.angle) * 1.95, Math.sin(SPIT.angle) * 1.55, 2.4), ...egret(Math.cos(SPIT.angle + .25) * 1.75, Math.sin(SPIT.angle + .25) * 1.5, -.6));
+    // On the lagoon's far side a few red mangroves stand in its water on their roots (on the near side they
+    // would hide it), and an egret fishes at its edge.
+    const { lagoon } = CREEK;
+    for (let k = 0; k < (lite ? 1 : 3); k++) {
+      const a = -2.3 + k * .75;
+      parts.push(...redMangrove(lagoon.x + Math.cos(a) * lagoon.radius * .92, lagoon.z + Math.sin(a) * lagoon.radius * .92, .62, 60 + k, lite ? 3 : 5));
+    }
+    parts.push(...egret(lagoon.x - lagoon.radius * .45, lagoon.z + lagoon.radius * .55, .9));
     // From level 5 the islets (island-outline.ts) rise as clumps of red mangroves on their roots.
     for (const { position: [ix, iz], scale } of islets(level)) {
       parts.push(cliffs(BANK, FOOT, TOP, scale, ix, iz, 9));

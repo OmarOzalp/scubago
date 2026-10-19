@@ -26,6 +26,11 @@ the Kelp Forest's and the Volcanic Pinnacle's coasts (`coast-geometry.ts`):
 - **Red mangroves.** All round the edge, red mangroves stand out in the water on their prop roots:
   a short trunk on a tangle of roots arching out and down into the water, dark and wet where they
   meet it, under a crown leaning out over the lagoon.
+- **The creek and the lagoon.** A tidal creek (`CREEK`) winds in from the south-west shore under the
+  canopy to a lagoon in the island's heart, its dark, tea-stained water lying flat at the tide's level
+  between banks of wet mud. Red mangroves stand in the lagoon's water on its far side, and an egret
+  fishes at its edge. The mud banks round the island have no lids of their own (`cliffs`' `cap`: the
+  ground covers the island), so they dip where the creek runs out to the sea.
 - **The spit.** A weathered boardwalk runs out from it over the shallows on posts, and two white
   egrets wade off its tip.
 - From level 5 the islets (`islets()` in island-outline.ts) rise as clumps of red mangroves on their

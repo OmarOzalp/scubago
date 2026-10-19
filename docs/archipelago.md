@@ -99,7 +99,8 @@ spotted eagle rays fly in squadrons. All of it is in `docs/volcanic-pinnacle.md`
 ![The Mangroves & Seagrass with its animals](art-previews/island-mangroves.png)
 
 The fourth island: a low cay under a dense canopy of mangroves, red mangroves standing out in the
-water on their prop roots all round it, a spit of pale sand with a boardwalk and wading egrets, in a
+water on their prop roots all round it, a tidal creek winding in to a lagoon at its heart, a spit of
+pale sand with a boardwalk and wading egrets, in a
 warm, turquoise lagoon ringed with seagrass meadows that sway with the surge. Its first five animals
 have their own models: the dugong, the largetooth sawfish, the lemon shark, the southern stingray
 and the tarpon (`docs/marine-species-art.md`, batch v8); the tiger sharks, great hammerheads and
