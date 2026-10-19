@@ -514,7 +514,7 @@
   "dugong": {
     "status": "stylized-draft",
     "version": 2,
-    "bytes": 202920,
+    "bytes": 202936,
     "triangles": 4762,
     "source": "Original procedural geometry and rig",
     "bones": 11,
@@ -578,8 +578,8 @@
   "tarpon": {
     "status": "stylized-draft",
     "version": 2,
-    "bytes": 210668,
-    "triangles": 4052,
+    "bytes": 211844,
+    "triangles": 4080,
     "source": "Original procedural geometry and rig",
     "bones": 12,
     "clip": "Swim",

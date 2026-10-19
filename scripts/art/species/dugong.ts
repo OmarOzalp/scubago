@@ -15,7 +15,7 @@ import { sharkContext, type SharkContext, type SharkDesign } from './shark';
 
 const BACK = hex('#665b56'), FLANK = hex('#82746b'), BELLY = hex('#b7a39b'), PAD = hex('#cbb3a9');
 const SCAR = hex('#bdada5'), STUBBLE = hex('#3d3534'), PAD_STUBBLE = hex('#5d4a46'), PAD_EDGE = hex('#7a6862'), PAD_BRISTLE = hex('#8c7469');
-const FOLD = hex('#60544e'), SHADE = hex('#3d3430'), LID = hex('#554a45'), NOSTRIL = hex('#1c1a1a'), MOUTH = hex('#483a37'), EYE = hex('#080707'), FLUKE_UNDER = hex('#a8958e');
+const FOLD = hex('#6e625b'), SHADE = hex('#3d3430'), LID = hex('#554a45'), NOSTRIL = hex('#1c1a1a'), MOUTH = hex('#483a37'), EYE = hex('#080707'), FLUKE_UNDER = hex('#a8958e');
 
 const rig = SWIM_RIGS.dugong as CetaceanRig;
 
@@ -80,7 +80,7 @@ export const DUGONG: SharkDesign = {
 };
 
 /** Half the fluke span (body lengths). */
-const FLUKE = .13;
+const FLUKE = .145;
 /** The flipper's length and its chord at the widest (body lengths). */
 const FLIPPER = .1, FLIPPER_CHORD = .064;
 
@@ -253,7 +253,7 @@ export function buildDugong() {
       const t = i / 7;
       return [.178 + .012 * Math.sin(Math.PI * t) - .01 * t, side * (1.1 + 1.45 * t)] as const;
     });
-    ctx.ribbon(fold, (t) => .0013 * Math.sin(Math.PI * (.05 + .9 * t)), FOLD, .0009);
+    ctx.ribbon(fold, (t) => .001 * Math.sin(Math.PI * (.05 + .9 * t)), FOLD, .0009);
     speck(ctx, .152, side * 1.46, .0021, EYE, .0006);
   }
 

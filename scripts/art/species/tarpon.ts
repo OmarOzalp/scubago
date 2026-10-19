@@ -23,8 +23,8 @@ const EDGE_DARK = hex('#6a838c'), EDGE_MID = hex('#a2b3b9'), EDGE_BACK = hex('#6
 // Fins.
 const FIN = hex('#63767d'), FIN_DARK = hex('#34444b'), TAIL = hex('#2c3a41'), FIN_PALE = hex('#b3c1c3'), PELVIC = hex('#c2cdce');
 // Head details.
-const IRIS = hex('#d9c27a'), IRIS_RING = hex('#8f7a3c'), PUPIL = hex('#05080a'), LID = hex('#c3d0ce'), MOUTH = hex('#262a2d');
-const GILL_RIM = hex('#f4f8f6'), GILL_LINE = hex('#6d8189'), RIB = hex('#a4b0ad'), PLATE = hex('#f6f6f0'), PLATE_EDGE = hex('#cdd3cf'), LATERAL = hex('#6e8790');
+const IRIS = hex('#e6d28c'), IRIS_RING = hex('#a58d3e'), PUPIL = hex('#05080a'), LID = hex('#c3d0ce'), MOUTH = hex('#262a2d'), NOSTRIL = hex('#1f2b31');
+const GILL_RIM = hex('#f4f8f6'), GILL_LINE = hex('#6d8189'), PLATE = hex('#f6f6f0'), PLATE_EDGE = hex('#cdd3cf'), LATERAL = hex('#6e8790');
 
 const rig = SWIM_RIGS.tarpon as SharkRig;
 
@@ -149,7 +149,7 @@ function strip(ctx: SharkContext, line: readonly (readonly [number, number])[], 
  */
 function chin(ctx: SharkContext) {
   const { mesh } = ctx;
-  const stations = [[.045, -.0745, .026, .0095], [.03, -.0725, .0245, .0095], [.014, -.0695, .0215, .0093], [0, -.0665, .0178, .009], [-.012, -.0635, .0148, .0088], [-.024, -.0605, .0106, .0078], [-.032, -.058, .0056, .005]];
+  const stations = [[.045, -.0745, .026, .0095], [.03, -.0725, .0245, .0095], [.014, -.0695, .0215, .0093], [0, -.0665, .0178, .009], [-.012, -.0635, .0148, .0088], [-.024, -.0575, .0108, .0078], [-.032, -.0545, .0058, .005]];
   const sides = 8;
   mesh.begin();
   const rings = stations.map(([s, y, w, h]) => Array.from({ length: sides }, (_, i) => {
@@ -174,7 +174,7 @@ function chin(ctx: SharkContext) {
 }
 
 /**
- * The eye: a flattened dome sunk into the head, a black pupil, a gold iris and a pale lid ring, each band
+ * The eye: a flattened dome sunk into the head, a black pupil, a gold iris with a darker rim and a pale lid ring, each band
  * its own ring of vertices so the edges between them stay crisp.
  */
 function eyeball(ctx: SharkContext, s: number, theta: number, radius: number, sink = .3) {
@@ -185,7 +185,8 @@ function eyeball(ctx: SharkContext, s: number, theta: number, radius: number, si
   const R = radius * 1.22, H = radius * .56, segments = 10;
   const stops = [
     { phi: Math.asin(.5 / 1.22), color: PUPIL },
-    { phi: Math.asin(1 / 1.22), color: IRIS },
+    { phi: Math.asin(.76 / 1.22), color: IRIS },
+    { phi: Math.asin(1 / 1.22), color: IRIS_RING },
     { phi: Math.PI * .47, color: LID },
   ];
   const ring = (phi: number, color: RGB) => Array.from({ length: segments }, (_, i) => {
@@ -254,9 +255,9 @@ export function buildTarpon() {
   });
   // Pectorals low behind the gill cover: long, pointed and a little falcate.
   const pectorals = ctx.pairedFin({
-    rootS: .262, theta: angle(.262, -.078), span: .046, droop: 1.2, sweep: .04, thickness: .006, stations: 6, sink: .012,
-    le: [[0, 0], [.012, .014], [.025, .048], [.036, .09], [.046, .132]],
-    te: [[0, .062], [.012, .08], [.025, .1], [.036, .12], [.046, .132]],
+    rootS: .262, theta: angle(.262, -.078), span: .05, droop: 1.15, sweep: .05, thickness: .006, stations: 6, sink: .012,
+    le: [[0, 0], [.013, .015], [.027, .052], [.039, .1], [.05, .15]],
+    te: [[0, .068], [.013, .088], [.027, .11], [.039, .134], [.05, .15]],
     bone: (left) => (left ? 'PectoralL' : 'PectoralR'),
     color: (_p, v) => mix(FIN_PALE, FIN_DARK, .75 * smoothstep(.15, 1, v)),
   });
@@ -302,10 +303,8 @@ export function buildTarpon() {
       return [.163 - .05 * t ** 2.2, .05 - .12 * t] as const;
     });
     ctx.ribbon(flank(side, pre), (t) => .0013 * Math.sin(Math.PI * (.1 + .8 * t)), GILL_LINE, .0012);
-    // Fine ribs fanning across the gill cover from its hinge.
-    for (const [y0, y1] of [[.035, .02], [.02, -.03], [-.005, -.07]] as const) {
-      ctx.ribbon(flank(side, [[.175, y0], [.196, (y0 + y1) / 2 + .004], [.215, y1]]), (t) => .0007 * Math.sin(Math.PI * (.12 + .76 * t)), RIB, .0008);
-    }
+    // A nostril on the snout, ahead of the eye.
+    ctx.spot(.044, side * angle(.044, .01), .0025, NOSTRIL, 1.3, .0012);
   }
   // The bony plate between the jaw bones: a long, pointed shield along the throat.
   const throat = Array.from({ length: 7 }, (_, i) => [.03 + .12 * i / 6, Math.PI] as const);

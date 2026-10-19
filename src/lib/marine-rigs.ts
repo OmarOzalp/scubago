@@ -582,8 +582,8 @@ export const SWIM_RIGS: Record<SwimRigModel, SwimRigSpec> = {
   // heaving, the paddle flippers steering and touching down on the seagrass as it grazes.
   dugong: {
     kind: 'cetacean', joints: [.24, .42, .58, .72, .84], frequency: .42, wavelength: 1.3,
-    tailAmplitude: .065, rootAmplitude: .002, headAmplitude: .004, envelope: 2.6,
-    fluke: .14, flukeLag: 1.1, flukeFlex: .08, pectoral: { flap: .07, turn: .5, climb: .3 }, heave: .004, bend: .75,
+    tailAmplitude: .075, rootAmplitude: .002, headAmplitude: .004, envelope: 2.6,
+    fluke: .16, flukeLag: 1.1, flukeFlex: .08, pectoral: { flap: .07, turn: .5, climb: .3 }, heave: .004, bend: .75,
   },
   // A ray built like a shark: slow, sinuous sweeps of the big tail, the long saw held steady out in
   // front (swung only in turns), the broad pectorals trimming it close over the bottom.
