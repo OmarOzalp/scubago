@@ -23,6 +23,8 @@ one, and that every area has residents.
 
 ## On Home
 
+![Home with three areas found (left two), and the editor without the shores picker](art-previews/archipelago-home.png)
+
 Under the island's hint, a row of pills names the areas the diver has found, in the order
 they rose, each with a coloured dot (`color`, never the only cue) and how many of the diver's
 species live there, then how many areas are still to discover ("+5 to discover"). Screen
