@@ -21,8 +21,8 @@ import { useSceneActive } from '@/hooks/use-scene-active';
 import { useTheme } from '@/hooks/use-theme';
 import { CATALOG_BY_ID } from '@/lib/catalog';
 import { formatDiveNumber, milestoneName, nextMilestone } from '@/lib/dives';
-import { AREAS, foundAreas } from '@/lib/archipelago';
-import { deriveHome, HOME_SHORE, HOME_STAGES } from '@/lib/home';
+import { AREAS, foundAreas, foundIslands, HOME_ISLAND, ISLANDS, isIsland, islandOf, islandResidents, type IslandId } from '@/lib/archipelago';
+import { deriveHome, HOME_STAGES } from '@/lib/home';
 import { useAppStore, useMyDives, useMySightings, useMyUserId, useNextDiveNumber } from '@/lib/store';
 import { macroResidents } from '@/lib/macro-life';
 import { noneSwim, type MarineModel } from '@/lib/swimming';
@@ -60,14 +60,24 @@ export default function HomeScreen() {
   const areas = useMemo(() => foundAreas(home.residents), [home.residents]);
   const undiscovered = AREAS.length - areas.length;
   const count = home.residents.length;
+  // The islands so far (Home's, and each other one once its first species is logged): the card shows
+  // one at a time, chosen from the archipelago's pills. A new discovery arrives at its own island.
+  const islands = useMemo(() => foundIslands(home.residents), [home.residents]);
+  const [chosen, setChosen] = useState<IslandId>(HOME_ISLAND);
+  const arrivingAt = moments.now ? islandOf(moments.now) : null;
+  const [arrived, setArrived] = useState(arrivingAt);
+  if (arrivingAt !== arrived) { setArrived(arrivingAt); if (arrivingAt) setChosen(arrivingAt); }
+  const island = islands.includes(chosen) ? chosen : HOME_ISLAND, habitat = ISLANDS[island];
+  const here = useMemo(() => islandResidents(home.residents, island), [home.residents, island]);
+  const islandName = AREAS.find((a) => a.id === island)!.name;
   const loading = !ready || saved.loading || moments.loading;
   // Only the diver's own discoveries swim here (the showcase build, for development, brings visitors).
   const inspect = (model: MarineModel) => router.push({ pathname: '/inspect', params: { model, preview: '1' } });
   // Something swims here, or small life lives on the reef (seen only up close, full screen): there is something to explore.
-  const small = macroResidents(home.residents).length, none = noneSwim(home.residents);
-  const swimming = !loading && count > 0 && (!none || small > 0);
+  const small = macroResidents(here).length, none = noneSwim(here);
+  const swimming = !loading && here.length > 0 && (!none || small > 0);
   // The island full screen, to zoom in on and look around (src/app/explore.tsx): the button, or a tap on the island.
-  const explore = () => router.push('/explore');
+  const explore = () => router.push(island === HOME_ISLAND ? '/explore' : { pathname: '/explore', params: { island } });
   const sceneHint = count === 0
     ? 'Your ocean is empty for now. Log a sighting and that animal comes to live here.'
     : none && small > 0
@@ -88,9 +98,9 @@ export default function HomeScreen() {
       {/* The island, mounted like a print on the page with a fine ink frame. */}
       <Paper raised padded={false} style={styles.islandCard}>
         <View style={[styles.mount, { borderColor: theme.text }]}>
-          <View style={[styles.hero, { backgroundColor: WATER[HOME_SHORE] }]}>
+          <View style={[styles.hero, { backgroundColor: WATER[habitat] }]}>
             <View style={styles.heroHeader}>
-              <View style={styles.pill}><View style={styles.liveDot} /><Text style={styles.pillText}>YOUR SANCTUARY</Text></View>
+              <View style={styles.pill}><View style={styles.liveDot} /><Text style={styles.pillText}>{island === HOME_ISLAND ? 'YOUR SANCTUARY' : islandName.toUpperCase()}</Text></View>
               <View style={styles.heroButtons}>
                 {swimming && <Pressable
                   accessibilityRole="button"
@@ -108,20 +118,38 @@ export default function HomeScreen() {
                 </Pressable>
               </View>
             </View>
-            <SanctuaryScene habitat={HOME_SHORE} level={moments.level} residents={home.residents} loading={loading} paused={paused || editing || loading} onInspect={inspect} onOpen={swimming ? explore : undefined}
+            <SanctuaryScene habitat={habitat} level={moments.level} residents={here} loading={loading} paused={paused || editing || loading} onInspect={inspect} onOpen={swimming ? explore : undefined}
               moments={{ featured: moments.featured, waiting: moments.waiting, now: moments.now, onArrived: moments.onArrived, tag: moments.tag, banner: moments.banner, note: moments.note, busy: moments.busy }} />
             <View style={styles.heroFooter}>
               <Text style={styles.homeName}>{saved.preferences.name}</Text>
               <Text style={styles.heroSubtitle}>{loading ? ' ' : home.stage.place}</Text>
               <Text style={styles.sceneHint}>{loading ? ' ' : sceneHint}</Text>
               {/* The archipelago so far: each area the diver has found, with how many of their species live there. */}
-              {!loading && areas.length > 0 && <View style={styles.areas} accessible accessibilityLabel={`Your archipelago: ${areas.map((a) => `${a.area.name}, ${a.count} species`).join('; ')}${undiscovered ? `; ${undiscovered} more ${undiscovered === 1 ? 'area' : 'areas'} to discover` : ''}`}>
+              {/* With more than one island, an island's pill shows it in the card. */}
+              {!loading && areas.length > 0 && islands.length < 2 && <View style={styles.areas} accessible accessibilityLabel={`Your archipelago: ${areas.map((a) => `${a.area.name}, ${a.count} species`).join('; ')}${undiscovered ? `; ${undiscovered} more ${undiscovered === 1 ? 'area' : 'areas'} to discover` : ''}`}>
                 {areas.map(({ area, count: living }) => <View key={area.id} style={styles.area}>
                   <View style={[styles.areaDot, { backgroundColor: area.color }]} />
                   <Text style={styles.areaName}>{area.name}</Text>
                   <Text style={styles.areaCount}>{living}</Text>
                 </View>)}
                 {undiscovered > 0 && <View style={[styles.area, styles.areaAhead]}><Text style={styles.areaName}>+{undiscovered} to discover</Text></View>}
+              </View>}
+              {!loading && islands.length > 1 && <View style={styles.areas}>
+                {/* Home's island has a pill even before its own area has a species: it is home. */}
+                {(areas.some((a) => a.area.id === HOME_ISLAND) ? areas : [{ area: AREAS.find((a) => a.id === HOME_ISLAND)!, count: 0 }, ...areas]).map(({ area, count: living }) => {
+                  const selected = area.id === island;
+                  const label = `${area.name}${living ? `, ${living} species` : ''}`;
+                  const inner = <>
+                    <View style={[styles.areaDot, { backgroundColor: area.color }]} />
+                    <Text style={styles.areaName}>{area.name}</Text>
+                    {living > 0 && <Text style={styles.areaCount}>{living}</Text>}
+                  </>;
+                  return isIsland(area.id)
+                    ? <Pressable key={area.id} accessibilityRole="button" accessibilityState={{ selected }} accessibilityLabel={`${label}. ${selected ? 'Showing this island' : 'Show this island'}`}
+                      onPress={() => setChosen(area.id as IslandId)} hitSlop={6} style={({ pressed }) => [styles.area, styles.areaButton, selected && styles.areaChosen, { opacity: pressed ? 0.7 : 1 }]}>{inner}</Pressable>
+                    : <View key={area.id} style={styles.area} accessible accessibilityLabel={label}>{inner}</View>;
+                })}
+                {undiscovered > 0 && <View style={[styles.area, styles.areaAhead]} accessible accessibilityLabel={`${undiscovered} more ${undiscovered === 1 ? 'area' : 'areas'} to discover`}><Text style={styles.areaName}>+{undiscovered} to discover</Text></View>}
               </View>}
             </View>
           </View>
@@ -226,6 +254,8 @@ const styles = StyleSheet.create({
   areas: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', gap: 6, marginTop: 10 },
   area: { flexDirection: 'row', alignItems: 'center', gap: 6, minHeight: 30, paddingHorizontal: 11, borderRadius: 15, backgroundColor: 'rgba(255,255,255,0.55)', borderWidth: 1, borderColor: 'rgba(31,75,64,0.18)' },
   areaAhead: { backgroundColor: 'transparent', borderStyle: 'dashed', borderColor: 'rgba(31,75,64,0.4)' },
+  areaButton: { minHeight: 36, borderRadius: 18 },
+  areaChosen: { backgroundColor: '#FFFFFF', borderColor: ON_WATER, borderWidth: 1.5 },
   areaDot: { width: 8, height: 8, borderRadius: 4 },
   areaName: { color: ON_WATER, fontSize: 13, fontFamily: Type.bodySemiBold },
   areaCount: { color: ON_WATER, fontSize: 13, fontFamily: Type.bodyHeavy },

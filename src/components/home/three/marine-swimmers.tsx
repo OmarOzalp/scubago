@@ -1,11 +1,12 @@
-import { useEffect, useMemo, useRef, useState, type ComponentType } from 'react';
+import { useContext, useEffect, useMemo, useRef, useState, type ComponentType } from 'react';
 import { useFrame, useThree } from '@react-three/fiber';
 import { GROUP_BUDGET, groupSizes } from '@/lib/marine-groups';
-import { createMarineMotion, type MarineMember, type MarineMotion } from '@/lib/marine-motion';
+import { createMarineMotion, MOVEMENT, type MarineMember, type MarineMotion } from '@/lib/marine-motion';
 import { isReefModel, REEF_SPECIES } from '@/lib/reef-life';
 import { oceanScale } from '@/lib/steering';
 import type { MarineModels } from './marine-loader';
 import { AnimatedMarine } from './animated-marine';
+import { KELP_MOVERS, KelpMoversContext } from './kelp-movers';
 import { MarineSplashes } from './marine-splashes';
 import { projectPoint } from './project-point';
 import { ReefAnemones } from './reef-anemone';
@@ -127,6 +128,19 @@ export function MarineSwimmers({ residents, models, active, level = 1, school = 
 
   // Advance the whole school before its individual meshes read their poses.
   useFrame((_, delta) => motion.step(delta, active), -1);
+  // In a kelp forest, tell the kelp where the animals are so it makes way for them (the nearest in sight first slots).
+  const movers = useContext(KelpMoversContext);
+  useFrame(() => {
+    if (!movers) return;
+    let slot = 0;
+    for (const { model, lane } of motion.swimmers) {
+      if (slot >= KELP_MOVERS) break;
+      const pose = motion.get(lane), dive = motion.dive(lane), m = MOVEMENT[model];
+      if (!pose || !m || dive.opacity < .3) continue;
+      movers.value[slot++].set(pose.x, pose.y + dive.y, pose.z, (m.halfLength + m.halfWidth) * .5 + .08);
+    }
+    for (; slot < KELP_MOVERS; slot++) movers.value[slot].w = 0;
+  }, -1);
   // Report an arrival, and place the tag over the animal it follows.
   const camera = useThree((state) => state.camera);
   useFrame(() => {

@@ -3,13 +3,14 @@ import type { Sighting, Species } from '@/lib/types';
 
 /**
  * The shores an island can be drawn with (sanctuary-environment.tsx). Home's island, the archipelago's
- * Coral Reef (src/lib/archipelago.ts), is the sandy island; the rocky and lagoon shores are there for
- * the archipelago's other islands. The diver no longer picks one.
+ * Coral Reef (src/lib/archipelago.ts), is the sandy island; the Kelp Forest's is the kelp coast; the
+ * rocky and lagoon shores are there for the archipelago's other islands. The diver no longer picks one.
  */
 export const HABITATS = [
   { id: 'island', name: 'Sandy island', description: 'Warm sand & swaying palms', water: '#BCE5DF', deep: '#88CFC8' },
   { id: 'lagoon', name: 'Coral lagoon', description: 'A sheltered, turquoise world', water: '#B9E4E9', deep: '#7EC9D3' },
   { id: 'cove', name: 'Rocky cove', description: 'Wild shores & quiet waters', water: '#CDDCD7', deep: '#9ABDB6' },
+  { id: 'kelp', name: 'Kelp coast', description: 'Cold green water & towering kelp', water: '#BFD3CB', deep: '#7FA39A' },
 ] as const;
 export type Habitat = typeof HABITATS[number]['id'];
 /** The shores Home's island is drawn with: the Coral Reef's sandy island. */

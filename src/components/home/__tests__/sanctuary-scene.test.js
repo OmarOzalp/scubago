@@ -22,6 +22,8 @@ jest.mock('../three/reef-rocks', () => ({ ReefRocks: ({ morays, octopuses }) => 
 jest.mock('../three/reef-anemone', () => ({ ReefAnemones: ({ count }) => <anemones data-count={count} /> }));
 // tap-target loads three.js, which jest can't; the Home card's catch-all tap only needs its slop.
 jest.mock('../three/tap-target', () => ({ TAP_SLOP: 8 }));
+// So does the kelp's mover uniform; the swimmers only need its size and (unprovided) context.
+jest.mock('../three/kelp-movers', () => ({ KELP_MOVERS: 12, KelpMoversContext: require('react').createContext(null) }));
 jest.mock('../three/macro-life', () => ({ MacroLife: ({ species, onPress, onFocus }) => <macro data-species={species} onPress={onPress} onFocus={onFocus} /> }));
 jest.mock('../island-scene', () => ({ IslandScene: () => <fallback /> }));
 jest.mock('expo-router', () => ({ router: { push: jest.fn() } }));

@@ -83,7 +83,14 @@ export function applyOceanPalette(uniforms: OceanUniforms, habitat: Habitat, car
   uniforms.uOceanCard.value.copy(linear(card ?? p.sky));
   uniforms.uOceanSkyDisplay.value.copy(linear(p.sky).convertLinearToSRGB());
   uniforms.uOceanCardDisplay.value.copy(linear(card ?? p.sky).convertLinearToSRGB());
+  // How clear the water is: the habitat's own, else the defaults.
+  const clarity = clarityOf(p, config);
+  uniforms.uOceanUnderwater.value.y = clarity.visibility;
+  uniforms.uOceanSeabed.value.x = clarity.seabed;
+  uniforms.uOceanOpacity.value.set(clarity.opacity[0], clarity.opacity[1]);
 }
+const clarityOf = (p: OceanConfig['palettes'][Habitat], config: OceanConfig) =>
+  ('clarity' in p ? p.clarity : undefined) ?? { visibility: config.underwater.visibility, seabed: config.seabedVisibility, opacity: [config.opacity.shallow, config.opacity.deep] as const };
 
 /** Advance the shared water clock (the waves, foam and animal wobble all follow it). */
 export function setOceanTime(uniforms: OceanUniforms, time: number) {
@@ -170,7 +177,7 @@ export function buildLiteOceanMap(field: DepthField, habitat: Habitat, config: O
   const { resolution, maxDepth } = DEPTH_AREA;
   const source = field.texture.image.data as Uint8Array;
   const data = new Uint8Array(resolution * resolution * 4);
-  const p = config.palettes[habitat];
+  const p = config.palettes[habitat], clarity = clarityOf(p, config);
   const [shallow, mid, deep, wetSand, shallowSand, patch] = [p.shallow, p.mid, p.deep, p.sandWet, p.sandShallow, p.patch].map(linear);
   const { mid: midStop, deep: deepStop } = config.shoreDepthRange;
   const bed = new Color(), water = new Color();
@@ -180,8 +187,8 @@ export function buildLiteOceanMap(field: DepthField, habitat: Habitat, config: O
     const depth = r * r * maxDepth, wet = depth - g * .2;
     water.copy(shallow).lerp(mid, smooth(0, midStop, depth)).lerp(deep, smooth(midStop * .5, deepStop, depth));
     bed.copy(wetSand).lerp(shallowSand, smooth(-.02, .18, wet)).lerp(patch, b * config.seabedPatches)
-      .lerp(water, 1 - Math.exp(-depth / config.seabedVisibility));
-    const alpha = (config.opacity.shallow + (config.opacity.deep - config.opacity.shallow) * smooth(0, deepStop, depth)) * smooth(0, config.shoreClearDepth, wet);
+      .lerp(water, 1 - Math.exp(-depth / clarity.seabed));
+    const alpha = (clarity.opacity[0] + (clarity.opacity[1] - clarity.opacity[0]) * smooth(0, deepStop, depth)) * smooth(0, config.shoreClearDepth, wet);
     // The surface is blended over the seabed on display values.
     bed.convertLinearToSRGB(); water.convertLinearToSRGB();
     data[k * 4] = Math.round(255 * (water.r * alpha + bed.r * (1 - alpha)));

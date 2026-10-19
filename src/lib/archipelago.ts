@@ -1,3 +1,4 @@
+import type { Habitat } from './home';
 import type { DexEntry } from './types';
 
 /**
@@ -64,4 +65,28 @@ export function foundAreas(residents: readonly DexEntry[]): FoundArea[] {
   }
   const order = (a: FoundArea) => AREAS.findIndex((area) => area.id === a.area.id);
   return [...found.values()].sort((a, b) => a.first.firstSeenOn.localeCompare(b.first.firstSeenOn) || order(a) - order(b));
+}
+
+/**
+ * The areas with an island of their own so far, and the shores each is drawn with (src/lib/home.ts).
+ * The Coral Reef is Home's island; the others rise with their first species. Species of an area
+ * without an island yet (the Open Ocean has none: it is the deep blue around them all) swim at Home.
+ */
+export const ISLANDS = { 'coral-reef': 'island', 'kelp-forest': 'kelp' } as const satisfies Partial<Record<AreaId, Habitat>>;
+export type IslandId = keyof typeof ISLANDS;
+export const HOME_ISLAND: IslandId = 'coral-reef';
+export const isIsland = (id: string): id is IslandId => Object.hasOwn(ISLANDS, id);
+
+/** The island a species swims at: its own area's, if that has an island, else Home's. */
+export function islandOf(speciesId: string): IslandId {
+  const area = areaOf(speciesId);
+  return area && isIsland(area) ? area : HOME_ISLAND;
+}
+/** The islands a collection has: Home's always, then each other island once a species from its area is logged, in the order found. */
+export function foundIslands(residents: readonly DexEntry[]): IslandId[] {
+  return [HOME_ISLAND, ...foundAreas(residents).map((a) => a.area.id).filter((id): id is IslandId => isIsland(id) && id !== HOME_ISLAND)];
+}
+/** The species of a collection that swim at an island. */
+export function islandResidents<T extends DexEntry>(residents: readonly T[], island: IslandId): T[] {
+  return residents.filter((entry) => islandOf(entry.species.id) === island);
 }
