@@ -1,4 +1,4 @@
-import { useMemo, type ReactNode } from 'react';
+import { useMemo, useState, type ReactNode } from 'react';
 import { Color, DoubleSide, Shape, type Object3D } from 'three';
 import type { Habitat } from '@/lib/home';
 import { SEABED_PROPS } from '@/lib/island-outline';
@@ -8,7 +8,7 @@ import { KelpCoast } from './kelp-coast';
 import { KelpForest } from './kelp-forest';
 import { createKelpMovers, KelpMoversContext } from './kelp-movers';
 import { OceanContext } from './ocean-context';
-import { waterColorAt } from './ocean-mesh';
+import { islandOceanUniforms, waterColorAt } from './ocean-mesh';
 import { useSceneQuality } from './scene-quality';
 import { submerge } from './islet-material';
 import { GROWTH_SECONDS, GrowthContext, Unlock } from './unlock';
@@ -67,89 +67,123 @@ function Coral({ position, color = '#CBAA96' }: { position: [number, number, num
 }
 
 /**
- * Something resting on the seabed at island-group coordinates (x, z): its height
- * follows the seabed, and its color takes on the water above it like the sand does.
+ * Something resting on the seabed at island-group coordinates (x, z) of the island at `place`
+ * (its middle, world units): its height follows the seabed, and its color takes on the water
+ * above it like the sand does.
  */
-function useSeabedProp(ocean: Ocean, habitat: Habitat, level: number, x: number, z: number, color: string, lift = .01) {
-  const scale = islandScale(level);
+function useSeabedProp(ocean: Ocean, habitat: Habitat, level: number, place: readonly [number, number], x: number, z: number, color: string, lift = .01) {
+  const scale = islandScale(level), [px, pz] = place;
   return useMemo(() => {
-    const { floor, depth } = ocean.field.profile(x * scale, z * scale);
+    const { floor, depth } = ocean.field.profile(px + x * scale, pz + z * scale);
     // Props stand up off the bottom, so they fade a little less than the sand around them.
     const fade = 1 - Math.exp(-Math.max(0, depth - .15) / OCEAN.seabedVisibility);
     return { position: [x, (floor + lift) / scale, z] as [number, number, number], color: new Color(color).lerp(waterColorAt(habitat, depth), fade) };
-  }, [ocean, habitat, scale, x, z, color, lift]);
+  }, [ocean, habitat, scale, px, pz, x, z, color, lift]);
 }
 
-function IslandWorld({ habitat, level, active, growIn, reach, children }: { habitat: Habitat; level: number; active: boolean; growIn: boolean; reach?: number; children?: ReactNode }) {
+/** The Coral Reef's sandy palm island (and the lagoon's and cove's shores): its sand, palms, rocks and corals, and what each level adds. */
+function CoralIsland({ habitat, level, ocean, place }: { habitat: Habitat; level: number; ocean: Ocean; place: readonly [number, number] }) {
+  const coralA = useSeabedProp(ocean, habitat, level, place, ...SEABED_PROPS.coralA, '#B98A7C');
+  const coralB = useSeabedProp(ocean, habitat, level, place, ...SEABED_PROPS.coralB, '#6E9C88');
+  const coralC = useSeabedProp(ocean, habitat, level, place, ...SEABED_PROPS.coralC, '#B98A7C');
+  const reefRock = useSeabedProp(ocean, habitat, level, place, ...SEABED_PROPS.reefRock, '#8FA394', .04);
+  return <group scale={islandScale(level)}>
+    <ShoreLayer scale={1.035} y={-.12} color="#D9CEAB" offset={[.025, .06]} />
+    <ShoreLayer y={-.06} color="#F0E6C9" />
+    <ShoreLayer scale={.68} y={-.04} color={habitat === 'cove' ? '#BDC8A3' : '#E5DEB7'} offset={[-.25, -.14]} />
+    {habitat === 'cove' ? <>
+      <Rock position={[-.3, .17, -.2]} scale={.6} /><Rock position={[-.86, .06, -.05]} scale={.35} />
+      <Palm position={[.6, -.015, -.1]} scale={.64} />
+    </> : <>
+      <Palm position={[-.5, -.015, -.25]} scale={.8} rotation={.3} />
+      <Palm position={[.52, -.01, -.4]} scale={.6} rotation={1.2} />
+    </>}
+    <Rock position={[-1.3, 0, .3]} scale={.2} />
+    <Rock position={[1.15, 0, -.2]} scale={.13} />
+    {habitat === 'lagoon' && <mesh position={[.45, -.02, .62]} rotation={[-Math.PI / 2, 0, -.3]} scale={[.65, .32, 1]}>
+      <circleGeometry args={[1, 24]} /><meshBasicMaterial color="#A8D3C9" />
+    </mesh>}
+    {/* What each level adds grows in (or rises from the water) when it's unlocked on screen. */}
+    <Unlock at={habitat === 'lagoon' ? 1 : 2} level={level} kind="grow">
+      <Coral position={coralA.position} color={coralA.color} /><Coral position={coralB.position} color={coralB.color} />
+    </Unlock>
+    <Unlock at={3} level={level} kind="grow">
+      <Rock position={reefRock.position} scale={.25} color={reefRock.color} /><Coral position={coralC.position} color={coralC.color} />
+    </Unlock>
+    <Unlock at={4} level={level} kind="grow"><Palm position={[-.55, -.01, .6]} scale={.46} rotation={2.5} /></Unlock>
+    <Unlock at={5} level={level} kind="rise">
+      <group position={[2.65, 0, -2]} scale={.3}><ShoreLayer y={-.1} color="#F0E6C9" /><Palm position={[0, 0, 0]} scale={.8} /></group>
+    </Unlock>
+    <Unlock at={6} level={level} kind="rise">
+      <group position={[-2.8, 0, 2.1]} scale={.26}><ShoreLayer y={-.1} color="#F0E6C9" /><Palm position={[0, 0, 0]} scale={.7} /></group>
+    </Unlock>
+  </group>;
+}
+
+/**
+ * An island in the scene's ocean: where its middle lies (world units), whose shores it has, and
+ * what lives there (its animals, drawn in the island's own frame and water).
+ */
+export type SceneIsland = { key: string; habitat: Habitat; x: number; z: number; content?: ReactNode };
+
+/**
+ * One island, in its own frame at its place in the ocean: its shores (the Kelp Forest's rocky coast
+ * and kelp, or a sandy island) and its animals, which take on its own water (islandOceanUniforms).
+ */
+function IslandPlace({ island, ocean, level, growIn }: { island: SceneIsland; ocean: Ocean; level: number; growIn: boolean }) {
   const quality = useSceneQuality();
-  const ocean = useOcean(habitat, level, WATER[habitat], quality, reach);
+  const uniforms = useMemo(() => islandOceanUniforms(ocean.uniforms, island.habitat), [ocean.uniforms, island.habitat]);
   const growth = useMemo(() => ({
     animate: growIn, duration: GROWTH_SECONDS[quality],
-    submerge: (group: Object3D) => submerge(group, ocean.uniforms, quality === 'lite'),
-  }), [growIn, quality, ocean.uniforms]);
-  const coralA = useSeabedProp(ocean, habitat, level, ...SEABED_PROPS.coralA, '#B98A7C');
-  const coralB = useSeabedProp(ocean, habitat, level, ...SEABED_PROPS.coralB, '#6E9C88');
-  const coralC = useSeabedProp(ocean, habitat, level, ...SEABED_PROPS.coralC, '#B98A7C');
-  const reefRock = useSeabedProp(ocean, habitat, level, ...SEABED_PROPS.reefRock, '#8FA394', .04);
+    submerge: (group: Object3D) => submerge(group, uniforms, quality === 'lite'),
+  }), [growIn, quality, uniforms]);
   // The kelp makes way for the animals swimming through it (kelp-movers.ts).
-  const movers = useMemo(createKelpMovers, []);
-  if (habitat === 'kelp') {
-    return <OceanContext.Provider value={ocean.uniforms}><GrowthContext.Provider value={growth}><KelpMoversContext.Provider value={movers}>
-      <WaterSurface ocean={ocean} active={active} />
-      <group scale={islandScale(level)}><KelpCoast level={level} /></group>
-      <KelpForest level={level} />
-      {children}
-    </KelpMoversContext.Provider></GrowthContext.Provider></OceanContext.Provider>;
-  }
-  return <OceanContext.Provider value={ocean.uniforms}><GrowthContext.Provider value={growth}>
-    <WaterSurface ocean={ocean} active={active} />
-    <group scale={islandScale(level)}>
-      <ShoreLayer scale={1.035} y={-.12} color="#D9CEAB" offset={[.025, .06]} />
-      <ShoreLayer y={-.06} color="#F0E6C9" />
-      <ShoreLayer scale={.68} y={-.04} color={habitat === 'cove' ? '#BDC8A3' : '#E5DEB7'} offset={[-.25, -.14]} />
-      {habitat === 'cove' ? <>
-        <Rock position={[-.3, .17, -.2]} scale={.6} /><Rock position={[-.86, .06, -.05]} scale={.35} />
-        <Palm position={[.6, -.015, -.1]} scale={.64} />
-      </> : <>
-        <Palm position={[-.5, -.015, -.25]} scale={.8} rotation={.3} />
-        <Palm position={[.52, -.01, -.4]} scale={.6} rotation={1.2} />
-      </>}
-      <Rock position={[-1.3, 0, .3]} scale={.2} />
-      <Rock position={[1.15, 0, -.2]} scale={.13} />
-      {habitat === 'lagoon' && <mesh position={[.45, -.02, .62]} rotation={[-Math.PI / 2, 0, -.3]} scale={[.65, .32, 1]}>
-        <circleGeometry args={[1, 24]} /><meshBasicMaterial color="#A8D3C9" />
-      </mesh>}
-      {/* What each level adds grows in (or rises from the water) when it's unlocked on screen. */}
-      <Unlock at={habitat === 'lagoon' ? 1 : 2} level={level} kind="grow">
-        <Coral position={coralA.position} color={coralA.color} /><Coral position={coralB.position} color={coralB.color} />
-      </Unlock>
-      <Unlock at={3} level={level} kind="grow">
-        <Rock position={reefRock.position} scale={.25} color={reefRock.color} /><Coral position={coralC.position} color={coralC.color} />
-      </Unlock>
-      <Unlock at={4} level={level} kind="grow"><Palm position={[-.55, -.01, .6]} scale={.46} rotation={2.5} /></Unlock>
-      <Unlock at={5} level={level} kind="rise">
-        <group position={[2.65, 0, -2]} scale={.3}><ShoreLayer y={-.1} color="#F0E6C9" /><Palm position={[0, 0, 0]} scale={.8} /></group>
-      </Unlock>
-      <Unlock at={6} level={level} kind="rise">
-        <group position={[-2.8, 0, 2.1]} scale={.26}><ShoreLayer y={-.1} color="#F0E6C9" /><Palm position={[0, 0, 0]} scale={.7} /></group>
-      </Unlock>
-    </group>
-    {children}
-  </GrowthContext.Provider></OceanContext.Provider>;
+  const [movers] = useState(createKelpMovers);
+  const kelp = island.habitat === 'kelp';
+  return <group position={[island.x, 0, island.z]}>
+    <OceanContext.Provider value={uniforms}><GrowthContext.Provider value={growth}><KelpMoversContext.Provider value={kelp ? movers : null}>
+      {kelp ? <>
+        <group scale={islandScale(level)}><KelpCoast level={level} /></group>
+        <KelpForest level={level} />
+      </> : <CoralIsland habitat={island.habitat} level={level} ocean={ocean} place={[island.x, island.z]} />}
+      {island.content}
+    </KelpMoversContext.Provider></GrowthContext.Provider></OceanContext.Provider>
+  </group>;
 }
 
-/** Lights and backdrop for every scene; the island and its ocean only outside the close-up. */
-export function SanctuaryEnvironment({ habitat, level, active, inspect = false, growIn = false, reach, children }: {
+/** The ocean and every island in it; `children` go in the ocean itself (the explorer's camera). */
+function IslandWorld({ habitat, level, active, growIn, reach, islands, children }: {
+  habitat: Habitat; level: number; active: boolean; growIn: boolean; reach?: number; islands: readonly SceneIsland[]; children?: ReactNode;
+}) {
+  const quality = useSceneQuality();
+  const ocean = useOcean(habitat, level, WATER[habitat], quality, reach, islands.map(({ x, z, habitat: shores }) => ({ x, z, habitat: shores })));
+  return <OceanContext.Provider value={ocean.uniforms}>
+    <WaterSurface ocean={ocean} active={active} />
+    {islands.map((island) => <IslandPlace key={island.key} island={island} ocean={ocean} level={level} growIn={growIn} />)}
+    {children}
+  </OceanContext.Provider>;
+}
+
+/**
+ * Lights and backdrop for every scene; the islands and their ocean only outside the close-up.
+ * `islands`: every island in the ocean and what lives at each (its `content`). Unless given, the
+ * habitat's island alone in the middle, with `children` living there; given, `children` go in the
+ * ocean itself.
+ */
+export function SanctuaryEnvironment({ habitat, level, active, inspect = false, growIn = false, reach, islands, children }: {
   habitat: Habitat; level: number; active: boolean; inspect?: boolean;
   /** A new level's additions rise or grow in (see Growth), rather than simply being there. */
   growIn?: boolean;
-  /** How far the water reaches from the island's middle (units): farther than the card's in the island explorer, which fills a whole screen with it. */
-  reach?: number; children?: ReactNode;
+  /** How far the water reaches from every island's middle (units): farther than the card's in the island explorer, which fills a whole screen with it. */
+  reach?: number; islands?: readonly SceneIsland[]; children?: ReactNode;
 }) {
+  const alone = useMemo(() => [{ key: habitat, habitat, x: 0, z: 0 }], [habitat]);
   return <>
     <color attach="background" args={[WATER[habitat]]} />
     <hemisphereLight args={['#F4F7EC', '#5E8F91', 1.15]} />
     <directionalLight position={OCEAN.sun} intensity={1.7} />
-    {inspect ? children : <IslandWorld habitat={habitat} level={level} active={active} growIn={growIn} reach={reach}>{children}</IslandWorld>}
+    {inspect ? children : islands
+      ? <IslandWorld habitat={habitat} level={level} active={active} growIn={growIn} reach={reach} islands={islands}>{children}</IslandWorld>
+      : <IslandWorld habitat={habitat} level={level} active={active} growIn={growIn} reach={reach} islands={alone.map((island) => ({ ...island, content: children }))} />}
   </>;
 }

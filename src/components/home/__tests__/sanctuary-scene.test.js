@@ -10,7 +10,9 @@ jest.mock('../three/use-marine-models', () => ({ useMarineModels: jest.fn() }));
 jest.mock('@/hooks/use-scene-active', () => ({ useSceneActive: () => true, useSceneVisible: () => true }));
 jest.mock('../three/scene-camera', () => ({ SceneCamera: () => null }));
 jest.mock('../three/scene-performance', () => ({ ScenePerformance: () => null }));
-jest.mock('../three/sanctuary-environment', () => ({ SanctuaryEnvironment: ({ children }) => <environment>{children}</environment> }));
+jest.mock('../three/sanctuary-environment', () => ({
+  SanctuaryEnvironment: ({ children, islands }) => <environment>{children}{islands?.map((island) => <island key={island.key} data-habitat={island.habitat}>{island.content}</island>)}</environment>,
+}));
 jest.mock('@react-three/fiber', () => ({
   useFrame: jest.fn(),
   useThree: (select) => select({ size: { width: 420, height: 390 }, invalidate: () => {}, camera: {} }),

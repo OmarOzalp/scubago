@@ -4,28 +4,34 @@ import type { Habitat } from '@/lib/home';
 import { OCEAN } from '@/lib/ocean';
 import { advanceSwimTime } from '@/lib/swimming';
 import {
-  applyOceanPalette, buildDepthField, buildLiteOceanMap, createLiteOceanMesh, createOceanUniforms, createSeabedMesh, createWaterMesh,
-  setOceanDepthMap, setOceanLiteMap, setOceanTime,
+  applyOceanPalette, applyRegionPalettes, buildDepthField, buildLiteOceanMap, createLiteOceanMesh, createOceanUniforms, createSeabedMesh, createWaterMesh,
+  setOceanDepthMap, setOceanLiteMap, setOceanTime, type OceanIsland,
 } from './ocean-mesh';
 import type { SceneQuality } from './scene-quality';
 
 /**
- * Build the island's water once per level; the palette follows the habitat without rebuilding.
- * Full quality draws a seabed and a separate wave surface; lite draws one baked, faceted layer.
+ * Build the ocean once per level and set of islands; the card's palette follows the habitat without
+ * rebuilding. Full quality draws a seabed and a separate wave surface; lite draws one baked, faceted layer.
  */
-/** The island's ocean: its uniforms, depth field and meshes, the water reaching `reach` units each way (farther in the explorer). */
-export function useOcean(habitat: Habitat, level: number, card: string, quality: SceneQuality = 'full', reach = OCEAN.waterExtent) {
+/**
+ * The ocean around the islands (`islands`; the habitat's own island alone in the middle unless given):
+ * its uniforms, depth field and meshes, the water reaching `reach` units each way from every island
+ * (farther in the explorer).
+ */
+export function useOcean(habitat: Habitat, level: number, card: string, quality: SceneQuality = 'full', reach = OCEAN.waterExtent, islands?: readonly OceanIsland[]) {
   // One uniforms object for the scene's lifetime, so swimmers keep their materials across changes.
   const [uniforms] = useState(() => createOceanUniforms(habitat, card));
-  const field = useMemo(() => buildDepthField(level), [level]);
+  const placed = JSON.stringify(islands ?? [{ x: 0, z: 0, habitat }]);
+  const field = useMemo(() => buildDepthField(level, JSON.parse(placed) as OceanIsland[]), [level, placed]);
   const lite = quality === 'lite';
   const meshes = useMemo(() => lite ? [createLiteOceanMesh(uniforms, field, OCEAN, reach)]
     : [createSeabedMesh(uniforms, field, level, reach), createWaterMesh(uniforms, field, OCEAN, reach)], [lite, uniforms, field, level, reach]);
-  const liteMap = useMemo(() => lite ? buildLiteOceanMap(field, habitat) : null, [lite, field, habitat]);
+  const liteMap = useMemo(() => lite ? buildLiteOceanMap(field) : null, [lite, field]);
   useLayoutEffect(() => { applyOceanPalette(uniforms, habitat, card); }, [uniforms, habitat, card]);
   useLayoutEffect(() => {
-    setOceanDepthMap(uniforms, field.texture);
-    return () => field.texture.dispose();
+    setOceanDepthMap(uniforms, field);
+    applyRegionPalettes(uniforms, field.habitats);
+    return () => { field.texture.dispose(); field.region.dispose(); };
   }, [uniforms, field]);
   useLayoutEffect(() => {
     setOceanLiteMap(uniforms, liteMap);

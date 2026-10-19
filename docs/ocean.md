@@ -17,8 +17,9 @@ only slightly (`roll`), which keeps the water calm rather than choppy. Waves fad
 out over the beach (`waveShoaling`), so the waterline laps gently. Each triangle
 is shaded with its own flat normal, which gives the low-poly facets.
 
-**Depth.** `buildDepthField(level)` bakes a 128 × 128 map from the island's
-shoreline, including the islets at higher levels. It holds the water depth, the
+**Depth.** `buildDepthField(level, islands)` bakes a 128 × 128 map from the island's
+shoreline (larger with more islands: see [Islands in one ocean](#islands-in-one-ocean)),
+including the islets at higher levels. It holds the water depth, the
 beach height above the surface and seagrass patches. The seabed profile runs from
 the beach down to a sandy shelf, then to a reef edge, then deepens smoothly into
 open water. The shelf width varies around the coast (`shelfVariation`), so the
@@ -55,6 +56,35 @@ the seabed (about 4,600). Waves are evaluated per vertex, and reflection and foa
 break-up are per vertex too. Each surface or seabed pixel does one depth-map
 lookup, one facet normal and a few blend terms. There are no render targets,
 screen reads or post-processing, and animals add no draw calls.
+
+## Islands in one ocean
+
+One ocean can hold several islands (`OceanIsland`: a middle and a habitat): one on Home's
+card, every island found in the explorer (`docs/island-explorer.md#one-ocean`).
+
+- **Depth.** The map reaches 9 units past every island's middle at the same 7.1 texels a
+  unit (`DEPTH`), so with the Coral Reef and the Kelp Forest it is 139 × 217. Each texel's
+  depth comes from the nearest island's shore, measured in that island's own frame, so its
+  shelf is the one its kelp and reef animals stand on; past 10 units from an island
+  (`ISLAND_REACH`) only open-ocean depth is left of its shelf, so its shore isn't measured.
+  `uOceanDepthArea` says where the map lies (x0, z0, width, depth).
+- **Whose water.** A second map beside it (the region map) holds each texel's share of up to
+  four waters (`OCEAN_REGIONS`, one channel each, in the order of `field.habitats`): an
+  island's own palette around it, giving way to the next across the open sea between them
+  (`REGION_BLEND`, 1.2 units). The surface and seabed shaders blend the palettes' colours
+  (`REGION_COLORS`: shallow, mid, deep, sand, wet sand, seagrass, sky) and clarity by those
+  shares (`REGION_GLSL`); the lite map bakes the same blend.
+- **Each island's things.** Everything at an island (its animals, kelp, reef rocks and rising
+  islets) reads its own uniforms (`islandOceanUniforms`): the ocean's own waves, clock, depth
+  map and haze, but the island's own palette and clarity, so an otter fades into the Kelp
+  Forest's cold green and a manta into the reef's turquoise.
+- **Seabed and water.** Around one island alone, as before. With several, each island's
+  radial terrain stops halfway to its neighbour (less its own size) and a coarse grid of deep
+  floor lies under the open sea; the surface lattice covers the box `reach` units past every
+  island. With the two islands in the explorer, the water is about 12,300 vertices and the
+  seabed 4,900 (16-bit indices allow 65,536).
+
+With one island the maps, meshes and pixels are exactly as they were.
 
 ## Quality tiers
 

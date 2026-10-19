@@ -1,5 +1,6 @@
 import { expect, test } from '@jest/globals';
-import { clampView, createExplorer, EXPLORER, overview, panBy, panLimit, stretchZoom, zoomAbout, zoomRange, type ExplorerFrame, type ExplorerView, type Finger } from '../explorer-view';
+import { ISLAND_PLACES } from '../archipelago';
+import { clampView, createExplorer, EXPLORER, islandView, nearestIsland, overview, panBy, panLimit, stretchZoom, zoomAbout, zoomRange, type ExplorerFrame, type ExplorerView, type Finger } from '../explorer-view';
 import { oceanScale, WORLD } from '../steering';
 
 const PHONE: ExplorerFrame = { width: 390, height: 844, level: 1 };
@@ -445,4 +446,87 @@ test('focusing on a spot eases over to it and in, never back out, within the lim
   explorer.focus(50, 0, range.min * 4);
   settle(explorer, 180);
   expect(explorer.view.x).toBeCloseTo(panLimit(PHONE, range.min * 4).x, 6);
+});
+
+// The archipelago in one ocean: the Coral Reef in the middle, the Kelp Forest to the north.
+const ARCHIPELAGO = [ISLAND_PLACES['coral-reef'], ISLAND_PLACES['kelp-forest']];
+const KELP = ISLAND_PLACES['kelp-forest'];
+
+test('every island found is in one ocean: all the way out shows them all, and the view sails from one to the other and settles over each', () => {
+  for (const base of [PHONE, { ...PHONE, level: 6 }, TABLET, { width: 1440, height: 900, level: 1 }]) {
+    const frame = { ...base, islands: ARCHIPELAGO }, all = overview(frame), half = halfView(frame, all.zoom), s = oceanScale(frame.level);
+    // Both islands' swimming areas on screen at once, and the water still to every edge.
+    for (const [x, z] of ARCHIPELAGO) {
+      expect(Math.abs(x - all.x) + WORLD.x * s).toBeLessThanOrEqual(half.x + 1e-6);
+      expect(Math.abs(z - all.z) + WORLD.z * s).toBeLessThanOrEqual(half.z + 1e-6);
+    }
+    expect(zoomRange(frame).min).toBeLessThanOrEqual(zoomRange(base).min + 1e-9);
+    // Over each island, as the explorer opens on one alone: its middle in the middle of the screen.
+    for (const [x, z] of ARCHIPELAGO) {
+      const there = islandView(frame, x, z);
+      expect(there.x).toBeCloseTo(x, 9);
+      expect(there.z).toBeCloseTo(z, 9);
+      expect(there.zoom).toBeCloseTo(zoomRange({ ...base, islands: [[x, z]] }).min, 9);
+    }
+    // A long drag down the screen carries the view from the reef all the way over the Kelp Forest (and no farther than an island alone would let it).
+    const home = islandView(frame, 0, 0), dragged = panBy(frame, home, 0, 1e5), alone = panLimit({ ...base, islands: [KELP] }, home.zoom);
+    expect(dragged.z).toBeCloseTo(KELP[1] - alone.z, 9);
+  }
+  // With Home's island alone, the explorer is exactly as before.
+  expect(panLimit({ ...PHONE, islands: [[0, 0]] }, 40)).toEqual(panLimit(PHONE, 40));
+  expect(overview({ ...TABLET, islands: [[0, 0]] })).toEqual(overview(TABLET));
+});
+
+test('the label knows which island the view is over, and the open sea between them', () => {
+  const frame = { ...PHONE, islands: ARCHIPELAGO };
+  expect(nearestIsland(frame, { x: 0, z: 0 })).toBe(0);
+  expect(nearestIsland(frame, { x: KELP[0], z: KELP[1] })).toBe(1);
+  expect(nearestIsland(frame, { x: KELP[0] / 2, z: KELP[1] / 2 })).toBe(-1);
+  expect(nearestIsland(frame, { x: .2, z: KELP[1] * .2 })).toBe(0);
+  expect(nearestIsland(PHONE, { x: 50, z: 50 })).toBe(0);
+});
+
+test('the explorer opens on the island asked for, sails to another at a button, and tells the label as the view moves', () => {
+  const frame = { ...PHONE, islands: ARCHIPELAGO }, explorer = createExplorer(frame, 1);
+  explorer.resize(frame);
+  expect(explorer.view).toEqual(islandView(frame, KELP[0], KELP[1]));
+  expect(explorer.island).toBe(1);
+  const heard: number[] = [];
+  explorer.near((island) => heard.push(island));
+  explorer.visit(0);
+  // The label names where it is going as soon as it sets off.
+  expect(heard).toEqual([0]);
+  settle(explorer);
+  expect(explorer.view).toEqual(islandView(frame, 0, 0));
+  // Dragged out into the open sea between them, the label names neither; on over the Kelp Forest, that.
+  let t = 0;
+  const drag = (to: number) => {
+    explorer.touch([{ id: 1, x: 0, y: 0 }], t += 16);
+    for (let y = 0; y <= to; y += 20) explorer.touch([{ id: 1, x: 0, y }], t += 16);
+    explorer.step(1 / 60);
+    explorer.touch([], t += 400);
+  };
+  drag(explorer.view.zoom * -KELP[1] / 2 / k);
+  expect(explorer.island).toBe(-1);
+  drag(explorer.view.zoom * -KELP[1] / 2 / k);
+  expect(explorer.island).toBe(1);
+  expect(heard).toEqual([0, -1, 1]);
+});
+
+test('islands known only once it is open (the collection still loading): it opens on the one asked for then, unless the view has moved', () => {
+  const alone = { ...PHONE, islands: [ISLAND_PLACES['coral-reef']] }, both = { ...PHONE, islands: ARCHIPELAGO };
+  const explorer = createExplorer(alone);
+  explorer.resize(alone);
+  explorer.resize(both);
+  explorer.open(1);
+  expect(explorer.view).toEqual(islandView(both, KELP[0], KELP[1]));
+  // Moved by hand, it stays where it was put.
+  const later = createExplorer(alone);
+  later.resize(alone);
+  later.zoomBy(EXPLORER.step);
+  settle(later);
+  const put = later.view;
+  later.resize(both);
+  later.open(1);
+  expect(later.view).toEqual(clampView(both, put));
 });

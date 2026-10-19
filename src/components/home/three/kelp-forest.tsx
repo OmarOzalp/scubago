@@ -34,7 +34,7 @@ varying float vOceanDepth;\nvarying float vOceanHaze;\n${OCEAN_SHADER_CHUNKS.wav
         float kelpFlutter = .01 * aKelp.w * sin(uOceanTime * 2.3 + aKelp.z * 2.0 + position.y * 7.0 + position.x * 5.0);
         transformed += vec3(kelpSide.x, .4, kelpSide.y) * kelpFlutter;
         // Making way for the animals swimming through: pushed out from each one near its depth, the
-        // holdfast staying put (full quality only). The kelp's mesh sits at the world's origin, so this is world space.
+        // holdfast staying put (full quality only). In the island's own frame, as its swimmers tell it.
         #ifndef KELP_LITE
         for (int i = 0; i < KELP_MOVERS; i++) {
           vec4 mover = uKelpMovers[i];
@@ -46,8 +46,8 @@ varying float vOceanDepth;\nvarying float vOceanHaze;\n${OCEAN_SHADER_CHUNKS.wav
           transformed.xz += away / max(gap, 1e-4) * (mover.w * .6 * near * level * smoothstep(0.0, .35, aKelp.x));
         }
         #endif
-        // The top of each stipe and its canopy float on the waves.
-        transformed.y += oceanWave(transformed.xz).y * smoothstep(.8, 1.0, aKelp.x);`)
+        // The top of each stipe and its canopy float on the waves (the ocean's, wherever the island lies).
+        transformed.y += oceanWave((modelMatrix * vec4(transformed, 1.0)).xz).y * smoothstep(.8, 1.0, aKelp.x);`)
       .replace('#include <project_vertex>', `#include <project_vertex>
         vec4 oceanWorld = modelMatrix * vec4(transformed, 1.0);${underwaterVertexGLSL(lite)}`);
     shader.fragmentShader = `uniform vec4 uOceanUnderwater;\nuniform vec3 uOceanCard;\nuniform vec2 uOceanOpacity;\nvarying float vOceanDepth;\nvarying float vOceanHaze;\n${OCEAN_SHADER_CHUNKS.color}\n${shader.fragmentShader}`
@@ -55,7 +55,7 @@ varying float vOceanDepth;\nvarying float vOceanHaze;\n${OCEAN_SHADER_CHUNKS.wav
         outgoingLight = mix(outgoingLight, uOceanCard, vOceanHaze);
         #include <opaque_fragment>`);
   };
-  material.customProgramCacheKey = () => (lite ? 'kelp-v2-lite' : 'kelp-v2');
+  material.customProgramCacheKey = () => (lite ? 'kelp-v3-lite' : 'kelp-v3');
   return material;
 }
 

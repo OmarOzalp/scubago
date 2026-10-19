@@ -7,8 +7,12 @@ import { oceanScale, WORLD } from './steering';
  * screen points per world unit.
  */
 export type ExplorerView = { x: number; z: number; zoom: number };
-/** The screen the explorer fills (points) and the island's level, whose ocean is the area to explore. */
-export type ExplorerFrame = { width: number; height: number; level: number };
+/**
+ * The screen the explorer fills (points), the island's level, and where the islands lie (their
+ * middles, world units; Home's alone at the origin unless given): the ocean around them all is the
+ * area to explore, one archipelago in one sea (ISLAND_PLACES in archipelago.ts).
+ */
+export type ExplorerFrame = { width: number; height: number; level: number; islands?: readonly (readonly [number, number])[] };
 /** A finger on the screen: its own id, and where it is (points from the middle of the screen). */
 export type Finger = { id: number; x: number; y: number };
 
@@ -30,6 +34,11 @@ export const EXPLORER = {
   frame: .6,
   /** How far past the swimming area the view may roam (units, up to the water's edge). */
   margin: 2,
+  /**
+   * Between two islands, the view is over neither (the label names the archipelago) while it is
+   * nearer one than the other by less than this share of the distance between them.
+   */
+  between: .3,
   /**
    * Zoomed all the way in, the screen's shorter side spans this much water (units): close enough to
    * find the reef's small life (macro-life.ts), a nudibranch a sixth of a phone's width.
@@ -63,25 +72,36 @@ export const EXPLORER = {
   pinchFloor: 12,
 };
 
-/** The swimming area at this level (half its width and depth, units), with `extra` water around it. */
-function area(level: number, extra: number) {
-  const s = oceanScale(level);
-  return { x: WORLD.x * s + extra, z: WORLD.z * s + extra };
+/** A box on the water (world units, from x0 to x1 and z0 to z1). */
+type Box = { x0: number; x1: number; z0: number; z1: number };
+const HOME: readonly (readonly [number, number])[] = [[0, 0]];
+const islandsOf = (frame: ExplorerFrame) => (frame.islands?.length ? frame.islands : HOME);
+/** The box reaching `hx` and `hz` each way from every point. */
+function around(points: readonly (readonly [number, number])[], hx: number, hz: number): Box {
+  const xs = points.map((p) => p[0]), zs = points.map((p) => p[1]);
+  return { x0: Math.min(...xs) - hx, x1: Math.max(...xs) + hx, z0: Math.min(...zs) - hz, z1: Math.max(...zs) + hz };
+}
+/** The swimming areas around every island at this level, with `extra` water around them. */
+function area(frame: ExplorerFrame, extra: number) {
+  const s = oceanScale(frame.level);
+  return around(islandsOf(frame), WORLD.x * s + extra, WORLD.z * s + extra);
 }
 const clamp = (value: number, min: number, max: number) => Math.min(max, Math.max(min, value));
 /** Now, in milliseconds (when the fingers moved, for the release speed). */
 const clock = () => (typeof performance === 'undefined' ? Date.now() : performance.now());
 const water = () => EXPLORER.reach - EXPLORER.edge;
+/** The explorer's water: `EXPLORER.reach` each way from every island's middle (less the edge it keeps from the screen's). */
+const waterBox = (frame: ExplorerFrame) => around(islandsOf(frame), water(), water());
 
 /**
  * How far out and in the explorer zooms (points per unit). All the way out is where it opens: the
  * whole swimming area in view, every animal on screen, and water to every edge. All the way in, a
  * close look at the animals and the reef.
  */
-export function zoomRange({ width, height, level }: ExplorerFrame) {
-  const w = Math.max(1, width), h = Math.max(1, height), k = EXPLORER.depthStretch, a = area(level, EXPLORER.frame);
-  const whole = Math.min(w / (2 * a.x), h * k / (2 * a.z));
-  const cover = Math.max(w / (2 * water()), h * k / (2 * water()));
+export function zoomRange(frame: ExplorerFrame) {
+  const w = Math.max(1, frame.width), h = Math.max(1, frame.height), k = EXPLORER.depthStretch, a = area(frame, EXPLORER.frame), sea = waterBox(frame);
+  const whole = Math.min(w / (a.x1 - a.x0), h * k / (a.z1 - a.z0));
+  const cover = Math.max(w / (sea.x1 - sea.x0), h * k / (sea.z1 - sea.z0));
   const min = Math.max(whole, cover);
   return { min, max: Math.max(min * 2, Math.min(w, h) / EXPLORER.closest), cover };
 }
@@ -115,21 +135,55 @@ function askedFor(frame: ExplorerFrame, zoom: number) {
   return zoom;
 }
 
-/** How far the middle of the view may move from the island's (x, z) at this zoom: the view's edges stay near the swimming area, inside the water. */
+/**
+ * Where the middle of the view may go at this zoom: within `x` and `z` of (`cx`, `cz`). Over each
+ * island it may move as far as the view's edges stay near the island's swimming area, inside the
+ * water (with Home's island alone, about its middle, (0, 0)), and anywhere between the islands, so
+ * the view can sail from one to the next and settle over any of them.
+ */
 export function panLimit(frame: ExplorerFrame, zoom: number) {
-  const a = area(frame.level, EXPLORER.margin);
+  const s = oceanScale(frame.level), islands = islandsOf(frame);
   const halfX = frame.width / (2 * zoom), halfZ = frame.height * EXPLORER.depthStretch / (2 * zoom);
-  return { x: Math.max(0, Math.min(a.x, water()) - halfX), z: Math.max(0, Math.min(a.z, water()) - halfZ) };
+  // About one island's middle: half a view inside its swimming area (and the water); none, if the view is wider.
+  const roam = (area: number, half: number) => Math.max(0, Math.min(area, water()) - half);
+  const axis = (middles: number[], reach: number) => {
+    const lo = Math.min(...middles) - reach, hi = Math.max(...middles) + reach;
+    return { c: (lo + hi) / 2, r: (hi - lo) / 2 };
+  };
+  const x = axis(islands.map((p) => p[0]), roam(WORLD.x * s + EXPLORER.margin, halfX));
+  const z = axis(islands.map((p) => p[1]), roam(WORLD.z * s + EXPLORER.margin, halfZ));
+  return { x: x.r, z: z.r, cx: x.c, cz: z.c };
 }
 
 /** The nearest view inside the explorer's limits. */
 export function clampView(frame: ExplorerFrame, view: ExplorerView): ExplorerView {
   const range = zoomRange(frame), zoom = clamp(view.zoom, range.min, range.max), limit = panLimit(frame, zoom);
-  return { x: clamp(view.x, -limit.x, limit.x), z: clamp(view.z, -limit.z, limit.z), zoom };
+  return { x: clamp(view.x, limit.cx - limit.x, limit.cx + limit.x), z: clamp(view.z, limit.cz - limit.z, limit.cz + limit.z), zoom };
 }
 
-/** The whole ocean, zoomed all the way out over the island: where the explorer opens, and goes back to. */
-export const overview = (frame: ExplorerFrame): ExplorerView => clampView(frame, { x: 0, z: 0, zoom: 0 });
+/** The whole ocean, zoomed all the way out over every island: where the explorer opens (unless at an island), and goes back to. */
+export const overview = (frame: ExplorerFrame): ExplorerView => {
+  const a = area(frame, 0);
+  return clampView(frame, { x: (a.x0 + a.x1) / 2, z: (a.z0 + a.z1) / 2, zoom: 0 });
+};
+
+/** One island (its middle, x and z) as the explorer would open on it alone: its whole swimming area on screen. */
+export function islandView(frame: ExplorerFrame, x: number, z: number): ExplorerView {
+  return clampView(frame, { x, z, zoom: zoomRange({ ...frame, islands: [[x, z]] }).min });
+}
+
+/**
+ * Which island the view is over (its index in the frame's): the one nearest the middle of the view,
+ * or -1 out in the open sea between two, about as near one as the other (`EXPLORER.between` of the
+ * way across).
+ */
+export function nearestIsland(frame: ExplorerFrame, view: Pick<ExplorerView, 'x' | 'z'>) {
+  const islands = islandsOf(frame), away = islands.map(([x, z]) => Math.hypot(x - view.x, z - view.z));
+  const order = away.map((_, i) => i).sort((a, b) => away[a] - away[b]);
+  if (order.length < 2) return 0;
+  const [first, second] = order, apart = Math.hypot(islands[first][0] - islands[second][0], islands[first][1] - islands[second][1]);
+  return away[second] - away[first] < apart * EXPLORER.between ? -1 : first;
+}
 
 /** Drag the water by (dx, dy) screen points: the spot under the finger stays under it. */
 export function panBy(frame: ExplorerFrame, view: ExplorerView, dx: number, dy: number): ExplorerView {
@@ -152,7 +206,7 @@ export function zoomAbout(frame: ExplorerFrame, view: ExplorerView, factor: numb
 export function followFingers(frame: ExplorerFrame, view: ExplorerView, was: { x: number; y: number }, now: { x: number; y: number }, zoom = view.zoom): ExplorerView {
   const k = EXPLORER.depthStretch, limit = panLimit(frame, zoom);
   const spot = { x: view.x + was.x / view.zoom, z: view.z + was.y * k / view.zoom };
-  return { x: clamp(spot.x - now.x / zoom, -limit.x, limit.x), z: clamp(spot.z - now.y * k / zoom, -limit.z, limit.z), zoom };
+  return { x: clamp(spot.x - now.x / zoom, limit.cx - limit.x, limit.cx + limit.x), z: clamp(spot.z - now.y * k / zoom, limit.cz - limit.z, limit.cz + limit.z), zoom };
 }
 
 /** The fingers' middle and how far apart they are (their average distance from it). */
@@ -178,12 +232,20 @@ type Tap = { t: number; x: number; y: number };
  * apart from quick pinches here) zooms closer in on that spot. A button or a double tap eases to
  * its goal. `subscribe` hears the zoom when a move ends (and as the mouse wheel turns), so tap
  * targets follow it without re-drawing the island mid-gesture; `watch` hears every move, so a
- * scene that draws only on demand (reduced motion) redraws. Held still (reduced motion), buttons,
- * double taps and spring backs jump to their goal and nothing glides.
+ * scene that draws only on demand (reduced motion) redraws; `near` hears which island the view is
+ * over as it moves between them. Held still (reduced motion), buttons, double taps and spring backs
+ * jump to their goal and nothing glides. `start`: open on that island (its index in the frame's)
+ * rather than on the whole ocean.
  */
-export function createExplorer(initial: ExplorerFrame) {
-  let frame = initial, sized = false, still = false;
-  let view = overview(frame), goal: ExplorerView | null = null;
+export function createExplorer(initial: ExplorerFrame, start?: number) {
+  let frame = initial, sized = false, still = false, opensAt = start;
+  const opening = () => {
+    const island = opensAt === undefined ? undefined : islandsOf(frame)[opensAt];
+    return island ? islandView(frame, island[0], island[1]) : overview(frame);
+  };
+  let view = opening(), goal: ExplorerView | null = null;
+  // Whether the view is still where it opened (nothing has moved it yet).
+  let untouched = true;
   let vx = 0, vz = 0, reported = view.zoom;
   // The fingers down now, whether this touch has had two at once, and where its middle was lately (for the release speed).
   let fingers: Finger[] = [], pinched = false, trail: { t: number; x: number; y: number }[] = [];
@@ -191,13 +253,21 @@ export function createExplorer(initial: ExplorerFrame) {
   let pending: Finger[] | null = null, asked = view.zoom;
   // This touch as a tap (one finger that has barely moved: where and when it landed), and the last tap (where, and when it lifted).
   let tap: Tap | null = null, lastTap: Tap | null = null;
-  const listeners = new Set<(zoom: number) => void>(), watchers = new Set<() => void>();
+  const listeners = new Set<(zoom: number) => void>(), watchers = new Set<() => void>(), islands = new Set<(island: number) => void>();
+  // The island the view is over (nearest its middle), told to `near` listeners when it changes.
+  let over = nearestIsland(frame, view);
+  const place = () => {
+    const now = nearestIsland(frame, goal ?? view);
+    if (now === over) return;
+    over = now;
+    islands.forEach((listener) => listener(over));
+  };
   const report = (force = false) => {
     if (!force && Math.abs(Math.log(view.zoom / reported)) < .1) return;
     reported = view.zoom;
     listeners.forEach((listener) => listener(view.zoom));
   };
-  const moved = () => watchers.forEach((watcher) => watcher());
+  const moved = () => { place(); watchers.forEach((watcher) => watcher()); };
   const stop = () => { goal = null; vx = 0; vz = 0; };
   // Follow the fingers' moves since the view was last read, all at once.
   const settle = () => {
@@ -213,6 +283,7 @@ export function createExplorer(initial: ExplorerFrame) {
   // Ease to a view (or, held still, go straight there).
   const head = (next: ExplorerView) => {
     settle();
+    untouched = false;
     vx = 0; vz = 0;
     if (still) { view = next; goal = null; report(true); } else goal = next;
     moved();
@@ -252,11 +323,11 @@ export function createExplorer(initial: ExplorerFrame) {
     get frame() { return frame; },
     /** Whether the view is still moving on its own (an eased move or a glide), so the camera keeps drawing. */
     get moving() { return !!goal || vx !== 0 || vz !== 0; },
-    /** The screen's size (and the island's level) changed. The first real size starts at the overview. */
+    /** The screen's size (and the island's level) changed. The first real size starts at the overview (or the island it opens on). */
     resize(next: ExplorerFrame) {
       settle();
       frame = next;
-      view = sized ? clampView(frame, view) : overview(frame);
+      view = sized ? clampView(frame, view) : opening();
       if (goal) goal = clampView(frame, goal);
       sized = true;
       report(true);
@@ -286,6 +357,7 @@ export function createExplorer(initial: ExplorerFrame) {
         return;
       }
       settle();
+      untouched = false;
       if (next.length === 0) { if (fingers.length > 0) release(time, !cancelled); return; }
       // A new touch stops any glide or eased move (a spring back too) where it is.
       if (fingers.length === 0) {
@@ -299,13 +371,31 @@ export function createExplorer(initial: ExplorerFrame) {
       fingers = next.map((f) => ({ ...f }));
     },
     /** Zoom by `factor` about a point at once (the mouse wheel; screen points from the middle). */
-    zoomAt(factor: number, fx: number, fy: number) { settle(); stop(); view = zoomAbout(frame, view, factor, fx, fy); report(); moved(); },
+    zoomAt(factor: number, fx: number, fy: number) { settle(); stop(); untouched = false; view = zoomAbout(frame, view, factor, fx, fy); report(); moved(); },
     /** Ease the zoom by `factor` about a point (screen points from the middle). */
     zoomBy(factor: number, fx = 0, fy = 0) { settle(); head(zoomAbout(frame, goal ?? view, factor, fx, fy)); },
     /** As a double tap there: closer in on that spot, or all the way out again once as close as it goes. */
     zoomToward(fx: number, fy: number) { toward(fx, fy); },
     /** Ease out to the whole ocean. */
     showAll() { head(overview(frame)); },
+    /** Ease over to an island (its index in the frame's), its whole swimming area on screen. */
+    visit(island: number) {
+      const [x, z] = islandsOf(frame)[island] ?? islandsOf(frame)[0];
+      head(islandView(frame, x, z));
+    },
+    /**
+     * Open on an island (its index in the frame's) after all, straight there: as `start`, for when the
+     * islands are known only once the explorer is already open. Nothing happens once the view has moved.
+     */
+    open(island: number) {
+      if (!untouched || !islandsOf(frame)[island]) return;
+      opensAt = island;
+      view = opening(); goal = null;
+      report(true);
+      moved();
+    },
+    /** The island the view is over now (its index in the frame's; -1 in the open sea between two). */
+    get island() { return over; },
     /** Ease over to a point on the water (x, z) and in to at least `zoom` (a reef creature's home tapped from afar). */
     focus(x: number, z: number, zoom: number) { settle(); head(clampView(frame, { x, z, zoom: Math.max(zoom, (goal ?? view).zoom) })); },
     /** Advance an eased move or a glide by `dt` seconds; the view to draw. */
@@ -329,6 +419,7 @@ export function createExplorer(initial: ExplorerFrame) {
         const slow = Math.exp(-EXPLORER.friction * t);
         vx *= slow; vz *= slow;
         if (Math.hypot(vx, vz) * view.zoom < 4) { vx = 0; vz = 0; }
+        place();
       }
       return view;
     },
@@ -341,6 +432,11 @@ export function createExplorer(initial: ExplorerFrame) {
     watch(watcher: () => void) {
       watchers.add(watcher);
       return () => { watchers.delete(watcher); };
+    },
+    /** Hear which island the view is over (its index; -1 between two), as that changes; returns the way to stop listening. */
+    near(listener: (island: number) => void) {
+      islands.add(listener);
+      return () => { islands.delete(listener); };
     },
   };
 }

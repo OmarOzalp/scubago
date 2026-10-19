@@ -79,7 +79,8 @@ project's settings with those dev defaults.
   Bay, Shipwreck), each found with its first logged species. Its island, the Coral Reef, sits
   in caustic-lit water, seen from an oblique orthographic camera; the Kelp Forest's rocky island,
   ringed with swaying giant kelp, rises with its first species, and the area pills switch
-  between them ([docs/kelp-forest.md](docs/kelp-forest.md)). Discovered
+  between them ([docs/kelp-forest.md](docs/kelp-forest.md)). Full screen, every island lies in
+  one ocean to sail between ([docs/island-explorer.md](docs/island-explorer.md#one-ocean)). Discovered
   sharks, rays, fish, the ocean sunfish and the green sea turtle swim around it as
   rigged, animated models, passing one another in lanes and keeping their own
   species' distance from the island; octopuses, cuttlefish and morays live on the reef

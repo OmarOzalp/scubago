@@ -13,7 +13,7 @@ import { Type } from '@/constants/theme';
 import { useHomePreferences } from '@/hooks/use-home-preferences';
 import { CATALOG_BY_ID } from '@/lib/catalog';
 import { createExplorer, EXPLORER } from '@/lib/explorer-view';
-import { AREAS, HOME_ISLAND, ISLANDS, isIsland, islandResidents } from '@/lib/archipelago';
+import { AREAS, foundIslands, HOME_ISLAND, ISLAND_PLACES, ISLANDS, isIsland, islandResidents } from '@/lib/archipelago';
 import { deriveHome } from '@/lib/home';
 import { macroResidents } from '@/lib/macro-life';
 import { useAppStore, useMySightings, useMyUserId } from '@/lib/store';
@@ -21,19 +21,23 @@ import type { MarineModel } from '@/lib/swimming';
 
 /** Ink on the island's water (the scene's own colours, the same in both schemes). */
 const ON_WATER = '#1F4B40';
-/** How to look about, shown when the explorer opens. */
+/** How to look about, shown when the explorer opens (and, with more than one island, how to get between them). */
 const GESTURES = 'Pinch or double-tap to look closer · drag to look around';
+const SAILING = 'Pinch or double-tap to look closer · drag to sail between your islands';
 /** How long the gesture hint stays before it fades (ms). */
 const HINT_MS = 5000;
 
 /**
- * The island explorer: the diver's island full screen, to zoom in on and look around. It opens all
- * the way out, the whole ocean and every animal in view, its water filling the screen. Pinch (or the
- * mouse wheel, on the web) zooms in about the fingers to see the smaller things, and back out; a drag
- * moves across the water (and glides on, let go fast); a double tap zooms in on that spot (and back
- * out once as close as it goes); buttons do the same for anyone who can't pinch. Tapping an animal
- * opens its page, as on Home. The island, its animals and their behavior are Home's; only the camera
- * and the reach of the water are the explorer's (explorer-view.ts).
+ * The island explorer: the diver's archipelago full screen, every island they have found in one
+ * ocean (ISLAND_PLACES in archipelago.ts), to sail between, zoom in on and look around. It opens on
+ * the island chosen on Home (`?island=`), its whole ocean and every animal in view, the water
+ * filling the screen. Pinch (or the mouse wheel, on the web) zooms in about the fingers to see the
+ * smaller things, and back out; a drag moves across the water (and glides on, let go fast), over to
+ * the next island; a double tap zooms in on that spot (and back out once as close as it goes);
+ * buttons do the same for anyone who can't pinch, and a button for each island sails there. The
+ * label names the island in view. Tapping an animal opens its page, as on Home. The islands, their
+ * animals and their behavior are Home's; only the camera and the reach of the water are the
+ * explorer's (explorer-view.ts).
  */
 export default function ExploreScreen() {
   const insets = useSafeAreaInsets();
@@ -41,14 +45,20 @@ export default function ExploreScreen() {
   const owner = useMyUserId();
   const ready = useAppStore((s) => s.ready);
   const home = useMemo(() => deriveHome(mine, CATALOG_BY_ID), [mine]);
-  // Which island (src/lib/archipelago.ts): Home's unless another is named, its own shores and animals.
+  // Every island found so far (src/lib/archipelago.ts), each at its place in the one ocean with its own shores and
+  // animals; it opens on the one named (Home's unless another is).
   const params = useLocalSearchParams<{ island?: string }>();
-  const island = params.island && isIsland(params.island) ? params.island : HOME_ISLAND, habitat = ISLANDS[island];
-  const here = useMemo(() => islandResidents(home.residents, island), [home.residents, island]);
+  const islands = useMemo(() => foundIslands(home.residents), [home.residents]);
+  const places = useMemo(() => islands.map((id) => ({
+    key: id, habitat: ISLANDS[id], x: ISLAND_PLACES[id][0], z: ISLAND_PLACES[id][1], residents: islandResidents(home.residents, id),
+  })), [islands, home.residents]);
+  const centres = useMemo(() => places.map((place) => [place.x, place.z] as const), [places]);
+  const opening = Math.max(0, params.island && isIsland(params.island) ? islands.indexOf(params.island) : 0);
+  const habitat = ISLANDS[HOME_ISLAND];
   const saved = useHomePreferences(owner);
   const loading = !ready || saved.loading;
 
-  const [explorer] = useState(() => createExplorer({ width: 1, height: 1, level: home.level }));
+  const [explorer] = useState(() => createExplorer({ width: 1, height: 1, level: home.level, islands: centres }, opening));
   const [tapScale, setTapScale] = useState(() => tapScaleAt(explorer.view.zoom));
   useEffect(() => explorer.subscribe((zoom) => setTapScale(tapScaleAt(zoom))), [explorer]);
   // With reduced motion the view doesn't sweep: zoom buttons and double taps jump, and drags don't glide on.
@@ -56,12 +66,19 @@ export default function ExploreScreen() {
   useEffect(() => explorer.holdStill(reduced), [explorer, reduced]);
   // The screen's size in points (the explorer keeps it, for its limits and the gestures' focal points).
   const onLayout = ({ nativeEvent: { layout } }: LayoutChangeEvent) => {
-    if (layout.width > 0 && layout.height > 0) explorer.resize({ width: layout.width, height: layout.height, level: home.level });
+    if (layout.width > 0 && layout.height > 0) explorer.resize({ width: layout.width, height: layout.height, level: home.level, islands: centres });
   };
   useEffect(() => {
-    const { width, height, level } = explorer.frame;
-    if (width > 1 && height > 1 && level !== home.level) explorer.resize({ width, height, level: home.level });
-  }, [explorer, home.level]);
+    const { width, height, level, islands: was } = explorer.frame;
+    if (width > 1 && height > 1 && (level !== home.level || was !== centres)) explorer.resize({ width, height, level: home.level, islands: centres });
+  }, [explorer, home.level, centres]);
+  // Islands known only now (the collection still loading as it opened): open on the one asked for after all.
+  useEffect(() => { explorer.open(opening); }, [explorer, opening]);
+  // The island in view, named in the label (and marked among the islands' buttons); out between two, the archipelago.
+  const [over, setOver] = useState(() => explorer.island);
+  useEffect(() => explorer.near(setOver), [explorer]);
+  const shown = places[over];
+  const nameOf = (id: string) => (id === HOME_ISLAND ? saved.preferences.name : AREAS.find((a) => a.id === id)!.name);
 
   const gesture = useMemo(() => {
     const fromMiddle = (x: number, y: number) => [x - explorer.frame.width / 2, y - explorer.frame.height / 2] as const;
@@ -106,7 +123,7 @@ export default function ExploreScreen() {
   }, [hint, reduced]);
 
   // The reef's small life shows only up close: say it is there to find.
-  const hiding = macroResidents(here).length;
+  const hiding = places.reduce((sum, place) => sum + macroResidents(place.residents).length, 0);
   const small = hiding === 0 ? '' : hiding === 1 ? 'A small creature lives on the reef: zoom in close to find it' : `${hiding} small creatures live on the reef: zoom in close to find them`;
   const close = () => (router.canGoBack() ? router.back() : router.replace('/'));
   const inspect = (model: MarineModel) => router.push({ pathname: '/inspect', params: { model, preview: '1' } });
@@ -120,22 +137,33 @@ export default function ExploreScreen() {
   return <GestureHandlerRootView style={[styles.root, { backgroundColor: WATER[habitat] }]}>
     <GestureDetector gesture={gesture}>
       <View ref={surface} style={styles.root} onLayout={onLayout} collapsable={false}>
-        <SanctuaryScene habitat={habitat} level={home.level} residents={here} loading={loading} onInspect={inspect}
+        <SanctuaryScene habitat={habitat} level={home.level} residents={home.residents} islands={places} loading={loading} onInspect={inspect}
           explorer={{ camera: <ExplorerCamera explorer={explorer} />, tapScale, zoom: () => explorer.view.zoom, focus: (x, z, zoom) => explorer.focus(x, z, zoom) }} />
       </View>
     </GestureDetector>
     <View style={[styles.top, { paddingTop: insets.top + 10 }]} pointerEvents="box-none">
       {button('close', 'Close the explorer', close)}
-      <View style={styles.pill}><Text style={styles.pillText}>EXPLORING · {(island === HOME_ISLAND ? saved.preferences.name : AREAS.find((a) => a.id === island)!.name).toUpperCase()}</Text></View>
+      <View style={styles.pill} accessibilityLiveRegion="polite"><Text style={styles.pillText}>EXPLORING · {(shown ? nameOf(shown.key) : 'Your archipelago').toUpperCase()}</Text></View>
       <View style={styles.spacer} />
     </View>
+    {places.length > 1 && <View style={[styles.islands, { top: insets.top + 64 }]} pointerEvents="box-none">
+      {places.map((place, i) => {
+        const here = i === over, area = AREAS.find((a) => a.id === place.key)!;
+        return <Pressable key={place.key} accessibilityRole="button" accessibilityState={{ selected: here }}
+          accessibilityLabel={`${area.name}${here ? ', in view' : ''}. Sail there`} onPress={() => explorer.visit(i)} hitSlop={4}
+          style={({ pressed }) => [styles.island, here && styles.islandHere, { opacity: pressed ? 0.7 : 1 }]}>
+          <View style={[styles.dot, { backgroundColor: area.color }]} />
+          <Text style={styles.islandText}>{area.name}</Text>
+        </Pressable>;
+      })}
+    </View>}
     <View style={[styles.controls, { paddingBottom: insets.bottom + 18, paddingRight: insets.right + 14 }]} pointerEvents="box-none">
       {button('plus', 'Zoom in', () => explorer.zoomBy(EXPLORER.step))}
       {button('minus', 'Zoom out', () => explorer.zoomBy(1 / EXPLORER.step))}
       {button('locate', 'Show the whole ocean', () => explorer.showAll())}
     </View>
     <Animated.View style={[styles.hint, { bottom: insets.bottom + 26, opacity: hint }]} pointerEvents="none">
-      <Text style={styles.hintText}>{small ? `${GESTURES}\n${small}` : GESTURES}</Text>
+      <Text style={styles.hintText}>{[places.length > 1 ? SAILING : GESTURES, small].filter(Boolean).join('\n')}</Text>
     </Animated.View>
   </GestureHandlerRootView>;
 }
@@ -145,6 +173,11 @@ const styles = StyleSheet.create({
   top: { position: 'absolute', top: 0, left: 0, right: 0, paddingHorizontal: 14, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   spacer: { width: 44 },
   pill: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 14, backgroundColor: 'rgba(255,255,255,0.55)' },
+  islands: { position: 'absolute', left: 0, right: 0, flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', gap: 8, paddingHorizontal: 14 },
+  island: { minHeight: 36, flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 12, borderRadius: 18, backgroundColor: 'rgba(255,255,255,0.6)', borderWidth: 1, borderColor: 'rgba(31,75,64,0.12)' },
+  islandHere: { backgroundColor: 'rgba(255,255,255,0.88)', borderColor: ON_WATER },
+  dot: { width: 8, height: 8, borderRadius: 4 },
+  islandText: { color: ON_WATER, fontSize: 14, fontFamily: Type.bodySemiBold },
   pillText: { color: ON_WATER, letterSpacing: 1.4, fontSize: 12, fontFamily: Type.label },
   controls: { position: 'absolute', right: 0, bottom: 0, gap: 10 },
   button: { width: 44, height: 44, borderRadius: 22, backgroundColor: 'rgba(255,255,255,0.7)', borderWidth: 1, borderColor: 'rgba(31,75,64,0.18)', alignItems: 'center', justifyContent: 'center' },
