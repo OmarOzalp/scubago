@@ -437,6 +437,37 @@ The six newest (batch v4), each told apart by how it moves as much as by its sha
 Their depths layer too: the jellyfish just under the surface, the sailfish and sea lions high,
 the eagle rays and barracuda in mid-water.
 
+The Open Ocean's five (see `docs/archipelago.md`) keep well out from the island, in the deep
+blue around it: the largest clearances and roams of any animals here.
+
+| | Humpback whale | Sperm whale | Oceanic whitetip | Leatherback turtle | Oceanic manta |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| `cruise` (units/s) | 0.3 | 0.26 | 0.38 | 0.4 | 0.3 |
+| `turnRate` / `turnEase` | 0.2 / 0.3 | 0.15 / 0.25 | 0.36 / 0.45 | 0.3 / 0.42 | 0.25 / 0.4 |
+| `bank` / `bankMax` | 0.55 / 0.2 | 0.3 / 0.08 | 0.45 / 0.16 | 0.5 / 0.12 | 1.7 / 0.34 |
+| `halfLength` × `halfWidth` | 1.55 × 0.75 | 1.5 × 0.35 | 1.05 × 0.55 | 0.7 × 0.8 | 0.83 × 1.18 |
+| `islandClearance` / `roam` | 1.45 / 0.45–1.05 | 1.5 / 0.5–1.1 | 1.15 / 0.4–1.15 | 1.2 / 0.4–1.1 | 1.35 / 0.3–1.0 |
+| `depth` / `bob` | −0.14 / 0.07 | −0.2 / 0.05 | +0.06 / 0.035 | −0.03 / 0.07 | −0.04 / 0.085 |
+| Special | `breathe` every 30 s, `lazyRoll` | `breathe` every 34 s, holding 3.2 s | `weave`, `surge` | – | – |
+
+- The **humpback** sweeps through wide arcs, banked on its long white flippers, now and then
+  rolling lazily onto one side, and comes up to breathe (2 s at the surface) every 30 s.
+- The **sperm whale** is the least inclined to turn of all (`turnRate` 0.15, `patrol` 0.5,
+  holding a line), swims deepest, and rests at the surface longest at each breath (3.2 s, every
+  34 s). A breath only comes when it fits wholly between two dives, the whales' long ones less
+  often than the dolphin's: alone, a humpback breathes about nine times in ten minutes and a
+  sperm whale six; among six animals (shorter stretches up in the water), five and two.
+- The **oceanic whitetip** cruises slowly and persistently high in the water, meandering
+  (`weave` 0.16 rad over 17 s), its great pectorals held out. It shadows the tuna school, which
+  keeps clear of it and startles when it comes close (`SCHOOL_REACTIONS`: threat 0.55).
+- The **leatherback** strokes steadily along long, gently curving lines, farther out and deeper
+  than the green turtle; its rig strokes deeper and slower, gliding longer.
+- The **oceanic manta** flies like the reef manta, slower and statelier (its rig beats 0.25 times
+  a second), farther out.
+
+None of them is a danger to the reef's animals but the whitetip (`REEF_THREAT` 0.9); the whales
+and the manta make the tuna flow wide around them (`gap` 0.45 and 0.25).
+
 How these map to the usual names: `cruise` is cruise speed, and `turnRate` and
 `turnEase` are turn speed. `halfLength`/`halfWidth` are the body radius, as an
 ellipse, because these animals are long or wide. `personalSpace` is the avoidance

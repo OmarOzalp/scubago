@@ -42,7 +42,7 @@ export const HUMPBACK_WHALE: SharkDesign = {
   center: [[0, -.012], [.1, -.008], [.25, -.002], [.4, 0], [.7, .006], [.9, .009]],
   squareTop: [[0, 2], [.2, 2], [.6, 2], [.75, 1.8], [.9, 1.6]],
   squareBottom: [[0, 2], [.15, 2.15], [.45, 2.1], [.7, 1.85], [.9, 1.6]],
-  rings: 48, columnsAbove: 8, columnsBelow: 8,
+  rings: 36, columnsAbove: 7, columnsBelow: 6,
   boundary: bellyEdge, boundaryGap: .1,
   paint: skinColor,
 };
@@ -72,7 +72,7 @@ export function buildHumpbackWhale() {
   const chord = (b: number) => FLIPPER_CHORD * Math.sqrt(Math.max(0, 1 - (Math.max(0, b) / (FLIPPER_SPAN + .002)) ** 2.4));
   const knob = (b: number) => (b < .03 ? 0 : .0062 * Math.max(0, Math.sin(Math.PI * (b - .03) / .026)) ** 2 * (1 - .4 * b / FLIPPER_SPAN));
   const flippers = ctx.pairedFin({
-    rootS: .265, theta: 2.02, span: FLIPPER_SPAN, droop: .32, sweep: .32, thickness: .018, stations: 40,
+    rootS: .265, theta: 2.02, span: FLIPPER_SPAN, droop: .32, sweep: .32, thickness: .018, stations: 31,
     le: spans.map((b) => [b, sweep(b) - knob(b)] as const),
     te: spans.map((b) => [b, sweep(b) + chord(b)] as const),
     bone: (left) => (left ? 'PectoralL' : 'PectoralR'),
@@ -90,7 +90,7 @@ export function buildHumpbackWhale() {
   const lead = (a: number) => .868 + .095 * (a / FLUKE) ** 1.5;
   const trail = (a: number) => {
     const t = a / FLUKE;
-    const serration = t > .18 ? .0045 * Math.max(0, Math.sin(Math.PI * a / .011)) ** 6 * smoothstep(.18, .3, t) : 0;
+    const serration = t > .18 ? .0045 * Math.max(0, Math.sin(Math.PI * a / .015)) ** 6 * smoothstep(.18, .3, t) : 0;
     return .948 - .006 * Math.sin(Math.PI * t) + .03 * t ** 2.2 - .014 * Math.exp(-((a / .011) ** 2)) + serration;
   };
   const margins = (a: number) => {
@@ -101,7 +101,7 @@ export function buildHumpbackWhale() {
   const across = (v: number) => FLUKE * (1 - 2 * v);
   const flukeY = ctx.center(.9);
   fin(mesh, {
-    stations: 58, rootPoint: true, chordPoints: 7,
+    stations: 42, rootPoint: true, chordPoints: 5,
     le: (v) => { const x = across(v), a = Math.abs(x); return new Vector3(x, flukeY, z(margins(a).le)); },
     te: (v) => { const x = across(v), a = Math.abs(x); return new Vector3(x, flukeY, z(margins(a).te)); },
     thickness: (v) => .006 + .02 * Math.max(0, 1 - Math.abs(across(v)) / FLUKE) ** 1.3,
@@ -121,8 +121,8 @@ export function buildHumpbackWhale() {
     for (let i = 0; i < 7; i++) {
       const base = Math.PI - (i + .5) * .15;
       const from = .035 + .012 * i, to = .47 - .03 * i;
-      const line = Array.from({ length: 12 }, (_, j) => {
-        const t = j / 11;
+      const line = Array.from({ length: 8 }, (_, j) => {
+        const t = j / 7;
         return [from + (to - from) * t, side * (base - .1 * (1 - t) * (i / 7))] as const;
       });
       ctx.ribbon(line, (t) => .0013 * (.5 + .5 * Math.sin(Math.PI * t)), PLEAT);

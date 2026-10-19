@@ -10,11 +10,13 @@ real wildlife.
 The catalog contains **120 species** (119, plus the giant cuttlefish added with the
 reef animals). 119 have photo URLs, but none have recorded human identity review; the
 giant cuttlefish has none yet (run `node scripts/fetch-species-photos.mjs`, then
-review the result as below). Twenty animated GLBs now exist: three family
+review the result as below). Twenty-five animated GLBs now exist: three family
 representatives and species drafts for whale shark, tiger shark, great white shark,
 scalloped hammerhead, reef manta ray, ocean sunfish, green sea turtle, bottlenose
 dolphin, day octopus, giant cuttlefish, giant moray, great barracuda, sailfish,
-California sea lion, spotted eagle ray, golden jellyfish and ocellaris clownfish. The
+California sea lion, spotted eagle ray, golden jellyfish, ocellaris clownfish, and the
+Open Ocean's humpback whale, sperm whale, oceanic whitetip shark, leatherback turtle and
+oceanic manta ray. The
 mapping in `src/lib/swimming.ts` resolves these exact IDs before category fallbacks,
 and draws close relatives with them (great hammerheads as the scalloped hammerhead,
 spinner dolphins as the bottlenose, the giant Pacific, blue-ringed, mimic and coconut
@@ -23,9 +25,9 @@ cuttlefish, the green moray as the giant moray, chevron barracuda as the great
 barracuda; like family representatives, these are not offered as the relative's own 3D
 model). Before the reef animals no cephalopod had any island presence; squid and the
 nautilus still have none. Before batch v4 no marine mammal but the dolphins and no
-jellyfish had any either; the other mammals (whales, the harbor seal, the sea otter)
-and the other jellies still have none. This is **17 of 120 species with dedicated draft
-art**, not 120 approved models.
+jellyfish had any either; the other mammals (the orca, the harbor seal, the sea otter,
+the dugong and the manatee), the other turtles and the other jellies still have none. This
+is **22 of 120 species with dedicated draft art**, not 120 approved models.
 
 The existing photo map contains 26 "all rights reserved" images, 67 CC BY-NC,
 10 CC BY-NC-SA, 2 CC BY-NC-ND, 10 CC BY and 4 CC BY-SA. It is a reference catalog,
@@ -276,6 +278,33 @@ Previews: `docs/art-previews/great-barracuda.png`, `sailfish.png`, `california-s
 seconds apart (left: the eagle-ray squadron, the barracuda, the sailfish cruising, the jellyfish
 swarm and the clownfish's anemone; right: the sailfish rolled into its display, the sea lions).
 
+## Batch v5: the Open Ocean
+
+The first animals of the archipelago's Open Ocean (`docs/archipelago.md`), chosen for the
+deep blue around the islands. Built the same way, one design file each in
+`scripts/art/species/`. The whales and the whitetip use the sharks' lofted body (`shark.ts`),
+and the oceanic manta uses the reef manta's sheet: `reef-manta.ts` now exports `buildManta(look)`, a
+`MantaLook` giving the markings, mouth and belly spots. The reef manta's model rebuilds byte for
+byte. All are within the 5,000-triangle, 220 KB budget (`npm run verify:marine`).
+
+| Species | Model | Motion | Triangles | GLB bytes |
+| --- | --- | --- | ---: | ---: |
+| Humpback whale | A long, stout body with a broad, flat head; rows of knobs (tubercles) along the rostrum, a cluster on the chin; a long mouth line arching up and down to its corner; throat pleats from the chin to the navel; flippers a third of the body long, white, their leading edges scalloped with knobs; a small dorsal fin on a hump; broad flukes with a serrated trailing edge, white beneath with a black margin and blotches. Black above, pale below. Drawn 3.3 units long | The dolphin's `cetacean` rig, slow and deep: the flukes heave from far back, the long flippers stroke and bank in turns. 0.3 beats/s | 4,850 | 195,272 |
+| Sperm whale | An enormous, box-like head a third of the body long, squared off in front, the single blowhole at its front left; a narrow, white-lipped lower jaw set far back underneath; small eyes and short paddle flippers behind the mouth's corners; wrinkled, prune-like skin behind the head; a low hump and a row of knuckles to the tail; broad triangular flukes. Dark slate with a brownish cast, pale squid-sucker scars on the head. Drawn 3.1 units long | `cetacean`, slower still and from farther back, its head steady. 0.26 beats/s | 4,800 | 186,672 |
+| Oceanic whitetip shark | A stocky body behind a short, bluntly rounded snout; a very tall first dorsal fin with a broadly rounded top; enormous, long, broad pectoral fins with rounded tips; a heterocercal tail. Bronze-gray above, white below, every big fin tipped with mottled white. Drawn 2.3 units long | The great white's `shark` rig, slower, its pectorals held out and turning more. 0.46 beats/s | 3,768 | 152,812 |
+| Leatherback turtle | A long, tapering, leathery carapace with seven ridges running its length to a point over the tail, dark and finely speckled white; a pale, mottled plastron; a small head with a notched upper jaw and the pink spot on its crown; enormous clawless front flippers, half the body long, their roots and shoulders under the shell's edge; small rear flippers webbed to the tail. Drawn 1.5 units long | The green turtle's `turtle` rig, deeper and slower, in bouts of two to four strokes with long glides. 0.34 strokes/s | 2,680 | 130,644 |
+| Oceanic manta ray | The reef manta's sheet, larger. On a jet-black back, bright white shoulder patches shaped like right triangles: their front edges run straight across behind the head and their inner edges along the spine, leaving a black "T", and they shade to gray toward the rear. Below: a black mouth and dark-gray chin, broad charcoal margins along the back and tips of the wings, dark spots low on the belly behind the gills. Drawn 2.6 units across | The reef manta's `manta` rig, slower. 0.25 beats/s | 3,608 | 157,280 |
+
+The oceanic manta's shoulder patches are laid on the back as their own thin skin (like the
+mouth and gill decals), following the sheet and its wing bones: painted into the sheet's vertex
+colours, a straight diagonal edge falls between its vertices and turns into a staircase.
+
+Previews: `docs/art-previews/humpback-whale.png`, `sperm-whale.png`, `oceanic-whitetip.png`,
+`leatherback-turtle.png` and `oceanic-manta.png` (the same studio framing), and
+`island-open-ocean.png`: the five around a level 4 island as the app's camera sees them, 22
+seconds apart (left: the oceanic manta, the whitetip and the sperm whale; right: the humpback,
+the sperm whale and the leatherback).
+
 The island's tuna school is not a glTF asset: each tuna is a low-poly mesh built at runtime
 (`src/components/home/three/tuna-geometry.ts`, 167 triangles, or 83 in lite quality). It has a
 spindle body, pointed snout, forked crescent tail, sickle fins and yellow finlets, metallic blue
@@ -301,6 +330,11 @@ References used for proportions and pattern placement:
 - [Florida Museum: spotted eagle ray](https://www.floridamuseum.ufl.edu/discover-fish/species-profiles/aetobatus-narinari/)
 - [WoRMS: Mastigias papua](https://www.marinespecies.org/aphia.php?p=taxdetails&id=135288)
 - [WoRMS: Amphiprion ocellaris](https://www.marinespecies.org/aphia.php?p=taxdetails&id=278398)
+- [NOAA Fisheries: humpback whale](https://www.fisheries.noaa.gov/species/humpback-whale)
+- [NOAA Fisheries: sperm whale](https://www.fisheries.noaa.gov/species/sperm-whale)
+- [NOAA Fisheries: oceanic whitetip shark](https://www.fisheries.noaa.gov/species/oceanic-whitetip-shark)
+- [NOAA Fisheries: leatherback turtle](https://www.fisheries.noaa.gov/species/leatherback-turtle)
+- [NOAA Fisheries: giant manta ray](https://www.fisheries.noaa.gov/species/giant-manta-ray)
 
 These simplified drafts still need human comparison against multiple views,
 especially fin contours, mouth detail and individual marking variation, and the

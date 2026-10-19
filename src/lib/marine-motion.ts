@@ -186,6 +186,44 @@ export const MOVEMENT: Record<MarineModel, Movement> = {
     halfLength: .25, halfWidth: .25, personalSpace: .1, avoidance: 1, islandClearance: .7, roam: [0, .75], roamPeriod: 70, patrol: 0,
     depth: .2, bob: .05, bobPeriod: 8, reverseEvery: 0, weave: .45, weavePeriod: 23,
   },
+  // The Open Ocean's animals keep well out from the island, in the deep blue around it.
+  // The biggest animal here and a graceful one: slow, sweeping arcs banked on its long flippers, an
+  // occasional lazy roll that shows a flipper, and up to the surface now and then to breathe.
+  'humpback-whale': {
+    cruise: .3, swing: .1, swingPeriod: 34, surge: 0, turnRate: .2, turnEase: .3, bank: .55, bankMax: .2, bankEase: .7, lazyRoll: .14, tilt: 0,
+    halfLength: 1.55, halfWidth: .75, personalSpace: .3, avoidance: .4, islandClearance: 1.45, roam: [.45, 1.05], roamPeriod: 95, patrol: 0,
+    depth: -.14, bob: .07, bobPeriod: 26, reverseEvery: 0,
+    breathe: { every: 30, rise: 3.6, hold: 2, clearance: .26 }, pitch: .55,
+  },
+  // Slow and straight, the least inclined to turn of all: holds its course in long lines far offshore,
+  // deep down, and lingers at the surface longest of the air-breathers when it comes up to breathe.
+  'sperm-whale': {
+    cruise: .26, swing: .06, swingPeriod: 40, surge: 0, turnRate: .15, turnEase: .25, bank: .3, bankMax: .08, bankEase: .6, lazyRoll: 0, tilt: 0,
+    halfLength: 1.5, halfWidth: .35, personalSpace: .3, avoidance: .4, islandClearance: 1.5, roam: [.5, 1.1], roamPeriod: 100, patrol: .5,
+    depth: -.2, bob: .05, bobPeriod: 30, reverseEvery: 0,
+    breathe: { every: 34, rise: 3.8, hold: 3.2, clearance: .24 }, pitch: .45,
+  },
+  // A slow, persistent, inquisitive cruiser of the surface waters: its great pectorals held out like
+  // wings, it meanders in wide curves high in the water, far out, now and then rolling a little to look.
+  'oceanic-whitetip': {
+    cruise: .38, swing: .08, swingPeriod: 28, surge: .06, turnRate: .36, turnEase: .45, bank: .45, bankMax: .16, bankEase: 1.2, lazyRoll: .06, tilt: 0,
+    halfLength: 1.05, halfWidth: .55, personalSpace: .3, avoidance: .75, islandClearance: 1.15, roam: [.4, 1.15], roamPeriod: 50, patrol: .3,
+    depth: .06, bob: .035, bobPeriod: 20, reverseEvery: 90, weave: .16, weavePeriod: 17,
+  },
+  // An ocean wanderer: powerful, steady strokes of its long front flippers carry it in long, gently
+  // curving lines well offshore, deeper than the green turtle and much less inclined to turn.
+  'leatherback-turtle': {
+    cruise: .4, swing: .08, swingPeriod: 24, surge: 0, turnRate: .3, turnEase: .42, bank: .5, bankMax: .12, bankEase: 1.2, lazyRoll: 0, tilt: 0,
+    halfLength: .7, halfWidth: .8, personalSpace: .25, avoidance: .9, islandClearance: 1.2, roam: [.4, 1.1], roamPeriod: 70, patrol: 0,
+    depth: -.03, bob: .07, bobPeriod: 22, reverseEvery: 120,
+  },
+  // The reef manta's flight, larger and statelier, out in the open water: wide weaving turns on deep
+  // banks, long climbs and descents.
+  'oceanic-manta': {
+    cruise: .3, swing: .16, swingPeriod: 16, surge: 0, turnRate: .25, turnEase: .4, bank: 1.7, bankMax: .34, bankEase: 1, lazyRoll: 0, tilt: 0,
+    halfLength: .83, halfWidth: 1.18, personalSpace: .25, avoidance: .75, islandClearance: 1.35, roam: [.3, 1], roamPeriod: 60, patrol: 0,
+    depth: -.04, bob: .085, bobPeriod: 20, reverseEvery: 100,
+  },
   // Reef animals keep to the reef: the octopus on the seabed shelf, the cuttlefish over the reef edge,
   // the moray in its crevice, the clownfish in their anemone (their behavior is in reef-life.ts).
   'day-octopus': { ...FAMILY, cruise: .075, turnRate: .9, halfLength: .5, halfWidth: .55, habitat: 'seabed' },
@@ -206,7 +244,7 @@ export const MOVEMENT: Record<MarineModel, Movement> = {
  */
 export const ARRIVAL_PACE: Partial<Record<MarineModel, number>> = {
   'great-white-shark': 1.35, 'tiger-shark': 1.15, 'scalloped-hammerhead': 1.15, 'bottlenose-dolphin': 1.25, shark: 1.1, 'reef-fish': 1.1,
-  sailfish: 1.3, 'california-sea-lion': 1.25, 'great-barracuda': 1.2,
+  sailfish: 1.3, 'california-sea-lion': 1.25, 'great-barracuda': 1.2, 'oceanic-whitetip': 1.1,
 };
 /** An arrival that takes longer than this (s) counts as arrived anyway. */
 const ARRIVAL_LIMIT = 30;

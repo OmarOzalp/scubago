@@ -274,8 +274,8 @@
   "humpback-whale": {
     "status": "stylized-draft",
     "version": 2,
-    "bytes": 282188,
-    "triangles": 7314,
+    "bytes": 195272,
+    "triangles": 4850,
     "source": "Original procedural geometry and rig",
     "bones": 11,
     "clip": "Swim",
@@ -290,8 +290,8 @@
   "sperm-whale": {
     "status": "stylized-draft",
     "version": 2,
-    "bytes": 195376,
-    "triangles": 5056,
+    "bytes": 186672,
+    "triangles": 4800,
     "source": "Original procedural geometry and rig",
     "bones": 11,
     "clip": "Swim",
@@ -322,7 +322,7 @@
   "leatherback-turtle": {
     "status": "stylized-draft",
     "version": 2,
-    "bytes": 130672,
+    "bytes": 130644,
     "triangles": 2680,
     "source": "Original procedural geometry and rig",
     "bones": 9,

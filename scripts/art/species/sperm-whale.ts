@@ -46,7 +46,7 @@ export const SPERM_WHALE: SharkDesign = {
   // Boxy across the top of the head, its underside narrowing to the jaw; a rounder body; a tall, narrow tail stock.
   squareTop: [[0, 3], [.2, 3], [.3, 2.4], [.4, 2.05], [.7, 2], [.9, 1.65]],
   squareBottom: [[0, 1.6], [.2, 1.55], [.3, 1.8], [.4, 2], [.7, 1.9], [.9, 1.65]],
-  rings: 48, columnsAbove: 8, columnsBelow: 7,
+  rings: 44, columnsAbove: 8, columnsBelow: 7,
   boundary: () => 2.55, boundaryGap: .1,
   paint: skinColor,
 };

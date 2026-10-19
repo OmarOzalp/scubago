@@ -128,10 +128,11 @@ export function buildLeatherbackTurtle() {
   for (const side of [1, -1]) eye(mesh, new Vector3(side * .058, .03, .425), new Vector3(side, .3, .35), .011, EYE, { Head: 1 }, .6);
 
   // --- Front flippers: enormous, clawless blades swept back from under the front of the shell ---
+  // Their roots and shoulders sit inside the shell's edge, so a raised flipper stays joined to the body.
   for (const side of [1, -1] as const) {
     const s = side;
-    const le = path([[s * .2, -.012, .17], [s * .4, -.02, .16], [s * .6, -.03, .05], [s * .76, -.036, -.13], [s * .82, -.038, -.24]]);
-    const te = path([[s * .22, -.028, .06], [s * .4, -.034, .04], [s * .58, -.036, -.06], [s * .74, -.038, -.18], [s * .82, -.038, -.24]]);
+    const le = path([[s * .12, -.012, .17], [s * .4, -.02, .16], [s * .6, -.03, .05], [s * .76, -.036, -.13], [s * .82, -.038, -.24]]);
+    const te = path([[s * .17, -.028, .06], [s * .4, -.034, .04], [s * .58, -.036, -.06], [s * .74, -.038, -.18], [s * .82, -.038, -.24]]);
     const [upper, lower] = side > 0 ? ['FrontL1', 'FrontL2'] : ['FrontR1', 'FrontR2'];
     fin(mesh, {
       stations: 10, le, te,
@@ -145,7 +146,7 @@ export function buildLeatherbackTurtle() {
       chordPoints: 6,
     });
     bones.push(
-      { name: upper, parent: 'Root', position: new Vector3(s * .21, -.02, .12) },
+      { name: upper, parent: 'Root', position: new Vector3(s * .15, -.02, .12) },
       { name: lower, parent: upper, position: new Vector3(s * .5, -.032, .03) },
     );
     // White specks along the flipper's upper face.

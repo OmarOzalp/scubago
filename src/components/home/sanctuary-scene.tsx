@@ -31,6 +31,8 @@ const SHOWCASE = process.env.EXPO_PUBLIC_ISLAND_SHOWCASE === '1';
 const ISLAND_PERF = process.env.EXPO_PUBLIC_ISLAND_PERF === '1';
 const SHOWCASE_SWIMMERS = (['whale-shark', 'great-white-shark', 'tiger-shark', 'reef-manta', 'mola-mola', 'green-turtle', 'scalloped-hammerhead', 'bottlenose-dolphin',
   'great-barracuda', 'sailfish', 'california-sea-lion', 'spotted-eagle-ray', 'golden-jellyfish',
+  // The Open Ocean's animals, far out from the island.
+  'humpback-whale', 'sperm-whale', 'oceanic-whitetip', 'leatherback-turtle', 'oceanic-manta',
   // The reef's animals keep to their own places on the reef (reef-life.ts): the moray's den, the octopus's rock, the cuttlefish's reef edge, the clownfish's anemone.
   'giant-moray', 'day-octopus', 'giant-cuttlefish', 'clownfish'] as const)
   .map((model, lane) => ({ model, lane }));

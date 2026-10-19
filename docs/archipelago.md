@@ -36,7 +36,19 @@ The other shores (`HABITATS`: the coral lagoon and the rocky cove) stay for the 
 other islands. Levels still grow the island and its sea as the collection grows; the rewards
 at levels 5 and 6 are its islets.
 
+## The Open Ocean's animals
+
+![The Open Ocean's five around the island](art-previews/island-open-ocean.png)
+
+The Open Ocean has no island of its own: it is the deep blue all around the others. Its first
+five animals have their own 3D models: the humpback and sperm whales, the oceanic whitetip
+shark, the leatherback turtle and the oceanic manta ray (`docs/marine-species-art.md`, batch
+v5). Logged, they swim well out from the island, the whales coming up to breathe
+(`docs/marine-navigation.md`). Its other residents swim as their family's model (the mako and
+silky sharks, Munk's devil ray), as an existing species' (the whale shark, the dolphins, the
+sailfish, the mola mola, the tuna school), or not yet at all (the olive ridley turtle).
+
 ## Next
 
 The islands of the other areas, each rising in the same sea as its first species is logged:
-the Open Ocean's animals first, then the Kelp Forest's island and its animals.
+the Kelp Forest's island and its animals next.

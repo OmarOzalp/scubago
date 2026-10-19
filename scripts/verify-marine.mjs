@@ -8,7 +8,8 @@ import { createSwimRig, RIG_EULER_ORDER } from '../src/lib/marine-rigs.ts';
 
 const SPECIES = ['whale-shark', 'tiger-shark', 'great-white-shark', 'scalloped-hammerhead', 'reef-manta', 'mola-mola', 'green-turtle', 'bottlenose-dolphin',
   'day-octopus', 'giant-cuttlefish', 'giant-moray',
-  'great-barracuda', 'sailfish', 'california-sea-lion', 'spotted-eagle-ray', 'golden-jellyfish', 'clownfish'];
+  'great-barracuda', 'sailfish', 'california-sea-lion', 'spotted-eagle-ray', 'golden-jellyfish', 'clownfish',
+  'humpback-whale', 'sperm-whale', 'oceanic-whitetip', 'leatherback-turtle', 'oceanic-manta'];
 /**
  * Animals with a pose of their own to check beyond swimming and turning: the reef's (resting,
  * jetting), the barracuda hanging still, the sailfish's sail, the clownfish rowing in place.

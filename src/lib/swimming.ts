@@ -3,11 +3,13 @@ import type { Category, DexEntry, Species } from '@/lib/types';
 
 export type SpeciesMarineModel = 'whale-shark' | 'tiger-shark' | 'great-white-shark' | 'scalloped-hammerhead' | 'reef-manta' | 'mola-mola' | 'green-turtle' | 'bottlenose-dolphin'
   | 'day-octopus' | 'giant-cuttlefish' | 'giant-moray'
-  | 'great-barracuda' | 'sailfish' | 'california-sea-lion' | 'spotted-eagle-ray' | 'golden-jellyfish' | 'clownfish';
+  | 'great-barracuda' | 'sailfish' | 'california-sea-lion' | 'spotted-eagle-ray' | 'golden-jellyfish' | 'clownfish'
+  | 'humpback-whale' | 'sperm-whale' | 'oceanic-whitetip' | 'leatherback-turtle' | 'oceanic-manta';
 export type MarineModel = 'shark' | 'manta' | 'reef-fish' | SpeciesMarineModel;
 const SPECIES_MODELS: readonly string[] = ['whale-shark', 'tiger-shark', 'great-white-shark', 'scalloped-hammerhead', 'reef-manta', 'mola-mola', 'green-turtle', 'bottlenose-dolphin',
   'day-octopus', 'giant-cuttlefish', 'giant-moray',
-  'great-barracuda', 'sailfish', 'california-sea-lion', 'spotted-eagle-ray', 'golden-jellyfish', 'clownfish'] satisfies SpeciesMarineModel[];
+  'great-barracuda', 'sailfish', 'california-sea-lion', 'spotted-eagle-ray', 'golden-jellyfish', 'clownfish',
+  'humpback-whale', 'sperm-whale', 'oceanic-whitetip', 'leatherback-turtle', 'oceanic-manta'] satisfies SpeciesMarineModel[];
 /**
  * Species drawn with a close relative's model: the nearest body plan in the set, like a family
  * representative (so not offered as their own 3D model), and far closer than the generic one.

@@ -130,11 +130,25 @@ test('hammerheads and dolphins swim as their own models; their close relatives b
   expect(speciesMarineModel('great-hammerhead')).toBeNull();
   expect(speciesMarineModel('spinner-dolphin')).toBeNull();
   expect(speciesMarineModel('scalloped-hammerhead')).toBe('scalloped-hammerhead');
-  // Other mammals still have no model, so a collection of whales alone leaves the ocean empty.
-  expect(marineModelFor(entry('humpback-whale', 'mammal').species)).toBeNull();
-  expect(noneSwim([entry('humpback-whale', 'mammal')])).toBe(true);
-  expect(pickSwimmers([entry('humpback-whale', 'mammal'), entry('spinner-dolphin', 'mammal'), entry('great-hammerhead', 'shark')]).map((s) => s.model))
+  // Other mammals still have no model, so a collection of dugongs alone leaves the ocean empty.
+  expect(marineModelFor(entry('dugong', 'mammal').species)).toBeNull();
+  expect(noneSwim([entry('dugong', 'mammal')])).toBe(true);
+  expect(pickSwimmers([entry('dugong', 'mammal'), entry('spinner-dolphin', 'mammal'), entry('great-hammerhead', 'shark')]).map((s) => s.model))
     .toEqual(['bottlenose-dolphin', 'scalloped-hammerhead']);
+});
+
+test("the Open Ocean's whales, whitetip, leatherback and oceanic manta swim as their own models", () => {
+  const ocean = [entry('humpback-whale', 'mammal'), entry('sperm-whale', 'mammal'), entry('oceanic-whitetip', 'shark'),
+    entry('leatherback-turtle', 'turtle'), entry('oceanic-manta', 'ray')];
+  for (const { species } of ocean) {
+    expect(marineModelFor(species)).toBe(species.id);
+    expect(speciesMarineModel(species.id)).toBe(species.id);
+  }
+  expect(noneSwim([entry('humpback-whale', 'mammal')])).toBe(false);
+  expect(pickSwimmers(ocean).map((s) => s.model)).toEqual(['humpback-whale', 'sperm-whale', 'oceanic-whitetip', 'leatherback-turtle', 'oceanic-manta']);
+  // Other turtles still have none; the reef manta is not the oceanic's.
+  expect(marineModelFor(entry('olive-ridley-turtle', 'turtle').species)).toBeNull();
+  expect(marineModelFor(entry('reef-manta', 'ray').species)).toBe('reef-manta');
 });
 
 test('the reef species swim as their own models; their close relatives borrow them; squid and nautilus still have none', () => {

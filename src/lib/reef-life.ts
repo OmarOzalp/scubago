@@ -111,6 +111,7 @@ const length = REEF_SIZE['giant-moray'];
 export const REEF_THREAT: Partial<Record<MarineModel, number>> = {
   'great-white-shark': 1, 'tiger-shark': 1, 'scalloped-hammerhead': .9, shark: .85, 'california-sea-lion': .75, 'bottlenose-dolphin': .65,
   'great-barracuda': .5, 'whale-shark': .3, sailfish: .25, 'reef-manta': .2, manta: .2, 'spotted-eagle-ray': .15, 'mola-mola': .15, 'green-turtle': .1,
+  'oceanic-whitetip': .9, 'sperm-whale': .3, 'oceanic-manta': .2, 'humpback-whale': .15, 'leatherback-turtle': .05,
 };
 
 /**

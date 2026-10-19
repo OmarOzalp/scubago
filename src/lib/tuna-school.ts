@@ -70,6 +70,13 @@ export const SCHOOL_REACTIONS: Record<MarineModel, { threat: number; gap: number
   'great-barracuda': { threat: .3, gap: .3 },
   'spotted-eagle-ray': { threat: 0, gap: .22 },
   'golden-jellyfish': { threat: 0, gap: .1 },
+  // The oceanic whitetip shadows tuna schools in the open ocean: the fish watch it closely and keep well clear.
+  'oceanic-whitetip': { threat: .55, gap: .38, startle: .4 },
+  // The whales and the oceanic manta are no danger to tuna, only very large: the school flows wide around them.
+  'humpback-whale': { threat: 0, gap: .45 },
+  'sperm-whale': { threat: 0, gap: .45 },
+  'oceanic-manta': { threat: 0, gap: .25 },
+  'leatherback-turtle': { threat: 0, gap: .18 },
   // Reef animals keep to the reef (reef-life.ts): the school never meets them.
   'day-octopus': { threat: 0, gap: 0 },
   'giant-cuttlefish': { threat: 0, gap: 0 },
