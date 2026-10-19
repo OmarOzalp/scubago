@@ -354,7 +354,7 @@
   "harbor-seal": {
     "status": "stylized-draft",
     "version": 2,
-    "bytes": 188948,
+    "bytes": 188992,
     "triangles": 4162,
     "source": "Original procedural geometry and rig",
     "bones": 13,
@@ -386,7 +386,7 @@
   "garibaldi": {
     "status": "stylized-draft",
     "version": 2,
-    "bytes": 133908,
+    "bytes": 133904,
     "triangles": 3328,
     "source": "Original procedural geometry and rig",
     "bones": 12,
@@ -402,8 +402,8 @@
   "leafy-seadragon": {
     "status": "stylized-draft",
     "version": 2,
-    "bytes": 169116,
-    "triangles": 4168,
+    "bytes": 153380,
+    "triangles": 3768,
     "source": "Original procedural geometry and rig",
     "bones": 12,
     "clip": "Swim",
@@ -418,8 +418,8 @@
   "orca": {
     "status": "stylized-draft",
     "version": 2,
-    "bytes": 163844,
-    "triangles": 4282,
+    "bytes": 165928,
+    "triangles": 4314,
     "source": "Original procedural geometry and rig",
     "bones": 11,
     "clip": "Swim",
