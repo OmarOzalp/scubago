@@ -545,13 +545,13 @@ export const SWIM_RIGS: Record<SwimRigModel, SwimRigSpec> = {
     lobes: { upper: .12, lower: .06, upperAngle: .7, lowerAngle: .9, lag: 1 },
     dorsal: .035, pectoral: { flap: .03, pitch: .03, turn: .55, climb: .28 }, roll: .02, bend: .8,
   },
-  // Half of it is tail: a compact body swims with slow, deep strokes and the great scythe of the
-  // upper lobe, nearly level, trails each one in a long, lagging sweep.
+  // Half of it is tail: a slim body swims with slow, deep strokes, and the great scythe of the upper
+  // lobe sweeps in a wide arc behind, bending along its length as it trails each stroke.
   'thresher-shark': {
-    kind: 'shark', joints: [.17, .28, .38, .46, .52], dorsalParent: 'Spine1', dorsalAt: .29,
-    frequency: .5, wavelength: .9, tailAmplitude: .13, rootAmplitude: .003, headAmplitude: .004, envelope: 1.9,
-    lobes: { upper: .12, lower: .05, upperAngle: .32, lowerAngle: 1, lag: 1.35 },
-    dorsal: .03, pectoral: { flap: .02, pitch: .025, turn: .5, climb: .25 }, roll: .016, bend: .85,
+    kind: 'shark', joints: [.17, .28, .38, .46, .52], dorsalParent: 'Spine1', dorsalAt: .3,
+    frequency: .5, wavelength: 1.9, tailAmplitude: .1, rootAmplitude: .003, headAmplitude: .004, envelope: 1.7,
+    lobes: { upper: .03, lower: .05, upperAngle: .32, lowerAngle: .85, lag: .6 },
+    dorsal: .03, pectoral: { flap: .02, pitch: .025, turn: .45, climb: .25 }, roll: .016, bend: .85,
   },
   // A stiff-bodied jack: quick, strong beats packed into the narrow tail stock and the deeply forked
   // tail, the deep silver body hardly bending; the sickle pectorals held out to steer.

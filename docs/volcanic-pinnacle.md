@@ -62,7 +62,7 @@ the reef's turquoise to this cobalt across the open sea between them (`docs/ocea
 | --- | --- | --- |
 | Marine iguana | Swims like a crocodile: legs folded back along its flanks, the long, flattened tail sweeping it along in waves that grow toward the whip of its tip (`TailUpper`), the head held steady | Close to the shore and high in the water; comes up to breathe and lingers at the surface, hangs still now and then, drifting with the swell |
 | Galápagos shark | Steady, confident beats of the tail, the stiff front carrying the tall dorsal fin level | Patrols the island's drop-offs, swinging out and back |
-| Pelagic thresher | Slow, deep strokes of a compact body, the great scythe of the upper tail lobe trailing each one, bending along its whole length | Long, wide arcs out in the blue and deeper down |
+| Pelagic thresher | Slow, deep strokes: the slim body held nearly still, the great scythe of the tail sweeping in one smooth arc behind, trailing a little | Long, wide arcs out in the blue and deeper down |
 | Giant trevally | A stiff-bodied jack: quick, strong beats packed into the narrow tail stock and the forked tail | A hunting pack of three to five in tight formation (`GROUP_STYLES`), cutting across, easing off, then charging in a burst |
 | King angelfish | Rows slowly on its pectorals, the tall disc of a body tilting and turning on the spot | Keeps to the rocks in the shallows, hangs a while and swims on; rocks with the surge |
 

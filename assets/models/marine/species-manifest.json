@@ -450,8 +450,8 @@
   "thresher-shark": {
     "status": "stylized-draft",
     "version": 2,
-    "bytes": 172656,
-    "triangles": 4356,
+    "bytes": 187040,
+    "triangles": 4780,
     "source": "Original procedural geometry and rig",
     "bones": 12,
     "clip": "Swim",

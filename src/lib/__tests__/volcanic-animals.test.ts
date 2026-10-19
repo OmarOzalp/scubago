@@ -35,9 +35,14 @@ test('a marine iguana sweeps its tail in waves that grow toward the whip of its 
   expect(range(yaw('marine-iguana', 'PectoralL'))).toBeLessThan(.25);
 });
 
-test("a thresher's long tail sweeps wider than a Galápagos shark's, its upper lobe trailing each stroke", () => {
-  expect(range(yaw('thresher-shark', 'Tail'))).toBeGreaterThan(range(yaw('galapagos-shark', 'Tail')) * 1.2);
-  expect(range(yaw('thresher-shark', 'TailUpper'))).toBeGreaterThan(.15);
+test('a thresher sweeps its long scythe of a tail in one smooth arc from a nearly still body', () => {
+  const body = ['Spine1', 'Spine2', 'RearBody', 'TailBase'].map((bone) => range(yaw('thresher-shark', bone)));
+  const tail = range(yaw('thresher-shark', 'Tail'));
+  // The tail swings far more than any joint of the body, and the lobe hardly bends back against it (no kink).
+  expect(tail).toBeGreaterThan(Math.max(...body) * 4);
+  expect(range(yaw('thresher-shark', 'TailUpper'))).toBeLessThan(tail / 5);
+  // Its tip sweeps about a tenth of the shark's length either side, like the Galápagos shark's.
+  expect(Math.sin(tail / 2) * .48).toBeGreaterThan(.08);
 });
 
 test('hammerheads school in twos and threes at the pinnacle; giant trevally hunt in packs of three to five', () => {

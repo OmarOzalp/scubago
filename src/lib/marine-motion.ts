@@ -293,7 +293,7 @@ export const MOVEMENT: Record<MarineModel, Movement> = {
   // behind; it swings in toward the island now and then.
   'thresher-shark': {
     cruise: .38, swing: .1, swingPeriod: 30, surge: .1, turnRate: .34, turnEase: .45, bank: .5, bankMax: .2, bankEase: 1.2, lazyRoll: 0, tilt: 0,
-    halfLength: 1.2, halfWidth: .4, personalSpace: .3, avoidance: .8, islandClearance: 1.1, roam: [.3, 1.05], roamPeriod: 55, patrol: .3,
+    halfLength: 1.35, halfWidth: .48, personalSpace: .3, avoidance: .8, islandClearance: 1.1, roam: [.3, 1.05], roamPeriod: 55, patrol: .3,
     depth: -.12, bob: .04, bobPeriod: 21, reverseEvery: 100, weave: .14, weavePeriod: 19,
   },
   // A hunting pack: fast and direct, cutting across in tight formation, easing off, then charging in a
