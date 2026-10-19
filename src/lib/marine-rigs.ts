@@ -13,7 +13,8 @@
 
 export type SwimRigModel = 'tiger-shark' | 'whale-shark' | 'great-white-shark' | 'scalloped-hammerhead' | 'reef-manta' | 'mola-mola' | 'green-turtle' | 'bottlenose-dolphin'
   | 'day-octopus' | 'giant-cuttlefish' | 'giant-moray' | 'great-barracuda' | 'sailfish' | 'clownfish'
-  | 'spotted-eagle-ray' | 'california-sea-lion' | 'golden-jellyfish';
+  | 'spotted-eagle-ray' | 'california-sea-lion' | 'golden-jellyfish' | 'humpback-whale' | 'sperm-whale' | 'oceanic-whitetip' | 'leatherback-turtle'
+  | 'oceanic-manta';
 
 export const SHARK_BONES = [
   'Root', 'Head', 'Spine1', 'Spine2', 'RearBody', 'TailBase', 'Tail', 'TailUpper', 'TailLower',
@@ -353,6 +354,14 @@ export const SWIM_RIGS: Record<SwimRigModel, SwimRigSpec> = {
     lobes: { upper: .07, lower: .05, upperAngle: .85, lowerAngle: .85, lag: .8 },
     dorsal: .025, pectoral: { flap: .02, pitch: .025, turn: .6, climb: .3 }, roll: .022, bend: .7,
   },
+  // A slow, deliberate cruiser of the open ocean: lazy beats of the tail, the long paddle pectorals held
+  // out wide like wings and steering in turns.
+  'oceanic-whitetip': {
+    kind: 'shark', joints: [.28, .45, .59, .7, .8], dorsalParent: 'Spine1', dorsalAt: .37,
+    frequency: .46, wavelength: 1.3, tailAmplitude: .085, rootAmplitude: .003, headAmplitude: .004, envelope: 3.1,
+    lobes: { upper: .07, lower: .05, upperAngle: .85, lowerAngle: .85, lag: .8 },
+    dorsal: .025, pectoral: { flap: .03, pitch: .03, turn: .7, climb: .35 }, roll: .028, bend: .75,
+  },
   // Agile and a little serpentine: the wave starts earlier in the body than the great white's and swells
   // toward the long upper lobe, while the wide head (the cephalofoil) stays almost still.
   'scalloped-hammerhead': {
@@ -367,6 +376,13 @@ export const SWIM_RIGS: Record<SwimRigModel, SwimRigSpec> = {
     flap: [.08, .125, .15, .16, .17], waveLag: .34,
     twist: [0, .03, .06, .1, .14], glideDihedral: [.015, .02, .025, .03, .035],
     turnAsymmetry: .5, climbGain: .6, bob: .012, pitch: .02, cephalic: .12, tail: [.05, .09, .14],
+  },
+  // The same flight as the reef manta's, slower and statelier for the larger ray.
+  'oceanic-manta': {
+    kind: 'manta', frequency: .25,
+    flap: [.08, .125, .15, .16, .17], waveLag: .36,
+    twist: [0, .03, .06, .1, .14], glideDihedral: [.015, .02, .025, .03, .035],
+    turnAsymmetry: .5, climbGain: .55, bob: .01, pitch: .018, cephalic: .1, tail: [.05, .09, .14],
   },
   // Smaller and quicker than the manta: deep, steady wingbeats from the shoulders out to the pointed
   // tips (it flies rather than glides), the long whip of a tail trailing its own slow wave.
@@ -403,12 +419,33 @@ export const SWIM_RIGS: Record<SwimRigModel, SwimRigSpec> = {
     glideSweep: .62, glideDroop: .1, bout: [2, 3], glide: [2.5, 5.5],
     pitch: .04, bob: .006, head: .07, rudder: .55, paddle: .14,
   },
+  // The green turtle's stroke on the leatherback's enormous front flippers: deeper, slower and more
+  // wing-like, with long glides; an ocean traveller rather than a reef grazer.
+  'leatherback-turtle': {
+    kind: 'turtle', frequency: .34, flap: .7, sweep: .45, feather: .6, elbow: .3, offset: .12,
+    glideSweep: .66, glideDroop: .12, bout: [2, 4], glide: [3, 6],
+    pitch: .035, bob: .006, head: .05, rudder: .5, paddle: .12,
+  },
   // Up-and-down propulsion: the tail stock heaves the horizontal flukes, which angle into every beat,
   // while the head and front body stay steady. Quicker beats than any shark.
   'bottlenose-dolphin': {
     kind: 'cetacean', joints: [.3, .5, .64, .76, .865], frequency: .78, wavelength: 1.25,
     tailAmplitude: .075, rootAmplitude: .003, headAmplitude: .004, envelope: 2.9,
     fluke: .18, flukeLag: 1.2, flukeFlex: .12, pectoral: { flap: .04, turn: .5, climb: .3 }, heave: .004, bend: .85,
+  },
+  // The dolphin's stroke, slowed to a whale's: long, unhurried beats of the broad flukes, the huge
+  // body barely heaving; the long flippers trim and bank it through turns like wings.
+  'humpback-whale': {
+    kind: 'cetacean', joints: [.32, .5, .64, .76, .87], frequency: .3, wavelength: 1.4,
+    tailAmplitude: .062, rootAmplitude: .002, headAmplitude: .002, envelope: 3.1,
+    fluke: .2, flukeLag: 1.2, flukeFlex: .15, pectoral: { flap: .05, turn: .45, climb: .25 }, heave: .003, bend: .6,
+  },
+  // The great square head is held steady while the rear third of the body drives slow, deep strokes of
+  // the triangular flukes; the stubby flippers barely move.
+  'sperm-whale': {
+    kind: 'cetacean', joints: [.38, .55, .67, .78, .875], frequency: .26, wavelength: 1.5,
+    tailAmplitude: .06, rootAmplitude: .0015, headAmplitude: .0015, envelope: 3.4,
+    fluke: .18, flukeLag: 1.2, flukeFlex: .1, pectoral: { flap: .03, turn: .3, climb: .2 }, heave: .002, bend: .5,
   },
   // A crawler, not a swimmer: eight arms each with its own rhythm, reaching and pulling over the reef,
   // a slow wave running out along each; at rest they coil and the mantle settles and breathes; a jet
