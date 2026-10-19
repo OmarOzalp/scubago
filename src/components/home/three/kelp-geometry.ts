@@ -29,17 +29,22 @@ const UP = new Vector3(0, 1, 0);
  * Every kelp plant in one geometry (world coordinates), flat-shaded triangles. Besides position,
  * normal and color, each vertex carries `aKelp`: x its rise (0 at the holdfast, 1 at the surface),
  * y how far along the canopy it is (0 below the surface), z its plant's sway phase, w how freely it
- * flutters (0 on the stipe, 1 at a blade's tip). kelp-forest.tsx sways it from these in the shader.
+ * flutters (0 on the stipe, 1 at a blade's tip). `aAnchor` is where on its stipe each piece hangs
+ * (x, z): a blade's, float's or canopy mat's every vertex shares one, so an animal swimming through
+ * pushes the piece aside whole, never stretching it, while the stipe bends from point to point.
+ * kelp-forest.tsx sways it from these in the shader.
  */
 export function buildKelpGeometry(plants: readonly KelpPlant[], detail: KelpDetail) {
-  const positions: number[] = [], colors: number[] = [], kelp: number[] = [];
-  const push = (p: Vector3, color: Color, rise: number, runner: number, phase: number, flutter: number) => {
+  const positions: number[] = [], colors: number[] = [], kelp: number[] = [], anchors: number[] = [];
+  const push = (p: Vector3, color: Color, rise: number, runner: number, phase: number, flutter: number, at: Vector3) => {
     positions.push(p.x, p.y, p.z);
     colors.push(color.r, color.g, color.b);
     kelp.push(rise, runner, phase, flutter);
+    anchors.push(at.x, at.z);
   };
-  type V = { p: Vector3; color: Color; rise: number; runner: number; flutter: number };
-  const tri = (a: V, b: V, c: V, phase: number) => { for (const v of [a, b, c]) push(v.p, v.color, v.rise, v.runner, phase, v.flutter); };
+  /** A vertex; `at`, where its piece hangs from the stipe (itself, unless given). */
+  type V = { p: Vector3; color: Color; rise: number; runner: number; flutter: number; at?: Vector3 };
+  const tri = (a: V, b: V, c: V, phase: number) => { for (const v of [a, b, c]) push(v.p, v.color, v.rise, v.runner, phase, v.flutter, v.at ?? v.p); };
   const quad = (a: V, b: V, c: V, d: V, phase: number) => { tri(a, b, c, phase); tri(a, c, d, phase); };
   const surface = OCEAN.surfaceLevel;
   const shade = new Color();
@@ -65,10 +70,10 @@ export function buildKelpGeometry(plants: readonly KelpPlant[], detail: KelpDeta
       const tone = shade.copy(k === 0 ? FLOAT : color).lerp(tip, t * .8).clone();
       const left = c.clone().addScaledVector(across, hw).addScaledVector(normal, ruffle);
       const right = c.clone().addScaledVector(across, -hw).addScaledVector(normal, -ruffle);
-      return [left, right].map((p) => ({ p, color: tone, rise: rise(p), runner, flutter: t })) as [V, V];
+      return [left, right].map((p) => ({ p, color: tone, rise: rise(p), runner, flutter: t, at: base })) as [V, V];
     });
     const tipPoint = at(1);
-    const end: V = { p: tipPoint, color: tip, rise: rise(tipPoint), runner, flutter: 1 };
+    const end: V = { p: tipPoint, color: tip, rise: rise(tipPoint), runner, flutter: 1, at: base };
     quad(pairs[0][0], pairs[1][0], pairs[1][1], pairs[0][1], phase);
     tri(pairs[1][0], end, pairs[1][1], phase);
   };
@@ -104,7 +109,7 @@ export function buildKelpGeometry(plants: readonly KelpPlant[], detail: KelpDeta
         const w = new Vector3(width * .5, 0, 0);
         const v = (p: Vector3, sign: number): V => {
           const q = p.clone().addScaledVector(w, sign);
-          return { p: q, color: STIPE, rise: riseAt(q), runner: 0, flutter: 0 };
+          return { p: q, color: STIPE, rise: riseAt(q), runner: 0, flutter: 0, at: p };
         };
         quad(v(a, -1), v(a, 1), v(b, 1), v(b, -1), stipePhase);
       }
@@ -136,10 +141,10 @@ export function buildKelpGeometry(plants: readonly KelpPlant[], detail: KelpDeta
         const a = Math.PI * 2 * k / rim, along = Math.cos(a), sideways = Math.sin(a);
         const u = Math.min(1, Math.max(0, .5 + .56 * along)), ragged = .45 + .9 * hash(seed, k + 40);
         const p = runner(u).addScaledVector(across, sideways * (.03 + .1 * u) * size * ragged);
-        return { p: p.setY(surface + .001), color: shade.copy(MAT_EDGE).lerp(CANOPY, hash(seed, k + 41) * .6).clone(), rise: 1, runner: u, flutter: .3 };
+        return { p: p.setY(surface + .001), color: shade.copy(MAT_EDGE).lerp(CANOPY, hash(seed, k + 41) * .6).clone(), rise: 1, runner: u, flutter: .3, at: mid };
       };
       // Just clear of the water: the canopy rides the waves (kelp-forest.tsx), so it stays there.
-      const center: V = { p: mid.clone().setY(surface + .002), color: MAT, rise: 1, runner: .5, flutter: 0 };
+      const center: V = { p: mid.clone().setY(surface + .002), color: MAT, rise: 1, runner: .5, flutter: 0, at: mid };
       for (let k = 0; k < rim; k++) tri(center, matPoint(k + 1), matPoint(k), stipePhase);
       // Long, narrow blades streaming downstream from it at irregular angles and lengths, each on its round gas float, lying on the water.
       const canopyBlades = detail.canopyPairs * 2 - 2;
@@ -156,7 +161,7 @@ export function buildKelpGeometry(plants: readonly KelpPlant[], detail: KelpDeta
         if (k % 2) continue;
         const f = .012 * size, ring = [0, 1, 2, 3].map((q): V => {
           const a = Math.PI * q / 2 + k;
-          return { p: base.clone().add(new Vector3(Math.cos(a) * f, q % 2 ? f * .5 : 0, Math.sin(a) * f)), color: FLOAT, rise: 1, runner: u, flutter: 0 };
+          return { p: base.clone().add(new Vector3(Math.cos(a) * f, q % 2 ? f * .5 : 0, Math.sin(a) * f)), color: FLOAT, rise: 1, runner: u, flutter: 0, at: base };
         });
         quad(ring[0], ring[1], ring[2], ring[3], stipePhase);
       }
@@ -164,7 +169,7 @@ export function buildKelpGeometry(plants: readonly KelpPlant[], detail: KelpDeta
       for (let k = 0; k < 3; k++) {
         const a = runner(k / 3), b = runner((k + 1) / 3);
         const w = across.clone().multiplyScalar(.005);
-        const v = (p: Vector3, sign: number, u: number): V => ({ p: p.clone().addScaledVector(w, sign), color: STIPE, rise: 1, runner: u, flutter: 0 });
+        const v = (p: Vector3, sign: number, u: number): V => ({ p: p.clone().addScaledVector(w, sign), color: STIPE, rise: 1, runner: u, flutter: 0, at: p });
         quad(v(a, -1, k / 3), v(a, 1, k / 3), v(b, 1, (k + 1) / 3), v(b, -1, (k + 1) / 3), stipePhase);
       }
     }
@@ -174,6 +179,7 @@ export function buildKelpGeometry(plants: readonly KelpPlant[], detail: KelpDeta
   geometry.setAttribute('position', new Float32BufferAttribute(positions, 3));
   geometry.setAttribute('color', new Float32BufferAttribute(colors, 3));
   geometry.setAttribute('aKelp', new Float32BufferAttribute(kelp, 4));
+  geometry.setAttribute('aAnchor', new Float32BufferAttribute(anchors, 2));
   geometry.computeVertexNormals();
   geometry.computeBoundingSphere();
   return geometry;

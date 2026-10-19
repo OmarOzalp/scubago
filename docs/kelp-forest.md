@@ -57,10 +57,16 @@ edge of the surf out to deep water, with channels of open water between the beds
 ### Swimming through it
 
 The animals swim through the kelp, and it makes way for them: every frame the swimmers
-(`marine-swimmers.tsx`) write each visible animal's middle and size into a shared uniform of 12
-slots (`kelp-movers.ts`), and the kelp's vertex shader pushes the stipes and blades near one
-aside, at its depth, more toward their tops, the holdfast staying put. In lite quality the loop is
-compiled out (`KELP_LITE`) and the kelp only sways. Taps go through the kelp to the animals behind it.
+(`marine-swimmers.tsx`) write each visible animal's body into a shared uniform of 12 slots
+(`kelp-movers.ts`, `setKelpMover`): a capsule along its heading, most of its length long and about
+as thick as its body (its footprint's half width less the fins). The kelp's vertex shader pushes
+each piece aside whole from where it hangs on its stipe (`aAnchor`: a blade, a float or a canopy mat
+moves as one, so nothing stretches), softly, about as far as the body's girth and only near its
+depth; the stipes bend from point to point, the holdfast stays put, and the canopy on the surface
+hardly moves for an animal passing under it. A long whale or an orca parts the kelp along its
+length; before, every animal shoved the kelp round its middle by more than half its length, and the
+canopy mats tore into long sheets. In lite quality the loop is compiled out (`KELP_LITE`) and the
+kelp only sways. Taps go through the kelp to the animals behind it.
 
 ## The water
 

@@ -5,13 +5,15 @@ import { createOceanUniforms, OCEAN_SHADER_CHUNKS, type OceanUniforms } from './
  * Vertex GLSL, after `#include <project_vertex>` with the vertex's world position in
  * `oceanWorld`: its depth below the moving surface, a slight refraction shift for deeper
  * vertices (full quality only; lite measures from the calm surface level), and the top and
- * bottom haze. Shared with the tuna school (school-material.ts).
+ * bottom haze. Shared with the tuna school (school-material.ts) and the kelp. `anchor` is where
+ * the waves' slope is read for the shift (GLSL, world x and z): each vertex's own, or one point for
+ * a whole animal, so the waves move it as one rather than bending a long body along its length.
  */
-export const underwaterVertexGLSL = (lite: boolean) => `${lite ? `
+export const underwaterVertexGLSL = (lite: boolean, anchor = 'oceanWorld.xz') => `${lite ? `
               vOceanDepth = max(0.0, uOceanSurface - oceanWorld.y);` : `
               // Depth below the moving surface; the waves bend the view of deeper animals a little more.
               vOceanDepth = max(0.0, uOceanSurface + oceanWave(oceanWorld.xz).y - oceanWorld.y);
-              vec2 oceanShift = oceanSlope(oceanWorld.xz) * (uOceanDistortion * vOceanDepth);
+              vec2 oceanShift = oceanSlope(${anchor}) * (uOceanDistortion * vOceanDepth);
               mvPosition.xyz += (viewMatrix * vec4(oceanShift.x, 0.0, oceanShift.y, 0.0)).xyz;
               gl_Position = projectionMatrix * mvPosition;`}
               // The same haze as the water at the top and bottom of the view.
@@ -50,8 +52,9 @@ export const FLOOR_BIAS = 1;
 
 /**
  * Animals share the island's water: below the moving surface they take on its
- * color and lose a little saturation with depth, waves refract them slightly,
- * and they fade head-first when they dive out of sight. Bind-pose length
+ * color and lose a little saturation with depth, waves refract them slightly (the
+ * whole animal together, never bending its body), and they fade head-first when
+ * they dive out of sight. Bind-pose length
  * coordinates travel with the skin, keeping the fade attached to the animal.
  *
  * `lite` (software-rendered GPUs) measures depth from the calm surface level with
@@ -115,7 +118,7 @@ varying float submersion;\nvarying float vOceanDepth;\nvarying float vOceanHaze;
               float emergence = smoothstep(0.0, .45, (1.0 - diveFade) * 1.45 - (1.0 - diveAlong));
               submersion = mix(submersion, 1.0 - emergence, surfacing);`)
             .replace('#include <project_vertex>', `#include <project_vertex>
-              vec4 oceanWorld = modelMatrix * vec4(transformed, 1.0);${underwaterVertexGLSL(lite)}${reef ? `
+              vec4 oceanWorld = modelMatrix * vec4(transformed, 1.0);${underwaterVertexGLSL(lite, '(modelMatrix * vec4(0.0, 0.0, 0.0, 1.0)).xz')}${reef ? `
               // Reef: drawn farther back than it is (see ReefLook), and where along its body each fragment is.
               gl_Position.z -= projectionMatrix[2][2] * diveBias * gl_Position.w;
               vDiveAlong = diveAlong;` : ''}`);
@@ -139,7 +142,7 @@ varying float submersion;\nvarying float vOceanDepth;\nvarying float vOceanHaze;
               if (diffuseColor.a < .005) discard;
               #include <opaque_fragment>`);
         };
-        material.customProgramCacheKey = () => `marine-ocean-water-v2${lite ? '-lite' : ''}${reef ? '-reef' : ''}`;
+        material.customProgramCacheKey = () => `marine-ocean-water-v3${lite ? '-lite' : ''}${reef ? '-reef' : ''}`;
         materials.set(source, material);
       }
       return materials.get(source)!;

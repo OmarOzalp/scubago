@@ -158,8 +158,21 @@ where it is. The mouse wheel zooms at once, about the pointer (`zoomAt`).
 for a frame on every move, and keeps asking while a glide or an eased move settles.
 Home's own island pauses while the explorer is open (its screen loses focus). The
 explorer's larger water is about 8,700 vertices against the card's 2,058, and its
-seabed 2,784 against 2,400; with the Kelp Forest too, about 12,300 and 4,900, and the
-animals of both islands swim at once (up to `MAX_ANIMATED`, 8, at each).
+seabed 2,784 against 2,400; with the Kelp Forest too, about 12,300 and 4,900.
+
+**Only what's in view.** Off screen, animals rest (`view-cull.ts`, `onScreen`: a point's place on
+screen as the camera last drew, with a margin):
+
+- An animal more than a body length past the screen's edge isn't drawn and its skeleton isn't posed
+  (`AnimatedMarine`); its swimming goes on, so it is where it should be when it comes back.
+- An island none of whose water is on screen (its swimming area and 2 units around it) stops its
+  simulation altogether (`MarineSwimmers`): its animals and school wait where they are, and its kelp
+  stops hearing about them. Zoomed in on the Kelp Forest, the reef's animals cost nothing.
+- The kelp is culled with the rest of the scene (its bounds padded a unit for the sway).
+
+Measured in the web harness with four animals at each island: all the way out, 6 of 8 drawn (the
+others diving); zoomed in on the Kelp Forest, 3; on the reef, 2. The Home card is unchanged, but for
+an animal waiting out of frame to arrive, which now rests until it swims in.
 
 ## Macro life
 
@@ -301,8 +314,6 @@ npx jest src/lib/__tests__/macro-life.test.ts src/components/home/__tests__/sanc
 
 - Far out, the open water is the same deep blue all the way to the edge: there is
   nothing out there yet, and no animal swims from one island to another.
-- Every island's animals swim and draw at once, even those off screen; with more islands
-  found, the explorer will need to rest the ones out of view.
 - Islands not yet found aren't there at all, not even as a silhouette on the horizon.
 - Home's island stays mounted, paused, while the explorer is open, so two GL contexts
   are alive at once.

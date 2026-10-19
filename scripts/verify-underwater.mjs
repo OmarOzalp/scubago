@@ -80,7 +80,7 @@ for (const name of MODELS) {
     assert(shader.fragmentShader.includes('uOceanOpacity.y * .85'));
     assert(shader.fragmentShader.includes('diffuseColor.a *= 1.0 - submersion'));
     // A separate program key, so three.js never reuses the full-quality program for lite animals.
-    assert.equal(material.customProgramCacheKey(), 'marine-ocean-water-v2-lite');
+    assert.equal(material.customProgramCacheKey(), 'marine-ocean-water-v3-lite');
   });
   lite.dispose();
   assert.equal(min, 0); assert.equal(max, 1);
@@ -115,7 +115,7 @@ for (const name of MODELS) {
         assert.equal(shader.uniforms.diveBias.value, FLOOR_BIAS);
         // Its contrast works about its own average shade.
         assert(shader.uniforms.diveTone.value.w > .02 && shader.uniforms.diveTone.value.w < .8, `${name}: average shade ${shader.uniforms.diveTone.value.w}`);
-        assert.equal(material.customProgramCacheKey(), lite ? 'marine-ocean-water-v2-lite-reef' : 'marine-ocean-water-v2-reef');
+        assert.equal(material.customProgramCacheKey(), lite ? 'marine-ocean-water-v3-lite-reef' : 'marine-ocean-water-v3-reef');
       });
       b.traverse((object) => {
         if (!object.isMesh) return;
@@ -136,7 +136,9 @@ for (const name of MODELS) {
       const shader = { uniforms: {}, vertexShader: ShaderLib.lambert.vertexShader, fragmentShader: ShaderLib.lambert.fragmentShader };
       material.onBeforeCompile(shader, null);
       assert(!shader.vertexShader.includes('diveBias') && !shader.fragmentShader.includes('diveHide'));
-      assert.equal(material.customProgramCacheKey(), 'marine-ocean-water-v2');
+      // The waves refract the whole animal together: their slope is read at its middle, never per vertex (which bent long bodies).
+      assert(shader.vertexShader.includes('oceanSlope((modelMatrix * vec4(0.0, 0.0, 0.0, 1.0)).xz)') && !shader.vertexShader.includes('oceanSlope(oceanWorld.xz)'));
+      assert.equal(material.customProgramCacheKey(), 'marine-ocean-water-v3');
     });
   }
   // Set back far enough: an octopus on the shelf is drawn behind a whale shark at the bottom of its swimming

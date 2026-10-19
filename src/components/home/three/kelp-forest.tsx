@@ -22,7 +22,7 @@ export function createKelpMaterial(ocean: OceanUniforms, lite = false, movers: K
   const surge = { value: new Vector4(Math.cos(KELP.current), Math.sin(KELP.current), KELP.surge.reach, Math.PI * 2 / KELP.surge.period) };
   material.onBeforeCompile = (shader) => {
     Object.assign(shader.uniforms, ocean, { uKelpSurge: surge, uKelpMovers: movers });
-    shader.vertexShader = `#define KELP_MOVERS ${KELP_MOVERS}\n${lite ? '#define KELP_LITE\n' : ''}attribute vec4 aKelp;\nuniform vec4 uKelpSurge;\nuniform vec4 uKelpMovers[KELP_MOVERS];\nuniform float uOceanSurface;\nuniform float uOceanDistortion;\nuniform vec2 uOceanEdge;
+    shader.vertexShader = `#define KELP_MOVERS ${KELP_MOVERS}\n${lite ? '#define KELP_LITE\n' : ''}attribute vec4 aKelp;\nattribute vec2 aAnchor;\nuniform vec4 uKelpSurge;\nuniform vec4 uKelpMovers[KELP_MOVERS * 2];\nuniform float uOceanSurface;\nuniform float uOceanDistortion;\nuniform vec2 uOceanEdge;
 varying float vOceanDepth;\nvarying float vOceanHaze;\n${OCEAN_SHADER_CHUNKS.waves}\n${shader.vertexShader}`
       .replace('#include <begin_vertex>', `#include <begin_vertex>
         // The surge: a slow swing along the current, travelling through the forest, bending the stipes from the holdfast up.
@@ -33,18 +33,24 @@ varying float vOceanDepth;\nvarying float vOceanHaze;\n${OCEAN_SHADER_CHUNKS.wav
         transformed.xz += kelpSide * (.035 * aKelp.y * sin(uOceanTime * .55 + aKelp.y * 3.5 + aKelp.z));
         float kelpFlutter = .01 * aKelp.w * sin(uOceanTime * 2.3 + aKelp.z * 2.0 + position.y * 7.0 + position.x * 5.0);
         transformed += vec3(kelpSide.x, .4, kelpSide.y) * kelpFlutter;
-        // Making way for the animals swimming through: pushed out from each one near its depth, the
-        // holdfast staying put (full quality only). In the island's own frame, as its swimmers tell it.
+        // Making way for the animals swimming through: each piece (a blade, a float, a canopy mat) is pushed
+        // softly aside whole, from where it hangs on its stipe (aAnchor), away from each animal's body (a
+        // capsule along its spine), about as far as its girth and only near its depth; the stipe bends from
+        // point to point, the holdfast staying put, and the canopy on the surface hardly moves for an animal
+        // passing under it (full quality only). In the island's own frame, as its swimmers tell it.
         #ifndef KELP_LITE
+        vec2 kelpPush = vec2(0.0);
         for (int i = 0; i < KELP_MOVERS; i++) {
-          vec4 mover = uKelpMovers[i];
-          if (mover.w <= 0.0) continue;
-          vec2 away = transformed.xz - mover.xz;
+          vec4 body = uKelpMovers[i * 2], spine = uKelpMovers[i * 2 + 1];
+          if (body.w <= 0.0) continue;
+          vec2 from = aAnchor - body.xz;
+          vec2 away = from - spine.xy * clamp(dot(from, spine.xy), -spine.z, spine.z);
           float gap = length(away);
-          float near = 1.0 - smoothstep(mover.w * .35, mover.w, gap);
-          float level = exp(-pow((transformed.y - mover.y) / (mover.w * .9 + .12), 2.0));
-          transformed.xz += away / max(gap, 1e-4) * (mover.w * .6 * near * level * smoothstep(0.0, .35, aKelp.x));
+          float push = body.w * pow(max(0.0, 1.0 - gap / (body.w * 1.6)), 1.5);
+          float level = exp(-pow((position.y - body.y) / (body.w + .15), 2.0));
+          kelpPush += away / max(gap, 1e-4) * (push * level);
         }
+        transformed.xz += kelpPush * smoothstep(0.0, .35, aKelp.x) * (1.0 - .75 * smoothstep(.85, 1.0, aKelp.x));
         #endif
         // The top of each stipe and its canopy float on the waves (the ocean's, wherever the island lies).
         transformed.y += oceanWave((modelMatrix * vec4(transformed, 1.0)).xz).y * smoothstep(.8, 1.0, aKelp.x);`)
@@ -55,7 +61,7 @@ varying float vOceanDepth;\nvarying float vOceanHaze;\n${OCEAN_SHADER_CHUNKS.wav
         outgoingLight = mix(outgoingLight, uOceanCard, vOceanHaze);
         #include <opaque_fragment>`);
   };
-  material.customProgramCacheKey = () => (lite ? 'kelp-v3-lite' : 'kelp-v3');
+  material.customProgramCacheKey = () => (lite ? 'kelp-v5-lite' : 'kelp-v5');
   return material;
 }
 
@@ -71,7 +77,8 @@ export function KelpForest({ level }: { level: number }) {
     const plants = kelpPlants(level, lite ? KELP.plants.lite : KELP.plants.full);
     const mesh = new Mesh(buildKelpGeometry(plants, KELP_DETAIL[lite ? 'lite' : 'full']), createKelpMaterial(ocean ?? createOceanUniforms('kelp'), lite, movers ?? undefined));
     mesh.name = 'kelp-forest';
-    mesh.frustumCulled = false;
+    // Out of view (the explorer looking at another island) it isn't drawn: its bounds, padded for the sway and the parting.
+    mesh.geometry.boundingSphere!.radius += 1;
     mesh.renderOrder = 1;
     // Taps go through the kelp to the animals behind it.
     mesh.raycast = () => {};
