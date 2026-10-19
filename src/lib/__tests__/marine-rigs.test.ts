@@ -5,7 +5,8 @@ const SHARKS = ['tiger-shark', 'whale-shark', 'great-white-shark', 'scalloped-ha
 const REEF = ['day-octopus', 'giant-cuttlefish', 'giant-moray'] as const;
 const ALL: SwimRigModel[] = [...SHARKS, 'reef-manta', 'mola-mola', 'green-turtle', 'bottlenose-dolphin', ...REEF,
   'great-barracuda', 'sailfish', 'california-sea-lion', 'spotted-eagle-ray', 'golden-jellyfish', 'clownfish',
-  'humpback-whale', 'sperm-whale', 'oceanic-whitetip', 'leatherback-turtle', 'oceanic-manta'];
+  'humpback-whale', 'sperm-whale', 'oceanic-whitetip', 'leatherback-turtle', 'oceanic-manta',
+  'harbor-seal', 'sea-otter', 'garibaldi', 'leafy-seadragon', 'orca'];
 const SPINE = ['Spine1', 'Spine2', 'RearBody', 'TailBase', 'Tail'];
 
 /** Sample one stroke; returns per-sample rotations keyed by bone. */

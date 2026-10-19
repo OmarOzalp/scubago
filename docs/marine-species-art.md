@@ -305,6 +305,32 @@ Previews: `docs/art-previews/humpback-whale.png`, `sperm-whale.png`, `oceanic-wh
 seconds apart (left: the oceanic manta, the whitetip and the sperm whale; right: the humpback,
 the sperm whale and the leatherback).
 
+## Batch v6: the Kelp Forest
+
+The first animals of the Kelp Forest's island (`docs/kelp-forest.md`). Built the same way, one
+design file each in `scripts/art/species/`, all on the sharks' lofted body (`shark.ts`). The seal
+and the otter use the sea lion's `pinniped` rig with a new `stroke`: `'hind'` (a true seal's lateral
+sweeps of its rear body and hind flippers, fore flippers pressed to its flanks) and `'otter'`
+(dorsoventral undulation and paddling hind feet, and a resting curl for floating on its back).
+All are within the 5,000-triangle, 220 KB budget (`npm run verify:marine`).
+
+| Species | Model | Motion | Triangles | GLB bytes |
+| --- | --- | --- | ---: | ---: |
+| Harbor seal | A plump, spindle-shaped body with hardly any neck; a round head with a short, dog-like muzzle, a V of nostrils on top, big dark eyes and beaded whiskers, and no ear flaps; short fore flippers with dark claws held against the flanks; broad, fan-shaped hind flippers held close together behind the hips in a shallow V. Silvery gray, darker along the back, dappled with dark spots of every size, a few ringed pale, sparser and paler toward the belly | `pinniped`, `stroke: 'hind'`: the rear body and hind flippers sweep from side to side, the flippers beating alternately; short bouts and long glides. 0.9 strokes/s | 4,162 | 188,948 |
+| Sea otter | A long, supple body in dense, dark chocolate fur frosted with paler guard hairs; a broad, rounded, pale cream-gray head with a blunt muzzle, dark nose, long pale whiskers and small rounded ears; short forelegs with mitten paws; a flat tail a third of its length; big webbed hind feet | `pinniped`, `stroke: 'otter'`: the body waves up and down and the hind feet paddle in quick bouts. At rest (`pose.rest`) it curls belly-up: head and feet raised, paws on its chest, the stroke stilled (the motion rolls it onto its back). 1.15 strokes/s | 3,262 | 133,620 |
+| Garibaldi | A deep, oval, compressed body with a steep, rounded forehead and small mouth; one long dorsal fin, low in front and rising to a rounded soft rear; a rounded anal fin; a broad tail with rounded lobes and a shallow fork; paddle pectorals. Brilliant orange, deeper on the back and fins, large eyes ringed in orange | The sharks' `shark` rig as a hovering fish: rows with its pectorals, the body nearly still, darting with quick tail beats. 1.6 beats/s | 3,328 | 133,908 |
+| Leafy seadragon | A long, slender body in bony rings; a long tubular snout; a thin, finless tail curling down at its tip; leafy, lobed appendages branching from the head, back, belly and tail; tiny see-through dorsal and pectoral fins. Yellow-ochre and olive with thin pale bands, rosy on the head, the leaves yellow-green | `shark`, almost stiff: the tiny fins flutter and the body barely bends. 1.4 beats/s | 4,168 | 169,116 |
+| Orca | A robust body with a blunt, rounded head and no beak; a tall, triangular dorsal fin standing straight up; big, broad paddle flippers; a thick tail stock and broad flukes. Glossy black, with crisp white markings (an oval patch above and behind each eye, the chin and throat, a band down the belly sweeping up into a lobe on each flank behind the dorsal fin, the flukes' undersides) and a pale gray saddle behind the dorsal fin | The dolphin's `cetacean` rig, stronger and slower: powerful beats of the broad flukes, the dorsal fin steady. 0.48 beats/s | 4,282 | 163,844 |
+
+The orca's white edges are painted into the body's vertex colours along softened boundaries (48
+rings, 8 and 7 columns above and below) so they stay smooth rather than stepping between vertices;
+the seal's spots are small decals thrown at random over its back and flanks (none crowding another), since
+noise painted into the vertex colours fell between the vertices and blurred away.
+
+Previews: `docs/art-previews/harbor-seal.png`, `sea-otter.png`, `garibaldi.png`,
+`leafy-seadragon.png` and `orca.png` (the same studio framing), and `island-kelp-forest.png`: the
+five at a level 3 Kelp Forest island as the app's camera sees them, 22 seconds apart.
+
 The island's tuna school is not a glTF asset: each tuna is a low-poly mesh built at runtime
 (`src/components/home/three/tuna-geometry.ts`, 167 triangles, or 83 in lite quality). It has a
 spindle body, pointed snout, forked crescent tail, sickle fins and yellow finlets, metallic blue
@@ -335,6 +361,11 @@ References used for proportions and pattern placement:
 - [NOAA Fisheries: oceanic whitetip shark](https://www.fisheries.noaa.gov/species/oceanic-whitetip-shark)
 - [NOAA Fisheries: leatherback turtle](https://www.fisheries.noaa.gov/species/leatherback-turtle)
 - [NOAA Fisheries: giant manta ray](https://www.fisheries.noaa.gov/species/giant-manta-ray)
+- [NOAA Fisheries: harbor seal](https://www.fisheries.noaa.gov/species/harbor-seal)
+- [U.S. Fish & Wildlife Service: southern sea otter](https://www.fws.gov/species/southern-sea-otter-enhydra-lutris-nereis)
+- [WoRMS: Hypsypops rubicundus](https://www.marinespecies.org/aphia.php?p=taxlist&tName=Hypsypops%20rubicundus)
+- [WoRMS: Phycodurus eques](https://www.marinespecies.org/aphia.php?p=taxlist&tName=Phycodurus%20eques)
+- [NOAA Fisheries: killer whale](https://www.fisheries.noaa.gov/species/killer-whale)
 
 These simplified drafts still need human comparison against multiple views,
 especially fin contours, mouth detail and individual marking variation, and the

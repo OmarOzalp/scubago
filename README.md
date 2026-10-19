@@ -77,7 +77,9 @@ project's settings with those dev defaults.
   ([docs/archipelago.md](docs/archipelago.md)): every species lives in one of seven areas
   (Coral Reef, Open Ocean, Kelp Forest, Mangroves & Seagrass, Volcanic Pinnacle, Black Sand
   Bay, Shipwreck), each found with its first logged species. Its island, the Coral Reef, sits
-  in caustic-lit water, seen from an oblique orthographic camera. Discovered
+  in caustic-lit water, seen from an oblique orthographic camera; the Kelp Forest's rocky island,
+  ringed with swaying giant kelp, rises with its first species, and the area pills switch
+  between them ([docs/kelp-forest.md](docs/kelp-forest.md)). Discovered
   sharks, rays, fish, the ocean sunfish and the green sea turtle swim around it as
   rigged, animated models, passing one another in lanes and keeping their own
   species' distance from the island; octopuses, cuttlefish and morays live on the reef

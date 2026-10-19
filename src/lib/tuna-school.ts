@@ -77,6 +77,12 @@ export const SCHOOL_REACTIONS: Record<MarineModel, { threat: number; gap: number
   'sperm-whale': { threat: 0, gap: .45 },
   'oceanic-manta': { threat: 0, gap: .25 },
   'leatherback-turtle': { threat: 0, gap: .18 },
+  // The Kelp Forest's: the orca hunts fish and seals alike, the seal takes fish; the rest are no danger.
+  orca: { threat: .7, gap: .45, startle: .5 },
+  'harbor-seal': { threat: .4, gap: .3 },
+  'sea-otter': { threat: .05, gap: .2 },
+  garibaldi: { threat: 0, gap: .08 },
+  'leafy-seadragon': { threat: 0, gap: .06 },
   // Reef animals keep to the reef (reef-life.ts): the school never meets them.
   'day-octopus': { threat: 0, gap: 0 },
   'giant-cuttlefish': { threat: 0, gap: 0 },

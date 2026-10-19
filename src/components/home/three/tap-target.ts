@@ -10,6 +10,7 @@ export const MARINE_SIZE = {
   'scalloped-hammerhead': 2.25, 'reef-manta': 2.2, 'mola-mola': 1.8, 'green-turtle': 1.2, 'bottlenose-dolphin': 1.55,
   'great-barracuda': 1.6, sailfish: 2.2, 'california-sea-lion': 1.35, 'spotted-eagle-ray': 1.4, 'golden-jellyfish': .48,
   'humpback-whale': 3.3, 'sperm-whale': 3.1, 'oceanic-whitetip': 2.3, 'leatherback-turtle': 1.5, 'oceanic-manta': 2.6,
+  'harbor-seal': 1.3, 'sea-otter': 1, garibaldi: .5, 'leafy-seadragon': .56, orca: 2.4,
   ...REEF_SIZE,
 } as const;
 

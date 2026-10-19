@@ -1,4 +1,5 @@
 import { breachFlight, breachHeight, DOLPHIN_BREACH, type BreachConfig, type BreachStage } from './breach';
+import { KELP } from './kelp';
 import { createShoreField } from './island-outline';
 import { followerLane, GROUP_STYLES, type GroupStyle } from './marine-groups';
 import { OCEAN } from './ocean';
@@ -28,7 +29,7 @@ export type MarinePose = {
   x: number; y: number; z: number; heading: number; bank: number; effort: number; pace: number; turn: number; speed: number; climb: number;
   pitch: number; air: number;
   /**
-   * Reef animals only (reef-life.ts): how settled, jetting and on the bottom it is (0..1, for its rig);
+   * Reef animals (reef-life.ts), and a floating sea otter: how settled, jetting and on the bottom it is (0..1, for its rig);
    * its color as (brightness, saturation, contrast); how much of its body is out of sight in a den
    * (shares of its length from the tail and from the head).
    */
@@ -67,9 +68,10 @@ export type Movement = {
   /**
    * Air-breathers come up to the surface now and then: a breath every `every` seconds (skipped while
    * a dive is near), rising and sinking back over `rise` seconds each and staying up for `hold`,
-   * with its middle `clearance` units below the calm surface.
+   * with its middle `clearance` units below the calm surface. With `float` (0 to 1) it rolls onto its
+   * back once it is up and rests there, drifting (a sea otter): most of its time, with a long `hold`.
    */
-  breathe?: { every: number; rise: number; hold: number; clearance: number };
+  breathe?: { every: number; rise: number; hold: number; clearance: number; float?: number };
   /** How far its body pitches with its rise and fall (rad per unit/s; the default is .35). */
   pitch?: number;
   /** Now and then a breath becomes a leap clear of the water (see breach.ts). */
@@ -83,6 +85,11 @@ export type Movement = {
   pause?: { every: number; hold: number; slow: number; burst: number; dash: number; roll?: number; sail?: boolean };
   /** A playful full roll about its own length, now and then (about every `every` seconds), taking `time` seconds (a sea lion). */
   barrel?: { every: number; time: number };
+  /**
+   * How far it rocks back and forth with the surge (units): small animals in the shallows sway with
+   * the water, in step with the kelp (see kelp-forest.tsx). Only how it is drawn, not where it steers.
+   */
+  sway?: number;
   /**
    * Where it lives: the open water around the island (the default, steered here), or on the reef
    * itself (reef-life.ts, which has the reef animals' behavior; the fields above only give their size).
@@ -224,6 +231,47 @@ export const MOVEMENT: Record<MarineModel, Movement> = {
     halfLength: .83, halfWidth: 1.18, personalSpace: .25, avoidance: .75, islandClearance: 1.35, roam: [.3, 1], roamPeriod: 60, patrol: 0,
     depth: -.04, bob: .085, bobPeriod: 20, reverseEvery: 100,
   },
+  // The Kelp Forest's animals (they live at its island; docs/kelp-forest.md).
+  // Curious and supple: glides in long arcs through the kelp in mid-water, banking and twisting, and
+  // comes up to breathe now and then.
+  'harbor-seal': {
+    cruise: .36, swing: .18, swingPeriod: 13, surge: .2, turnRate: .62, turnEase: .85, bank: .85, bankMax: .4, bankEase: 2, lazyRoll: .1, tilt: 0,
+    halfLength: .65, halfWidth: .22, personalSpace: .2, avoidance: .95, islandClearance: .75, roam: [0, .9], roamPeriod: 30, patrol: 0,
+    depth: .02, bob: .08, bobPeriod: 10, reverseEvery: 55, weave: .28, weavePeriod: 9,
+    breathe: { every: 36, rise: 2.8, hold: 2.4, clearance: .14 }, pitch: .9,
+  },
+  // Floats on its back in the canopy most of the time, drifting and grooming, then rolls over and dives
+  // to forage on the bottom, and comes back up to float again; usually a few rafting together.
+  'sea-otter': {
+    cruise: .3, swing: .2, swingPeriod: 9, surge: .15, turnRate: .7, turnEase: .9, bank: .7, bankMax: .35, bankEase: 2, lazyRoll: 0, tilt: 0,
+    halfLength: .5, halfWidth: .2, personalSpace: .15, avoidance: 1, islandClearance: .6, roam: [0, .7], roamPeriod: 34, patrol: 0,
+    depth: -.06, bob: .06, bobPeriod: 8, reverseEvery: 45, weave: .3, weavePeriod: 8,
+    // Its breath is its whole time up between dives (see floatBreath): `every` and `hold` go unused.
+    breathe: { every: 30, rise: 2.6, hold: 0, clearance: .03, float: 1 }, pitch: 1,
+  },
+  // Guards its patch of reef: hovers in place among the kelp near the rocks, rowing with its pectorals,
+  // darts a little way and hangs again; it rocks with the surge.
+  garibaldi: {
+    cruise: .14, swing: .3, swingPeriod: 7, surge: 0, turnRate: 1.2, turnEase: 1.2, bank: .3, bankMax: .15, bankEase: 2.5, lazyRoll: 0, tilt: 0,
+    halfLength: .25, halfWidth: .1, personalSpace: .12, avoidance: 1, islandClearance: .55, roam: [0, .35], roamPeriod: 26, patrol: 0,
+    depth: .2, bob: .03, bobPeriod: 6, reverseEvery: 20, weave: .5, weavePeriod: 5, sway: .05,
+    pause: { every: 9, hold: 4, slow: .1, burst: 2.6, dash: .7 },
+  },
+  // Hardly swims: drifts slowly near the bottom by the kelp, swaying with the surge like the weed it
+  // pretends to be.
+  'leafy-seadragon': {
+    cruise: .04, swing: .4, swingPeriod: 11, surge: 0, turnRate: .2, turnEase: .35, bank: .2, bankMax: .1, bankEase: 1, lazyRoll: 0, tilt: 0,
+    halfLength: .28, halfWidth: .1, personalSpace: .12, avoidance: 1, islandClearance: .55, roam: [0, .4], roamPeriod: 60, patrol: 0,
+    depth: .2, bob: .03, bobPeriod: 12, reverseEvery: 0, weave: .5, weavePeriod: 21, sway: .07,
+  },
+  // A pod on patrol: strong and purposeful, holding a line along the outside of the kelp, surfacing
+  // together to breathe.
+  orca: {
+    cruise: .5, swing: .1, swingPeriod: 20, surge: .2, turnRate: .42, turnEase: .65, bank: .5, bankMax: .22, bankEase: 1.6, lazyRoll: .06, tilt: 0,
+    halfLength: 1.15, halfWidth: .45, personalSpace: .3, avoidance: .6, islandClearance: 1.25, roam: [.35, 1.1], roamPeriod: 45, patrol: .5,
+    depth: -.06, bob: .06, bobPeriod: 16, reverseEvery: 95,
+    breathe: { every: 30, rise: 3.2, hold: 2.2, clearance: .2 }, pitch: .8,
+  },
   // Reef animals keep to the reef: the octopus on the seabed shelf, the cuttlefish over the reef edge,
   // the moray in its crevice, the clownfish in their anemone (their behavior is in reef-life.ts).
   'day-octopus': { ...FAMILY, cruise: .075, turnRate: .9, halfLength: .5, halfWidth: .55, habitat: 'seabed' },
@@ -244,7 +292,7 @@ export const MOVEMENT: Record<MarineModel, Movement> = {
  */
 export const ARRIVAL_PACE: Partial<Record<MarineModel, number>> = {
   'great-white-shark': 1.35, 'tiger-shark': 1.15, 'scalloped-hammerhead': 1.15, 'bottlenose-dolphin': 1.25, shark: 1.1, 'reef-fish': 1.1,
-  sailfish: 1.3, 'california-sea-lion': 1.25, 'great-barracuda': 1.2, 'oceanic-whitetip': 1.1,
+  sailfish: 1.3, 'california-sea-lion': 1.25, 'great-barracuda': 1.2, 'oceanic-whitetip': 1.1, orca: 1.2, 'harbor-seal': 1.15,
 };
 /** An arrival that takes longer than this (s) counts as arrived anyway. */
 const ARRIVAL_LIMIT = 30;
@@ -262,6 +310,8 @@ type Arrival = { stage: ArrivalStage; since: number; homeX: number; homeZ: numbe
 const OFFSTAGE_DIVE = { depth: 1, surfacing: false, y: SWIM_LEVEL, opacity: 0, visible: false };
 const ENTERING_DIVE = { depth: 0, surfacing: false, y: SWIM_LEVEL, opacity: 1, visible: true };
 
+/** The surge's direction (see Movement.sway and kelp.ts). */
+const SWAY_FLOW = { x: Math.cos(KELP.current), z: Math.sin(KELP.current) };
 /** Simulation step (s): fixed, so a 20 fps simulator and a 60 fps phone move animals identically. */
 const STEP = 1 / 60;
 /** How far ahead (s) animals look for another animal crossing their path, and for one they will pass. */
@@ -547,11 +597,32 @@ export function createMarineMotion(everyMember: readonly MarineMember[], level =
   function breathing(a: Animal) {
     const b = a.m.breathe;
     if (!b) return 0;
+    if (b.float) return floatBreath(a);
     const { index, into, length } = breathCycle(a);
     if (into >= length || index === a.leapt || skips(a, index)) return 0;
     const start = time - into;
     if (diveOf(a, start).depth > 0 || diveOf(a, start + length).depth > 0) return 0;
     return smoothstep(0, b.rise, into) * (1 - smoothstep(b.rise + b.hold, length, into));
+  }
+  /**
+   * A floater's breath (Movement.breathe.float) is its whole stretch up in the water between its dives
+   * (its foraging trips): it rises for `rise` seconds after it surfaces and goes down over the `rise`
+   * seconds before its next dive. Not while arriving.
+   */
+  function floatBreath(a: Animal) {
+    const rise = a.m.breathe!.rise, step = .4;
+    if (!settled(a) || diveOf(a, time).depth > 0) return 0;
+    let clear = 0;
+    for (let t = step; t <= rise + step; t += step) {
+      if (diveOf(a, time + t).depth > 0 || diveOf(a, time - t).depth > 0) break;
+      clear = t;
+    }
+    return smoothstep(0, rise, clear);
+  }
+  /** 0 to 1: how far a floater (Movement.breathe.float) has rolled onto its back to rest, once fully up for a breath. */
+  function floating(a: Animal) {
+    const f = a.m.breathe?.float;
+    return f ? f * smoothstep(.7, 1, breathing(a)) : 0;
   }
   /** Its height with any breath: from its depth up to just below the surface and back. */
   function breathHeight(a: Animal) {
@@ -756,8 +827,10 @@ export function createMarineMotion(everyMember: readonly MarineMember[], level =
     const m = a.m, lazy = m.lazyRoll * Math.sin(time * TAU / 27 + a.lane * 2.1) ** 5;
     const pause = m.pause?.roll ? pausing(a) : NO_PAUSE;
     const display = (m.pause?.roll ?? 0) * pause.slow * pause.side;
-    const bank = clamp(-a.turn * m.bank + lazy, -m.bankMax, m.bankMax) + display + m.tilt * (1 + .12 * Math.sin(time * TAU / 31 + a.lane));
-    a.bank += (bank - a.bank) * ease(m.bankEase, STEP);
+    // A floater lies on its back, its turns hardly rolling it.
+    const float = floating(a);
+    const bank = clamp(-a.turn * m.bank + lazy, -m.bankMax, m.bankMax) * (1 - float) + display + m.tilt * (1 + .12 * Math.sin(time * TAU / 31 + a.lane)) + Math.PI * float;
+    a.bank += (bank - a.bank) * ease(float > 0 ? Math.max(m.bankEase, 1.6) : m.bankEase, STEP);
     a.spin = barrel(a);
   }
   function remember(a: Animal) {
@@ -1102,6 +1175,8 @@ export function createMarineMotion(everyMember: readonly MarineMember[], level =
         target *= (1 - (1 - m.pause!.slow) * pause.slow) * (1 + (m.pause!.burst - 1) * pause.dash);
         response = pause.dash > .05 ? 2.8 : 1.4;
       }
+      // Floating on its back it only drifts.
+      target *= 1 - .85 * floating(a);
       const leaping = leapSpeed(a);
       a.speed = leaping ?? a.speed + (target - a.speed) * ease(response, STEP);
       a.x += Math.sin(a.heading) * a.speed * STEP;
@@ -1337,6 +1412,12 @@ export function createMarineMotion(everyMember: readonly MarineMember[], level =
       if (a.base.pause?.sail) {
         const pause = pausing(a);
         pose.sail = pause.dash > .05 ? 0 : pause.slow > .05 ? 1 : undefined;
+      }
+      if (a.base.breathe?.float) pose.rest = floating(a);
+      // Rocking with the surge, in step with the kelp (the same travelling wave as its shader).
+      if (a.base.sway) {
+        const swing = a.base.sway * Math.sin(TAU / KELP.surge.period * time - (SWAY_FLOW.x * pose.x + SWAY_FLOW.z * pose.z) * .55 + a.lane);
+        pose.x += SWAY_FLOW.x * swing; pose.z += SWAY_FLOW.z * swing;
       }
     }
     reef?.publish(t);

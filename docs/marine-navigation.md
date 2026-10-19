@@ -468,6 +468,38 @@ blue around it: the largest clearances and roams of any animals here.
 None of them is a danger to the reef's animals but the whitetip (`REEF_THREAT` 0.9); the whales
 and the manta make the tuna flow wide around them (`gap` 0.45 and 0.25).
 
+The Kelp Forest's five (see `docs/kelp-forest.md`) live at its island, among the kelp: the seal,
+the otters, the garibaldi and the seadragon close in, the orcas patrolling outside it.
+
+| | Harbor seal | Sea otter | Garibaldi | Leafy seadragon | Orca |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| `cruise` (units/s) | 0.36 | 0.3 | 0.14 | 0.04 | 0.5 |
+| `turnRate` / `turnEase` | 0.62 / 0.85 | 0.7 / 0.9 | 1.2 / 1.2 | 0.2 / 0.35 | 0.42 / 0.65 |
+| `bank` / `bankMax` | 0.85 / 0.4 | 0.7 / 0.35 | 0.3 / 0.15 | 0.2 / 0.1 | 0.5 / 0.22 |
+| `halfLength` × `halfWidth` | 0.65 × 0.22 | 0.5 × 0.2 | 0.25 × 0.1 | 0.28 × 0.1 | 1.15 × 0.45 |
+| `islandClearance` / `roam` | 0.75 / 0–0.9 | 0.6 / 0–0.7 | 0.55 / 0–0.35 | 0.55 / 0–0.4 | 1.25 / 0.35–1.1 |
+| `depth` / `bob` | +0.02 / 0.08 | −0.06 / 0.06 | +0.2 / 0.03 | +0.2 / 0.03 | −0.06 / 0.06 |
+| Special | `breathe` every 36 s, `weave` | `breathe.float`, rafts of 2–3 | `pause`, `sway` 0.05 | `sway` 0.07 | `breathe` every 30 s, pods of 2–4, `patrol` 0.5 |
+
+- The **harbor seal** glides in long, banking arcs in mid-water through the kelp, weaving, and
+  comes up to breathe (2.4 s at the surface) every 36 s or so.
+- The **sea otters** float on their backs at the surface for their whole stretch up between
+  dives (`breathe.float`: the breath lasts as long as the time between dives, rather than a short
+  one on a timer); floating, each is rolled belly-up (`bank` π), slowed and curled into its rest
+  pose (`pose.rest`). Then they roll over and dive to forage, and come back up to float again. A
+  raft keeps close, side by side (`GROUP_STYLE`).
+- The **garibaldi** hovers by the rocks, darting a little way and hanging again (`pause`), and the
+  **leafy seadragon** hardly travels at all; both keep near the shore, and both rock back and
+  forth with the kelp's surge (`sway`: their drawn place swings along the current with the
+  kelp's period, `KELP.surge`, without changing where they steer).
+- The **orcas** hold a line outside the kelp (`patrol` 0.5) in a loose, staggered pod, surfacing
+  one after another to breathe every 30 s.
+
+The orca is as great a danger to the reef's animals as any (`REEF_THREAT` 1) and startles the
+tuna (threat 0.7); the seal and the otter are lesser ones (0.65 and 0.55), the garibaldi and the
+seadragon hardly any. Every animal swimming through the kelp pushes it aside
+(`docs/kelp-forest.md`).
+
 How these map to the usual names: `cruise` is cruise speed, and `turnRate` and
 `turnEase` are turn speed. `halfLength`/`halfWidth` are the body radius, as an
 ellipse, because these animals are long or wide. `personalSpace` is the avoidance
