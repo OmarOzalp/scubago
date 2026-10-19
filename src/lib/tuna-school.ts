@@ -90,6 +90,13 @@ export const SCHOOL_REACTIONS: Record<MarineModel, { threat: number; gap: number
   'giant-trevally': { threat: .55, gap: .3, startle: .5 },
   'king-angelfish': { threat: 0, gap: .08 },
   'marine-iguana': { threat: 0, gap: .12 },
+  // The Mangroves & Seagrass': the lemon shark and the tarpon hunt fish, the sawfish slashes at them
+  // with its saw; the dugong and the stingray are no danger, only big.
+  'lemon-shark': { threat: .55, gap: .38, startle: .5 },
+  sawfish: { threat: .4, gap: .42 },
+  tarpon: { threat: .35, gap: .3 },
+  dugong: { threat: 0, gap: .32 },
+  'southern-stingray': { threat: 0, gap: .2 },
   // Reef animals keep to the reef (reef-life.ts): the school never meets them.
   'day-octopus': { threat: 0, gap: 0 },
   'giant-cuttlefish': { threat: 0, gap: 0 },

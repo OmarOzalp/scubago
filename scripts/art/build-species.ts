@@ -46,6 +46,11 @@ import { buildGalapagosShark } from './species/galapagos-shark';
 import { buildThresherShark } from './species/thresher-shark';
 import { buildGiantTrevally } from './species/giant-trevally';
 import { buildKingAngelfish } from './species/king-angelfish';
+import { buildDugong } from './species/dugong';
+import { buildSawfish } from './species/sawfish';
+import { buildLemonShark } from './species/lemon-shark';
+import { buildSouthernStingray } from './species/southern-stingray';
+import { buildTarpon } from './species/tarpon';
 
 const OUT = resolve(dirname(process.argv[1]), '../../assets/models/marine') + '/';
 
@@ -82,6 +87,11 @@ const SPECIES: Partial<Record<SwimRigModel, { build: () => { mesh: MeshBuilder; 
   'thresher-shark': { build: buildThresherShark, scientificName: 'Alopias pelagicus', reference: 'https://www.iucnredlist.org/species/161597/68607857' },
   'giant-trevally': { build: buildGiantTrevally, scientificName: 'Caranx ignobilis', reference: 'https://www.fishbase.se/summary/Caranx-ignobilis.html' },
   'king-angelfish': { build: buildKingAngelfish, scientificName: 'Holacanthus passer', reference: 'https://www.fishbase.se/summary/Holacanthus-passer.html' },
+  dugong: { build: buildDugong, scientificName: 'Dugong dugon', reference: 'https://www.iucnredlist.org/species/6909/160756767' },
+  sawfish: { build: buildSawfish, scientificName: 'Pristis pristis', reference: 'https://www.floridamuseum.ufl.edu/discover-fish/species-profiles/pristis-pristis/' },
+  'lemon-shark': { build: buildLemonShark, scientificName: 'Negaprion brevirostris', reference: 'https://www.floridamuseum.ufl.edu/discover-fish/species-profiles/negaprion-brevirostris/' },
+  'southern-stingray': { build: buildSouthernStingray, scientificName: 'Hypanus americanus', reference: 'https://www.floridamuseum.ufl.edu/discover-fish/species-profiles/hypanus-americanus/' },
+  tarpon: { build: buildTarpon, scientificName: 'Megalops atlanticus', reference: 'https://www.floridamuseum.ufl.edu/discover-fish/species-profiles/megalops-atlanticus/' },
 };
 
 async function main() {

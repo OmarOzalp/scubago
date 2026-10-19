@@ -11,7 +11,8 @@ const SPECIES = ['whale-shark', 'tiger-shark', 'great-white-shark', 'scalloped-h
   'great-barracuda', 'sailfish', 'california-sea-lion', 'spotted-eagle-ray', 'golden-jellyfish', 'clownfish',
   'humpback-whale', 'sperm-whale', 'oceanic-whitetip', 'leatherback-turtle', 'oceanic-manta',
   'harbor-seal', 'sea-otter', 'garibaldi', 'leafy-seadragon', 'orca',
-  'marine-iguana', 'galapagos-shark', 'thresher-shark', 'giant-trevally', 'king-angelfish'];
+  'marine-iguana', 'galapagos-shark', 'thresher-shark', 'giant-trevally', 'king-angelfish',
+  'dugong', 'sawfish', 'lemon-shark', 'southern-stingray', 'tarpon'];
 /**
  * Animals with a pose of their own to check beyond swimming and turning: the reef's (resting,
  * jetting), the barracuda hanging still, the sailfish's sail, the clownfish rowing in place.

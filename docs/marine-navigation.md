@@ -100,7 +100,7 @@ animated species (`MAX_ANIMATED`), one tap destination (every member opens its p
 and one slot in the dive schedule. Its extra members come from a budget of their own
 (`GROUP_BUDGET`: 6 extra animals, 3 where the GPU is emulated), given to the dolphins'
 pods first, then the sea lions, a jellyfish swarm (alone, a jellyfish is hardly one),
-hammerheads, eagle rays, trevally packs, barracuda schools and shoals. Each visit picks the group sizes
+hammerheads and lemon sharks, eagle rays, trevally packs and tarpon, barracuda schools and shoals. Each visit picks the group sizes
 afresh within each species' range (`GROUP_SIZES` in `src/lib/marine-groups.ts`):
 
 | Species | Animals | Why |
@@ -113,6 +113,8 @@ afresh within each species' range (`GROUP_SIZES` in `src/lib/marine-groups.ts`):
 | Raccoon butterflyfish | 2 | They go about in pairs |
 | California sea lion | 2–3 | They play in small groups |
 | Spotted eagle ray | 3–4 | They fly in squadrons |
+| Tarpon | 2–4 | Small groups that roll up together to gulp air (their own model and style) |
+| Lemon shark | 1–2 | Usually alone, now and then two patrolling the shallows together |
 | Golden jellyfish | 4–6 | They drift in swarms (millions, in Palau's Jellyfish Lake) |
 
 Clownfish always come as a pair, but on the reef (see [Reef habitats](#reef-habitats)),

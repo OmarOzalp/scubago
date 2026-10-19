@@ -16,6 +16,8 @@ export const GROUP_SIZES: Readonly<Record<string, readonly [number, number]>> = 
   'bottlenose-dolphin': [2, 3],
   'spinner-dolphin': [2, 3],
   'scalloped-hammerhead': [2, 3],
+  'lemon-shark': [1, 2],
+  tarpon: [2, 4],
   'chevron-barracuda': [3, 5],
   'giant-trevally': [3, 5],
   'bumphead-parrotfish': [2, 3],
@@ -81,6 +83,14 @@ export const GROUP_STYLES: Partial<Record<MarineModel, GroupStyle>> = {
   'giant-trevally': {
     places: [[.42, .38], [-.4, .5], [.15, .95], [-.48, 1.1]], wander: .08, wanderPeriod: 9, swapEvery: 22, swapTime: 2.8, dip: .14, depthSpread: .06, stagger: 0, skip: 0,
   },
+  // Lemon sharks resting and cruising together in the shallows: a second one loosely alongside.
+  'lemon-shark': {
+    places: [[1, 1.1]], wander: .3, wanderPeriod: 24, swapEvery: 70, swapTime: 6, dip: .3, depthSpread: .12, stagger: 0, skip: 0,
+  },
+  // A small group of tarpon: loose and parallel, staggered, each rolling up for air in turn.
+  tarpon: {
+    places: [[.5, .55], [-.5, .75], [.1, 1.35]], wander: .12, wanderPeriod: 14, swapEvery: 40, swapTime: 4, dip: .18, depthSpread: .08, stagger: 2.5, skip: .3,
+  },
   // A small shoal: close together, busier, trading places more often.
   'reef-fish': {
     places: [[.34, .4], [-.32, .55], [.1, .92], [-.38, 1.08]], wander: .14, wanderPeriod: 7, swapEvery: 16, swapTime: 2.6, dip: .16, depthSpread: .07, stagger: 0, skip: 0,
@@ -98,7 +108,7 @@ export const GROUP_BUDGET = { full: 6, lite: 3 };
  * then a jellyfish swarm (alone, a jellyfish is hardly one), then hammerheads, eagle rays and shoals.
  */
 const PRIORITY: Partial<Record<MarineModel, number>> = {
-  'bottlenose-dolphin': 0, 'california-sea-lion': 1, orca: 1, 'sea-otter': 2, 'golden-jellyfish': 2, 'scalloped-hammerhead': 3, 'spotted-eagle-ray': 4, 'giant-trevally': 4, 'great-barracuda': 5, 'reef-fish': 6,
+  'bottlenose-dolphin': 0, 'california-sea-lion': 1, orca: 1, 'sea-otter': 2, 'golden-jellyfish': 2, 'scalloped-hammerhead': 3, 'spotted-eagle-ray': 4, 'giant-trevally': 4, 'lemon-shark': 3, tarpon: 4, 'great-barracuda': 5, 'reef-fish': 6,
 };
 
 const hash = (id: string) => { let h = 7; for (let i = 0; i < id.length; i++) h = (h * 31 + id.charCodeAt(i)) % 100003; return h; };

@@ -71,6 +71,13 @@ export const OCEAN = {
       shallow: '#2E9DBA', mid: '#2272B0', deep: '#174B93', sandShallow: '#5A5856', sandWet: '#3A3938', patch: '#44524B', sky: '#E4EDF6', sun: '#FFF8E8', foam: '#F5F9FC',
       clarity: { visibility: 3.6, seabed: .55, opacity: [.13, .26] },
     },
+    // A warm, shallow lagoon: bright green-turquoise shallows over pale sand and dark seagrass
+    // meadows, deepening to a soft teal; a little cloudier than the reef's water, tannin-tinted
+    // near the roots.
+    mangrove: {
+      shallow: '#4ACBB0', mid: '#2DA39F', deep: '#1E7F8C', sandShallow: '#E8DFBC', sandWet: '#D2C69F', patch: '#355E35', sky: '#EAF5EF', sun: '#FFF8E4', foam: '#F6FBF7',
+      clarity: { visibility: 2.3, seabed: .46, opacity: [.17, .31] },
+    },
   } satisfies Record<Habitat, OceanPalette>,
 
   // Water depth at which the body color reaches each stop (shallow -> mid -> deep).
@@ -162,6 +169,25 @@ const smoothstep = (a: number, b: number, x: number) => {
   return t * t * (3 - 2 * t);
 };
 const lerp = (a: number, b: number, t: number) => a + (b - a) * t;
+
+const noiseHash = (x: number, y: number) => { const v = Math.sin(x * 127.1 + y * 311.7) * 43758.5453; return v - Math.floor(v); };
+/** Smooth value noise in 0..1 with features about one unit across. */
+function valueNoise(x: number, z: number) {
+  const ix = Math.floor(x), iz = Math.floor(z), fx = x - ix, fz = z - iz;
+  const sx = fx * fx * (3 - 2 * fx), sz = fz * fz * (3 - 2 * fz);
+  const a = noiseHash(ix, iz), b = noiseHash(ix + 1, iz), c = noiseHash(ix, iz + 1), d = noiseHash(ix + 1, iz + 1);
+  return a + (b - a) * sx + (c - a) * sz + (a - b - c + d) * sx * sz;
+}
+
+/**
+ * Seagrass and rubble on the shelf at (x, z) in an island's own frame, `distance` (its shelf reach)
+ * from the shore: soft-edged patches (0 to 1) that thin out over deep water. The seabed is painted
+ * with them (ocean-mesh.ts), and the Mangroves & Seagrass island's meadows grow on them (seagrass.ts).
+ */
+export function seabedPatch(x: number, z: number, distance: number) {
+  const n = valueNoise(x * 1.7 + 11, z * 1.7 - 5) * .65 + valueNoise(x * 4.1 - 3, z * 4.1 + 7) * .35;
+  return smoothstep(.52, .72, n) * smoothstep(.06, .3, distance) * (1 - smoothstep(1.4, 2.4, distance));
+}
 
 /**
  * Seabed against distance from the nearest shoreline (negative = inland).
