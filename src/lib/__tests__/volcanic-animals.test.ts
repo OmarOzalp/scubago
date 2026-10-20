@@ -57,7 +57,7 @@ test('hammerheads school in twos and threes at the pinnacle; giant trevally hunt
 
 /** Its mean distance from the shore (seen from above), its mean height, how much of the time it is near the surface (within .3) and how many breaths it takes. */
 function habits(model: MarineModel, frames = 6000) {
-  const motion = createMarineMotion([{ model, lane: 0 }], 3), polygons = shorePolygons(3);
+  const motion = createMarineMotion([{ model, lane: 0 }], 3, { shape: 'volcanic' }), polygons = shorePolygons(3, 24, 'volcanic');
   const top = OCEAN.surfaceLevel - (MOVEMENT[model].breathe?.clearance ?? 0);
   let distance = 0, near = 0, depth = 0, breaths = 0, up = false;
   for (let frame = 0; frame < frames; frame++) {

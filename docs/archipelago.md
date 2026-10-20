@@ -51,6 +51,16 @@ opens the explorer on it (`/explore?island=kelp-forest`). A new species arriving
 (`docs/discovery-moments.md`) switches the card to its own island, so the diver sees it arrive
 where it lives.
 
+Each island has its own shape and size (`OUTLINES` in `src/lib/island-outline.ts`), so the
+archipelago never looks like one island stamped four times: the Coral Reef keeps the sandy bean of
+an island Home always had; the Kelp Forest is the largest, a long, rugged headland with an arm
+hooking out south-west and a deep bay biting into its south side; the Volcanic Pinnacle is the
+smallest, a nearly round cone with lava lobes reaching the sea; and the Mangroves & Seagrass is the
+longest, a low cay with a ragged fringe of lobes. Each island's islets rise just off its own shore,
+drawn with its own outline. Everything that follows a coast uses its island's shape (`shapeFor`):
+the coasts themselves, the seabed and shallows around each in the one ocean, the kelp and seagrass,
+the reef's dens and anemones, the small life's homes, and the animals steering around it.
+
 The explorer shows them all together, in one ocean: each island at its place
 (`ISLAND_PLACES`; the Kelp Forest lies to the north of Home's, in colder water, and the Volcanic
 Pinnacle to the south-west, in the clear blue of the currents, and the Mangroves & Seagrass to the

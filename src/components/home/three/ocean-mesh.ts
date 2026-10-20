@@ -4,7 +4,8 @@ import {
 } from 'three';
 import type { Habitat } from '@/lib/home';
 import { OCEAN, seabedPatch, seabedProfile, shelfStretch, waveTerms, type OceanConfig } from '@/lib/ocean';
-import { islandScale, shoreDistance, shorePolygons, shoreline } from './island-shape';
+import { islandReach, shapeFor } from '@/lib/island-outline';
+import { curveSegments, islandScale, shoreDistance, shorePolygons, shoreline } from './island-shape';
 
 /**
  * The ocean around the islands: a low-poly water surface displaced by several
@@ -200,22 +201,23 @@ function dataTexture(data: Uint8Array, width: number, depth: number) {
  * islands of different waters.
  */
 export function buildDepthField(level: number, islands: readonly OceanIsland[] = HOME_OCEAN, config: OceanConfig = OCEAN) {
-  const local = shorePolygons(level);
+  // Each island's own shores, in its own frame (its outline and size: island-outline.ts).
+  const shores = islands.map((island) => shorePolygons(level, 24, shapeFor(island.habitat)));
   const xs = islands.map((i) => i.x), zs = islands.map((i) => i.z);
   const x0 = Math.min(...xs) - DEPTH.margin, z0 = Math.min(...zs) - DEPTH.margin;
   const width = Math.max(...xs) - Math.min(...xs) + 2 * DEPTH.margin, depth = Math.max(...zs) - Math.min(...zs) + 2 * DEPTH.margin;
   const columns = Math.round(width * DEPTH.perUnit), rows = Math.round(depth * DEPTH.perUnit);
   const habitats = [...new Set(islands.map((i) => i.habitat))].slice(0, OCEAN_REGIONS);
   // Every island's shores in the world, for anything measuring from them.
-  const polygons = islands.flatMap((island) => local.map((poly) => poly.map((v, k) => v + (k % 2 ? island.z : island.x))));
+  const polygons = islands.flatMap((island, n) => shores[n].map((poly) => poly.map((v, k) => v + (k % 2 ? island.z : island.x))));
   // The shelf widens and narrows around each island's coast (in its own frame); the land itself is unchanged.
   // Far from an island's middle, only the open ocean's depth is left of its shelf.
   const nearest = (x: number, z: number) => {
     let best = Infinity, nx = x, nz = z;
-    for (const island of islands) {
-      const lx = x - island.x, lz = z - island.z;
+    for (let n = 0; n < islands.length; n++) {
+      const island = islands[n], lx = x - island.x, lz = z - island.z;
       if (Math.hypot(lx, lz) > ISLAND_REACH && best < Infinity) continue;
-      const distance = shoreDistance(local, lx, lz);
+      const distance = shoreDistance(shores[n], lx, lz);
       const reach = distance > 0 ? distance / shelfStretch(lx, lz, config) : distance;
       if (reach < best) { best = reach; nx = lx; nz = lz; }
     }
@@ -601,22 +603,27 @@ export function createSeabedMesh(uniforms: OceanUniforms, field: DepthField, lev
   const spacing = (island: OceanIsland) => Math.min(...field.islands.filter((other) => other !== island).map((other) => Math.hypot(other.x - island.x, other.z - island.z)));
   const offsetsFor = (island: OceanIsland) => {
     if (alone) return corner > 12 ? [...near, ...[14, 18, 23, 28].filter((o, i, all) => o < corner || all[i - 1] < corner)] : near;
-    const limit = spacing(island) / 2 - 2.6;
+    const limit = spacing(island) / 2 - islandReach(shapeFor(island.habitat)) * islandScale(level) - .2;
     return near.filter((o, i) => o <= limit || i < 4);
   };
-  const outline = shoreline().getPoints(24).map((p) => [p.x * islandScale(level), -p.y * islandScale(level)] as const);
-  // Distance from the island center to its shore along each ray.
-  const shoreRadius = (angle: number) => {
+  // Each island's own outline (its shape and size).
+  const outlineOf = (island: OceanIsland) => {
+    const shape = shapeFor(island.habitat);
+    return shoreline(shape).getPoints(curveSegments(shape, 24)).map((p) => [p.x * islandScale(level), -p.y * islandScale(level)] as const);
+  };
+  // Distance from the island center to its shore along each ray: the nearest crossing, so a bay's water
+  // has seabed under it too (where the ray crosses land again, the island covers the terrain beneath).
+  const shoreRadius = (outline: readonly (readonly [number, number])[], angle: number) => {
     const dx = Math.cos(angle), dz = Math.sin(angle);
-    let best = 0;
+    let best = Infinity;
     for (let i = 0; i < outline.length; i++) {
       const [ax, az] = outline[i], [bx, bz] = outline[(i + 1) % outline.length];
       const ex = bx - ax, ez = bz - az, det = dx * -ez + dz * ex;
       if (Math.abs(det) < 1e-9) continue;
       const t = (ax * -ez + az * ex) / det, u = (dx * az - dz * ax) / det;
-      if (t > 0 && u >= 0 && u <= 1) best = Math.max(best, t);
+      if (t > 0 && u >= 0 && u <= 1) best = Math.min(best, t);
     }
-    return best;
+    return best === Infinity ? 0 : best;
   };
   const positions: number[] = [], indices: number[] = [];
   // The open sea's floor between the islands: a coarse grid under all the water.
@@ -637,9 +644,9 @@ export function createSeabedMesh(uniforms: OceanUniforms, field: DepthField, lev
     }
   }
   for (const island of field.islands) {
-    const offsets = offsetsFor(island), first = positions.length / 3;
+    const offsets = offsetsFor(island), first = positions.length / 3, outline = outlineOf(island);
     for (let r = 0; r < rays; r++) {
-      const angle = Math.PI * 2 * r / rays, radius = shoreRadius(angle);
+      const angle = Math.PI * 2 * r / rays, radius = shoreRadius(outline, angle);
       for (const [k, offset] of offsets.entries()) {
         const jitter = k > 1 && k < offsets.length - 2 ? (hash(r, k) - .5) * .08 * Math.min(1, offset) : 0;
         const x = island.x + Math.cos(angle) * (radius + offset + jitter), z = island.z + Math.sin(angle) * (radius + offset + jitter);

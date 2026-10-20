@@ -17,9 +17,11 @@ vertex-coloured mesh in the island's own (scaled) frame, from the building block
 the Kelp Forest's coast (`coast-geometry.ts`: noise, face painting, a Delaunay triangulation,
 rough cliffs and boulders):
 
+- **The shape.** The smallest island of the archipelago and the tallest: nearly round, with lava lobes
+  reaching the sea on the east (under the causeway) and the south-west, and a shallow bight on the
+  north (`OUTLINES.volcanic` in island-outline.ts).
 - **The cone** (`CONE`, `coneAt`). It fills most of the island (the same outline the animals steer
-  around), steep and slightly concave like a cinder cone, longer east to west where the island is
-  longer, ribbed by gullies, with a crater at the summit. The ground is a jittered lattice of points
+  around), steep and slightly concave like a cinder cone, a little longer east to west, ribbed by gullies, with a crater at the summit. The ground is a jittered lattice of points
   joined by a Delaunay triangulation, with rings of points about the summit so the crater's rim is
   a crisp edge.
 - **Colour.** Dark basalt low down; rust-red cinder and patches of ash higher up; a pale band of

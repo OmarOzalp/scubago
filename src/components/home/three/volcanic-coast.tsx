@@ -24,20 +24,22 @@ const SCRUB = new Color('#56633F'), SCRUB_LIGHT = new Color('#6C7A4C');
 const PAD = new Color('#5F8048'), PAD_LIGHT = new Color('#77985A'), BARK = new Color('#7C6B52');
 const PALO = new Color('#958F86'), PALO_LIGHT = new Color('#B3ADA3');
 const ROCKS = { wet: new Color('#1C1B1A'), rock: BASALT, light: BASALT_LIGHT };
+/** The Volcanic Pinnacle's own island: small and nearly round (island-outline.ts). */
+const SHAPE = 'volcanic';
 /** The shore's foot (below the water surface, so the waves wash it) and top, and the sand at the water's edge in the coves. */
 const FOOT = -.26, TOP = .03, BEACH = -.13;
 /**
  * The cone: its summit's middle, the crater rim's radius and height above the shore, the crater's
  * depth, and how far its slopes reach (longer east–west, where the island is longer).
  */
-export const CONE = { x: -.1, z: .02, rim: .22, height: 1.15, crater: .15, reach: (angle: number) => 1.3 + .35 * Math.cos(angle) ** 2 };
+export const CONE = { x: -.06, z: .02, rim: .21, height: 1.15, crater: .15, reach: (angle: number) => 1.12 + .3 * Math.cos(angle) ** 2 };
 /** The coves of black sand: where along the shore (angle about the cone's middle) and how wide (rad). */
 const COVES = [{ angle: 1.35, width: .38 }, { angle: -2.2, width: .32 }];
 /** The fresh lava flows down the cone: the direction each runs (angle) and how wide it spreads. */
 const FLOWS = [{ angle: .55, width: .1 }, { angle: 2.75, width: .08 }, { angle: -1.2, width: .07 }];
 
 const OUTLINE = (() => {
-  const points = outlinePoints(10), polygon = new Float32Array(points.length * 2);
+  const points = outlinePoints(10, SHAPE), polygon = new Float32Array(points.length * 2);
   points.forEach(([x, y], i) => { polygon[i * 2] = x; polygon[i * 2 + 1] = -y; });
   return polygon;
 })();
@@ -76,7 +78,7 @@ export function groundAt(x: number, z: number) {
  * with facets over a jittered lattice, finer around the crater, following `groundAt`.
  */
 function slopes(seed: number) {
-  const contour = outlinePoints(8).map(([x, y]) => [x * 1.02, -y * 1.02] as const);
+  const contour = outlinePoints(8, SHAPE).map(([x, y]) => [x * 1.02, -y * 1.02] as const);
   const rim = new Float32Array(contour.flat());
   const step = .15, points: (readonly [number, number])[] = [...contour];
   for (let z = -1.9; z <= 1.9; z += step * .87) {
@@ -193,7 +195,7 @@ function columns(x: number, z: number, rows: number, cols: number, size: number,
 
 /** Black boulders along the waterline, except in the coves; and the pinnacle, a lone spire off the west point. */
 function shoreRocks(seed: number) {
-  const points = outlinePoints(6), parts: BufferGeometry[] = [];
+  const points = outlinePoints(6, SHAPE), parts: BufferGeometry[] = [];
   points.forEach(([px, py], i) => {
     if (hash(i, seed) < .3 || cove(Math.atan2(-py - CONE.z, px - CONE.x)) > .2) return;
     const [qx, qy] = points[(i + 1) % points.length];
@@ -213,9 +215,9 @@ function shoreRocks(seed: number) {
   }
   spire.scale(.2, .52, .17);
   spire.rotateZ(-.12);
-  spire.translate(-2.38, FOOT + .44, .62);
+  spire.translate(-2.02, FOOT + .44, .5);
   parts.push(paintFaces(faces(spire), (_x, fy, _z, f) => new Color().copy(fy < -.12 ? ROCKS.wet : CINDER).lerp(fy < -.12 ? BASALT : BASALT_LIGHT, hash(f, 9.1) * .8)));
-  parts.push(boulder(ROCKS, -2.2, FOOT + .1, .74, .08, .07, .07, 1, 21), boulder(ROCKS, -2.47, FOOT + .08, .45, .06, .05, .06, 2, 23));
+  parts.push(boulder(ROCKS, -1.84, FOOT + .1, .62, .08, .07, .07, 1, 21), boulder(ROCKS, -2.12, FOOT + .08, .33, .06, .05, .06, 2, 23));
   return parts;
 }
 
@@ -223,16 +225,16 @@ function shoreRocks(seed: number) {
 export function VolcanicCoast({ level }: { level: number }) {
   const mesh = useMemo(() => {
     const parts: BufferGeometry[] = [
-      cliffs(ROCKS, FOOT, TOP, 1, 0, 0, 0, (x, z) => shoreTop(x, z) - .05),
+      cliffs(ROCKS, FOOT, TOP, 1, 0, 0, 0, (x, z) => shoreTop(x, z) - .05, SHAPE),
       slopes(1),
-      ...grove(-1.55, -.15, 10, .45, 1), ...grove(1.35, -.55, 9, .45, 2), ...grove(1.25, .35, 6, .3, 3), ...grove(-.3, -1.05, 7, .5, 4),
-      ...cactus(-.85, .95, 1.9, 1), ...cactus(-.5, 1.18, 1.6, 2), ...cactus(.4, 1.1, 1.8, 3), ...cactus(-1.4, .55, 1.5, 4), ...cactus(1.2, .75, 1.5, 5),
+      ...grove(-1.22, -.12, 9, .38, 1), ...grove(1.15, -.42, 8, .38, 2), ...grove(1.08, .3, 5, .26, 3), ...grove(-.26, -.92, 6, .42, 4),
+      ...cactus(-.7, .8, 1.8, 1), ...cactus(-.4, 1, 1.5, 2), ...cactus(.36, .94, 1.7, 3), ...cactus(-1.12, .46, 1.4, 4), ...cactus(1, .64, 1.4, 5),
       // The causeway on the east point, and a stack of columns off the north shore.
-      ...columns(2.0, .1, 6, 7, .068, -.25, TOP + .17, -.17, 1),
-      ...columns(.75, -1.45, 3, 4, .06, .4, TOP + .12, -.06, 2),
+      ...columns(1.72, .08, 6, 7, .068, -.25, TOP + .17, -.17, 1),
+      ...columns(.72, -1.6, 3, 4, .06, .4, TOP + .12, -.06, 2),
       ...shoreRocks(1),
       // From level 5 the islets (island-outline.ts) rise as low lava rocks capped with columns.
-      ...islets(level).flatMap(({ position: [x, z], scale }, i) => [cliffs(ROCKS, FOOT, TOP, scale, x, z, 7 + i), ...columns(x, z, 3, 3, .05 * scale * 2.5, i, TOP + .08, TOP - .02, 5 + i)]),
+      ...islets(level, SHAPE).flatMap(({ position: [x, z], scale }, i) => [cliffs(ROCKS, FOOT, TOP, scale, x, z, 7 + i, undefined, SHAPE), ...columns(x, z, 3, 3, .05 * scale * 2.5, i, TOP + .08, TOP - .02, 5 + i)]),
     ];
     const geometry = mergeGeometries(parts);
     parts.forEach((part) => part.dispose());
@@ -302,7 +304,7 @@ function Steam() {
  * dashes of foam drifting downstream on the island's water clock and riding the waves. `offsets`
  * are the lines' distances from the island's middle across the flow.
  */
-export const CURRENT = { angle: 2.75, speed: .1, radius: 2.15, offsets: [-3.3, -2.3, -1.45, 1.4, 2.25, 3.2], reach: 7, width: .055, strength: .24 };
+export const CURRENT = { angle: 2.75, speed: .1, radius: 1.85, offsets: [-3, -2.05, -1.25, 1.2, 2, 2.95], reach: 7, width: .055, strength: .24 };
 
 /** Points along one streamline, `offset` across the flow, in the island's frame (x, z), and how far along it each is. */
 function streamline(offset: number, samples = 48) {

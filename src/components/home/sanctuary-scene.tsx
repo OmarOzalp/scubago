@@ -16,6 +16,7 @@ import { useMarineModels } from './three/use-marine-models';
 import { useSceneActive, useSceneVisible } from '@/hooks/use-scene-active';
 import { EXPLORER } from '@/lib/explorer-view';
 import type { Habitat } from '@/lib/home';
+import { shapeFor } from '@/lib/island-outline';
 import { MACRO_SPECIES, macroResidents, type MacroSpecies } from '@/lib/macro-life';
 import { clamp, oceanScale } from '@/lib/steering';
 import { hasSchool, MAX_ANIMATED, pickSwimmers, SCHOOL_SPECIES, schoolSpeciesFor, swimmerPages, swimsInSchool, type MarineModel } from '@/lib/swimming';
@@ -164,12 +165,12 @@ export function SanctuaryScene({ habitat, level, residents, islands, paused = fa
   const sceneIslands: SceneIsland[] = lineups.map(({ place, swimmers: here, schoolSpecies, school: schooling }, i) => ({
     key: place.key, habitat: place.habitat, x: place.x, z: place.z,
     content: <>
-      {models && !loading && <MarineSwimmers models={models} active={active} level={level} tapScale={explorer?.tapScale}
+      {models && !loading && <MarineSwimmers models={models} active={active} level={level} tapScale={explorer?.tapScale} shape={shapeFor(place.habitat)}
         residents={preview
           ? (i === 0 ? visitors.map((s) => ({ ...s, id: s.model, onPress: () => onInspect(s.model) })) : [])
           : here.map((s) => ({ ...s, id: s.species.id, onPress: () => router.push(`/species/${s.species.id}`) }))}
         onSchoolPress={() => router.push(`/species/${schoolSpecies}`)} school={schooling} schoolSpecies={SCHOOLED} arrivals={i === 0 ? arrivals : undefined} />}
-      {explorer && !loading && macroAt(place, i).length > 0 && <MacroLife level={level} species={macroAt(place, i)} zoom={explorer.zoom} tapScale={explorer.tapScale} active={active}
+      {explorer && !loading && macroAt(place, i).length > 0 && <MacroLife level={level} species={macroAt(place, i)} shape={shapeFor(place.habitat)} zoom={explorer.zoom} tapScale={explorer.tapScale} active={active}
         onPress={(id) => router.push(`/species/${id}`)} onFocus={(x, z, zoom) => explorer.focus(place.x + x, place.z + z, zoom)} />}
     </>,
   }));

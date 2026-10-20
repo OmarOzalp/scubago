@@ -1,6 +1,7 @@
 import { useContext, useEffect, useMemo } from 'react';
 import { Color, Float32BufferAttribute, IcosahedronGeometry, Mesh, MeshLambertMaterial, type BufferGeometry } from 'three';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
+import type { IslandShape } from '@/lib/island-outline';
 import { REEF_ROCK, reefRocks, type ReefRock } from '@/lib/reef-life';
 import { OceanContext } from './ocean-context';
 import { useSceneQuality } from './scene-quality';
@@ -53,11 +54,11 @@ function rockBoulders(rock: ReefRock, seed: number) {
  * the island grows), set back in depth like the animals on the bottom, and take on the water above
  * them like the seabed's other props.
  */
-export function ReefRocks({ level, morays, octopuses }: { level: number; morays: number; octopuses: number }) {
+export function ReefRocks({ level, morays, octopuses, shape = 'reef' }: { level: number; morays: number; octopuses: number; shape?: IslandShape }) {
   const ocean = useContext(OceanContext);
   const lite = useSceneQuality() === 'lite';
   const { mesh, look } = useMemo(() => {
-    const { dens, rocks } = reefRocks(level, morays, octopuses);
+    const { dens, rocks } = reefRocks(level, morays, octopuses, 0, shape);
     const parts = [...dens.flat(), ...rocks].flatMap((rock, i) => rockBoulders(rock, i * 7.3 + 1));
     const geometry = mergeGeometries(parts);
     parts.forEach((part) => part.dispose());
@@ -70,7 +71,7 @@ export function ReefRocks({ level, morays, octopuses }: { level: number; morays:
     geometry.dispose();
     material.dispose();
     return { mesh, look };
-  }, [level, morays, octopuses, ocean, lite]);
+  }, [level, morays, octopuses, ocean, lite, shape]);
   useEffect(() => () => look.dispose(), [look]);
   return <primitive object={mesh} />;
 }

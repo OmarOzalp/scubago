@@ -20,15 +20,17 @@ const CYPRESS = new Color('#3B5536'), CYPRESS_LIGHT = new Color('#4E6B44'), TRUN
 const FOOT = -.26, TOP = .07;
 
 const ROCKS = { wet: ROCK_WET, rock: ROCK, light: ROCK_LIGHT };
+/** The Kelp Forest's own island: a long headland with a bay on its south side (island-outline.ts). */
+const SHAPE = 'kelp';
 
 /** The outline in the island group's ground plane (x, z), for distances from the cliff edge. */
 const OUTLINE = (() => {
-  const points = outlinePoints(10), polygon = new Float32Array(points.length * 2);
+  const points = outlinePoints(10, SHAPE), polygon = new Float32Array(points.length * 2);
   points.forEach(([x, y], i) => { polygon[i * 2] = x; polygon[i * 2 + 1] = -y; });
   return polygon;
 })();
-/** Where the headland's hill rises highest, how high above the cliff top, and how far it spreads (units). */
-const HILL = { x: -.45, z: .2, height: .2, radius: 1.9 };
+/** Where the headland's hill rises highest (on its western end, behind the bay), how high above the cliff top, and how far it spreads (units). */
+const HILL = { x: -1.2, z: -.4, height: .24, radius: 2.2 };
 /** The ground's height on top of the headland at (x, z): a low hill rising from the cliff edge, a little uneven. */
 function groundAt(x: number, z: number) {
   const inside = Math.max(0, -shoreDistance([OUTLINE], x, z));
@@ -38,7 +40,7 @@ function groundAt(x: number, z: number) {
 }
 
 /** The headland's rock walls (coast-geometry.ts); `scale` and the offset place an islet. */
-const headland = (scale = 1, ox = 0, oz = 0, seed = 0) => cliffs(ROCKS, FOOT, TOP, scale, ox, oz, seed);
+const headland = (scale = 1, ox = 0, oz = 0, seed = 0) => cliffs(ROCKS, FOOT, TOP, scale, ox, oz, seed, undefined, SHAPE);
 
 /**
  * The headland's top: the outline (a little wider than the cliffs' top, covering it) filled with
@@ -46,11 +48,11 @@ const headland = (scale = 1, ox = 0, oz = 0, seed = 0) => cliffs(ROCKS, FOOT, TO
  * grass, darker patches of coastal scrub, and bare rock showing at the cliff edge and in outcrops.
  */
 function hilltop(seed: number) {
-  const contour = outlinePoints(8).map(([x, y]) => [x * 1.02, -y * 1.02] as const);
+  const contour = outlinePoints(8, SHAPE).map(([x, y]) => [x * 1.02, -y * 1.02] as const);
   const rim = new Float32Array(contour.flat());
   const step = .19, points: (readonly [number, number])[] = [...contour];
   for (let z = -1.9; z <= 1.9; z += step * .87) {
-    for (let x = -2.5; x <= 2.5; x += step) {
+    for (let x = -3; x <= 3; x += step) {
       const px = x + (Math.round(z / step) % 2) * step / 2 + (hash(x * 7 + seed, z * 3) - .5) * step * .45, pz = z + (hash(z * 5, x * 9 + seed) - .5) * step * .45;
       if (-shoreDistance([rim], px, pz) > step * .5) points.push([px, pz]);
     }
@@ -102,7 +104,7 @@ function cypress(x: number, z: number, size: number, lean: number, seed: number)
  * outline itself, so they follow the shore.
  */
 function shoreRocks(seed: number) {
-  const points = outlinePoints(6), parts: BufferGeometry[] = [];
+  const points = outlinePoints(6, SHAPE), parts: BufferGeometry[] = [];
   points.forEach(([px, py], i) => {
     if (hash(i, seed) < .35) return;
     const [qx, qy] = points[(i + 1) % points.length];
@@ -112,8 +114,8 @@ function shoreRocks(seed: number) {
     const s = .05 + .06 * hash(i, 4.4);
     parts.push(boulder(ROCKS, x, FOOT + .06 + s * .2, z, s, s * .7, s * .85, hash(i, 6.6) * 3, i * 3.7));
   });
-  // Sea stacks: tall rocks standing off the headland's points, their tops well clear of the water.
-  for (const [x, z, s, h] of [[2.32, .78, .17, .34], [-1.95, -1.55, .14, .28], [-2.55, .5, .1, .22]] as const) {
+  // Sea stacks: tall rocks standing off the headland's points and in the mouth of its bay, their tops well clear of the water.
+  for (const [x, z, s, h] of [[2.32, .78, .17, .34], [-1.95, -1.55, .14, .28], [-3.05, .15, .1, .22], [.3, 1.35, .12, .26]] as const) {
     parts.push(boulder(ROCKS, x, FOOT + h * .5, z, s, h, s * .85, x * 3, x * 11));
     parts.push(boulder(ROCKS, x + s * .9, FOOT + .02, z - s * .4, s * .5, s * .4, s * .45, z, z * 7));
   }
@@ -126,11 +128,12 @@ export function KelpCoast({ level }: { level: number }) {
     const parts: BufferGeometry[] = [
       headland(),
       hilltop(1),
-      ...cypress(-.85, .3, 1.7, .9, 1), ...cypress(-.45, .62, 1.5, .9, 2), ...cypress(-.2, .2, 1.3, .9, 3),
-      ...cypress(.85, -.3, 1.25, .9, 4), ...cypress(1.35, .4, 1, .9, 5),
+      // A grove on the hill at the western end, and a few more along the headland.
+      ...cypress(-1.55, -.25, 1.7, .9, 1), ...cypress(-1.1, -.7, 1.5, .9, 2), ...cypress(-.7, -.2, 1.3, .9, 3),
+      ...cypress(-2.1, .15, 1.1, .9, 6), ...cypress(.85, -.45, 1.25, .9, 4), ...cypress(1.6, -.55, 1, .9, 5),
       ...shoreRocks(1),
       // From level 5 the islets (island-outline.ts) rise as rocky skerries.
-      ...islets(level).map(({ position: [x, z], scale }, i) => headland(scale, x, z, 7 + i)),
+      ...islets(level, SHAPE).map(({ position: [x, z], scale }, i) => headland(scale, x, z, 7 + i)),
     ];
     const geometry = mergeGeometries(parts);
     parts.forEach((part) => part.dispose());

@@ -5,8 +5,9 @@ each other, keeping clear of the island and islets, and turning and banking
 smoothly; swimming in small groups; the dolphins' leaps; the ocean widening as
 the island levels up; and the reef's own animals, which keep to the reef rather than
 the open water ([Reef habitats](#reef-habitats)). Everything lives in
-`src/lib/marine-motion.ts` and, for the reef, `src/lib/reef-life.ts`; the island's
-shape and the shore-distance field are in `src/lib/island-outline.ts`, the groups in
+`src/lib/marine-motion.ts` and, for the reef, `src/lib/reef-life.ts`; the islands'
+shapes and the shore-distance field are in `src/lib/island-outline.ts` (each island's own: a
+simulation is told which, `shape`, and steers its animals around that one), the groups in
 `src/lib/marine-groups.ts`, the leap's curves in `src/lib/breach.ts` and the ocean's
 growth in `src/lib/steering.ts`. Swimming gait (tail beats, wing and flipper strokes)
 is separate, in `src/lib/marine-rigs.ts`.

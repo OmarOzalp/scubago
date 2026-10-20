@@ -16,6 +16,9 @@ here) swim here; everything else swims at its own area's island or at Home's.
 vertex-coloured mesh in the island's own (scaled) frame, from the building blocks it shares with
 the Kelp Forest's and the Volcanic Pinnacle's coasts (`coast-geometry.ts`):
 
+- **The shape.** The longest island of the archipelago and the flattest: a low cay running east–west
+  with a ragged fringe of lobes where the mangroves grow out over the water (`OUTLINES.mangrove` in
+  island-outline.ts).
 - **The ground.** Tidal mud only just above the water (`TOP`), a little higher inland and lumpy with
   roots, under a litter of fallen leaves; low mud banks from under the waterline (`FOOT`) to the
   shore. On the south-east side a spit of pale sand runs out (`SPIT`), where the canopy opens.

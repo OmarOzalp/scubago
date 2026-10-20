@@ -1,6 +1,6 @@
 import { breachFlight, breachHeight, DOLPHIN_BREACH, type BreachConfig, type BreachStage } from './breach';
 import { KELP } from './kelp';
-import { createShoreField } from './island-outline';
+import { createShoreField, type IslandShape } from './island-outline';
 import { followerLane, GROUP_STYLES, type GroupStyle } from './marine-groups';
 import { OCEAN } from './ocean';
 import { sampleDive, surfaceShift, SWIM_LEVEL } from './ocean-depth';
@@ -547,14 +547,17 @@ export function createMarineMotion(everyMember: readonly MarineMember[], level =
   leap?: number;
   /** Species (their lanes) that wait out of sight until arrive() brings them in: new discoveries. */
   arriving?: readonly number[];
+  /** Which island they swim around (its own outline and size): the reef's unless told. */
+  shape?: IslandShape;
 } = {}) {
-  let field = createShoreField(level), current = level;
+  const shape = options.shape ?? 'reef';
+  let field = createShoreField(level, shape), current = level;
   const seed = options.seed ?? 0;
   // The reef's animals keep to the reef (reef-life.ts); everything here is the open water's, which pays them no attention.
   const onReef = (m: MarineMember) => (MOVEMENT[m.model].habitat ?? 'open-water') !== 'open-water' && isReefModel(m.model);
   const members = everyMember.filter((m) => !onReef(m));
   const reefMembers = everyMember.flatMap((m) => (onReef(m) && isReefModel(m.model) ? [{ model: m.model, lane: m.lane }] : []));
-  const reef = reefMembers.length ? createReefLife(reefMembers, level, { seed, arriving: options.arriving }) : null;
+  const reef = reefMembers.length ? createReefLife(reefMembers, level, { seed, arriving: options.arriving, shape }) : null;
   /** Species on the island: dives are staggered among them (see ocean-depth.ts); group members count once. */
   const population = members.length;
   // The ocean area animals keep to and their extra roaming room: this level's, easing to a new level's after setLevel().
@@ -1632,7 +1635,7 @@ export function createMarineMotion(everyMember: readonly MarineMember[], level =
     setLevel(next: number) {
       if (next === current) return;
       current = next;
-      field = createShoreField(next);
+      field = createShoreField(next, shape);
       school?.setField(field);
       reef?.setLevel(next);
       goal = { world: worldFor(next), roam: roamFor(next) };

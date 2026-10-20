@@ -1,6 +1,7 @@
 import { useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { useFrame } from '@react-three/fiber';
 import { Box3, Group, Mesh, Vector3, type Material } from 'three';
+import type { IslandShape } from '@/lib/island-outline';
 import { MACRO, macroHomes, macroPresence, type MacroKind, type MacroSpecies } from '@/lib/macro-life';
 import { buildMacro } from './macro-creatures';
 import { OceanContext } from './ocean-context';
@@ -29,8 +30,10 @@ const SLANT = 6 / 12.15;
  * on the water like the reef's rocks and anemones, and move only while the scene is `active` (not
  * with reduced motion, nor in the background).
  */
-export function MacroLife({ level, species, zoom, tapScale, active, onPress, onFocus }: {
+export function MacroLife({ level, species, zoom, tapScale, active, onPress, onFocus, shape = 'reef' }: {
   level: number; species: readonly MacroSpecies[];
+  /** The island they live around (its outline places their homes). */
+  shape?: IslandShape;
   /** The explorer's zoom now (screen points per world unit). */
   zoom: () => number;
   /** How much larger than MIN_TAP a tap target must be in the world to keep its size on screen (tapScaleAt). */
@@ -45,7 +48,7 @@ export function MacroLife({ level, species, zoom, tapScale, active, onPress, onF
   const key = species.join(',');
   const list = useMemo(() => key.split(',').filter(Boolean) as MacroSpecies[], [key]);
   const life = useMemo(() => {
-    const creatures = macroHomes(level, list).map((home) => {
+    const creatures = macroHomes(level, list, shape).map((home) => {
       const model = buildMacro(home.kind, lite), root = new Group();
       root.add(model.home, model.body);
       // Its tap target covers it and its home, measured before it is moved into place.
@@ -75,7 +78,7 @@ export function MacroLife({ level, species, zoom, tapScale, active, onPress, onF
       },
       dispose() { creatures.forEach((c) => c.looks.forEach((look) => look.dispose())); },
     };
-  }, [level, list, ocean, lite]);
+  }, [level, list, ocean, lite, shape]);
   useEffect(() => () => life.dispose(), [life]);
 
   const time = useRef(0);

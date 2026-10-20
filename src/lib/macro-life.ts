@@ -1,4 +1,4 @@
-import { islandScale, SEABED_PROPS, shoreDistance, shorePolygons } from './island-outline';
+import { islandScale, SEABED_PROPS, shoreDistance, shorePolygons, type IslandShape } from './island-outline';
 import { locate, REEF, REEF_ANEMONE, REEF_SIZE, reefRocks } from './reef-life';
 import { smoothstep } from './steering';
 import type { DexEntry } from './types';
@@ -65,11 +65,11 @@ export type MacroHome = {
   outX: number; outZ: number;
 };
 
-/** The reef's props a home keeps clear of at this level (x, z and how far each reaches, units). */
-export function reefProps(level: number) {
-  const scale = islandScale(level), { dens, rocks, anemones } = reefRocks(level, 2, 3, 2);
+/** The reef's props a home keeps clear of at this level, on this island (x, z and how far each reaches, units). */
+export function reefProps(level: number, shape: IslandShape = 'reef') {
+  const scale = islandScale(level), { dens, rocks, anemones } = reefRocks(level, 2, 3, 2, shape);
   return [
-    ...Object.entries(SEABED_PROPS).map(([name, [x, z]]) => ({ x: x * scale, z: z * scale, radius: name === 'reefRock' ? .25 : .3 })),
+    ...(shape === 'reef' ? Object.entries(SEABED_PROPS).map(([name, [x, z]]) => ({ x: x * scale, z: z * scale, radius: name === 'reefRock' ? .25 : .3 })) : []),
     // A den's boulder with a smaller one either side; an octopus's rock with its stone.
     ...dens.flat().map((d) => ({ x: d.x, z: d.z, radius: .36 })),
     // A moray resting half out of its den: its body along the seabed from the den's mouth to its head.
@@ -82,24 +82,25 @@ export function reefProps(level: number) {
   ];
 }
 
-const homeCache = new Map<number, Map<MacroKind, Omit<MacroHome, 'species'>>>();
-/** The homes of these species at this level (found once per level; they move out as the island grows). */
-export function macroHomes(level: number, species: readonly MacroSpecies[]): MacroHome[] {
-  let homes = homeCache.get(level);
+const homeCache = new Map<string, Map<MacroKind, Omit<MacroHome, 'species'>>>();
+/** The homes of these species at this level on this island (found once each; they move out as the island grows). */
+export function macroHomes(level: number, species: readonly MacroSpecies[], shape: IslandShape = 'reef'): MacroHome[] {
+  const key = `${shape}:${level}`;
+  let homes = homeCache.get(key);
   if (!homes) {
-    const polygons = shorePolygons(level);
+    const polygons = shorePolygons(level, 24, shape);
     homes = new Map((Object.keys(HOMES) as MacroKind[]).map((kind) => {
       const place = locate(polygons, HOMES[kind].angle, HOMES[kind].reach);
       return [kind, { kind, x: place.x, z: place.z, floor: place.floor, outX: place.nx, outZ: place.nz }];
     }));
-    homeCache.set(level, homes);
+    homeCache.set(key, homes);
   }
   const found = homes;
   return species.map((id) => ({ species: id, ...found.get(MACRO_SPECIES[id])! }));
 }
 
 /** How far the island's water is from a home (units): its distance to the nearest dry land, islets included. */
-export const shoreGap = (level: number, home: Pick<MacroHome, 'x' | 'z'>) => shoreDistance(shorePolygons(level), home.x, home.z);
+export const shoreGap = (level: number, home: Pick<MacroHome, 'x' | 'z'>, shape: IslandShape = 'reef') => shoreDistance(shorePolygons(level, 24, shape), home.x, home.z);
 
 /** How much in view the creatures are at the explorer's zoom (0 to 1). */
 export const macroPresence = (zoom: number) => smoothstep(MACRO.appear, MACRO.clear, zoom);

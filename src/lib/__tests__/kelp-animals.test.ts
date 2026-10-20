@@ -43,7 +43,7 @@ test('floating on its back, a sea otter curls belly-up: head and feet raised, pa
 
 test('a raft of sea otters floats on their backs at the surface between dives, and dives to forage', () => {
   const members: MarineMember[] = [{ model: 'sea-otter', lane: 0, group: 3 }];
-  const motion = createMarineMotion(members, 3);
+  const motion = createMarineMotion(members, 3, { shape: 'kelp' });
   const top = OCEAN.surfaceLevel - MOVEMENT['sea-otter'].breathe!.clearance;
   let up = 0, floating = 0, onBack = 0, seen = 0, dove = false;
   for (let frame = 0; frame < 6000; frame++) {
@@ -69,9 +69,9 @@ test('a raft of sea otters floats on their backs at the surface between dives, a
 });
 
 test('the garibaldi and the leafy seadragon keep near the rocky shore, the seadragon barely moving, and both sway with the surge', () => {
-  const polygons = shorePolygons(3);
+  const polygons = shorePolygons(3, 24, 'kelp');
   for (const model of ['garibaldi', 'leafy-seadragon'] as MarineModel[]) {
-    const motion = createMarineMotion([{ model, lane: 0 }], 3);
+    const motion = createMarineMotion([{ model, lane: 0 }], 3, { shape: 'kelp' });
     let distance = 0, travelled = 0, swayed = 0, last = motion.inspect(0)!;
     let px = last.x, pz = last.z;
     for (let frame = 0; frame < 4000; frame++) {
@@ -91,8 +91,8 @@ test('the garibaldi and the leafy seadragon keep near the rocky shore, the seadr
 });
 
 test('an orca pod patrols outside the kelp and comes up to breathe', () => {
-  const motion = createMarineMotion([{ model: 'orca', lane: 0, group: 3 }], 3);
-  const polygons = shorePolygons(3), top = OCEAN.surfaceLevel - MOVEMENT.orca.breathe!.clearance;
+  const motion = createMarineMotion([{ model: 'orca', lane: 0, group: 3 }], 3, { shape: 'kelp' });
+  const polygons = shorePolygons(3, 24, 'kelp'), top = OCEAN.surfaceLevel - MOVEMENT.orca.breathe!.clearance;
   let breaths = 0, up = false, distance = 0, frames = 0;
   for (let frame = 0; frame < 12000; frame++) {
     motion.step(.05, true);

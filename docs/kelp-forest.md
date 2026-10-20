@@ -13,6 +13,9 @@ Forest species swimming as a relative's model) swim here; everything else swims 
 `src/components/home/three/kelp-coast.tsx` builds the whole coast as one flat-shaded,
 vertex-coloured mesh in the island's own (scaled) frame:
 
+- **The shape.** The largest island of the archipelago: a long, rugged headland running east–west,
+  an arm hooking out south-west and a deep bay biting into its south side between two rocky points
+  (`OUTLINES.kelp` in island-outline.ts).
 - **Cliffs.** The island's outline (the same one the animals steer around) extruded into rough
   rock walls from under the water (`FOOT`) to the clifftop (`TOP`), jittered and darkened toward
   the waterline where the rock is wet.

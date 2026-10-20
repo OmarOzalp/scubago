@@ -1,6 +1,7 @@
 import { useContext, useEffect, useMemo, useRef, useState, type ComponentType } from 'react';
 import { useFrame, useThree } from '@react-three/fiber';
 import type { Group } from 'three';
+import type { IslandShape } from '@/lib/island-outline';
 import { GROUP_BUDGET, groupSizes } from '@/lib/marine-groups';
 import { createMarineMotion, MOVEMENT, type MarineMember, type MarineMotion } from '@/lib/marine-motion';
 import { isReefModel, REEF_SPECIES } from '@/lib/reef-life';
@@ -59,8 +60,10 @@ const scratch = { x: 0, y: 0 };
  * The animals and the tuna school. A species that swims in a group (marine-groups.ts) is drawn as
  * several animals, all opening its one page; `onSchoolPress` makes the school one tap target too.
  */
-export function MarineSwimmers({ residents, models, active, level = 1, school = false, onSchoolPress, schoolSpecies = [], arrivals, tapScale }: {
+export function MarineSwimmers({ residents, models, active, level = 1, school = false, onSchoolPress, schoolSpecies = [], arrivals, tapScale, shape = 'reef' }: {
   residents: Resident[]; models: MarineModels; active: boolean; level?: number; onSchoolPress?: () => void;
+  /** The island they swim around (its own outline and size). */
+  shape?: IslandShape;
   /** How much larger tap targets are than the animals need at the first level's zoom: the level's pullback unless set (the explorer's zoom, tapScaleAt). */
   tapScale?: number;
   /** Whether the tuna school swims here (a tuna is logged). */
@@ -83,19 +86,20 @@ export function MarineSwimmers({ residents, models, active, level = 1, school = 
   const holdable = schoolPending && !arrivals?.visible && !arrivals?.instant;
   const start = () => {
     const arriving = residents.filter((r) => waiting.includes(r.id)).map((r) => r.lane);
-    const motion = createMarineMotion(members, level, { school, seed: SEED, leap: LEAP, arriving });
+    const motion = createMarineMotion(members, level, { school, seed: SEED, leap: LEAP, arriving, shape });
     // A new tuna brings the whole school in, from out of sight (only ever before the scene is shown).
     if (holdable) motion.holdSchool(aspect);
     return motion;
   };
   // One simulation per set of animals (a school of tuna swims with them, src/lib/tuna-school.ts). A new
   // level reshapes the island and widens the ocean around the same animals rather than starting over.
-  // The school joining (a tuna logged) or leaving (its last sighting deleted) starts one too.
-  const [simulation, setSimulation] = useState(() => ({ members, school, motion: start() }));
+  // The school joining (a tuna logged) or leaving (its last sighting deleted) starts one too, and so does
+  // another island (Home's card shows one island at a time).
+  const [simulation, setSimulation] = useState(() => ({ members, school, shape, motion: start() }));
   let motion = simulation.motion;
-  if (simulation.members !== members || simulation.school !== school) {
+  if (simulation.members !== members || simulation.school !== school || simulation.shape !== shape) {
     motion = start();
-    setSimulation({ members, school, motion });
+    setSimulation({ members, school, shape, motion });
   }
   useEffect(() => { motion.setLevel(level); }, [motion, level]);
 
@@ -189,8 +193,8 @@ export function MarineSwimmers({ residents, models, active, level = 1, school = 
         model={swimmer.model} lane={swimmer.lane} gltf={models[swimmer.model]!}
         active={active} population={residents.length} motion={motion} onPress={resident.onPress} tapScale={taps} />;
     })}
-    {morays + octopuses > 0 && <ReefRocks level={level} morays={morays} octopuses={octopuses} />}
-    {anemones > 0 && <ReefAnemones level={level} count={anemones} />}
+    {morays + octopuses > 0 && <ReefRocks level={level} morays={morays} octopuses={octopuses} shape={shape} />}
+    {anemones > 0 && <ReefAnemones level={level} count={anemones} shape={shape} />}
     <MarineSplashes motion={motion} lite={lite} />
     {motion.school && <TunaSchoolMesh school={motion.school} onPress={onSchoolPress} />}
     {MarineDebug && <MarineDebug motion={motion} />}
