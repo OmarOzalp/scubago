@@ -18,7 +18,7 @@ export const KELP = {
   /** Candidate holdfasts on a jittered grid this far apart (units). */
   spacing: .3,
   /** How much of the reef the beds cover (0 to 1): candidates where the bed noise is above 1 minus this grow. */
-  cover: .5,
+  cover: .42,
   /** The beds' size: the bed noise's features are about this many units across. */
   bedSize: 1.7,
   /** Plants at most, full quality and lite (the beds thinned evenly). */
@@ -66,7 +66,8 @@ export function kelpPlants(level: number, limit: number = KELP.plants.full): Kel
   const key = `${level}:${limit}`;
   const cached = cache.get(key);
   if (cached) return cached;
-  const polygons = shorePolygons(level);
+  // The Kelp Forest's own island.
+  const polygons = shorePolygons(level, 24, 'kelp');
   const [inner, outer] = KELP.band, step = KELP.spacing, extent = 6;
   const candidates: (KelpPlant & { rank: number })[] = [];
   for (let j = -extent / step; j <= extent / step; j++) {

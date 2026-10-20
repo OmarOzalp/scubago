@@ -7,7 +7,7 @@ import type { DexEntry, Species } from '../types';
 
 test('kelp grows on the reef around the island, from the holdfast on the seabed up to the surface', () => {
   for (const level of [1, 4, 6]) {
-    const polygons = shorePolygons(level), plants = kelpPlants(level);
+    const polygons = shorePolygons(level, 24, 'kelp'), plants = kelpPlants(level);
     expect(plants.length).toBeGreaterThan(40);
     expect(plants.length).toBeLessThanOrEqual(KELP.plants.full);
     for (const p of plants) {
@@ -26,7 +26,7 @@ test('kelp grows on the reef around the island, from the holdfast on the seabed 
 });
 
 test('the kelp grows in beds with open channels between them, the same every time; lite keeps some of the same plants', () => {
-  const plants = kelpPlants(3), polygons = shorePolygons(3);
+  const plants = kelpPlants(3), polygons = shorePolygons(3, 24, 'kelp');
   expect(kelpPlants(3)).toBe(plants);
   // Beds: most plants have a neighbour close by.
   const crowded = plants.filter((p) => plants.some((q) => q !== p && Math.hypot(p.x - q.x, p.z - q.z) < .5)).length;

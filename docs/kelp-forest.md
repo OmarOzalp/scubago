@@ -2,8 +2,8 @@
 
 The archipelago's second island (`docs/archipelago.md`): a cold, rocky coast ringed with giant
 kelp. It rises the first time the diver logs a Kelp Forest species, and from then on Home's area
-pills switch between it and the Coral Reef; in the explorer it lies to the north of the reef, in
-the same ocean (`docs/island-explorer.md#one-ocean`). Its own animals (the five below, and any other Kelp
+pills switch between it and the Coral Reef; in the explorer it lies farthest north in the
+chain, beyond the Volcanic Pinnacle, in the same ocean (`docs/island-explorer.md#one-ocean`). Its own animals (the five below, and any other Kelp
 Forest species swimming as a relative's model) swim here; everything else swims at Home's island.
 
 ![The Kelp Forest island with its animals](art-previews/island-kelp-forest.png)
@@ -13,6 +13,9 @@ Forest species swimming as a relative's model) swim here; everything else swims 
 `src/components/home/three/kelp-coast.tsx` builds the whole coast as one flat-shaded,
 vertex-coloured mesh in the island's own (scaled) frame:
 
+- **The shape.** The largest island of the archipelago: a long, rugged headland running east–west,
+  an arm hooking out south-west and a deep bay biting into its south side between two rocky points
+  (`OUTLINES.kelp` in island-outline.ts).
 - **Cliffs.** The island's outline (the same one the animals steer around) extruded into rough
   rock walls from under the water (`FOOT`) to the clifftop (`TOP`), jittered and darkened toward
   the waterline where the rock is wet.

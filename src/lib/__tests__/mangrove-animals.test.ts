@@ -21,7 +21,7 @@ test('the Mangroves & Seagrass has an island of its own; its new animals have th
 });
 
 test('the seagrass grows in meadows on the shelf around the island, every blade under the surface, the same every time', () => {
-  const polygons = shorePolygons(3), tufts = seagrassTufts(3);
+  const polygons = shorePolygons(3, 24, 'mangrove'), tufts = seagrassTufts(3);
   expect(tufts.length).toBeGreaterThan(SEAGRASS.tufts.full * .8);
   expect(tufts.length).toBeLessThanOrEqual(SEAGRASS.tufts.full);
   for (const tuft of tufts) {
@@ -50,7 +50,7 @@ test('tarpon come in small groups and lemon sharks now and then in pairs', () =>
 
 /** Its mean distance from the shore (seen from above), its mean height and how many breaths it takes. */
 function habits(model: MarineModel, frames = 6000) {
-  const motion = createMarineMotion([{ model, lane: 0 }], 3), polygons = shorePolygons(3);
+  const motion = createMarineMotion([{ model, lane: 0 }], 3, { shape: 'mangrove' }), polygons = shorePolygons(3, 24, 'mangrove');
   const top = OCEAN.surfaceLevel - (MOVEMENT[model].breathe?.clearance ?? 0);
   let distance = 0, depth = 0, breaths = 0, up = false;
   for (let frame = 0; frame < frames; frame++) {

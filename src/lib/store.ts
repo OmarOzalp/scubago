@@ -13,6 +13,7 @@ import {
   deleteDive as deleteDiveRows,
   deleteLocalUserData,
   deleteSighting as deleteSightingRow,
+  deleteSightings as deleteSightingRows,
   initDb,
   insertDive,
   insertSighting,
@@ -95,6 +96,11 @@ interface StoreState {
   updateSighting: (id: string, input: NewSighting) => Promise<{ sighting: Sighting; isNewSpecies: boolean }>;
   /** Deletes one of the user's sightings, here at once and on the server as soon as it can. */
   deleteSighting: (id: string) => Promise<void>;
+  /**
+   * Deletes all of the user's own sightings of one species (its whole log, so it leaves their collection
+   * and islands); returns how many went. Their dive pages stay.
+   */
+  deleteSpeciesLog: (speciesId: string) => Promise<number>;
   /**
    * Writes a page of the log and the sightings made on it. Returns the page, its sightings and the
    * species new to the diver's collection.
@@ -315,6 +321,24 @@ export const useAppStore = create<StoreState>((set, get) => {
         deletions: pendingSync ? [...get().deletions, { id, userId: target.userId }] : get().deletions,
       });
       void get().requestSync();
+    },
+
+    deleteSpeciesLog: async (speciesId) => {
+      const owner = ownerId();
+      const targets = get().sightings.filter((s) => s.speciesId === speciesId && canEditSighting(s, owner));
+      if (targets.length === 0) return 0;
+      const pendingSync = get().user !== null;
+      await deleteSightingRows(targets.map((s) => s.id), { pendingSync });
+      if (!pendingSync) {
+        for (const s of targets) if (isLocalPhoto(s.photoUri)) discardKeptPhoto(s.photoUri);
+      }
+      const gone = new Set(targets.map((s) => s.id));
+      set({
+        sightings: get().sightings.filter((s) => !gone.has(s.id)),
+        deletions: pendingSync ? [...get().deletions, ...targets.map((s) => ({ id: s.id, userId: s.userId }))] : get().deletions,
+      });
+      void get().requestSync();
+      return targets.length;
     },
 
     logDive: async ({ dive: fields, sightings: picks }) => {

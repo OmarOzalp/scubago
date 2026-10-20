@@ -6,6 +6,7 @@ import {
 import { OCEAN } from '../src/lib/ocean.ts';
 import { shoreDistance } from '../src/components/home/three/island-shape.ts';
 import { ISLAND_PLACES } from '../src/lib/archipelago.ts';
+import { bankDepth } from '../src/lib/banks.ts';
 import { EXPLORER } from '../src/lib/explorer-view.ts';
 
 /** A texel of one of a depth field's maps at a point in the world (RGBA bytes). */
@@ -63,36 +64,49 @@ for (let level = 1; level <= 6; level++) {
   map.dispose();
 }
 
-// The archipelago in one ocean (the explorer's): the Coral Reef in the middle, the Kelp Forest to the north, the
-// Volcanic Pinnacle to the south-west and the Mangroves & Seagrass to the south-east.
+// The archipelago in one ocean (the explorer's): a chain of islands from north to south, standing on one
+// shallow bank (banks.ts) with the open ocean off its edges.
 const world = [{ x: 0, z: 0, habitat: 'island' }, { x: ISLAND_PLACES['kelp-forest'][0], z: ISLAND_PLACES['kelp-forest'][1], habitat: 'kelp' },
   { x: ISLAND_PLACES['volcanic-pinnacle'][0], z: ISLAND_PLACES['volcanic-pinnacle'][1], habitat: 'volcanic' },
   { x: ISLAND_PLACES.mangroves[0], z: ISLAND_PLACES.mangroves[1], habitat: 'mangrove' }];
 for (const level of [1, 6]) {
   const field = buildDepthField(level, world), depth = sampler(field, field.texture.image.data), share = sampler(field, field.region.image.data);
   assert.deepEqual(field.habitats, ['island', 'kelp', 'volcanic', 'mangrove']);
-  const [kx, kz] = [world[1].x, world[1].z], [mx, mz] = [kx / 2, kz / 2], [vx, vz] = [world[2].x, world[2].z], [gx, gz] = [world[3].x, world[3].z];
-  // Land at both islands' middles, the shelf around each, and open ocean between them.
-  for (const [x, z] of [[0, 0], [kx, kz], [vx, vz], [gx, gz]]) assert.equal(depth(x, z)[0], 0, `level ${level}: no land at (${x}, ${z})`);
-  assert(depth(vx / 2, vz / 2)[0] > 200, `level ${level}: the sea between the reef and the volcano is too shallow`);
-  assert(depth(mx, mz)[0] > 200, `level ${level}: the sea between the islands is too shallow (${depth(mx, mz)[0]})`);
-  assert(depth(kx + 2.6, kz + .3)[0] < depth(mx, mz)[0] - 40, `level ${level}: no shelf around the Kelp Forest`);
-  // Each island's own water around it, blending between them.
-  assert(share(0, 2.5)[0] > 250 && share(kx, kz + 2.5)[1] > 250 && share(vx, vz + 2.5)[2] > 250 && share(gx, gz + 2.5)[3] > 250, `level ${level}: an island's water is not its own`);
-  const south = share(vx / 2, vz / 2);
-  assert(south[0] > 40 && south[2] > 40, `level ${level}: no blend between the reef's water and the volcano's (${south})`);
-  const between = share(mx, mz);
-  assert(between[0] > 40 && between[1] > 40, `level ${level}: no blend between the islands' waters (${between})`);
+  const [kx, kz] = [world[1].x, world[1].z], [vx, vz] = [world[2].x, world[2].z], [gx, gz] = [world[3].x, world[3].z];
+  // Land at every island's middle; the open ocean well off the bank beside each.
+  for (const { x, z } of world) assert.equal(depth(x, z)[0], 0, `level ${level}: no land at (${x}, ${z})`);
+  for (const { x, z } of world) assert(depth(x + 11, z)[0] > 200, `level ${level}: the open ocean beside (${x}, ${z}) is too shallow (${depth(x + 11, z)[0]})`);
+  // The bank: between neighbours, shallow water (not land, not the open ocean); each cay just dry.
+  assert(field.bank, `level ${level}: the islands stand on no bank`);
+  const chain = [...world].sort((a, b) => a.z - b.z);
+  for (let i = 0; i < chain.length - 1; i++) {
+    const mx = (chain[i].x + chain[i + 1].x) / 2, mz = (chain[i].z + chain[i + 1].z) / 2, [d] = depth(mx, mz);
+    assert(d > 0 && d < depth(mx + 11, mz)[0] - 60, `level ${level}: no shallow bank between (${chain[i].x}, ${chain[i].z}) and the next (${d})`);
+  }
+  for (const cay of field.bank.cays) assert(depth(cay.x, cay.z)[1] > 0, `level ${level}: the cay at (${cay.x.toFixed(2)}, ${cay.z.toFixed(2)}) is under water`);
+  assert(depth(kx + 3, kz + .3)[0] < depth(kx + 11, kz)[0] - 40, `level ${level}: no shelf around the Kelp Forest`);
+  // Each island's own water around it, blending between neighbours.
+  assert(share(0, 2.5)[0] > 220 && share(kx, kz + 2.5)[1] > 220 && share(vx, vz + 2.5)[2] > 220 && share(gx, gz + 2.5)[3] > 220, `level ${level}: an island's water is not its own`);
+  const between = share(vx / 2, vz / 2);
+  assert(between[0] > 40 && between[2] > 40, `level ${level}: no blend between the reef's water and the volcano's (${between})`);
   // The world's seabed and water: within 16-bit indices, finite, and the seabed under water offshore of every island.
   const water = createWaterMesh(uniforms, field, OCEAN, EXPLORER.reach), seabed = createSeabedMesh(uniforms, field, level, EXPLORER.reach);
   for (const mesh of [water, seabed]) {
     assert(mesh.geometry.attributes.position.count < 65536, `level ${level}: ${mesh.name} has too many vertices for 16-bit indices`);
     for (const value of mesh.geometry.attributes.position.array) assert(Number.isFinite(value));
   }
+  // And the widest a wide screen's water ever reaches (waterReach in explorer-view.ts), still within them.
+  const widest = { x: EXPLORER.farthest, z: EXPLORER.reach }, wideWater = createWaterMesh(uniforms, field, OCEAN, widest), wideSeabed = createSeabedMesh(uniforms, field, level, widest);
+  for (const mesh of [wideWater, wideSeabed]) {
+    assert(mesh.geometry.attributes.position.count < 65536, `level ${level}: a wide screen's ${mesh.name} has too many vertices for 16-bit indices (${mesh.geometry.attributes.position.count})`);
+  }
+  const wide = `wide screens' water ${wideWater.geometry.attributes.position.count}, seabed ${wideSeabed.geometry.attributes.position.count}`;
+  for (const mesh of [wideWater, wideSeabed]) mesh.geometry.dispose();
   const floor = seabed.geometry.attributes.position;
   for (let i = 0; i < floor.count; i++) {
     const distance = shoreDistance(field.polygons, floor.getX(i), floor.getZ(i));
-    if (distance > .8) assert(floor.getY(i) < uniforms.uOceanSurface.value - .3, `level ${level}: world seabed too shallow ${distance.toFixed(2)} offshore`);
+    // (except where the bank rises on purpose: its sandbars and cays)
+    if (distance > .8 && bankDepth(field.bank, floor.getX(i), floor.getZ(i)) > .45) assert(floor.getY(i) < uniforms.uOceanSurface.value - .3, `level ${level}: world seabed too shallow ${distance.toFixed(2)} offshore`);
   }
   // The water reaches past both islands, and the lite map colors each island's water as its own.
   const box = water.geometry.boundingBox ?? (water.geometry.computeBoundingBox(), water.geometry.boundingBox);
@@ -106,7 +120,7 @@ for (const level of [1, 6]) {
   // The mangroves': greener than the reef's turquoise.
   const lagoon = baked(gx, gz + 3.4);
   assert(lagoon[1] - lagoon[2] > reef[1] - reef[2], `level ${level}: the Mangroves' water is not its own (${reef} vs ${lagoon})`);
-  console.log(`level ${level}: four islands in one ocean: water ${water.geometry.attributes.position.count} vertices, seabed ${floor.count}; land, shelves, open sea and each island's water verified`);
+  console.log(`level ${level}: four islands in one ocean: water ${water.geometry.attributes.position.count} vertices, seabed ${floor.count} (${wide} at most); land, shelves, open sea and each island's water verified`);
   for (const mesh of [water, seabed]) mesh.geometry.dispose();
   field.texture.dispose(); field.region.dispose(); map.dispose();
 }

@@ -12,7 +12,7 @@ import { Icon, type IconName } from '@/components/icon';
 import { Type } from '@/constants/theme';
 import { useHomePreferences } from '@/hooks/use-home-preferences';
 import { CATALOG_BY_ID } from '@/lib/catalog';
-import { createExplorer, EXPLORER } from '@/lib/explorer-view';
+import { createExplorer, EXPLORER, waterReach } from '@/lib/explorer-view';
 import { AREAS, foundIslands, HOME_ISLAND, ISLAND_PLACES, ISLANDS, isIsland, islandResidents } from '@/lib/archipelago';
 import { deriveHome } from '@/lib/home';
 import { macroResidents } from '@/lib/macro-life';
@@ -65,13 +65,20 @@ export default function ExploreScreen() {
   const reduced = useReducedMotion();
   useEffect(() => explorer.holdStill(reduced), [explorer, reduced]);
   // The screen's size in points (the explorer keeps it, for its limits and the gestures' focal points).
+  const [size, setSize] = useState({ width: 1, height: 1 });
   const onLayout = ({ nativeEvent: { layout } }: LayoutChangeEvent) => {
-    if (layout.width > 0 && layout.height > 0) explorer.resize({ width: layout.width, height: layout.height, level: home.level, islands: centres });
+    if (layout.width > 0 && layout.height > 0) {
+      explorer.resize({ width: layout.width, height: layout.height, level: home.level, islands: centres });
+      setSize({ width: layout.width, height: layout.height });
+    }
   };
   useEffect(() => {
     const { width, height, level, islands: was } = explorer.frame;
     if (width > 1 && height > 1 && (level !== home.level || was !== centres)) explorer.resize({ width, height, level: home.level, islands: centres });
   }, [explorer, home.level, centres]);
+  // The water reaches past every edge of the screen (farther on a wide one), rebuilt only when that changes.
+  const wide = waterReach({ ...size, level: home.level, islands: centres });
+  const reach = useMemo(() => ({ x: wide.x, z: wide.z }), [wide.x, wide.z]);
   // Islands known only now (the collection still loading as it opened): open on the one asked for after all.
   useEffect(() => { explorer.open(opening); }, [explorer, opening]);
   // The island in view, named in the label (and marked among the islands' buttons); out between two, the archipelago.
@@ -138,7 +145,7 @@ export default function ExploreScreen() {
     <GestureDetector gesture={gesture}>
       <View ref={surface} style={styles.root} onLayout={onLayout} collapsable={false}>
         <SanctuaryScene habitat={habitat} level={home.level} residents={home.residents} islands={places} loading={loading} onInspect={inspect}
-          explorer={{ camera: <ExplorerCamera explorer={explorer} />, tapScale, zoom: () => explorer.view.zoom, focus: (x, z, zoom) => explorer.focus(x, z, zoom) }} />
+          explorer={{ camera: <ExplorerCamera explorer={explorer} />, tapScale, reach, zoom: () => explorer.view.zoom, focus: (x, z, zoom) => explorer.focus(x, z, zoom) }} />
       </View>
     </GestureDetector>
     <View style={[styles.top, { paddingTop: insets.top + 10 }]} pointerEvents="box-none">

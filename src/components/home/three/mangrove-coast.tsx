@@ -28,9 +28,11 @@ const BANK = { wet: MUD_WET, rock: MUD, light: LITTER };
 const FOOT = -.3, TOP = -.145, WATER = -.18;
 /** The sand spit: where along the shore (angle about the island's middle) and how wide (rad). */
 const SPIT = { angle: .55, width: .42 };
+/** The Mangroves' own island: a long, low, ragged cay (island-outline.ts). */
+const SHAPE = 'mangrove';
 
 const OUTLINE = (() => {
-  const points = outlinePoints(10), polygon = new Float32Array(points.length * 2);
+  const points = outlinePoints(10, SHAPE), polygon = new Float32Array(points.length * 2);
   points.forEach(([x, y], i) => { polygon[i * 2] = x; polygon[i * 2 + 1] = -y; });
   return polygon;
 })();
@@ -45,7 +47,7 @@ const inside = (x: number, z: number) => -shoreDistance([OUTLINE], x, z);
  * to the lagoon's edge (`path`, sampled), narrowing as it goes in, and the lagoon, a ragged round pool.
  */
 const CREEK = (() => {
-  const mouthAngle = 2.45, outline = outlinePoints(10).map(([x, y]) => [x, -y] as const);
+  const mouthAngle = 2.45, outline = outlinePoints(10, SHAPE).map(([x, y]) => [x, -y] as const);
   const [mx, mz] = outline.reduce((best, p) => (angleTo(Math.atan2(p[1], p[0]), mouthAngle) < angleTo(Math.atan2(best[1], best[0]), mouthAngle) ? p : best));
   const lagoon = { x: -.32, z: -.12, radius: .34 };
   const c = [[mx * 1.06, mz * 1.06], [mx * .7 + .14, mz * .7 + .02], [mx * .42 - .12, mz * .42 - .02], [lagoon.x - .06, lagoon.z + .2]];
@@ -79,11 +81,11 @@ function groundAt(x: number, z: number) {
 
 /** The island's ground: the outline filled with facets over a jittered lattice. Mud and leaf litter under the trees, pale sand on the spit. */
 function ground(seed: number) {
-  const contour = outlinePoints(8).map(([x, y]) => [x * 1.02, -y * 1.02] as const);
+  const contour = outlinePoints(8, SHAPE).map(([x, y]) => [x * 1.02, -y * 1.02] as const);
   const rim = new Float32Array(contour.flat());
   const step = .2, points: (readonly [number, number])[] = [...contour];
   for (let z = -1.9; z <= 1.9; z += step * .87) {
-    for (let x = -2.5; x <= 2.5; x += step) {
+    for (let x = -3; x <= 3; x += step) {
       const px = x + (Math.round(z / step) % 2) * step / 2 + (hash(x * 7 + seed, z * 3) - .5) * step * .45, pz = z + (hash(z * 5, x * 9 + seed) - .5) * step * .45;
       if (-shoreDistance([rim], px, pz) > step * .5 && Math.abs(creekMargin(px, pz)) > .03) points.push([px, pz]);
     }
@@ -258,11 +260,11 @@ export function MangroveCoast({ level }: { level: number }) {
   const lite = useSceneQuality() === 'lite';
   const mesh = useMemo(() => {
     // The banks lose their lids (the ground covers the island) and dip where the creek runs out to the sea.
-    const parts: BufferGeometry[] = [cliffs(BANK, FOOT, TOP, 1, 0, 0, 0, (x, z) => Math.min(TOP, groundAt(x, z) - .01)), ground(1)];
+    const parts: BufferGeometry[] = [cliffs(BANK, FOOT, TOP, 1, 0, 0, 0, (x, z) => Math.min(TOP, groundAt(x, z) - .01), SHAPE), ground(1)];
     // The canopy: trees on a jittered lattice inland, clear of the spit, with a few gaps where the mud shows.
     const step = .3;
     for (let z = -1.7; z <= 1.7; z += step * .87) {
-      for (let x = -2.3; x <= 2.3; x += step) {
+      for (let x = -2.8; x <= 2.8; x += step) {
         const px = x + (Math.round(z / step) % 2) * step / 2 + (hash(x * 3 + 1, z * 7) - .5) * step * .5, pz = z + (hash(z * 5 + 2, x) - .5) * step * .5;
         const d = inside(px, pz);
         if (d < .16 || spit(px, pz) > .35 || creekMargin(px, pz) < .22 || noise(px * 1.8 + 5, pz * 1.8 - 2) < .16) continue;
@@ -271,7 +273,7 @@ export function MangroveCoast({ level }: { level: number }) {
       }
     }
     // Red mangroves round the edge, on their prop roots in the water.
-    const edge = outlinePoints(7);
+    const edge = outlinePoints(7, SHAPE);
     edge.forEach(([ox, oy], i) => {
       if (i % 2 && lite) return;
       const x = ox * (1.02 + .035 * hash(i, 3)), z = -oy * (1.02 + .035 * hash(i, 5));
@@ -279,10 +281,10 @@ export function MangroveCoast({ level }: { level: number }) {
       parts.push(...redMangrove(x, z, 1.05 + .35 * hash(i, 7), i, lite ? 4 : 7));
     });
     // A few bleached snags among the living trees, and a boardwalk out from the spit.
-    for (const [sx, sz, seed] of [[-1.25, .45, 1], [.35, -.95, 2], [1.15, .1, 3]] as const) parts.push(...snag(sx, sz, seed));
+    for (const [sx, sz, seed] of [[-1.25, .45, 1], [.35, -.7, 2], [1.15, .1, 3]] as const) parts.push(...snag(sx, sz, seed));
     parts.push(...boardwalk(1.55, .85, SPIT.angle - .12));
     // Egrets wading off the spit.
-    parts.push(...egret(Math.cos(SPIT.angle) * 1.95, Math.sin(SPIT.angle) * 1.55, 2.4), ...egret(Math.cos(SPIT.angle + .25) * 1.75, Math.sin(SPIT.angle + .25) * 1.5, -.6));
+    parts.push(...egret(Math.cos(SPIT.angle) * 2.25, Math.sin(SPIT.angle) * 1.75, 2.4), ...egret(Math.cos(SPIT.angle + .25) * 1.9, Math.sin(SPIT.angle + .25) * 1.6, -.6));
     // On the lagoon's far side a few red mangroves stand in its water on their roots (on the near side they
     // would hide it), and an egret fishes at its edge.
     const { lagoon } = CREEK;
@@ -292,8 +294,8 @@ export function MangroveCoast({ level }: { level: number }) {
     }
     parts.push(...egret(lagoon.x - lagoon.radius * .45, lagoon.z + lagoon.radius * .55, .9));
     // From level 5 the islets (island-outline.ts) rise as clumps of red mangroves on their roots.
-    for (const { position: [ix, iz], scale } of islets(level)) {
-      parts.push(cliffs(BANK, FOOT, TOP, scale, ix, iz, 9));
+    for (const { position: [ix, iz], scale } of islets(level, SHAPE)) {
+      parts.push(cliffs(BANK, FOOT, TOP, scale, ix, iz, 9, undefined, SHAPE));
       for (let k = 0; k < 3; k++) parts.push(...redMangrove(ix + Math.cos(k * 2.1) * scale * 1.1, iz + Math.sin(k * 2.1) * scale * .8, .9, 40 + k, lite ? 4 : 6));
     }
     const geometry = mergeGeometries(parts);

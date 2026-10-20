@@ -1,6 +1,7 @@
 import { useContext, useEffect, useMemo } from 'react';
 import { useFrame } from '@react-three/fiber';
 import { BufferGeometry, Color, Float32BufferAttribute, Mesh, MeshLambertMaterial, Vector3 } from 'three';
+import type { IslandShape } from '@/lib/island-outline';
 import { REEF_ANEMONE, reefRocks, type ReefRock } from '@/lib/reef-life';
 import { OceanContext } from './ocean-context';
 import { useSceneQuality } from './scene-quality';
@@ -75,11 +76,11 @@ function anemone(rock: ReefRock, seed: number, rings: readonly number[]) {
  * mesh. They sit on the seabed at this level, set back in depth like the animals on the bottom, and
  * their tentacles sway gently in the swell (moved on the CPU: a few hundred vertices).
  */
-export function ReefAnemones({ level, count }: { level: number; count: number }) {
+export function ReefAnemones({ level, count, shape = 'reef' }: { level: number; count: number; shape?: IslandShape }) {
   const ocean = useContext(OceanContext);
   const lite = useSceneQuality() === 'lite';
   const view = useMemo(() => {
-    const homes = reefRocks(level, 0, 0, count).anemones;
+    const homes = reefRocks(level, 0, 0, count, shape).anemones;
     const rings = lite ? [8, 14, 18] : [10, 16, 20, 24];
     const parts = homes.map((rock, i) => anemone(rock, i + 1, rings));
     const offset = parts.reduce<number[]>((acc, part, i) => [...acc, (acc[i] ?? 0) + part.positions.length / 3], [0]);
@@ -114,7 +115,7 @@ export function ReefAnemones({ level, count }: { level: number; count: number })
       },
       dispose() { look.dispose(); },
     };
-  }, [level, count, ocean, lite]);
+  }, [level, count, ocean, lite, shape]);
   useEffect(() => () => view.dispose(), [view]);
   useFrame(({ clock }) => view.update(clock.elapsedTime));
   return <primitive object={view.mesh} />;

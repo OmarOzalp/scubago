@@ -133,6 +133,54 @@ describeSqlite('logging, editing and deleting sightings', () => {
     expect(collection()).toEqual([]);
   });
 
+  it("deleting an animal's log takes every one of the diver's sightings of it, and it leaves the collection and island", async () => {
+    const { store, db } = await openApp();
+    const app = store.useAppStore.getState;
+    const mine = () => app().sightings.filter((s) => s.userId === store.LOCAL_USER_ID);
+    const collection = () => deriveHome(mine(), CATALOG_BY_ID).residents.map((d) => d.species.id).sort();
+
+    await app().addSighting({ speciesId: 'reef-manta', siteId: site, sightedOn: today });
+    await app().addSighting({ speciesId: 'reef-manta', siteId: site, sightedOn: shiftIsoDate(today, -3) });
+    const shark = (await app().addSighting({ speciesId: 'whale-shark', siteId: site, sightedOn: today })).sighting;
+    expect(collection()).toEqual(['reef-manta', 'whale-shark']);
+
+    expect(await app().deleteSpeciesLog('reef-manta')).toBe(2);
+    expect(collection()).toEqual(['whale-shark']);
+    expect(app().sightings.some((s) => s.speciesId === 'reef-manta' && !s.isDemo)).toBe(false);
+    // Gone from the device too, and the other animal is untouched.
+    const stored = (await db.loadAll()).sightings;
+    expect(stored.some((s) => s.speciesId === 'reef-manta' && !s.isDemo)).toBe(false);
+    expect(stored.find((s) => s.id === shark.id)).toBeDefined();
+    // Nothing of it left to delete.
+    expect(await app().deleteSpeciesLog('reef-manta')).toBe(0);
+  });
+
+  it("signed in, an animal's deleted log waits as tombstones until the server confirms, and only the diver's own go", async () => {
+    const server = new FakeServer();
+    server.tables.profiles.push({ user_id: A, username: 'alice' });
+    const phone = server.device('phone', A);
+    const { store } = await openApp(phone.client);
+    const app = store.useAppStore.getState;
+    const one = (await app().addSighting({ speciesId: 'reef-manta', siteId: site, sightedOn: today })).sighting;
+    const two = (await app().addSighting({ speciesId: 'reef-manta', siteId: site, sightedOn: today })).sighting;
+    await app().requestSync();
+    expect(server.sighting(one.id)).toBeDefined();
+    // Someone else's manta, as the community feed brings it.
+    const theirs = { ...one, id: 'theirs-1', userId: 'uid-b', username: 'bob' };
+    store.useAppStore.setState({ sightings: [...app().sightings, theirs] });
+
+    phone.online = false;
+    expect(await app().deleteSpeciesLog('reef-manta')).toBe(2);
+    expect(app().sightings.map((s) => s.id)).toContain('theirs-1');
+    expect(store.pendingChanges(app().sightings, app().deletions, A)).toEqual({ count: 2, failing: 0 });
+
+    phone.online = true;
+    await app().requestSync();
+    expect(server.sighting(one.id)).toBeUndefined();
+    expect(server.sighting(two.id)).toBeUndefined();
+    expect(app().deletions).toEqual([]);
+  });
+
   it('an edit that changes the species can bring a new species; a verification does not survive it', async () => {
     const server = new FakeServer();
     server.tables.profiles.push({ user_id: A, username: 'alice' });

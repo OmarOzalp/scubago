@@ -51,14 +51,57 @@ opens the explorer on it (`/explore?island=kelp-forest`). A new species arriving
 (`docs/discovery-moments.md`) switches the card to its own island, so the diver sees it arrive
 where it lives.
 
-The explorer shows them all together, in one ocean: each island at its place
-(`ISLAND_PLACES`; the Kelp Forest lies to the north of Home's, in colder water, and the Volcanic
-Pinnacle to the south-west, in the clear blue of the currents, and the Mangroves & Seagrass to the
-south-east, in warm green shallows), to sail
-between by dragging across the water or with a button for each island
-(`docs/island-explorer.md#one-ocean`).
+Each island has its own shape and size (`OUTLINES` in `src/lib/island-outline.ts`), so the
+archipelago never looks like one island stamped four times: the Coral Reef keeps the sandy bean of
+an island Home always had; the Kelp Forest is the largest, a long, rugged headland with an arm
+hooking out south-west and a deep bay biting into its south side; the Volcanic Pinnacle is the
+smallest, a nearly round cone with lava lobes reaching the sea; and the Mangroves & Seagrass is the
+longest, a low cay with a ragged fringe of lobes. Each island's islets rise just off its own shore,
+drawn with its own outline. Everything that follows a coast uses its island's shape (`shapeFor`):
+the coasts themselves, the seabed and shallows around each in the one ocean, the kelp and seagrass,
+the reef's dens and anemones, the small life's homes, and the animals steering around it.
 
-![The archipelago in one ocean: the Kelp Forest in cold green water to the north, the Coral Reef in turquoise, the Volcanic Pinnacle in cobalt to the south-west and the Mangroves & Seagrass in teal to the south-east](art-previews/archipelago-ocean.png)
+The explorer shows them all together, in one ocean: each island at its place (`ISLAND_PLACES`),
+to sail between by dragging across the water or with a button for each island
+(`docs/island-explorer.md#one-ocean`). They lie in a chain running north to south, each a little to
+one side of the last, like the cays of the Bahamas strung along their bank: the Kelp Forest farthest
+north, in colder water; then the Volcanic Pinnacle, in the clear blue of the currents; Home's Coral
+Reef; and the Mangroves & Seagrass to the south, in warm green shallows. A chain suits a phone held
+upright, narrow and tall: all the way out it shows every island larger than a cluster would. Each
+island still keeps its animals' water to itself (its swimming area at the last level never reaches
+another's).
+
+![The archipelago from above: the Kelp Forest to the north, the Volcanic Pinnacle, the Coral Reef and the Mangroves & Seagrass to the south, on one shallow turquoise bank with sandbars and small cays between them, the deep blue off its edges](art-previews/archipelago-ocean.png)
+
+### The bank between the islands
+
+Seen from above, an archipelago is not a few islands in an empty sea: they stand together on a
+shallow bank, and the water between them is as much of the view as the islands. `src/lib/banks.ts`
+lays it out as plain data (`archipelagoBank`, the same every time), and the ocean's depth field
+(`docs/ocean.md`) takes its depth wherever it is shallower than an island's own seabed:
+
+- **The bank.** A broad platform around each island (`BANK.platform`, its edge wandering in and out)
+  and a saddle joining each pair of neighbours, narrowest midway between them, all of it a metre or
+  so of clear turquoise water over pale sand in soft patches (`BANK.depth`), dropping away at its
+  ragged edge (`BANK.edge`) to the deep blue of the open ocean.
+- **Sandbars.** Along each saddle, a pale streak where the sand rises almost to the surface
+  (`BANK.sandbar`), one off each side of the line between the islands.
+- **Cays.** Out on the flanks between neighbours, small cays of bare sand break the surface, each in
+  a ring of sandy shallows, some with a palm and all with a few low shrubs.
+- **Rocks.** Dark rocks stand on their own shoals, seaward of each cay.
+
+Every cay and rock stands outside every island's swimming area at the last level, and well clear of
+its shore and islets, so they never stand in an island's animals' way. With one island alone (Home's
+card), there is no bank. `src/components/home/three/archipelago-sea.tsx` draws the cays, palms and
+rocks in one flat-shaded mesh.
+
+### The sea from high above
+
+All the way out over several islands, the waves' highlights would repeat across the open sea as
+regular stripes. So pulled back, the sea is seen as from high above (`uOceanCalm`, set by the
+explorer's camera from its zoom): the waves' glints gather into broad wind patches drifting across
+the water, the facets soften, and small whitecaps fleck the deep water off the bank. Zooming in on an
+island brings the waves back as they always are close up.
 
 
 ## The Open Ocean's animals

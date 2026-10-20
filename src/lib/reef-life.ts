@@ -1,4 +1,4 @@
-import { createShoreField, islandScale, SEABED_PROPS, shoreDistance, shorePolygons, type ShoreField } from './island-outline';
+import { createShoreField, islandScale, seabedProps, shoreDistance, shorePolygons, type IslandShape, type ShoreField } from './island-outline';
 import { followerLane } from './marine-groups';
 import type { MarinePose } from './marine-motion';
 import { seabedProfile, shelfStretch } from './ocean';
@@ -187,12 +187,12 @@ export function locate(polygons: Float32Array[], angle: number, reach: number): 
  * camera. Islands grow with the level, so the rocks move out with them.
  */
 const rockCache = new Map<string, { dens: ReefRock[][]; rocks: ReefRock[]; anemones: ReefRock[] }>();
-export function reefRocks(level: number, morays: number, octopuses: number, anemones = 0) {
-  // Found once per level and count (the simulation and the scene's rocks both ask).
-  const key = `${level}:${morays}:${octopuses}:${anemones}`, cached = rockCache.get(key);
+export function reefRocks(level: number, morays: number, octopuses: number, anemones = 0, shape: IslandShape = 'reef') {
+  // Found once per island, level and count (the simulation and the scene's rocks both ask).
+  const key = `${shape}:${level}:${morays}:${octopuses}:${anemones}`, cached = rockCache.get(key);
   if (cached) return cached;
-  const polygons = shorePolygons(level), main = polygons.slice(0, 1), scale = islandScale(level);
-  const props = Object.values(SEABED_PROPS).map(([x, z]) => [x * scale, z * scale] as const);
+  const polygons = shorePolygons(level, 24, shape), main = polygons.slice(0, 1);
+  const props = seabedProps(level, shape);
   const clearance = (x: number, z: number) => Math.min(...props.map(([px, pz]) => Math.hypot(px - x, pz - z)));
   // Two dens per moray (only two species share the moray's model; any more would share dens).
   const dens = Array.from({ length: morays }, (_, i) => MORAY_DENS[i % MORAY_DENS.length]).map((pair) => {
@@ -278,17 +278,17 @@ const OFFSTAGE = { depth: 1, surfacing: false, y: SWIM_LEVEL, opacity: 0, visibl
  * The reef's animals on the island. `members` are reef species only (marine-motion.ts hands them
  * over); `arriving` lanes wait out of sight until arrive() brings them in.
  */
-export function createReefLife(members: readonly { model: ReefModel; lane: number }[], level: number, options: { seed?: number; arriving?: readonly number[] } = {}) {
-  const seed = options.seed ?? 0;
+export function createReefLife(members: readonly { model: ReefModel; lane: number }[], level: number, options: { seed?: number; arriving?: readonly number[]; shape?: IslandShape } = {}) {
+  const seed = options.seed ?? 0, shape = options.shape ?? 'reef';
   let current = level, scale = islandScale(level);
-  let field: ShoreField = createShoreField(level);
+  let field: ShoreField = createShoreField(level, shape);
   let time = 0;
   const count = (kind: Kind) => members.filter((m) => REEF_SPECIES[m.model] === kind).length;
-  let layout = reefRocks(level, count('moray'), count('octopus'), count('clownfish'));
+  let layout = reefRocks(level, count('moray'), count('octopus'), count('clownfish'), shape);
   /** Every rock (each moray's dens, each octopus's rock, each clownfish pair's anemone). */
   let rocks = layout.dens.flat().concat(layout.rocks, layout.anemones);
   /** Corals and the reef rock (always counted, whatever the level shows): reef animals keep clear of them. */
-  let props = Object.values(SEABED_PROPS).map(([x, z]) => ({ x: x * scale, z: z * scale }));
+  let props = seabedProps(level, shape).map(([x, z]) => ({ x, z }));
   const range = (d: Dweller, [low, high]: readonly [number, number]) => low + (high - low) * roll(d);
   function roll(d: Dweller) {
     const v = Math.sin((d.lane * 7.31 + seed * 97.3 + 3.7) * 91.7 + d.rolls++ * 12.9898) * 43758.5453;
@@ -967,10 +967,10 @@ export function createReefLife(members: readonly { model: ReefModel; lane: numbe
     setLevel(next: number) {
       if (next === current) return;
       const ratio = islandScale(next) / scale;
-      current = next; scale = islandScale(next); field = createShoreField(next);
-      layout = reefRocks(next, count('moray'), count('octopus'), count('clownfish'));
+      current = next; scale = islandScale(next); field = createShoreField(next, shape);
+      layout = reefRocks(next, count('moray'), count('octopus'), count('clownfish'), shape);
       rocks = layout.dens.flat().concat(layout.rocks, layout.anemones);
-      props = Object.values(SEABED_PROPS).map(([x, z]) => ({ x: x * scale, z: z * scale }));
+      props = seabedProps(next, shape).map(([x, z]) => ({ x, z }));
       let rockIndex = 0, denIndex = 0, anemoneIndex = 0;
       for (const d of dwellers) {
         if (d.kind === 'octopus') d.rock = layout.rocks[rockIndex++];

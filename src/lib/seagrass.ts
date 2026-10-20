@@ -62,8 +62,9 @@ export function seagrassTufts(level: number, limit: number = SEAGRASS.tufts.full
   const key = `${level}:${limit}`;
   const cached = cache.get(key);
   if (cached) return cached;
-  const polygons = shorePolygons(level);
-  const [inner, outer] = SEAGRASS.band, step = SEAGRASS.spacing, extent = 4;
+  // The Mangroves' own island.
+  const polygons = shorePolygons(level, 24, 'mangrove');
+  const [inner, outer] = SEAGRASS.band, step = SEAGRASS.spacing, extent = 4.6;
   const candidates: (SeagrassTuft & { rank: number })[] = [];
   for (let j = -extent / step; j <= extent / step; j++) {
     for (let i = -extent / step; i <= extent / step; i++) {

@@ -1,5 +1,6 @@
 import { BufferGeometry, Color, ExtrudeGeometry, Float32BufferAttribute, IcosahedronGeometry } from 'three';
-import { shoreline } from './island-shape';
+import type { IslandShape } from '@/lib/island-outline';
+import { curveSegments, shoreline } from './island-shape';
 
 /**
  * Building blocks of the rocky islands' coasts (kelp-coast.tsx, volcanic-coast.tsx): flat-shaded,
@@ -63,9 +64,10 @@ export function boulder(colors: RockColors, x: number, y: number, z: number, a: 
  * walls broken up so they read as rough rock, darker and wetter toward the water. `scale` and the
  * offset place an islet with the same build; `cap` (x, z) lowers the walls where a beach comes down
  * to the water, and leaves off the flat lids (the ground drawn over the walls covers their top).
+ * `island` is whose outline it is.
  */
-export function cliffs(colors: RockColors, foot: number, top: number, scale = 1, ox = 0, oz = 0, seed = 0, cap?: (x: number, z: number) => number) {
-  let geometry: BufferGeometry = new ExtrudeGeometry(shoreline(), { depth: top - foot, bevelEnabled: true, bevelThickness: .03, bevelSize: .05, bevelSegments: 1, curveSegments: 12, steps: 3 });
+export function cliffs(colors: RockColors, foot: number, top: number, scale = 1, ox = 0, oz = 0, seed = 0, cap?: (x: number, z: number) => number, island: IslandShape = 'reef') {
+  let geometry: BufferGeometry = new ExtrudeGeometry(shoreline(island), { depth: top - foot, bevelEnabled: true, bevelThickness: .03, bevelSize: .05, bevelSegments: 1, curveSegments: curveSegments(island, 12), steps: 3 });
   if (cap) {
     // The lids are the first group, the walls (and bevels) the second.
     const walls = geometry.groups[1], lidless = new BufferGeometry();

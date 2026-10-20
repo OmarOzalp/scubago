@@ -439,6 +439,29 @@ export function deleteSighting(id: string, { pendingSync }: { pendingSync: boole
   });
 }
 
+/**
+ * Delete several of the diver's sightings together (all of one animal's log, say) in one transaction:
+ * tombstones until the server confirms when `pendingSync` (as deleteSighting does); otherwise the rows go.
+ */
+export function deleteSightings(ids: string[], { pendingSync }: { pendingSync: boolean }): Promise<void> {
+  return exclusive(async (d) => {
+    const now = new Date().toISOString();
+    await d.withTransactionAsync(async () => {
+      for (const id of ids) {
+        if (pendingSync) {
+          await d.runAsync(
+            `UPDATE sightings SET deleted = 1, synced = 0, sync_error = NULL, updated_at = ?, version = version + 1
+             WHERE id = ? AND is_demo = 0`,
+            now, id,
+          );
+        } else {
+          await d.runAsync(`DELETE FROM sightings WHERE id = ? AND is_demo = 0`, id);
+        }
+      }
+    });
+  });
+}
+
 /** A change on its way to the server: a new or edited sighting, or a deletion (`deleted`). */
 export interface OutboxSighting extends Sighting {
   deleted: boolean;
