@@ -17,6 +17,12 @@ How a diver's changes reach the server, including offline. The code is in `src/l
   diver's own calendar day (7am in Cairns is not "yesterday").
 - **Delete sighting** asks first, then removes the sighting from the log, the collection and the
   island at once. A species stays in the collection while another sighting of it remains.
+- **An animal's page** (`/species/[id]`, which is what tapping an animal or a small creature on an
+  island opens) lists the diver's own sightings of it, newest first, each opening its page to edit
+  or delete just that one. Below a rule, **Delete my … log** asks first, then removes every one of
+  their sightings of that animal in one go (`deleteSpeciesLog`: one transaction, a tombstone each
+  while signed in), so it leaves the collection and the islands. Their dive pages stay, without it.
+  Other divers' sightings of it are untouched.
 - Only the diver who logged a sighting sees Edit and Delete. The store refuses anyone else, and
   so does the server (row-level security, `supabase/checks/rls-isolation.sql`).
 - While signed in, changes that haven't synced show as **Waiting to sync** (on the row and the
