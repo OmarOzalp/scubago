@@ -1,6 +1,6 @@
 import { expect, test } from '@jest/globals';
 import { ISLAND_PLACES } from '../archipelago';
-import { clampView, createExplorer, EXPLORER, islandView, nearestIsland, overview, panBy, panLimit, stretchZoom, zoomAbout, zoomRange, type ExplorerFrame, type ExplorerView, type Finger } from '../explorer-view';
+import { clampView, createExplorer, EXPLORER, islandView, nearestIsland, overview, panBy, panLimit, stretchZoom, waterReach, zoomAbout, zoomRange, type ExplorerFrame, type ExplorerView, type Finger } from '../explorer-view';
 import { oceanScale, WORLD } from '../steering';
 
 const PHONE: ExplorerFrame = { width: 390, height: 844, level: 1 };
@@ -475,6 +475,30 @@ test('every island found is in one ocean: all the way out shows them all, and th
   // With Home's island alone, the explorer is exactly as before.
   expect(panLimit({ ...PHONE, islands: [[0, 0]] }, 40)).toEqual(panLimit(PHONE, 40));
   expect(overview({ ...TABLET, islands: [[0, 0]] })).toEqual(overview(TABLET));
+});
+
+test('the water reaches as far as a phone ever sees, and farther across a wide screen, so all the way out shows every island there too', () => {
+  const all = Object.values(ISLAND_PLACES), s = oceanScale(6);
+  // Phones and an upright tablet, with every island or one alone, and a tablet on its side with one: never more than ever.
+  for (const frame of [PHONE, { ...PHONE, level: 6, islands: all }, { width: 430, height: 932, level: 6, islands: all }, { width: 820, height: 1180, level: 6, islands: all }, TABLET]) {
+    expect(waterReach(frame)).toEqual({ x: EXPLORER.reach, z: EXPLORER.reach });
+  }
+  for (const base of [TABLET, { width: 1440, height: 900, level: 6 }, { width: 1920, height: 1080, level: 6 }]) {
+    const frame = { ...base, islands: all }, reach = waterReach(frame), view = overview(frame), half = halfView(frame, view.zoom);
+    expect(reach.x).toBeGreaterThan(EXPLORER.reach);
+    expect(reach.x).toBeLessThanOrEqual(EXPLORER.farthest);
+    expect(reach.z).toBe(EXPLORER.reach);
+    for (const [x, z] of all) {
+      expect(Math.abs(x - view.x) + WORLD.x * s).toBeLessThanOrEqual(half.x + 1e-6);
+      expect(Math.abs(z - view.z) + WORLD.z * s).toBeLessThanOrEqual(half.z + 1e-6);
+    }
+    // The water still past every edge of the screen, with room for a pinch to stretch out a little.
+    const xs = all.map((p) => p[0]), zs = all.map((p) => p[1]);
+    expect(view.x - half.x * EXPLORER.spare).toBeGreaterThanOrEqual(Math.min(...xs) - reach.x + EXPLORER.edge - 1e-6);
+    expect(view.x + half.x * EXPLORER.spare).toBeLessThanOrEqual(Math.max(...xs) + reach.x - EXPLORER.edge + 1e-6);
+    expect(view.z - half.z).toBeGreaterThanOrEqual(Math.min(...zs) - reach.z + EXPLORER.edge - 1e-6);
+    expect(view.z + half.z).toBeLessThanOrEqual(Math.max(...zs) + reach.z - EXPLORER.edge + 1e-6);
+  }
 });
 
 test('the label knows which island the view is over, and the open sea between them', () => {

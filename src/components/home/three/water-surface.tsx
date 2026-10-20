@@ -5,7 +5,7 @@ import { OCEAN } from '@/lib/ocean';
 import { advanceSwimTime } from '@/lib/swimming';
 import {
   applyOceanPalette, applyRegionPalettes, buildDepthField, buildLiteOceanMap, createLiteOceanMesh, createOceanUniforms, createSeabedMesh, createWaterMesh,
-  setOceanDepthMap, setOceanLiteMap, setOceanTime, type OceanIsland,
+  setOceanDepthMap, setOceanLiteMap, setOceanTime, type OceanIsland, type WaterExtent,
 } from './ocean-mesh';
 import type { SceneQuality } from './scene-quality';
 
@@ -18,7 +18,7 @@ import type { SceneQuality } from './scene-quality';
  * its uniforms, depth field and meshes, the water reaching `reach` units each way from every island
  * (farther in the explorer).
  */
-export function useOcean(habitat: Habitat, level: number, card: string, quality: SceneQuality = 'full', reach = OCEAN.waterExtent, islands?: readonly OceanIsland[]) {
+export function useOcean(habitat: Habitat, level: number, card: string, quality: SceneQuality = 'full', reach: WaterExtent = OCEAN.waterExtent, islands?: readonly OceanIsland[]) {
   // One uniforms object for the scene's lifetime, so swimmers keep their materials across changes.
   const [uniforms] = useState(() => createOceanUniforms(habitat, card));
   const placed = JSON.stringify(islands ?? [{ x: 0, z: 0, habitat }]);

@@ -40,11 +40,13 @@ the reef: zoom in close to find them").
 ![The explorer on a phone: opened at the Coral Reef, sailed to the Kelp Forest, the whole archipelago, and opened at the Kelp Forest](art-previews/explorer-archipelago.png)
 
 Every island found so far lies in one ocean, at its own place (`ISLAND_PLACES` in
-`src/lib/archipelago.ts`): the Coral Reef, Home's, in the middle, the Kelp Forest
-12.5 units to the north, the Volcanic Pinnacle 12 to the south (and a little west) and the
-Mangroves & Seagrass 12.5 to the south and 9.5 to the east, far
-enough that each island's swimming area (at the last level) has water of its own, with open
-sea between. Each island's animals swim around it as on Home (each island runs its own
+`src/lib/archipelago.ts`), in a chain running north to south: the Kelp Forest 23 units north of
+Home's Coral Reef, the Volcanic Pinnacle 11.5 north of it, between them, and the Mangroves &
+Seagrass 12 to the south, each a little to one side of the last. They are far enough apart that each
+island's swimming area (at the last level) has water of its own, and they stand together on one
+shallow bank, with sandbars and small cays between them and the deep blue off its edges
+([The bank between the islands](archipelago.md#the-bank-between-the-islands)). A chain suits a phone
+held upright: all the way out it shows all four about 1.4 times larger than a cluster would. Each island's animals swim around it as on Home (each island runs its own
 simulation, in its own frame), and the water around each is its own: tropical turquoise
 around the reef, cold green around the kelp, clear cobalt around the volcano, warm teal
 around the mangroves, blending
@@ -63,7 +65,11 @@ across the open sea between them ([Island ocean](ocean.md#islands-in-one-ocean))
   `near`), or "Your archipelago" in the open sea between two (nearer one than the other
   by less than `between`, 30%, of the way across). Screen readers hear it change; the
   island's button is marked selected.
-- **All the way out** (and **⌖**) shows every island's swimming area at once.
+- **All the way out** (and **⌖**) shows every island's swimming area at once. Pulled back
+  that far, the sea is seen as from high above: the waves' glints gather into drifting wind
+  patches and whitecaps fleck the deep water (`uOceanCalm`, between the zooms in `CALM` in
+  `explorer-camera.tsx`, relative to all the way out), and closing in on an island brings the
+  waves back ([The sea from high above](archipelago.md#the-sea-from-high-above)).
 
 With Home's island alone, the explorer is exactly as it was: the same zoom range, limits
 and opening view.
@@ -98,8 +104,10 @@ Home card's water covers (it stops at `OCEAN.waterExtent`, 8.6 units, which the 
 view never reaches past, and fades its top and bottom into the card). So in the
 explorer the water reaches `reach` (18 units) each way from every island's middle, the
 deep floor under it, and there is no haze: open water runs to every edge of the
-screen at every zoom, and the view never goes past it. The Home card's own water is
-unchanged.
+screen at every zoom, and the view never goes past it. A wider screen (a tablet on its side, a
+laptop) all the way out over several islands sees farther across than that, so there the water
+reaches as far across as it does, and `spare` (10%) more for a pinch to stretch past it, never
+farther than `farthest` (48 units; `waterReach`). The Home card's own water is unchanged.
 
 **How far across.** Around an island, the middle of the view may roam until the view's
 edges are `margin` (2 units) past the swimming area, or at the water's edge if that is
@@ -161,8 +169,10 @@ where it is. The mouse wheel zooms at once, about the pointer (`zoomAt`).
 for a frame on every move, and keeps asking while a glide or an eased move settles.
 Home's own island pauses while the explorer is open (its screen loses focus). The
 explorer's larger water is about 8,700 vertices against the card's 2,058, and its
-seabed 2,784 against 2,400; with the Kelp Forest too, about 12,300 and 4,900; with the
-Volcanic Pinnacle as well, 16,800 and 7,266; with all four islands, 20,111 and 9,492.
+seabed 2,784 against 2,400; with the Kelp Forest too, about 14,900 and 8,800; with the
+Volcanic Pinnacle as well, 15,600 and 10,000; with all four islands, 19,200 and 12,900 (the seabed
+finer over the bank). The wider water of a tablet on its side, with all four, is about 32,300 and
+16,500; of a 1920 × 1080 screen, 39,800 and 18,500.
 
 **Only what's in view.** Off screen, animals rest (`view-cull.ts`, `onScreen`: a point's place on
 screen as the camera last drew, with a margin):
@@ -247,6 +257,7 @@ island), and the card says the creatures live on the reef, too small to see from
 | `EXPLORER` | Default | What it does |
 | --- | ---: | --- |
 | `reach` | 18 | How far the explorer's water reaches from the island's middle (units, each way) |
+| `spare`, `farthest` | 1.1, 48 | On a wide screen, the water reaches as far as the view does all the way out, this much more (×), up to `farthest` (units) |
 | `edge` | 0.3 | How close the water's own edge may come to the screen's (units) |
 | `frame` | 0.6 | Water around the swimming area all the way out (units) |
 | `margin` | 2 | How far past the swimming area the view may roam (units, up to the water's edge) |
@@ -311,7 +322,8 @@ npx jest src/lib/__tests__/macro-life.test.ts src/components/home/__tests__/sanc
 - only logged macro species on the reef, only in the explorer, each opening its page,
   and a tap from afar looking closer.
 
-`npm run verify:ocean` checks the Home card's water (still 2,058 vertices), and
+`npm run verify:ocean` checks the Home card's water (still 2,058 vertices) and that the widest
+water a wide screen draws stays within 16-bit indices, and
 `npm run verify:underwater` the 28 pt tap minimum at levels 1 and 6.
 
 ## Known limitations

@@ -65,16 +65,22 @@ One ocean can hold several islands (`OceanIsland`: a middle and a habitat): one 
 card, every island found in the explorer (`docs/island-explorer.md#one-ocean`).
 
 - **Depth.** The map reaches 9 units past every island's middle at the same 7.1 texels a
-  unit (`DEPTH`), so with the Coral Reef and the Kelp Forest it is 139 × 217, and with the
-  Volcanic Pinnacle too, 167 × 302; with the Mangroves & Seagrass as well, 224 × 306. Each texel's
+  unit (`DEPTH`), so with the Coral Reef and the Kelp Forest it is 139 × 293, and with the
+  Volcanic Pinnacle too, 152 × 293; with the Mangroves & Seagrass as well, 156 × 380. Each texel's
   depth comes from the nearest island's shore, measured in that island's own frame, so its
   shelf is the one its kelp and reef animals stand on; past 10 units from an island
   (`ISLAND_REACH`) only open-ocean depth is left of its shelf, so its shore isn't measured.
   `uOceanDepthArea` says where the map lies (x0, z0, width, depth).
+- **The bank.** With several islands, they stand on one shallow bank (`archipelagoBank` in
+  `src/lib/banks.ts`; `docs/archipelago.md#the-bank-between-the-islands`): wherever its depth
+  (`bankDepth`) is shallower than an island's own seabed there, the map takes it, so the open
+  sea between neighbours is clear turquoise over pale sand, with sandbars almost at the surface
+  and small cays breaking it, and the deep blue only off the bank's edges. The field keeps the
+  bank (`field.bank`) for the scene to draw its cays and rocks.
 - **Whose water.** A second map beside it (the region map) holds each texel's share of up to
   four waters (`OCEAN_REGIONS`, one channel each, in the order of `field.habitats`): an
-  island's own palette around it, giving way to the next across the open sea between them
-  (`REGION_BLEND`, 1.2 units). The surface and seabed shaders blend the palettes' colours
+  island's own palette around it, giving way to the next across the sea between them
+  (`REGION_BLEND`, 2.4 units). The surface and seabed shaders blend the palettes' colours
   (`REGION_COLORS`: shallow, mid, deep, sand, wet sand, seagrass, sky) and clarity by those
   shares (`REGION_GLSL`); the lite map bakes the same blend.
 - **Each island's things.** Everything at an island (its animals, kelp, reef rocks and rising
@@ -83,9 +89,16 @@ card, every island found in the explorer (`docs/island-explorer.md#one-ocean`).
   Forest's cold green and a manta into the reef's turquoise.
 - **Seabed and water.** Around one island alone, as before. With several, each island's
   radial terrain stops halfway to its neighbour (less its own size) and a coarse grid of deep
-  floor lies under the open sea; the surface lattice covers the box `reach` units past every
-  island. With the two islands in the explorer, the water is about 12,300 vertices and the
-  seabed 4,900; with all four, about 20,100 and 9,500 (16-bit indices allow 65,536).
+  floor lies under the sea between them (finer over the bank, whose sand shows through the clear
+  water); the surface lattice covers the box `reach` units past every island (farther across on a
+  wide screen: `waterReach` in explorer-view.ts). With the two islands in the explorer, the water
+  is about 14,900 vertices and the seabed 8,800; with all four, about 19,200 and 12,900, and on the
+  widest screen at most 47,500 and 20,900 (16-bit indices allow 65,536).
+- **From high above.** `uOceanCalm` (0 to 1, set by the explorer's camera as it pulls back over
+  several islands) sees the sea as from high above: the facets soften, the sun's glints gather
+  into broad wind patches drifting across the water (`oceanWind`) instead of repeating along every
+  wave, and small whitecaps fleck the deep water off the bank (`oceanWhitecap`). The lite tier
+  gathers its glints the same way. At 0 (the card, and close up) the water is exactly as before.
 
 With one island the maps, meshes and pixels are exactly as they were.
 

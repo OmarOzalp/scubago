@@ -3,8 +3,8 @@
 The archipelago's fourth island (`docs/archipelago.md`): a low cay of tidal mud under a dense canopy
 of mangroves, standing in a warm, turquoise lagoon ringed with seagrass meadows, like the cays of
 Belize and the Florida Keys. It rises the first time the diver logs a Mangroves & Seagrass species;
-from then on Home's area pills switch to it, and in the explorer it lies to the south-east of the
-reef, in the same ocean (`docs/island-explorer.md#one-ocean`). Its own animals (the five below, and
+from then on Home's area pills switch to it, and in the explorer it lies to the south of the
+reef, at the chain's southern end, in the same ocean (`docs/island-explorer.md#one-ocean`). Its own animals (the five below, and
 the tiger sharks, great hammerheads and green turtles, which used to swim at Home's reef and live
 here) swim here; everything else swims at its own area's island or at Home's.
 
@@ -59,7 +59,7 @@ The Mangroves & Seagrass palette (`OCEAN.palettes.mangrove` in `src/lib/ocean.ts
 green: bright turquoise-green shallows over pale sand, deepening to teal, the seabed's patches the
 dark green of seagrass. It is a little clearer than the reef's (`clarity`), so the meadows show
 through. The card behind the scene is a pale sea-green to match (`WATER.mangrove`). In the one
-ocean, the water blends from the reef's turquoise to this teal across the open sea between them
+ocean, the water blends from the reef's turquoise to this teal across the bank between them
 (`docs/ocean.md`).
 
 ## Its animals

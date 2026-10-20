@@ -4,11 +4,12 @@ import type { Habitat } from '@/lib/home';
 import { SEABED_PROPS } from '@/lib/island-outline';
 import { OCEAN } from '@/lib/ocean';
 import { islandScale, shoreline } from './island-shape';
+import { ArchipelagoSea } from './archipelago-sea';
 import { KelpCoast } from './kelp-coast';
 import { KelpForest } from './kelp-forest';
 import { createKelpMovers, KelpMoversContext } from './kelp-movers';
 import { OceanContext } from './ocean-context';
-import { islandOceanUniforms, waterColorAt } from './ocean-mesh';
+import { islandOceanUniforms, waterColorAt, type WaterExtent } from './ocean-mesh';
 import { useSceneQuality } from './scene-quality';
 import { submerge } from './islet-material';
 import { VolcanicCoast } from './volcanic-coast';
@@ -161,12 +162,13 @@ function IslandPlace({ island, ocean, level, growIn }: { island: SceneIsland; oc
 
 /** The ocean and every island in it; `children` go in the ocean itself (the explorer's camera). */
 function IslandWorld({ habitat, level, active, growIn, reach, islands, children }: {
-  habitat: Habitat; level: number; active: boolean; growIn: boolean; reach?: number; islands: readonly SceneIsland[]; children?: ReactNode;
+  habitat: Habitat; level: number; active: boolean; growIn: boolean; reach?: WaterExtent; islands: readonly SceneIsland[]; children?: ReactNode;
 }) {
   const quality = useSceneQuality();
   const ocean = useOcean(habitat, level, WATER[habitat], quality, reach, islands.map(({ x, z, habitat: shores }) => ({ x, z, habitat: shores })));
   return <OceanContext.Provider value={ocean.uniforms}>
     <WaterSurface ocean={ocean} active={active} />
+    {ocean.field.bank && <ArchipelagoSea bank={ocean.field.bank} />}
     {islands.map((island) => <IslandPlace key={island.key} island={island} ocean={ocean} level={level} growIn={growIn} />)}
     {children}
   </OceanContext.Provider>;
@@ -182,8 +184,8 @@ export function SanctuaryEnvironment({ habitat, level, active, inspect = false, 
   habitat: Habitat; level: number; active: boolean; inspect?: boolean;
   /** A new level's additions rise or grow in (see Growth), rather than simply being there. */
   growIn?: boolean;
-  /** How far the water reaches from every island's middle (units): farther than the card's in the island explorer, which fills a whole screen with it. */
-  reach?: number; islands?: readonly SceneIsland[]; children?: ReactNode;
+  /** How far the water reaches from every island's middle (units): farther than the card's in the island explorer, which fills a whole screen with it (waterReach). */
+  reach?: WaterExtent; islands?: readonly SceneIsland[]; children?: ReactNode;
 }) {
   const alone = useMemo(() => [{ key: habitat, habitat, x: 0, z: 0 }], [habitat]);
   return <>

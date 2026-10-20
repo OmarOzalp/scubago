@@ -4,6 +4,7 @@ import {
 } from 'three';
 import type { Habitat } from '@/lib/home';
 import { OCEAN, seabedPatch, seabedProfile, shelfStretch, waveTerms, type OceanConfig } from '@/lib/ocean';
+import { archipelagoBank, bankDepth } from '@/lib/banks';
 import { islandReach, shapeFor } from '@/lib/island-outline';
 import { curveSegments, islandScale, shoreDistance, shorePolygons, shoreline } from './island-shape';
 
@@ -32,7 +33,7 @@ const ISLAND_REACH = 10;
 /** How many different waters (palettes) one ocean blends: one channel each of the region map. */
 export const OCEAN_REGIONS = 4;
 /** How gradually one island's water gives way to the next across the open water between them (units). */
-const REGION_BLEND = 1.2;
+const REGION_BLEND = 2.4;
 /** The palette colors each region carries (see REGION_GLSL), in order, and their names there (`patch` is reserved in GLSL ES 3). */
 const REGION_COLORS = ['shallow', 'mid', 'deep', 'sandShallow', 'sandWet', 'patch', 'sky'] as const;
 const REGION_NAMES = ['shallow', 'mid', 'deep', 'sandShallow', 'sandWet', 'seagrass', 'sky'] as const;
@@ -79,6 +80,9 @@ export function createOceanUniforms(habitat: Habitat = 'island', card?: string, 
     uOceanUnderwater: { value: new Vector4(u.clearDepth, u.visibility, u.tintStrength, u.desaturation) },
     uOceanDistortion: { value: u.distortion },
     uOceanEdge: { value: new Vector2(config.edgeFade.start, config.edgeFade.end) },
+    // How far the view has pulled back over the archipelago (0 close up, 1 all the way out): the waves'
+    // glints gather into drifting wind patches, the facets soften, and whitecaps fleck the deep water.
+    uOceanCalm: { value: 0 },
     uOceanDepthMap: { value: null as DataTexture | null },
     // Lite tier: the static seabed-and-water colors baked per level (display values), plus display-space sky and card.
     uOceanLiteMap: { value: null as DataTexture | null },
@@ -223,14 +227,22 @@ export function buildDepthField(level: number, islands: readonly OceanIsland[] =
     }
     return { reach: best, x: nx, z: nz };
   };
-  const reach = (x: number, z: number) => nearest(x, z).reach;
+  // With several islands, they stand on one shallow bank (banks.ts): the seabed rises to it wherever
+  // the bank is shallower than the ocean around the islands would be.
+  const bank = islands.length > 1 ? archipelagoBank(islands) : null;
+  const profileAt = (x: number, z: number, near = nearest(x, z)) => {
+    const own = seabedProfile(near.reach, config);
+    if (!bank || near.reach <= 0) return own;
+    const held = bankDepth(bank, x, z);
+    return held < own.depth ? { floor: config.surfaceLevel - held, depth: Math.max(0, held), wet: held } : own;
+  };
   const data = new Uint8Array(columns * rows * 4), region = new Uint8Array(columns * rows * 4);
   const weights = new Float32Array(OCEAN_REGIONS);
   for (let j = 0; j < rows; j++) {
     for (let i = 0; i < columns; i++) {
       const x = x0 + (i + .5) / columns * width, z = z0 + (j + .5) / rows * depth;
       const near = nearest(x, z);
-      const { depth: water, wet } = seabedProfile(near.reach, config);
+      const { depth: water, wet } = profileAt(x, z, near);
       const k = (j * columns + i) * 4;
       data[k] = Math.round(255 * Math.sqrt(Math.min(1, water / DEPTH.maxDepth)));
       data[k + 1] = Math.round(255 * Math.min(1, Math.max(0, -wet) / .2));
@@ -248,9 +260,9 @@ export function buildDepthField(level: number, islands: readonly OceanIsland[] =
     }
   }
   return {
-    texture: dataTexture(data, columns, rows), region: dataTexture(region, columns, rows), habitats, polygons, islands,
+    texture: dataTexture(data, columns, rows), region: dataTexture(region, columns, rows), habitats, polygons, islands, bank,
     area: { x0, z0, width, depth }, columns, rows,
-    profile: (x: number, z: number) => seabedProfile(reach(x, z), config),
+    profile: (x: number, z: number) => profileAt(x, z),
   };
 }
 export type DepthField = ReturnType<typeof buildDepthField>;
@@ -325,6 +337,14 @@ vec2 oceanSlope(vec2 p) {
     s += a.xy * (a.w * a.z * cos(a.z * dot(a.xy, p) - b.x * uOceanTime + b.z));
   }
   return s;
+}`;
+
+/** Smooth value noise for the sea seen from far off (wind patches, whitecaps). */
+const NOISE_GLSL = /* glsl */ `
+float oceanHash(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
+float oceanNoise(vec2 p) {
+  vec2 i = floor(p), f = fract(p), s = f * f * (3.0 - 2.0 * f);
+  return mix(mix(oceanHash(i), oceanHash(i + vec2(1.0, 0.0)), s.x), mix(oceanHash(i + vec2(0.0, 1.0)), oceanHash(i + vec2(1.0)), s.x), s.y);
 }`;
 
 const COLOR_GLSL = /* glsl */ `
@@ -403,13 +423,29 @@ ${REGION_GLSL}
 uniform vec3 uOceanSun; uniform vec3 uOceanFoam;
 uniform float uOceanShoreClear; uniform float uOceanFacet;
 uniform vec3 uOceanSpecular; uniform vec3 uOceanSpecularDir; uniform vec3 uOceanSunDir;
-uniform vec2 uOceanFoamParams; uniform vec2 uOceanEdge;
+uniform vec2 uOceanFoamParams; uniform vec2 uOceanEdge; uniform float uOceanCalm; uniform float uOceanTime;
 varying vec3 vWorld;
 varying vec3 vSmoothNormal;
 varying float vWave;
 varying float vClipY;
 varying float vReflection;
 varying float vFoamBreak;
+${NOISE_GLSL}
+// Seen from far off: the wind ruffles the sea in drifting patches (where the sun catches the waves),
+// and here and there a whitecap breaks, flickers and is gone, never in a repeating pattern.
+float oceanWind(vec2 p) {
+  vec2 drift = vec2(.11, .05) * uOceanTime;
+  return smoothstep(.42, .78, oceanNoise(p * .085 + drift) * .7 + oceanNoise(p * .23 - drift * 1.7) * .3);
+}
+float oceanWhitecap(vec2 p) {
+  vec2 cell = floor(p * .9), local = fract(p * .9) - .5;
+  float seed = oceanHash(cell), life = fract(uOceanTime * (.07 + .05 * seed) + seed * 7.0);
+  vec2 at = vec2(oceanHash(cell + 3.1), oceanHash(cell + 7.7)) - .5;
+  // A short dash along the wind, swelling and fading over a third of its cycle.
+  vec2 d = (local - at * .6) * mat2(.94, .34, -.34, .94);
+  float dash = 1.0 - smoothstep(.0, 1.0, length(d * vec2(5.5, 15.0)));
+  return step(.62, seed) * dash * smoothstep(0.0, .08, life) * (1.0 - smoothstep(.2, .33, life));
+}
 void main() {
   // One normal per facet keeps the low-poly character as the waves move.
   vec3 n = normalize(cross(dFdx(vWorld), dFdy(vWorld)));
@@ -420,16 +456,21 @@ void main() {
   // No water above the exposed beach; fully clear right at the waterline.
   float shore = smoothstep(0.0, uOceanShoreClear, wet);
   // Facets tilted toward the sun read a little brighter, away a little darker.
-  float facet = clamp((dot(n, uOceanSunDir) - uOceanSunDir.y) * 14.0, -1.0, 1.0);
+  float facet = clamp((dot(n, uOceanSunDir) - uOceanSunDir.y) * 14.0, -1.0, 1.0) * (1.0 - .45 * uOceanCalm);
   vec3 color = mix(oceanWaterColorIn(water, depthAt.x) * (1.0 + uOceanFacet * facet), water.sky, vReflection);
   // Soft daylight on the few facets tipped furthest toward the sun; the smooth wave normal
   // rounds off each highlight so facets catch the light without sparkling.
   vec3 glintNormal = normalize(mix(n, normalize(vSmoothNormal), uOceanSpecular.z));
   float glint = uOceanSpecular.x * pow(max(dot(glintNormal, uOceanSpecularDir), 0.0), uOceanSpecular.y);
+  float wind = uOceanCalm > 0.0 ? oceanWind(vWorld.xz) : 1.0;
+  glint *= mix(1.0, wind * .75, uOceanCalm);
   // Clear in the shallows, richer farther out, so the life below stays visible.
   float alpha = (mix(water.clarity.y, water.clarity.z, smoothstep(0.0, uOceanStops.y, depthAt.x)) + vReflection * .45) * shore;
   // A thin, broken line of foam that rides up and down the sand with the waves.
   float foam = uOceanFoamParams.x * vFoamBreak * smoothstep(-.004, .004, wet) * (1.0 - smoothstep(0.0, uOceanFoamParams.y, wet));
+  // Whitecaps out over deep water, as the view pulls back.
+  float cap = uOceanCalm > 0.0 ? oceanWhitecap(vWorld.xz) * uOceanCalm * smoothstep(1.4, 2.4, depthAt.x) * (.55 + .45 * wind) : 0.0;
+  foam = max(foam, cap * .85);
   color = mix(color, uOceanFoam, foam);
   alpha = max(alpha, foam);
   float edge = 1.0 - smoothstep(uOceanEdge.x, uOceanEdge.y, abs(vClipY));
@@ -445,6 +486,8 @@ void main() {
 // conversion or blending per pixel.
 const LITE_VERTEX = /* glsl */ `
 ${WAVE_GLSL}
+${NOISE_GLSL}
+uniform float uOceanCalm;
 uniform float uOceanSurface; uniform vec3 uOceanReflection; uniform vec3 uOceanSunDir;
 uniform vec3 uOceanSpecular; uniform vec3 uOceanSpecularDir; uniform float uOceanFacet; uniform vec4 uOceanDepthArea;
 attribute float aShoaling;
@@ -465,9 +508,12 @@ void main() {
   vec3 n = normalize(vec3(-slope.x, 1.0, -slope.y));
   vec3 toCamera = normalize(vec3(viewMatrix[0][2], viewMatrix[1][2], viewMatrix[2][2]));
   float fresnel = uOceanReflection.z + (1.0 - uOceanReflection.z) * pow(1.0 - clamp(dot(n, toCamera), 0.0, 1.0), uOceanReflection.y);
+  // Pulled back over the archipelago, the glints gather into drifting wind patches (as on the full surface).
+  vec2 drift = vec2(.11, .05) * uOceanTime;
+  float wind = smoothstep(.42, .78, oceanNoise(world.xz * .085 + drift) * .7 + oceanNoise(world.xz * .23 - drift * 1.7) * .3);
   vReflectionGlint = vec2(uOceanReflection.x * clamp(fresnel + .22 * smoothstep(-.4, 1.0, vClipY), 0.0, 1.0),
-    uOceanSpecular.x * pow(max(dot(n, uOceanSpecularDir), 0.0), uOceanSpecular.y));
-  vFacet = uOceanFacet * clamp((dot(n, uOceanSunDir) - uOceanSunDir.y) * 14.0, -1.0, 1.0);
+    uOceanSpecular.x * pow(max(dot(n, uOceanSpecularDir), 0.0), uOceanSpecular.y) * mix(1.0, wind * .75, uOceanCalm));
+  vFacet = uOceanFacet * clamp((dot(n, uOceanSunDir) - uOceanSunDir.y) * 14.0, -1.0, 1.0) * (1.0 - .45 * uOceanCalm);
 }`;
 
 const LITE_FRAGMENT = /* glsl */ `
@@ -518,15 +564,18 @@ void main() {
   gl_FragColor = linearToOutputTexel(vec4(color, 1.0));
 }`;
 
+/** How far the water reaches from every island's middle (units): the same each way, or farther across than in depth (the explorer's, on a wide screen). */
+export type WaterExtent = number | { readonly x: number; readonly z: number };
+const extentOf = (extent: WaterExtent) => (typeof extent === 'number' ? { x: extent, z: extent } : extent);
 /** The box reaching `extent` units each way from every island's middle (x0, z0, width, depth). */
-function oceanBox(field: DepthField, extent: number) {
-  const xs = field.islands.map((i) => i.x), zs = field.islands.map((i) => i.z);
-  const x0 = Math.min(...xs) - extent, z0 = Math.min(...zs) - extent;
-  return { x0, z0, width: Math.max(...xs) + extent - x0, depth: Math.max(...zs) + extent - z0 };
+function oceanBox(field: DepthField, extent: WaterExtent) {
+  const xs = field.islands.map((i) => i.x), zs = field.islands.map((i) => i.z), { x: ex, z: ez } = extentOf(extent);
+  const x0 = Math.min(...xs) - ex, z0 = Math.min(...zs) - ez;
+  return { x0, z0, width: Math.max(...xs) + ex - x0, depth: Math.max(...zs) + ez - z0 };
 }
 
 /** A jittered triangle lattice: irregular low-poly facets instead of a visible grid, `extent` units each way from every island's middle. */
-function waterLattice(field: DepthField, config: OceanConfig, extent: number) {
+function waterLattice(field: DepthField, config: OceanConfig, extent: WaterExtent) {
   const s = config.facetSize, h = s * Math.sqrt(3) / 2, box = oceanBox(field, extent);
   const cols = Math.ceil(box.width / s) + 1, rows = Math.ceil(box.depth / h) + 1;
   const positions: number[] = [], shoaling: number[] = [], indices: number[] = [];
@@ -555,7 +604,7 @@ function waterLattice(field: DepthField, config: OceanConfig, extent: number) {
 }
 
 /** The water's surface, reaching `extent` units each way from every island (the Home card's view never sees past OCEAN.waterExtent; the explorer's water reaches farther). */
-export function createWaterMesh(uniforms: OceanUniforms, field: DepthField, config: OceanConfig = OCEAN, extent = OCEAN.waterExtent) {
+export function createWaterMesh(uniforms: OceanUniforms, field: DepthField, config: OceanConfig = OCEAN, extent: WaterExtent = OCEAN.waterExtent) {
   const geometry = waterLattice(field, config, extent);
   const material = new ShaderMaterial({
     uniforms, vertexShader: WATER_VERTEX, fragmentShader: WATER_FRAGMENT,
@@ -573,7 +622,7 @@ export function createWaterMesh(uniforms: OceanUniforms, field: DepthField, conf
  * Lite tier: the same wave lattice drawn once as an opaque backdrop, colored from
  * the baked map (see buildLiteOceanMap). Replaces the seabed and surface meshes.
  */
-export function createLiteOceanMesh(uniforms: OceanUniforms, field: DepthField, config: OceanConfig = OCEAN, extent = OCEAN.waterExtent) {
+export function createLiteOceanMesh(uniforms: OceanUniforms, field: DepthField, config: OceanConfig = OCEAN, extent: WaterExtent = OCEAN.waterExtent) {
   const material = new ShaderMaterial({
     uniforms, vertexShader: LITE_VERTEX, fragmentShader: LITE_FRAGMENT, depthWrite: false, depthTest: false, side: DoubleSide,
   });
@@ -594,10 +643,10 @@ export function createLiteOceanMesh(uniforms: OceanUniforms, field: DepthField, 
  * short of its neighbours' and a coarse deep floor lies under the open sea between
  * them (drawn first, so the islands' terrain lies over it).
  */
-export function createSeabedMesh(uniforms: OceanUniforms, field: DepthField, level: number, reach = OCEAN.waterExtent) {
+export function createSeabedMesh(uniforms: OceanUniforms, field: DepthField, level: number, reach: WaterExtent = OCEAN.waterExtent) {
   const rays = 96;
   const near = [-.12, -.04, 0, .04, .08, .12, .17, .23, .3, .38, .47, .57, .68, .8, .95, 1.15, 1.4, 1.75, 2.2, 2.8, 3.6, 4.6, 6, 8, 10.5];
-  const corner = reach * Math.SQRT2 + 1;
+  const corner = Math.hypot(extentOf(reach).x, extentOf(reach).z) + 1;
   const alone = field.islands.length === 1;
   // Alone, out past the water's corners; among others, no farther than halfway to the nearest (less its own size).
   const spacing = (island: OceanIsland) => Math.min(...field.islands.filter((other) => other !== island).map((other) => Math.hypot(other.x - island.x, other.z - island.z)));
@@ -626,9 +675,10 @@ export function createSeabedMesh(uniforms: OceanUniforms, field: DepthField, lev
     return best === Infinity ? 0 : best;
   };
   const positions: number[] = [], indices: number[] = [];
-  // The open sea's floor between the islands: a coarse grid under all the water.
+  // The open sea's floor between the islands: a coarse grid under all the water (finer where the islands
+  // stand on a shallow bank, which shows through the clear water above it).
   if (!alone) {
-    const box = oceanBox(field, reach), step = 1.5;
+    const box = oceanBox(field, reach), step = field.bank ? .75 : 1.5;
     const cols = Math.ceil(box.width / step) + 1, rows = Math.ceil(box.depth / step) + 1;
     for (let r = 0; r < rows; r++) {
       for (let c = 0; c < cols; c++) {

@@ -81,11 +81,14 @@ export const isIsland = (id: string): id is IslandId => Object.hasOwn(ISLANDS, i
  * Where each island lies in the archipelago's one ocean (world units from Home's island; x to the
  * right and z toward the viewer, as the camera sees it): far enough apart that each island's
  * animals keep to water of their own (its swimming area, WORLD in steering.ts, at the last level),
- * with open ocean between. The Kelp Forest lies to the north, in colder water; the Volcanic Pinnacle
- * to the south-west, in the clear blue of the currents; the Mangroves & Seagrass to the south-east,
- * in warm, shallow green. The explorer shows them all together (src/app/explore.tsx); Home's card one at a time.
+ * between. They lie in a chain running north to south, like the cays of the Bahamas strung along
+ * their bank (so a phone held upright, narrow and tall, sees the whole chain closer than it would a
+ * cluster): the Kelp Forest farthest north, in colder water; then the Volcanic Pinnacle, in the clear
+ * blue of the currents; Home's reef; and the Mangroves & Seagrass to the south, in warm, shallow
+ * green, each a little to one side of the last. Between them lies the bank they stand on (banks.ts).
+ * The explorer shows them all together (src/app/explore.tsx); Home's card one at a time.
  */
-export const ISLAND_PLACES: Record<IslandId, readonly [number, number]> = { 'coral-reef': [0, 0], 'kelp-forest': [1.5, -12.5], 'volcanic-pinnacle': [-4, 12], mangroves: [9.5, 12.5] };
+export const ISLAND_PLACES: Record<IslandId, readonly [number, number]> = { 'coral-reef': [0, 0], 'kelp-forest': [-1.6, -23.2], 'volcanic-pinnacle': [1.8, -11.4], mangroves: [2.4, 12.2] };
 
 /** The island a species swims at: its own area's, if that has an island, else Home's. */
 export function islandOf(speciesId: string): IslandId {

@@ -14,7 +14,7 @@ import { SanctuaryEnvironment, type SceneIsland } from './three/sanctuary-enviro
 import { TapAnywhere } from './three/tap-anywhere';
 import { useMarineModels } from './three/use-marine-models';
 import { useSceneActive, useSceneVisible } from '@/hooks/use-scene-active';
-import { EXPLORER } from '@/lib/explorer-view';
+import type { WaterReach } from '@/lib/explorer-view';
 import type { Habitat } from '@/lib/home';
 import { shapeFor } from '@/lib/island-outline';
 import { MACRO_SPECIES, macroResidents, type MacroSpecies } from '@/lib/macro-life';
@@ -71,6 +71,8 @@ const TAG = { above: 46, margin: 8, height: 24 };
  */
 export type ExplorerScene = {
   camera: ReactNode; tapScale: number; zoom: () => number;
+  /** How far its water reaches from every island's middle (waterReach in explorer-view.ts: farther on a wide screen). */
+  reach: WaterReach;
   /** Look closely at a point on the water (x, z): ease over and in to at least `zoom`. */
   focus: (x: number, z: number, zoom: number) => void;
 };
@@ -189,7 +191,7 @@ export function SanctuaryScene({ habitat, level, residents, islands, paused = fa
         {__DEV__ && <ScenePerformance ready={!!models && !loading} active={active} />}
         {ISLAND_PERF && <IslandPerfProbe />}
         {/* The animals swim inside their island's water, which tints and refracts them. */}
-        <SanctuaryEnvironment habitat={habitat} level={level} active={active} growIn={active && !loading} reach={explorer ? EXPLORER.reach : undefined} islands={sceneIslands}>
+        <SanctuaryEnvironment habitat={habitat} level={level} active={active} growIn={active && !loading} reach={explorer?.reach} islands={sceneIslands}>
           {explorer?.camera}
         </SanctuaryEnvironment>
       </Canvas>

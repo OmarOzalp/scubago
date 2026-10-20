@@ -28,6 +28,12 @@ export const EXPLORER = {
    * Home card's water stops at OCEAN.waterExtent, which its view never reaches past.
    */
   reach: 18,
+  /**
+   * On a screen too wide (or tall) for that, all the way out over several islands, the water reaches
+   * as far as the view does then, and this much more (×) for a pinch to stretch on past it; but never
+   * farther than `farthest` (units), which keeps the water's mesh within its 65,536 corners.
+   */
+  spare: 1.1, farthest: 48,
   /** How close the water's own edge may come to the screen's (units). */
   edge: .3,
   /** All the way out, this much water shows around the swimming area (units), so every animal is in full view. */
@@ -89,9 +95,31 @@ function area(frame: ExplorerFrame, extra: number) {
 const clamp = (value: number, min: number, max: number) => Math.min(max, Math.max(min, value));
 /** Now, in milliseconds (when the fingers moved, for the release speed). */
 const clock = () => (typeof performance === 'undefined' ? Date.now() : performance.now());
-const water = () => EXPLORER.reach - EXPLORER.edge;
-/** The explorer's water: `EXPLORER.reach` each way from every island's middle (less the edge it keeps from the screen's). */
-const waterBox = (frame: ExplorerFrame) => around(islandsOf(frame), water(), water());
+/** The zoom (points per unit) showing every island's swimming area, with `EXPLORER.frame` of water around it. */
+function wholeZoom(frame: ExplorerFrame) {
+  const a = area(frame, EXPLORER.frame);
+  return Math.min(Math.max(1, frame.width) / (a.x1 - a.x0), Math.max(1, frame.height) * EXPLORER.depthStretch / (a.z1 - a.z0));
+}
+/** How far the explorer's water reaches from every island's middle (units, across and in depth). */
+export type WaterReach = { x: number; z: number };
+/**
+ * `EXPLORER.reach` each way, as far as a phone ever sees: but on a wider screen (a tablet on its side,
+ * a computer's), all the way out over the islands the view sees farther across than that, so there the
+ * water reaches as far as it does (in whole units, so a window resized bit by bit seldom rebuilds it).
+ */
+export function waterReach(frame: ExplorerFrame): WaterReach {
+  const zoom = wholeZoom(frame) / EXPLORER.spare, islands = islandsOf(frame);
+  const axis = (half: number, middles: number[]) =>
+    clamp(Math.ceil(half - (Math.max(...middles) - Math.min(...middles)) / 2 + EXPLORER.edge), EXPLORER.reach, EXPLORER.farthest);
+  return {
+    x: axis(Math.max(1, frame.width) / (2 * zoom), islands.map((p) => p[0])),
+    z: axis(Math.max(1, frame.height) * EXPLORER.depthStretch / (2 * zoom), islands.map((p) => p[1])),
+  };
+}
+/** How far the view's edges may go from every island's middle: the water's reach, less the edge it keeps from the screen's. */
+const water = (frame: ExplorerFrame) => { const reach = waterReach(frame); return { x: reach.x - EXPLORER.edge, z: reach.z - EXPLORER.edge }; };
+/** The explorer's water: `waterReach` each way from every island's middle (less the edge it keeps from the screen's). */
+const waterBox = (frame: ExplorerFrame) => { const w = water(frame); return around(islandsOf(frame), w.x, w.z); };
 
 /**
  * How far out and in the explorer zooms (points per unit). All the way out is where it opens: the
@@ -99,8 +127,8 @@ const waterBox = (frame: ExplorerFrame) => around(islandsOf(frame), water(), wat
  * close look at the animals and the reef.
  */
 export function zoomRange(frame: ExplorerFrame) {
-  const w = Math.max(1, frame.width), h = Math.max(1, frame.height), k = EXPLORER.depthStretch, a = area(frame, EXPLORER.frame), sea = waterBox(frame);
-  const whole = Math.min(w / (a.x1 - a.x0), h * k / (a.z1 - a.z0));
+  const w = Math.max(1, frame.width), h = Math.max(1, frame.height), k = EXPLORER.depthStretch, sea = waterBox(frame);
+  const whole = wholeZoom(frame);
   const cover = Math.max(w / (sea.x1 - sea.x0), h * k / (sea.z1 - sea.z0));
   const min = Math.max(whole, cover);
   return { min, max: Math.max(min * 2, Math.min(w, h) / EXPLORER.closest), cover };
@@ -145,13 +173,13 @@ export function panLimit(frame: ExplorerFrame, zoom: number) {
   const s = oceanScale(frame.level), islands = islandsOf(frame);
   const halfX = frame.width / (2 * zoom), halfZ = frame.height * EXPLORER.depthStretch / (2 * zoom);
   // About one island's middle: half a view inside its swimming area (and the water); none, if the view is wider.
-  const roam = (area: number, half: number) => Math.max(0, Math.min(area, water()) - half);
+  const sea = water(frame), roam = (area: number, half: number, water: number) => Math.max(0, Math.min(area, water) - half);
   const axis = (middles: number[], reach: number) => {
     const lo = Math.min(...middles) - reach, hi = Math.max(...middles) + reach;
     return { c: (lo + hi) / 2, r: (hi - lo) / 2 };
   };
-  const x = axis(islands.map((p) => p[0]), roam(WORLD.x * s + EXPLORER.margin, halfX));
-  const z = axis(islands.map((p) => p[1]), roam(WORLD.z * s + EXPLORER.margin, halfZ));
+  const x = axis(islands.map((p) => p[0]), roam(WORLD.x * s + EXPLORER.margin, halfX, sea.x));
+  const z = axis(islands.map((p) => p[1]), roam(WORLD.z * s + EXPLORER.margin, halfZ, sea.z));
   return { x: x.r, z: z.r, cx: x.c, cz: z.c };
 }
 

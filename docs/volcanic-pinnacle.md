@@ -3,7 +3,7 @@
 The archipelago's third island (`docs/archipelago.md`): a young lava cone rising steeply out of
 clear, current-swept blue water, like the Galápagos' Bartolomé and Fernandina. It rises the first
 time the diver logs a Volcanic Pinnacle species; from then on Home's area pills switch to it, and
-in the explorer it lies to the south-west of the reef, in the same ocean
+in the explorer it lies to the north of the reef, between it and the Kelp Forest, in the same ocean
 (`docs/island-explorer.md#one-ocean`). Its own animals (the five below, and the scalloped
 hammerheads and spotted eagle rays, which live here) swim here; everything else swims at its own
 area's island or at Home's.
@@ -56,7 +56,7 @@ behind the scene is a pale blue to match (`WATER.volcanic`).
 bends round a stone (the streamlines of flow past a circle), dashes of foam drifting downstream
 along them. They ride the waves (the same `oceanWave` as the water, flat in lite quality), run on
 the island's water clock and fade toward the view's hazy edges. In the one ocean, the water blends from
-the reef's turquoise to this cobalt across the open sea between them (`docs/ocean.md`).
+the reef's turquoise to this cobalt across the bank between them (`docs/ocean.md`).
 
 ## Its animals
 
