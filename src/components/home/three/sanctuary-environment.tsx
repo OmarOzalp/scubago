@@ -12,10 +12,12 @@ import { islandOceanUniforms, waterColorAt } from './ocean-mesh';
 import { useSceneQuality } from './scene-quality';
 import { submerge } from './islet-material';
 import { VolcanicCoast } from './volcanic-coast';
+import { MangroveCoast } from './mangrove-coast';
+import { SeagrassMeadow } from './seagrass-meadow';
 import { GROWTH_SECONDS, GrowthContext, Unlock } from './unlock';
 import { useOcean, WaterSurface, type Ocean } from './water-surface';
 
-export const WATER: Record<Habitat, string> = { island: '#C5E3DF', lagoon: '#B9DEDC', cove: '#C5DCD3', kelp: '#BED2CB', volcanic: '#BFD6E6' };
+export const WATER: Record<Habitat, string> = { island: '#C5E3DF', lagoon: '#B9DEDC', cove: '#C5DCD3', kelp: '#BED2CB', volcanic: '#BFD6E6', mangrove: '#C3E3D9' };
 
 /** Flat layers of the dry island, stacked just above the water. */
 function ShoreLayer({ scale = 1, y, color, offset = [0, 0] }: {
@@ -129,7 +131,7 @@ export type SceneIsland = { key: string; habitat: Habitat; x: number; z: number;
 
 /**
  * One island, in its own frame at its place in the ocean: its shores (the Kelp Forest's rocky coast
- * and kelp, the Volcanic Pinnacle's lava cone, or a sandy island) and its animals, which take on its own water (islandOceanUniforms).
+ * and kelp, the Volcanic Pinnacle's lava cone, the mangrove cay and its seagrass, or a sandy island) and its animals, which take on its own water (islandOceanUniforms).
  */
 function IslandPlace({ island, ocean, level, growIn }: { island: SceneIsland; ocean: Ocean; level: number; growIn: boolean }) {
   const quality = useSceneQuality();
@@ -148,7 +150,10 @@ function IslandPlace({ island, ocean, level, growIn }: { island: SceneIsland; oc
         <KelpForest level={level} />
       </> : island.habitat === 'volcanic'
         ? <group scale={islandScale(level)}><VolcanicCoast level={level} /></group>
-        : <CoralIsland habitat={island.habitat} level={level} ocean={ocean} place={[island.x, island.z]} />}
+        : island.habitat === 'mangrove' ? <>
+          <group scale={islandScale(level)}><MangroveCoast level={level} /></group>
+          <SeagrassMeadow level={level} />
+        </> : <CoralIsland habitat={island.habitat} level={level} ocean={ocean} place={[island.x, island.z]} />}
       {island.content}
     </KelpMoversContext.Provider></GrowthContext.Provider></OceanContext.Provider>
   </group>;

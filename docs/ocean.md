@@ -66,7 +66,7 @@ card, every island found in the explorer (`docs/island-explorer.md#one-ocean`).
 
 - **Depth.** The map reaches 9 units past every island's middle at the same 7.1 texels a
   unit (`DEPTH`), so with the Coral Reef and the Kelp Forest it is 139 × 217, and with the
-  Volcanic Pinnacle too, 167 × 302. Each texel's
+  Volcanic Pinnacle too, 167 × 302; with the Mangroves & Seagrass as well, 224 × 306. Each texel's
   depth comes from the nearest island's shore, measured in that island's own frame, so its
   shelf is the one its kelp and reef animals stand on; past 10 units from an island
   (`ISLAND_REACH`) only open-ocean depth is left of its shelf, so its shore isn't measured.
@@ -85,7 +85,7 @@ card, every island found in the explorer (`docs/island-explorer.md#one-ocean`).
   radial terrain stops halfway to its neighbour (less its own size) and a coarse grid of deep
   floor lies under the open sea; the surface lattice covers the box `reach` units past every
   island. With the two islands in the explorer, the water is about 12,300 vertices and the
-  seabed 4,900 (16-bit indices allow 65,536).
+  seabed 4,900; with all four, about 20,100 and 9,500 (16-bit indices allow 65,536).
 
 With one island the maps, meshes and pixels are exactly as they were.
 

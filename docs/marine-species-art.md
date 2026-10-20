@@ -346,14 +346,17 @@ design file), its crest a row of conical spines. All are within the 5,000-triang
 | --- | --- | --- | ---: | ---: |
 | Marine iguana | A short, blunt, box-like head with heavy jowls, crusted with pale salt and knobbly scales, small eyes in scaly lids; a thick neck and stout body; a long tail flattened side to side, more than half its length; a crest of spines from the nape (tallest there, pale-tipped) down the back and tail; short legs folded back along the flanks, long clawed toes trailing. Sooty black, mottled rust red and dull green on the flanks | `shark` as a lizard: the tail sweeps in waves that grow toward the tip, whose last third whips on `TailUpper` (`lobes` with a 0° angle flex it sideways, lagging the stroke); the head held steady (`headSteady`), the forelegs on the pectoral bones. 0.8 strokes/s | 4,400 | 180,152 |
 | Galápagos shark | A classic requiem shark: streamlined, a broadly rounded snout, round eyes; a tall, slightly falcate first dorsal over the pectorals' free rear tips and a low interdorsal ridge; long, sickle-shaped pectorals; a heterocercal tail with a subterminal notch. Bronze-gray above, white below, a faint pale band on the flank; fin tips and rear margins dusky | Steady, confident tail beats, the front stiff. 0.55 beats/s | 4,196 | 167,356 |
-| Pelagic thresher | A compact torpedo deepest at the pectorals (the body ends about halfway along it), a short conical snout and large eyes; long, straight pectorals with broad rounded tips; a medium first dorsal; the upper tail lobe a long, narrow scythe as long as the rest of the shark, arcing up, with a tiny terminal lobe. Deep blue-violet gray above, white below, the white staying below the pectoral bases | Slow, deep strokes; the long lobe is weighted to `TailUpper` in a ramp along its length, so it bends along its whole length rather than hinging at its base. 0.5 beats/s | 4,356 | 172,656 |
+| Pelagic thresher | A slim torpedo deepest over the pectorals (the body ends about halfway along it), a short conical snout and large round eyes set flush, a blue-gray iris round the pupil; long pectorals swept back, tapering to broad rounded tips; a slightly falcate first dorsal nearer the pectorals than the pelvics; big pelvic fins; the tail half its length: a scythe of an upper lobe, broad where it leaves the body, then a long, narrowing blade curving up to a notch and a small terminal lobe, above a short, falcate lower lobe. Metallic deep blue with a violet cast, a silvery sheen low on the flanks, a crisp white belly under the pectoral bases | A nearly still body sweeps the long tail in one smooth arc (a long body wave, 1.9 body lengths), the lobe trailing a little on `TailUpper`, weighted in a ramp along it so it bends rather than hinges. 0.5 beats/s | 4,780 | 187,040 |
 | Giant trevally | A deep, compressed jack with a steep, blunt forehead, a large eye set low and forward and a sloping mouth; a low spiny first dorsal; the second dorsal and anal fins each a tall sickle lobe on a long low base; long sickle pectorals; a very narrow tail stock keeled with a row of darker scutes; a deeply forked tail. Silver, dark slate above, finely speckled, the fins dusky, the tail darkest | A stiff body, quick strong beats in the tail stock and forked tail. 1.1 beats/s | 4,144 | 182,668 |
 | King angelfish | A deep disc of a body, very compressed, with a steep forehead, a short snout, a small mouth and a spine at the corner of the gill cover; dorsal and anal fins sweeping back into long pointed streamers level with the tail tip; a rounded-square tail; long white pelvic fins. Slate navy with fine pale dots, one crisp white bar behind the head, the dorsal and anal fins edged in bright turquoise, a yellow-orange tail | `shark` as a hovering fish: rows with its pectorals, its dorsal swaying. 1.5 beats/s | 4,388 | 191,292 |
 
 The angelfish's dorsal and anal fins are free outlines (`sailFin`, `leafFin` in its design file),
 since a midline fin can't sweep back into streamers; its white bar is a decal ribbon, so its edges
-are crisp. The thresher's tail is two lofted fins of its own (`caudalFin` can't bend a lobe that
-long smoothly), and its eyes have 14 segments rather than the kit's eight.
+are crisp. The thresher's whole caudal fin is one blade of its own, sliced by vertical chords (its
+outline drops to the lower lobe's tip, back up to the fork and along the blade to its notch), and
+its eyes are finer domes than the kit's, so they stay round up close. Its first draft, a narrow
+strap of a tail that snaked like a whip behind straight, airplane-like pectorals, was redrawn
+from the species' proportions.
 
 Previews: `docs/art-previews/marine-iguana.png`, `galapagos-shark.png`, `thresher-shark.png`,
 `giant-trevally.png` and `king-angelfish.png` (the same studio framing), and
@@ -364,6 +367,36 @@ The island's tuna school is not a glTF asset: each tuna is a low-poly mesh built
 spindle body, pointed snout, forked crescent tail, sickle fins and yellow finlets, metallic blue
 above and silver below, and it swims in the vertex shader. `docs/art-previews/tuna.png` shows it
 with the app's lighting; `docs/tuna-school.md` describes the school.
+
+## Batch v8: the Mangroves & Seagrass
+
+The first animals of the Mangroves & Seagrass island (`docs/mangroves.md`). Each was drafted in its
+own design file over many rounds of studio renders (side, top, front, below, head close-ups and swim
+strips), then reviewed against the species' real proportions and corrected. The sharks, the sawfish
+and the tarpon are on the sharks' lofted body (`shark.ts`) and `shark` rig, the dugong on the
+`cetacean` rig with its vertical fluke beat, and the stingray on the `manta` rig. All are within the
+5,000-triangle, 220 KB budget (`npm run verify:marine`).
+
+| Species | Model | Motion | Triangles | GLB bytes |
+| --- | --- | --- | ---: | ---: |
+| Dugong | A plump spindle of a body with a narrower head; the muzzle bent sharply down into a broad, bristled disc whose lower lip hangs below the chin, crescent nostrils on top at the very front; small eyes well back; short, rounded paddle flippers far forward; broad, whale-like flukes swept to points with a notched, concave trailing edge; no dorsal fin. Warm slate grey-brown, paler and pinker below, softly mottled, with pale rake scars | `cetacean`: slow, deep beats of the flukes, the heavy body barely flexing, the flippers steering. 0.42 beats/s | 4,762 | 202,936 |
+| Largetooth sawfish | A ray built like a shark: a long, flat saw (about a fifth of its length) set with evenly spaced peg teeth along both edges, rigid on the head bone; a flat, triangular head with small eyes and spiracles on top, the mouth and five gill slits underneath; broad, angular pectorals running on from the head; two tall dorsals of nearly equal size, the first rising in front of the pelvics; a shark-like tail with a distinct lower lobe. Olive grey-brown above, cream below, ivory teeth | `shark`: slow, sinuous sweeps of the tail, the head and saw held steady (`headSteady`). 0.42 beats/s | 4,444 | 185,720 |
+| Lemon shark | A stocky requiem shark with a short, broad, flattened snout; two dorsal fins of nearly equal size, the second almost as tall as the first; broad, slightly falcate pectorals. Muted khaki yellow above, paler yellowish flanks, cream below, the fins a little darker | `shark`: easy, steady beats. 0.5 beats/s | 4,772 | 189,436 |
+| Southern stingray | A rhomboid disc a little wider than long, with angular outer corners and a slightly pointed snout, domed over the body and thin at the margins; raised eyes close together with the spiracles behind them, a row of small tubercles down the back; the mouth, nostrils and gill slits on the white underside; small rounded pelvic lobes; a whip of a tail longer than the disc with a serrated spine near its root and low folds above and below. Muddy olive-brown, softly mottled | `manta` as a stingray: a gentle ripple running back across the disc's edges (a long `waveLag` and small `flap`), the tail trailing. 0.7 ripples/s | 4,220 | 177,512 |
+| Tarpon | A deep, compressed, straight-backed body with a narrow tail stock; a large head with a jutting lower jaw at the level of the eye's lower edge, the long gape sloping down and back below the huge gold eye; a bony plate along the throat; enormous round-edged scales in staggered rows; a single dorsal whose last ray trails back in a long filament, a falcate anal fin, a deeply forked tail. Dark blue-green back, bright silver flanks, white belly | `shark`: strong, quick beats in the tail stock and forked tail, the filament fluttering on the dorsal bone. 0.8 beats/s | 4,080 | 211,844 |
+
+Review notes. The lemon shark's first draft was too bright a yellow and too round in the head: it is
+a muted khaki now, flatter-headed and slimmer. The sawfish's trunk was flattened a little and made
+greyer, so it doesn't read as the lemon shark's colour. The stingray's first swim flapped like an
+eagle ray's: its beat is softer and its wave slower across the disc, so its edges ripple. The dugong's
+flukes were widened (about 29% of its length) and its skin folds made fainter. The tarpon's first
+draft had its jaw low and its mouth curving up to the eye, a fish's smile: its lower jaw now sits high
+and its gape slopes down and back, as a tarpon's does. The manatee swims as the dugong for now, with
+the dugong's pointed flukes rather than its own rounded paddle of a tail.
+
+Previews: `docs/art-previews/dugong.png`, `sawfish.png`, `lemon-shark.png`,
+`southern-stingray.png` and `tarpon.png` (the same studio framing), and `island-mangroves.png`:
+the island's animals at a level 4 island as the app's camera sees them.
 
 References used for proportions and pattern placement:
 - [Florida Museum: whale shark](https://www.floridamuseum.ufl.edu/discover-fish/species-profiles/whale-shark/)
@@ -395,6 +428,11 @@ References used for proportions and pattern placement:
 - [WoRMS: Phycodurus eques](https://www.marinespecies.org/aphia.php?p=taxlist&tName=Phycodurus%20eques)
 - [NOAA Fisheries: killer whale](https://www.fisheries.noaa.gov/species/killer-whale)
 - [Galápagos Conservancy: marine iguana](https://www.galapagos.org/about_galapagos/about-galapagos/biodiversity/reptiles/)
+- [IUCN Red List: dugong](https://www.iucnredlist.org/species/6909/160756767)
+- [Florida Museum: largetooth sawfish](https://www.floridamuseum.ufl.edu/discover-fish/species-profiles/pristis-pristis/)
+- [Florida Museum: lemon shark](https://www.floridamuseum.ufl.edu/discover-fish/species-profiles/negaprion-brevirostris/)
+- [Florida Museum: southern stingray](https://www.floridamuseum.ufl.edu/discover-fish/species-profiles/hypanus-americanus/)
+- [Florida Museum: tarpon](https://www.floridamuseum.ufl.edu/discover-fish/species-profiles/megalops-atlanticus/)
 - [Florida Museum: Galápagos shark](https://www.floridamuseum.ufl.edu/discover-fish/species-profiles/carcharhinus-galapagensis/)
 - [IUCN Red List: pelagic thresher](https://www.iucnredlist.org/species/161597/68607857)
 - [FishBase: Caranx ignobilis](https://www.fishbase.se/summary/Caranx-ignobilis.html)

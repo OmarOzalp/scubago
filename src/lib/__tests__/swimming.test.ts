@@ -130,10 +130,10 @@ test('hammerheads and dolphins swim as their own models; their close relatives b
   expect(speciesMarineModel('great-hammerhead')).toBeNull();
   expect(speciesMarineModel('spinner-dolphin')).toBeNull();
   expect(speciesMarineModel('scalloped-hammerhead')).toBe('scalloped-hammerhead');
-  // Other mammals still have no model, so a collection of dugongs alone leaves the ocean empty.
-  expect(marineModelFor(entry('dugong', 'mammal').species)).toBeNull();
-  expect(noneSwim([entry('dugong', 'mammal')])).toBe(true);
-  expect(pickSwimmers([entry('dugong', 'mammal'), entry('spinner-dolphin', 'mammal'), entry('great-hammerhead', 'shark')]).map((s) => s.model))
+  // Squid still have no model, so a collection of squid alone leaves the ocean empty.
+  expect(marineModelFor(entry('bigfin-reef-squid', 'cephalopod').species)).toBeNull();
+  expect(noneSwim([entry('bigfin-reef-squid', 'cephalopod')])).toBe(true);
+  expect(pickSwimmers([entry('bigfin-reef-squid', 'cephalopod'), entry('spinner-dolphin', 'mammal'), entry('great-hammerhead', 'shark')]).map((s) => s.model))
     .toEqual(['bottlenose-dolphin', 'scalloped-hammerhead']);
 });
 

@@ -18,6 +18,8 @@ import { createMarineMotion } from '../src/lib/marine-motion.ts';
 import { sampleDive } from '../src/lib/ocean-depth.ts';
 import { buildKelpGeometry, KELP_DETAIL } from '../src/components/home/three/kelp-geometry.ts';
 import { KELP, kelpPlants } from '../src/lib/kelp.ts';
+import { buildSeagrassGeometry } from '../src/components/home/three/seagrass-geometry.ts';
+import { SEAGRASS, seagrassTufts } from '../src/lib/seagrass.ts';
 import { OCEAN } from '../src/lib/ocean.ts';
 
 const ocean = createOceanUniforms('island');
@@ -25,7 +27,8 @@ const MODELS = ['shark', 'manta', 'reef-fish', 'whale-shark', 'tiger-shark', 'gr
   'day-octopus', 'giant-cuttlefish', 'giant-moray', 'great-barracuda', 'sailfish', 'california-sea-lion', 'spotted-eagle-ray', 'golden-jellyfish', 'clownfish',
   'humpback-whale', 'sperm-whale', 'oceanic-whitetip', 'leatherback-turtle', 'oceanic-manta',
   'harbor-seal', 'sea-otter', 'garibaldi', 'leafy-seadragon', 'orca',
-  'marine-iguana', 'galapagos-shark', 'thresher-shark', 'giant-trevally', 'king-angelfish'];
+  'marine-iguana', 'galapagos-shark', 'thresher-shark', 'giant-trevally', 'king-angelfish',
+  'dugong', 'sawfish', 'lemon-shark', 'southern-stingray', 'tarpon'];
 const REEF = ['day-octopus', 'giant-cuttlefish', 'giant-moray', 'clownfish'];
 const loadModel = async (name) => {
   const bytes = readFileSync(new URL(`../assets/models/marine/${name}.glb`, import.meta.url));
@@ -307,6 +310,26 @@ for (const lite of [false, true]) {
       if (name === 'giant-moray') assert(target.z - target.halfLength < .05 && target.z + target.halfLength > .45, 'giant-moray: tap target misses its front');
       console.log(`${name} at level ${level}: tap shape ${across.toFixed(0)} pt across`);
     }
+  }
+}
+
+// The Mangroves & Seagrass island's seagrass (seagrass-geometry.ts): within its triangle budget, every
+// vertex finite, every blade standing on the seabed and wholly under the surface.
+for (const level of [1, 6]) {
+  for (const quality of ['full', 'lite']) {
+    const tufts = seagrassTufts(level, SEAGRASS.tufts[quality]), geometry = buildSeagrassGeometry(tufts, SEAGRASS.blades[quality]);
+    const position = geometry.getAttribute('position'), triangles = position.count / 3, budget = quality === 'full' ? 16000 : 4500;
+    assert(triangles < budget, `seagrass (${quality}, level ${level}): ${triangles} triangles, over ${budget}`);
+    let highest = -Infinity;
+    for (let i = 0; i < position.count; i++) {
+      const y = position.getY(i);
+      assert(Number.isFinite(position.getX(i)) && Number.isFinite(y) && Number.isFinite(position.getZ(i)), `seagrass (${quality}): vertex ${i} is not finite`);
+      highest = Math.max(highest, y);
+    }
+    assert(highest < OCEAN.surfaceLevel - SEAGRASS.clearance * .9, `seagrass (${quality}): a blade reaches ${highest.toFixed(3)}, above the water`);
+    assert(tufts.length > SEAGRASS.tufts[quality] * .6, `seagrass (${quality}): only ${tufts.length} tufts`);
+    if (level === 1) console.log(`seagrass (${quality}): ${tufts.length} tufts, ${triangles} triangles, tips under ${highest.toFixed(2)} (surface ${OCEAN.surfaceLevel})`);
+    geometry.dispose();
   }
 }
 

@@ -59,7 +59,7 @@ test("each species swims at its own area's island, or at Home's while its area h
   expect(islandOf('reef-manta')).toBe('coral-reef');
   // The Open Ocean has no island (it is the deep blue around them all), nor yet do the others.
   expect(islandOf('humpback-whale')).toBe(HOME_ISLAND);
-  expect(islandOf('dugong')).toBe(HOME_ISLAND);
+  expect(islandOf('lionfish')).toBe(HOME_ISLAND);
   expect(islandOf('not-a-species')).toBe(HOME_ISLAND);
 });
 

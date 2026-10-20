@@ -293,7 +293,7 @@ export const MOVEMENT: Record<MarineModel, Movement> = {
   // behind; it swings in toward the island now and then.
   'thresher-shark': {
     cruise: .38, swing: .1, swingPeriod: 30, surge: .1, turnRate: .34, turnEase: .45, bank: .5, bankMax: .2, bankEase: 1.2, lazyRoll: 0, tilt: 0,
-    halfLength: 1.2, halfWidth: .4, personalSpace: .3, avoidance: .8, islandClearance: 1.1, roam: [.3, 1.05], roamPeriod: 55, patrol: .3,
+    halfLength: 1.35, halfWidth: .48, personalSpace: .3, avoidance: .8, islandClearance: 1.1, roam: [.3, 1.05], roamPeriod: 55, patrol: .3,
     depth: -.12, bob: .04, bobPeriod: 21, reverseEvery: 100, weave: .14, weavePeriod: 19,
   },
   // A hunting pack: fast and direct, cutting across in tight formation, easing off, then charging in a
@@ -311,6 +311,48 @@ export const MOVEMENT: Record<MarineModel, Movement> = {
     halfLength: .25, halfWidth: .1, personalSpace: .12, avoidance: 1, islandClearance: .55, roam: [0, .32], roamPeriod: 24, patrol: 0,
     depth: .18, bob: .03, bobPeriod: 7, reverseEvery: 22, weave: .45, weavePeriod: 6, sway: .04,
     pause: { every: 10, hold: 3.5, slow: .12, burst: 2.2, dash: .6 },
+  },
+  // The Mangroves & Seagrass' animals (they live at its island; docs/mangroves.md).
+  // A sea cow grazing the meadows: slow and gentle, close in over the seagrass, now and then hanging
+  // nose-down to feed, and up to the surface to breathe every minute or so.
+  dugong: {
+    cruise: .2, swing: .15, swingPeriod: 18, surge: 0, turnRate: .35, turnEase: .45, bank: .3, bankMax: .12, bankEase: 1.2, lazyRoll: .05, tilt: 0,
+    halfLength: .72, halfWidth: .32, personalSpace: .25, avoidance: .9, islandClearance: .75, roam: [0, .55], roamPeriod: 50, patrol: 0,
+    depth: -.08, bob: .03, bobPeriod: 16, reverseEvery: 80, weave: .22, weavePeriod: 14,
+    breathe: { every: 42, rise: 3.4, hold: 2.6, clearance: .12 }, pitch: .55,
+    pause: { every: 20, hold: 8, slow: .12, burst: 1.2, dash: 1 },
+  },
+  // Slow and stately, low over the bottom: long sinuous sweeps of the tail, the saw held out in front;
+  // now and then it settles and lies still a while.
+  sawfish: {
+    cruise: .3, swing: .1, swingPeriod: 28, surge: 0, turnRate: .34, turnEase: .45, bank: .3, bankMax: .12, bankEase: 1.2, lazyRoll: 0, tilt: 0,
+    halfLength: 1.25, halfWidth: .42, personalSpace: .28, avoidance: .8, islandClearance: .9, roam: [.1, .85], roamPeriod: 60, patrol: .3,
+    depth: -.22, bob: .02, bobPeriod: 24, reverseEvery: 100,
+    pause: { every: 40, hold: 6, slow: .12, burst: 1.3, dash: 1.5 },
+  },
+  // A shark of the shallows: easy cruising close in along the mangroves and over the flats, curious,
+  // swinging in and out; sometimes two together.
+  'lemon-shark': {
+    cruise: .4, swing: .12, swingPeriod: 24, surge: .1, turnRate: .45, turnEase: .6, bank: .5, bankMax: .2, bankEase: 1.6, lazyRoll: .04, tilt: 0,
+    halfLength: 1.02, halfWidth: .42, personalSpace: .28, avoidance: .85, islandClearance: .75, roam: [0, .85], roamPeriod: 40, patrol: .3,
+    depth: -.03, bob: .035, bobPeriod: 18, reverseEvery: 85, weave: .14, weavePeriod: 15,
+  },
+  // Glides low over the sand on its rippling disc, close in over the flats, turning slowly; now and
+  // then it settles on the bottom and rests.
+  'southern-stingray': {
+    cruise: .24, swing: .15, swingPeriod: 14, surge: 0, turnRate: .4, turnEase: .5, bank: .45, bankMax: .14, bankEase: 1.2, lazyRoll: 0, tilt: 0,
+    halfLength: .42, halfWidth: .45, personalSpace: .2, avoidance: .9, islandClearance: .7, roam: [0, .7], roamPeriod: 40, patrol: 0,
+    depth: -.34, bob: .015, bobPeriod: 20, reverseEvery: 70, weave: .25, weavePeriod: 12,
+    pause: { every: 30, hold: 9, slow: .05, burst: 1.5, dash: 1 },
+  },
+  // The silver king: a small group hanging in the shade by the roots, cruising off with slow beats of
+  // the tail, and rolling up to the surface to gulp air now and then.
+  tarpon: {
+    cruise: .36, swing: .12, swingPeriod: 20, surge: .1, turnRate: .4, turnEase: .55, bank: .35, bankMax: .15, bankEase: 1.6, lazyRoll: .06, tilt: 0,
+    halfLength: .72, halfWidth: .16, personalSpace: .2, avoidance: .9, islandClearance: .65, roam: [0, .6], roamPeriod: 34, patrol: .2,
+    depth: .04, bob: .03, bobPeriod: 14, reverseEvery: 70,
+    breathe: { every: 34, rise: 2.2, hold: .8, clearance: .08 }, pitch: .7,
+    pause: { every: 26, hold: 6, slow: .15, burst: 1.8, dash: 1 },
   },
   // Reef animals keep to the reef: the octopus on the seabed shelf, the cuttlefish over the reef edge,
   // the moray in its crevice, the clownfish in their anemone (their behavior is in reef-life.ts).
@@ -333,7 +375,7 @@ export const MOVEMENT: Record<MarineModel, Movement> = {
 export const ARRIVAL_PACE: Partial<Record<MarineModel, number>> = {
   'great-white-shark': 1.35, 'tiger-shark': 1.15, 'scalloped-hammerhead': 1.15, 'bottlenose-dolphin': 1.25, shark: 1.1, 'reef-fish': 1.1,
   sailfish: 1.3, 'california-sea-lion': 1.25, 'great-barracuda': 1.2, 'oceanic-whitetip': 1.1, orca: 1.2, 'harbor-seal': 1.15,
-  'galapagos-shark': 1.2, 'thresher-shark': 1.1, 'giant-trevally': 1.3,
+  'galapagos-shark': 1.2, 'thresher-shark': 1.1, 'giant-trevally': 1.3, 'lemon-shark': 1.15, tarpon: 1.2,
 };
 /** An arrival that takes longer than this (s) counts as arrived anyway. */
 const ARRIVAL_LIMIT = 30;

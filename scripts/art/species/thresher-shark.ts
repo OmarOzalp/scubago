@@ -1,100 +1,104 @@
 /**
- * Pelagic thresher shark (Alopias pelagicus): a compact, torpedo-shaped body, deepest around the
- * pectorals, behind a short conical snout with large round eyes and a small arched mouth; long,
- * nearly straight pectorals with broad rounded tips; a medium first dorsal at mid-body and tiny
- * second dorsal and anal fins; and the tail that names it: a narrow scythe of an upper lobe nearly as
- * long as the rest of the shark, curving gently upward to a tiny terminal lobe and notch, above a short
- * but distinct lower lobe. Deep metallic blue-violet grey above, white below, with a clean boundary
- * that stays under the pectoral bases.
+ * Pelagic thresher shark (Alopias pelagicus): a slim torpedo of a body, deepest over the pectorals,
+ * behind a short, conical snout with large round eyes set flush on the sides of the head and a small
+ * arched mouth; long pectoral fins swept back and tapering to broad, rounded tips; a slightly falcate
+ * first dorsal nearer the pectorals than the pelvics; big pelvic fins; tiny second dorsal and anal
+ * fins; and the tail that names it, half its whole length: a scythe of an upper lobe, broad where it
+ * leaves the body, then a long, narrowing blade curving gently upward to a small terminal lobe behind
+ * a notch, above a short, falcate lower lobe. Metallic deep blue with a violet cast above, a silvery
+ * sheen low on the flanks, and a crisp white belly that stays under the pectoral bases.
  */
 import { Vector3 } from 'three';
 import { SWIM_RIGS, type SharkRig } from '../../../src/lib/marine-rigs';
-import { blendSkins, clamp, curve, fin, hex, mix, noise, smoothstep, TAU } from './kit';
+import { blendSkins, clamp, curve, fin, hex, mix, noise, smoothstep, TAU, type RGB } from './kit';
 import { sharkContext, type SharkDesign } from './shark';
 
-const TOP = hex('#485a88'), DARK = hex('#38487a'), FLANK = hex('#6a80ab'), BELLY = hex('#f0f2f3');
-const GILL = hex('#2c3550'), EYE = hex('#05070b'), IRIS = hex('#2b3855'), MOUTH = hex('#30374d');
+const TOP = hex('#2f4279'), VIOLET = hex('#43437f'), SHEEN = hex('#6d80b4'), BELLY = hex('#f3f5f6');
+const FIN = hex('#2d3d70'), DUSK = hex('#222e57'), GILL = hex('#1d2645'), MOUTH = hex('#2a3150');
+const IRIS = hex('#5a6684'), RIM = hex('#8792ad'), PUPIL = hex('#05070b');
 
 const rig = SWIM_RIGS['thresher-shark'] as SharkRig;
-/** How far the paired fins' roots are buried in the skin. */
-const SINK = .015;
-/** Share of the rig's TailUpper flex the tip of the long lobe takes. */
-const UPPER_FLEX = 1;
+/** Where the body ends inside the tail, and where the caudal fin leaves the body. */
+const BODY_END = .52, CAUDAL = .49;
 
-/** Where the blue back meets the white belly: low on the flank, well under the pectoral bases. */
-const boundary = (s: number) => 1.9 + .26 * smoothstep(.05, .2, s) - .3 * smoothstep(.3, .52, s) + .015 * noise(s * 14, 3);
+/** Where the blue back meets the white belly: under the pectoral bases, narrowing toward the tail. */
+const boundary = (s: number) => 1.95 + .1 * smoothstep(.04, .16, s) + .45 * smoothstep(.3, .5, s) + .012 * noise(s * 16, 3);
+
+/** The back's colour: deep blue with a violet cast, a silvery-blue sheen low on the flank. */
+const back = (s: number, theta: number, p: Vector3): RGB => {
+  const cast = mix(TOP, VIOLET, .35 + .3 * noise(p.z * 30 + p.y * 20, 5));
+  return mix(cast, SHEEN, .75 * smoothstep(boundary(s) - 1.05, boundary(s) - .08, theta));
+};
 
 export const THRESHER_SHARK: SharkDesign = {
-  rig, nose: .38, bodyEnd: .52,
-  // A short conical snout, a deep rounded chest, then a long taper to a slim caudal peduncle.
-  width: [[0, 0], [.008, .011], [.02, .0195], [.04, .031], [.07, .0415], [.11, .0495], [.16, .0535], [.21, .0545], [.26, .0515], [.31, .0465], [.36, .04], [.41, .0315], [.45, .0235], [.48, .0155], [.5, .0095], [.52, .0035]],
-  top: [[0, 0], [.008, .007], [.02, .0155], [.04, .0265], [.07, .0395], [.11, .0505], [.16, .0595], [.21, .0645], [.26, .0635], [.31, .0565], [.36, .0475], [.41, .0375], [.45, .0285], [.48, .0205], [.5, .0145], [.52, .007]],
-  bottom: [[0, 0], [.008, .006], [.02, .0125], [.04, .0205], [.07, .031], [.11, .041], [.16, .0485], [.21, .0515], [.26, .0505], [.31, .0445], [.36, .0375], [.41, .0305], [.45, .0235], [.48, .018], [.5, .0115], [.52, .005]],
-  center: [[0, -.002], [.08, 0], [.2, 0], [.35, .002], [.52, .004]],
-  squareTop: [[0, 2], [.1, 2.05], [.3, 2.1], [.52, 2]],
-  squareBottom: [[0, 2.1], [.1, 2.25], [.3, 2.35], [.52, 2]],
-  rings: 40, columnsAbove: 7, columnsBelow: 5,
+  rig, nose: .38, bodyEnd: BODY_END,
+  // A short, conical snout, the body deepest over the pectorals, then a long taper to the slim tail stock.
+  width: [[0, 0], [.01, .012], [.025, .021], [.05, .031], [.08, .038], [.12, .0425], [.17, .0445], [.22, .0435], [.28, .04], [.34, .035], [.4, .028], [.45, .019], [.48, .013], [.5, .009], [.52, .004]],
+  top: [[0, 0], [.01, .008], [.025, .016], [.05, .026], [.08, .035], [.12, .043], [.17, .05], [.22, .053], [.28, .051], [.34, .045], [.4, .036], [.45, .026], [.48, .019], [.5, .013], [.52, .007]],
+  bottom: [[0, 0], [.01, .006], [.025, .012], [.05, .019], [.08, .027], [.12, .035], [.17, .041], [.22, .043], [.28, .041], [.34, .036], [.4, .029], [.45, .021], [.48, .016], [.5, .011], [.52, .005]],
+  // The tail's axis rises a little toward the caudal fin.
+  center: [[0, -.004], [.1, 0], [.3, .003], [.45, .006], [.52, .008]],
+  squareTop: [[0, 2], [.12, 2.05], [.3, 2.1], [.52, 2]],
+  squareBottom: [[0, 2.1], [.12, 2.2], [.3, 2.3], [.52, 2]],
+  rings: 42, columnsAbove: 7, columnsBelow: 5,
   boundary, boundaryGap: .02,
-  // The white belly dusks over the caudal peduncle.
-  paint: (s, theta) => mix(
-    mix(TOP, FLANK, smoothstep(.3, 1.85, theta) * .55),
-    mix(BELLY, FLANK, .95 * smoothstep(.4, .47, s)),
-    smoothstep(boundary(s) - .02, boundary(s) + .02, theta),
-  ),
+  paint: (s, theta, p) => (theta > boundary(s) ? mix(BELLY, SHEEN, .5 * smoothstep(.36, .48, s)) : back(s, theta, p)),
 };
 
 export function buildThresherShark() {
   const ctx = sharkContext(THRESHER_SHARK);
   const { mesh, bones } = ctx;
   ctx.body();
-  const finColor = (_p: Vector3, _v: number, u: number) => mix(TOP, DARK, .3 + .3 * u);
+  const finColor = (_p: Vector3, v: number, u: number) => mix(FIN, DUSK, .2 + .25 * u + .25 * v);
 
-  // A medium first dorsal at mid-body: erect, with a narrow rounded apex and a short free rear tip.
+  // The first dorsal: tall, a little falcate, its apex narrowly rounded, a short free rear tip.
   const dorsal = ctx.midlineFin({
-    le: [[-.012, .245], [0, .248], [.02, .258], [.045, .273], [.068, .286], [.085, .296]],
-    te: [[-.012, .33], [0, .333], [.005, .336], [.02, .324], [.045, .31], [.068, .302], [.085, .296]],
-    height: .085, thickness: .016, stations: 8, bone: 'Dorsal', color: finColor,
+    le: [[-.012, .255], [0, .258], [.02, .268], [.04, .281], [.058, .296], [.07, .31], [.076, .322], [.078, .328]],
+    te: [[-.012, .338], [0, .341], [.004, .343], [.012, .337], [.03, .331], [.05, .329], [.066, .329], [.074, .329], [.078, .328]],
+    height: .078, thickness: .015, stations: 9, chordPoints: 7, bone: 'Dorsal', color: finColor,
   });
-  // Tiny second dorsal and anal fins close to the caudal base.
+  // Tiny second dorsal and anal fins before the tail.
   ctx.midlineFin({
-    le: [[-.006, .462], [0, .464], [.008, .471], [.013, .477]],
-    te: [[-.006, .486], [0, .488], [.004, .49], [.009, .483], [.013, .477]],
-    height: .013, thickness: .005, stations: 4, color: finColor,
+    le: [[-.006, .462], [0, .464], [.007, .47], [.011, .476]],
+    te: [[-.006, .484], [0, .486], [.004, .488], [.008, .481], [.011, .476]],
+    height: .011, thickness: .005, stations: 4, color: finColor,
   });
   ctx.midlineFin({
-    le: [[-.006, .472], [0, .474], [.008, .481], [.013, .487]],
-    te: [[-.006, .497], [0, .499], [.004, .5], [.009, .493], [.013, .487]],
-    height: .013, thickness: .005, stations: 4, ventral: true, color: finColor,
+    le: [[-.006, .468], [0, .47], [.007, .476], [.011, .482]],
+    te: [[-.006, .49], [0, .492], [.004, .494], [.008, .487], [.011, .482]],
+    height: .011, thickness: .005, stations: 4, ventral: true, color: finColor,
   });
-  // Long, nearly straight pectorals: blue above, pale below with dusky tips, broad rounded ends.
-  // `pairedFin` samples its outlines from the buried root out to the tip, so the outline spans `SINK` more.
-  const pectoral = paddle({ span: .18 + SINK, rootHalf: .0375, tipHalf: .0255, lean: .36, tipLength: .026 });
+
+  // Long pectorals swept back and angled down, tapering to broad rounded tips: blue above, white
+  // below with dusky tips and trailing edges.
+  const sink = .015, pectoral = sweptFin({ span: .16 + sink, rootChord: .074, tipChord: .047, rake: .5, bow: .08, round: .03, from: sink });
   const pectorals = ctx.pairedFin({
-    rootS: .205, theta: 1.86, span: .18, droop: .24, sweep: 0, thickness: .017, stations: 18, sink: SINK,
+    rootS: .188, theta: 2.02, span: .16, droop: .3, sweep: 0, thickness: .015, stations: 16, sink,
     le: pectoral.le, te: pectoral.te,
     bone: (left) => (left ? 'PectoralL' : 'PectoralR'),
     color: (_p, v, u, _left, face) => face > 0
-      ? mix(TOP, DARK, .25 + .15 * u)
-      : mix(mix(BELLY, FLANK, .22 * v), DARK, smoothstep(.6, .93, v) * .95),
+      ? mix(FIN, DUSK, .15 + .3 * u + .2 * v)
+      : mix(mix(BELLY, SHEEN, .25 * v), DUSK, Math.max(smoothstep(.72, .97, v), smoothstep(.75, 1, u) * .7)),
   });
-  // Small pelvic fins.
+  // Big pelvic fins, rounded at the tips.
+  const pelvic = sweptFin({ span: .046 + sink, rootChord: .05, tipChord: .026, rake: .55, bow: .3, round: .012, from: sink });
   ctx.pairedFin({
-    rootS: .405, theta: 2.45, span: .042, droop: .85, sweep: .12, thickness: .008, stations: 5, sink: SINK,
-    le: [[-.01, 0], [0, 0], [.02, .01], [.04, .026], [.052, .036], [.057, .04]],
-    te: [[-.01, .04], [0, .041], [.02, .04], [.04, .04], [.052, .041], [.057, .04]],
-    color: (_p, v, _u, _left, face) => (face > 0 ? mix(TOP, DARK, .2) : mix(BELLY, TOP, .2 * v)),
+    rootS: .382, theta: 2.55, span: .046, droop: .85, sweep: .15, thickness: .008, stations: 7, sink,
+    le: pelvic.le, te: pelvic.te,
+    color: (_p, v, u, _left, face) => (face > 0 ? mix(FIN, DUSK, .2 + .2 * u) : mix(BELLY, FIN, .25 + .4 * v)),
   });
 
   const tail = caudal(ctx);
 
-  // Large round eyes, set high on the head.
-  roundEyes(ctx, { s: .064, theta: 1.2, radius: .0145 });
-  ctx.gills({ from: .15, to: .204, count: 5, top: 1.7, bottom: 2.02, halfWidth: .0016, slant: .006, color: GILL });
+  // Large round eyes set flush on the sides of the head.
+  roundEyes(ctx, { s: .058, theta: 1.15, radius: .0142 });
+  // Five short gill slits, the last two over the pectoral base.
+  ctx.gills({ from: .132, to: .178, count: 5, top: 1.72, bottom: 2.02, halfWidth: .0015, slant: 0, color: GILL });
   // A small mouth, strongly arched across the underside of the snout.
   ctx.ribbon(Array.from({ length: 9 }, (_, i) => {
-    const t = i / 8, theta = Math.PI + (t - .5) * 1.5;
-    return [.055 + .017 * (2 * t - 1) ** 2, theta] as const;
-  }), (t) => .0019 * (.5 + .5 * Math.sin(Math.PI * t)), MOUTH);
+    const t = i / 8, theta = Math.PI + (t - .5) * 1.45;
+    return [.052 + .016 * (2 * t - 1) ** 2, theta] as const;
+  }), (t) => .0017 * (.5 + .5 * Math.sin(Math.PI * t)), MOUTH);
 
   ctx.spineBones();
   bones.push(
@@ -107,106 +111,95 @@ export function buildThresherShark() {
   return { mesh, bones };
 }
 
-/** Large round eyes: a dark dome whose rim lightens to a dusky iris, faceted finely enough to read as round at this size. */
+/** A large, round eye barely domed out of the skin: a black pupil inside a dark blue-grey iris, finely enough faceted to stay round up close. */
 function roundEyes(ctx: ReturnType<typeof sharkContext>, o: { s: number; theta: number; radius: number }) {
-  const { mesh } = ctx;
-  const segments = 14, rings = 5, flatten = .6;
+  const { mesh } = ctx, segments = 14, rings = 4;
   for (const side of [1, -1]) {
-    const theta = side * o.theta;
-    const n = ctx.normal(o.s, theta);
-    const center = ctx.surface(o.s, theta, -.22 * o.radius);
-    const t1 = Math.abs(n.y) < .9 ? new Vector3(0, 1, 0).cross(n).normalize() : new Vector3(1, 0, 0).cross(n).normalize();
-    const t2 = n.clone().cross(t1);
-    const skin = ctx.skin(o.s);
+    const theta = side * o.theta, n = ctx.normal(o.s, theta), center = ctx.surface(o.s, theta, -.35 * o.radius);
+    const t1 = new Vector3(0, 1, 0).cross(n).normalize(), t2 = n.clone().cross(t1), skin = ctx.skin(o.s);
     mesh.begin();
-    const colorAt = (phi: number) => mix(EYE, IRIS, smoothstep(.45, 1, phi / (Math.PI / 2)));
+    // phi runs from the dome's top to its rim, which sinks just under the skin.
     const point = (phi: number, a: number) => center.clone()
-      .addScaledVector(n, Math.cos(phi) * o.radius * flatten)
+      .addScaledVector(n, Math.cos(phi) * o.radius * .5)
       .addScaledVector(t1, Math.sin(phi) * Math.cos(a) * o.radius)
       .addScaledVector(t2, Math.sin(phi) * Math.sin(a) * o.radius);
-    const top = mesh.vertex(point(0, 0), EYE, skin);
-    const rows: number[][] = [];
-    for (let r = 1; r <= rings; r++) {
-      const phi = Math.PI * r / (rings * 2 + 1);
-      rows.push(Array.from({ length: segments }, (_, k) => mesh.vertex(point(phi, TAU * k / segments), colorAt(phi), skin)));
-    }
-    const rim = rows[rings - 1];
-    // Close the back of the dome with a flat disc just inside the skin.
-    const backCenter = mesh.vertex(center.clone().addScaledVector(n, -o.radius * .1), IRIS, skin);
+    const color = (phi: number) => mix(mix(PUPIL, IRIS, smoothstep(.45, .6, phi / (Math.PI / 2))), RIM, smoothstep(.85, 1, phi / (Math.PI / 2)));
+    const top = mesh.vertex(point(0, 0), PUPIL, skin);
+    const rows = Array.from({ length: rings }, (_, r) => {
+      const phi = Math.PI / 2 * (r + 1) / rings;
+      return Array.from({ length: segments }, (_, k) => mesh.vertex(point(phi, TAU * k / segments), color(phi), skin));
+    });
+    const back = mesh.vertex(center.clone().addScaledVector(n, -o.radius * .2), IRIS, skin);
     for (let k = 0; k < segments; k++) {
       const k1 = (k + 1) % segments;
       mesh.tri(top, rows[0][k], rows[0][k1]);
       for (let r = 0; r < rings - 1; r++) mesh.quad(rows[r][k], rows[r + 1][k], rows[r + 1][k1], rows[r][k1]);
-      mesh.tri(backCenter, rim[k1], rim[k]);
+      mesh.tri(back, rows[rings - 1][k1], rows[rings - 1][k]);
     }
     mesh.end();
   }
 }
 
 /**
- * A strap-shaped fin outline for `pairedFin`: chord offsets of the leading and trailing edges against
- * span, a half-chord tapering from the root to the tip, the whole leaning back at `lean`, and the end
- * closed by a round tip `tipLength` long.
+ * A swept fin's outline for `pairedFin` (chord offsets behind the root's leading edge against span):
+ * the leading edge raked back (`rake`, bowing out by `bow`), the chord tapering from `rootChord` to
+ * `tipChord`, and a rounded tip over the last `round` of the span. `from` is the buried root length.
  */
-function paddle(o: { span: number; rootHalf: number; tipHalf: number; lean: number; tipLength: number }) {
-  const straight = o.span - o.tipLength;
-  const half = (b: number) => o.rootHalf + (o.tipHalf - o.rootHalf) * Math.min(1, b / straight);
-  const centre = (b: number) => o.rootHalf + o.lean * b;
-  const stations = [-.015, ...Array.from({ length: 5 }, (_, i) => straight * i / 5), ...Array.from({ length: 7 }, (_, i) => straight + o.tipLength * Math.sin(Math.PI / 2 * i / 6))];
-  const outline = (sign: number) => stations.map((b) => {
-    const h = b <= straight ? half(Math.max(0, b)) : o.tipHalf * Math.sqrt(Math.max(0, 1 - ((b - straight) / o.tipLength) ** 2));
-    return [b, centre(Math.max(0, b)) + sign * h] as [number, number];
-  });
-  return { le: outline(-1), te: outline(1) };
+function sweptFin(o: { span: number; rootChord: number; tipChord: number; rake: number; bow: number; round: number; from: number }) {
+  const free = o.span - o.from, straight = o.span - o.round;
+  const lead = (b: number) => { const t = Math.max(0, b - o.from); return o.rake * t + o.bow * t * t / free; };
+  const chord = (b: number) => o.rootChord + (o.tipChord - o.rootChord) * clamp((b - o.from) / (straight - o.from));
+  const stations = [-.015, ...Array.from({ length: 7 }, (_, i) => straight * i / 7), ...Array.from({ length: 7 }, (_, i) => straight + o.round * Math.sin(Math.PI / 2 * (i + 1) / 7))];
+  const at = (b: number, side: number) => {
+    const c = chord(Math.min(b, straight)), mid = lead(b) + c / 2;
+    // The tip: an ellipse closing the chord to a point at the end of the span.
+    const half = b <= straight ? c / 2 : c / 2 * Math.sqrt(Math.max(0, 1 - ((b - straight) / o.round) ** 2));
+    return [b, mid + side * half] as [number, number];
+  };
+  return { le: stations.map((b) => at(b, -1)), te: stations.map((b) => at(b, 1)) };
 }
 
 /**
- * The caudal fin as two lofts: the long upper lobe, sliced by vertical chords so its edges can follow
- * a gentle upward arc, and the short lower lobe, sliced by horizontal chords. Both are skinned to
- * `TailUpper` / `TailLower` by a ramp along their length, so the scythe bends along its whole
- * length when the tail beats instead of hinging at its base.
+ * The whole caudal fin as one blade sliced by vertical chords from where it leaves the body to the
+ * tip: the dorsal edge rising gently along the long upper lobe; the ventral edge dropping to the short
+ * lower lobe's tip, back up to the fork, then running up the upper lobe to a notch and the small
+ * terminal lobe. The upper lobe bends along its whole length on `TailUpper` (a ramp of weight toward
+ * its tip), the lower lobe on `TailLower`.
  */
 function caudal(ctx: ReturnType<typeof sharkContext>) {
   const { mesh, skin, z, sOf } = ctx;
-  // Upper lobe: q runs 0..1 from s = .5 (the peduncle) to the tip at s = 1; its edges arc upward.
-  const S0 = .48, at = (s: number) => (s - .5) / .5;
-  const upperTop = (q: number) => .0185 + .11 * q + .0605 * q * q;
-  // Vertical depth of the lobe: a broad base, a long strap, a small waist, then the terminal lobe.
-  const upperDepth = curve([[-.04, .0245], [0, .0245], [.156, .034], [.3, .0365], [.5, .0335], [.7, .0295], [.8, .0265], [.865, .0215], [.9, .0145], [.945, .0185], [.975, .011], [1, 0]]);
-  const upperEdge = (s: number) => upperTop(at(s));
-  const lowerEdge = (s: number) => upperTop(at(s)) - upperDepth(at(s));
-  const sAt = (v: number) => S0 + (1 - S0) * v;
-  // Ramp of the TailUpper weight along the lobe: none at the base, about half at the tip. The rig flexes
-  // `TailUpper` against the tail's own stroke to make the lobe lag, and over a lever this long the full
-  // flex would cancel the stroke; this share keeps a deep S in the whip.
-  const upperRamp = (s: number) => UPPER_FLEX * clamp((s - .54) / .44) ** 1.15;
+  const length = 1 - CAUDAL;
+  const q = (s: number) => (s - CAUDAL) / length;
+  /** The dorsal edge's height (the spine runs along it), rising and curving gently upward. */
+  const dorsal = (s: number) => .025 + .112 * q(s) + .052 * q(s) ** 2;
+  /** The ventral edge: down to the lower lobe's tip, back up to the fork, then up the blade with its notch. */
+  const lower = curve([
+    [.49, -.004], [.505, -.02], [.525, -.037], [.55, -.053], [.572, -.066], [.59, -.073],
+    [.596, -.06], [.602, -.044], [.609, -.028], [.617, -.013], [.628, .001],
+  ]);
+  /** The blade's depth behind the fork: narrowing fast, then slowly, to the notch and the terminal lobe. */
+  const blade = curve([[.628, .058], [.64, .044], [.66, .036], [.7, .031], [.76, .027], [.82, .023], [.88, .019], [.92, .016], [.943, .0105], [.956, .0165], [.98, .0105], [1, 0]]);
+  const ventral = (s: number) => (s <= .628 ? lower(s) : dorsal(s) - blade(s));
+  // Dense slices where the outline turns fastest: the lower lobe, the fork and the tip.
+  const stations = [...Array.from({ length: 24 }, (_, i) => CAUDAL + (.18 * i) / 24), ...Array.from({ length: 16 }, (_, i) => .67 + (.33 * i) / 16)];
+  const sAt = (v: number) => {
+    const f = v * (stations.length - 1), i = Math.min(stations.length - 2, Math.floor(f));
+    return stations[i] + (stations[i + 1] - stations[i]) * (f - i);
+  };
+  const upperRamp = (s: number) => .85 * clamp((s - .55) / .45) ** 1.2;
+  const lowerRamp = (p: Vector3) => smoothstep(-.03, -.07, p.y) * (1 - smoothstep(.6, .64, sOf(p.z)));
   fin(mesh, {
-    stations: 32, chordPoints: 5,
-    le: (v) => new Vector3(0, upperEdge(sAt(v)), z(sAt(v))),
-    te: (v) => new Vector3(0, lowerEdge(sAt(v)), z(sAt(v))),
-    thickness: (v) => .0058 + .0127 * (1 - v) ** 2.2,
+    stations: stations.length, chordPoints: 7, spacing: (t) => t,
+    le: (v) => new Vector3(0, dorsal(sAt(v)), z(sAt(v))),
+    te: (v) => new Vector3(0, Math.min(dorsal(sAt(v)) - .002, ventral(sAt(v))), z(sAt(v))),
+    // Thickest along the dorsal edge, as thick as the tail stock where it leaves it, the blade thinning toward the tip.
+    thickness: (v) => .0062 + .0135 * (1 - q(sAt(v))) ** 1.6,
     side: new Vector3(1, 0, 0),
-    color: (_p, v, u) => mix(TOP, DARK, .35 + .25 * u - .15 * v),
-    skin: (p) => blendSkins(skin(sOf(p.z)), { TailUpper: 1 }, upperRamp(sOf(p.z))),
-  });
-
-  // Lower lobe: a short blade hanging from the hub, tip down and back. Its root rides inside the
-  // upper lobe's web so only the free blade shows.
-  const front = curve([[-.075, .608], [-.068, .59], [-.055, .566], [-.04, .543], [-.02, .516], [-.008, .5], [.004, .485], [.012, .475]]);
-  const back = curve([[-.075, .608], [-.068, .606], [-.055, .602], [-.04, .596], [-.02, .588], [.004, .578], [.012, .572]]);
-  const yAt = (v: number) => .012 - v * .087;
-  const lowerRamp = (y: number) => clamp((.004 - y) / .079 - .1) ** 1.1;
-  fin(mesh, {
-    stations: 8, chordPoints: 5,
-    le: (v) => new Vector3(0, yAt(v), z(front(yAt(v)))),
-    te: (v) => new Vector3(0, yAt(v), z(back(yAt(v)))),
-    thickness: (v) => .0045 + .0075 * (1 - v) ** 1.5,
-    side: new Vector3(1, 0, 0),
-    color: (_p, v, u) => mix(TOP, DARK, .35 + .25 * u - .1 * v),
-    skin: (p) => blendSkins(skin(sOf(p.z)), { TailLower: 1 }, lowerRamp(p.y)),
+    color: (p, v, u) => mix(mix(FIN, DUSK, .2 + .35 * u + .25 * q(sOf(p.z))), TOP, .25 * (1 - u) * (1 - v)),
+    skin: (p) => blendSkins(blendSkins(skin(sOf(p.z)), { TailUpper: 1 }, upperRamp(sOf(p.z))), { TailLower: 1 }, lowerRamp(p)),
   });
   return {
-    upper: new Vector3(0, (upperEdge(.545) + lowerEdge(.545)) / 2, z(.545)),
-    lower: new Vector3(0, -.012, z(.55)),
+    upper: new Vector3(0, dorsal(.56) - .02, z(.56)),
+    lower: new Vector3(0, -.03, z(.53)),
   };
 }

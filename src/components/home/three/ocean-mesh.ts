@@ -3,7 +3,7 @@ import {
   Uint16BufferAttribute, UnsignedByteType, Vector2, Vector3, Vector4,
 } from 'three';
 import type { Habitat } from '@/lib/home';
-import { OCEAN, seabedProfile, shelfStretch, waveTerms, type OceanConfig } from '@/lib/ocean';
+import { OCEAN, seabedPatch, seabedProfile, shelfStretch, waveTerms, type OceanConfig } from '@/lib/ocean';
 import { islandScale, shoreDistance, shorePolygons, shoreline } from './island-shape';
 
 /**
@@ -175,21 +175,6 @@ export function waterColorAt(habitat: Habitat, depth: number, config: OceanConfi
   const s = (a: number, b: number, x: number) => { const t = Math.min(1, Math.max(0, (x - a) / (b - a))); return t * t * (3 - 2 * t); };
   const { mid, deep } = config.shoreDepthRange, p = config.palettes[habitat];
   return linear(p.shallow).lerp(linear(p.mid), s(0, mid, depth)).lerp(linear(p.deep), s(mid * .5, deep, depth));
-}
-
-/** Smooth value noise in 0..1 with features about one unit across. */
-function valueNoise(x: number, z: number) {
-  const ix = Math.floor(x), iz = Math.floor(z), fx = x - ix, fz = z - iz;
-  const sx = fx * fx * (3 - 2 * fx), sz = fz * fz * (3 - 2 * fz);
-  const a = hash(ix, iz), b = hash(ix + 1, iz), c = hash(ix, iz + 1), d = hash(ix + 1, iz + 1);
-  return a + (b - a) * sx + (c - a) * sz + (a - b - c + d) * sx * sz;
-}
-
-/** Seagrass and rubble on the shelf: soft-edged patches that thin out over deep water. */
-function seabedPatch(x: number, z: number, distance: number) {
-  const n = valueNoise(x * 1.7 + 11, z * 1.7 - 5) * .65 + valueNoise(x * 4.1 - 3, z * 4.1 + 7) * .35;
-  const s = (a: number, b: number, v: number) => { const t = Math.min(1, Math.max(0, (v - a) / (b - a))); return t * t * (3 - 2 * t); };
-  return s(.52, .72, n) * s(.06, .3, distance) * (1 - s(1.4, 2.4, distance));
 }
 
 /** Home's island alone, in the middle of its own ocean. */

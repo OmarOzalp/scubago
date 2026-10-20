@@ -15,7 +15,8 @@ export type SwimRigModel = 'tiger-shark' | 'whale-shark' | 'great-white-shark' |
   | 'day-octopus' | 'giant-cuttlefish' | 'giant-moray' | 'great-barracuda' | 'sailfish' | 'clownfish'
   | 'spotted-eagle-ray' | 'california-sea-lion' | 'golden-jellyfish' | 'humpback-whale' | 'sperm-whale' | 'oceanic-whitetip' | 'leatherback-turtle'
   | 'oceanic-manta' | 'harbor-seal' | 'sea-otter' | 'garibaldi' | 'leafy-seadragon' | 'orca'
-  | 'marine-iguana' | 'galapagos-shark' | 'thresher-shark' | 'giant-trevally' | 'king-angelfish';
+  | 'marine-iguana' | 'galapagos-shark' | 'thresher-shark' | 'giant-trevally' | 'king-angelfish'
+  | 'dugong' | 'sawfish' | 'lemon-shark' | 'southern-stingray' | 'tarpon';
 
 export const SHARK_BONES = [
   'Root', 'Head', 'Spine1', 'Spine2', 'RearBody', 'TailBase', 'Tail', 'TailUpper', 'TailLower',
@@ -545,13 +546,13 @@ export const SWIM_RIGS: Record<SwimRigModel, SwimRigSpec> = {
     lobes: { upper: .12, lower: .06, upperAngle: .7, lowerAngle: .9, lag: 1 },
     dorsal: .035, pectoral: { flap: .03, pitch: .03, turn: .55, climb: .28 }, roll: .02, bend: .8,
   },
-  // Half of it is tail: a compact body swims with slow, deep strokes and the great scythe of the
-  // upper lobe, nearly level, trails each one in a long, lagging sweep.
+  // Half of it is tail: a slim body swims with slow, deep strokes, and the great scythe of the upper
+  // lobe sweeps in a wide arc behind, bending along its length as it trails each stroke.
   'thresher-shark': {
-    kind: 'shark', joints: [.17, .28, .38, .46, .52], dorsalParent: 'Spine1', dorsalAt: .29,
-    frequency: .5, wavelength: .9, tailAmplitude: .13, rootAmplitude: .003, headAmplitude: .004, envelope: 1.9,
-    lobes: { upper: .12, lower: .05, upperAngle: .32, lowerAngle: 1, lag: 1.35 },
-    dorsal: .03, pectoral: { flap: .02, pitch: .025, turn: .5, climb: .25 }, roll: .016, bend: .85,
+    kind: 'shark', joints: [.17, .28, .38, .46, .52], dorsalParent: 'Spine1', dorsalAt: .3,
+    frequency: .5, wavelength: 1.9, tailAmplitude: .1, rootAmplitude: .003, headAmplitude: .004, envelope: 1.7,
+    lobes: { upper: .03, lower: .05, upperAngle: .32, lowerAngle: .85, lag: .6 },
+    dorsal: .03, pectoral: { flap: .02, pitch: .025, turn: .45, climb: .25 }, roll: .016, bend: .85,
   },
   // A stiff-bodied jack: quick, strong beats packed into the narrow tail stock and the deeply forked
   // tail, the deep silver body hardly bending; the sickle pectorals held out to steer.
@@ -576,6 +577,45 @@ export const SWIM_RIGS: Record<SwimRigModel, SwimRigSpec> = {
     frequency: .8, wavelength: .95, tailAmplitude: .1, rootAmplitude: .006, headAmplitude: .008, envelope: 1.5, headSteady: .5,
     lobes: { upper: .22, lower: .22, upperAngle: 0, lowerAngle: 0, lag: 1.2 },
     dorsal: 0, pectoral: { flap: .05, pitch: .04, turn: .3, climb: .2 }, roll: .02, bend: .9,
+  },
+  // A sea cow's unhurried stroke: slow, gentle beats of the broad fluked tail, the heavy body hardly
+  // heaving, the paddle flippers steering and touching down on the seagrass as it grazes.
+  dugong: {
+    kind: 'cetacean', joints: [.24, .42, .58, .72, .84], frequency: .42, wavelength: 1.3,
+    tailAmplitude: .075, rootAmplitude: .002, headAmplitude: .004, envelope: 2.6,
+    fluke: .16, flukeLag: 1.1, flukeFlex: .08, pectoral: { flap: .07, turn: .5, climb: .3 }, heave: .004, bend: .75,
+  },
+  // A ray built like a shark: slow, sinuous sweeps of the big tail, the long saw held steady out in
+  // front (swung only in turns), the broad pectorals trimming it close over the bottom.
+  sawfish: {
+    kind: 'shark', joints: [.36, .5, .62, .72, .8], dorsalParent: 'Spine2', dorsalAt: .5,
+    frequency: .42, wavelength: 1, tailAmplitude: .095, rootAmplitude: .003, headAmplitude: .003, envelope: 2.2, headSteady: .4,
+    lobes: { upper: .12, lower: .08, upperAngle: .7, lowerAngle: .9, lag: 1 },
+    dorsal: .03, pectoral: { flap: .045, pitch: .03, turn: .5, climb: .3 }, roll: .012, bend: .8,
+  },
+  // A stocky requiem shark of the shallows: easy, steady beats, the two near-equal dorsal fins
+  // riding level, cruising slowly over the flats and among the roots.
+  'lemon-shark': {
+    kind: 'shark', joints: [.28, .44, .58, .69, .79], dorsalParent: 'Spine1', dorsalAt: .44,
+    frequency: .5, wavelength: 1.05, tailAmplitude: .095, rootAmplitude: .003, headAmplitude: .005, envelope: 2.4,
+    lobes: { upper: .12, lower: .06, upperAngle: .7, lowerAngle: .9, lag: 1 },
+    dorsal: .035, pectoral: { flap: .03, pitch: .03, turn: .55, climb: .28 }, roll: .02, bend: .8,
+  },
+  // Undulates rather than flaps: low ripples running back along the disc's margins, the long whip of
+  // a tail trailing; it glides low over the sand.
+  'southern-stingray': {
+    kind: 'manta', frequency: .7,
+    flap: [.02, .04, .065, .09, .115], waveLag: .75,
+    twist: [.05, .1, .15, .2, .25], glideDihedral: [0, .005, .01, .015, .02],
+    turnAsymmetry: .4, climbGain: .4, bob: .005, pitch: .015, cephalic: 0, tail: [.05, .09, .14],
+  },
+  // The silver king: a big, stiff-bodied herring cousin cruising with slow beats of its deeply forked
+  // tail, often hanging almost still in the shade of the roots.
+  tarpon: {
+    kind: 'shark', joints: [.3, .45, .58, .7, .8], dorsalParent: 'Spine2', dorsalAt: .48,
+    frequency: .8, wavelength: 1.1, tailAmplitude: .09, rootAmplitude: .003, headAmplitude: .005, envelope: 2.5,
+    lobes: { upper: .08, lower: .08, upperAngle: .9, lowerAngle: .9, lag: .9 },
+    dorsal: .06, pectoral: { flap: .05, pitch: .04, turn: .45, climb: .25 }, roll: .015, bend: .75, hover: .3,
   },
   'giant-moray': {
     kind: 'moray', joints: [.13, .25, .37, .49, .6, .71, .81, .9],
