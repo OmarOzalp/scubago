@@ -66,7 +66,8 @@ card, every island found in the explorer (`docs/island-explorer.md#one-ocean`).
 
 - **Depth.** The map reaches 9 units past every island's middle at the same 7.1 texels a
   unit (`DEPTH`), so with the Coral Reef and the Kelp Forest it is 139 × 293, and with the
-  Volcanic Pinnacle too, 152 × 293; with the Mangroves & Seagrass as well, 156 × 380. Each texel's
+  Volcanic Pinnacle too, 152 × 293; with the Mangroves & Seagrass as well, 156 × 380; with the
+  Shipwreck, 156 × 464. Each texel's
   depth comes from the nearest island's shore, measured in that island's own frame, so its
   shelf is the one its kelp and reef animals stand on; past 10 units from an island
   (`ISLAND_REACH`) only open-ocean depth is left of its shelf, so its shore isn't measured.
@@ -100,8 +101,8 @@ card, every island found in the explorer (`docs/island-explorer.md#one-ocean`).
   floor lies under the sea between them (finer over the bank, whose sand shows through the clear
   water); the surface lattice covers the box `reach` units past every island (farther across on a
   wide screen: `waterReach` in explorer-view.ts). With the two islands in the explorer, the water
-  is about 14,900 vertices and the seabed 8,800; with all four, about 19,200 and 12,900, and on the
-  widest screen at most 47,500 and 20,900 (16-bit indices allow 65,536).
+  is about 14,900 vertices and the seabed 9,200; with all five, about 22,300 and 16,000, and on the
+  widest screen at most 55,200 and 25,300 (16-bit indices allow 65,536).
 - **From high above.** `uOceanCalm` (0 to 1, set by the explorer's camera as it pulls back over
   several islands) sees the sea as from high above: the facets soften, the sun's glints gather
   into broad wind patches drifting across the water (`oceanWind`) instead of repeating along every

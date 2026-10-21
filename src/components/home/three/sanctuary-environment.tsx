@@ -14,11 +14,12 @@ import { submerge } from './islet-material';
 import { VolcanicCoast } from './volcanic-coast';
 import { MangroveCoast } from './mangrove-coast';
 import { ReefCoast, ReefCorals } from './reef-coast';
+import { WreckCoast } from './wreck-coast';
 import { SeagrassMeadow } from './seagrass-meadow';
 import { GROWTH_SECONDS, GrowthContext } from './unlock';
 import { useOcean, WaterSurface, type Ocean } from './water-surface';
 
-export const WATER: Record<Habitat, string> = { island: '#C5E3DF', lagoon: '#B9DEDC', cove: '#C5DCD3', kelp: '#BED2CB', volcanic: '#BFD6E6', mangrove: '#C3E3D9' };
+export const WATER: Record<Habitat, string> = { island: '#C5E3DF', lagoon: '#B9DEDC', cove: '#C5DCD3', kelp: '#BED2CB', volcanic: '#BFD6E6', mangrove: '#C3E3D9', wreck: '#C2E3E9' };
 
 /**
  * An island in the scene's ocean: where its middle lies (world units), whose shores it has, and
@@ -28,7 +29,7 @@ export type SceneIsland = { key: string; habitat: Habitat; x: number; z: number;
 
 /**
  * One island, in its own frame at its place in the ocean: its shores (the Kelp Forest's rocky coast
- * and kelp, the Volcanic Pinnacle's lava cone, the mangrove cay and its seagrass, or the Coral Reef's cay, lagoon and corals) and its animals, which take on its own water (islandOceanUniforms).
+ * and kelp, the Volcanic Pinnacle's lava cone, the mangrove cay and its seagrass, the Shipwreck's cay and wreck, or the Coral Reef's cay, lagoon and corals) and its animals, which take on its own water (islandOceanUniforms).
  */
 function IslandPlace({ island, ocean, level, growIn }: { island: SceneIsland; ocean: Ocean; level: number; growIn: boolean }) {
   const quality = useSceneQuality();
@@ -50,7 +51,7 @@ function IslandPlace({ island, ocean, level, growIn }: { island: SceneIsland; oc
         : island.habitat === 'mangrove' ? <>
           <group scale={islandScale(level)}><MangroveCoast level={level} /></group>
           <SeagrassMeadow level={level} />
-        </> : <>
+        </> : island.habitat === 'wreck' ? <group scale={islandScale(level)}><WreckCoast level={level} /></group> : <>
           <group scale={islandScale(level)}><ReefCoast level={level} ocean={ocean} place={[island.x, island.z]} /></group>
           <ReefCorals level={level} />
         </>}

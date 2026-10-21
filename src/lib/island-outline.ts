@@ -14,9 +14,9 @@ type Point = readonly [number, number];
 type Curve = readonly [Point, Point, Point, Point];
 
 /** Which island's shape: one per island of the archipelago. */
-export type IslandShape = 'reef' | 'kelp' | 'volcanic' | 'mangrove';
+export type IslandShape = 'reef' | 'kelp' | 'volcanic' | 'mangrove' | 'wreck';
 /** The shape of a habitat's island; the sandy shores (island, lagoon, cove) all have the reef's. */
-export const shapeFor = (habitat: string): IslandShape => (habitat === 'kelp' || habitat === 'volcanic' || habitat === 'mangrove' ? habitat : 'reef');
+export const shapeFor = (habitat: string): IslandShape => (habitat === 'kelp' || habitat === 'volcanic' || habitat === 'mangrove' || habitat === 'wreck' ? habitat : 'reef');
 
 /** The Coral Reef's dry-sand shoreline: five cubic Bézier curves, closed. */
 export const SHORELINE: readonly Curve[] = [
@@ -60,6 +60,12 @@ export const OUTLINES: Record<IslandShape, readonly Curve[]> = {
     [2.15, .92], [2.55, .55], [2.8, .05], [2.55, -.45], [2.05, -.62], [1.7, -1.02], [1.05, -.92], [.45, -1.1], [0, -.8], [-.6, -1.18],
     [-1.3, -1.08], [-1.62, -1.22], [-2.1, -.82], [-2.5, -.62],
   ]),
+  // A crescent of sand curving round a bight on its south side, where the wreck lies: thick in the
+  // middle (where the island's middle is), its two arms tapering to points. Small and low.
+  wreck: smoothOutline([
+    [-2.25, -.9], [-2.1, -.4], [-1.65, .05], [-1.05, .37], [-.4, .57], [.25, .55], [.9, .41], [1.5, .09], [1.95, -.33], [2.2, -.8],
+    [2.05, -1.03], [1.7, -.77], [1.2, -.47], [.6, -.25], [0, -.17], [-.6, -.21], [-1.15, -.37], [-1.6, -.65], [-1.95, -1.01], [-2.2, -1.13],
+  ]),
 };
 
 /**
@@ -99,6 +105,7 @@ const ISLETS: Record<IslandShape, readonly { position: [number, number]; scale: 
   kelp: [{ position: [3.1, -1.75], scale: .24 }, { position: [-3.15, 1.55], scale: .2 }],
   volcanic: [{ position: [2.35, -1.8], scale: .3 }, { position: [-2.3, 1.95], scale: .26 }],
   mangrove: [{ position: [3.2, -1.65], scale: .2 }, { position: [-3.05, 1.6], scale: .18 }],
+  wreck: [{ position: [2.9, 1.25], scale: .22 }, { position: [-2.95, -1.15], scale: .2 }],
 };
 
 /** Small islets that appear at higher levels: position and scale inside the island group. */

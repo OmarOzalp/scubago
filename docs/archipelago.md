@@ -14,7 +14,7 @@ that used to offer a sandy island, a coral lagoon or a rocky cove is gone.
 | Mangroves & Seagrass | A warm, shallow lagoon of mangrove roots and seagrass (its own island: `docs/mangroves.md`) | Dugong, manatee, green turtle, tiger, lemon, nurse and bull sharks, great hammerhead, sawfish, southern stingray, guitarfish, tarpon, seahorse, reef squid | 14 |
 | Volcanic Pinnacle | A black lava island in strong currents (its own island: `docs/volcanic-pinnacle.md`) | Schooling scalloped hammerheads, Galápagos and thresher sharks, eagle rays, marbled rays, barracuda, giant trevally, dogtooth tuna, king angelfish, chambered nautilus, marine iguanas | 11 |
 | Black Sand Bay | A volcanic sand and rubble slope | Frogfish, mimic, coconut and blue-ringed octopuses, flamboyant cuttlefish, mandarinfish, garden eels, stonefish, ghost pipefish, pygmy seahorse, nudibranchs, harlequin and mantis shrimp | 23 |
-| Shipwreck | An old wreck on the sand | Sand tiger sharks, goliath and giant groupers, great barracuda, lionfish, batfish, green moray, spiny lobster, loggerhead turtle | 9 |
+| Shipwreck | A crescent of dunes with an old steamer wrecked in its bight (its own island: `docs/shipwreck.md`) | Sand tiger sharks, goliath and giant groupers, great barracuda, lionfish, batfish, green moray, spiny lobster, loggerhead turtle | 9 |
 
 A species that lives in more than one kind of place (green turtles graze seagrass and rest on
 reefs) has one home, where divers meet it most. The test in
@@ -67,12 +67,13 @@ to sail between by dragging across the water or with a button for each island
 (`docs/island-explorer.md#one-ocean`). They lie in a chain running north to south, each a little to
 one side of the last, like the cays of the Bahamas strung along their bank: the Kelp Forest farthest
 north, in colder water; then the Volcanic Pinnacle, in the clear blue of the currents; Home's Coral
-Reef; and the Mangroves & Seagrass to the south, in warm green shallows. A chain suits a phone held
+Reef; the Mangroves & Seagrass to the south, in warm green shallows; and the Shipwreck at the
+chain's southern end, in gin-clear water over white sand. A chain suits a phone held
 upright, narrow and tall: all the way out it shows every island larger than a cluster would. Each
 island still keeps its animals' water to itself (its swimming area at the last level never reaches
 another's).
 
-![The archipelago from above: the Kelp Forest to the north, the Volcanic Pinnacle, the Coral Reef and the Mangroves & Seagrass to the south, on one shallow turquoise bank with sandbars and small cays between them, the deep blue off its edges](art-previews/archipelago-ocean.png)
+![The archipelago from above: the Kelp Forest to the north, the Volcanic Pinnacle, the Coral Reef, the Mangroves & Seagrass and the Shipwreck to the south, on one shallow turquoise bank with sandbars and small cays between them, the deep blue off its edges](art-previews/archipelago-ocean.png)
 
 ### The bank between the islands
 
@@ -161,7 +162,18 @@ have their own models: the dugong, the largetooth sawfish, the lemon shark, the 
 and the tarpon (`docs/marine-species-art.md`, batch v8); the tiger sharks, great hammerheads and
 green turtles, which used to swim at Home's reef, live here now. All of it is in `docs/mangroves.md`.
 
+## The Shipwreck
+
+![The Shipwreck with its animals](art-previews/island-shipwreck.png)
+
+The fifth island: a low crescent of white dunes with beach grass, sea grape, a few palms and a small
+red-and-white lighthouse on its northern point, and in its bight an old steamer run aground long ago,
+her bow up by the sand and her broken stern settled in gin-clear water, her anchor, boiler and plates
+scattered on the bottom. Its first five animals have their own models: the sand tiger shark, the
+loggerhead turtle, the goliath grouper, the lionfish and the batfish (`docs/marine-species-art.md`,
+batch v9). All of it is in `docs/shipwreck.md`.
+
 ## Next
 
-The islands of the other areas, each rising in the same sea as its first species is logged, and
-better models for the Coral Reef's own animals.
+Black Sand Bay, the last area without an island of its own, rising in the same sea as its first
+species is logged.

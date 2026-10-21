@@ -78,6 +78,12 @@ export const OCEAN = {
       shallow: '#4ACBB0', mid: '#2DA39F', deep: '#1E7F8C', sandShallow: '#E8DFBC', sandWet: '#D2C69F', patch: '#355E35', sky: '#EAF5EF', sun: '#FFF8E4', foam: '#F6FBF7',
       clarity: { visibility: 2.3, seabed: .46, opacity: [.17, .31] },
     },
+    // Gin-clear water over white sand: bright aquamarine shallows deepening to sapphire, the clearest
+    // of all, so the wreck and the animals round her show a long way down.
+    wreck: {
+      shallow: '#4FD0D6', mid: '#2A92C6', deep: '#1B5F9F', sandShallow: '#F1ECD9', sandWet: '#D9D0B6', patch: '#93ACA2', sky: '#E6F2F6', sun: '#FFF8E6', foam: '#F6FAFC',
+      clarity: { visibility: 3.4, seabed: .6, opacity: [.12, .26] },
+    },
   } satisfies Record<Habitat, OceanPalette>,
 
   // Water depth at which the body color reaches each stop (shallow -> mid -> deep).

@@ -83,11 +83,12 @@ for (let level = 1; level <= 6; level++) {
 // shallow bank (banks.ts) with the open ocean off its edges.
 const world = [{ x: 0, z: 0, habitat: 'island' }, { x: ISLAND_PLACES['kelp-forest'][0], z: ISLAND_PLACES['kelp-forest'][1], habitat: 'kelp' },
   { x: ISLAND_PLACES['volcanic-pinnacle'][0], z: ISLAND_PLACES['volcanic-pinnacle'][1], habitat: 'volcanic' },
-  { x: ISLAND_PLACES.mangroves[0], z: ISLAND_PLACES.mangroves[1], habitat: 'mangrove' }];
+  { x: ISLAND_PLACES.mangroves[0], z: ISLAND_PLACES.mangroves[1], habitat: 'mangrove' },
+  { x: ISLAND_PLACES.shipwreck[0], z: ISLAND_PLACES.shipwreck[1], habitat: 'wreck' }];
 for (const level of [1, 6]) {
-  const field = buildDepthField(level, world), depth = sampler(field, field.texture.image.data), share = sampler(field, field.region.image.data);
-  assert.deepEqual(field.habitats, ['island', 'kelp', 'volcanic', 'mangrove']);
-  const [kx, kz] = [world[1].x, world[1].z], [vx, vz] = [world[2].x, world[2].z], [gx, gz] = [world[3].x, world[3].z];
+  const field = buildDepthField(level, world), depth = sampler(field, field.texture.image.data), share = sampler(field, field.region.image.data), shareMore = sampler(field, field.regionMore.image.data);
+  assert.deepEqual(field.habitats, ['island', 'kelp', 'volcanic', 'mangrove', 'wreck']);
+  const [kx, kz] = [world[1].x, world[1].z], [vx, vz] = [world[2].x, world[2].z], [gx, gz] = [world[3].x, world[3].z], [wx, wz] = [world[4].x, world[4].z];
   // Land at every island's middle; the open ocean well off the bank beside each.
   for (const { x, z } of world) assert.equal(depth(x, z)[0], 0, `level ${level}: no land at (${x}, ${z})`);
   for (const { x, z } of world) assert(depth(x + 11, z)[0] > 200, `level ${level}: the open ocean beside (${x}, ${z}) is too shallow (${depth(x + 11, z)[0]})`);
@@ -101,7 +102,7 @@ for (const level of [1, 6]) {
   for (const cay of field.bank.cays) assert(depth(cay.x, cay.z)[1] > 0, `level ${level}: the cay at (${cay.x.toFixed(2)}, ${cay.z.toFixed(2)}) is under water`);
   assert(depth(kx + 3, kz + .3)[0] < depth(kx + 11, kz)[0] - 40, `level ${level}: no shelf around the Kelp Forest`);
   // Each island's own water around it, blending between neighbours.
-  assert(share(0, 2.5)[0] > 220 && share(kx, kz + 2.5)[1] > 220 && share(vx, vz + 2.5)[2] > 220 && share(gx, gz + 2.5)[3] > 220, `level ${level}: an island's water is not its own`);
+  assert(share(0, 2.5)[0] > 220 && share(kx, kz + 2.5)[1] > 220 && share(vx, vz + 2.5)[2] > 220 && share(gx, gz + 2.5)[3] > 220 && shareMore(wx, wz + 2.5)[0] > 220, `level ${level}: an island's water is not its own`);
   const between = share(vx / 2, vz / 2);
   assert(between[0] > 40 && between[2] > 40, `level ${level}: no blend between the reef's water and the volcano's (${between})`);
   // The world's seabed and water: within 16-bit indices, finite, and the seabed under water offshore of every island.
@@ -127,7 +128,7 @@ for (const level of [1, 6]) {
   }
   // The water reaches past both islands, and the lite map colors each island's water as its own.
   const box = water.geometry.boundingBox ?? (water.geometry.computeBoundingBox(), water.geometry.boundingBox);
-  assert(box.min.z < kz - 10 && box.max.z > Math.max(vz, gz) + 10 && box.max.x > gx + 10, `level ${level}: the water does not reach past every island`);
+  assert(box.min.z < kz - 10 && box.max.z > Math.max(vz, gz, wz) + 10 && box.max.x > gx + 10, `level ${level}: the water does not reach past every island`);
   const map = buildLiteOceanMap(field), baked = sampler(field, map.image.data);
   // (the reef's out past its crest, off the bank: inside the crest lies its pale lagoon)
   const reef = baked(6.5, 0), kelp = baked(kx, kz + 3.4);
@@ -138,7 +139,10 @@ for (const level of [1, 6]) {
   // The mangroves': greener than the reef's turquoise.
   const lagoon = baked(gx, gz + 3.4);
   assert(lagoon[1] - lagoon[2] > reef[1] - reef[2], `level ${level}: the Mangroves' water is not its own (${reef} vs ${lagoon})`);
-  console.log(`level ${level}: four islands in one ocean: water ${water.geometry.attributes.position.count} vertices, seabed ${floor.count} (${wide} at most); land, shelves, open sea and each island's water verified`);
+  // The Shipwreck's: a clear aquamarine, bluer than the mangroves' green.
+  const clear = baked(wx, wz + 3.4);
+  assert(clear[2] - clear[1] > lagoon[2] - lagoon[1] + 10, `level ${level}: the Shipwreck's water is not its own (${clear} vs ${lagoon})`);
+  console.log(`level ${level}: five islands in one ocean: water ${water.geometry.attributes.position.count} vertices, seabed ${floor.count} (${wide} at most); land, shelves, open sea and each island's water verified`);
   for (const mesh of [water, seabed]) mesh.geometry.dispose();
   field.texture.dispose(); field.region.dispose(); field.regionMore.dispose(); map.dispose();
 }

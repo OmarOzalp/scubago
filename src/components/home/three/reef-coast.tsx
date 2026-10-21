@@ -86,7 +86,7 @@ function ground(seed: number) {
 }
 
 /** A rounded mass of foliage: lumps of leaves, sunlit on top. */
-function foliage(x: number, y: number, z: number, size: number, seed: number, colors: readonly [Color, Color, Color, Color], lumps = 4, flat = .6) {
+export function foliage(x: number, y: number, z: number, size: number, seed: number, colors: readonly [Color, Color, Color, Color], lumps = 4, flat = .6) {
   const parts: BufferGeometry[] = [], shade = new Color(), [dark, mid, light, sun] = colors;
   for (let k = 0; k < lumps; k++) {
     const mass = new IcosahedronGeometry(1, 0), a = k * 2.4 + seed, w = (.12 + .06 * hash(seed, k)) * size;
@@ -108,7 +108,7 @@ const SHE_OAK = [new Color('#4A6646'), new Color('#5B7954'), new Color('#76926C'
 const HEDGE = [SHRUB, SHRUB.clone().lerp(SHRUB_LIGHT, .4), SHRUB_LIGHT, SHRUB_LIGHT.clone().lerp(new Color('#C9D9B8'), .4)] as const;
 
 /** A thin tube along a cubic Bézier from p0 to p3, its radius tapering from r0 to r1, painted by `paint`. */
-function tube(p0: number[], p1: number[], p2: number[], p3: number[], r0: number, r1: number, sides: number, segments: number, paint: (y: number, face: number) => Color) {
+export function tube(p0: number[], p1: number[], p2: number[], p3: number[], r0: number, r1: number, sides: number, segments: number, paint: (y: number, face: number) => Color) {
   const at = (t: number) => p0.map((_, k) => (1 - t) ** 3 * p0[k] + 3 * (1 - t) ** 2 * t * p1[k] + 3 * (1 - t) * t * t * p2[k] + t ** 3 * p3[k]);
   const positions: number[] = [];
   const rings = Array.from({ length: segments + 1 }, (_, i) => {
@@ -134,7 +134,7 @@ function tube(p0: number[], p1: number[], p2: number[], p3: number[], r0: number
  * A coconut palm: a slender, curving trunk leaning out (toward `lean`, radians) and a crown of long
  * fronds arching up and drooping, each a folded strip of leaflets, the lowest yellowed.
  */
-function palm(x: number, z: number, height: number, lean: number, seed: number, base = groundAt(x, z) - .01) {
+export function palm(x: number, z: number, height: number, lean: number, seed: number, base = groundAt(x, z) - .01) {
   const parts: BufferGeometry[] = [], tilt = .16 + .12 * hash(seed, 1);
   const lx = Math.cos(lean) * tilt * height, lz = Math.sin(lean) * tilt * height;
   const top = [x + lx * 1.6, base + height, z + lz * 1.6];
