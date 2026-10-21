@@ -70,7 +70,7 @@ test('exact species receive distinct art before family fallbacks', () => {
 });
 
 test('logged tuna swim in the school, never also as a generic reef fish; other fish keep the family model', () => {
-  const residents = [entry('clown-triggerfish', 'fish'), entry('yellowfin-tuna', 'fish'), entry('whale-shark', 'shark'), entry('dogtooth-tuna', 'fish'), entry('napoleon-wrasse', 'fish')];
+  const residents = [entry('clown-triggerfish', 'fish'), entry('yellowfin-tuna', 'fish'), entry('whale-shark', 'shark'), entry('dogtooth-tuna', 'fish'), entry('moorish-idol', 'fish')];
   expect(pickSwimmers(residents)).toEqual([
     { species: residents[0].species, model: 'reef-fish', lane: 0 },
     { species: residents[2].species, model: 'whale-shark', lane: 1 },
@@ -146,8 +146,10 @@ test("the Open Ocean's whales, whitetip, leatherback and oceanic manta swim as t
   }
   expect(noneSwim([entry('humpback-whale', 'mammal')])).toBe(false);
   expect(pickSwimmers(ocean).map((s) => s.model)).toEqual(['humpback-whale', 'sperm-whale', 'oceanic-whitetip', 'leatherback-turtle', 'oceanic-manta']);
-  // Other turtles still have none; the reef manta is not the oceanic's.
-  expect(marineModelFor(entry('olive-ridley-turtle', 'turtle').species)).toBeNull();
+  // The olive ridley swims as its fellow loggerhead (other turtles still have none); the reef manta is not the oceanic's.
+  expect(marineModelFor(entry('olive-ridley-turtle', 'turtle').species)).toBe('loggerhead-turtle');
+  expect(speciesMarineModel('olive-ridley-turtle')).toBeNull();
+  expect(marineModelFor(entry('unknown-turtle', 'turtle').species)).toBeNull();
   expect(marineModelFor(entry('reef-manta', 'ray').species)).toBe('reef-manta');
 });
 
@@ -193,6 +195,7 @@ test("the Kelp Forest's seal, otter, garibaldi, seadragon and orca swim as their
   expect(marineModelFor(entry('weedy-seadragon', 'fish').species)).toBe('leafy-seadragon');
   expect(marineModelFor(entry('wolf-eel', 'fish').species)).toBe('giant-moray');
   expect(speciesMarineModel('weedy-seadragon')).toBeNull();
-  // The giant sea bass and lingcod keep the fish family's model.
-  expect(marineModelFor(entry('giant-sea-bass', 'fish').species)).toBe('reef-fish');
+  // The giant sea bass swims as the goliath grouper, its fellow giant; the lingcod keeps the fish family's model.
+  expect(marineModelFor(entry('giant-sea-bass', 'fish').species)).toBe('goliath-grouper');
+  expect(marineModelFor(entry('lingcod', 'fish').species)).toBe('reef-fish');
 });

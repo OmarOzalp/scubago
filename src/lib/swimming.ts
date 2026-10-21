@@ -7,7 +7,9 @@ export type SpeciesMarineModel = 'whale-shark' | 'tiger-shark' | 'great-white-sh
   | 'humpback-whale' | 'sperm-whale' | 'oceanic-whitetip' | 'leatherback-turtle' | 'oceanic-manta'
   | 'harbor-seal' | 'sea-otter' | 'garibaldi' | 'leafy-seadragon' | 'orca'
   | 'marine-iguana' | 'galapagos-shark' | 'thresher-shark' | 'giant-trevally' | 'king-angelfish'
-  | 'dugong' | 'sawfish' | 'lemon-shark' | 'southern-stingray' | 'tarpon';
+  | 'dugong' | 'sawfish' | 'lemon-shark' | 'southern-stingray' | 'tarpon'
+  | 'grey-reef-shark' | 'blacktip-reef-shark' | 'whitetip-reef-shark' | 'hawksbill-turtle' | 'napoleon-wrasse' | 'bumphead-parrotfish'
+  | 'sand-tiger-shark' | 'loggerhead-turtle' | 'goliath-grouper' | 'lionfish' | 'batfish';
 export type MarineModel = 'shark' | 'manta' | 'reef-fish' | SpeciesMarineModel;
 const SPECIES_MODELS: readonly string[] = ['whale-shark', 'tiger-shark', 'great-white-shark', 'scalloped-hammerhead', 'reef-manta', 'mola-mola', 'green-turtle', 'bottlenose-dolphin',
   'day-octopus', 'giant-cuttlefish', 'giant-moray',
@@ -15,7 +17,9 @@ const SPECIES_MODELS: readonly string[] = ['whale-shark', 'tiger-shark', 'great-
   'humpback-whale', 'sperm-whale', 'oceanic-whitetip', 'leatherback-turtle', 'oceanic-manta',
   'harbor-seal', 'sea-otter', 'garibaldi', 'leafy-seadragon', 'orca',
   'marine-iguana', 'galapagos-shark', 'thresher-shark', 'giant-trevally', 'king-angelfish',
-  'dugong', 'sawfish', 'lemon-shark', 'southern-stingray', 'tarpon'] satisfies SpeciesMarineModel[];
+  'dugong', 'sawfish', 'lemon-shark', 'southern-stingray', 'tarpon',
+  'grey-reef-shark', 'blacktip-reef-shark', 'whitetip-reef-shark', 'hawksbill-turtle', 'napoleon-wrasse', 'bumphead-parrotfish',
+  'sand-tiger-shark', 'loggerhead-turtle', 'goliath-grouper', 'lionfish', 'batfish'] satisfies SpeciesMarineModel[];
 /**
  * Species drawn with a close relative's model: the nearest body plan in the set, like a family
  * representative (so not offered as their own 3D model), and far closer than the generic one.
@@ -34,6 +38,11 @@ const RELATIVES: Readonly<Record<string, SpeciesMarineModel>> = {
   'weedy-seadragon': 'leafy-seadragon',
   'wolf-eel': 'giant-moray',
   'west-indian-manatee': 'dugong',
+  'giant-grouper': 'goliath-grouper',
+  'potato-cod': 'goliath-grouper',
+  'giant-sea-bass': 'goliath-grouper',
+  'circular-batfish': 'batfish',
+  'olive-ridley-turtle': 'loggerhead-turtle',
 };
 export function speciesMarineModel(id: string): SpeciesMarineModel | null {
   return SPECIES_MODELS.includes(id) ? id as SpeciesMarineModel : null;

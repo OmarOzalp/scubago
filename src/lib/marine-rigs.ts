@@ -14,9 +14,13 @@
 export type SwimRigModel = 'tiger-shark' | 'whale-shark' | 'great-white-shark' | 'scalloped-hammerhead' | 'reef-manta' | 'mola-mola' | 'green-turtle' | 'bottlenose-dolphin'
   | 'day-octopus' | 'giant-cuttlefish' | 'giant-moray' | 'great-barracuda' | 'sailfish' | 'clownfish'
   | 'spotted-eagle-ray' | 'california-sea-lion' | 'golden-jellyfish' | 'humpback-whale' | 'sperm-whale' | 'oceanic-whitetip' | 'leatherback-turtle'
+  | 'hawksbill-turtle' | 'loggerhead-turtle'
   | 'oceanic-manta' | 'harbor-seal' | 'sea-otter' | 'garibaldi' | 'leafy-seadragon' | 'orca'
   | 'marine-iguana' | 'galapagos-shark' | 'thresher-shark' | 'giant-trevally' | 'king-angelfish'
-  | 'dugong' | 'sawfish' | 'lemon-shark' | 'southern-stingray' | 'tarpon';
+  | 'dugong' | 'sawfish' | 'lemon-shark' | 'southern-stingray' | 'tarpon'
+  | 'lionfish' | 'batfish'
+  | 'grey-reef-shark' | 'blacktip-reef-shark' | 'whitetip-reef-shark' | 'sand-tiger-shark'
+  | 'napoleon-wrasse' | 'bumphead-parrotfish' | 'goliath-grouper';
 
 export const SHARK_BONES = [
   'Root', 'Head', 'Spine1', 'Spine2', 'RearBody', 'TailBase', 'Tail', 'TailUpper', 'TailLower',
@@ -475,6 +479,20 @@ export const SWIM_RIGS: Record<SwimRigModel, SwimRigSpec> = {
     glideSweep: .66, glideDroop: .12, bout: [2, 4], glide: [3, 6],
     pitch: .035, bob: .006, head: .05, rudder: .5, paddle: .12,
   },
+  // The green turtle's stroke a little quicker and tighter on the hawksbill's slim flippers: a reef
+  // forager that darts about, with short glides and a lively head and rear flippers.
+  'hawksbill-turtle': {
+    kind: 'turtle', frequency: .47, flap: .58, sweep: .42, feather: .55, elbow: .32, offset: .1,
+    glideSweep: .6, glideDroop: .1, bout: [2, 3], glide: [2, 4.5],
+    pitch: .04, bob: .006, head: .08, rudder: .6, paddle: .15,
+  },
+  // Heavier than the green turtle: slower, deeper strokes of short, thick flippers, longer glides, and
+  // a big head that barely bobs.
+  'loggerhead-turtle': {
+    kind: 'turtle', frequency: .37, flap: .62, sweep: .4, feather: .5, elbow: .3, offset: .12,
+    glideSweep: .64, glideDroop: .11, bout: [2, 3], glide: [3, 6],
+    pitch: .034, bob: .005, head: .045, rudder: .5, paddle: .12,
+  },
   // Up-and-down propulsion: the tail stock heaves the horizontal flukes, which angle into every beat,
   // while the head and front body stay steady. Quicker beats than any shark.
   'bottlenose-dolphin': {
@@ -601,6 +619,38 @@ export const SWIM_RIGS: Record<SwimRigModel, SwimRigSpec> = {
     lobes: { upper: .12, lower: .06, upperAngle: .7, lowerAngle: .9, lag: 1 },
     dorsal: .035, pectoral: { flap: .03, pitch: .03, turn: .55, climb: .28 }, roll: .02, bend: .8,
   },
+  // A reef patrol: steady, businesslike beats of the tail, the stiff front carrying the plain first
+  // dorsal level, the pectorals trimming it through turns.
+  'grey-reef-shark': {
+    kind: 'shark', joints: [.28, .44, .58, .69, .79], dorsalParent: 'Spine1', dorsalAt: .36,
+    frequency: .6, wavelength: 1.1, tailAmplitude: .095, rootAmplitude: .003, headAmplitude: .005, envelope: 2.5,
+    lobes: { upper: .12, lower: .06, upperAngle: .7, lowerAngle: .9, lag: 1 },
+    dorsal: .035, pectoral: { flap: .03, pitch: .03, turn: .55, climb: .28 }, roll: .02, bend: .8,
+  },
+  // Small and quick over the sand flats: brisk, shallow beats of the tail from a slim body, the tall
+  // black-tipped dorsal swaying a little with each one.
+  'blacktip-reef-shark': {
+    kind: 'shark', joints: [.28, .44, .58, .69, .79], dorsalParent: 'Spine1', dorsalAt: .37,
+    frequency: .8, wavelength: 1, tailAmplitude: .1, rootAmplitude: .004, headAmplitude: .006, envelope: 2.3,
+    lobes: { upper: .12, lower: .07, upperAngle: .7, lowerAngle: .9, lag: 1 },
+    dorsal: .04, pectoral: { flap: .03, pitch: .03, turn: .6, climb: .3 }, roll: .024, bend: .85,
+  },
+  // Lithe and a little serpentine: the whole slim body wags along its length, with a still, flat head;
+  // by day it lies in a cave and hardly beats at all (hover), the pectorals holding it in place.
+  'whitetip-reef-shark': {
+    kind: 'shark', joints: [.28, .43, .57, .68, .79], dorsalParent: 'Spine2', dorsalAt: .44,
+    frequency: .7, wavelength: .92, tailAmplitude: .105, rootAmplitude: .004, headAmplitude: .006, envelope: 2, headSteady: .6,
+    lobes: { upper: .1, lower: .06, upperAngle: .7, lowerAngle: .9, lag: 1 },
+    dorsal: .035, pectoral: { flap: .03, pitch: .03, turn: .5, climb: .28 }, roll: .02, bend: .9, hover: .12,
+  },
+  // A slow, heavy swimmer that hangs almost motionless over the wreck: lazy, shallow beats and the
+  // pectorals sculling to hold it level, the two big dorsals riding steady.
+  'sand-tiger-shark': {
+    kind: 'shark', joints: [.3, .47, .6, .7, .8], dorsalParent: 'Spine2', dorsalAt: .48,
+    frequency: .38, wavelength: 1.15, tailAmplitude: .085, rootAmplitude: .0025, headAmplitude: .004, envelope: 2.6,
+    lobes: { upper: .1, lower: .05, upperAngle: .7, lowerAngle: .9, lag: 1 },
+    dorsal: .03, pectoral: { flap: .035, pitch: .03, turn: .5, climb: .25 }, roll: .016, bend: .75, hover: .08,
+  },
   // Undulates rather than flaps: low ripples running back along the disc's margins, the long whip of
   // a tail trailing; it glides low over the sand.
   'southern-stingray': {
@@ -616,6 +666,46 @@ export const SWIM_RIGS: Record<SwimRigModel, SwimRigSpec> = {
     frequency: .8, wavelength: 1.1, tailAmplitude: .09, rootAmplitude: .003, headAmplitude: .005, envelope: 2.5,
     lobes: { upper: .08, lower: .08, upperAngle: .9, lowerAngle: .9, lag: .9 },
     dorsal: .06, pectoral: { flap: .05, pitch: .04, turn: .45, climb: .25 }, roll: .015, bend: .75, hover: .3,
+  },
+  // The biggest wrasse rows with its broad pectorals, the deep, thick body wagging only a little, and
+  // adds slow beats of the rounded tail; by a bommie it hangs almost still on its oars.
+  'napoleon-wrasse': {
+    kind: 'shark', joints: [.3, .46, .6, .72, .82], dorsalParent: 'Spine2', dorsalAt: .5,
+    frequency: .6, wavelength: 1, tailAmplitude: .07, rootAmplitude: .004, headAmplitude: .008, envelope: 2.1,
+    lobes: { upper: .06, lower: .06, upperAngle: 1.1, lowerAngle: 1.1, lag: 1 },
+    dorsal: .04, pectoral: { flap: .08, pitch: .05, turn: .5, climb: .3, row: .4 }, roll: .02, bend: .8, hover: .4,
+  },
+  // A grazing herd's slow cruise: the heavy, deep body sculls along on the pectorals, the tail adding
+  // easy beats, the great hump of the head held steady.
+  'bumphead-parrotfish': {
+    kind: 'shark', joints: [.3, .46, .6, .71, .8], dorsalParent: 'Spine2', dorsalAt: .5,
+    frequency: .7, wavelength: 1, tailAmplitude: .07, rootAmplitude: .004, headAmplitude: .006, envelope: 2.2,
+    lobes: { upper: .06, lower: .06, upperAngle: 1, lowerAngle: 1, lag: 1 },
+    dorsal: .04, pectoral: { flap: .08, pitch: .05, turn: .5, climb: .3, row: .45 }, roll: .02, bend: .8, hover: .4,
+  },
+  // Massive and unhurried: it hangs by its wreck on slow sweeps of the rounded pectorals, the thick
+  // body hardly bending, and moves off with a few slow, heavy beats of the broad tail.
+  'goliath-grouper': {
+    kind: 'shark', joints: [.3, .46, .6, .71, .8], dorsalParent: 'Spine2', dorsalAt: .5,
+    frequency: .45, wavelength: 1.1, tailAmplitude: .075, rootAmplitude: .003, headAmplitude: .005, envelope: 2.4,
+    lobes: { upper: .05, lower: .05, upperAngle: 1, lowerAngle: 1, lag: 1 },
+    dorsal: .03, pectoral: { flap: .05, pitch: .03, turn: .4, climb: .2, row: .15 }, roll: .01, bend: .7, hover: .25,
+  },
+  // A hovering lionfish: it hangs in the water almost still, the tail barely stirring, while the great fans
+  // of its pectorals breathe slowly (opening and closing a little) and the mane of its spines sways.
+  lionfish: {
+    kind: 'shark', joints: [.3, .45, .58, .7, .8], dorsalParent: 'Spine1', dorsalAt: .36,
+    frequency: .5, wavelength: 1, tailAmplitude: .06, rootAmplitude: .004, headAmplitude: .006, envelope: 1.8,
+    lobes: { upper: .08, lower: .08, upperAngle: 1, lowerAngle: 1, lag: 1 },
+    dorsal: .07, pectoral: { flap: .07, pitch: .04, turn: .5, climb: .3, row: .09 }, roll: .015, bend: .8, hover: .2,
+  },
+  // A schooling gliding disc: easy, slow beats of the small tail, the tall dorsal and anal fins riding
+  // the body, the pectorals trimming; it tilts a little with each beat.
+  batfish: {
+    kind: 'shark', joints: [.3, .45, .58, .7, .78], dorsalParent: 'Spine2', dorsalAt: .45,
+    frequency: .75, wavelength: 1.1, tailAmplitude: .06, rootAmplitude: .004, headAmplitude: .008, envelope: 1.9,
+    lobes: { upper: .09, lower: .09, upperAngle: 1.05, lowerAngle: 1.05, lag: 1 },
+    dorsal: .07, pectoral: { flap: .06, pitch: .05, turn: .5, climb: .3, row: .2 }, roll: .04, bend: .85, hover: .5,
   },
   'giant-moray': {
     kind: 'moray', joints: [.13, .25, .37, .49, .6, .71, .81, .9],

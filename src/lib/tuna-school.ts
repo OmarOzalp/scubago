@@ -97,6 +97,20 @@ export const SCHOOL_REACTIONS: Record<MarineModel, { threat: number; gap: number
   tarpon: { threat: .35, gap: .3 },
   dugong: { threat: 0, gap: .32 },
   'southern-stingray': { threat: 0, gap: .2 },
+  // The Coral Reef's: the reef sharks hunt fish (the grey reef keenest), the wrasse takes small prey;
+  // the hawksbill and the parrotfish are only big. The Shipwreck's: the sand tiger and the grouper
+  // hunt fish, the lionfish only small ones; the loggerhead and the batfish are no danger.
+  'grey-reef-shark': { threat: .6, gap: .38, startle: .55 },
+  'blacktip-reef-shark': { threat: .5, gap: .34, startle: .5 },
+  'whitetip-reef-shark': { threat: .45, gap: .34 },
+  'hawksbill-turtle': { threat: 0, gap: .3 },
+  'napoleon-wrasse': { threat: .25, gap: .3 },
+  'bumphead-parrotfish': { threat: 0, gap: .26 },
+  'sand-tiger-shark': { threat: .5, gap: .4 },
+  'loggerhead-turtle': { threat: 0, gap: .32 },
+  'goliath-grouper': { threat: .35, gap: .34 },
+  lionfish: { threat: .1, gap: .16 },
+  batfish: { threat: 0, gap: .18 },
   // Reef animals keep to the reef (reef-life.ts): the school never meets them.
   'day-octopus': { threat: 0, gap: 0 },
   'giant-cuttlefish': { threat: 0, gap: 0 },

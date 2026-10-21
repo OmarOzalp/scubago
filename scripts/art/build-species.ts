@@ -35,6 +35,8 @@ import { buildHumpbackWhale } from './species/humpback-whale';
 import { buildSpermWhale } from './species/sperm-whale';
 import { buildOceanicWhitetip } from './species/oceanic-whitetip';
 import { buildLeatherbackTurtle } from './species/leatherback-turtle';
+import { buildHawksbillTurtle } from './species/hawksbill-turtle';
+import { buildLoggerheadTurtle } from './species/loggerhead-turtle';
 import { buildOceanicManta } from './species/oceanic-manta';
 import { buildHarborSeal } from './species/harbor-seal';
 import { buildSeaOtter } from './species/sea-otter';
@@ -51,6 +53,15 @@ import { buildSawfish } from './species/sawfish';
 import { buildLemonShark } from './species/lemon-shark';
 import { buildSouthernStingray } from './species/southern-stingray';
 import { buildTarpon } from './species/tarpon';
+import { buildLionfish } from './species/lionfish';
+import { buildBatfish } from './species/batfish';
+import { buildGreyReefShark } from './species/grey-reef-shark';
+import { buildBlacktipReefShark } from './species/blacktip-reef-shark';
+import { buildWhitetipReefShark } from './species/whitetip-reef-shark';
+import { buildSandTigerShark } from './species/sand-tiger-shark';
+import { buildNapoleonWrasse } from './species/napoleon-wrasse';
+import { buildBumpheadParrotfish } from './species/bumphead-parrotfish';
+import { buildGoliathGrouper } from './species/goliath-grouper';
 
 const OUT = resolve(dirname(process.argv[1]), '../../assets/models/marine') + '/';
 
@@ -76,6 +87,8 @@ const SPECIES: Partial<Record<SwimRigModel, { build: () => { mesh: MeshBuilder; 
   'sperm-whale': { build: buildSpermWhale, scientificName: 'Physeter macrocephalus', reference: 'https://www.fisheries.noaa.gov/species/sperm-whale' },
   'oceanic-whitetip': { build: buildOceanicWhitetip, scientificName: 'Carcharhinus longimanus', reference: 'https://www.fisheries.noaa.gov/species/oceanic-whitetip-shark' },
   'leatherback-turtle': { build: buildLeatherbackTurtle, scientificName: 'Dermochelys coriacea', reference: 'https://www.fisheries.noaa.gov/species/leatherback-turtle' },
+  'hawksbill-turtle': { build: buildHawksbillTurtle, scientificName: 'Eretmochelys imbricata', reference: 'https://www.fisheries.noaa.gov/species/hawksbill-turtle' },
+  'loggerhead-turtle': { build: buildLoggerheadTurtle, scientificName: 'Caretta caretta', reference: 'https://www.fisheries.noaa.gov/species/loggerhead-turtle' },
   'oceanic-manta': { build: buildOceanicManta, scientificName: 'Mobula birostris', reference: 'https://www.fisheries.noaa.gov/species/giant-manta-ray' },
   'harbor-seal': { build: buildHarborSeal, scientificName: 'Phoca vitulina', reference: 'https://www.fisheries.noaa.gov/species/harbor-seal' },
   'sea-otter': { build: buildSeaOtter, scientificName: 'Enhydra lutris', reference: 'https://www.fisheries.noaa.gov/species/sea-otter' },
@@ -92,6 +105,15 @@ const SPECIES: Partial<Record<SwimRigModel, { build: () => { mesh: MeshBuilder; 
   'lemon-shark': { build: buildLemonShark, scientificName: 'Negaprion brevirostris', reference: 'https://www.floridamuseum.ufl.edu/discover-fish/species-profiles/negaprion-brevirostris/' },
   'southern-stingray': { build: buildSouthernStingray, scientificName: 'Hypanus americanus', reference: 'https://www.floridamuseum.ufl.edu/discover-fish/species-profiles/hypanus-americanus/' },
   tarpon: { build: buildTarpon, scientificName: 'Megalops atlanticus', reference: 'https://www.floridamuseum.ufl.edu/discover-fish/species-profiles/megalops-atlanticus/' },
+  lionfish: { build: buildLionfish, scientificName: 'Pterois volitans', reference: 'https://www.fishbase.se/summary/Pterois-volitans.html' },
+  batfish: { build: buildBatfish, scientificName: 'Platax teira', reference: 'https://www.fishbase.se/summary/Platax-teira.html' },
+  'grey-reef-shark': { build: buildGreyReefShark, scientificName: 'Carcharhinus amblyrhynchos', reference: 'https://www.fishbase.se/summary/Carcharhinus-amblyrhynchos.html' },
+  'blacktip-reef-shark': { build: buildBlacktipReefShark, scientificName: 'Carcharhinus melanopterus', reference: 'https://www.fishbase.se/summary/Carcharhinus-melanopterus.html' },
+  'whitetip-reef-shark': { build: buildWhitetipReefShark, scientificName: 'Triaenodon obesus', reference: 'https://www.fishbase.se/summary/Triaenodon-obesus.html' },
+  'sand-tiger-shark': { build: buildSandTigerShark, scientificName: 'Carcharias taurus', reference: 'https://www.floridamuseum.ufl.edu/discover-fish/species-profiles/carcharias-taurus/' },
+  'napoleon-wrasse': { build: buildNapoleonWrasse, scientificName: 'Cheilinus undulatus', reference: 'https://www.fishbase.se/summary/Cheilinus-undulatus.html' },
+  'bumphead-parrotfish': { build: buildBumpheadParrotfish, scientificName: 'Bolbometopon muricatum', reference: 'https://www.fishbase.se/summary/Bolbometopon-muricatum.html' },
+  'goliath-grouper': { build: buildGoliathGrouper, scientificName: 'Epinephelus itajara', reference: 'https://www.floridamuseum.ufl.edu/discover-fish/species-profiles/epinephelus-itajara/' },
 };
 
 async function main() {
