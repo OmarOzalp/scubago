@@ -31,7 +31,7 @@ export function useOcean(habitat: Habitat, level: number, card: string, quality:
   useLayoutEffect(() => {
     setOceanDepthMap(uniforms, field);
     applyRegionPalettes(uniforms, field.habitats);
-    return () => { field.texture.dispose(); field.region.dispose(); };
+    return () => { field.texture.dispose(); field.region.dispose(); field.regionMore.dispose(); };
   }, [uniforms, field]);
   useLayoutEffect(() => {
     setOceanLiteMap(uniforms, liteMap);

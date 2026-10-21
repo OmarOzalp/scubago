@@ -105,6 +105,19 @@ export const OCEAN = {
   // Seabed shape, by distance from the shoreline: a beach slope down to a sandy shelf, then the reef
   // edge where the water keeps deepening smoothly into open ocean.
   seabed: { shelfWidth: .62, shelfFloor: -.62, reefEdge: .72, openDistance: 3.6, openDepth: 3.4, floorDrop: 1.25 },
+  /**
+   * The Coral Reef's seabed (Home's island) goes on past the shelf as a broad, sandy lagoon to a reef
+   * crest: where it rises out of the lagoon, its top, its outer edge and the foot of its outer slope
+   * (shelf reach), the height of its top (just under the surface, where the swell breaks), and its
+   * coral's colors (a mottle of these, linear sRGB after conversion).
+   */
+  reefCrest: { rise: 1.32, top: 1.48, edge: 1.8, foot: 2.75, height: -.212, coral: ['#9A7A55', '#7D6A5E', '#8A8C5C', '#BBA57E', '#B98272'] },
+  /**
+   * The crest is never a neat ring: it wanders in and out (shelf reach), its outer edge is cut into
+   * spurs and grooves, and boat passes break it (the angles about the island's middle, radians, and
+   * their half-width), where the lagoon opens to the sea.
+   */
+  reefShape: { wander: .32, grooves: .1, passes: [2.05, -.35] as readonly number[], pass: .16 },
   /** How much the shelf widens and narrows around the coast (0 = a uniform ring). */
   shelfVariation: .32,
   /** Darker seagrass and rubble patches on the shelf (0 = plain sand). */
@@ -195,7 +208,8 @@ export function seabedPatch(x: number, z: number, distance: number) {
  * color. Depth keeps growing smoothly past the reef edge, so the turquoise halo
  * fades gradually into open water instead of stopping at a ring.
  */
-export function seabedProfile(distance: number, config: OceanConfig = OCEAN) {
+export function seabedProfile(distance: number, config: OceanConfig = OCEAN, reef?: { x: number; z: number }) {
+  if (reef && distance > 0) return reefProfile(distance, reef.x, reef.z, config);
   const { shelfWidth, shelfFloor, reefEdge, openDistance, openDepth, floorDrop } = config.seabed;
   // The beach rises gently inland and slopes down to the shelf offshore.
   const beach = distance < 0 ? -.125 - distance * .1 : lerp(-.125, shelfFloor, smoothstep(0, shelfWidth, distance));
@@ -204,4 +218,49 @@ export function seabedProfile(distance: number, config: OceanConfig = OCEAN) {
   const shore = config.surfaceLevel - beach;
   const depth = distance <= 0 ? 0 : Math.max(0, shore) + (openDepth - (config.surfaceLevel - shelfFloor)) * smoothstep(reefEdge, openDistance, distance) ** .8;
   return { floor, depth, wet: shore < 0 ? shore : depth };
+}
+
+/**
+ * The Coral Reef's seabed offshore (`reefCrest`): the same beach and shelf as any island's, but where
+ * a shelf would drop away, a lagoon of pale sand runs on at the shelf's depth to the reef crest, which
+ * rises almost to the surface, then the reef's outer slope falls to the deep floor and the water goes
+ * on deepening into the open ocean as any island's does.
+ */
+function reefProfile(distance: number, x: number, z: number, config: OceanConfig) {
+  const { shelfWidth, shelfFloor, reefEdge, openDistance, openDepth, floorDrop } = config.seabed;
+  const { rise, top, edge, foot, height } = config.reefCrest;
+  const { shift, groove, open } = reefShape(x, z, config);
+  const beach = lerp(-.125, shelfFloor, smoothstep(0, shelfWidth, distance));
+  const d = distance - shift, outer = smoothstep(edge + groove, foot, d);
+  // Where a pass breaks the crest, the lagoon's floor runs on out to the reef's outer slope.
+  const floor = lerp(beach, height, smoothstep(rise, top, d) * (1 - outer) * (1 - open)) - floorDrop * outer;
+  // Past the crest the water deepens toward the open ocean's depth, never shallower than over the floor.
+  const over = Math.max(0, config.surfaceLevel - floor), deep = config.surfaceLevel - (shelfFloor - floorDrop);
+  const depth = over + Math.max(0, openDepth - deep) * smoothstep(edge, edge + openDistance - reefEdge, d) ** .8;
+  return { floor, depth, wet: depth };
+}
+
+/** How far the crest wanders out here (reach), how far its outer edge is cut back by a groove, and how open a pass leaves it (0 to 1), at (x, z) in the island's frame. */
+export function reefShape(x: number, z: number, config: OceanConfig = OCEAN) {
+  const { wander, grooves, passes, pass } = config.reefShape;
+  const a = Math.atan2(z, x);
+  const shift = (valueNoise(x * .9 + 3, z * .9 - 7) - .5) * wander + (valueNoise(x * 2.4 - 1, z * 2.4 + 5) - .5) * wander * .35;
+  // Spurs and grooves: narrow fingers of reef reaching out, the sand between them.
+  const groove = -grooves * smoothstep(.55, .85, Math.abs(Math.sin(a * 23 + valueNoise(x * 2, z * 2) * 3)));
+  const open = Math.max(0, ...passes.map((p) => 1 - smoothstep(pass * .45, pass, Math.abs(Math.atan2(Math.sin(a - p), Math.cos(a - p))))));
+  return { shift, groove, open };
+}
+
+/**
+ * How much of the seabed at shelf reach `distance` from the Coral Reef's shore is its crest's coral
+ * (0 to 1), and how much of that is the crest's seaward edge, where the swell breaks into surf. (x, z),
+ * in the island's own frame, breaks both up along the reef.
+ */
+export function reefCrestAt(x: number, z: number, distance: number, config: OceanConfig = OCEAN) {
+  const { rise, top, edge } = config.reefCrest;
+  const { shift, groove, open } = reefShape(x, z, config);
+  const d = distance - shift + (valueNoise(x * 2.3 + 4, z * 2.3 - 9) - .5) * .12;
+  const coral = smoothstep(rise - .08, rise + .1, d) * (1 - smoothstep(edge + groove + .02, edge + groove + .24, d)) * (1 - open * .85);
+  const surf = coral * smoothstep(top - .02, edge + groove, d) * (1 - open) * (.55 + .45 * smoothstep(.25, .6, valueNoise(x * 1.3 - 2, z * 1.3 + 6)));
+  return { coral, surf };
 }

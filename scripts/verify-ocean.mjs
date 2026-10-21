@@ -3,8 +3,8 @@ import assert from 'node:assert/strict';
 import {
   buildDepthField, buildLiteOceanMap, createLiteOceanMesh, createOceanUniforms, createSeabedMesh, createWaterMesh, waterColorAt,
 } from '../src/components/home/three/ocean-mesh.ts';
-import { OCEAN } from '../src/lib/ocean.ts';
-import { shoreDistance } from '../src/components/home/three/island-shape.ts';
+import { OCEAN, reefCrestAt, shelfStretch } from '../src/lib/ocean.ts';
+import { shoreDistance, shorePolygons } from '../src/components/home/three/island-shape.ts';
 import { ISLAND_PLACES } from '../src/lib/archipelago.ts';
 import { bankDepth } from '../src/lib/banks.ts';
 import { EXPLORER } from '../src/lib/explorer-view.ts';
@@ -22,31 +22,46 @@ for (let level = 1; level <= 6; level++) {
   for (const mesh of [water, seabed]) {
     const vertices = mesh.geometry.attributes.position.count, triangles = mesh.geometry.index.count / 3;
     assert(vertices < 3000, `level ${level}: ${mesh.name} has ${vertices} vertices`);
-    assert(triangles < 5000, `level ${level}: ${mesh.name} has ${triangles} triangles`);
+    // (the Coral Reef's seabed has rings of its own to pick out its crest)
+    assert(triangles < 6000, `level ${level}: ${mesh.name} has ${triangles} triangles`);
     assert(mesh.geometry.index.array instanceof Uint16Array);
     for (const value of mesh.geometry.attributes.position.array) assert(Number.isFinite(value));
   }
-  // Waves flatten over the beach and reach full height over open water.
+  // Waves flatten over the beach and the Coral Reef's crest, and reach full height over open water.
   const position = water.geometry.attributes.position, shoaling = water.geometry.attributes.aShoaling;
+  const reach = (x, z) => { const d = shoreDistance(field.polygons, x, z); return d > 0 ? d / shelfStretch(x, z) : d; };
+  const crest = (x, z) => reefCrestAt(x, z, reach(x, z)).coral;
+  let calmed = 0;
   for (let i = 0; i < position.count; i++) {
-    const distance = shoreDistance(field.polygons, position.getX(i), position.getZ(i)), value = shoaling.getX(i);
+    const x = position.getX(i), z = position.getZ(i), distance = shoreDistance(field.polygons, x, z), value = shoaling.getX(i);
     assert(value >= 0 && value <= 1);
     if (distance < 0) assert.equal(value, 0, `level ${level}: waves over dry land`);
-    if (distance > 1.6) assert.equal(value, 1, `level ${level}: open water is flattened`);
+    if (distance > 1.6 && crest(x, z) === 0 && field.profile(x, z).wet > OCEAN.waveShoaling) assert.equal(value, 1, `level ${level}: open water is flattened`);
+    if (crest(x, z) > .5 && field.profile(x, z).wet < .1) { assert(value < .6, `level ${level}: full waves over the reef crest`); calmed++; }
   }
-  // Offshore, the seabed stays under water, and well under it past the shelf.
+  assert(calmed > 20, `level ${level}: no waves calmed by the reef crest (${calmed})`);
+  // Offshore, the seabed stays under water, and well under it past the shelf, but for the reef's crest
+  // rising almost to the surface (never through it).
   const floor = seabed.geometry.attributes.position;
+  let shoal = 0;
   for (let i = 0; i < floor.count; i++) {
-    const distance = shoreDistance(field.polygons, floor.getX(i), floor.getZ(i)), surface = uniforms.uOceanSurface.value;
-    if (distance > .3) assert(floor.getY(i) < surface, `level ${level}: seabed above water ${distance.toFixed(2)} offshore`);
-    if (distance > .8) assert(floor.getY(i) < surface - .3, `level ${level}: shelf too shallow ${distance.toFixed(2)} offshore`);
+    const x = floor.getX(i), z = floor.getZ(i), distance = shoreDistance(field.polygons, x, z), surface = uniforms.uOceanSurface.value;
+    if (distance > .3) assert(floor.getY(i) < surface - (distance > .8 ? .02 : 0), `level ${level}: seabed above water ${distance.toFixed(2)} offshore`);
+    if (distance > .8 && crest(x, z) === 0 && reach(x, z) < 1.25) assert(floor.getY(i) < surface - .3, `level ${level}: lagoon too shallow ${distance.toFixed(2)} offshore`);
+    if (distance > 1 && floor.getY(i) > surface - .08) shoal++;
   }
+  assert(shoal > 20, `level ${level}: no reef crest under the surface (${shoal})`);
   // Depth map: dry land at the center, shallows near the coast, deep water far out.
   const { data } = field.texture.image;
   const texel = sampler(field, data);
   const [landDepth, landHeight] = texel(0, 0), [openDepth] = texel(7.5, 0);
   assert.equal(landDepth, 0); assert(landHeight > 0);
   assert(openDepth > 200, `level ${level}: open water too shallow (${openDepth})`);
+  // The coral channel: the swell breaks on the crest (surf past .5), nowhere on the beach or in the open sea.
+  let surf = 0;
+  for (let k = 3; k < data.length; k += 4) if (data[k] > 140) surf++;
+  assert(surf > 30, `level ${level}: no surf on the reef crest (${surf})`);
+  assert(texel(0, 0)[3] === 0 && texel(7.5, 0)[3] === 0, `level ${level}: coral on dry land or in the open sea`);
   // Lite tier: one opaque backdrop over the same lattice, colored from a baked map.
   const lite = createLiteOceanMesh(uniforms, field), map = buildLiteOceanMap(field);
   assert.equal(lite.geometry.attributes.position.count, position.count);
@@ -102,17 +117,20 @@ for (const level of [1, 6]) {
   }
   const wide = `wide screens' water ${wideWater.geometry.attributes.position.count}, seabed ${wideSeabed.geometry.attributes.position.count}`;
   for (const mesh of [wideWater, wideSeabed]) mesh.geometry.dispose();
-  const floor = seabed.geometry.attributes.position;
+  const floor = seabed.geometry.attributes.position, reefShores = shorePolygons(level, 24, 'reef');
+  // The crest and its outer slope, wherever the crest wanders (OCEAN.reefShape).
+  const onCrest = (x, z) => { const d = shoreDistance(reefShores, x, z) / shelfStretch(x, z); return d > OCEAN.reefCrest.rise - .3 && d < OCEAN.reefCrest.foot + .3; };
   for (let i = 0; i < floor.count; i++) {
     const distance = shoreDistance(field.polygons, floor.getX(i), floor.getZ(i));
-    // (except where the bank rises on purpose: its sandbars and cays)
-    if (distance > .8 && bankDepth(field.bank, floor.getX(i), floor.getZ(i)) > .45) assert(floor.getY(i) < uniforms.uOceanSurface.value - .3, `level ${level}: world seabed too shallow ${distance.toFixed(2)} offshore`);
+    // (except where the bank rises on purpose, its sandbars and cays, and on the Coral Reef's crest; Home's reef is in the middle)
+    if (distance > .8 && bankDepth(field.bank, floor.getX(i), floor.getZ(i)) > .45 && !onCrest(floor.getX(i), floor.getZ(i))) assert(floor.getY(i) < uniforms.uOceanSurface.value - .3, `level ${level}: world seabed too shallow ${distance.toFixed(2)} offshore`);
   }
   // The water reaches past both islands, and the lite map colors each island's water as its own.
   const box = water.geometry.boundingBox ?? (water.geometry.computeBoundingBox(), water.geometry.boundingBox);
   assert(box.min.z < kz - 10 && box.max.z > Math.max(vz, gz) + 10 && box.max.x > gx + 10, `level ${level}: the water does not reach past every island`);
   const map = buildLiteOceanMap(field), baked = sampler(field, map.image.data);
-  const reef = baked(0, 3.4), kelp = baked(kx, kz + 3.4);
+  // (the reef's out past its crest, off the bank: inside the crest lies its pale lagoon)
+  const reef = baked(6.5, 0), kelp = baked(kx, kz + 3.4);
   assert(reef[2] - reef[1] > kelp[2] - kelp[1] - 5 && reef[0] + reef[1] + reef[2] > kelp[0] + kelp[1] + kelp[2], `level ${level}: the Kelp Forest's water is not its own (${reef} vs ${kelp})`);
   // The volcano's: a deeper blue than the reef's turquoise.
   const cobalt = baked(vx, vz + 3.4);
@@ -122,7 +140,7 @@ for (const level of [1, 6]) {
   assert(lagoon[1] - lagoon[2] > reef[1] - reef[2], `level ${level}: the Mangroves' water is not its own (${reef} vs ${lagoon})`);
   console.log(`level ${level}: four islands in one ocean: water ${water.geometry.attributes.position.count} vertices, seabed ${floor.count} (${wide} at most); land, shelves, open sea and each island's water verified`);
   for (const mesh of [water, seabed]) mesh.geometry.dispose();
-  field.texture.dispose(); field.region.dispose(); map.dispose();
+  field.texture.dispose(); field.region.dispose(); field.regionMore.dispose(); map.dispose();
 }
 for (const habitat of ['island', 'lagoon', 'cove']) {
   const shallow = waterColorAt(habitat, .1), deep = waterColorAt(habitat, 3);

@@ -8,7 +8,7 @@ that used to offer a sandy island, a coral lagoon or a rocky cove is gone.
 
 | Area | What it is | Who lives there | Species |
 | --- | --- | --- | ---: |
-| Coral Reef | A sandy palm island ringed with coral (Home's island today) | Reef sharks, the wobbegong, reef manta, hawksbill turtle, Napoleon wrasse, bumphead parrotfish, clownfish, angelfish and triggerfish, giant moray, day octopus, giant clam, Christmas tree worms, banded sea krait; golden jellyfish in a marine lake | 34 |
+| Coral Reef | A coral cay in a lagoon ringed by a reef crest (Home's island: `docs/coral-reef.md`) | Reef sharks, the wobbegong, reef manta, hawksbill turtle, Napoleon wrasse, bumphead parrotfish, clownfish, angelfish and triggerfish, giant moray, day octopus, giant clam, Christmas tree worms, banded sea krait; golden jellyfish in a marine lake | 34 |
 | Open Ocean | The deep blue all around the islands | Whale shark, oceanic whitetip, mako and silky sharks, oceanic manta and devil rays, humpback and sperm whales, dolphins, sailfish, yellowfin tuna, mola mola, leatherback and olive ridley turtles | 15 |
 | Kelp Forest | A cold, rocky coast of towering kelp (its own island: `docs/kelp-forest.md`) | Great white and basking sharks, orca, sea lions, harbor seals, sea otters, leafy and weedy seadragons, garibaldi, giant sea bass, wolf eel, lingcod, giant Pacific octopus, giant cuttlefish | 14 |
 | Mangroves & Seagrass | A warm, shallow lagoon of mangrove roots and seagrass (its own island: `docs/mangroves.md`) | Dugong, manatee, green turtle, tiger, lemon, nurse and bull sharks, great hammerhead, sawfish, southern stingray, guitarfish, tarpon, seahorse, reef squid | 14 |
@@ -31,7 +31,8 @@ species live there, then how many areas are still to discover ("+5 to discover")
 readers hear it as one line ("Your archipelago: Coral Reef, 2 species; Open Ocean, 1 species;
 5 more areas to discover"). The explorer's label reads "Exploring · " and the home's name.
 
-The island on Home is the Coral Reef, drawn with the sandy island's shores (`HOME_SHORE`).
+The island on Home is the Coral Reef (`HOME_SHORE`): a forested coral cay in a pale lagoon inside a
+reef crest where the swell breaks, with a jetty and a dive boat (`docs/coral-reef.md`).
 The other shores (`HABITATS`: the coral lagoon and the rocky cove) stay for the archipelago's
 other islands. Levels still grow the island and its sea as the collection grows; the rewards
 at levels 5 and 6 are its islets.
@@ -53,7 +54,7 @@ where it lives.
 
 Each island has its own shape and size (`OUTLINES` in `src/lib/island-outline.ts`), so the
 archipelago never looks like one island stamped four times: the Coral Reef keeps the sandy bean of
-an island Home always had; the Kelp Forest is the largest, a long, rugged headland with an arm
+an island Home always had, now a forested cay in its lagoon and ring of reef; the Kelp Forest is the largest, a long, rugged headland with an arm
 hooking out south-west and a deep bay biting into its south side; the Volcanic Pinnacle is the
 smallest, a nearly round cone with lava lobes reaching the sea; and the Mangroves & Seagrass is the
 longest, a low cay with a ragged fringe of lobes. Each island's islets rise just off its own shore,
@@ -136,6 +137,17 @@ and a lone spire of rock, in clear cobalt water. Its first five animals have the
 marine iguana, the Galápagos shark, the pelagic thresher, the giant trevally and the king
 angelfish (`docs/marine-species-art.md`, batch v7); the scalloped hammerheads school here and the
 spotted eagle rays fly in squadrons. All of it is in `docs/volcanic-pinnacle.md`.
+
+## The Coral Reef
+
+![The Coral Reef with its animals](art-previews/island-coral-reef.png)
+
+Home's island: a coral cay of white sand under a bright forest, coconut palms leaning out over the
+beach, beach rock along its west shore and a jetty out to a moored dive boat, in a pale lagoon dotted
+with coral heads inside a reef crest where the swell breaks into surf. Its own animals have their own
+models now: the grey, blacktip and whitetip reef sharks, the hawksbill turtle, the Napoleon wrasse
+and the bumphead parrotfish (`docs/marine-species-art.md`, batch v9). All of it is in
+`docs/coral-reef.md`.
 
 ## The Mangroves & Seagrass
 

@@ -1,7 +1,7 @@
 import { createShoreField, islandScale, seabedProps, shoreDistance, shorePolygons, type IslandShape, type ShoreField } from './island-outline';
 import { followerLane } from './marine-groups';
 import type { MarinePose } from './marine-motion';
-import { seabedProfile, shelfStretch } from './ocean';
+import { OCEAN, seabedProfile, shelfStretch } from './ocean';
 import { SWIM_LEVEL } from './ocean-depth';
 import { clamp, ease, smoothstep, wrap } from './steering';
 import type { MarineModel } from './swimming';
@@ -169,16 +169,16 @@ export type Place = { x: number; z: number; nx: number; nz: number; floor: numbe
 const reachOn = (polygons: Float32Array[], x: number, z: number) => { const d = shoreDistance(polygons, x, z); return d > 0 ? d / shelfStretch(x, z) : d; };
 /**
  * Where `reach` is along the ray at `angle` (degrees) from the main island's middle, and the bottom's
- * height there exactly as the seabed is drawn (islets included).
+ * height there exactly as the seabed is drawn (islets included; the Coral Reef's lagoon on `shape`'s).
  */
-export function locate(polygons: Float32Array[], angle: number, reach: number): Place {
+export function locate(polygons: Float32Array[], angle: number, reach: number, shape: IslandShape = 'reef'): Place {
   const main = polygons.slice(0, 1), a = angle * Math.PI / 180, ux = Math.cos(a), uz = Math.sin(a);
   let lo = 0, hi = 9;
   for (let i = 0; i < 26; i++) { const mid = (lo + hi) / 2; if (reachOn(main, ux * mid, uz * mid) < reach) lo = mid; else hi = mid; }
   const x = ux * lo, z = uz * lo, h = .02;
   const nx = shoreDistance(main, x + h, z) - shoreDistance(main, x - h, z), nz = shoreDistance(main, x, z + h) - shoreDistance(main, x, z - h);
   const n = Math.hypot(nx, nz) || 1;
-  return { x, z, nx: nx / n, nz: nz / n, floor: seabedProfile(reachOn(polygons, x, z)).floor, reach };
+  return { x, z, nx: nx / n, nz: nz / n, floor: seabedProfile(reachOn(polygons, x, z), OCEAN, shape === 'reef' ? { x, z } : undefined).floor, reach };
 }
 
 /**
@@ -196,7 +196,7 @@ export function reefRocks(level: number, morays: number, octopuses: number, anem
   const clearance = (x: number, z: number) => Math.min(...props.map(([px, pz]) => Math.hypot(px - x, pz - z)));
   // Two dens per moray (only two species share the moray's model; any more would share dens).
   const dens = Array.from({ length: morays }, (_, i) => MORAY_DENS[i % MORAY_DENS.length]).map((pair) => {
-    const [a, b] = pair.map((p) => locate(polygons, p.angle, p.reach));
+    const [a, b] = pair.map((p) => locate(polygons, p.angle, p.reach, shape));
     return [a, b].map((p, i): ReefRock => {
       const other = i ? a : b;
       // Along the coast toward the other den, turned in or out so that the moray, coming straight out of
@@ -213,7 +213,7 @@ export function reefRocks(level: number, morays: number, octopuses: number, anem
     });
   });
   const rocks = Array.from({ length: octopuses }, (_, i): ReefRock => {
-    const spec = OCTOPUS_ROCKS[i % OCTOPUS_ROCKS.length], p = locate(polygons, spec.angle, spec.reach);
+    const spec = OCTOPUS_ROCKS[i % OCTOPUS_ROCKS.length], p = locate(polygons, spec.angle, spec.reach, shape);
     // Beside the rock along the coast: on the side nearer the camera, unless a coral is in the way there
     // (a second octopus at the same rock takes the other side).
     let tx = -p.nz, tz = p.nx;
@@ -224,7 +224,7 @@ export function reefRocks(level: number, morays: number, octopuses: number, anem
     return { x: p.x, z: p.z, floor: p.floor, kind: 'rock', spotX: p.x + tx * REEF_ROCK.rest, spotZ: p.z + tz * REEF_ROCK.rest, dirX: tx, dirZ: tz };
   });
   const homes = Array.from({ length: anemones }, (_, i): ReefRock => {
-    const spec = ANEMONES[i % ANEMONES.length], p = locate(polygons, spec.angle, spec.reach);
+    const spec = ANEMONES[i % ANEMONES.length], p = locate(polygons, spec.angle, spec.reach, shape);
     return { x: p.x, z: p.z, floor: p.floor, kind: 'anemone', spotX: p.x, spotZ: p.z, dirX: -p.nz, dirZ: p.nx };
   });
   const result = { dens, rocks, anemones: homes };
@@ -298,7 +298,7 @@ export function createReefLife(members: readonly { model: ReefModel; lane: numbe
   // --- The seabed and the island, as these animals need them ---
   /** The seabed's distance from the shore here (reach) and the bottom's height (world y), as the seabed is drawn (on the field's grid). */
   const reach = (x: number, z: number) => { const d = field.shore(x, z); return d > 0 ? d / shelfStretch(x, z) : d; };
-  const floor = (x: number, z: number) => seabedProfile(reach(x, z)).floor;
+  const floor = (x: number, z: number) => seabedProfile(reach(x, z), OCEAN, shape === 'reef' ? { x, z } : undefined).floor;
   /** How far toward the viewer something this high (above the swimming level) appears shifted (see apparentShift). */
   const shiftAt = (y: number) => .4 - .5 * (y + .02);
   /**
