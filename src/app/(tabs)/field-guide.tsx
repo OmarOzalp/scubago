@@ -1,26 +1,37 @@
 import { router } from 'expo-router';
 import { useMemo, useState } from 'react';
-import { ScrollView, StyleSheet, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
 
+import { Icon } from '@/components/icon';
 import { Chip } from '@/components/journal/chip';
 import { LinkRow } from '@/components/journal/link-row';
 import { ProgressRing } from '@/components/journal/progress-ring';
 import { Screen, ScreenHeader, SectionHeader } from '@/components/journal/screen';
 import { collectionsLine, summarize } from '@/components/rewards/summary';
+import { Segmented } from '@/components/segmented';
 import { SpeciesCard } from '@/components/species-card';
 import { ThemedText } from '@/components/themed-text';
-import { Spacing } from '@/constants/theme';
+import { Radius, Spacing, Type } from '@/constants/theme';
 import { useRewards } from '@/hooks/use-rewards';
+import { useTheme } from '@/hooks/use-theme';
 import { CATALOG, CATALOG_BY_ID } from '@/lib/catalog';
 import { deriveDex } from '@/lib/dex';
 import { CATEGORY_LABEL, CATEGORY_ORDER, rarityRank } from '@/lib/rarity';
 import { localIsoDate, shiftIsoDate } from '@/lib/sighting-edit';
 import { useMySightings } from '@/lib/store';
+import { searchSpecies } from '@/lib/text-search';
 import type { Category, Species } from '@/lib/types';
 
 const GAP = 10;
 /** First seen within this many days: a "New" ribbon. */
 const NEW_DAYS = 7;
+
+type Status = 'all' | 'seen' | 'unseen';
+const STATUS_OPTIONS: { value: Status; label: string }[] = [
+  { value: 'all', label: 'All' },
+  { value: 'seen', label: 'Seen' },
+  { value: 'unseen', label: 'Not yet seen' },
+];
 
 /** Every species in the catalogue, by group: drawn in colour once seen, in pencil until then. */
 export default function FieldGuideScreen() {
@@ -30,6 +41,8 @@ export default function FieldGuideScreen() {
   // The column's width, measured: a phone's to begin with (the static web render has no window).
   const [inner, setInner] = useState(358);
   const [filter, setFilter] = useState<Category | 'all'>('all');
+  const [status, setStatus] = useState<Status>('all');
+  const [query, setQuery] = useState('');
 
   const dex = useMemo(() => deriveDex(mySightings, CATALOG_BY_ID), [mySightings]);
   const dexById = useMemo(() => new Map(dex.map((d) => [d.species.id, d])), [dex]);
@@ -42,14 +55,38 @@ export default function FieldGuideScreen() {
     for (const list of byCategory.values()) list.sort((a, b) => rarityRank(a.rarity) - rarityRank(b.rarity));
     return CATEGORY_ORDER.map((cat) => ({ cat, species: byCategory.get(cat) ?? [] })).filter((g) => g.species.length > 0);
   }, []);
-  const shown = filter === 'all' ? groups : groups.filter((g) => g.cat === filter);
+
+  // The group chips, the seen toggle and the search narrow together. A search lists what it found in
+  // one grid, best match first: once the diver has typed a name, the groups' order is no use to them.
+  const typed = query.trim();
+  const keep = (s: Species) => (filter === 'all' || s.category === filter) && (status === 'all' || dexById.has(s.id) === (status === 'seen'));
+  const found = typed ? searchSpecies(CATALOG, typed).filter(keep) : null;
+  const sections = found
+    ? []
+    : groups.map(({ cat, species }) => ({ cat, species, listed: species.filter(keep) })).filter((g) => g.listed.length > 0);
+  const listedCount = found ? found.length : sections.reduce((n, g) => n + g.listed.length, 0);
+  const narrowed = typed !== '' || filter !== 'all' || status !== 'all';
 
   // Three cards a row on a phone, more on a wide screen.
   const columns = Math.max(3, Math.min(6, Math.floor(inner / 150)));
   const cardWidth = Math.floor((inner - GAP * (columns - 1)) / columns);
 
+  const card = (s: Species) => {
+    const entry = dexById.get(s.id);
+    return (
+      <SpeciesCard
+        key={s.id}
+        species={s}
+        width={cardWidth}
+        count={entry?.count ?? 0}
+        isNew={!!entry && entry.firstSeenOn > newSince}
+        onPress={() => router.push(`/species/${s.id}`)}
+      />
+    );
+  };
+
   return (
-    <Screen tab>
+    <Screen tab keyboardDismissMode="on-drag">
       <ScreenHeader
         eyebrow="Your field guide"
         title={`${dex.length} of ${CATALOG.length} species`}
@@ -58,26 +95,39 @@ export default function FieldGuideScreen() {
 
       <LinkRow icon="medal" title="Collections" detail={rewards.ready ? setsLine : undefined} role="link" onPress={() => router.push({ pathname: '/rewards', params: { tab: 'collections' } })} />
 
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        accessibilityLabel="Filter by group"
-        style={styles.chipsScroll}
-        contentContainerStyle={styles.chips}>
-        <Chip label="All" selected={filter === 'all'} onPress={() => setFilter('all')} />
-        {groups.map(({ cat }) => (
-          <Chip key={cat} label={CATEGORY_LABEL[cat]} selected={filter === cat} onPress={() => setFilter(cat)} />
-        ))}
-      </ScrollView>
+      <View style={styles.controls}>
+        <SearchField value={query} onChange={setQuery} />
+        <Segmented accessibilityLabel="Show species" kind="choice" value={status} onChange={setStatus} options={STATUS_OPTIONS} />
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          accessibilityLabel="Filter by group"
+          style={styles.chipsScroll}
+          contentContainerStyle={styles.chips}>
+          <Chip label="All" selected={filter === 'all'} onPress={() => setFilter('all')} />
+          {groups.map(({ cat }) => (
+            <Chip key={cat} label={CATEGORY_LABEL[cat]} selected={filter === cat} onPress={() => setFilter(cat)} />
+          ))}
+        </ScrollView>
+      </View>
 
-      {dex.length === 0 ? (
+      {dex.length === 0 && !narrowed ? (
         <ThemedText type="caption" themeColor="textSecondary">
           Every species starts as a pencil sketch. Log a dive and the ones you meet are painted in.
         </ThemedText>
       ) : null}
 
+      {/* Said aloud as it changes, so someone who can't see the grid hears what the filters did. */}
+      {narrowed ? (
+        <ThemedText type="caption" themeColor="textSecondary" accessibilityLiveRegion="polite">
+          {listedCount === 0 ? emptyMessage(typed, status) : `Showing ${listedCount} of ${CATALOG.length} species`}
+        </ThemedText>
+      ) : null}
+
       <View style={styles.sections} onLayout={(e) => setInner(Math.floor(e.nativeEvent.layout.width))}>
-        {shown.map(({ cat, species }) => {
+        {found ? <View style={styles.grid}>{found.map(card)}</View> : null}
+        {sections.map(({ cat, species, listed }) => {
+          // The count is of the whole group, not of what the filters leave of it.
           const seenCount = species.filter((s) => dexById.has(s.id)).length;
           return (
             <View key={cat} style={styles.section}>
@@ -89,21 +139,7 @@ export default function FieldGuideScreen() {
                   </ThemedText>
                 }
               />
-              <View style={styles.grid}>
-                {species.map((s) => {
-                  const entry = dexById.get(s.id);
-                  return (
-                    <SpeciesCard
-                      key={s.id}
-                      species={s}
-                      width={cardWidth}
-                      count={entry?.count ?? 0}
-                      isNew={!!entry && entry.firstSeenOn > newSince}
-                      onPress={() => router.push(`/species/${s.id}`)}
-                    />
-                  );
-                })}
-              </View>
+              <View style={styles.grid}>{listed.map(card)}</View>
             </View>
           );
         })}
@@ -112,7 +148,75 @@ export default function FieldGuideScreen() {
   );
 }
 
+/** What the guide says when the filters leave nothing: the search first, else the seen toggle (the group chips always have species). */
+function emptyMessage(typed: string, status: Status): string {
+  if (typed) return `Nothing matches “${typed}”${status === 'all' ? '' : ` among the ${status === 'seen' ? 'seen' : 'unseen'} species`}.`;
+  return status === 'seen' ? 'You haven’t seen any of these yet. Log a dive and the ones you meet show up here.' : 'You’ve seen every one of these.';
+}
+
+/** A search box over the species: a magnifier, the field, and a button to clear it (44pt, since the field is small). */
+function SearchField({ value, onChange }: { value: string; onChange: (text: string) => void }) {
+  const theme = useTheme();
+  const [focused, setFocused] = useState(false);
+  return (
+    <View style={[styles.search, { backgroundColor: theme.backgroundElement, borderColor: focused ? theme.tint : theme.rule }]}>
+      <Icon name="search" size={20} color={focused ? theme.tint : theme.textSecondary} />
+      <TextInput
+        value={value}
+        onChangeText={onChange}
+        onFocus={() => setFocused(true)}
+        onBlur={() => setFocused(false)}
+        accessibilityLabel="Search the field guide"
+        placeholder="Search by name"
+        placeholderTextColor={theme.textSecondary}
+        autoCapitalize="none"
+        autoCorrect={false}
+        returnKeyType="search"
+        style={[styles.searchInput, { color: theme.text }]}
+      />
+      {value ? (
+        <Pressable
+          onPress={() => onChange('')}
+          accessibilityRole="button"
+          accessibilityLabel="Clear search"
+          style={({ pressed }) => [styles.clear, { opacity: pressed ? 0.6 : 1 }]}>
+          <Icon name="close" size={16} color={theme.textSecondary} weight="bold" />
+        </Pressable>
+      ) : null}
+    </View>
+  );
+}
+
 const styles = StyleSheet.create({
+  // The search, the toggle and the chips belong together, so they sit closer than the page's other blocks.
+  controls: {
+    gap: 10,
+  },
+  search: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    minHeight: 50,
+    paddingLeft: 14,
+    paddingRight: 4,
+    borderRadius: Radius.md,
+    borderWidth: 1.5,
+  },
+  searchInput: {
+    flex: 1,
+    minHeight: 48,
+    fontFamily: Type.body,
+    fontSize: 16,
+    // The box round it takes the lagoon edge while typing, which is its focus ring: the web's own
+    // would draw a second, black one inside it.
+    outlineWidth: 0,
+  },
+  clear: {
+    width: 44,
+    height: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   chipsScroll: {
     marginHorizontal: -Spacing.three,
     flexGrow: 0,
