@@ -2,7 +2,7 @@
  * Marine mammals, side on, head to the left (1% of total length per unit, snout at x = 0, fluke
  * or flipper tips at x = 100). The flukes are tilted towards the viewer so their shape shows.
  */
-import { add, blob, type Ctrl, ellipse, lerp, mul, norm, perp, type Pt, rng, spline, sub } from '../kit';
+import { add, blob, type Ctrl, ellipse, lerp, mul, norm, perp, type Pt, rng, spline, sub, yAt } from '../kit';
 import { curveIn, scatter, shapeIn } from '../marks';
 import { tube } from '../ray';
 import type { PlateDef } from '../registry';
@@ -224,23 +224,20 @@ const orca: SharkSpec = {
   extra: (c) => {
     const s = c.s;
     const eyePatch = shapeIn(s, [[tAtX(s, 13.5), 0.4], [tAtX(s, 16), 0.24], [tAtX(s, 20.5), 0.22], [tAtX(s, 23), 0.3], [tAtX(s, 18), 0.38]]);
-    // White chin and belly band, narrowing between the flippers, then the flank lobe behind.
-    const belly = region(s, 0, 1, (t) => {
-      const x = s.top[Math.round(t * (s.top.length - 1))][0];
-      if (x < 18) return 0.62 + (x / 18) * 0.04;
-      if (x < 32) return 0.8;
-      if (x < 52) return 0.74;
-      if (x < 72) return 0.74 - 0.3 * Math.sin(((x - 52) / 20) * Math.PI) ** 1.2;
-      return 0.84;
-    }, 1.05);
-    const saddle = region(s, tAtX(s, 50), tAtX(s, 62), -0.02, (t) => 0.22 + 0.04 * Math.sin(t * 20));
+    // White chin and belly: the boundary is one smooth curve (high on the jaw, easing down between
+    // the flippers, then up the flank in the lobe behind the dorsal fin and out under the tail stock).
+    const edge = spline([[0, 0.58], [5, 0.6], [12, 0.63], [19, 0.69], [27, 0.73], [38, 0.75], [48, 0.72], [54, 0.62], [59, 0.5], [63.5, 0.46], [67, 0.55], [70.5, 0.74], [74, 0.96], [77, 1.06]], false);
+    const belly = region(s, 0, 1, (t) => yAt(edge, s.top[Math.round(t * (s.top.length - 1))][0]), 1.08);
+    // The grey saddle behind the dorsal fin: a curved wedge that hugs the fin and fades forward.
+    const saddle = shapeIn(s, [[tAtX(s, 50), -0.04], [tAtX(s, 56), -0.04], [tAtX(s, 63), -0.04], [tAtX(s, 63.5), 0.1], [tAtX(s, 60), 0.22], [tAtX(s, 55.5), 0.31], [tAtX(s, 51.5), 0.3], [tAtX(s, 50.4), 0.14]]);
+    const saddleCore = shapeIn(s, [[tAtX(s, 51), -0.04], [tAtX(s, 58), -0.04], [tAtX(s, 61.5), 0.04], [tAtX(s, 58.5), 0.15], [tAtX(s, 54.5), 0.2], [tAtX(s, 51), 0.12]]);
     return {
       marks: [
         { poly: belly, paint: 'light', clip: 'trunk' },
         { poly: eyePatch, paint: 'light', clip: 'trunk' },
-        { poly: saddle, paint: '#9EA3A6', o: 0.85, clip: 'trunk' },
+        { poly: saddle, paint: '#9EA3A6', o: 0.45, clip: 'trunk' },
+        { poly: saddleCore, paint: '#9EA3A6', o: 0.5, clip: 'trunk' },
       ],
-      median: [{ fin: 'caudal', marks: [finTip(c.caudal.lower, 0.15, 'light', 0.5)] }],
     };
   },
 };
@@ -463,7 +460,7 @@ export const MAMMALS: Record<string, PlateDef> = {
   'spinner-dolphin': M(spinner, { back: '#6E777E', belly: '#F2F2EF', dark: '#2E363E' }, 2),
   'humpback-whale': M(humpback, { back: '#25292D', belly: '#E8E9E6' }, 3),
   'sperm-whale': M(sperm, { back: '#4A4542', belly: '#6B6560' }, 4),
-  orca: M(orca, { back: '#15171A', belly: '#F4F4F0' }, 5),
+  orca: M(orca, { back: '#0A0B0D', belly: '#F4F4F0' }, 5),
   dugong: M(dugong, { back: '#8A8378', belly: '#B9B1A3' }, 6),
   'west-indian-manatee': M(manatee, { back: '#7C7C78', belly: '#9A9A94' }, 7),
   'california-sea-lion': M(seaLion, { back: '#A07C52', belly: '#C9A97E', dark: '#3A2A20' }, 8),
