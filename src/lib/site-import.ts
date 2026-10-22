@@ -209,29 +209,32 @@ const listOf = (value: string | undefined): string[] =>
 const LODGING = new Set(['hotel', 'resort', 'hostel', 'guest_house', 'motel', 'apartment', 'chalet', 'camp_site', 'caravan_site']);
 const LEISURE_BUSINESS = new Set(['resort', 'marina', 'sports_centre', 'fitness_centre', 'water_park']);
 const INLAND_WATER = new Set(['lake', 'pond', 'reservoir', 'river', 'canal', 'stream', 'basin', 'oxbow', 'moat']);
+/** Names that belong to a dive business rather than a place: "Blue Planet Dive Centre", "Down Under Diving". */
+const BUSINESS_NAME = /\b(?:dive|diving|scuba)\s+(?:cent(?:er|re)|club|shop|school|academy|resort|college|base|cruises?|charters?|tours?|travel)\b|\b(?:diving|scuba)\s*$/i;
 
 /**
- * What the tags say the element is. The OSM wiki marks a dive spot as a physical feature (a wreck,
- * a reef, a cave entrance, a body of water) with `sport=scuba_diving` and `scuba_diving:divespot=yes`.
- * `sport=scuba_diving` alone is not enough: dive centres (`amenity=dive_centre`), equipment shops
- * (`shop=scuba_diving`) and clubs (`club=scuba_diving`) carry it too. So:
+ * What the tags say the element is. The OSM wiki marks a dive spot with `sport=scuba_diving` and
+ * `scuba_diving:divespot=yes`, but real dive sites in the Great Barrier Reef and the Red Sea are almost
+ * all tagged `sport=scuba_diving` alone, often with `tourism=attraction`, a `mooring` or a
+ * `scuba_diving:entry:*` key (checked against the live data, October 2026). Dive centres, shops and
+ * clubs carry `sport=scuba_diving` too, so:
  *
  * - anything that is also a business (an `amenity`, `shop`, `club`, `office`, `craft` or `building`
- *   tag, a lodging, a resort or marina) is a business, even with `divespot=yes`;
- * - `divespot=yes` is a dive spot; `divespot=no` is not;
- * - without `divespot`, `sport=scuba_diving` on a wreck, reef or cave entrance counts, since that
- *   is a physical dive feature and not a service.
+ *   tag, a lodging, a resort or marina), or is named like one ("… Dive Centre", "… Diving"), is a
+ *   business, even with `divespot=yes`;
+ * - `divespot=no` is not a dive spot;
+ * - anything else tagged `sport=scuba_diving` or `divespot=yes` is a dive spot.
  */
 export function classifyTags(tags: Record<string, string>): 'spot' | SkipReason {
   const business =
     ['amenity', 'shop', 'club', 'office', 'craft', 'building'].some((key) => has(tags[key])) ||
     LODGING.has(tags.tourism ?? '') ||
-    LEISURE_BUSINESS.has(tags.leisure ?? '');
+    LEISURE_BUSINESS.has(tags.leisure ?? '') ||
+    BUSINESS_NAME.test(tags['name:en'] ?? tags.name ?? '');
   if (business) return 'dive-business';
 
   const divespot = (tags['scuba_diving:divespot'] ?? '').toLowerCase();
-  const physical = tags.historic === 'wreck' || tags['seamark:type'] === 'wreck' || tags.natural === 'reef' || tags.natural === 'cave_entrance';
-  const spot = divespot === 'yes' || (divespot !== 'no' && listOf(tags.sport).includes('scuba_diving') && physical);
+  const spot = divespot === 'yes' || (divespot !== 'no' && listOf(tags.sport).includes('scuba_diving'));
   if (!spot) return 'not-a-dive-spot';
 
   if (INLAND_WATER.has(tags.water ?? '') || tags.landuse === 'quarry' || tags.landuse === 'reservoir' || tags.leisure === 'swimming_pool') {

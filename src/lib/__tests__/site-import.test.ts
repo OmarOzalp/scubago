@@ -81,10 +81,18 @@ describe('dive spots versus dive centres', () => {
     for (const tags of businesses) expect(classifyTags(tags)).toBe('dive-business');
   });
 
-  it('does not take sport=scuba_diving alone, a divespot=no, or a bare wreck', () => {
-    expect(classifyTags({ sport: 'scuba_diving' })).toBe('not-a-dive-spot');
+  it('takes sport=scuba_diving alone, the way real Great Barrier Reef and Red Sea sites are tagged', () => {
+    expect(classifyTags({ sport: 'scuba_diving' })).toBe('spot');
+    expect(classifyTags({ sport: 'scuba_diving', tourism: 'attraction', 'scuba_diving:entry:boat': 'yes', name: 'Anemone City' })).toBe('spot');
+    expect(classifyTags({ sport: 'scuba_diving', mooring: 'yes', name: 'Plate Top' })).toBe('spot');
+  });
+
+  it('does not take a divespot=no, a bare wreck, or a place named like a dive business', () => {
     expect(classifyTags({ sport: 'scuba_diving', 'scuba_diving:divespot': 'no', historic: 'wreck' })).toBe('not-a-dive-spot');
     expect(classifyTags({ historic: 'wreck' })).toBe('not-a-dive-spot');
+    expect(classifyTags({ sport: 'scuba_diving', tourism: 'attraction', name: 'Down Under Diving' })).toBe('dive-business');
+    expect(classifyTags({ sport: 'scuba_diving', name: 'Blue Planet Dive Centre' })).toBe('dive-business');
+    expect(classifyTags({ sport: 'scuba_diving', name: 'Coral Garden' })).toBe('spot');
   });
 
   it('leaves out lakes, quarries and pools, which are not the sea', () => {
@@ -95,7 +103,7 @@ describe('dive spots versus dive centres', () => {
   it('reports the reason for each skipped element in the fixture', () => {
     const result = importElements(fixture.elements, { retrievedOn: DAY });
     expect(result.skippedByReason).toEqual({
-      'dive-business': 4, 'not-a-dive-spot': 2, unnamed: 1, 'outside-area': 2, 'no-position': 1, 'inland-water': 1, 'repeated-element': 1,
+      'dive-business': 5, 'not-a-dive-spot': 1, unnamed: 1, 'outside-area': 2, 'no-position': 1, 'inland-water': 1, 'repeated-element': 1,
     });
     const businessIds = ['node/9000000011', 'node/9000000012', 'node/9000000013', 'node/9000000014'];
     expect(result.sites.some((s) => businessIds.includes(s.externalIds?.[0].id ?? ''))).toBe(false);

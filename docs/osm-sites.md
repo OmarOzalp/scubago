@@ -18,22 +18,19 @@ Dive **spots** in two areas, as ScubaGo dive sites:
 - **Egypt's Red Sea coast**, the Gulf of Suez, the west shore of the Gulf of Aqaba, and the
   offshore reefs (Brothers, Daedalus, Elphinstone, Rocky Island, Zabargad, St John's).
 
-On the wiki, a dive spot is a physical feature (a wreck, a reef, a cave entrance, a body of water)
-tagged `sport=scuba_diving` and `scuba_diving:divespot=yes`. Dive **centres**
+On the wiki, a dive spot is tagged `sport=scuba_diving` and `scuba_diving:divespot=yes`. In practice
+(checked against the live data in October 2026) almost no Great Barrier Reef or Red Sea dive site has
+`divespot`: they carry `sport=scuba_diving` alone, usually with `tourism=attraction`, a `mooring` or a
+`scuba_diving:entry:*` key ("Cod Hole", "Anemone City", "Plate Top"). Dive **centres**
 (`amenity=dive_centre`), equipment **shops** (`shop=scuba_diving`) and **clubs**
-(`club=scuba_diving`) also carry `sport=scuba_diving`, so that tag alone proves nothing. The import
-keeps:
-
-1. anything with `scuba_diving:divespot=yes`;
-2. a wreck (`historic=wreck`), reef (`natural=reef`) or cave entrance (`natural=cave_entrance`)
-   tagged `sport=scuba_diving` with no `divespot` tag.
-
-It leaves out, with the reason counted in the summary:
+(`club=scuba_diving`) carry `sport=scuba_diving` too. So the import keeps anything tagged
+`sport=scuba_diving` or `scuba_diving:divespot=yes` that is not a business, and leaves out, with the
+reason counted in the summary:
 
 - **businesses:** any element that also has an `amenity`, `shop`, `club`, `office`, `craft` or
-  `building` tag, or is a hotel, hostel, guest house, resort or marina, even if it says
-  `divespot=yes`. Tags decide, never names;
-- **`divespot=no`**, and `sport=scuba_diving` on anything that isn't a wreck, reef or cave entrance;
+  `building` tag, or is a hotel, hostel, guest house, resort or marina, or is named like a business
+  ("… Dive Centre", "… Diving School", a name ending in "Diving"), even if it says `divespot=yes`;
+- **`divespot=no`**;
 - **lakes, quarries and pools** (`water=lake`, `landuse=quarry`, `leisure=swimming_pool` and the
   like);
 - **unnamed** elements, and elements with no position;
@@ -43,27 +40,22 @@ It leaves out, with the reason counted in the summary:
 
 One Overpass request per area, so the summary can count each and a time-out only costs one of them.
 `scripts/osm-sites/query.ts` builds them from the boxes in `src/lib/site-import.ts`; print them with
-`npx tsx scripts/osm-sites/query.ts`. At the time of writing (query hash `020c805dd6a4`):
+`npx tsx scripts/osm-sites/query.ts`. At the time of writing (query hash `57f71c1a813f`):
 
 ```
 [out:json][timeout:180];
 (
   nwr["scuba_diving:divespot"="yes"](-24.5,142.2,-10.7,154.5);
-  nwr["sport"~"(^|;)scuba_diving(;|$)"]["historic"="wreck"](-24.5,142.2,-10.7,154.5);
-  nwr["sport"~"(^|;)scuba_diving(;|$)"]["natural"~"^(reef|cave_entrance)$"](-24.5,142.2,-10.7,154.5);
+  nwr["sport"~"(^|;)scuba_diving(;|$)"](-24.5,142.2,-10.7,154.5);
 );
 out center;
 ```
 
-```
-[out:json][timeout:180];
-(
-  nwr["scuba_diving:divespot"="yes"](22,32,30.2,36.8);
-  nwr["sport"~"(^|;)scuba_diving(;|$)"]["historic"="wreck"](22,32,30.2,36.8);
-  nwr["sport"~"(^|;)scuba_diving(;|$)"]["natural"~"^(reef|cave_entrance)$"](22,32,30.2,36.8);
-);
-out center;
-```
+and the same for the Egypt box `(22,32,30.2,36.8)`. The public overpass-api.de server refuses
+connections from some cloud hosts; `OVERPASS_URL` points the script at a mirror
+(`https://overpass.kumi.systems/api/interpreter`, `https://overpass.private.coffee/api/interpreter`).
+When a mirror is too busy for a whole area, fetch it in smaller boxes with the same query, save each
+response, and pass them all to `--input`.
 
 Choices, and why:
 

@@ -43,8 +43,7 @@ export function buildQuery(area: ImportAreaDef): string {
     `[out:json][timeout:${QUERY_TIMEOUT_S}];`,
     '(',
     `  nwr["scuba_diving:divespot"="yes"]${bbox};`,
-    `  nwr[${SPORT}]["historic"="wreck"]${bbox};`,
-    `  nwr[${SPORT}]["natural"~"^(reef|cave_entrance)$"]${bbox};`,
+    `  nwr[${SPORT}]${bbox};`,
     ');',
     'out center;',
   ].join('\n');
