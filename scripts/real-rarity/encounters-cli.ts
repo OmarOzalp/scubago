@@ -16,6 +16,7 @@ import {
   PRESENCE_SOURCES,
   buildEncounterData,
   tierCounts,
+  type BuildEncounterOptions,
   type EncounterData,
   type PresenceSource,
 } from '../../src/lib/encounter-rarity';
@@ -25,6 +26,7 @@ import type { DiveSite, Species } from '../../src/lib/types';
 import { createPoliteClient, REQUEST_INTERVAL_MS, type PoliteClient } from './client';
 import { DEFAULT_MAX_PAGES, DEFAULT_RADIUS_KM, collectSite, encounterMatcher, parseSitesFile, sitesToJson, type SitesFile } from './encounter-sites';
 import { sanityLines, sanityReport } from './sanity';
+import { leaveOneCellOut, stabilityLines } from './stability';
 
 const DATA_DIR = join(__dirname, '../../src/data');
 export const DEFAULT_OUT = join(DATA_DIR, 'encounter-rarity.json');
@@ -58,7 +60,12 @@ Options:
   --min-records <n>     Records near a site that make an animal "recorded" there, from one source. Default
                         ${DEFAULT_ENCOUNTER_OPTIONS.minRecords}. Offline, 1 reproduces the first version of the method.
   --min-site-taxa <n>   A site is used only if its sources list at least n taxa. Default ${DEFAULT_ENCOUNTER_OPTIONS.minSiteTaxa}.
-  --min-sites <n>       Fewest used sites in an animal’s waters. Default ${DEFAULT_ENCOUNTER_OPTIONS.minSites}.
+  --min-sites <n>       Fewest used sites in an animal’s waters (cells, with --cells). Default ${DEFAULT_ENCOUNTER_OPTIONS.minSites}.
+  --cells <km>          Analysis, off by default: count cells instead of sites, where dive sites within <km> of each
+                        other, directly or through a chain of sites, are one cell. 10 is twice the search radius.
+                        Works offline.
+  --stability           Also print how many tiers change if one site (one cell, with --cells) is dropped, by the size
+                        of an animal’s waters. Combine with --min-sites 1 to see the small basins too.
   --max-pages <n>       Pages of 200 iNaturalist taxa read per site. Default ${DEFAULT_MAX_PAGES}.
   --only <ids>          Ask about just these site ids (comma-separated), as a dry run unless --out is given.
   --allow-incomplete    Write the files even if some sites could not be asked; they are left out.
@@ -79,6 +86,8 @@ export interface Options {
   minRecords: number | undefined;
   minSiteTaxa: number | undefined;
   minSites: number | undefined;
+  cellKm: number | undefined;
+  stability: boolean;
   maxPages: number | null;
   only: string[] | null;
   allowIncomplete: boolean;
@@ -98,6 +107,8 @@ export function parseArgs(argv: readonly string[]): Options {
     minRecords: undefined,
     minSiteTaxa: undefined,
     minSites: undefined,
+    cellKm: undefined,
+    stability: false,
     maxPages: null,
     only: null,
     allowIncomplete: false,
@@ -122,6 +133,7 @@ export function parseArgs(argv: readonly string[]): Options {
     else if (arg === '--fresh') options.fresh = true;
     else if (arg === '--no-obis') options.obis = false;
     else if (arg === '--allow-incomplete') options.allowIncomplete = true;
+    else if (arg === '--stability') options.stability = true;
     else if (arg === '--radius') {
       const km = Number(value(i++, arg));
       if (!Number.isFinite(km) || km < 0.5 || km > 50) throw new UsageError('--radius must be between 0.5 and 50 km.');
@@ -133,6 +145,11 @@ export function parseArgs(argv: readonly string[]): Options {
     } else if (arg === '--min-records') options.minRecords = whole(i++, arg, 1);
     else if (arg === '--min-site-taxa') options.minSiteTaxa = whole(i++, arg, 0);
     else if (arg === '--min-sites') options.minSites = whole(i++, arg, 1);
+    else if (arg === '--cells') {
+      const km = Number(value(i++, arg));
+      if (!Number.isFinite(km) || km < 1 || km > 200) throw new UsageError('--cells must be a reach between 1 and 200 km.');
+      options.cellKm = km;
+    }
     else if (arg === '--max-pages') options.maxPages = whole(i++, arg, 1);
     else if (arg === '--only') options.only = value(i++, arg).split(',').map((id) => id.trim()).filter(Boolean);
     else if (arg === '--contact') options.contact = value(i++, arg);
@@ -259,7 +276,7 @@ export async function runEncountersCli(argv: readonly string[], deps: CliDeps = 
     warn(`--presence ${presence} needs OBIS records, and these sites were asked without OBIS.`);
     return 2;
   }
-  const { data, shares } = buildEncounterData({
+  const build: BuildEncounterOptions = {
     catalog,
     sites: file.sites,
     notableSites: diveSites,
@@ -268,8 +285,9 @@ export async function runEncountersCli(argv: readonly string[], deps: CliDeps = 
     radiusKm: file.radiusKm,
     sourcesAsked: file.obis ? ['inaturalist', 'obis'] : ['inaturalist'],
     sources: REAL_RARITY_SOURCES,
-    options: { presence, minRecords: options.minRecords, minSiteTaxa: options.minSiteTaxa, minSites: options.minSites },
-  });
+    options: { presence, minRecords: options.minRecords, minSiteTaxa: options.minSiteTaxa, minSites: options.minSites, cellKm: options.cellKm },
+  };
+  const { data, shares } = buildEncounterData(build);
 
   // 3. Say what happened.
   const tiers = new Map(Object.entries(data.species).map(([id, entry]) => [id, entry.tier] as const));
@@ -280,7 +298,11 @@ export async function runEncountersCli(argv: readonly string[], deps: CliDeps = 
   log(`  Records from: ${inputName ?? 'iNaturalist and OBIS, live'}; radius ${file.radiusKm} km; an animal is recorded at a site when ${presence === 'either' ? 'either source has' : `${presence} has`} at least ${data.method?.minRecordsPerSite} record${data.method?.minRecordsPerSite === 1 ? '' : 's'} near it.`);
   log(`  Sites: ${Object.keys(file.sites).length} asked, ${shares.usedSites} used, ${shares.skippedSites.length} left out.`);
   for (const skipped of shares.skippedSites) log(`    left out ${skipped.id}: ${skipped.reason}`);
-  log(`  Used sites by basin: ${BASINS.filter((b) => shares.basinSites[b.id] > 0).map((b) => `${b.short} ${shares.basinSites[b.id]}`).join(', ')}`);
+  const cellsOn = (data.method?.cellKm as number) > 0;
+  log(`  Used sites by basin: ${BASINS.filter((b) => shares.basinSites[b.id] > 0).map((b) => `${b.short} ${shares.basinSites[b.id]}${cellsOn ? ` (${shares.basinCells[b.id]} cells)` : ''}`).join(', ')}`);
+  if (cellsOn) {
+    log(`  Cells: ${shares.usedSites} used sites make ${shares.usedCells} cells (sites within ${data.method?.cellKm} km of each other, directly or by a chain, are one); the largest holds ${shares.largestCell.sites} sites over ${shares.largestCell.spanKm} km and the widest ${shares.widestCell.sites} over ${shares.widestCell.spanKm} km. An animal is recorded in a cell when any used site in it has it, and the share and the minimum (${data.method?.minSitesInWaters}) count cells.`);
+  }
   log(`  Catalogue: ${catalog.length} species. Tiered: ${tiers.size}. Unresolved: ${unresolved.length}.`);
   log(`  Tiers now:    ${fmt(tierCounts(tiers.values()))}`);
   log(`  Catalogue by hand: ${fmt(tierCounts(catalog.map((s) => s.rarity)))}`);
@@ -290,7 +312,12 @@ export async function runEncountersCli(argv: readonly string[], deps: CliDeps = 
   for (const d of differences.slice(0, 15)) log(`    ${d.id}: catalogue ${d.catalog}, encounters ${d.real} (${d.steps > 0 ? '+' : ''}${d.steps})`);
   if (differences.length > 15) log(`    … and ${differences.length - 15} more`);
   const report = sanityReport(data);
-  for (const line of sanityLines(report)) log(line);
+  for (const line of sanityLines(report, cellsOn ? 'cells' : 'sites')) log(line);
+  if (options.stability) {
+    // Every animal that has a waters at all, however few cells: the small basins are what the minimum is about.
+    const everyone = buildEncounterData({ ...build, options: { ...build.options, minSites: 1 } });
+    for (const line of stabilityLines(leaveOneCellOut(everyone.shares.shares), cellsOn ? 'cell' : 'site')) log(line);
+  }
 
   // 4. Write.
   if (gathered.aborted) {

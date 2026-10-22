@@ -44,7 +44,9 @@ export interface SanityRow {
   /** Null when the animal has no tier in the data (it is unresolved). */
   tier: Rarity | null;
   share: number | null;
+  /** Sites (cells, with the cell option) where it is recorded. */
   recordedAt: number | null;
+  /** Sites (cells) in its waters. */
   sites: number | null;
   basins: string[];
   /** The tier the group expects, met or not. Null without a tier. */
@@ -93,11 +95,11 @@ export function sanityReport(data: Pick<EncounterData, 'species'>): SanityReport
 
 const percent = (share: number) => `${(share * 100).toFixed(0)}%`;
 
-/** The table as plain text lines, for the log and for pasting into the docs. */
-export function sanityLines(report: SanityReport): string[] {
+/** The table as plain text lines, for the log and for pasting into the docs. `unit` is what the counts are of: sites, or cells with the cell option. */
+export function sanityLines(report: SanityReport, unit: 'sites' | 'cells' = 'sites'): string[] {
   const lines = ['  Sanity check (iconic animals should land rare or rarer, staples common or uncommon):'];
   for (const row of report.rows) {
-    const where = row.tier === null ? 'no tier (unresolved)' : `${row.tier.padEnd(9)} ${percent(row.share ?? 0).padStart(4)}  ${row.recordedAt}/${row.sites} sites  ${row.basins.join(' + ')}`;
+    const where = row.tier === null ? 'no tier (unresolved)' : `${row.tier.padEnd(9)} ${percent(row.share ?? 0).padStart(4)}  ${row.recordedAt}/${row.sites} ${unit}  ${row.basins.join(' + ')}`;
     lines.push(`    ${row.group.padEnd(6)} ${row.id.padEnd(20)} ${where}${row.expected === false ? '   <- against expectation' : ''}`);
   }
   lines.push(`  Iconic rare or rarer: ${report.iconic.met} of ${report.iconic.total}. Staples common or uncommon: ${report.staple.met} of ${report.staple.total}. ${report.passes ? 'Passes.' : 'Does not pass.'}`);

@@ -6,8 +6,9 @@ import type { Rarity, Species } from '@/lib/types';
  * (docs/real-rarity.md). Pure. Nothing here reads the network; the per-site records come from
  * `scripts/real-rarity/encounters.ts`, which asks iNaturalist and OBIS once at build time.
  *
- * This file holds the geography (which ocean basin a site is in) and the share: of the dive sites
- * in the basins where an animal lives, the fraction that has it recorded nearby.
+ * This file holds the geography (which biogeographic province, here called a basin, a site is in), an
+ * optional grouping of sites into cells, and the share: of the dive sites in the basins where an animal
+ * lives, the fraction that has it recorded nearby.
  */
 
 /** The catalogue's id for "something else" (UNLISTED_ID in catalog.ts, which imports from the rarity modules). */
@@ -17,6 +18,7 @@ const UNLISTED_ID = 'unlisted';
 
 export const BASIN_IDS = [
   'tropical-indo-pacific',
+  'red-sea',
   'tropical-west-atlantic',
   'tropical-east-pacific',
   'tropical-east-atlantic',
@@ -39,9 +41,15 @@ export interface Basin {
 export const BASINS: readonly Basin[] = [
   {
     id: 'tropical-indo-pacific',
-    name: 'Tropical Indo-Pacific (Red Sea included)',
+    name: 'Tropical Indo-Pacific (without the Red Sea)',
     short: 'Indo-Pacific',
-    rule: 'Latitude 32 S to 30 N and longitude east of 20 E or west of 140 W: the Red Sea, the Indian Ocean, Southeast Asia, the western and central Pacific, Hawaii and French Polynesia, the warm east coast of southern Africa and Australia.',
+    rule: 'Latitude 32 S to 30 N and longitude east of 20 E or west of 140 W, except the Red Sea: the Indian Ocean (Maldives, Seychelles, East Africa), the Gulf of Aden and Arabian Sea, Southeast Asia and the Coral Triangle, the Great Barrier Reef, the western and central Pacific, Hawaii and French Polynesia, the warm east coast of southern Africa.',
+  },
+  {
+    id: 'red-sea',
+    name: 'Red Sea (with the Gulfs of Suez and Aqaba)',
+    short: 'Red Sea',
+    rule: 'Inside the polygon RED_SEA: latitude 12.5 N to 30.2 N, between lines drawn inland of the Egyptian, Sudanese and Eritrean coast and beyond the Sinai, Jordanian, Saudi and Yemeni coast. It ends at Bab-el-Mandeb: the Gulf of Aden is not in it.',
   },
   {
     id: 'tropical-west-atlantic',
@@ -122,18 +130,73 @@ function onPacificSide(lat: number, lng: number): boolean {
 }
 
 /**
- * The ocean basin of a point, by explicit latitude and longitude rules (`BASINS[].rule` says them in
- * words). The tropical basins are tried first, in this order; whatever is left is temperate or cold
- * and goes to the southern basin (south of the equator), the North Pacific (east of 100 E or west of
- * 100 W) or the North Atlantic (between). Null for coordinates that are not numbers on Earth.
+ * The Red Sea with the Gulfs of Suez and Aqaba, as a ring of [longitude, latitude] points, clockwise
+ * from the north-west. Its north edge is 30.2 N (Suez and the head of the Gulf of Aqaba are at 29.5 to
+ * 30 N; the Mediterranean is north of 31 N) and its south edge 12.5 N, just short of Bab-el-Mandeb
+ * (12.6 N, 43.4 E), so the Gulf of Aden (Djibouti, Aden, Socotra) is not in it. The long sides are
+ * drawn a few tenths of a degree out from the coast, on the land side along Egypt, Sudan and Eritrea
+ * (Hurghada 33.8 E, Marsa Alam 34.9 E, Port Sudan 37.2 E, Massawa 39.5 E) and on the sea side's far
+ * shore along Sinai, Arabia and Yemen (Duba 35.7 E, Yanbu 38.1 E, Jeddah 39.2 E, Jizan 42.6 E). They
+ * cut across desert and the Danakil, which hold no dive sites. Luxor, Cairo, Riyadh, Alexandria,
+ * Aden and Djibouti are outside; Eilat, Aqaba, Dahab, Sharm, Hurghada, the Brothers, Port Sudan,
+ * Jeddah and the Farasan Islands are inside (the tests check each).
+ */
+const RED_SEA: readonly (readonly [lng: number, lat: number])[] = [
+  [32.0, 30.2],
+  [35.6, 30.2],
+  [35.6, 28.0],
+  [36.3, 27.0],
+  [37.2, 25.5],
+  [38.6, 24.0],
+  [39.6, 22.0],
+  [41.0, 20.0],
+  [42.2, 18.0],
+  [43.3, 16.0],
+  [43.7, 14.5],
+  [43.9, 12.5],
+  [41.7, 12.5],
+  [39.4, 15.0],
+  [37.0, 18.0],
+  [36.4, 20.0],
+  [35.5, 22.0],
+  [34.8, 24.0],
+  [33.9, 25.8],
+  [33.3, 27.0],
+  [32.6, 28.0],
+  [32.1, 29.0],
+];
+
+/** Ray casting: true when the point is inside the ring. The Red Sea does not cross the antimeridian, so longitude is plain. */
+function insideRing(lng: number, lat: number, ring: readonly (readonly [number, number])[]): boolean {
+  let inside = false;
+  for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) {
+    const [lngI, latI] = ring[i];
+    const [lngJ, latJ] = ring[j];
+    if (latI > lat !== latJ > lat && lng < ((lngJ - lngI) * (lat - latI)) / (latJ - latI) + lngI) inside = !inside;
+  }
+  return inside;
+}
+
+/**
+ * The biogeographic province (here called a basin) of a point, by explicit latitude and longitude
+ * rules (`BASINS[].rule` says them in words). The Red Sea polygon is tried first, because its fauna is
+ * its own: it has endemic reef fishes, and widespread Indo-Pacific animals such as the palette
+ * surgeonfish (blue tang) and the ocellaris clownfish are not in it.
+ * Then the tropical basins, in this order; whatever is left is temperate or cold and goes to the
+ * southern basin (south of the equator), the North Pacific (east of 100 E or west of 100 W) or the
+ * North Atlantic (between). Null for coordinates that are not numbers on Earth.
  *
  * The limits are the poleward edge of tropical water, not of the tropics: the Red Sea runs to 30 N
  * and southern Africa’s warm coast to 32 S, while California’s kelp (33 N), Sydney (34 S) and the
  * Mediterranean (30.5 N and up) are temperate. An inland point (a quarry, a lake) falls into whichever
  * rule its coordinates satisfy; it returns no marine records and is dropped by the site filter.
+ *
+ * The Western Indian Ocean (Maldives, East Africa, Seychelles) is deliberately not split from the
+ * Coral Triangle and the Pacific: the data holds five used sites there (docs/real-rarity.md).
  */
 export function basinOf(lat: number, lng: number): BasinId | null {
   if (typeof lat !== 'number' || typeof lng !== 'number' || !Number.isFinite(lat) || !Number.isFinite(lng) || Math.abs(lat) > 90 || Math.abs(lng) > 180) return null;
+  if (insideRing(lng, lat, RED_SEA)) return 'red-sea';
   const pacific = onPacificSide(lat, lng);
   if (pacific && lat >= -6 && lat <= 27 && lng > -140) return 'tropical-east-pacific';
   if (!pacific && lat >= -25 && lat <= 32.5 && lng >= -98 && lng < -30) return 'tropical-west-atlantic';
@@ -186,7 +249,22 @@ export const PRESENCE_SOURCES: readonly PresenceSource[] = ['either', 'inaturali
  */
 export const MIN_SITE_TAXA = 20;
 
-/** An animal needs at least this many used sites in its waters to be given a share. */
+/**
+ * The reach of the optional cell grouping (`cellKm`, `--cells <km>`): dive sites within this many km of
+ * each other, directly or through a chain of such sites, are one place, a cell (see `groupIntoCells`).
+ * 10 km is twice the 5 km search radius: it links exactly the sites whose search circles touch, which
+ * read the same records. **Off by default** (`cellKm: 0`): the share counts dive sites. It is kept for
+ * analysis; docs/real-rarity.md has what it gave and why it is not what ships.
+ */
+export const DEFAULT_CELL_KM = 10;
+
+/**
+ * An animal needs at least this many used sites in its waters to be given a share. (With cells on, this
+ * many cells.) One site moves a share by 1/n: 9 points at 11 sites (the Caribbean today), 2.5 at 40.
+ * `--stability` (scripts/real-rarity/stability.ts) shows how many tiers one site moves, by the size of the
+ * animal’s waters; docs/real-rarity.md has the table and what it says about the small Caribbean and
+ * cold-water samples.
+ */
 export const MIN_SITES_IN_WATERS = 5;
 
 /**
@@ -201,7 +279,10 @@ export interface EncounterOptions {
   presence?: PresenceSource;
   minRecords?: number;
   minSiteTaxa?: number;
+  /** Fewest used sites (cells, with `cellKm`) that an animal’s waters must hold. */
   minSites?: number;
+  /** 0 (the default) counts dive sites. Above 0, sites within this many km of each other (directly or through others) are one cell, and cells are counted instead. */
+  cellKm?: number;
 }
 
 export const DEFAULT_ENCOUNTER_OPTIONS: Required<EncounterOptions> = {
@@ -209,6 +290,7 @@ export const DEFAULT_ENCOUNTER_OPTIONS: Required<EncounterOptions> = {
   minRecords: MIN_RECORDS_PER_SITE,
   minSiteTaxa: MIN_SITE_TAXA,
   minSites: MIN_SITES_IN_WATERS,
+  cellKm: 0,
 };
 
 const count = (value: unknown): number => (typeof value === 'number' && Number.isFinite(value) && value > 0 ? Math.floor(value) : 0);
@@ -228,6 +310,64 @@ export function isRecordedAt(site: SiteEncounters, speciesId: string, presence: 
   return inat || obis;
 }
 
+// ── Cells ────────────────────────────────────────────────────────────────────
+
+const EARTH_RADIUS_KM = 6371.0088;
+const rad = (degrees: number) => (degrees * Math.PI) / 180;
+
+/** Great-circle distance between two points in km (haversine). Correct across the antimeridian and at the poles. */
+export function distanceKm(aLat: number, aLng: number, bLat: number, bLng: number): number {
+  const h = Math.sin(rad(bLat - aLat) / 2) ** 2 + Math.cos(rad(aLat)) * Math.cos(rad(bLat)) * Math.sin(rad(bLng - aLng) / 2) ** 2;
+  return 2 * EARTH_RADIUS_KM * Math.asin(Math.min(1, Math.sqrt(h)));
+}
+
+/**
+ * Groups points into cells by single linkage: two points are in one cell when they are within `cellKm` of
+ * each other, directly or through a chain of points each within `cellKm` of the next. Returns, for each
+ * point, the index of the first point of its cell (so equal numbers mean one cell).
+ *
+ * Why this and not a fixed grid: a place mapped with a dozen dive sites (Hurghada, the Cod Hole) must
+ * count once however densely it is mapped, and a grid cannot promise that. Measured on random pairs, a
+ * 10 km grid puts 3 km apart in different cells 36% of the time, where a line happens to fall between
+ * them, and its edges make the count of cells depend on where the grid starts. Here any two sites within
+ * 10 km are one cell, always: 10 km is twice the 5 km search radius, so a pair closer than that has
+ * overlapping search circles and reads some of the same records, and a pair farther than that and
+ * unlinked does not. The count does not depend on the order of the points.
+ *
+ * The price is chaining: sites each 8 km from the next along a coast are one cell however long the
+ * coast is. In the 329 sites the largest cell holds 46 sites over 32 km and the widest spans 52 km;
+ * `largestCell` and `widestCell` in the file and in the log report both on every run, so a chain that
+ * grows with a bigger import is seen.
+ */
+export function groupIntoCells(points: readonly { lat: number; lng: number }[], cellKm: number = DEFAULT_CELL_KM): number[] {
+  const parent = points.map((_, i) => i);
+  const find = (i: number): number => {
+    let root = i;
+    while (parent[root] !== root) root = parent[root];
+    for (let node = i; parent[node] !== root; ) {
+      const next = parent[node];
+      parent[node] = root;
+      node = next;
+    }
+    return root;
+  };
+  // Sweep south to north: a point can only be within `cellKm` of those within `cellKm` of latitude (110.5 km
+  // is shorter than a degree of latitude anywhere, so the band is never too narrow).
+  const band = cellKm / 110.5;
+  const order = points.map((_, i) => i).sort((a, b) => points[a].lat - points[b].lat || a - b);
+  for (let i = 0; i < order.length; i++) {
+    const a = points[order[i]];
+    for (let j = i + 1; j < order.length && points[order[j]].lat - a.lat <= band; j++) {
+      const b = points[order[j]];
+      if (distanceKm(a.lat, a.lng, b.lat, b.lng) <= cellKm) {
+        const [rootA, rootB] = [find(order[i]), find(order[j])];
+        if (rootA !== rootB) parent[Math.max(rootA, rootB)] = Math.min(rootA, rootB); // the root is the lowest index of the cell
+      }
+    }
+  }
+  return points.map((_, i) => find(i));
+}
+
 // ── The share ────────────────────────────────────────────────────────────────
 
 /** A dive site with curated notable species (`DiveSite.notableSpecies`): only used to say where an animal lives. */
@@ -240,9 +380,9 @@ export interface NotableSite {
 export interface EncounterShare {
   /** recordedAt / sites, 0 to 1. */
   share: number;
-  /** Used sites in the animal’s waters. */
+  /** Used dive sites in the animal’s waters (cells, `groupIntoCells`, when `cellKm` is above 0). */
   sites: number;
-  /** Of those, the sites where it is recorded. */
+  /** Of those, the ones where it is recorded (a cell counts when any used site in it records the animal). */
   recordedAt: number;
   /** Its waters: the basins where it is recorded at a used site or listed as notable. */
   basins: BasinId[];
@@ -259,8 +399,16 @@ export interface EncounterShares {
   unresolved: Map<string, string>;
   /** Used sites in each basin. */
   basinSites: Record<BasinId, number>;
+  /** Cells with a used site in each basin (a cell cut by a basin edge counts in both). */
+  basinCells: Record<BasinId, number>;
   skippedSites: SkippedSite[];
   usedSites: number;
+  /** Cells with a used site, summed over the basins. */
+  usedCells: number;
+  /** The cell holding the most used sites, and the greatest distance between two of them. */
+  largestCell: { sites: number; spanKm: number };
+  /** The cell with the greatest distance between two of its sites, and how many it holds: how far chaining has gone. */
+  widestCell: { sites: number; spanKm: number };
 }
 
 const emptyBasinCounts = (): Record<BasinId, number> => Object.fromEntries(BASIN_IDS.map((id) => [id, 0])) as Record<BasinId, number>;
@@ -272,12 +420,17 @@ const names = (basins: readonly BasinId[]) => basins.map((id) => BASINS_BY_ID.ge
  *
  * 1. **Used sites.** A site is used when its sources answered and listed at least `minSiteTaxa`
  *    species-level taxa, and its coordinates fall in a basin.
- * 2. **Its waters.** The basins of the used sites where the animal is recorded, plus the basins of
+ * 2. **Cells (optional).** With `cellKm` above 0, used sites within `cellKm` of each other, directly or
+ *    through a chain (`groupIntoCells`), are one cell within their basin, and cells are counted instead
+ *    of sites: a place mapped with a dozen dive sites then counts once, and an animal is recorded in a
+ *    cell when it is recorded at any used site in it. Off by default, so each site counts.
+ * 3. **Its waters.** The basins of the used sites where the animal is recorded, plus the basins of
  *    every site that lists it among its `notableSpecies` (the app’s own curation, so an animal the
  *    data never records is still placed where it is known to live). Only basins with a used site count.
- * 3. **The share** is (used sites in its waters where it is recorded) ÷ (used sites in its waters).
+ * 4. **The share** is (sites in its waters where it is recorded) ÷ (used sites in its waters), or the
+ *    same over cells.
  *
- * An animal with no waters, or fewer than `minSites` used sites in them, is unresolved and keeps its
+ * An animal with no waters, or fewer than `minSites` sites (cells) in them, is unresolved and keeps its
  * catalogue tier: no data says the data is thin, not that the animal is rare.
  */
 export function encounterShares(
@@ -286,12 +439,13 @@ export function encounterShares(
   notableSites: Iterable<NotableSite> = [],
   options: EncounterOptions = {},
 ): EncounterShares {
-  const { presence, minRecords, minSiteTaxa, minSites } = { ...DEFAULT_ENCOUNTER_OPTIONS, ...options };
+  const { presence, minRecords, minSiteTaxa, minSites, cellKm } = { ...DEFAULT_ENCOUNTER_OPTIONS, ...options };
   const entries = sites instanceof Map ? [...sites.entries()] : Object.entries(sites);
 
-  const used: { id: string; basin: BasinId; site: SiteEncounters }[] = [];
+  const used: { id: string; basin: BasinId; cell: string; site: SiteEncounters }[] = [];
   const skippedSites: SkippedSite[] = [];
   const basinSites = emptyBasinCounts();
+  const usable: { id: string; basin: BasinId; site: SiteEncounters }[] = [];
   for (const [id, site] of entries) {
     const basin = basinOf(site.lat, site.lng);
     const effort = siteEffort(site, presence);
@@ -299,8 +453,31 @@ export function encounterShares(
     else if (effort === undefined) skippedSites.push({ id, reason: 'The sources asked for did not answer for it.' });
     else if (effort < minSiteTaxa) skippedSites.push({ id, reason: `Only ${effort} taxa are recorded near it, fewer than the ${minSiteTaxa} that make a site worth counting.` });
     else {
-      used.push({ id, basin, site });
+      usable.push({ id, basin, site });
       basinSites[basin] += 1;
+    }
+  }
+  // Cells are made within a province: a chain does not cross a province line, and a cell cut by one counts in both.
+  const basinCells = emptyBasinCounts();
+  let largestCell = { sites: 0, spanKm: 0 };
+  let widestCell = { sites: 0, spanKm: 0 };
+  for (const basin of BASIN_IDS) {
+    const here = usable.filter((entry) => basin === entry.basin);
+    const cellOfSite = cellKm > 0 ? groupIntoCells(here.map(({ site }) => site), cellKm) : here.map((_, i) => i); // off: every site is its own cell
+    const members = new Map<number, typeof here>();
+    here.forEach((entry, i) => {
+      used.push({ ...entry, cell: `${basin}/${cellOfSite[i]}` });
+      const group = members.get(cellOfSite[i]);
+      if (group) group.push(entry);
+      else members.set(cellOfSite[i], [entry]);
+    });
+    basinCells[basin] = members.size;
+    for (const group of members.values()) {
+      let spanKm = 0;
+      for (const a of group) for (const b of group) spanKm = Math.max(spanKm, distanceKm(a.site.lat, a.site.lng, b.site.lat, b.site.lng));
+      const found = { sites: group.length, spanKm: Math.round(spanKm) };
+      if (found.sites > largestCell.sites) largestCell = found;
+      if (found.spanKm > widestCell.spanKm || (found.spanKm === widestCell.spanKm && found.sites > widestCell.sites)) widestCell = found;
     }
   }
 
@@ -321,7 +498,7 @@ export function encounterShares(
     if (id === UNLISTED_ID) continue;
     const recorded = used.filter(({ site }) => isRecordedAt(site, id, presence, minRecords));
     const waters = new Set<BasinId>([...recorded.map(({ basin }) => basin), ...(notableBasins.get(id) ?? [])]);
-    const basins = BASIN_IDS.filter((basin) => waters.has(basin) && basinSites[basin] > 0);
+    const basins = BASIN_IDS.filter((basin) => waters.has(basin) && basinCells[basin] > 0);
     if (basins.length === 0) {
       unresolved.set(
         id,
@@ -332,14 +509,17 @@ export function encounterShares(
       continue;
     }
     const inWaters = used.filter(({ basin }) => basins.includes(basin));
-    if (inWaters.length < minSites) {
-      unresolved.set(id, `Only ${inWaters.length} usable dive site${inWaters.length === 1 ? '' : 's'} in its waters (${names(basins)}); at least ${minSites} are needed.`);
+    const cells = new Set(inWaters.map(({ cell }) => cell));
+    if (cells.size < minSites) {
+      const noun = cellKm > 0 ? `dive area${cells.size === 1 ? '' : 's'} (cells of sites within ${cellKm} km)` : `dive site${cells.size === 1 ? '' : 's'}`;
+      unresolved.set(id, `Only ${cells.size} usable ${noun} in its waters (${names(basins)}); at least ${minSites} are needed.`);
       continue;
     }
-    const recordedAt = inWaters.filter(({ site }) => isRecordedAt(site, id, presence, minRecords)).length;
-    shares.set(id, { share: recordedAt / inWaters.length, sites: inWaters.length, recordedAt, basins });
+    const recordedCells = new Set(inWaters.filter(({ site }) => isRecordedAt(site, id, presence, minRecords)).map(({ cell }) => cell));
+    shares.set(id, { share: recordedCells.size / cells.size, sites: cells.size, recordedAt: recordedCells.size, basins });
   }
-  return { shares, unresolved, basinSites, skippedSites, usedSites: used.length };
+  const usedCells = BASIN_IDS.reduce((sum, basin) => sum + basinCells[basin], 0);
+  return { shares, unresolved, basinSites, basinCells, skippedSites, usedSites: used.length, usedCells, largestCell, widestCell };
 }
 
 // ── Tiers ────────────────────────────────────────────────────────────────────
@@ -519,19 +699,21 @@ export function buildEncounterData(build: BuildEncounterOptions): { data: Encoun
     ...(build.sources && { sources: build.sources }),
     method: {
       summary:
-        'For each dive site, iNaturalist (research-grade species_counts, marine groups) and the OBIS checklist say which catalogue animals are recorded within the radius. An animal’s waters are the ocean basins where it is recorded at a used site or listed as notable by a seed site. Its share is the used sites in its waters that have it recorded, divided by the used sites in its waters. Shares are cut into percentile bands across the animals that have one.',
+        'For each dive site, iNaturalist (research-grade species_counts, marine groups) and the OBIS checklist say which catalogue animals are recorded within the radius. An animal’s waters are the biogeographic basins (the Red Sea is its own) where it is recorded at a used site or listed as notable by a seed site. Its share is the used sites in its waters that have it recorded, divided by the used sites in its waters (when cellKm is above 0, the same over cells of sites within cellKm of each other). Shares are cut into percentile bands across the animals that have one.',
       radiusKm: build.radiusKm,
       sources: asked,
       presence: options.presence,
       minRecordsPerSite: options.minRecords,
       minSiteTaxa: options.minSiteTaxa,
       minSitesInWaters: options.minSites,
+      cellKm: options.cellKm,
       sitesAsked: Object.keys(build.sites).length,
       sitesUsed: shares.usedSites,
       sitesPerBasin: shares.basinSites,
+      ...(options.cellKm > 0 && { cellsUsed: shares.usedCells, cellsPerBasin: shares.basinCells, largestCell: shares.largestCell, widestCell: shares.widestCell }),
       basins: BASINS.map(({ id, name, rule }) => ({ id, name, rule })),
       bands: RARITY_BANDS,
-      bandsOrder: 'from the animal recorded at the largest share of sites in its waters down',
+      bandsOrder: 'from the animal recorded at the largest share of the sites in its waters down',
       minSpecies: MIN_SPECIES_FOR_BANDS,
       ties: 'Animals with equal shares share the tier at the middle of their block.',
     },
