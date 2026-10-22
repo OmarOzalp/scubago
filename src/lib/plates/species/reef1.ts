@@ -111,7 +111,7 @@ const idol: FishSpec = {
     const saddle = shapeIn(s, [[tAtX(s, 4), -0.05], [tAtX(s, 9), -0.15], [tAtX(s, 11), 0.25], [tAtX(s, 5), 0.35]]);
     // The pennant: from the third dorsal spine, up and back in an S, a white streamer with an inked edge.
     const base = c.dorsal[0].tips[2];
-    const fil = filament([base, add(base, [9, -10]), add(base, [25, -13]), add(base, [40, -10]), add(base, [52, -9])], 3.4, 'light');
+    const fil = filament([base, add(base, [9, -10]), add(base, [25, -13]), add(base, [40, -10]), add(base, [52, -9])], 4.8, 'light');
     return {
       tint: [{ poly: yellow, paint: '#F6D23A', o: 0.85, clip: 'body' }],
       marks: [
