@@ -128,11 +128,11 @@ const munks: RaySpec = {
     [7.1, 5],
     [9, 7.2],
     [44, 25.2],
-    [50, 31.5, 1],
-    [43.5, 30.6],
-    [34, 30.9],
-    [24, 33.6],
-    [15, 39],
+    [53, 37, 1],
+    [44.5, 33],
+    [34, 31.8],
+    [24, 34],
+    [15, 39.4],
     [8, 45],
     [3, 47.6],
     [0, 48],
@@ -149,25 +149,21 @@ const munks: RaySpec = {
   eye: [7.2, 4.2],
   eyeR: 0.7,
   extra: (c) => {
-    const collar: Pt[] = [
-      [-14, 5.4],
-      [14, 5.4],
-      [14, 10],
-      [-14, 10],
-    ];
+    // A soft dusky brow over the head, well inside the disc (not a hard-edged collar).
+    const brow: Pt[] = ellipse([0, 9], 6.2, 3.2);
     const margin = (side: 1 | -1): Fill => {
       const lead = spline(
         [
           [9 * side, 7.2],
           [44 * side, 25.2],
-          [50 * side, 31.5],
+          [53 * side, 37],
         ],
         false,
       );
       return { poly: [...lead, ...lead.slice().reverse().map(([x, y]) => [x - 1.6 * side, y + 2.4] as Pt)], paint: '#7D8A9E', o: 0.8, clip: 'trunk' };
     };
     void c;
-    return { marks: [{ poly: collar, paint: 'dark', o: 0.7, clip: 'trunk' }, margin(1), margin(-1)] };
+    return { marks: [...soft(brow, 'dark', 0.4), margin(1), margin(-1)] };
   },
 };
 
@@ -601,7 +597,7 @@ const R = (spec: RaySpec, palette: PlateDef['palette'], rotate = 0): PlateDef =>
 export const RAYS: Record<string, PlateDef> = {
   'reef-manta': R(reefManta, { back: '#22252A', belly: '#F3F2EE' }),
   'oceanic-manta': R(oceanicManta, { back: '#17181B', belly: '#F4F3EF' }),
-  'munks-devil-ray': R(munks, { back: '#6E5F78', belly: '#F3F1EE', dark: '#2C2533' }),
+  'munks-devil-ray': R(munks, { back: '#5C6E88', belly: '#F3F1EE', dark: '#28313F' }),
   'spotted-eagle-ray': R(eagle, { back: '#25303F', belly: '#F7F5F0' }),
   'marbled-ray': R(marbled, { back: '#858A89', belly: '#ECEAE5', dark: '#1D1E21' }),
   'southern-stingray': R(southern, { back: '#6C5D47', belly: '#F3F0E8', dark: '#2E2A25' }),
