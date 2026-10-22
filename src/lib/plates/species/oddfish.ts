@@ -178,50 +178,85 @@ function seahorse(h: HorseSpec): PlateGeom {
   const g = emptyGeom();
   const rand = rng(61);
   const spine = resample(spline(h.spine, false), 160);
-  const body = tube(spine, h.width);
-  g.body = body;
-  g.trunk = body;
-  // The head: at a right angle to the trunk, the snout reaching forward (left).
-  const neck = spine[0];
-  const hc: Pt = add(neck, [-4, -h.headDepth * 0.55]);
+  // The back (the right-hand side of the picture) and the throat and belly (the left).
+  const left = offsetLine(spine, (t) => h.width(t));
+  const right = offsetLine(spine, (t) => -h.width(t));
+  // The head and the neck are one outline: the neck's two edges run up into the head, so there is
+  // no step between them. Head points are (u, v): u forward (left) and v up from the neck's top.
+  const H = spine[0];
+  const K = 1.22;
+  const P = ([u, v]: [number, number]): Pt => add(H, [-u * K, -v * K]);
+  const hd = h.headDepth;
   const sn = h.snout;
   const sd = h.snoutDepth;
-  const head = spline(
-    [
-      add(hc, [-sn - 3.4, -sd * 0.5]),
-      add(hc, [-3.2, -sd * 0.6]),
-      add(hc, [-1.6, -h.headDepth * 0.55]),
-      add(hc, [2.2, -h.headDepth * 0.72]),
-      add(hc, [5.6, -h.headDepth * 0.3]),
-      add(hc, [6.2, h.headDepth * 0.4]),
-      add(neck, [h.width(0), 2]),
-      add(neck, [-h.width(0), 1]),
-      add(hc, [-2.6, h.headDepth * 0.5]),
-      add(hc, [-3.4, sd * 0.55]),
-      add(hc, [-sn - 3.4, sd * 0.5]),
-    ],
-    true,
-  );
-  const coronet =
+  const upper = (u: number) => hd * 0.8 - 0.57 * (u - 7.4);
+  const tipU: [number, number] = [12.2 + sn, upper(12.2 + sn)];
+  const tipL: [number, number] = [tipU[0] + 0.1, tipU[1] - sd * 0.8];
+  const jaw: [number, number] = [9.2, upper(9.2) - sd * 1.15];
+  const mid = (a: [number, number], b: [number, number], t: number, dv: number): [number, number] => [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t + dv];
+  const crest: [number, number][] =
     h.coronet === 'curl'
-      ? spline([add(hc, [1, -h.headDepth * 0.66]), add(hc, [2, -h.headDepth - 2.4]), add(hc, [4.6, -h.headDepth - 3]), add(hc, [5.6, -h.headDepth - 1.6]), add(hc, [4.4, -h.headDepth * 0.5])], true)
-      : ellipse(add(hc, [2.8, -h.headDepth * 0.78]), 1.8, 1.4);
+      ? [[1.8, hd * 0.98], [0.2, hd * 1.1], [-1.8, hd * 1.16], [-3.8, hd * 1.08], [-4.6, hd * 0.84]]
+      : [[1.8, hd * 0.97], [-0.8, hd * 1.08], [-3.4, hd * 0.98], [-4.4, hd * 0.8]];
+  const headCtrl: Ctrl[] = [
+    right[6],
+    right[3],
+    right[0],
+    P([5.4, 2.8]),
+    P([6.6, 1.8]),
+    P(jaw),
+    P(mid(jaw, tipL, 0.5, -0.1)),
+    P(tipL),
+    P([tipU[0] + 0.9, (tipU[1] + tipL[1]) / 2]),
+    P(tipU),
+    P(mid([7.4, hd * 0.8], tipU, 0.5, 0.35)),
+    P([7.4, hd * 0.8]),
+    P([4.4, hd * 0.92]),
+    ...crest.map(P),
+    P([-4.8, hd * 0.5]),
+    P([-4.4, hd * 0.16]),
+    left[0],
+    left[3],
+    left[6],
+  ];
+  const path = spline(headCtrl, false);
+  const nearest = (to: Pt, from: number, to2: number) => {
+    let best = from;
+    for (let i = from; i < to2; i++) if (dist(path[i], to) < dist(path[best], to)) best = i;
+    return best;
+  };
+  const iR = nearest(right[0], 0, Math.floor(path.length / 2));
+  const iL = nearest(left[0], Math.floor(path.length / 2), path.length);
+  const headPath = path.slice(iR, iL + 1);
+  const body = [...left, ...right.slice().reverse(), ...headPath];
+  g.body = body;
+  g.trunk = body;
   // The host it clings to, behind everything.
   if (h.host === 'grass') {
     const blade = spline([[spine[spine.length - 1][0] - 1.6, spine[spine.length - 1][1] + 6], [spine[spine.length - 1][0] - 1, spine[spine.length - 1][1]], [spine[spine.length - 1][0] + 2.4, spine[spine.length - 1][1] - 26]], false);
     g.far.push({ poly: tube(blade, () => 1.6), paint: '#8FA56A', lines: [{ pts: blade, w: 0.6, o: 0.6 }], edge: 0.7 });
   } else {
+    // A gorgonian: a curved stem forking into knobbly pink twigs, the tail wrapped round it.
     const tip = spine[spine.length - 1];
-    const branch = spline([add(tip, [-26, 10]), add(tip, [-6, 2]), add(tip, [14, -4]), add(tip, [30, -14])], false);
-    g.far.push({ poly: tube(branch, () => 2.2), paint: '#C9B3C6', lines: [], edge: 0.7 });
-    for (let k = 0; k < 14; k++) {
-      const p = resample(branch, 14)[k];
-      g.far.push({ poly: ellipse(add(p, [(rand() - 0.5) * 2, -2.2 + (rand() - 0.5)]), 1.1), paint: '#D9475A', lines: [], edge: 0.6 });
+    const stems: [number, number][][] = [
+      [[-32, 14], [-10, 3], [12, -5], [30, -17]],
+      [[12, -5], [18, -13], [17, -25], [23, -35]],
+      [[-10, 3], [-6, 13], [1, 23]],
+      [[21, -11], [31, -9], [39, -14]],
+    ];
+    for (const st of stems) {
+      const center = resample(spline(st.map((q) => add(tip, q)), false), 40);
+      g.far.push({ poly: tube(center, (t) => 2.5 - 1.4 * t), paint: '#C9B3C6', lines: [], edge: 0.7 });
+      g.far.push({ poly: ellipse(center[0], 2.5), paint: '#C9B3C6', lines: [], edge: 0.7 }, { poly: ellipse(center[center.length - 1], 1.1), paint: '#C9B3C6', lines: [], edge: 0.7 });
+      center.forEach((p, i) => {
+        if (i % 3 !== 1) return;
+        const side = (i / 3) % 2 < 1 ? 1 : -1;
+        const q = add(p, [side * 0.4, -2.6 * side + (rand() - 0.5)]);
+        g.far.push({ poly: ellipse(q, 1.2 + rand() * 0.5), paint: '#D9475A', lines: [], edge: 0.6 });
+      });
     }
   }
   // Rings across the trunk and tail, with small knobs where they meet the edges.
-  const left = offsetLine(spine, (t) => h.width(t));
-  const right = offsetLine(spine, (t) => -h.width(t));
   if (h.rings) {
     const n = 44;
     for (let k = 1; k < n; k++) {
@@ -233,26 +268,37 @@ function seahorse(h: HorseSpec): PlateGeom {
   // Shading along the shadowed (right) edge of the body.
   for (const k of [0.15, 0.3, 0.42]) g.engraving.push({ pts: offsetLine(spine, (t) => -h.width(t) * (1 - k * 1.4)), w: 1.2 - k, taper: 'both' });
   for (const k of [0.12, 0.25]) g.engraving.push({ pts: offsetLine(spine, (t) => h.width(t) * (1 - k * 1.6)), w: 0.6, taper: 'both' });
-  // Dorsal fin on the back where the trunk meets the tail; a small pectoral behind the head.
+  // Dorsal fin on the back where the trunk meets the tail, a fan of rays standing off it.
   const di = Math.round(spine.length * 0.32);
-  const dBase = right[di];
-  const dfin: Pt[] = spline([add(dBase, [0, -3]), add(dBase, [4.6, -2.4]), add(dBase, [5, 2.6]), add(dBase, [0, 3])], true);
-  g.far.push({ poly: dfin, paint: 'fin', lines: [0.25, 0.5, 0.75].map((k) => ({ pts: [lerp(add(dBase, [0, -3]), add(dBase, [0, 3]), k), lerp(add(dBase, [4.6, -2.4]), add(dBase, [5, 2.6]), k)], w: 0.5, taper: 'end' as const })), edge: 0.6 });
-  const pBase = add(neck, [h.width(0) * 0.8, 1]);
-  g.near.push({ poly: spline([pBase, add(pBase, [3.4, -1.6]), add(pBase, [3.6, 1.8]), add(pBase, [0.4, 2])], true), paint: 'fin', lines: [], edge: 0.6 });
+  const dBase = left[di];
+  const dfin: Pt[] = spline([add(dBase, [0, -3.4]), add(dBase, [5.2, -2.8]), add(dBase, [6, 0.6]), add(dBase, [5.2, 3]), add(dBase, [0, 3.4])], true);
+  g.far.push({
+    poly: dfin,
+    paint: 'fin',
+    lines: [0.2, 0.4, 0.6, 0.8].map((k) => ({ pts: [lerp(add(dBase, [0, -3.4]), add(dBase, [0, 3.4]), k), lerp(add(dBase, [5.2, -2.8]), add(dBase, [5.2, 3]), k)], w: 0.5, taper: 'end' as const })),
+    edge: 0.6,
+  });
+  // The pectoral: a small fan on the neck just behind the gill cover.
+  const pecBase = P([0.8, 2.8]);
+  const pec = spline([P([0.8, 4.4]), P([-1.4, 5.4]), P([-3.4, 4.4]), P([-3.8, 2.8]), P([-2.2, 1.2]), P([0.4, 1])], true);
+  g.near.push({
+    poly: pec,
+    paint: 'fin',
+    lines: [P([-3.2, 4.2]), P([-3.4, 3]), P([-2.2, 1.8]), P([-1.2, 5])].map((p) => ({ pts: [pecBase, p], w: 0.4, o: 0.7, taper: 'end' as const })),
+    edge: 0.65,
+  });
   if (h.tubercles) {
-    for (const f of scatterIn(body, { r: h.tubercles.r, gap: 0.3, paint: h.tubercles.paint, rand, tries: 300 })) g.marks.push({ ...f, edge: 0.6 });
+    for (const f of scatterIn(body, { r: h.tubercles.r, gap: 0.3, paint: h.tubercles.paint, rand, tries: 420 })) g.marks.push({ ...f, edge: 0.6 });
   } else {
     g.marks.push(...scatterIn(body, { r: 0.25, gap: 1.2, paint: 'pattern', rand, tries: 300, o: 0.8 }));
   }
-  const headLines: Line[] = [
-    { pts: spline([add(hc, [1.4, -h.headDepth * 0.4]), add(hc, [3.6, 0]), add(hc, [1.6, h.headDepth * 0.4])], false), w: 0.8 },
-    { pts: [add(hc, [-sn - 3, 0]), add(hc, [-3.6, 0])], w: 0.5, o: 0.5, taper: 'both' },
-  ];
-  g.near.push({ poly: head, paint: 'back', lines: headLines, edge: 1 });
-  g.near.push({ poly: coronet, paint: 'back', lines: [], edge: 0.9 });
-  if (h.tubercles) for (const f of scatterIn(head, { r: h.tubercles.r * 0.8, gap: 0.3, paint: h.tubercles.paint, rand, tries: 80 })) g.marks.push({ ...f, edge: 0.6 });
-  g.eyes.push({ c: add(hc, [-0.6, -0.6]), r: h.tubercles ? 1.5 : 1.15, iris: '#B8862E' });
+  // The gill cover behind the eye, the mouth at the snout's tip.
+  g.lines.push(
+    { pts: spline([P([2.8, hd * 0.78]), P([4.8, hd * 0.46]), P([3.4, hd * 0.2])], false), w: 0.9 },
+    { pts: spline([P([tipL[0] - 0.1, (tipU[1] + tipL[1]) / 2 - sd * 0.06]), P([tipL[0] - 3.2, (tipU[1] + tipL[1]) / 2 - sd * 0.02 + 0.8])], false), w: 0.7, taper: 'end' },
+    { pts: spline([P([hd * 0.2 + 2, hd * 0.9]), P([hd * 0.2 + 5.4, hd * 0.8]), P([hd * 0.2 + 8.4, hd * 0.66])], false), w: 0.5, o: 0.5, taper: 'both', detail: true },
+  );
+  g.eyes.push({ c: P([6.2, (hd * 0.8 + jaw[1]) / 2 + 0.4]), r: h.tubercles ? 1.5 : 1.2, iris: '#B8862E' });
   g.heavy.push(right);
   void dist;
   void clamp;
@@ -264,10 +310,10 @@ function seahorse(h: HorseSpec): PlateGeom {
 // visible rings; a low curled-back coronet; a deep head; a tail curled round a seagrass stem.
 const commonHorse = (): PlateGeom =>
   seahorse({
-    spine: [[24, 20], [27, 30], [25, 42], [27, 54], [31, 66], [31, 77], [26, 87], [17, 90], [12, 84], [15, 78], [20, 81]],
+    spine: [[31, 8], [27, 14], [24, 20], [27, 30], [25, 42], [27, 54], [31, 66], [31, 77], [26, 87], [17, 90], [12, 84], [15, 78], [20, 81]],
     width: (t) => (t < 0.08 ? 4.4 + t * 30 : t < 0.32 ? 6.8 + 3.6 * Math.sin(((t - 0.08) / 0.24) * Math.PI) : 6.8 * (1 - (t - 0.32) / 0.68) ** 0.9 + 0.5),
-    snout: 8.4,
-    snoutDepth: 4,
+    snout: 6.4,
+    snoutDepth: 4.8,
     headDepth: 12,
     rings: true,
     coronet: 'curl',
@@ -279,13 +325,13 @@ const commonHorse = (): PlateGeom =>
 // polyps; no visible rings.
 const pygmyHorse = (): PlateGeom =>
   seahorse({
-    spine: [[24, 22], [27, 31], [26, 42], [28, 52], [31, 61], [30, 70], [24, 76], [17, 76], [14, 70], [18, 66]],
+    spine: [[30, 10], [26, 16], [24, 22], [27, 31], [26, 42], [28, 52], [31, 61], [30, 70], [24, 76], [17, 76], [14, 70], [18, 66]],
     width: (t) => (t < 0.1 ? 4.4 + t * 30 : t < 0.38 ? 7.4 + 3 * Math.sin(((t - 0.1) / 0.28) * Math.PI) : 7.4 * (1 - (t - 0.38) / 0.62) ** 0.8 + 0.8),
     snout: 1.6,
     snoutDepth: 3.8,
     headDepth: 11,
     rings: false,
-    tubercles: { paint: '#D9475A', r: 1 },
+    tubercles: { paint: '#D9475A', r: 1.25 },
     coronet: 'knob',
     host: 'gorgonian',
   });
@@ -437,7 +483,7 @@ const ghostPipefish: FishSpec = {
   ],
   anal: [{ from: 62, to: 74, spines: 10, rays: 0, h: [[0, 6], [1, 4]], notch: 0.45, rake: [30, 50] }],
   caudal: { type: 'pointed', len: 22, h: 9, rays: 13 },
-  pelvic: { at: [40, 0.95], base: 8, h: [[0, 18], [0.5, 22], [1, 16]], angles: [70, 150], rays: 7, notch: 0.35 },
+  pelvic: { at: [40, 0.95], base: 8, h: [[0, 15], [0.5, 18], [1, 14]], angles: [70, 150], rays: 7, notch: 0.35 },
   eye: { x: 27, f: 0.4, r: 1.2, iris: '#B3262E' },
   lateral: false,
   belly: 1.5,
@@ -446,25 +492,42 @@ const ghostPipefish: FishSpec = {
   extra: (c) => {
     const s = c.s;
     const rand = rng(83);
+    // Red-orange scribbles, short white bars and yellow flecks on a dark brown body.
     const scribbles: Line[] = [];
-    for (let k = 0; k < 20; k++) {
+    for (let k = 0; k < 14; k++) {
       const x0 = 24 + rand() * 52;
       const pts = Array.from({ length: 5 }, (_, i) => atX(s, x0 + i * 1.2, 0.1 + rand() * 0.8));
-      scribbles.push({ pts: spline(pts, false), w: 1.2, o: 0.9 });
+      scribbles.push({ pts: spline(pts, false), w: 1, o: 0.9 });
     }
-    const red: Fill[] = scribbles.map((l) => ({ poly: swell(l.pts, 0.9, 'both'), paint: '#B3262E', clip: 'body' }));
-    const blotches = scatter(s, { t0: tAtX(s, 26), t1: 1, f0: 0.1, f1: 0.9, r: 1.2, gap: 2, paint: '#F2C33A', rand, tries: 40, o: 0.9 });
+    const red: Fill[] = scribbles.map((l) => ({ poly: swell(l.pts, 0.8, 'both'), paint: '#D4472A', clip: 'body' }));
+    const bars: Fill[] = [];
+    for (let x = 27; x < 76; x += 3.4 + rand() * 1.4) {
+      const f0 = 0.08 + rand() * 0.3;
+      bars.push({ poly: swell([atX(s, x, f0), atX(s, x + 0.4, f0 + 0.3 + rand() * 0.4)], 0.9, 'both'), paint: '#F3E9DA', clip: 'trunk' });
+    }
+    const flecks = scatter(s, { t0: tAtX(s, 26), t1: 1, f0: 0.1, f1: 0.9, r: 0.55, gap: 1.6, paint: '#EDB93A', rand, tries: 160, o: 0.95 });
+    const dots = scatter(s, { t0: tAtX(s, 26), t1: 1, f0: 0.1, f1: 0.9, r: 0.4, gap: 2, paint: '#F6F0E2', rand, tries: 120, o: 0.95 });
+    // Ragged filaments: a fringe along the head and the back and belly of the body.
     const filaments: Line[] = [];
     for (let x = 3; x < 30; x += 1.6) {
       for (const f of [-0.2, 1.2]) filaments.push({ pts: [atX(s, x, f < 0 ? 0 : 1), add(atX(s, x, f < 0 ? 0 : 1), [0.6, f < 0 ? -1.4 - rand() : 1.4 + rand()])], w: 0.6 });
     }
+    for (let x = 28; x < 76; x += 2.2 + rand()) {
+      for (const f of [0, 1]) {
+        const p0 = atX(s, x, f);
+        filaments.push({ pts: [p0, add(p0, [1 + rand() * 0.8, (f ? 1 : -1) * (1.6 + rand() * 1.8)])], w: 0.7, taper: 'end' });
+      }
+    }
+    // Fringes: every fin ray carries on past the membrane as a bare filament.
+    const fringe = (tips: Pt[], bases: Pt[]): Line[] => tips.map((t, i) => ({ pts: [t, add(t, mul(norm(sub(t, bases[i])), 2.2 + rand() * 1.8))], w: 0.6, taper: 'end' as const }));
+    const fringes = [...fringe(c.pelvic!.tips, c.pelvic!.tips.map((_, i, arr) => lerp(atX(s, 40, 0.95), add(atX(s, 40, 0.95), [2.8, 7.5]), i / (arr.length - 1)))), ...fringe(c.dorsal[0].tips, c.dorsal[0].bases)];
     return {
-      marks: [...blotches, ...red],
-      lines: filaments,
+      marks: [...flecks, ...dots, ...bars, ...red],
+      lines: [...filaments, ...fringes],
       median: [
-        { part: 'pelvic', marks: scatterIn(c.pelvic!.poly, { r: 0.9, gap: 1.6, paint: '#B3262E', rand, tries: 80, o: 0.8 }) },
-        { part: 'dorsal', index: 0, marks: scatterIn(c.dorsal[0].poly, { r: 0.8, gap: 1.6, paint: '#B3262E', rand, tries: 60, o: 0.8 }) },
-        { part: 'caudal', marks: scatterIn(c.caudal.poly, { r: 0.9, gap: 1.6, paint: '#B3262E', rand, tries: 60, o: 0.8 }) },
+        { part: 'pelvic', marks: scatterIn(c.pelvic!.poly, { r: 0.8, gap: 1.6, paint: '#D4472A', rand, tries: 80, o: 0.85 }) },
+        { part: 'dorsal', index: 0, marks: scatterIn(c.dorsal[0].poly, { r: 0.7, gap: 1.6, paint: '#EDB93A', rand, tries: 60, o: 0.85 }) },
+        { part: 'caudal', marks: scatterIn(c.caudal.poly, { r: 0.8, gap: 1.6, paint: '#D4472A', rand, tries: 60, o: 0.8 }) },
       ],
     };
   },
@@ -478,7 +541,7 @@ export const ODD_FISH: Record<string, PlateDef> = {
   'pygmy-seahorse': { build: pygmyHorse, palette: { back: '#C9B3C6', belly: '#C9B3C6', fin: '#E3D6E2' } },
   'leafy-seadragon': { build: leafy, palette: { back: '#C9A74A', belly: '#C9A74A' } },
   'weedy-seadragon': { build: weedy, palette: { back: '#C8452F', belly: '#C8452F' } },
-  'ornate-ghost-pipefish': { build: () => rotateGeom(fish({ ...ghostPipefish, seed: 4 }), -50), palette: { back: '#F3E9DA', belly: '#F3E9DA', fin: '#F3E9DA' } },
+  'ornate-ghost-pipefish': { build: () => rotateGeom(fish({ ...ghostPipefish, seed: 4 }), -50), palette: { back: '#4A2A24', belly: '#6B4033', fin: '#7A4A3A' } },
 };
 void region;
 void shapeIn;
