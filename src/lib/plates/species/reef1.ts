@@ -526,7 +526,8 @@ const queenTrigger: FishSpec = {
   caudal: { type: 'lyre', len: 16, h: 12, fork: 0.35, filament: 18, rays: 14 },
   extra: (c) => {
     const s = c.s;
-    const lower = region(s, 0, 1, (t) => 0.45 - 0.1 * t, 1.05);
+    // The orange-yellow underside fades up into the green back in three steps, not a hard split.
+    const lower = [[0.32, 0.3], [0.39, 0.38], [0.46, 0.55]].map(([f, o]) => ({ poly: region(s, 0, 1, (t) => f - 0.1 * t, 1.05), paint: '#E9A93A' as const, o, clip: 'trunk' as const }));
     const blue = '#2FA8E8' as const;
     const bandA = spline([atX(s, 1, 0.56), atX(s, 10, 0.48), atX(s, 20, 0.4), atX(s, 28, 0.5)], false);
     const bandB = spline([atX(s, 2, 0.76), atX(s, 12, 0.72), atX(s, 22, 0.66), atX(s, 29, 0.66)], false);
@@ -537,11 +538,10 @@ const queenTrigger: FishSpec = {
     });
     const pedBand = region(s, tAtX(s, 74), tAtX(s, 77.5), -0.2, 1.2);
     return {
-      tint: [{ poly: lower, paint: '#E9A93A', o: 0.85, clip: 'trunk' }],
+      tint: lower,
       marks: [
         { poly: swell(bandA, 1.6, 'both'), paint: blue },
         { poly: swell(bandB, 1.6, 'both'), paint: blue },
-        { poly: ring(atX(s, 1, 0.72), 1, 1.8), paint: blue },
         { poly: pedBand, paint: blue, o: 0.9, clip: 'body' },
       ],
       lines: radiating,
