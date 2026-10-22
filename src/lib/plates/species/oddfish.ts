@@ -51,14 +51,14 @@ const stonefish: FishSpec = {
     const rand = rng(41);
     const warts: Fill[] = scatter(s, { t0: 0.04, t1: 1, f0: 0.02, f1: 0.9, r: (t) => 0.5 + rand() * 0.9, gap: 0.5, paint: 'back', rand, tries: 500, wobble: 0.3 }).map((f) => ({ ...f, edge: 0.7 }));
     const patches: Fill[] = ['#C8642A', '#B33A2E', '#D9B04A', '#7F8F5A', '#8A8478'].flatMap((paint, i) =>
-      scatter(s, { t0: 0.05, t1: 1, f0: 0.05, f1: 0.9, r: 2.2 + i * 0.3, gap: 4, paint: paint as Fill['paint'], rand, tries: 20, o: 0.55, wobble: 0.45 }),
+      scatter(s, { t0: 0.05, t1: 1, f0: 0.05, f1: 0.9, r: 2.2 + i * 0.3, gap: 4, paint: paint as Fill['paint'], rand, tries: 20, o: 0.34, wobble: 0.45 }),
     );
     const pits: Fill[] = [{ poly: ellipse(atX(s, 12.6, 0.04), 1.2, 0.7), paint: 'ink', o: 0.7 }];
     // The huge upturned mouth, a dark crescent gape opening on top of the face.
     const gape = shapeIn(s, [[tAtX(s, 0.3), 0.08], [tAtX(s, 3.6), 0.02], [tAtX(s, 7.4), 0.12], [tAtX(s, 4.6), 0.3], [tAtX(s, 1), 0.36]]);
     const lip = spline([atX(s, 0.2, 0.4), atX(s, 4.4, 0.36), atX(s, 8, 0.16)], false);
     const flaps: Line[] = [0.3, 0.45, 0.6].map((f) => ({ pts: [atX(s, 0.6, f), add(atX(s, 0.6, f), [-1.6, 0.4])], w: 0.9 }));
-    const g = ground(c, 11, -4, 100);
+    const g = ground(c, 11, 0, 84);
     return { marks: [...patches, ...warts, ...pits, { poly: gape, paint: '#3A2A22', edge: 1.2 }], lines: [...flaps, ...g.lines, { pts: lip, w: 1.2 }], far: g.far };
   },
 };
@@ -70,15 +70,16 @@ const stonefish: FishSpec = {
 const leafFish: FishSpec = {
   tip: [0, 1],
   blunt: 0.4,
-  top: [[0.6, -1], [2, -4], [4, -8], [6, -11.5], [9, -14], [13, -15], [20, -15.4], [30, -15], [42, -13], [54, -10], [64, -7], [72, -5], [78, -4.4]],
+  top: [[0.6, -0.6], [2, -2.6], [4, -4.2], [6, -7.6], [8.6, -11.8], [12, -14.4], [20, -15.4], [30, -15], [42, -13], [54, -10], [64, -7], [72, -5], [78, -4.4]],
   bot: [[0.8, 2.6], [3, 5], [7, 8], [13, 11], [22, 13], [32, 13.4], [42, 12.4], [52, 10.4], [62, 8], [70, 6], [78, 4.8]],
-  dorsal: [{ from: 9, to: 75, spines: 12, rays: 9, h: [[0, 12], [0.15, 26], [0.28, 28], [0.62, 18], [0.85, 11], [1, 7]], notch: 0.08, rake: [12, 45] }],
+  dorsal: [{ from: 9, to: 75, spines: 12, rays: 9, h: [[0, 9], [0.15, 19.5], [0.28, 21], [0.62, 14], [0.85, 8.5], [1, 5.5]], notch: 0.08, rake: [12, 45] }],
   anal: [{ from: 55, to: 72, spines: 3, rays: 5, h: [[0, 6], [0.5, 8], [1, 5]], rake: [35, 60] }],
   caudal: { type: 'rounded', len: 22, h: 9, rays: 11 },
   pectoral: { at: [22, 0.66], base: 3, h: [[0, 7], [1, 5]], angles: [10, 50], rays: 8 },
   pelvic: { at: [24, 0.95], base: 2, h: [[0, 7], [1, 5]], angles: [70, 95], rays: 5 },
   eye: { x: 8, f: 0.34, r: 1.6, iris: '#B8862E' },
-  mouth: [[0.3, 0.42], [2.4, 0.56], [4, 0.52]],
+  mouth: [[0.5, 0.3], [3, 0.46], [6.6, 0.64]],
+  lips: 0.7,
   lateral: false,
   belly: 1.5,
   softBelly: false,
@@ -105,14 +106,15 @@ const leafFish: FishSpec = {
 const frogfish: FishSpec = {
   tip: [0, -2],
   blunt: 0.7,
-  top: [[0.6, -5], [2.5, -8.6], [5, -11.6], [7, -13.4], [9, -13], [11.5, -14.8], [14, -17.4], [17, -19], [21, -21], [30, -22.6], [40, -22.2], [50, -20], [58, -16], [65, -11.5], [70, -8], [74, -6.4]],
+  top: lumpy([[0.6, -5], [2.5, -8.6], [5, -11.6], [7, -13.4], [9, -13], [11.5, -14.8], [14, -17.4], [17, -19], [21, -21], [30, -22.6], [40, -22.2], [50, -20], [58, -16], [65, -11.5], [70, -8], [74, -6.4]], 1.2, 7),
   bot: [[1, 3], [3, 7], [7, 12], [13, 16.5], [21, 20], [30, 22], [40, 22], [49, 20], [57, 16], [64, 11.4], [70, 8], [74, 6.6]],
   dorsal: [{ from: 24, to: 70, rays: 12, h: [[0, 5], [0.5, 8], [1, 5]], rake: [35, 70] }],
   anal: [{ from: 52, to: 70, rays: 7, h: [[0, 5], [0.5, 7], [1, 5]], rake: [35, 65] }],
   caudal: { type: 'rounded', len: 24, h: 11, rays: 11 },
   pelvic: { at: [12, 0.96], base: 2, h: 4.5, angles: [70, 110], rays: 5 },
   eye: { x: 11, f: 0.26, r: 1.2, iris: '#B8862E' },
-  mouth: [[0.3, 0.08], [4, 0.26], [8, 0.38]],
+  mouth: [[0.4, 0.14], [3, 0.34], [7, 0.52], [11.6, 0.6]],
+  lips: 1.3,
   lateral: false,
   belly: 1.5,
   softBelly: false,
@@ -129,7 +131,7 @@ const frogfish: FishSpec = {
     const base = atX(s, 31, 0.66);
     const elbow = add(base, [6, 13]);
     const wrist = add(elbow, [-5, 9]);
-    const arm = tube(spline([base, lerp(base, elbow, 0.6), elbow, lerp(elbow, wrist, 0.5), wrist], false), (t) => 2.6 - 1 * t);
+    const arm = tube(spline([base, lerp(base, elbow, 0.5), add(elbow, [1.2, -0.6]), lerp(elbow, wrist, 0.5), wrist], false), (t) => 3.6 - 2.1 * t + 0.9 * Math.exp(-(((t - 0.5) / 0.14) ** 2)));
     const hand: Pt[] = [];
     const rays: Line[] = [];
     for (let k = 0; k <= 8; k++) {
@@ -145,9 +147,11 @@ const frogfish: FishSpec = {
       const p = atX(s, 1 + rand() * 72, 0.04 + rand() * 0.92);
       velvet.push({ pts: [p, add(p, [0.25, 0.2])], w: 0.8, o: 0.4, detail: true });
     }
-    const g = ground(c, 26.5, -6, 104);
+    const g = ground(c, 26.5, 0, 80);
+    // The huge oblique mouth: a dark crescent from the snout back and down under the eye.
+    const gape = shapeIn(s, [[tAtX(s, 0.5), 0.16], [tAtX(s, 4), 0.33], [tAtX(s, 9), 0.5], [tAtX(s, 13), 0.58], [tAtX(s, 9), 0.62], [tAtX(s, 4), 0.5], [tAtX(s, 0.8), 0.32]]);
     return {
-      marks: pores,
+      marks: [...pores, { poly: gape, paint: '#4A2F22', edge: 1 }],
       lines: [{ pts: rod, w: 1.3 }, ...velvet, ...g.lines],
       near: [
         { poly: tuft, paint: '#E8C9A0', lines: [], edge: 0.7 },
@@ -373,24 +377,31 @@ function seadragon(d: DragonSpec): PlateGeom {
       const tip = add(end, [Math.cos(a) * len, Math.sin(a) * len]);
       const n = perp(norm(sub(tip, end)));
       const w = len * 0.3;
-      // A broad blade, wavy along its edges, pointed at the tip.
+      // A broad blade with a ragged, wavy margin, pointed at the tip.
       const ctrl: Ctrl[] = [end];
+      const jag = () => 1 + (rand() - 0.5) * 0.5;
       for (const [u, k2] of [
-        [0.25, 0.8],
-        [0.45, 1],
-        [0.65, 0.85],
-        [0.82, 0.55],
+        [0.14, 0.62],
+        [0.27, 0.9],
+        [0.4, 1.05],
+        [0.53, 0.88],
+        [0.66, 0.98],
+        [0.78, 0.7],
+        [0.9, 0.42],
       ] as const)
-        ctrl.push(add(lerp(end, tip, u), mul(n, w * k2 * (u === 0.45 ? 1.1 : 0.9))));
+        ctrl.push(add(lerp(end, tip, u), mul(n, w * k2 * jag())));
       ctrl.push([tip[0], tip[1], 1]);
       for (const [u, k2] of [
-        [0.82, 0.5],
-        [0.65, 0.9],
-        [0.45, 0.95],
-        [0.25, 0.75],
+        [0.9, 0.4],
+        [0.78, 0.72],
+        [0.66, 0.95],
+        [0.53, 0.86],
+        [0.4, 1.02],
+        [0.27, 0.86],
+        [0.14, 0.58],
       ] as const)
-        ctrl.push(add(lerp(end, tip, u), mul(n, -w * k2)));
-      const leaf = spline(ctrl, true, 0.8);
+        ctrl.push(add(lerp(end, tip, u), mul(n, -w * k2 * jag())));
+      const leaf = spline(ctrl, true, 0.85);
       const veins: Line[] = [{ pts: [end, lerp(end, tip, 0.92)], w: 0.6, taper: 'end' }, ...[0.35, 0.6].flatMap((u) => [1, -1].map((sd) => ({ pts: [lerp(end, tip, u), add(lerp(end, tip, u + 0.15), mul(n, sd * w * 0.6))], w: 0.45, taper: 'end' as const })))];
       parts.push({ poly: leaf, paint: d.leafPaint, lines: veins, edge: 0.7 });
     }
@@ -426,8 +437,8 @@ function seadragon(d: DragonSpec): PlateGeom {
 // red-edged pale lines on a yellow-brown body; near-invisible fins.
 const leafy = (): PlateGeom =>
   seadragon({
-    spine: [[0, 40], [8, 39.4], [13, 37.8], [18, 39.6], [28, 42], [40, 43], [54, 42.6], [70, 43.6], [86, 45.6], [100, 44]],
-    width: (t) => (t < 0.1 ? 1.1 + (t / 0.1) * 1.9 : t < 0.18 ? 3 : t < 0.42 ? 3.1 + 1.2 * Math.sin(((t - 0.18) / 0.24) * Math.PI) : 3.1 * (1 - (t - 0.42) / 0.58) + 0.5),
+    spine: [[0, 40], [8, 39.2], [14, 38.6], [20, 39.6], [28, 41.4], [40, 43], [54, 42.6], [70, 43.6], [86, 45.6], [100, 44]],
+    width: (t) => (t < 0.1 ? 1.1 + (t / 0.1) * 1.9 : t < 0.18 ? 3 + ((t - 0.1) / 0.08) * 0.1 : t < 0.42 ? 3.1 + 1.2 * Math.sin(((t - 0.18) / 0.24) * Math.PI) : 3.1 - ((t - 0.42) / 0.58) * 2.6),
     leaves: [
       [0.06, -1, 1.6, 5.1, 3],
       [0.14, -1, 3.1, 10.2, 4],
@@ -453,15 +464,16 @@ const leafy = (): PlateGeom =>
 // a very long thin snout; a straight trailing tail.
 const weedy = (): PlateGeom =>
   seadragon({
-    spine: [[0, 40], [11, 39.6], [16, 38.4], [21, 40.4], [30, 43.4], [42, 44.2], [56, 43.4], [72, 44], [88, 45.4], [100, 44.6]],
-    width: (t) => (t < 0.13 ? 0.9 + (t / 0.13) * 2.4 : t < 0.2 ? 3.3 : t < 0.42 ? 3.4 + 1.5 * Math.sin(((t - 0.2) / 0.22) * Math.PI) : 3.4 * (1 - (t - 0.42) / 0.58) + 0.5),
+    spine: [[0, 40], [11, 39.4], [17, 39], [23, 40.8], [31, 43.2], [42, 44.2], [56, 43.4], [72, 44], [88, 45.4], [100, 44.6]],
+    width: (t) => (t < 0.13 ? 0.9 + (t / 0.13) * 2.4 : t < 0.2 ? 3.3 + ((t - 0.13) / 0.07) * 0.1 : t < 0.42 ? 3.4 + 2.4 * Math.sin(((t - 0.2) / 0.22) * Math.PI) : 3.4 - ((t - 0.42) / 0.58) * 2.9),
     leaves: [
-      [0.17, -1, 2.2, 3.4, 2],
-      [0.3, -1, 2.4, 3.6, 2],
-      [0.33, 1, 2, 3, 2],
-      [0.6, -1, 2, 3, 2],
-      [0.66, 1, 2, 2.8, 2],
-      [0.82, -1, 1.6, 2.4, 2],
+      [0.17, -1, 2.4, 5.4, 4],
+      [0.3, -1, 2.6, 6, 5],
+      [0.33, 1, 2.2, 5, 4],
+      [0.46, -1, 2.2, 5, 4],
+      [0.6, -1, 2.2, 4.8, 4],
+      [0.66, 1, 2.2, 4.6, 4],
+      [0.82, -1, 1.8, 4, 3],
     ],
     leafPaint: '#6E4C9A',
     spots: '#F2C94C',
