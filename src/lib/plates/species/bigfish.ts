@@ -350,26 +350,35 @@ const chevronBarracuda: FishSpec = {
 // Huge, mirror-like scales; an upturned mouth with a jutting lower jaw; a long filament off the
 // last dorsal ray; a single dorsal mid-body; a deeply forked tail.
 const tarpon: FishSpec = {
-  tip: [0, -1.6],
-  blunt: 0.3,
-  top: [[0.8, -3], [2.5, -4.8], [5, -6.6], [9, -8.6], [14, -10.4], [22, -11.6], [32, -12], [42, -11.6], [52, -10.4], [62, -8.4], [70, -6], [76, -3.6], [80, -2.6]],
-  bot: [[1, 1], [3, 3.4], [6, 6], [10, 8.4], [16, 10.4], [24, 11.6], [34, 12], [44, 11.6], [54, 10.4], [63, 8.2], [70, 5.6], [76, 3.4], [80, 2.6]],
+  // The lower jaw juts past the upper and the mouth slopes up at the front.
+  tip: [0, 1.7],
+  blunt: 0.35,
+  top: [[1, -1], [2.5, -2.3], [4.5, -3.9], [7, -5.7], [10, -7.8], [14, -9.9], [22, -11.6], [32, -12], [42, -11.6], [52, -10.4], [62, -8.4], [70, -6], [76, -3.6], [80, -2.6]],
+  bot: [[0.2, 2.9], [1.2, 4.1], [3.5, 5.7], [7, 7.6], [10, 8.9], [16, 10.6], [24, 11.7], [34, 12], [44, 11.6], [54, 10.4], [63, 8.2], [70, 5.6], [76, 3.4], [80, 2.6]],
   dorsal: [{ from: 45, to: 53, rays: 13, h: [[0, 11], [0.25, 9], [0.8, 3], [1, 2.5]], rake: [25, 60] }],
   anal: [{ from: 61, to: 74, rays: 20, h: [[0, 8], [0.2, 6], [0.5, 2.5], [1, 1.6]], rake: [35, 60] }],
   caudal: { type: 'forked', len: 20, h: 15, fork: 0.28, rays: 16 },
   pectoral: { at: [22, 0.84], base: 2, h: [[0, 9], [1, 5]], angles: [10, 40], rays: 10 },
   pelvic: { at: [41, 0.96], base: 2, h: 6, angles: [35, 60], rays: 7 },
-  eye: { x: 7.5, f: 0.36, r: 1.5, iris: '#C9B04A', ring: true },
+  eye: { x: 7.5, f: 0.36, r: 1.4, iris: '#C9B04A' },
   gill: { x: 21, bow: 3 },
-  mouth: [[0.2, 0.1], [3.4, 0.28], [7, 0.44]],
+  mouth: [[0.3, 0.4], [4.5, 0.46], [9.6, 0.56]],
+  mouthW: 2,
+  lips: 1.3,
+  lipPaint: '#B7C3C8',
   scales: 8,
   scaleCols: 17,
   lateral: (t) => 0.48 + 0.04 * Math.sin(Math.min(1, t * 3) * Math.PI),
   belly: 0.5,
   extra: (c) => {
     const s = c.s;
-    const last = c.dorsal[0].bases[c.dorsal[0].bases.length - 1];
-    const filament = spline([last, add(last, [8, -4]), add(last, [18, -3]), add(last, [26, -1])], false);
+    // The filament trails from the last ray, following the line of the back.
+    const tips = c.dorsal[0].tips;
+    const last = tips[tips.length - 1];
+    const filament = spline(
+      [0, 4, 9, 15, 21].map((dx, i) => [last[0] + dx, Math.min(last[1], atX(s, Math.min(79, last[0] + dx), 0)[1] - 3.4 + i * 0.1)] as Pt).map((p, i) => (i === 0 ? last : p)),
+      false,
+    );
     return {
       lines: [
         { pts: filament, w: 1.4, taper: 'end' },
@@ -551,7 +560,7 @@ export const BIG_FISH: Record<string, PlateDef> = {
   'giant-trevally': F(trevally, { back: '#4A5258', belly: '#D9DCDB', fin: '#3C4044' }, 6),
   'great-barracuda': F(greatBarracuda, { back: '#4C5D63', belly: '#D5DBDE', fin: '#5A6A70', pattern: '#3A474C', dark: '#262C2F' }, 7),
   'chevron-barracuda': F(chevronBarracuda, { back: '#4D5A66', belly: '#C9CFD4', fin: '#3A424A', pattern: '#3B4650', dark: '#1C2125' }, 8),
-  tarpon: F(tarpon, { back: '#3E5866', belly: '#CDD4D8', fin: '#5A6870' }, 9),
+  tarpon: F(tarpon, { back: '#566F7D', belly: '#DCE2E5', fin: '#66767E' }, 9),
   'yellowfin-tuna': F(yellowfin, { back: '#1C2E4C', belly: '#C9CFD3', fin: '#3A4A64', accent: '#F2C200', dark: '#2A3A56' }, 10),
   'dogtooth-tuna': F(dogtooth, { back: '#1F2B39', belly: '#D2D7DB', fin: '#2E3A48', dark: '#2A3442' }, 11),
   sailfish: F(sailfish, { back: '#1F3358', belly: '#DCE1E4', fin: '#2E4470', accent: '#23386A' }, 12),
