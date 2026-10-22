@@ -2,12 +2,14 @@ import { useCallback, useEffect, useMemo, useRef, useSyncExternalStore } from 'r
 
 import { addSeen, knownSeen, loadSeen, seenKey, subscribeSeen } from '@/lib/badges-seen';
 import { earnedIds, newlyEarned, type BadgeResult } from '@/lib/rewards';
+import { LOCAL_USER_ID, useAppStore } from '@/lib/store';
 
 /**
  * The badges to celebrate: earned, and not yet in what this diver has seen. The first time (no
  * record yet) it takes what is earned already as seen, quietly, so an existing logbook is not
  * celebrated all at once: open the screen that uses it before the dive is saved, so the record is
- * that of before. The record only ever grows: a badge, once seen, stays seen (see "Known
+ * that of before. A signed-in diver's first record waits for the first sync to bring their log
+ * down, or on a new phone their history would be celebrated as it arrives. The record only ever grows: a badge, once seen, stays seen (see "Known
  * limitations" in docs/rewards.md). Every screen open shares one record (src/lib/badges-seen.ts).
  *
  * `markSeen()` records the badges now waiting; `markSeen(ids)` records those.
@@ -23,16 +25,19 @@ export function useNewBadges({ owner, badges, ready }: { owner: string; badges: 
     latest.current = { key, badges };
   });
 
-  // Load this diver's record (once the log has loaded: an empty log has earned nothing yet).
+  // Load this diver's record (once the log has loaded: an empty log has earned nothing yet). With no
+  // record, what is earned is taken as seen only once the log is all here: for a signed-in diver,
+  // once a sync has brought theirs down and finished.
+  const pulled = useAppStore((s) => owner === LOCAL_USER_ID || (s.pulledFor === owner && !s.syncing));
   const known = ids !== null;
   useEffect(() => {
     if (!ready || known) return;
     let cancelled = false;
-    void loadSeen(key, () => (cancelled ? null : earnedIds(latest.current.badges)));
+    void loadSeen(key, () => (cancelled || !pulled ? null : earnedIds(latest.current.badges)));
     return () => {
       cancelled = true;
     };
-  }, [key, ready, known]);
+  }, [key, ready, known, pulled]);
 
   const fresh = useMemo(() => (ids ? newlyEarned(ids, badges) : []), [ids, badges]);
 

@@ -8,6 +8,13 @@ import { evaluateBadges } from '@/lib/rewards';
 import { parseSeen, seenKey } from '@/lib/badges-seen';
 import { useNewBadges } from '../use-new-badges';
 
+// The store, as the hook reads it: by default the diver's log has come down from the server.
+let mockStore;
+jest.mock('@/lib/store', () => ({
+  LOCAL_USER_ID: 'local',
+  useAppStore: (select) => select(mockStore),
+}));
+
 const sites = new Map(SITES.map((s) => [s.id, s]));
 const seen = (speciesId, siteId, sightedOn) => ({
   id: `${speciesId}@${sightedOn}`, userId: 'me', username: 'me', speciesId, siteId, sightedOn, isDemo: false, synced: true, createdAt: `${sightedOn}T10:00:00.000Z`,
@@ -38,7 +45,7 @@ async function update(props) {
   await flush();
 }
 
-beforeEach(async () => { global.IS_REACT_ACT_ENVIRONMENT = true; await AsyncStorage.clear(); });
+beforeEach(async () => { global.IS_REACT_ACT_ENVIRONMENT = true; mockStore = { pulledFor: 'me', syncing: false }; await AsyncStorage.clear(); });
 afterEach(async () => { if (root) await act(async () => root.unmount()); root = null; jest.restoreAllMocks(); });
 
 test('the record is kept per diver, in a form that reads back', () => {
@@ -121,8 +128,36 @@ test('nothing is read or written until the log has loaded, so an empty log is ne
 test('each diver has their own record', async () => {
   await show({ owner: 'me', badges: badgesFor([shark]), ready: true });
   expect(await AsyncStorage.getItem(seenKey('someone'))).toBeNull();
+  mockStore = { pulledFor: 'someone', syncing: false };
   await update({ owner: 'someone', badges: badgesFor([shark]), ready: true });
   expect(await AsyncStorage.getItem(seenKey('someone'))).not.toBeNull();
+});
+
+test('on a new phone, a signed-in diver\'s history coming down from the server is not celebrated', async () => {
+  // The log on this phone has loaded (empty), and the first sync is still bringing the diver's down.
+  mockStore = { syncing: true };
+  await show({ owner: 'me', badges: badgesFor([]), ready: true });
+  expect(latest.loaded).toBe(false);
+  expect(await AsyncStorage.getItem(KEY)).toBeNull();
+  // The pull has landed, but its rows are in the store only once the sync has finished.
+  mockStore = { pulledFor: 'me', syncing: true };
+  await update({ owner: 'me', badges: badgesFor([]), ready: true });
+  expect(latest.loaded).toBe(false);
+  mockStore = { pulledFor: 'me', syncing: false };
+  await update({ owner: 'me', badges: badgesFor([shark, turtle]), ready: true });
+  expect(latest.loaded).toBe(true);
+  expect(latest.fresh).toEqual([]);
+  expect((await stored()).ids).toEqual(earnedIds(badgesFor([shark, turtle])));
+});
+
+test('a record already on the phone is used before any sync, and the device\'s own log never waits for one', async () => {
+  mockStore = { syncing: true };
+  await AsyncStorage.setItem(KEY, JSON.stringify({ v: 1, ids: earnedIds(badgesFor([shark])) }));
+  await show({ owner: 'me', badges: badgesFor([shark, turtle]), ready: true });
+  expect(ids(latest.fresh)).toEqual(['first-turtle']);
+  await update({ owner: 'local', badges: badgesFor([shark]), ready: true });
+  expect(latest.loaded).toBe(true);
+  expect(latest.fresh).toEqual([]);
 });
 
 // Two screens open at once, as the Rewards screen stays mounted under the log screen.

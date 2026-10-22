@@ -81,6 +81,8 @@ interface StoreState {
   syncing: boolean;
   /** Why the last sync couldn't run (usually no connection), or null once one succeeds. */
   syncProblem: string | null;
+  /** The account a sync has brought the log down for since the app opened (its rows are in once `syncing` is false). */
+  pulledFor?: string;
   /**
    * The log couldn't be opened: 'busy' when the web app is open in another tab, otherwise why.
    * Nothing works until it is (init() tries again).
@@ -165,7 +167,7 @@ export const useAppStore = create<StoreState>((set, get) => {
     set({ syncing: true });
     try {
       const result = await syncNow(client, owner.id);
-      set({ syncProblem: null });
+      set({ syncProblem: null, pulledFor: owner.id });
       return { ok: result.failed === 0 };
     } catch (e) {
       set({ syncProblem: errorMessage(e) });
