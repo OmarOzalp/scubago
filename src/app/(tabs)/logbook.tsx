@@ -19,7 +19,7 @@ import { useSchemeName, useTheme } from '@/hooks/use-theme';
 import { CATALOG, CATALOG_BY_ID, speciesForSighting } from '@/lib/catalog';
 import { deriveDex } from '@/lib/dex';
 import { formatDepth, formatDiveNumber, formatMinutes, logTotals, nextMilestone, milestoneName, sortDives } from '@/lib/dives';
-import { useAllSites, useAppStore, useDivesBefore, useMyDives, useMySightings, useNextDiveNumber, usePendingChanges } from '@/lib/store';
+import { useAppStore, useDivesBefore, useMyDives, useMySightings, useNextDiveNumber, usePendingChanges, useSiteById } from '@/lib/store';
 import type { Species } from '@/lib/types';
 
 /** The diver's own log: lifetime totals, then every page, newest first. */
@@ -31,8 +31,8 @@ export default function LogbookScreen() {
   const syncing = useAppStore((s) => s.syncing);
   const syncProblem = useAppStore((s) => s.syncProblem);
   const requestSync = useAppStore((s) => s.requestSync);
-  const sites = useAllSites();
-  const sitesById = useMemo(() => new Map(sites.map((s) => [s.id, s])), [sites]);
+  // Any site a page names, a hidden or retired one too (the list of sites on offer has only those listed).
+  const siteById = useSiteById();
   const theme = useTheme();
   const dives = useMyDives();
   const divesBefore = useDivesBefore();
@@ -175,7 +175,7 @@ export default function LogbookScreen() {
           <DiveRow
             key={d.id}
             dive={d}
-            siteName={sitesById.get(d.siteId)?.name ?? 'Unknown site'}
+            siteName={siteById(d.siteId)?.name ?? 'Unknown site'}
             species={speciesByDive.get(d.id) ?? []}
             pending={!!user && !d.synced}
             onPress={() => router.push(`/dive/${d.id}`)}

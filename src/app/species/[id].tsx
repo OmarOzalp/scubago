@@ -18,6 +18,7 @@ import { formatDate, SightingRow } from '@/components/sighting-row';
 import { SpeciesArt } from '@/components/species-art';
 import { ThemedText } from '@/components/themed-text';
 import { Radius, Spacing, Type } from '@/constants/theme';
+import { canonicalSiteId } from '@/data/sites';
 import { useSchemeName, useTheme } from '@/hooks/use-theme';
 import { announce } from '@/lib/announce';
 import { CATALOG, CATALOG_BY_ID } from '@/lib/catalog';
@@ -26,7 +27,7 @@ import { CATEGORY_LABEL } from '@/lib/rarity';
 import { rarityObservedNote, realRarityEntry } from '@/lib/real-rarity';
 import { darken, lighten } from '@/lib/art-color';
 import { artFor } from '@/lib/species-art';
-import { useAllSites, useAppStore, useMyUserId } from '@/lib/store';
+import { useAllSites, useAppStore, useMyUserId, useSiteById } from '@/lib/store';
 import { speciesMarineModel } from '@/lib/swimming';
 import type { DiveSite } from '@/lib/types';
 
@@ -48,6 +49,8 @@ export default function SpeciesDetailScreen() {
   const theme = useTheme();
   const scheme = useSchemeName();
   const sites = useAllSites();
+  // Any site a sighting names: the list on offer has only the listed ones, not a hidden or retired one logged at before.
+  const siteById = useSiteById();
   const sightings = useAppStore((s) => s.sightings);
   const myUserId = useMyUserId();
   const user = useAppStore((s) => s.user);
@@ -65,23 +68,29 @@ export default function SpeciesDetailScreen() {
   );
   const mine = speciesSightings.filter((s) => s.userId === myUserId && !s.isDemo);
 
-  /** Sites where this species has been seen, most sightings first. */
+  /** Sites where this species has been seen, most sightings first; one logged at a hidden copy of a site counts at the site. */
   const seenAt = useMemo(() => {
     const bySite = new Map<string, { count: number; last: string }>();
     for (const s of speciesSightings) {
-      const cur = bySite.get(s.siteId);
+      const siteId = canonicalSiteId(s.siteId);
+      const cur = bySite.get(siteId);
       if (cur) {
         cur.count++;
         if (s.sightedOn > cur.last) cur.last = s.sightedOn;
       } else {
-        bySite.set(s.siteId, { count: 1, last: s.sightedOn });
+        bySite.set(siteId, { count: 1, last: s.sightedOn });
       }
     }
     return [...bySite.entries()]
-      .map(([siteId, stats]) => ({ site: sites.find((x) => x.id === siteId), ...stats }))
+      .map(([siteId, stats]) => ({ site: siteById(siteId), ...stats }))
       .filter((x): x is { site: NonNullable<typeof x.site>; count: number; last: string } => !!x.site)
       .sort((a, b) => b.count - a.count);
-  }, [speciesSightings, sites]);
+  }, [speciesSightings, siteById]);
+  // The sites the sightings name, for the share card to say where it was first seen.
+  const sightingSites = useMemo(
+    () => [...new Set(speciesSightings.map((s) => s.siteId))].map((siteId) => siteById(siteId)).filter((site): site is DiveSite => !!site),
+    [speciesSightings, siteById],
+  );
 
   if (!species) {
     return (
@@ -103,7 +112,7 @@ export default function SpeciesDetailScreen() {
   const artHeight = Math.round(artWidth * 0.64);
   const plateNumber = CATALOG.findIndex((s) => s.id === species.id) + 1;
   const firstSeen = seen ? formatDate([...mine].sort((a, b) => a.sightedOn.localeCompare(b.sightedOn))[0].sightedOn) : '';
-  const mySites = new Set(mine.map((s) => s.siteId)).size;
+  const mySites = new Set(mine.map((s) => canonicalSiteId(s.siteId))).size;
   // Where the tier comes from: the counts behind a real tier, or nothing when it is only ScubaGo's own estimate.
   const rarityEntry = realRarityEntry(species.id);
   const observedNote = rarityEntry ? rarityObservedNote(rarityEntry) : undefined;
@@ -252,13 +261,13 @@ export default function SpeciesDetailScreen() {
                 key={s.id}
                 sighting={s}
                 species={species}
-                site={sites.find((x) => x.id === s.siteId)}
+                site={siteById(s.siteId)}
                 pending={!!user && !s.synced}
                 onPress={() => router.push(`/sighting/${s.id}`)}
               />
             ))}
           </View>
-          <ShareDiscoveryButton species={species} sightings={sightings} sites={sites} ownerId={myUserId} observedNote={observedNote} />
+          <ShareDiscoveryButton species={species} sightings={sightings} sites={sightingSites} ownerId={myUserId} observedNote={observedNote} />
           <OceanButton
             title="Log another sighting"
             variant="secondary"

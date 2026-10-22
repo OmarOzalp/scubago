@@ -37,7 +37,7 @@ import {
   TANK_MATERIALS,
   timeOut,
 } from '@/lib/dives';
-import { useAllSites, useAppStore, useMyDives, useMyUserId, useSiteById } from '@/lib/store';
+import { useAppStore, useMyDives, useMyUserId, useSiteById } from '@/lib/store';
 import type { Dive, DiveSignature } from '@/lib/types';
 
 function formatTimestamp(iso: string): string {
@@ -52,7 +52,6 @@ function formatTimestamp(iso: string): string {
 export default function DivePageScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const theme = useTheme();
-  const sites = useAllSites();
   const siteById = useSiteById();
   const myUserId = useMyUserId();
   const dives = useMyDives();
@@ -307,8 +306,8 @@ export default function DivePageScreen() {
 
       {/* Turning the pages: the one before (a lower number) on the left, the next on the right. */}
       <View style={[styles.turn, { borderTopColor: theme.rule }]}>
-        <TurnButton direction="older" dive={turn.older} sites={sites} onPress={() => go(turn.older)} />
-        <TurnButton direction="newer" dive={turn.newer} sites={sites} onPress={() => go(turn.newer)} />
+        <TurnButton direction="older" dive={turn.older} siteName={siteById(turn.older?.siteId)?.name ?? ''} onPress={() => go(turn.older)} />
+        <TurnButton direction="newer" dive={turn.newer} siteName={siteById(turn.newer?.siteId)?.name ?? ''} onPress={() => go(turn.newer)} />
       </View>
 
       <View style={[styles.dangerZone, { borderTopColor: theme.rule }]}>
@@ -336,11 +335,10 @@ export default function DivePageScreen() {
 /** "28" or "28.5". */
 const trim = (n: number) => (Number.isInteger(n) ? String(n) : n.toFixed(1));
 
-function TurnButton({ direction, dive, sites, onPress }: { direction: 'older' | 'newer'; dive?: Dive; sites: { id: string; name: string }[]; onPress: () => void }) {
+function TurnButton({ direction, dive, siteName, onPress }: { direction: 'older' | 'newer'; dive?: Dive; siteName: string; onPress: () => void }) {
   const theme = useTheme();
   const older = direction === 'older';
   if (!dive) return <View style={styles.turnButton} />;
-  const siteName = sites.find((s) => s.id === dive.siteId)?.name ?? '';
   return (
     <Pressable
       onPress={onPress}

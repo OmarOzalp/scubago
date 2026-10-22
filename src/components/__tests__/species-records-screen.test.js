@@ -31,6 +31,7 @@ let mockSightings = [];
 jest.mock('@/lib/store', () => ({
   useAppStore: (select) => select({ sightings: mockSightings, user: null, deleteSpeciesLog: jest.fn() }),
   useAllSites: () => require('@/data/sites').SITES,
+  useSiteById: () => (id) => require('@/data/sites').SITES_BY_ID.get(id),
   useMyUserId: () => 'local',
 }));
 // Stand-in "real data": only reef-manta has a tier worked out from encounters, and only when a test sets it.
