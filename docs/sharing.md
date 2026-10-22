@@ -28,10 +28,16 @@ The code:
 
 A card goes out into the world, so only what the diver has shared goes on it (`card-data.ts`):
 
-- A sighting marked private (`visibility: 'private'`) is left out of everything: the species it found,
-  the counts, the dates, the animals on a dive's page. A species the diver has only seen on a private
-  sighting has no discovery card and no Share button. The preview says how many private sightings
-  were left off ("1 private sighting is left off this card.").
+- A sighting marked private (`visibility: 'private'`, "Only me") stays off a card unless the diver
+  puts it on, with **Include my private sightings** under the card in the preview. The switch starts
+  off when the card has something else to show ("1 private sighting is left off this card."), and on
+  when everything the card would show is private, so a diver who logs everything as "Only me" gets
+  their animals on the card instead of an empty page ("… on this card. They stay private in your log;
+  nothing is shared until you tap Share."). The sighting stays private in the app either way; the
+  preview shows exactly what the picture holds before anything leaves the phone. A dive page left with
+  only private animals, switched off, says "The animals from this dive are in my private log." rather
+  than that nothing was logged. A discovery or archipelago card with nothing but private sightings has
+  no switch (there would be nothing left to show).
 - Sighting notes and photos are never put on a card: the cards have no place for either, so
   `notesPrivate` and `photoPrivate` need no checking.
 - A dive's own notes stay off. `diveCardData(dive, site, sightings, { includeNotes: true })` and the

@@ -27,6 +27,8 @@ export interface DiveLogCardProps {
   buddyName?: string;
   /** The dive's own notes. Left off unless the diver chose to share them. */
   notes?: string;
+  /** Animals were logged on the dive but are all private and left off: the blank page says so rather than "nothing logged". */
+  keptPrivate?: boolean;
 }
 
 const GAP = 18;
@@ -40,7 +42,7 @@ const TILE_GAP = 20;
 
 /** The dive log's page, as a card: its number in the ruled margin box, the site and day, what was measured, the animals seen, and the centre's stamp. 1080×1350. */
 export function DiveLogCard(props: DiveLogCardProps) {
-  const { number, siteName, region, divedOn, species, centreName, buddyName } = props;
+  const { number, siteName, region, divedOn, species, centreName, buddyName, keptPrivate } = props;
   const notes = props.notes?.trim();
   const measures = [
     props.maxDepthM !== undefined ? { value: trimNumber(props.maxDepthM), unit: 'm', label: 'Max depth' } : null,
@@ -110,7 +112,7 @@ export function DiveLogCard(props: DiveLogCardProps) {
           ) : null}
         </View>
         {species.length === 0 ? (
-          <BlankPage />
+          <BlankPage keptPrivate={keptPrivate} />
         ) : (
           <View style={styles.gridArea}>
             <View style={styles.grid}>
@@ -157,12 +159,12 @@ export function DiveLogCard(props: DiveLogCardProps) {
 const numberSize = (n: number) => Math.min(112, Math.floor(214 / (0.58 * n.toLocaleString('en').length)));
 
 /** A page with nothing on it yet: ruled lines waiting to be written on. */
-function BlankPage() {
+function BlankPage({ keptPrivate }: { keptPrivate?: boolean }) {
   const palette = useCardPalette();
   return (
     <View style={[styles.empty, { borderColor: palette.rule }]}>
       <CardText kind="italic" tone="soft" style={{ fontSize: 38, lineHeight: 48, textAlign: 'center' }}>
-        No sightings logged on this page yet.
+        {keptPrivate ? 'The animals from this dive are in my private log.' : 'No sightings logged on this page yet.'}
       </CardText>
       <Svg width={BODY_SIZE.width} height={420} style={StyleSheet.absoluteFill}>
         {Array.from({ length: 7 }, (_, i) => (

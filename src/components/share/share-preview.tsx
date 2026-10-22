@@ -35,6 +35,8 @@ export interface SharePreviewProps {
   ready?: boolean;
   /** A sentence under the card ("1 private sighting is left off"). */
   note?: string;
+  /** A choice about what the card shows, under it (whether private sightings go on it). */
+  controls?: ReactNode;
   /** The share service; defaults to the app's. */
   api?: ShareApi;
 }
@@ -76,7 +78,7 @@ export function SharePreview({ visible, onClose, ...props }: SharePreviewProps) 
 
 const defaultApi: ShareApi = { shareCard: share.shareCard, saveCard: share.saveCard, prepareCard: share.prepareCard, canSaveCard: share.canSaveCard };
 
-function PreviewBody({ onClose, reduced, title, cardLabel, children, fileName, ready = true, note, api = defaultApi }: Omit<SharePreviewProps, 'visible'> & { reduced: boolean }) {
+function PreviewBody({ onClose, reduced, title, cardLabel, children, fileName, ready = true, note, controls, api = defaultApi }: Omit<SharePreviewProps, 'visible'> & { reduced: boolean }) {
   const theme = useTheme();
   const scheme = useSchemeName();
   const insets = useSafeAreaInsets();
@@ -176,6 +178,7 @@ function PreviewBody({ onClose, reduced, title, cardLabel, children, fileName, r
         </View>
 
         <View style={styles.footer}>
+          {controls}
           {message ? (
             <ThemedText type="small" themeColor={message.failed ? 'danger' : 'tint'} accessibilityLiveRegion="polite" accessibilityRole={message.failed ? 'alert' : undefined} style={styles.centered}>
               {message.text}

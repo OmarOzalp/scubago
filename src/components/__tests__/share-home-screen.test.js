@@ -58,7 +58,6 @@ describe('Home’s Share button', () => {
 
   test.each([
     ['nothing logged', []],
-    ['only a private sighting', [sighting('a', 'reef-manta', { visibility: 'private' })]],
     ['only an example sighting', [sighting('a', 'reef-manta', { isDemo: true })]],
   ])('is not there with %s, though "customize" is', async (_name, sightings) => {
     mockSightings = sightings;

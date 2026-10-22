@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, jest, test } from '@jest/globals';
 import React, { act } from 'react';
-import { Image, Modal } from 'react-native';
+import { Image, Modal, Switch } from 'react-native';
 import { create } from 'react-test-renderer';
 
 import { ShareArchipelagoButton, ShareDiscoveryButton, ShareDiveButton } from '@/components/share/share-buttons';
@@ -40,12 +40,19 @@ describe('Share this discovery', () => {
   test.each([
     ['has not seen the species', [sighting('a', 'whale-shark')]],
     ['has no sightings at all', []],
-    ['has only a private sighting of it', [sighting('a', 'reef-manta', { visibility: 'private' })]],
     ['has only an example sighting of it', [sighting('a', 'reef-manta', { isDemo: true })]],
     ['only has someone else’s sighting of it', [sighting('a', 'reef-manta', { userId: 'someone' })]],
   ])('is not there when the diver %s', async (_name, sightings) => {
     await render1(sightings);
     expect(root.toJSON()).toBeNull();
+  });
+
+  test('is there for a species seen only on a private sighting, whose card shows it and says nothing goes until Share', async () => {
+    await render1([sighting('a', 'reef-manta', { visibility: 'private' })]);
+    await act(async () => byHint('Shows a picture of this discovery to share').props.onPress());
+    expect(texts()).toEqual(expect.arrayContaining(['Reef Manta Ray', '1 private sighting is on this card. They stay private in your log; nothing is shared until you tap Share.']));
+    // With nothing else to show there is no choice to make, so no switch.
+    expect(root.root.findAllByType(Switch)).toHaveLength(0);
   });
 
   test('opens the preview with the discovery’s card, and Close puts it away', async () => {
@@ -77,6 +84,31 @@ describe('Share this page', () => {
     expect(shown).toContain('1 private sighting is left off this card.');
   });
 
+  test('shows the animals of a dive logged only as private sightings, and can leave them off again', async () => {
+    // The bug this guards: a diver whose log is all "Only me" got a card saying nothing was logged.
+    const mine = [sighting('a', 'reef-manta', { diveId: 'd1', visibility: 'private' }), sighting('b', 'whale-shark', { diveId: 'd1', visibility: 'private' })];
+    await render(<ShareDiveButton dive={dive} site={site} sightings={mine} api={api()} />);
+    await act(async () => byHint('Shows a picture of this logbook page to share').props.onPress());
+    expect(texts()).toEqual(expect.arrayContaining(['Reef Manta Ray', 'Whale Shark', '2 private sightings are on this card. They stay private in your log; nothing is shared until you tap Share.']));
+    expect(texts()).not.toContain('No sightings logged on this page yet.');
+    const toggle = root.root.findByType(Switch);
+    expect(toggle.props.value).toBe(true);
+    expect(toggle.props.accessibilityLabel).toBe('Include my private sightings');
+    await act(async () => toggle.props.onValueChange(false));
+    expect(texts()).not.toContain('Whale Shark');
+    // Left off, the page says the animals are private rather than that none were logged.
+    expect(texts()).toEqual(expect.arrayContaining(['The animals from this dive are in my private log.', '2 private sightings are left off this card.']));
+  });
+
+  test('starts with private sightings off when others are shared, and puts them on at a tap', async () => {
+    await render(<ShareDiveButton dive={dive} site={site} sightings={[sighting('a', 'reef-manta', { diveId: 'd1' }), sighting('b', 'whale-shark', { diveId: 'd1', visibility: 'private' })]} api={api()} />);
+    await act(async () => byHint('Shows a picture of this logbook page to share').props.onPress());
+    const toggle = root.root.findByType(Switch);
+    expect(toggle.props.value).toBe(false);
+    await act(async () => toggle.props.onValueChange(true));
+    expect(texts()).toEqual(expect.arrayContaining(['Reef Manta Ray', 'Whale Shark']));
+  });
+
   test('is there even when nothing was logged on the dive', async () => {
     await render(<ShareDiveButton dive={dive} site={undefined} sightings={[]} api={api()} />);
     expect(texts()).toContain('Share this page');
@@ -95,11 +127,16 @@ describe('Share your archipelago', () => {
 
   test.each([
     ['nothing logged', []],
-    ['only a private sighting', [sighting('a', 'reef-manta', { visibility: 'private' })]],
     ['only example sightings', [sighting('a', 'reef-manta', { isDemo: true })]],
   ])('is not there with %s', async (_name, sightings) => {
     await render(<ShareArchipelagoButton {...props} sightings={sightings} api={api()} />);
     expect(root.toJSON()).toBeNull();
+  });
+
+  test('is there for a diver who logs privately, with their islands on the card', async () => {
+    await render(<ShareArchipelagoButton {...props} sightings={[sighting('a', 'reef-manta', { visibility: 'private' })]} api={api()} />);
+    await act(async () => pressable('Share your archipelago').props.onPress());
+    expect(texts()).toEqual(expect.arrayContaining(['Kai’s Atoll', 'Reef Manta Ray', '1 private sighting is on this card. They stay private in your log; nothing is shared until you tap Share.']));
   });
 
   test('waits for the 3D snapshot to load before Share is ready', async () => {

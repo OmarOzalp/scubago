@@ -9,6 +9,11 @@
  * - no coordinates, and no signatures: only a buddy's name.
  *
  * Example sightings (`isDemo`) aren't the diver's and are left out too.
+ *
+ * Private sightings go on a card only when the diver says so in the preview (`includePrivate`): the
+ * card is theirs to send, and nothing leaves the phone until they tap Share. When everything a card
+ * would show is private, the preview includes them from the start, so a diver who logs everything as
+ * "Only me" isn't handed an empty card (share-buttons.tsx).
  */
 import { AREAS, areaOf, foundIslands, ISLANDS, type AreaId, type IslandId } from '@/lib/archipelago';
 import { CATALOG_BY_ID, speciesForSighting, UNLISTED_ID } from '@/lib/catalog';
@@ -37,9 +42,14 @@ export function cardDate(iso: string): string {
 /** "28" or "28.5". */
 export const trimNumber = (n: number) => (Number.isInteger(n) ? String(n) : n.toFixed(1));
 
-/** The sightings that may go on a card: the diver's own real ones that aren't private. */
-export function sharedSightings(sightings: readonly Sighting[], ownerId?: string): Sighting[] {
-  return sightings.filter((s) => !s.isDemo && !isPrivateSighting(s) && (ownerId === undefined || s.userId === ownerId));
+/** Whether a card also draws the diver's private sightings (they chose to, in the preview). */
+export interface CardOptions {
+  includePrivate?: boolean;
+}
+
+/** The sightings that may go on a card: the diver's own real ones, and the private ones only when asked. */
+export function sharedSightings(sightings: readonly Sighting[], ownerId?: string, { includePrivate = false }: CardOptions = {}): Sighting[] {
+  return sightings.filter((s) => !s.isDemo && (includePrivate || !isPrivateSighting(s)) && (ownerId === undefined || s.userId === ownerId));
 }
 
 /** How many of the diver's own real sightings are kept off the cards because they're private. */
@@ -69,8 +79,9 @@ export function discoveryData(
   sites: readonly Pick<DiveSite, 'id' | 'name'>[],
   ownerId?: string,
   catalog: ReadonlyMap<string, Species> = CATALOG_BY_ID,
+  options: CardOptions = {},
 ): DiscoveryData | null {
-  const shared = sharedSightings(sightings, ownerId).filter((s) => catalog.has(s.speciesId));
+  const shared = sharedSightings(sightings, ownerId, options).filter((s) => catalog.has(s.speciesId));
   const mine = shared.filter((s) => s.speciesId === species.id).sort((a, b) => a.sightedOn.localeCompare(b.sightedOn) || a.createdAt.localeCompare(b.createdAt));
   if (mine.length === 0) return null;
   const first = mine[0];
@@ -109,15 +120,15 @@ export interface DiveCardData {
   notes?: string;
 }
 
-/** A dive page, ready for its card. `includeNotes` is off unless the diver chose to share them. */
+/** A dive page, ready for its card. `includeNotes` and `includePrivate` are off unless the diver chose them. */
 export function diveCardData(
   dive: Dive,
   site: Pick<DiveSite, 'name' | 'region' | 'country'> | undefined,
   sightings: readonly Sighting[],
-  { includeNotes = false }: { includeNotes?: boolean } = {},
+  { includeNotes = false, includePrivate = false }: { includeNotes?: boolean } & CardOptions = {},
 ): DiveCardData {
   const seen = new Map<string, Species>();
-  for (const s of sharedSightings(sightings, dive.userId).filter((x) => x.diveId === dive.id)) {
+  for (const s of sharedSightings(sightings, dive.userId, { includePrivate }).filter((x) => x.diveId === dive.id)) {
     const species = speciesForSighting(s);
     // A catalogue species is one animal per id; a diver's own name for "something else", one per name.
     if (species) seen.set(species.id === UNLISTED_ID ? `${UNLISTED_ID}:${species.commonName}` : species.id, species);
@@ -161,8 +172,9 @@ export function archipelagoData(
   dives: readonly Pick<Dive, 'siteId' | 'userId'>[],
   ownerId?: string,
   catalog: Map<string, Species> = CATALOG_BY_ID,
+  options: CardOptions = {},
 ): ArchipelagoData | null {
-  const shared = sharedSightings(sightings, ownerId);
+  const shared = sharedSightings(sightings, ownerId, options);
   const home = deriveHome(shared, catalog);
   if (home.residents.length === 0) return null;
   const sites = new Set<string>([...shared.map((s) => s.siteId), ...dives.filter((d) => ownerId === undefined || d.userId === ownerId).map((d) => d.siteId)]);
