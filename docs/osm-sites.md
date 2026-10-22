@@ -236,10 +236,12 @@ already asks for advice before this goes live. What the import assumes, to be sa
 1. **Attribution.** "© OpenStreetMap contributors" must be shown wherever these sites are shown.
    - The **site page** shows each site's source line, "OpenStreetMap contributors (ODbL 1.0)", linked
      to the element. The source name has no "©"; one constant (`OSM_SOURCE_NAME`) changes that.
-   - The **map and the lists** show pins and names without any credit yet. A line such as
-     "Some dive sites © OpenStreetMap contributors" is needed on the map screen, and an attribution
-     screen (planned in roadmap phase 1) should list OpenStreetMap with a link to
-     openstreetmap.org/copyright.
+   - The **map and the lists** carry "Dive sites © OpenStreetMap contributors", linked to
+     openstreetmap.org/copyright: at the top left of the native map, and under the site list and
+     the site picker. It appears only when an imported site is among those shown (see "On the
+     map").
+   - The **Data & credits** screen (`src/app/credits.tsx`) has an OpenStreetMap section with the
+     ODbL line and the same link.
 2. **Share-alike.** `osm-sites.json` is a derivative database of OSM, so it is offered under the
    ODbL. `src/data/osm-sites.LICENSE.md` says so beside the file. The repository's root `LICENSE`
    is MIT and does not cover it. Public sites are copied into the `dive_sites` table, which anyone
@@ -270,8 +272,9 @@ About 470 sites instead of 69. Nothing here is new, but it is worth watching (de
 import report):
 
 - **Map:** one native marker per site, all re-rendered when a site is picked. Memoise the markers,
-  and cluster or filter by visible region.
+  and cluster or filter by visible region. (Done: see "On the map".)
 - **Site picker:** a non-virtualised `ScrollView` of every site; a `FlatList` is better at this size.
+  (Done: see "On the map".)
 - **Retired sites:** pages look a site up with `sites.find(...)` over the listed sites, so a
   sighting or dive at a retired site shows "not found" or a generic name, and `updateSighting` and
   `updateDive` reject it as unknown. They need a fallback to `SITES_BY_ID`.
@@ -291,3 +294,45 @@ import report):
   hints. Nothing in the file is a recommendation, and the app shows "not known yet" for what is
   missing.
 - There is no cross-link to Wikidata, the Australian wreck register or GBRMPA reef ids yet.
+
+## On the map
+
+About 470 sites on the map and in the lists are handled by `src/lib/site-clusters.ts`,
+`src/components/site-map.tsx` (native), `site-list.tsx` and `site-picker.tsx`.
+
+- **Clusters (native map).** Sites are grouped by a grid anchored to the world, not the screen. The
+  cell width is the visible width of the map (`longitudeDelta`) divided by about 5, rounded up to
+  the next size in a ladder of 360° / 2^k, so cells are 1/5 to 2/5 of the screen wide (about 70 to
+  140 pt on a phone, like the 100 pt cells of Google's grid clusterer), and as tall (rows are
+  counted in Mercator space). Panning at one zoom never regroups anything, and each step of zoom
+  splits a cluster into smaller ones. A cluster is a roundel with the count. At or below 0.015° of
+  longitude across the screen (about 1.7 km, roughly zoom level 15), every site is its own pin.
+  Grouping is redone 150 ms after the map stops moving, for the area one screen out on each side.
+  For 600 sites it takes about 0.1 to 0.2 ms.
+- **Merge pass.** Neighbouring cells can have centroids a few points apart, and their roundels
+  would pile up. After the grid step, any two clusters (or lone sites) closer than 0.6 of a cell
+  (about one marker, 40 to 85 pt) are merged, largest first (count, then id), repeating until none
+  are. The merged cluster takes the id of its largest part (`cluster:site:<id>` if that was a lone
+  site), the mean position of all its sites, and the union of their bounds. Trade-offs: a merge can
+  span cells, so a cluster is no longer exactly one cell and zooming in doesn't split it exactly
+  along the old edges (a tap on a cluster frames its sites but at least halves the view, so it
+  always zooms in); and pan stability is slightly weaker than the grid alone, because a merge
+  depends on its neighbours: clusters in view decide from neighbours a few cells away, well inside
+  the padding, but one at the far edge of the worked-out area can group differently as it slides.
+  Distances are on the flat map and never across the antimeridian. Tapping a cluster zooms to its
+  sites; there is no merging at close zoom.
+- **Antimeridian.** 180° is the edge between two cells at every step of the ladder, so no cell
+  straddles it and no centroid averages the two sides. Sites either side of it (Fiji, Tonga) form
+  separate clusters. The visible region wraps, so a map centred on the line shows both sides.
+- **Web.** There is no map on the web (react-native-maps has none, and the Explore page shows the
+  site list), so there is nothing to cluster there. The list is windowed.
+- **Credit.** "Dive sites © OpenStreetMap contributors", linked to
+  https://www.openstreetmap.org/copyright, is shown at the top left of the map, under the species
+  key if there is one (so it stays clear of the map provider's own logo and legal link along the
+  bottom), and under the site list and the site picker. It appears only when some site is imported:
+  its id starts with `osm-`, or one of its sources is `OpenStreetMap contributors`
+  (`hasImportedSites`). The credit is `OsmCredit` in `site-list.tsx`.
+- **Site picker and list.** `FlatList`, windowed (`windowSize` 7, 12 rows at first), rows keyed by
+  site and memoised. Rows differ in height (two-line names, scaled text), so there is no
+  `getItemLayout`. The search is pinned above the list and runs on a deferred copy of what was typed.
+  The order is unchanged: recent sites first, then every site A to Z, or the ranked search results.

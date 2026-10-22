@@ -1,19 +1,59 @@
-import { FlatList, StyleSheet, Text, View } from 'react-native';
+import { memo, useCallback, useMemo } from 'react';
+import { FlatList, StyleSheet, Text, View, type ListRenderItemInfo, type StyleProp, type ViewStyle } from 'react-native';
 
+import { ExternalLink } from '@/components/external-link';
 import { Icon } from '@/components/icon';
 import { Paper, PaperButton } from '@/components/journal/paper';
 import { Wash } from '@/components/journal/wash';
 import { ThemedText } from '@/components/themed-text';
-import { MaxContentWidth, Spacing, TabBarOverhang, Type } from '@/constants/theme';
+import { MaxContentWidth, Radius, Spacing, TabBarOverhang, Type } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
+import { hasImportedSites } from '@/lib/site-clusters';
+import { OSM_ATTRIBUTION } from '@/lib/site-import';
 import type { DiveSite } from '@/lib/types';
 import { hashSeed } from '@/lib/wash';
+
+/** OpenStreetMap's own page on how its data may be used and credited. */
+export const OSM_COPYRIGHT_URL = 'https://www.openstreetmap.org/copyright';
+/** What the map and the lists say when they show sites imported from OpenStreetMap (docs/osm-sites.md). */
+export const OSM_CREDIT = `Dive sites ${OSM_ATTRIBUTION}`;
+
+/**
+ * The credit OpenStreetMap's licence asks for wherever its sites are shown: a small link to the
+ * copyright page. On the map it is a little label that sits at the top, clear of the map provider's
+ * own logo and legal link at the bottom; under a list it is a plain line.
+ */
+export function OsmCredit({ onMap = false, style }: { onMap?: boolean; style?: StyleProp<ViewStyle> }) {
+  const theme = useTheme();
+  return (
+    <View
+      style={[
+        onMap
+          ? [styles.creditOnMap, { backgroundColor: `${theme.backgroundElement}E6`, borderColor: theme.cardBorder }]
+          : styles.creditInList,
+        style,
+      ]}>
+      <ExternalLink
+        href={OSM_COPYRIGHT_URL}
+        rel="noopener noreferrer"
+        accessibilityLabel={`${OSM_CREDIT}. Opens OpenStreetMap’s copyright page`}
+        maxFontSizeMultiplier={1.3}
+        style={[styles.creditText, { color: onMap ? theme.tint : theme.textSecondary }]}>
+        {OSM_CREDIT}
+      </ExternalLink>
+    </View>
+  );
+}
 
 /**
  * Dive sites as a plain list: the web app's map (the interactive map is native-only), and the
  * "List" view on phones, which screen-reader users can move through one site at a time.
+ *
+ * It is a windowed FlatList: with several hundred sites only the rows near the screen are built.
+ * Rows differ in height (a long name takes two lines, and text can be scaled up), so there is no
+ * `getItemLayout`: a wrong guess would put rows in the wrong place.
  */
-export function SiteList({
+export const SiteList = memo(function SiteList({
   sites,
   highlightedSiteIds,
   onSelectSite,
@@ -27,12 +67,28 @@ export function SiteList({
   topInset?: number;
 }) {
   const theme = useTheme();
-  const visible = highlightedSiteIds === null ? sites : sites.filter((s) => highlightedSiteIds.has(s.id));
+  const visible = useMemo(
+    () => (highlightedSiteIds === null ? sites : sites.filter((s) => highlightedSiteIds.has(s.id))),
+    [sites, highlightedSiteIds],
+  );
+  const credit = useMemo(() => hasImportedSites(sites), [sites]);
+
+  const renderItem = useCallback(
+    ({ item }: ListRenderItemInfo<DiveSite>) => (
+      <SiteRow id={item.id} name={item.name} region={item.region} country={item.country} onSelect={onSelectSite} />
+    ),
+    [onSelectSite],
+  );
 
   return (
     <FlatList
       data={visible}
-      keyExtractor={(s) => s.id}
+      keyExtractor={siteKey}
+      renderItem={renderItem}
+      ItemSeparatorComponent={Separator}
+      initialNumToRender={12}
+      maxToRenderPerBatch={12}
+      windowSize={7}
       style={[styles.list, { backgroundColor: theme.background }]}
       contentContainerStyle={[styles.content, { paddingTop: topInset + Spacing.one }]}
       ListHeaderComponent={
@@ -55,27 +111,52 @@ export function SiteList({
           No dive sites to show for this species yet.
         </ThemedText>
       }
-      renderItem={({ item }) => (
-        <PaperButton onPress={() => onSelectSite(item.id)} accessibilityLabel={`${item.name}, ${item.region}, ${item.country}`} style={styles.row}>
-          {/* Each site gets its own watercolour blob behind the pin, so the list isn't one repeated mark. */}
-          <View style={styles.pin}>
-            <Wash width={46} height={38} color={theme.wash} seed={hashSeed(item.id)} style={StyleSheet.absoluteFill} />
-            <Icon name="pin" size={22} wash={theme.coral} washOpacity={0.45} />
-          </View>
-          <View style={styles.body}>
-            <Text numberOfLines={2} style={[styles.name, { color: theme.text }]}>
-              {item.name}
-            </Text>
-            <Text numberOfLines={1} style={[styles.where, { color: theme.textSecondary }]}>
-              {item.region}, {item.country}
-            </Text>
-          </View>
-          <Icon name="chevronRight" size={18} color={theme.textSecondary} weight="bold" />
-        </PaperButton>
-      )}
+      ListFooterComponent={credit ? <OsmCredit style={styles.footerCredit} /> : null}
     />
   );
+});
+
+const siteKey = (site: DiveSite) => site.id;
+
+function Separator() {
+  return <View style={styles.separator} />;
 }
+
+/** One site. Takes plain values and a stable callback, so a row is only rebuilt when its own site changes. */
+const SiteRow = memo(function SiteRow({
+  id,
+  name,
+  region,
+  country,
+  onSelect,
+}: {
+  id: string;
+  name: string;
+  region: string;
+  country: string;
+  onSelect: (siteId: string) => void;
+}) {
+  const theme = useTheme();
+  const seed = useMemo(() => hashSeed(id), [id]);
+  return (
+    <PaperButton onPress={() => onSelect(id)} accessibilityLabel={`${name}, ${region}, ${country}`} style={styles.row}>
+      {/* Each site gets its own watercolour blob behind the pin, so the list isn't one repeated mark. */}
+      <View style={styles.pin}>
+        <Wash width={46} height={38} color={theme.wash} seed={seed} style={StyleSheet.absoluteFill} />
+        <Icon name="pin" size={22} wash={theme.coral} washOpacity={0.45} />
+      </View>
+      <View style={styles.body}>
+        <Text numberOfLines={2} style={[styles.name, { color: theme.text }]}>
+          {name}
+        </Text>
+        <Text numberOfLines={1} style={[styles.where, { color: theme.textSecondary }]}>
+          {region}, {country}
+        </Text>
+      </View>
+      <Icon name="chevronRight" size={18} color={theme.textSecondary} weight="bold" />
+    </PaperButton>
+  );
+});
 
 const styles = StyleSheet.create({
   list: {
@@ -88,11 +169,13 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.three,
     // Room for the raised "Log dive" button under the last row.
     paddingBottom: TabBarOverhang + Spacing.five,
-    gap: 10,
   },
   header: {
     gap: 12,
-    marginBottom: 2,
+    marginBottom: 12,
+  },
+  separator: {
+    height: 10,
   },
   note: {
     flexDirection: 'row',
@@ -103,6 +186,27 @@ const styles = StyleSheet.create({
   empty: {
     textAlign: 'center',
     paddingVertical: Spacing.four,
+  },
+  footerCredit: {
+    marginTop: Spacing.three,
+  },
+  creditOnMap: {
+    alignSelf: 'flex-start',
+    minHeight: 28,
+    justifyContent: 'center',
+    paddingHorizontal: 8,
+    borderWidth: 1,
+    borderRadius: Radius.xs,
+  },
+  creditInList: {
+    alignItems: 'center',
+    paddingVertical: Spacing.one,
+  },
+  creditText: {
+    fontFamily: Type.bodyBold,
+    fontSize: 11,
+    lineHeight: 15,
+    textDecorationLine: 'underline',
   },
   row: {
     flexDirection: 'row',
