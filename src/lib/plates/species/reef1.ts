@@ -246,19 +246,23 @@ const queen: FishSpec = {
   extra: (c) => {
     const s = c.s;
     const rims = scaleRims(s, 10, 17, tAtX(s, 23), '#E7B33A', 0.85);
-    const face = region(s, 0, tAtX(s, 21), 0.05, 0.9);
-    const crownC = atX(s, 19, 0.04);
+    // The yellow-green face fades into the blue body rather than stopping at a hard edge.
+    const face = [[21, 0.5], [24, 0.2], [28, 0.12]].map(([x, o]) => ({ poly: region(s, 0, tAtX(s, x), 0.05, 0.9), paint: '#D9C23A' as const, o, clip: 'trunk' as const }));
+    const crownC = atX(s, 17, 0.1);
     const crown: Fill[] = [
       { poly: ellipse(crownC, 2.8), paint: '#3FB7F2' },
       { poly: ellipse(crownC, 2.2), paint: '#0B1F4D' },
       ...scatterIn(ellipse(crownC, 1.9), { r: 0.28, gap: 0.3, paint: '#3FB7F2', rand: c.rand, tries: 40 }),
     ];
-    const dTip = c.dorsal[1].apex;
-    const aTip = c.anal[0].apex;
-    const streamers = [filament([dTip, add(dTip, [10, 1.5]), add(dTip, [22, 3])], 1.8, '#3E7FA8'), filament([aTip, add(aTip, [10, -1.5]), add(aTip, [21, -3])], 1.8, '#3E7FA8')];
-    const tips: Fill[] = [add(dTip, [21, 3]), add(aTip, [20, -3])].map((p) => ({ poly: ellipse(p, 1.4, 0.7), paint: '#F08A24' }));
+    // The streamers carry on from the last ray of each fin, along its trailing edge.
+    const dTip = c.dorsal[1].tips[c.dorsal[1].tips.length - 1];
+    const aTip = c.anal[0].tips[c.anal[0].tips.length - 1];
+    const dEnd = add(dTip, [14, -1]);
+    const aEnd = add(aTip, [14, 1]);
+    const streamers = [filament([dTip, add(dTip, [7, -0.9]), dEnd], 1.2, '#3E7FA8'), filament([aTip, add(aTip, [7, 0.9]), aEnd], 1.2, '#3E7FA8')];
+    const tips: Fill[] = [dEnd, aEnd].map((p) => ({ poly: ellipse(p, 1.4, 0.7), paint: '#F08A24' }));
     return {
-      tint: [{ poly: face, paint: '#D9C23A', o: 0.75, clip: 'trunk' }],
+      tint: face,
       marks: [...rims, ...crown, angelSpine(c, '#2D6CC0'), { poly: ellipse(atX(s, 27.6, 0.5), 1.6), paint: '#2D6CC0' }, ...tips],
       near: streamers,
       median: [
