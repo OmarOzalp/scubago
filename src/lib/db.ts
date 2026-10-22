@@ -697,6 +697,24 @@ export function deleteLocalUserData(userId: string): Promise<void> {
   });
 }
 
+/**
+ * When a diver signs out: remove from this device (it may be shared) what of theirs the server
+ * already has. Changes still waiting to sync stay, and so do the synced pages they are on (a sighting
+ * must not lose its page): they would be lost otherwise, and go up when the diver signs back in.
+ */
+export function forgetSyncedUserData(userId: string): Promise<void> {
+  return exclusive(async (d) => {
+    await d.withTransactionAsync(async () => {
+      await d.runAsync(`DELETE FROM sightings WHERE user_id = ? AND synced = 1 AND is_demo = 0`, userId);
+      await d.runAsync(
+        `DELETE FROM dives WHERE user_id = ? AND synced = 1
+           AND id NOT IN (SELECT dive_id FROM sightings WHERE dive_id IS NOT NULL)`,
+        userId,
+      );
+    });
+  });
+}
+
 export function upsertUserSites(sites: DiveSite[]): Promise<void> {
   return exclusive(async (d) => {
     if (sites.length === 0) return;

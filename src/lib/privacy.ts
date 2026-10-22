@@ -60,6 +60,18 @@ export function privatePhotoPath(ref: string | undefined | null, userId: string)
   return path;
 }
 
+/**
+ * A sighting as `viewerId` may see it, or null: their own whole, anyone else's only as far as its
+ * diver shares it (a private sighting not at all, kept-back notes or photo left out). Another diver's
+ * private rows are on a device only if they signed out there with changes still to sync.
+ */
+export function asSeenBy<T extends Sighting>(s: T, viewerId: string): T | null {
+  if (s.userId === viewerId) return s;
+  if (isPrivateSighting(s)) return null;
+  if (sharesNotes(s) && sharesPhoto(s)) return s;
+  return { ...s, notes: sharesNotes(s) ? s.notes : undefined, photoUri: sharesPhoto(s) ? s.photoUri : undefined };
+}
+
 /** A photo that is still only on this device (a file, or a blob on the web): it hasn't been uploaded. */
 export function isLocalPhoto(uri: string | undefined | null): uri is string {
   return !!uri && !uri.startsWith('http') && !isPrivatePhotoRef(uri);

@@ -1,6 +1,7 @@
 import { describe, expect, it } from '@jest/globals';
 
 import {
+  asSeenBy,
   isLocalPhoto,
   keepsSomethingPrivate,
   privacySummary,
@@ -95,6 +96,20 @@ describe('private details', () => {
     const unsaid = withPrivateDetails(pulled, undefined);
     expect(unsaid.notesPrivate).toBeUndefined();
     expect(unsaid.photoPrivate).toBeUndefined();
+  });
+});
+
+describe('what another diver sees on the same device', () => {
+  it('nothing private: not the sighting, not its kept-back notes or photo', () => {
+    const photo = 'file:///kept/a.jpg';
+    expect(asSeenBy(sighting({ visibility: 'private', notes: 'n' }), UID)).toMatchObject({ notes: 'n' });
+    expect(asSeenBy(sighting({ visibility: 'private', notes: 'n' }), 'uid-2')).toBeNull();
+    const kept = asSeenBy(sighting({ visibility: 'public', notes: 'n', notesPrivate: true, photoUri: photo, photoPrivate: true }), 'uid-2');
+    expect(kept).toMatchObject({ speciesId: 'reef-manta', notes: undefined, photoUri: undefined });
+    expect(asSeenBy(sighting({ visibility: 'public', notes: 'n', photoUri: photo, photoPrivate: true }), 'uid-2'))
+      .toMatchObject({ notes: 'n', photoUri: undefined });
+    const shared = sighting({ visibility: 'public', notes: 'n', photoUri: PUBLIC_URL });
+    expect(asSeenBy(shared, 'uid-2')).toBe(shared);
   });
 });
 
