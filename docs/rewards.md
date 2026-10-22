@@ -196,9 +196,11 @@ the log has loaded.
 ### Celebrating a new badge
 
 `useNewBadges({ owner, badges, ready })` (`src/hooks/use-new-badges.ts`) keeps the ids of the badges
-the diver has seen in AsyncStorage, one record per user id (`scubago:badges-seen:v1:<id>`). The first
-time, with no record, it takes what is earned as seen, quietly. It returns `fresh` (earned, not yet
-seen) and `markSeen()`; the record only ever grows.
+the diver has seen in AsyncStorage, one record per user id (`scubago:badges-seen:v1:<id>`). Every
+screen open shares one copy of it (`src/lib/badges-seen.ts`), so a badge celebrated on one is not new
+on another, and a write keeps whatever is stored already. The first time, with no record, it takes
+what is earned as seen, quietly. It returns `fresh` (earned, not yet seen) and `markSeen()`; the record
+only ever grows.
 
 The log screen (`src/app/log/new.tsx`) calls it when it opens, before anything is saved, so the record
 is that of before the dive. Its saved step then shows `NewBadgesCelebration`: the medal drops in on a

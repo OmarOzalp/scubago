@@ -5,7 +5,8 @@ import { create } from 'react-test-renderer';
 import { CATALOG_BY_ID } from '@/lib/catalog';
 import { SITES } from '@/data/sites';
 import { evaluateBadges } from '@/lib/rewards';
-import { parseSeen, seenKey, useNewBadges } from '../use-new-badges';
+import { parseSeen, seenKey } from '@/lib/badges-seen';
+import { useNewBadges } from '../use-new-badges';
 
 const sites = new Map(SITES.map((s) => [s.id, s]));
 const seen = (speciesId, siteId, sightedOn) => ({
@@ -122,6 +123,56 @@ test('each diver has their own record', async () => {
   expect(await AsyncStorage.getItem(seenKey('someone'))).toBeNull();
   await update({ owner: 'someone', badges: badgesFor([shark]), ready: true });
   expect(await AsyncStorage.getItem(seenKey('someone'))).not.toBeNull();
+});
+
+// Two screens open at once, as the Rewards screen stays mounted under the log screen.
+const screens = {};
+const reportScreen = (name, value) => { screens[name] = value; };
+function Screen({ name, ...props }) {
+  reportScreen(name, useNewBadges(props));
+  return null;
+}
+async function showScreens(list) {
+  const els = list.map(([name, badges]) => <Screen key={name} name={name} owner="me" badges={badges} ready />);
+  await act(async () => (root ? root.update(<>{els}</>) : (root = create(<>{els}</>))));
+  await flush();
+}
+
+test('a badge celebrated on one screen is not new on another that is still open', async () => {
+  await AsyncStorage.setItem(KEY, JSON.stringify({ v: 1, ids: earnedIds(badgesFor([shark])) }));
+  await showScreens([['rewards', badgesFor([shark])], ['log', badgesFor([shark])]]);
+  const after = badgesFor([shark, turtle]);
+  await showScreens([['rewards', after], ['log', after]]);
+  expect(ids(screens.log.fresh)).toEqual(['first-turtle']);
+  await act(async () => screens.log.markSeen(['first-turtle']));
+  await flush();
+  // The log screen closes: the Rewards screen under it knows the turtle has been celebrated.
+  await showScreens([['rewards', after]]);
+  expect(screens.rewards.fresh).toEqual([]);
+});
+
+test('a screen that was open all along does not write over what another has seen', async () => {
+  await AsyncStorage.setItem(KEY, JSON.stringify({ v: 1, ids: earnedIds(badgesFor([shark])) }));
+  await showScreens([['rewards', badgesFor([shark])], ['log', badgesFor([shark])]]);
+  await showScreens([['rewards', badgesFor([shark, turtle])], ['log', badgesFor([shark, turtle])]]);
+  await act(async () => screens.log.markSeen(['first-turtle']));
+  await flush();
+  // The turtle's sighting is deleted and a manta logged; the Rewards screen is left and marks what it showed.
+  const manta = seen('reef-manta', 'shark-yolanda', '2026-05-01');
+  await showScreens([['rewards', badgesFor([shark, manta])]]);
+  await act(async () => screens.rewards.markSeen());
+  await flush();
+  expect((await stored()).ids).toEqual(expect.arrayContaining(['first-turtle', 'first-ray']));
+});
+
+test('marking a badge seen keeps what is stored already', async () => {
+  await AsyncStorage.setItem(KEY, JSON.stringify({ v: 1, ids: [] }));
+  await show({ owner: 'me', badges: badgesFor([shark]), ready: true });
+  // Something else writes to the record meanwhile (another copy of the app on the web, say).
+  await AsyncStorage.setItem(KEY, JSON.stringify({ v: 1, ids: ['first-turtle'] }));
+  await act(async () => latest.markSeen());
+  await flush();
+  expect((await stored()).ids).toEqual(expect.arrayContaining(['first-turtle', ...earnedIds(badgesFor([shark]))]));
 });
 
 test('when storage cannot be read, what is earned counts as seen and what comes after is celebrated', async () => {
