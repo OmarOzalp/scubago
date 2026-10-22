@@ -4,7 +4,7 @@
  * marginal scutes, a column of vertebrals down the middle, costals either side, each scute engraved
  * with its growth rings. Species differ in outline, scute counts, head, flippers and colouring.
  */
-import { add, along, blob, centroidOf, clamp, type Ctrl, dist, inside, lerp, mul, norm, perp, polyLength, type Pt, resample, rng, slice, spline, sub } from './kit';
+import { add, along, centroidOf, clamp, type Ctrl, dist, inside, lerp, mul, norm, perp, polyLength, type Pt, resample, rng, slice, spline, sub } from './kit';
 import { bilateral, mirror } from './ray';
 import { swell } from './render';
 import { emptyGeom, type Fill, type Line, type Paint, type Part, type PlateGeom } from './types';
