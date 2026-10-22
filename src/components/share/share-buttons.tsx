@@ -5,10 +5,14 @@
  * style; Home's is a round icon beside "customize".
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { StyleSheet, Switch, View } from 'react-native';
 
 import { IconButton } from '@/components/journal/icon-button';
 import { OceanButton } from '@/components/ocean-button';
 import { cardFileName } from '@/components/share/card-spec';
+import { ThemedText } from '@/components/themed-text';
+import { useTheme } from '@/hooks/use-theme';
+import { CATALOG_BY_ID } from '@/lib/catalog';
 import { releaseSnapshot } from '@/lib/scene-snapshot';
 import type { Dive, DiveSite, Sighting, Species } from '@/lib/types';
 
@@ -26,9 +30,40 @@ import { DiscoveryCard } from './discovery-card';
 import { DiveLogCard } from './dive-log-card';
 import { SharePreview, type ShareApi } from './share-preview';
 
-/** "1 private sighting is left off this card." */
-function privateNote(count: number): string | undefined {
-  return count > 0 ? `${count} private ${count === 1 ? 'sighting is' : 'sightings are'} left off this card.` : undefined;
+/**
+ * What the card says about the diver's private sightings: "1 private sighting is left off this card.",
+ * or, when they chose to put them on it, that nothing goes anywhere until they tap Share.
+ */
+function privateNote(count: number, included: boolean): string | undefined {
+  if (count === 0) return undefined;
+  const what = `${count} private ${count === 1 ? 'sighting is' : 'sightings are'}`;
+  return included ? `${what} on this card. They stay private in your log; nothing is shared until you tap Share.` : `${what} left off this card.`;
+}
+
+/**
+ * Whether the card shows the diver's private ("Only me") sightings. It starts off when the card has
+ * something else to show, and on when everything it would show is private: a diver who logs
+ * everything privately shouldn't be handed an empty card, and the preview shows exactly what would
+ * go before anything does. `reset` sets it afresh each time the preview opens.
+ */
+function usePrivateChoice(kept: number, nothingElse: boolean) {
+  const [include, setInclude] = useState(false);
+  const reset = useCallback(() => setInclude(kept > 0 && nothingElse), [kept, nothingElse]);
+  return { include, setInclude, reset };
+}
+
+/** "Include my private sightings", with a switch, under the card. */
+function PrivateSwitch({ count, value, onChange }: { count: number; value: boolean; onChange: (value: boolean) => void }) {
+  const theme = useTheme();
+  const label = `Include my private ${count === 1 ? 'sighting' : 'sightings'}`;
+  return (
+    <View style={styles.choice}>
+      <ThemedText type="smallBold" style={styles.choiceLabel} importantForAccessibility="no" accessibilityElementsHidden>
+        {label}
+      </ThemedText>
+      <Switch value={value} onValueChange={onChange} accessibilityLabel={label} trackColor={{ true: theme.tint, false: theme.rule }} />
+    </View>
+  );
 }
 
 /** "Share this discovery": one species the diver has found, as a card. Nothing is drawn unless they have shared a sighting of it. */
@@ -51,19 +86,35 @@ export function ShareDiscoveryButton({
 }) {
   const [open, setOpen] = useState(false);
   const close = useCallback(() => setOpen(false), []);
-  const data = useMemo(() => discoveryData(species, sightings, sites, ownerId), [species, sightings, sites, ownerId]);
+  const shared = useMemo(() => discoveryData(species, sightings, sites, ownerId), [species, sightings, sites, ownerId]);
   const kept = useMemo(() => privateCount(sightings.filter((s) => s.speciesId === species.id), ownerId), [sightings, species.id, ownerId]);
+  const withPrivate = useMemo(
+    () => (kept > 0 ? discoveryData(species, sightings, sites, ownerId, CATALOG_BY_ID, { includePrivate: true }) : null),
+    [kept, species, sightings, sites, ownerId],
+  );
+  const choice = usePrivateChoice(kept, shared === null);
+  const data = (choice.include ? withPrivate : shared) ?? shared ?? withPrivate;
   if (!data) return null;
   return (
     <>
-      <OceanButton title="Share this discovery" variant="secondary" icon="share" accessibilityHint="Shows a picture of this discovery to share" onPress={() => setOpen(true)} />
+      <OceanButton
+        title="Share this discovery"
+        variant="secondary"
+        icon="share"
+        accessibilityHint="Shows a picture of this discovery to share"
+        onPress={() => {
+          choice.reset();
+          setOpen(true);
+        }}
+      />
       <SharePreview
         visible={open}
         onClose={close}
         title="Share your discovery"
         cardLabel={describeDiscovery(data, observedNote)}
         fileName={cardFileName(species.commonName)}
-        note={privateNote(kept)}
+        note={privateNote(kept, choice.include)}
+        controls={kept > 0 && shared ? <PrivateSwitch count={kept} value={choice.include} onChange={choice.setInclude} /> : null}
         api={api}>
         <DiscoveryCard species={species} firstSeenOn={data.firstSeenOn} siteName={data.siteName} collectionNumber={data.collectionNumber} observedNote={observedNote} />
       </SharePreview>
@@ -86,20 +137,33 @@ export function ShareDiveButton({
 }) {
   const [open, setOpen] = useState(false);
   const close = useCallback(() => setOpen(false), []);
-  const data = useMemo(() => diveCardData(dive, site, sightings), [dive, site, sightings]);
+  const shared = useMemo(() => diveCardData(dive, site, sightings), [dive, site, sightings]);
   const kept = useMemo(() => privateCount(sightings.filter((s) => s.diveId === dive.id), dive.userId), [sightings, dive.id, dive.userId]);
+  const choice = usePrivateChoice(kept, shared.species.length === 0);
+  const withPrivate = useMemo(() => (choice.include ? diveCardData(dive, site, sightings, { includePrivate: true }) : null), [choice.include, dive, site, sightings]);
+  const data = withPrivate ?? shared;
   return (
     <>
-      <OceanButton title="Share this page" variant="secondary" icon="share" accessibilityHint="Shows a picture of this logbook page to share" onPress={() => setOpen(true)} />
+      <OceanButton
+        title="Share this page"
+        variant="secondary"
+        icon="share"
+        accessibilityHint="Shows a picture of this logbook page to share"
+        onPress={() => {
+          choice.reset();
+          setOpen(true);
+        }}
+      />
       <SharePreview
         visible={open}
         onClose={close}
         title="Share this dive"
         cardLabel={describeDive(data)}
         fileName={cardFileName('dive', data.number, data.siteName)}
-        note={privateNote(kept)}
+        note={privateNote(kept, choice.include)}
+        controls={kept > 0 ? <PrivateSwitch count={kept} value={choice.include} onChange={choice.setInclude} /> : null}
         api={api}>
-        <DiveLogCard {...data} />
+        <DiveLogCard {...data} keptPrivate={kept > 0 && data.species.length === 0} />
       </SharePreview>
     </>
   );
@@ -146,7 +210,17 @@ export function ShareArchipelagoButton({
   useEffect(() => () => releaseSnapshot(taken.uri), [taken.uri]);
   useEffect(() => () => void attempt.current++, []);
 
+  const shared = useMemo(() => archipelagoData(name, sightings, dives, ownerId), [name, sightings, dives, ownerId]);
+  const kept = useMemo(() => privateCount(sightings, ownerId), [sightings, ownerId]);
+  const withPrivate = useMemo(
+    () => (kept > 0 ? archipelagoData(name, sightings, dives, ownerId, CATALOG_BY_ID, { includePrivate: true }) : null),
+    [kept, name, sightings, dives, ownerId],
+  );
+  const choice = usePrivateChoice(kept, shared === null);
+  const { reset } = choice;
+
   const show = useCallback(() => {
+    reset();
     setOpen(true);
     if (!captureSnapshot || snapshot) return;
     const mine = ++attempt.current;
@@ -158,15 +232,14 @@ export function ShareArchipelagoButton({
       if (mine !== attempt.current) return releaseSnapshot(uri); // closed meanwhile
       setTaken({ uri: uri ?? undefined, framing: false });
     });
-  }, [captureSnapshot, snapshot]);
+  }, [captureSnapshot, snapshot, reset]);
   const close = useCallback(() => {
     attempt.current++;
     setTaken({ framing: false });
     setOpen(false);
   }, []);
 
-  const data = useMemo(() => archipelagoData(name, sightings, dives, ownerId), [name, sightings, dives, ownerId]);
-  const kept = useMemo(() => privateCount(sightings, ownerId), [sightings, ownerId]);
+  const data = (choice.include ? withPrivate : shared) ?? shared ?? withPrivate;
   if (!data) return null;
   return (
     <>
@@ -178,7 +251,8 @@ export function ShareArchipelagoButton({
         cardLabel={describeArchipelago(data)}
         fileName={cardFileName('archipelago', data.name)}
         ready={!taken.framing && (!shown || settledFor === shown)}
-        note={taken.framing ? 'Framing your islands…' : privateNote(kept)}
+        note={taken.framing ? 'Framing your islands…' : privateNote(kept, choice.include)}
+        controls={kept > 0 && shared ? <PrivateSwitch count={kept} value={choice.include} onChange={choice.setInclude} /> : null}
         api={api}>
         <ArchipelagoCard
           name={data.name}
@@ -197,3 +271,8 @@ export function ShareArchipelagoButton({
     </>
   );
 }
+
+const styles = StyleSheet.create({
+  choice: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12, minHeight: 44 },
+  choiceLabel: { flex: 1 },
+});

@@ -46,7 +46,6 @@ describe('the species page’s Share button', () => {
 
   test.each([
     ['has not seen the species', []],
-    ['has only seen it on a private sighting', [sighting('a', { visibility: 'private' })]],
     ['has only an example sighting of it', [sighting('a', { isDemo: true })]],
     ['only has someone else’s sighting of it', [sighting('a', { userId: 'someone' })]],
     ['has only seen another species', [sighting('a', { speciesId: 'whale-shark' })]],
@@ -54,5 +53,11 @@ describe('the species page’s Share button', () => {
     mockSightings = sightings;
     await render();
     expect(shareButton()).toHaveLength(0);
+  });
+
+  test('is there when the diver has only seen it on a private sighting', async () => {
+    mockSightings = [sighting('a', { visibility: 'private' })];
+    await render();
+    expect(shareButton().length).toBeGreaterThan(0);
   });
 });
