@@ -357,12 +357,17 @@ const chevronBarracuda: FishSpec = {
   caudal: { type: 'scalloped', len: 15, h: 9.5, fork: 0.62, rays: 14, paint: 'dark' },
   extra: (c) => {
     const s = c.s;
+    // About fourteen chevrons, their points forward, crossing the lateral line down the flank.
     const chevrons: Fill[] = [];
-    for (let x = 18; x < 82; x += 3.1) {
-      const t = tAtX(s, x);
-      // Oblique above the lateral line, nearly upright below it.
-      const pts: Pt[] = [at(s, t - 0.012, 0.02), at(s, t + 0.012, 0.42), at(s, t + 0.012, 0.95), at(s, t + 0.026, 0.95), at(s, t + 0.026, 0.42), at(s, t + 0.002, 0.02)];
-      chevrons.push({ poly: pts, paint: 'pattern', o: 0.75, clip: 'trunk' });
+    const apexF = 0.44;
+    for (let x = 22; x < 84; x += 4.4) {
+      const edge = (dx: number) =>
+        [0.02, 0.2, apexF, 0.7, 0.96].map((f) => {
+          // The arms trail back from the point on the lateral line.
+          const lag = 2.6 * (1 - Math.abs(f - apexF) / 0.52) - 2.6;
+          return at(s, tAtX(s, x + dx + lag), f);
+        });
+      chevrons.push({ poly: [...edge(0), ...edge(1.9).reverse()], paint: 'pattern', o: 0.8, clip: 'trunk' });
     }
     return { marks: [...chevrons, ...fangs(c, 7, 0.9)] };
   },
