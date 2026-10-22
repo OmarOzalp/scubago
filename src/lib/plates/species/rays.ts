@@ -11,9 +11,9 @@ import { mirrorY, topShark, type TopSharkSpec } from '../topshark';
 import type { Fill, Line, Part, PlateGeom } from '../types';
 
 const both = (poly: Pt[]): Pt[][] => [poly, mirror(poly)];
-const soft = (poly: Pt[], paint: Fill['paint'], o = 1): Fill[] =>
+const soft = (poly: Pt[], paint: Fill['paint'], o = 1, spread = 1): Fill[] =>
   // A soft-edged patch: the shape, plus slightly smaller and larger copies at lower strength.
-  [1.08, 1, 0.9].map((k, i) => {
+  [1 + 0.08 * spread, 1, 1 - 0.1 * spread].map((k, i) => {
     const cx = poly.reduce((a, p) => a + p[0], 0) / poly.length;
     const cy = poly.reduce((a, p) => a + p[1], 0) / poly.length;
     return { poly: poly.map(([x, y]) => [cx + (x - cx) * k, cy + (y - cy) * k] as Pt), paint, o: o * [0.35, 0.5, 0.75][i], clip: 'trunk' as const };
@@ -95,27 +95,22 @@ const oceanicManta: RaySpec = {
   cephalic: { root: [8.2, 1.4], tip: [6.4, -9.2], width: 3.8 },
   tail: { path: [[0, 45], [0.4, 58], [-2.5, 72], [-8, 86], [-16, 96]], w0: 2.6, w1: 0.25, dorsal: { at: 0.02, len: 4.2, w: 2.3, paint: 'dark' }, knob: 0.1 },
   extra: () => {
-    const tri: Pt[] = [
-      [9.8, 10.4],
-      [33, 12.2],
-      [9.8, 29.5],
-    ];
-    const chevron: Pt[] = spline(
+    // The shoulder patches are soft-edged curved triangles, their pointed tips reaching out along the
+    // front of each wing, with the black T of the head and back between them.
+    const tri: Pt[] = spline(
       [
-        [0, 33.5],
-        [9, 30.5],
-        [19, 29.4],
-        [19.5, 31.2],
-        [9.5, 33],
-        [0, 36.5],
+        [10.2, 10.6],
+        [19, 9.4],
+        [31.5, 11.6, 1],
+        [24, 17.4],
+        [15.5, 24.6],
+        [10.2, 29.2],
+        [9.2, 19.5],
       ],
       true,
     );
     return {
-      marks: [
-        ...both(tri).map((poly) => ({ poly, paint: 'light' as const, clip: 'trunk' as const })),
-        { poly: [...chevron, ...mirror(chevron).reverse()], paint: '#B9BCC0', o: 0.75, clip: 'trunk' },
-      ],
+      marks: both(tri).flatMap((poly) => soft(poly, 'light', 1, 0.45)),
       lines: [{ pts: [[-5.4, 0.25], [5.4, 0.25]], w: 1.6 }],
     };
   },
