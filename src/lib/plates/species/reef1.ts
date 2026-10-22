@@ -164,15 +164,21 @@ const emperor: FishSpec = {
     const stripes: Fill[] = [];
     for (let k = 0; k < 13; k++) {
       const f = -0.35 + k * 0.105;
-      stripes.push({ poly: region(s, tAtX(s, 26), 1, (t) => f - 0.55 * t ** 1.6, (t) => f + 0.045 - 0.55 * t ** 1.6), paint: '#F3C623', o: 0.95, clip: 'body' });
+      // Each stripe grows out from behind the head and thins to a point as it runs into the tail.
+      const t0 = tAtX(s, 22);
+      const w = (t: number) => 0.045 * Math.max(0, Math.min(1, (0.99 - t) / 0.13, (t - t0) / 0.07));
+      stripes.push({ poly: region(s, t0, 0.99, (t) => f - 0.55 * t ** 1.6, (t) => f + w(t) - 0.55 * t ** 1.6), paint: '#F3C623', o: 0.95, clip: 'body' });
     }
-    const face = region(s, 0, tAtX(s, 10), -0.1, 1.1);
-    const mask = shapeIn(s, [[tAtX(s, 9), -0.02], [tAtX(s, 14.5), -0.02], [tAtX(s, 15.5), 0.5], [tAtX(s, 14), 0.86], [tAtX(s, 10.5), 0.86], [tAtX(s, 10.5), 0.5]]);
-    const patch = shapeIn(s, [[tAtX(s, 21), 0.95], [tAtX(s, 22), 0.3], [tAtX(s, 26), -0.02], [tAtX(s, 31), 0.1], [tAtX(s, 31), 0.6], [tAtX(s, 28), 1]]);
-    const patchFront: Line = { pts: spline([atX(s, 21, 0.95), atX(s, 22, 0.3), atX(s, 26, -0.02)], false), w: 2.2, o: 1 };
+    // Only the chin and snout are pale, a white-blue below the mask.
+    const face = region(s, 0, tAtX(s, 10.4), 0.5, 1.1);
+    // The mask: a band bowed forward, from over the eye down to the throat.
+    const mask = shapeIn(s, [[tAtX(s, 10.4), 0.1], [tAtX(s, 14.2), 0.06], [tAtX(s, 15.4), 0.4], [tAtX(s, 14.6), 0.78], [tAtX(s, 12.6), 0.94], [tAtX(s, 10.6), 0.8], [tAtX(s, 9.8), 0.45]]);
+    // The shoulder patch is a curved comma over the gill cover, ending mid-body.
+    const patch = shapeIn(s, [[tAtX(s, 22.4), 0.14], [tAtX(s, 25), -0.02], [tAtX(s, 30), 0.03], [tAtX(s, 31.6), 0.3], [tAtX(s, 29.8), 0.58], [tAtX(s, 26.2), 0.72], [tAtX(s, 22.8), 0.62], [tAtX(s, 21.6), 0.34]]);
+    const patchFront: Line = { pts: spline([atX(s, 22.8, 0.62), atX(s, 21.6, 0.34), atX(s, 22.6, 0.12), atX(s, 25, -0.02)], false), w: 2.2, o: 1 };
     const analLines: Line[] = [0.3, 0.55, 0.8].map((k) => ({ pts: c.anal[0].outline.map((p) => lerp(p, lerp(c.anal[0].bases[0], c.anal[0].bases[c.anal[0].bases.length - 1], 0.5), k)), w: 0.9, o: 0.7, taper: 'both' }));
     return {
-      tint: [{ poly: face, paint: '#CFE0EA', o: 0.9, clip: 'trunk' }],
+      tint: [{ poly: face, paint: '#E3EEF5', o: 0.95, clip: 'trunk' }],
       marks: [
         ...stripes,
         { poly: patch, paint: '#0E1426', o: 0.92, clip: 'trunk' },
