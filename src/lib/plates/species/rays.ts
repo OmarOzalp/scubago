@@ -199,7 +199,8 @@ const eagle: RaySpec = {
     [2.6, 60],
   ],
   tail: {
-    path: [[0, 55], [2, 74], [13, 91], [36, 100], [60, 96], [79, 82], [88, 60], [90, 38], [86, 16]],
+    // A whip tail trailing off in a gentle S (the plate is turned head-left, so it fills the box).
+    path: [[0, 55], [1.5, 72], [8, 92], [16, 112], [19, 134], [14, 156], [6, 172], [2, 184]],
     w0: 1.9,
     w1: 0.15,
     hold: 0.6,
@@ -598,7 +599,7 @@ export const RAYS: Record<string, PlateDef> = {
   'reef-manta': R(reefManta, { back: '#22252A', belly: '#F3F2EE' }),
   'oceanic-manta': R(oceanicManta, { back: '#17181B', belly: '#F4F3EF' }),
   'munks-devil-ray': R(munks, { back: '#5C6E88', belly: '#F3F1EE', dark: '#28313F' }),
-  'spotted-eagle-ray': R(eagle, { back: '#25303F', belly: '#F7F5F0' }),
+  'spotted-eagle-ray': R(eagle, { back: '#25303F', belly: '#F7F5F0' }, -90),
   'marbled-ray': R(marbled, { back: '#858A89', belly: '#ECEAE5', dark: '#1D1E21' }),
   'southern-stingray': R(southern, { back: '#6C5D47', belly: '#F3F0E8', dark: '#2E2A25' }),
   'bluespotted-ribbontail-ray': R(ribbontail, { back: '#B5975A', belly: '#F5F3EE' }, -90),
