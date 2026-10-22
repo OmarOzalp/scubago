@@ -556,7 +556,7 @@ const mola: FishSpec = {
   anal: [{ from: 60, to: 71, rays: 10, h: [[0, 38], [0.35, 44], [1, 12]], rake: [18, 46] }],
   caudal: { type: 'clavus', len: 13, h: 22, rays: 14 },
   pectoral: { at: [27, 0.44], base: 3, h: [[0, 6], [0.5, 8], [1, 6]], angles: [-30, 30], rays: 8 },
-  eye: { x: 14, f: 0.44, r: 1.9, iris: '#9AA0A3' },
+  eye: { x: 14, f: 0.44, r: 1.25, iris: '#9AA0A3' },
   lateral: false,
   belly: 0.7,
   engraving: 'smooth',
