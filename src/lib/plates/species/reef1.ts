@@ -106,12 +106,12 @@ const idol: FishSpec = {
     const s = c.s;
     // Yellow wash over the top and back of the body.
     const yellow = region(s, tAtX(s, 26), 1, -0.6, (t) => 0.55 - 0.3 * t);
-    const bar1 = vband(c, 13, 27, 1.5);
-    const bar2 = vband(c, 47, 62, 2);
+    const bar1 = vband(c, 13, 27, 3.4);
+    const bar2 = vband(c, 47, 62, 4);
     const saddle = shapeIn(s, [[tAtX(s, 4), -0.05], [tAtX(s, 9), -0.15], [tAtX(s, 11), 0.25], [tAtX(s, 5), 0.35]]);
-    // The filament: from the third dorsal spine, up and back in a long S past the tail.
+    // The pennant: from the third dorsal spine, up and back in an S, a white streamer with an inked edge.
     const base = c.dorsal[0].tips[2];
-    const fil = filament([base, add(base, [12, -12]), add(base, [34, -16]), add(base, [56, -10]), add(base, [78, -8])], 1.6, 'light');
+    const fil = filament([base, add(base, [9, -10]), add(base, [25, -13]), add(base, [40, -10]), add(base, [52, -9])], 3.4, 'light');
     return {
       tint: [{ poly: yellow, paint: '#F6D23A', o: 0.85, clip: 'body' }],
       marks: [
