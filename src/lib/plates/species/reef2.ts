@@ -35,7 +35,7 @@ const giantMoray: EelSpec = {
   width: morayWidth(1.7),
   dorsal: { from: 0.08, h: (t) => 1.4 + 0.3 * Math.sin(t * 3) },
   anal: { from: 0.47, h: () => 1.2 },
-  mouth: { to: 0.085, open: 2.6, teeth: 6 },
+  mouth: { to: 0.085, open: 1.6, teeth: 6 },
   eye: { t: 0.035, f: -0.42, r: 0.8 },
   gill: { t: 0.125, f: 0.05, r: 0.55, blotch: 2.4 },
   extra: (c) => {
@@ -67,7 +67,7 @@ const greenMoray: EelSpec = {
   width: morayWidth(1.5),
   dorsal: { from: 0.08, h: () => 1.5 },
   anal: { from: 0.46, h: () => 1.3 },
-  mouth: { to: 0.08, open: 2.4, teeth: 6 },
+  mouth: { to: 0.08, open: 1.5, teeth: 6 },
   eye: { t: 0.035, f: -0.42, r: 0.75 },
   extra: (c) => ({
     lines: [
@@ -83,9 +83,9 @@ const greenMoray: EelSpec = {
 // blue body with yellow snout and jaw; a tall yellow dorsal frill; an open mouth with chin
 // tentacles.
 const ribbon: EelSpec = {
-  spine: [[6, 16], [14, 15], [22, 20], [27, 30], [26, 42], [30, 54], [36, 64], [38, 74]],
-  width: (t) => (t < 0.04 ? 0.5 + (t / 0.04) * 0.8 : 1.3 - t * 0.2),
-  dorsal: { from: 0.04, h: () => 2.4, paint: '#F5D21E' },
+  spine: [[6, 16], [14, 15], [21, 20], [27, 30], [24, 41], [29, 51], [37, 58], [33, 68], [38, 76]],
+  width: (t) => (t < 0.04 ? 0.5 + (t / 0.04) * 0.8 : 1.35 - t * 0.75),
+  dorsal: { from: 0.04, h: (t) => 1.5 - t * 0.5, paint: '#F5D21E' },
   mouth: { to: 0.045, open: 1.6, teeth: 4 },
   eye: { t: 0.032, f: -0.3, r: 0.55, iris: '#F2C230' },
   engrave: [-0.5, 0.5],
@@ -104,15 +104,16 @@ const ribbon: EelSpec = {
     });
     // The burrow: a mound of sand round the eel where it disappears.
     const base = c.at(1, 0);
-    const mound = spline([add(base, [-22, 6]), add(base, [-8, 1]), add(base, [0, -0.6]), add(base, [8, 1]), add(base, [24, 6])], false);
-    const sand: Line[] = [{ pts: mound, w: 1, taper: 'both' }];
+    const mound = spline([add(base, [-24, 7]), add(base, [-12, 2]), add(base, [-5, -0.4]), add(base, [0, -0.8]), add(base, [5, -0.4]), add(base, [12, 2]), add(base, [24, 7]), add(base, [10, 7.8]), add(base, [-10, 7.8])], true);
+    const sand: Line[] = [];
     for (let k = 0; k < 30; k++) {
-      const p = add(base, [(c.rand() - 0.5) * 40, 2 + c.rand() * 5]);
+      const p = add(base, [(c.rand() - 0.5) * 34, 2.4 + c.rand() * 4.2]);
       sand.push({ pts: [p, add(p, [0.3, 0.1])], w: 1, o: 0.5 });
     }
     return {
       marks: [{ poly: snout, paint: '#F5D21E', clip: 'trunk' }],
       near: [flare(0.012, 1), flare(0.02, -1)],
+      far: [{ poly: mound, paint: '#DCCFB0', lines: [], edge: 0.7 }],
       lines: [...tentacles, ...sand, { pts: [c.at(0, -0.1), add(c.at(0, -0.1), mul(c.dir(0), -1.6))], w: 1 }],
     };
   },
@@ -147,10 +148,12 @@ function gardenEels(): PlateGeom {
     main.eyes.push(...o.eyes);
   }
   // Sand.
-  const sand: Line[] = [{ pts: Array.from({ length: 30 }, (_, i) => [4 + i * 3.3, 78 + Math.sin(i) * 0.4] as Pt), w: 1, taper: 'both' }];
+  const bank = spline([[2, 80.6], [12, 78.6], [26, 78.2], [40, 79], [56, 78.2], [72, 78.8], [88, 78.2], [100, 79.6], [102, 83.6], [60, 84.6], [4, 84]], true);
+  main.far.unshift({ poly: bank, paint: '#E4D8BC', lines: [], edge: 0.7 });
+  const sand: Line[] = [];
   const rand = rng(7);
   for (let k = 0; k < 50; k++) {
-    const p: Pt = [6 + rand() * 92, 79 + rand() * 6];
+    const p: Pt = [6 + rand() * 92, 80.6 + rand() * 3];
     sand.push({ pts: [p, add(p, [0.3, 0.1])], w: 1, o: 0.5 });
   }
   main.lines.push(...sand);
@@ -170,12 +173,15 @@ const wolfEel: EelSpec = {
   },
   dorsal: { from: 0.1, h: (t) => 1.8 - t * 0.8 },
   anal: { from: 0.42, h: () => 1.3 },
-  mouth: { to: 0.06, open: 1.4, teeth: 3 },
+  mouth: { to: 0.06, open: 1.8, teeth: 3 },
   eye: { t: 0.04, f: -0.5, r: 1.1 },
   extra: (c) => {
     // The lumpy head and thick lips.
     const lumps: Fill[] = [0.015, 0.03, 0.045, 0.06].map((t, i) => ({ poly: blob(c.at(t, -0.75 + (i % 2) * 0.2), 1.2, 0.3, c.rand, 8), paint: 'back', edge: 0.6 }));
-    const lips = swell([c.at(0, 0.1), c.at(0.03, 0.35), c.at(0.06, 0.25)], 1.6, 'both');
+    const lips = swell([c.at(0, 0.12), c.at(0.03, 0.4), c.at(0.065, 0.3)], 3, 'both');
+    // The heavy jaw hanging below the head, and the domed brow above the eye.
+    const jowl: Part = { poly: spline([c.at(0.002, 0.45), c.at(0.006, 1.02), c.at(0.03, 1.3), c.at(0.065, 1.14), c.at(0.085, 0.8), c.at(0.07, 0.3)], true), paint: 'back', lines: [], edge: 0.9 };
+    const brow: Part = { poly: spline([c.at(0.012, -0.55), c.at(0.03, -1.22), c.at(0.06, -1.2), c.at(0.085, -0.7), c.at(0.05, -0.4)], true), paint: 'back', lines: [], edge: 0.9 };
     // Pectoral: a big rounded fan behind the head.
     const pb = c.at(0.11, 0.2);
     const fan: Pt[] = [];
@@ -189,7 +195,7 @@ const wolfEel: EelSpec = {
       const cc = s.poly.reduce((a, p) => [a[0] + p[0] / s.poly.length, a[1] + p[1] / s.poly.length], [0, 0]) as Pt;
       return [{ poly: ellipse(cc, 1.5), paint: '#D3CEC3' as const, clip: 'trunk' as const }, { ...s, clip: 'trunk' as const }];
     });
-    return { marks: [...ocelli, ...lumps, { poly: lips, paint: '#B9B3A8', edge: 0.8 }], near: [pec] };
+    return { marks: [...ocelli, ...lumps, { poly: lips, paint: '#B9B3A8', edge: 0.8 }], near: [pec], far: [jowl, brow] };
   },
 };
 
