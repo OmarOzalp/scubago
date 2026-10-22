@@ -197,6 +197,18 @@ describe('Share your archipelago', () => {
     expect(share().props.disabled).toBe(false);
   });
 
+  test('waits for the same snapshot to load again when the preview is opened again', async () => {
+    await render(<ShareArchipelagoButton {...props} sightings={[sighting('a', 'reef-manta')]} snapshot="file:///cache/island.png" api={api()} />);
+    await act(async () => pressable('Share your archipelago').props.onPress());
+    await act(async () => root.root.findAllByType(Image)[0].props.onLoad());
+    await act(async () => pressable('Close the preview').props.onPress());
+    await act(async () => pressable('Share your archipelago').props.onPress());
+    // A new preview, a new image: not loaded yet, so not ready.
+    expect(pressable('Share this card').props.disabled).toBe(true);
+    await act(async () => root.root.findAllByType(Image)[0].props.onLoad());
+    expect(pressable('Share this card').props.disabled).toBe(false);
+  });
+
   describe('with a picture of the live 3D scene', () => {
     const sightings = [sighting('a', 'reef-manta')];
     const deferred = () => {

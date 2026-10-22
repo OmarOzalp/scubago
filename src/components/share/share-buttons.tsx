@@ -251,6 +251,8 @@ export function ShareArchipelagoButton({
   const close = useCallback(() => {
     attempt.current++;
     setTaken({ framing: false });
+    // The next opening loads its picture afresh, even the same one: it isn't ready until then.
+    setSettledFor(undefined);
     setOpen(false);
   }, []);
 
