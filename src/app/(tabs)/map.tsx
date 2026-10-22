@@ -112,6 +112,8 @@ export default function ExploreScreen() {
     setSpeciesFilter(species);
     setPlaceFilterId(null);
     setSelectedSiteId(null);
+    // The site searched for before is done with: a map or list that comes back mustn't go to it again.
+    setFocus(null);
     closeSearch();
   };
   const pickPlace = (place: Place) => {
@@ -152,8 +154,12 @@ export default function ExploreScreen() {
     });
     if (ok) router.push({ pathname: '/add-site', params: { lat: String(lat), lng: String(lng) } });
   }, []);
+  // A pin or a row: the map and list are already where the diver is looking. What the search asked
+  // them to show is forgotten, or the map would fly back to it (and the list scroll to it) when the
+  // diver switches between the two, which mounts them again.
   const selectSite = useCallback((id: string) => {
     setSelectedSiteId(id);
+    setFocus(null);
     setSearching(false);
   }, []);
   const closeCard = useCallback(() => {

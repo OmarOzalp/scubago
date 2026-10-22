@@ -224,6 +224,48 @@ test('a site the filter includes keeps the filter; one it leaves out clears it, 
   expect(text()).toContain('Details'); // its card is up, though the filter left it out
 });
 
+test('the map and the list forget the site searched for once another site, or an animal, is chosen', async () => {
+  const scrolls = jest.spyOn(FlatList.prototype, 'scrollToIndex').mockImplementation(() => {});
+  const switchView = async (label) => {
+    await press(label);
+    await act(async () => jest.advanceTimersByTime(200));
+  };
+  const siteList = () => root.root.findAll((n) => typeof n.props.onSelectSite === 'function' && 'reveal' in n.props)[0];
+  const scrolledTo = () => scrolls.mock.calls.map(([{ index }]) => root.root.findAll((n) => n.type === FlatList && n.props.data?.length === SITES.length)[0].props.data[index].id);
+  try {
+    await render();
+    await openSearch();
+    await type('thistlegorm');
+    await press('SS Thistlegorm, Red Sea, Egypt');
+    expect(mockAnimateToRegion).toHaveBeenCalledTimes(1);
+    // Its card is open, so the list scrolls to it.
+    await switchView('Show sites as a list');
+    expect(scrolledTo()).toEqual(['ss-thistlegorm']);
+    scrolls.mockClear();
+
+    // Another site, chosen from its row: the map that comes back stays put, and so does the list.
+    await act(async () => siteList().props.onSelectSite('cod-hole'));
+    expect(text()).toContain('Cod Hole');
+    await switchView('Show the map');
+    expect(mockAnimateToRegion).toHaveBeenCalledTimes(1);
+    await switchView('Show sites as a list');
+    expect(scrolledTo()).toEqual([]);
+
+    // A site, then an animal: the same.
+    await openSearch();
+    await type('thistlegorm');
+    await press('SS Thistlegorm, Red Sea, Egypt');
+    await openSearch();
+    await type('manta');
+    await press('Reef Manta Ray. Show where it’s seen');
+    mockAnimateToRegion.mockClear();
+    await switchView('Show the map');
+    expect(mockAnimateToRegion).not.toHaveBeenCalled();
+  } finally {
+    scrolls.mockRestore();
+  }
+});
+
 test('tapping a place shows only its sites and frames them on the map; picking an animal replaces it', async () => {
   await render();
   await openSearch();
