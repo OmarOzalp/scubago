@@ -113,6 +113,7 @@ export function ShareDiscoveryButton({
         title="Share your discovery"
         cardLabel={describeDiscovery(data, observedNote)}
         fileName={cardFileName(species.commonName)}
+        content={choice.include ? 'private' : 'shared'}
         note={privateNote(kept, choice.include)}
         controls={kept > 0 && shared ? <PrivateSwitch count={kept} value={choice.include} onChange={choice.setInclude} /> : null}
         api={api}>
@@ -160,6 +161,7 @@ export function ShareDiveButton({
         title="Share this dive"
         cardLabel={describeDive(data)}
         fileName={cardFileName('dive', data.number, data.siteName)}
+        content={choice.include ? 'private' : 'shared'}
         note={privateNote(kept, choice.include)}
         controls={kept > 0 ? <PrivateSwitch count={kept} value={choice.include} onChange={choice.setInclude} /> : null}
         api={api}>
@@ -259,6 +261,7 @@ export function ShareArchipelagoButton({
         cardLabel={describeArchipelago(data)}
         fileName={cardFileName('archipelago', data.name)}
         ready={!framing && (!shown || settledFor === shown)}
+        content={`${choice.include ? 'private' : 'shared'} ${shown ?? 'illustration'}`}
         note={framing ? 'Framing your islands…' : privateNote(kept, choice.include)}
         controls={kept > 0 && shared ? <PrivateSwitch count={kept} value={choice.include} onChange={choice.setInclude} /> : null}
         api={api}>

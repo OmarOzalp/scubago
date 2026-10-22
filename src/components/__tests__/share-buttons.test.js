@@ -109,6 +109,27 @@ describe('Share this page', () => {
     expect(texts()).toEqual(expect.arrayContaining(['Reef Manta Ray', 'Whale Shark']));
   });
 
+  test('on the web, the picture drawn ahead is drawn again when the private switch is turned off', async () => {
+    jest.useFakeTimers();
+    try {
+      const shark = () => texts().includes('Whale Shark');
+      // What the web's prepareCard draws: the card as it is at that moment.
+      const web = { ...api(), canSaveCard: true, saveCard: jest.fn(async () => ({ status: 'saved' })), prepareCard: jest.fn(async () => ({ blob: {}, shark: shark() })) };
+      const mine = [sighting('a', 'reef-manta', { diveId: 'd1', visibility: 'private' }), sighting('b', 'whale-shark', { diveId: 'd1', visibility: 'private' })];
+      await render(<ShareDiveButton dive={dive} site={site} sightings={mine} api={web} />);
+      await act(async () => byHint('Shows a picture of this logbook page to share').props.onPress());
+      await act(async () => { jest.advanceTimersByTime(500); });
+      expect(web.prepareCard).toHaveBeenCalledTimes(1);
+      await act(async () => root.root.findByType(Switch).props.onValueChange(false));
+      await act(async () => { jest.advanceTimersByTime(500); });
+      expect(web.prepareCard).toHaveBeenCalledTimes(2);
+      await act(async () => pressable('Download this card as a picture').props.onPress());
+      expect(web.saveCard.mock.calls[0][1].prepared).toEqual({ blob: {}, shark: false });
+    } finally {
+      jest.useRealTimers();
+    }
+  });
+
   test('is there even when nothing was logged on the dive', async () => {
     await render(<ShareDiveButton dive={dive} site={undefined} sightings={[]} api={api()} />);
     expect(texts()).toContain('Share this page');
