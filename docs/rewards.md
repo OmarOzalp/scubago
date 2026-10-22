@@ -83,6 +83,9 @@ a "set" of one.
 Visited sites are grouped by top-level region: a site's `regionId` is walked up its `parentId` chain
 to the root. A site with no region that is in a badge region (below) goes on that region's page, so
 the seed Red Sea sites and imported ones share one; any other site goes on its country's.
+A visit logged at a hidden copy of a site (an imported duplicate of a seed, a second mark merged
+away) counts at the listed site it stands for (`canonicalSiteId` in `src/data/sites.ts`), for the
+passport and the site and place badges alike.
 
 Each group has an `id` (`region:great-barrier-reef`, `country:thailand`), a `name`, its `stamps`,
 `knownSites` (the sites in the lookup in that group, visited or not, for "3 of 41") and first and
