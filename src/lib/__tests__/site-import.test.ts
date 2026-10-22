@@ -93,6 +93,7 @@ describe('dive spots versus dive centres', () => {
     expect(classifyTags({ sport: 'scuba_diving', tourism: 'attraction', name: 'Down Under Diving' })).toBe('dive-business');
     expect(classifyTags({ sport: 'scuba_diving', name: 'Blue Planet Dive Centre' })).toBe('dive-business');
     expect(classifyTags({ sport: 'scuba_diving', name: 'Coral Garden' })).toBe('spot');
+    expect(classifyTags({ sport: 'scuba_diving', name: 'DECO International hyperbaric chamber' })).toBe('dive-business');
   });
 
   it('leaves out lakes, quarries and pools, which are not the sea', () => {
@@ -306,7 +307,7 @@ describe('duplicates within the import', () => {
   const a = plain('osm-node-5', 'Twin Reef', 27.25, 33.95);
   const b = plain('osm-way-6', 'Twin Reef', 27.2503, 33.9501);
 
-  it('merges the same name within 150 m and keeps the node', () => {
+  it('merges the same name within 1 km and keeps the node', () => {
     const { sites, merged } = dedupeWithinImport([b, a]);
     expect(sites.map((s) => s.id)).toEqual(['osm-node-5']);
     expect(merged).toEqual([{ kept: 'osm-node-5', dropped: ['osm-way-6'], name: 'Twin Reef' }]);
@@ -324,9 +325,14 @@ describe('duplicates within the import', () => {
     expect(sites.map((s) => s.id)).toEqual(['osm-way-6']);
   });
 
-  it('leaves alone sites further apart than 150 m, or with different names', () => {
-    const far = plain('osm-node-7', 'Twin Reef', 27.2514, 33.95); // about 155 m
-    expect(distanceM(a.lat, a.lng, far.lat, far.lng)).toBeGreaterThan(150);
+  it('merges a reef drawn as an outline and marked with a point several hundred metres apart', () => {
+    const point = plain('osm-node-7', 'Twin reef', 27.2545, 33.95); // about 500 m
+    expect(dedupeWithinImport([a, point]).sites.map((s) => s.id)).toEqual(['osm-node-5']);
+  });
+
+  it('leaves alone sites further apart than 1 km, or with different names', () => {
+    const far = plain('osm-node-7', 'Twin Reef', 27.2595, 33.95); // about 1.05 km
+    expect(distanceM(a.lat, a.lng, far.lat, far.lng)).toBeGreaterThan(1000);
     expect(dedupeWithinImport([a, far]).sites).toHaveLength(2);
     expect(dedupeWithinImport([a, plain('osm-node-8', 'Other Reef', 27.25, 33.95)]).sites).toHaveLength(2);
   });

@@ -209,8 +209,11 @@ const listOf = (value: string | undefined): string[] =>
 const LODGING = new Set(['hotel', 'resort', 'hostel', 'guest_house', 'motel', 'apartment', 'chalet', 'camp_site', 'caravan_site']);
 const LEISURE_BUSINESS = new Set(['resort', 'marina', 'sports_centre', 'fitness_centre', 'water_park']);
 const INLAND_WATER = new Set(['lake', 'pond', 'reservoir', 'river', 'canal', 'stream', 'basin', 'oxbow', 'moat']);
-/** Names that belong to a dive business rather than a place: "Blue Planet Dive Centre", "Down Under Diving". */
-const BUSINESS_NAME = /\b(?:dive|diving|scuba)\s+(?:cent(?:er|re)|club|shop|school|academy|resort|college|base|cruises?|charters?|tours?|travel)\b|\b(?:diving|scuba)\s*$/i;
+/**
+ * Names that belong to a dive business or service rather than a place: "Blue Planet Dive Centre",
+ * "Down Under Diving", a hyperbaric chamber.
+ */
+const BUSINESS_NAME = /\b(?:hyperbaric|recompression|decompression)\b|\b(?:dive|diving|scuba)\s+(?:cent(?:er|re)|club|shop|school|academy|resort|college|base|cruises?|charters?|tours?|travel)\b|\b(?:diving|scuba)\s*$/i;
 
 /**
  * What the tags say the element is. The OSM wiki marks a dive spot with `sport=scuba_diving` and
@@ -245,7 +248,7 @@ export function classifyTags(tags: Record<string, string>): 'spot' | SkipReason 
 
 /** The name to show: `name:en`, else `name`, with stray whitespace tidied; null when there is none. */
 export function siteNameOf(tags: Record<string, string>): string | null {
-  const name = (tags['name:en'] ?? tags.name ?? '').replace(/\s+/g, ' ').trim();
+  const name = (tags['name:en'] ?? tags.name ?? '').replace(/\s+/g, ' ').trim().replace(/[.,;:]+$/, '').trim();
   return name || null;
 }
 
@@ -423,8 +426,12 @@ export function osmElementToSite(element: OverpassElement, retrievedOn: string):
 
 // ── Duplicates ───────────────────────────────────────────────────────────────
 
-/** Elements this close with the same name are one place mapped twice (a node and a way, say). */
-export const WITHIN_IMPORT_M = 150;
+/**
+ * Elements this close with the same name are one place mapped twice. Generous, because a reef is often
+ * drawn as an outline and also marked with a point (live data: two "Jackson Reef", two "Golden
+ * Blocks", several hundred metres apart); two different sites with the same name are further apart.
+ */
+export const WITHIN_IMPORT_M = 1000;
 /**
  * An imported site this close to a seed is the seed, whatever it is called. Only a few metres: dive
  * sites crowd together (The Bells is 250 m from the Blue Hole, Satellite Reef 170 m from Shark &
@@ -511,7 +518,7 @@ export interface DuplicateGroup {
 }
 
 /**
- * Merge elements that are one place mapped more than once: within 150 m and the same normalised
+ * Merge elements that are one place mapped more than once: within 1 km and the same normalised
  * name. The one kept is a site imported before (`preferIds`, so its id and any sightings stay put),
  * else a node over a way over a relation. The others are dropped, with no trace in the output
  * beyond the returned `merged` list.

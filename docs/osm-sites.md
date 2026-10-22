@@ -1,14 +1,28 @@
 # Dive sites from OpenStreetMap
 
-**Status (October 2026):** the import pipeline is built and tested offline. It has **not been run
-against Overpass yet**: the build environment blocks `overpass-api.de` and its mirrors. Until it
-runs, `src/data/osm-sites.json` is an empty list, and the app shows only the 69 curated sites. No
-dive site in this repository was typed in by hand; the sites the app will list are whatever
-OpenStreetMap returns, and nothing else.
+**Status:** imported on 22 October 2026 from OpenStreetMap through the Overpass mirrors
+`overpass.kumi.systems` and `overpass.private.coffee` (overpass-api.de refuses connections from the
+build environment). The area was fetched in eight smaller boxes, saved, and passed to the import with
+`--input`. `src/data/osm-sites.json` holds **268 dive sites**:
 
-How tags are read is based on the OSM wiki's `sport=scuba_diving` and `scuba_diving:*` pages. The
-wiki itself couldn't be fetched from here, so that part is from search-engine summaries of those
-pages **[S]**, and should be checked against the live wiki and taginfo on the first real run.
+| Region | Sites |
+| --- | --- |
+| Red Sea: Hurghada & Safaga | 88 |
+| Red Sea: Marsa Alam & the south | 73 |
+| Red Sea: Sinai | 58 |
+| Red Sea: offshore reefs | 24 |
+| Great Barrier Reef: Cairns/Cooktown | 19 |
+| Great Barrier Reef: Townsville/Whitsunday | 1 |
+| Coral Sea | 5 |
+
+8 of them are seed sites already (Thistlegorm, Shark & Yolanda Reef, the Blue Hole, Elphinstone,
+Daedalus), so the app lists **260 new sites, 329 in all**. That is short of the ~400 hoped for:
+OpenStreetMap maps the Egyptian Red Sea well but the Great Barrier Reef thinly, and nothing was added to
+make up the number. 53 dive centres, shops, clubs and the like, 10 unnamed points and 10 sites on the
+Jordanian shore were left out. No dive site in this repository was typed in by hand.
+
+How tags are read follows the live data (see below) as well as the OSM wiki's `sport=scuba_diving`
+and `scuba_diving:*` pages, which couldn't be fetched from here.
 
 ## What is imported
 
@@ -29,7 +43,7 @@ reason counted in the summary:
 
 - **businesses:** any element that also has an `amenity`, `shop`, `club`, `office`, `craft` or
   `building` tag, or is a hotel, hostel, guest house, resort or marina, or is named like a business
-  ("… Dive Centre", "… Diving School", a name ending in "Diving"), even if it says `divespot=yes`;
+  ("… Dive Centre", "… Diving School", a name ending in "Diving", a hyperbaric chamber), even if it says `divespot=yes`;
 - **`divespot=no`**;
 - **lakes, quarries and pools** (`water=lake`, `landuse=quarry`, `leisure=swimming_pool` and the
   like);
@@ -133,7 +147,7 @@ never removed from the file**.
 
 ## Duplicates
 
-**Within the import:** elements within **150 m** with the same **normalised name** are one place
+**Within the import:** elements within **1 km** with the same **normalised name** are one place (a reef is often drawn as an outline and marked with a point too)
 mapped twice (typically a node and a way). The one kept is a site imported before (its id and its
 sightings stay put), else a node over a way over a relation, else the lower OSM id. Names are
 normalised by lower-casing, dropping accents, apostrophes and punctuation, turning `&` into "and",
@@ -281,7 +295,7 @@ import report):
 - Region lines and the Egyptian country check are approximate; a few spots near a line may be
   filed in the neighbour. After the first run, read the per-region summary and the sites near the
   Gulf of Aqaba.
-- A site mapped twice with different names, or further than 150 m apart, is listed twice.
+- A site mapped twice with different names, or further than 1 km apart, is listed twice.
 - The tags `scuba_diving:difficulty`, `scuba_diving:entry` and `scuba_diving:type` are used as
   hints. Nothing in the file is a recommendation, and the app shows "not known yet" for what is
   missing.
