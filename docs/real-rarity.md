@@ -13,7 +13,8 @@ tier. The first run over 329 sites **failed** the sanity check (5 of 9 iconic an
 was the Red Sea, which the method lumped into the rest of the Indo-Pacific; it is now its own province. The
 recomputed tiers pass the check: 8 of the 9 iconic animals that have a tier are rare or rarer (the orca is the
 miss) and 6 of 7 staples are common or uncommon (the moorish idol is the miss). They carry known weaknesses,
-listed under [the sanity check](#the-sanity-check) and [Biases and limits](#biases-and-limits).
+listed under [the sanity check](#the-sanity-check) and [Biases and limits](#biases-and-limits). Since then four of those sites were found to be second marks for one place and merged (325 sites now);
+recomputing without them changes no tier, so the shipped tiers and per-site records stand as run.
 
 How this relates to the per-site client: [real-sightings.md](real-sightings.md) summarises what is
 recorded near *one* dive site, on the phone. Its `observed-rarity.ts` tiers an animal by the share of the

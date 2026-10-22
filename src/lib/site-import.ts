@@ -427,11 +427,14 @@ export function osmElementToSite(element: OverpassElement, retrievedOn: string):
 // ── Duplicates ───────────────────────────────────────────────────────────────
 
 /**
- * Elements this close with the same name are one place mapped twice. Generous, because a reef is often
- * drawn as an outline and also marked with a point (live data: two "Jackson Reef", two "Golden
- * Blocks", several hundred metres apart); two different sites with the same name are further apart.
+ * Sites this close with the same normalised name are one place mapped twice. Generous, because a reef
+ * is often drawn as an outline and also marked with a point (live data: two "Jackson Reef", two
+ * "Golden Blocks", several hundred metres apart; two "Kormoran" and two "Habili Ali" about 2 km
+ * apart), and a seed's position is approximate (the seed "Cod Hole" is 2.6 km from OSM's). Different
+ * sites with the same name are much further apart: the nearest such pair in the data, two "Manta
+ * Point", are on different oceans. Applies within the import and between the import and the seeds.
  */
-export const WITHIN_IMPORT_M = 1000;
+export const SAME_NAME_M = 3000;
 /**
  * An imported site this close to a seed is the seed, whatever it is called. Only a few metres: dive
  * sites crowd together (The Bells is 250 m from the Blue Hole, Satellite Reef 170 m from Shark &
@@ -518,7 +521,7 @@ export interface DuplicateGroup {
 }
 
 /**
- * Merge elements that are one place mapped more than once: within 1 km and the same normalised
+ * Merge elements that are one place mapped more than once: within 3 km and the same normalised
  * name. The one kept is a site imported before (`preferIds`, so its id and any sightings stay put),
  * else a node over a way over a relation. The others are dropped, with no trace in the output
  * beyond the returned `merged` list.
@@ -551,7 +554,7 @@ export function dedupeWithinImport(
         const current = queue.pop() as DiveSite;
         group.push(current);
         for (const other of list) {
-          if (!seen.has(other.id) && distanceM(current.lat, current.lng, other.lat, other.lng) <= WITHIN_IMPORT_M) {
+          if (!seen.has(other.id) && distanceM(current.lat, current.lng, other.lat, other.lng) <= SAME_NAME_M) {
             seen.add(other.id);
             queue.push(other);
           }
@@ -575,25 +578,32 @@ export interface SeedMatch {
   importedId: string;
   seedId: string;
   distanceM: number;
-  /** 'near': inside 60 m. 'name': inside 1.5 km with a similar name. */
+  /** 'near': inside 60 m. 'name': inside 1.5 km with a similar name, or 3 km with the same one. */
   basis: 'near' | 'name';
 }
 
+/** The same name, as matching compares names (`normaliseSiteName`). */
+const sameName = (a: string, b: string) => {
+  const na = normaliseSiteName(a);
+  return na !== '' && na === normaliseSiteName(b);
+};
+
 /**
  * Which imported sites are really a seed site. A seed matches within 60 m whatever it is called,
- * or within 1.5 km when the names are similar. Each imported site matches at most one seed, the
- * nearest that qualifies.
+ * within 1.5 km when the names are similar, or within 3 km when they are the same (`SAME_NAME_M`).
+ * Each imported site matches at most one seed, the nearest that qualifies.
  */
 export function matchSeeds(imported: readonly DiveSite[], seeds: readonly DiveSite[]): SeedMatch[] {
   const matches: SeedMatch[] = [];
-  const maxDegrees = SEED_NAME_M / 111000 + 0.002;
+  const maxDegrees = Math.max(SEED_NAME_M, SAME_NAME_M) / 111000 + 0.002;
   for (const site of imported) {
     let best: SeedMatch | null = null;
     for (const seed of seeds) {
       // A cheap latitude test first: most pairs are on the other side of the world.
       if (Math.abs(seed.lat - site.lat) > maxDegrees) continue;
       const d = distanceM(site.lat, site.lng, seed.lat, seed.lng);
-      const basis = d <= SEED_NEAR_M ? 'near' : d <= SEED_NAME_M && namesSimilar(site.name, seed.name) ? 'name' : null;
+      const named = (d <= SEED_NAME_M && namesSimilar(site.name, seed.name)) || (d <= SAME_NAME_M && sameName(site.name, seed.name));
+      const basis = d <= SEED_NEAR_M ? 'near' : named ? 'name' : null;
       if (basis && (!best || d < best.distanceM)) best = { importedId: site.id, seedId: seed.id, distanceM: Math.round(d), basis };
     }
     if (best) matches.push(best);

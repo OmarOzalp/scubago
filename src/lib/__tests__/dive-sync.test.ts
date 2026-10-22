@@ -146,6 +146,54 @@ describeSqlite('the dive log, offline and across phones', () => {
     expect(await p.dive(dive.id)).toMatchObject({ synced: true, syncError: undefined });
   });
 
+  it('a page at a site the server doesn’t have yet waits with a plain reason, and goes up once the site is seeded', async () => {
+    const server = newServer();
+    server.seededSites = new Set(['blue-corner']);
+    const p = phone(server, 'alice', A);
+    await p.ready();
+    // A catalogue site newer than the project's last seed (an OpenStreetMap import, say).
+    const { dive, sightings } = await p.write({ siteId: 'osm-node-1234' });
+
+    const before = await p.sync();
+    expect(before.failed).toBe(2);
+    expect(server.dive(dive.id)).toBeUndefined();
+    const waiting = await p.dive(dive.id);
+    expect(waiting).toMatchObject({ synced: false, syncError: expect.stringMatching(/doesn’t have this dive site yet, so the page is waiting/) });
+    expect(waiting?.syncError).not.toMatch(/foreign key/);
+    expect(await p.sighting(sightings[0].id)).toMatchObject({ synced: false, syncError: 'Waiting for its dive to sync.' });
+
+    // The project's owner runs the seed: the page and its sighting go up on the next sync.
+    server.seededSites.add('osm-node-1234');
+    const after = await p.sync();
+    expect(after).toMatchObject({ failed: 0, pushedDives: 1, pushedSightings: 1 });
+    expect(server.dive(dive.id)).toMatchObject({ site_id: 'osm-node-1234' });
+    expect(server.sighting(sightings[0].id)).toMatchObject({ site_id: 'osm-node-1234', dive_id: dive.id });
+    expect(await p.dive(dive.id)).toMatchObject({ synced: true, syncError: undefined });
+
+    // Moving a synced page to a site the server lacks waits the same way, and keeps the old one there.
+    const current = (await p.dive(dive.id))!;
+    await p.db.updateDive({ ...current, siteId: 'osm-node-5678', updatedAt: new Date().toISOString() });
+    await p.sync();
+    expect(server.dive(dive.id)).toMatchObject({ site_id: 'osm-node-1234' });
+    expect(await p.dive(dive.id)).toMatchObject({ synced: false, syncError: expect.stringMatching(/doesn’t have this dive site yet/) });
+  });
+
+  it('without the dive log, a sighting at a site the server doesn’t have yet says so too', async () => {
+    const server = newServer();
+    server.diveLog = false;
+    server.seededSites = new Set(['blue-corner']);
+    const p = phone(server, 'alice', A);
+    await p.ready();
+    const { sightings } = await p.write({ siteId: 'osm-node-1234' });
+
+    await p.sync();
+    expect(server.sighting(sightings[0].id)).toBeUndefined();
+    expect(await p.sighting(sightings[0].id)).toMatchObject({
+      synced: false,
+      syncError: expect.stringMatching(/doesn’t have this dive site yet, so the sighting is waiting/),
+    });
+  });
+
   it('a new phone restores every page, with the signatures buddies sent for them', async () => {
     const server = newServer();
     const first = phone(server, 'alice', A);

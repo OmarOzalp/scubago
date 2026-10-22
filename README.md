@@ -40,7 +40,8 @@ npx supabase db push          # apply supabase/migrations/ (never `db reset --li
 
 SUPABASE_URL=... SUPABASE_SECRET_KEY=... npm run seed:supabase
                                # seeds the species + dive-site catalog. The secret key bypasses row-level
-                               # security: pass it on the command line only, never in the app or a file.
+                               # security: never in the app. Or put those two lines in .env.seed.local
+                               # (gitignored, never read by Expo), run npm run seed:supabase, then delete it.
 
 npm run check:env              # nothing secret in anything the app compiles in (EAS runs it on every build)
 npm run check:supabase         # the live project, checked from outside with the publishable key

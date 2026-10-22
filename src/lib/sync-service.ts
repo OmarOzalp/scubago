@@ -65,7 +65,8 @@ const SIGHTING_COLUMNS = 'id,user_id,species_id,site_id,sighted_on,notes,photo_u
 const OPTIONAL_COLUMNS = ['status', 'custom_name', 'visibility', 'dive_id'] as const;
 const missingColumns = new Set<string>();
 
-type PostgrestReply = { data: unknown; error: { code?: string; message?: string } | null };
+type PostgrestError = { code?: string; message?: string; details?: string };
+type PostgrestReply = { data: unknown; error: PostgrestError | null };
 
 /** A write naming a column the project doesn't have (PostgREST checks its schema cache first). */
 const isMissingColumn = (error: { code?: string } | null, column: string, message = '') =>
@@ -73,6 +74,14 @@ const isMissingColumn = (error: { code?: string } | null, column: string, messag
 
 /** The project has no sighting_details table (no migration 0008). */
 const isMissingTable = (error: { code?: string } | null) => error?.code === 'PGRST205' || error?.code === '42P01';
+
+/**
+ * The server has no row for the dive site (dives.site_id and sightings.site_id point at dive_sites):
+ * a catalogue site added since the project's owner last ran the seed, or a diver's own site whose
+ * upload failed this time. Postgres names the column in the details, and the constraint in the message.
+ */
+const isMissingSite = (error: PostgrestError | null) =>
+  error?.code === '23503' && /site_id|dive_sites/.test(`${error.message ?? ''} ${error.details ?? ''}`);
 
 /** The project has no private photo bucket (no migration 0008). */
 const isMissingBucket = (error: { message?: string } | null) => /bucket not found/i.test(error?.message ?? '');
@@ -108,7 +117,7 @@ async function writeRow<T extends { visibility?: Visibility | null; dive_id?: st
       missingColumns.add('dive_id');
       continue;
     }
-    if (error) throw error;
+    if (error) throw isMissingSite(error) ? new SiteNotOnServerError('sighting') : error;
     // The column is there (the migration may have been applied since): pulls ask for it again.
     if ('visibility' in out) missingColumns.delete('visibility');
     if ('dive_id' in out) missingColumns.delete('dive_id');
@@ -121,6 +130,17 @@ export class DiveLogNotReadyError extends Error {
   constructor() {
     super('Waiting for the server to be updated for the dive log; your pages are safe on this device.');
     this.name = 'DiveLogNotReadyError';
+  }
+}
+
+/**
+ * The server doesn't have the dive site yet (isMissingSite): the page or sighting waits on this
+ * device and goes up on a later sync, once the site is there. Nothing is lost.
+ */
+export class SiteNotOnServerError extends Error {
+  constructor(what: 'page' | 'sighting') {
+    super(`The server doesn’t have this dive site yet, so the ${what} is waiting on this device`);
+    this.name = 'SiteNotOnServerError';
   }
 }
 
@@ -415,18 +435,22 @@ interface DiveState {
   notReady: boolean;
 }
 
+/** Why a write to dives failed, in the diver's terms where there is one. */
+const diveWriteError = (error: PostgrestError) =>
+  isMissingTable(error) ? new DiveLogNotReadyError() : isMissingSite(error) ? new SiteNotOnServerError('page') : error;
+
 /** Send one new or edited page; 'dropped' if it was deleted on another device meanwhile. */
 async function pushDive(client: SupabaseClient, userId: string, d: OutboxDive, deps: SyncDeps): Promise<'pushed' | 'dropped'> {
   const row = diveToRemoteRow(d);
   let saved = false;
   if (!d.remote) {
     const { data, error } = await client.from('dives').upsert(row, { onConflict: 'id', ignoreDuplicates: true }).select('id');
-    if (error) throw isMissingTable(error) ? new DiveLogNotReadyError() : error;
+    if (error) throw diveWriteError(error);
     saved = ((data as unknown[] | null)?.length ?? 0) > 0;
   }
   if (!saved) {
     const { data, error } = await client.from('dives').update(diveFacts(row)).eq('id', d.id).eq('user_id', userId).select('id');
-    if (error) throw isMissingTable(error) ? new DiveLogNotReadyError() : error;
+    if (error) throw diveWriteError(error);
     if (((data as unknown[] | null)?.length ?? 0) === 0) {
       if (!d.remote) throw new Error('Another dive on the server already uses this id.');
       await deps.forgetDive(d.id);

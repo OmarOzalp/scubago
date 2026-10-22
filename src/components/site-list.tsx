@@ -1,4 +1,4 @@
-import { memo, useCallback, useMemo } from 'react';
+import { memo, useCallback, useEffect, useMemo, useRef } from 'react';
 import { FlatList, StyleSheet, Text, View, type ListRenderItemInfo, type StyleProp, type ViewStyle } from 'react-native';
 
 import { ExternalLink } from '@/components/external-link';
@@ -59,30 +59,73 @@ export const SiteList = memo(function SiteList({
   onSelectSite,
   note,
   topInset = 0,
+  reveal = null,
+  selectedSiteId = null,
 }: {
   sites: DiveSite[];
   highlightedSiteIds: Set<string> | null;
   onSelectSite: (siteId: string) => void;
   note?: string;
   topInset?: number;
+  /**
+   * Scroll to this site (or to the top, for a null `siteId`) when a new one is given: where the map
+   * would fly to the site the search picked. Compared by identity.
+   */
+  reveal?: { siteId: string | null } | null;
+  /** The site whose card is open: its row is edged in coral. */
+  selectedSiteId?: string | null;
 }) {
   const theme = useTheme();
+  const listRef = useRef<FlatList<DiveSite>>(null);
   const visible = useMemo(
     () => (highlightedSiteIds === null ? sites : sites.filter((s) => highlightedSiteIds.has(s.id))),
     [sites, highlightedSiteIds],
   );
   const credit = useMemo(() => hasImportedSites(sites), [sites]);
 
+  // Rows differ in height, so a row that hasn't been drawn yet has no known place: `onScrollToIndexFailed`
+  // jumps to where the average row height puts it, and then asks again once rows there exist.
+  const revealed = useRef<typeof reveal>(null);
+  useEffect(() => {
+    // Once per request, even if the sites shown change under it.
+    if (!reveal || revealed.current === reveal) return;
+    const list = listRef.current;
+    const index = reveal.siteId === null ? 0 : visible.findIndex((s) => s.id === reveal.siteId);
+    if (!list || index < 0) return;
+    revealed.current = reveal;
+    // After this render's rows are laid out. Not cancelled when `visible` changes: it is asked for once.
+    setTimeout(() => {
+      try {
+        if (reveal.siteId === null) list.scrollToOffset({ offset: 0, animated: false });
+        else list.scrollToIndex({ index, animated: true, viewPosition: 0.1 });
+      } catch {
+        // The list isn't ready to scroll (gone, or not laid out yet): staying where it is does no harm.
+      }
+    }, 50);
+  }, [reveal, visible]);
+  const handleScrollFailed = useCallback((info: { index: number; averageItemLength: number }) => {
+    listRef.current?.scrollToOffset({ offset: info.averageItemLength * info.index, animated: false });
+    setTimeout(() => {
+      try {
+        listRef.current?.scrollToIndex({ index: info.index, animated: true, viewPosition: 0.1 });
+      } catch {
+        // Gave up: the average put it near enough.
+      }
+    }, 120);
+  }, []);
+
   const renderItem = useCallback(
     ({ item }: ListRenderItemInfo<DiveSite>) => (
-      <SiteRow id={item.id} name={item.name} region={item.region} country={item.country} onSelect={onSelectSite} />
+      <SiteRow id={item.id} name={item.name} region={item.region} country={item.country} selected={item.id === selectedSiteId} onSelect={onSelectSite} />
     ),
-    [onSelectSite],
+    [onSelectSite, selectedSiteId],
   );
 
   return (
     <FlatList
+      ref={listRef}
       data={visible}
+      onScrollToIndexFailed={handleScrollFailed}
       keyExtractor={siteKey}
       renderItem={renderItem}
       ItemSeparatorComponent={Separator}
@@ -128,18 +171,24 @@ const SiteRow = memo(function SiteRow({
   name,
   region,
   country,
+  selected,
   onSelect,
 }: {
   id: string;
   name: string;
   region: string;
   country: string;
+  selected: boolean;
   onSelect: (siteId: string) => void;
 }) {
   const theme = useTheme();
   const seed = useMemo(() => hashSeed(id), [id]);
   return (
-    <PaperButton onPress={() => onSelect(id)} accessibilityLabel={`${name}, ${region}, ${country}`} style={styles.row}>
+    <PaperButton
+      onPress={() => onSelect(id)}
+      accessibilityLabel={`${name}, ${region}, ${country}`}
+      accessibilityState={{ selected }}
+      style={selected ? [styles.row, { borderColor: theme.coral, boxShadow: `0px 0px 0px 1px ${theme.coral}` }] : styles.row}>
       {/* Each site gets its own watercolour blob behind the pin, so the list isn't one repeated mark. */}
       <View style={styles.pin}>
         <Wash width={46} height={38} color={theme.wash} seed={seed} style={StyleSheet.absoluteFill} />
