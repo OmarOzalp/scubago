@@ -442,10 +442,12 @@ const titan: FishSpec = {
         cells.push({ poly: [add(cc, [-0.9, 0]), add(cc, [0, -0.8]), add(cc, [0.9, 0]), add(cc, [0, 0.8])], paint: 'dark', o: 0.85, clip: 'trunk' });
       }
     }
-    const moustache = shapeIn(s, [[tAtX(s, 1.5), 0.55], [tAtX(s, 8), 0.5], [tAtX(s, 15), 0.6], [tAtX(s, 14), 0.74], [tAtX(s, 7), 0.68], [tAtX(s, 1.6), 0.68]]);
+    // The moustache: a thin dark band along the upper lip, with a yellow patch on the lips and cheek.
+    const moustache = shapeIn(s, [[tAtX(s, 1.4), 0.6], [tAtX(s, 7), 0.55], [tAtX(s, 14), 0.56], [tAtX(s, 15), 0.62], [tAtX(s, 7), 0.64], [tAtX(s, 1.8), 0.68]]);
+    const lipPatch = shapeIn(s, [[tAtX(s, 0.8), 0.68], [tAtX(s, 6), 0.65], [tAtX(s, 13.5), 0.68], [tAtX(s, 14.5), 0.82], [tAtX(s, 8), 0.92], [tAtX(s, 2.2), 0.86]]);
     const groove: Line = { pts: spline([atX(s, 13, 0.25), atX(s, 17, 0.22), atX(s, 19, 0.24)], false), w: 0.9 };
     return {
-      marks: [...cells, { poly: moustache, paint: 'ink', o: 0.9, clip: 'trunk' }],
+      marks: [...cells, { poly: lipPatch, paint: '#E9B53C', o: 0.8, clip: 'trunk' }, { poly: moustache, paint: 'ink', o: 0.6, clip: 'trunk' }],
       lines: [groove, { pts: spline([atX(s, 3, 0.62), atX(s, 9, 0.58), atX(s, 14, 0.66)], false), w: 0.8, o: 0.6 }],
       median: [
         { part: 'dorsal', index: 1, marks: [margin(c.dorsal[1].outline, 1.2, 'ink', 0.9)] },
