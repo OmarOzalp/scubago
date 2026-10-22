@@ -61,6 +61,11 @@ export class FakeServer {
   privacy = true;
   /** The project has migration 0009: dives, dive_signatures and sightings.dive_id. */
   diveLog = true;
+  /**
+   * The catalogue sites the project was seeded with. When set, dives and sightings must point at one
+   * of these or at a site in dive_sites (the foreign keys); null leaves site_id unchecked.
+   */
+  seededSites: Set<string> | null = null;
 
   dive(id: string): Row | undefined {
     return this.tables.dives.find((r) => r.id === id);
@@ -313,6 +318,18 @@ class FakeQuery implements PromiseLike<Result> {
     // ownership trigger in 0009).
     if (this.table === 'sightings' && writes.some((r: Row) => r.dive_id && !server.tables.dives.some((d) => d.id === r.dive_id && d.user_id === userId))) {
       return { data: null, error: { message: 'A sighting can only be on your own dive', code: '42501' } };
+    }
+    // dives.site_id and sightings.site_id reference dive_sites, with Postgres's own wording.
+    const missingSite = server.seededSites && (this.table === 'dives' || this.table === 'sightings')
+      ? writes.find((r: Row) => r.site_id !== undefined
+        && !server.seededSites!.has(r.site_id) && !server.tables.dive_sites.some((x) => x.id === r.site_id))
+      : undefined;
+    if (missingSite) {
+      return { data: null, error: {
+        message: `insert or update on table "${this.table}" violates foreign key constraint "${this.table}_site_id_fkey"`,
+        details: `Key (site_id)=(${missingSite.site_id}) is not present in table "dive_sites".`,
+        code: '23503',
+      } };
     }
     if (this.table === 'sightings' && writes.some((r: Row) => r.visibility !== undefined && !['public', 'private'].includes(r.visibility))) {
       return { data: null, error: { message: 'new row violates check constraint "sightings_visibility_check"', code: '23514' } };

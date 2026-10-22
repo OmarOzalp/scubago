@@ -261,7 +261,11 @@ already asks for advice before this goes live. What the import assumes, to be sa
 ## After an import: seed Supabase
 
 An imported site can only be logged against once it exists in `dive_sites`, because
-`sightings.site_id` is a foreign key to it. After committing a new `osm-sites.json`, the owner runs
+`dives.site_id` and `sightings.site_id` are foreign keys to it. Until then the app keeps a dive
+logged there on the phone, says "The server doesn't have this dive site yet, so the page is waiting
+on this device", and sends it (and its sightings) on the first sync after the seed; nothing is lost.
+`src/lib/__tests__/seed-rows.test.ts` checks every site and region against the database's rules, so
+the seed doesn't stop halfway. After committing a new `osm-sites.json`, the owner runs
 `npm run seed:supabase` with their own key (`SUPABASE_URL` and `SUPABASE_SECRET_KEY`). It
 **upserts**: it adds and updates, never deletes. It writes the regions (the new Red Sea ones
 included) before the sites, then each site's `site_field_sources` and `site_external_ids` rows. A
