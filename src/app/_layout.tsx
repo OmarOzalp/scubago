@@ -88,6 +88,11 @@ export default function RootLayout() {
         <Stack.Screen name="species/[id]" options={{ title: '' }} />
         <Stack.Screen name="sighting/[id]" options={{ title: '' }} />
         <Stack.Screen name="credits" options={{ title: 'Data & credits', headerTitle: '' }} />
+        <Stack.Screen name="rewards/index" options={{ title: '' }} />
+        <Stack.Screen name="rewards/passport" options={{ title: '' }} />
+        <Stack.Screen name="rewards/islands" options={{ title: '' }} />
+        <Stack.Screen name="rewards/[badge]" options={{ title: '' }} />
+        <Stack.Screen name="rewards/collections/[id]" options={{ title: '' }} />
       </Stack>
       <StorageProblem />
     </ThemeProvider>
