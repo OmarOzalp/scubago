@@ -1,6 +1,6 @@
 import { Stack, router, useLocalSearchParams } from 'expo-router';
 import { useMemo, useState } from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { ExternalLink } from '@/components/external-link';
 import { Icon, type IconName } from '@/components/icon';
@@ -8,6 +8,7 @@ import { Paper } from '@/components/journal/paper';
 import { Screen, SectionHeader } from '@/components/journal/screen';
 import { Wash } from '@/components/journal/wash';
 import { OceanButton } from '@/components/ocean-button';
+import { SiteSightingsSection } from '@/components/sightings/site-sightings-section';
 import { SightingRow } from '@/components/sighting-row';
 import { SpeciesCard } from '@/components/species-card';
 import { ThemedText } from '@/components/themed-text';
@@ -177,6 +178,10 @@ export default function SiteDetailScreen() {
           </View>
         ) : null}
 
+        {/* What public records place here: kept apart from the page's own ScubaGo sightings, and the
+            main answer to "what's here?" for a site that has no hand-made species list. */}
+        <SiteSightingsSection site={site} />
+
         <OceanButton
           title="Log a sighting here"
           variant="log"
@@ -230,6 +235,15 @@ export default function SiteDetailScreen() {
                 </ThemedText>
               ))}
             </ThemedText>
+            <Pressable
+              onPress={() => router.push('/credits')}
+              accessibilityRole="link"
+              accessibilityLabel="Data and credits"
+              style={styles.creditsLink}>
+              <ThemedText type="small" themeColor="textSecondary" style={styles.creditsText}>
+                Data & credits
+              </ThemedText>
+            </Pressable>
           </View>
         ) : null}
       </Screen>
@@ -373,6 +387,14 @@ const styles = StyleSheet.create({
   },
   link: {
     fontFamily: Type.bodyBold,
+    textDecorationLine: 'underline',
+  },
+  creditsLink: {
+    minHeight: 44,
+    alignSelf: 'flex-start',
+    justifyContent: 'center',
+  },
+  creditsText: {
     textDecorationLine: 'underline',
   },
 });

@@ -5,8 +5,8 @@ ScubaGo can show what has really been recorded near a dive site, from two open s
 Information System). Records are matched to the 120 catalogue animals by scientific name, kept on the
 device so they work offline, and credited to the people and organisations who made them.
 
-**Status: the data layer is built and tested; no screen uses it yet. It has never been run against
-the live iNaturalist or OBIS servers**: this environment could not reach either host, so the clients
+**Status: built and tested, and shown on every dive site's page (see [Screens](#screens)). It has
+never been run against the live iNaturalist or OBIS servers**: this environment could not reach either host, so the clients
 were written from the documented APIs and tested only against small hand-written responses. See
 [Not yet verified against the live APIs](#not-yet-verified-against-the-live-apis) before relying on
 it. The research behind the licensing rules is in
@@ -251,3 +251,86 @@ const { summary, status, refresh } = useSiteSightings(site);
 - Show "observed <date>" from `observedOn`, and a distance only as "within N km" when
   `distanceKm` is present.
 - Wherever any of it appears, link to a credits screen built from `attribution.ts`.
+
+## Screens
+
+The data layer now has two screens. Neither shows anything the data layer did not return: with no
+summary there is no list, and a source that did not answer is named, never counted as "no records".
+
+### The site page: "Marine life recorded here"
+
+`src/app/site/[id].tsx` renders `SiteSightingsSection` (`src/components/sightings/`) between "What
+divers see here" and the "Log a sighting here" button, so it sits beside the curated list and above the
+page's own ScubaGo sightings. For a site with no curated `notableSpecies` (the imported OpenStreetMap
+sites) the curated list is simply absent and this section is the page's "what's here".
+
+The section is labelled **Public records** and says in its first lines that the records are not ScubaGo
+sightings and are not checked by ScubaGo. It is drawn by `RealSightingsView`, which takes
+`summary`, `status` and callbacks as props (no hook, no network), so every state can be drawn from a
+hand-written summary. `SiteSightingsSection` is the thin piece that calls `useSiteSightings(site)`.
+
+| File | Job |
+| --- | --- |
+| `format.ts` | `buildModel(summary, status, now)`: what to draw, and the wording helpers. Pure. |
+| `real-sightings-view.tsx` | The section, its states and its footer. |
+| `species-evidence-list.tsx` | The animals: plate, name, one line per source, newest date, link to the species page. First 8, then "Show all N". |
+| `recent-observations.tsx` | The first 5 recent observations: species, date, "within N km", credit, optional photo and its credit, link to iNaturalist. |
+| `states.tsx` | Placeholder, "couldn't reach", empty, notices, "Updated N days ago". |
+| `open-external.ts`, `link-line.tsx` | Open a secure link (in-app browser on a phone, a new tab on the web). |
+
+What each state shows:
+
+| Hook says | The section shows |
+| --- | --- |
+| `loading`, no summary | Three ruled placeholder lines and "Looking up public records…". No spinner. The lines breathe, unless Reduce Motion is on. |
+| `ready` | The animals, the recent observations, "See more on iNaturalist", the credit line, "Updated today / N days ago". |
+| `stale` | The cached copy with "Updated N days ago · refreshing…". |
+| `offline` / `error` with a summary | The cached copy, a note ("You're offline. Showing records saved 3 days ago." or "Couldn't refresh the public records…") and "Try again" (calls `refresh`). |
+| `offline` / `error`, no summary | "Couldn't reach the public records right now." with a one-line reason and "Try again". Nothing is credited or counted. |
+| `ready`, nothing matched | "No public records of catalogue species within N km yet." (naming the source that answered, if the other did not). On a site with no curated list it adds that ScubaGo has no list either. |
+| `idle` | Nothing. |
+
+Per-source flags are respected. A source with `ok: false` is named ("OBIS couldn't be reached, so its
+records aren't included") and left out of the credit line. A source with `ok` and an `error` says its
+records are from an earlier day. A `truncated` source says a rarely recorded animal may be missing. If
+iNaturalist answered but no recent observation is openly licensed, the counts stay and a line says so.
+
+What is and is not shown:
+
+- Evidence is "N iNaturalist observations" and "N records in OBIS datasets", one line each. The credit line
+  at the foot is the `attribution` text of each source that answered, followed by "Data & credits".
+- "Newest on file" is `lastObservedOn`: the newest openly licensed observation the app holds, not the
+  newest observation anywhere.
+- A recent observation shows `credit` as given, its observation date (`formatDate`), "within N km" only when
+  `distanceKm` exists (never for an obscured place) and a link to its iNaturalist page. A photo is drawn
+  only from an https address and only with its `photo.attribution`; if it fails to load, its credit line goes
+  with it.
+- Links are opened only if they are on `https://www.inaturalist.org/` (observations, the explore link taken
+  from the iNaturalist `SourceStatus.url`). Species or observations that are not in the catalogue, or whose
+  date is not `yyyy-mm-dd`, are dropped before drawing. Coordinates are never drawn.
+- Not shown: `unmatched` (it counts land animals and others, which would read as marine life), catalogue
+  rarity (it would sit oddly next to real counts), and any individual OBIS record.
+
+### Data & credits: `src/app/credits.tsx`
+
+Registered in `src/app/_layout.tsx`. Covers iNaturalist and its observers (the `attribution.ts` description,
+the CC0 / CC BY policy, licence and terms links), OBIS and its data providers (description, citation, policy
+and citing links), OpenStreetMap ("Dive site locations © OpenStreetMap contributors, available under the Open
+Database License (ODbL)", linking to openstreetmap.org/copyright), and species photographs (described
+generally: credited to the photographer, with the licence iNaturalist gives it), then
+`REAL_SIGHTINGS_FOOTNOTE`. It is linked from the section's footer and from the site page's Sources block.
+
+### Tests
+
+`src/components/__tests__/real-sightings-section.test.js` (every state, with the hook mocked),
+`real-sightings-credits.test.js`, `real-sightings-site-page.test.js` (a site with no curated species).
+The screens were reviewed in a web export with a temporary preview route and hand-written sample data; that
+route is deleted. The live iNaturalist and OBIS responses have still not been seen, so the layout has only
+been checked against the shapes in `types.ts`.
+
+### Known gaps
+
+- The status paragraph at the top of this page ("no screen uses it yet") predates these screens.
+- The species photographs on species pages (`species-photos.json`) carry the licence iNaturalist gives each
+  one, and most are not CC0 or CC BY. The credits screen describes them accurately and does not claim
+  otherwise; whether they may stay is a decision for the project, not for this screen.
