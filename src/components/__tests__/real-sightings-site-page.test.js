@@ -23,6 +23,7 @@ jest.mock('@/lib/store', () => ({
   useAllSites: () => [...require('@/data/sites').SITES, mockOsmSite],
   useSiteById: () => (id) => [...require('@/data/sites').SITES, mockOsmSite].find((s) => s.id === id),
   useMySightings: () => [],
+  useMyDives: () => [],
 }));
 let mockHook = { summary: null, status: 'loading', refresh: () => {} };
 jest.mock('@/hooks/use-site-sightings', () => ({ useSiteSightings: () => mockHook }));

@@ -23,16 +23,19 @@ jest.mock('@/lib/confirm', () => ({ confirmAction: jest.fn(async () => true) }))
 jest.mock('@/lib/announce', () => ({ announce: jest.fn() }));
 jest.mock('@/components/external-link', () => ({ ExternalLink: ({ children, ...props }) => <extlink {...props}>{children}</extlink> }));
 jest.mock('@/hooks/use-site-sightings', () => ({ useSiteSightings: () => ({ summary: null, status: 'loading', refresh: () => {} }) }));
-// The real dive sites, and sightings set by each test.
+// The real dive sites, and the sightings and dives set by each test (the diver's own are `mockMine` and `mockDives`).
 let mockSiteId = 'cod-hole';
 let mockSightings = [];
+let mockMine = [];
+let mockDives = [];
 jest.mock('@/lib/store', () => {
   const { SITES: all, SITES_BY_ID: byId } = require('@/data/sites');
   return {
     useAppStore: (select) => select({ sightings: mockSightings, user: null }),
     useAllSites: () => all,
     useSiteById: () => (id) => byId.get(id),
-    useMySightings: () => [],
+    useMySightings: () => mockMine,
+    useMyDives: () => mockDives,
   };
 });
 jest.mock('react-native-maps', () => {
@@ -57,6 +60,8 @@ beforeEach(() => {
   global.IS_REACT_ACT_ENVIRONMENT = true;
   router.push.mockClear();
   mockSightings = [sighting()];
+  mockMine = [];
+  mockDives = [];
 });
 afterEach(async () => {
   if (root) await act(async () => root.unmount());
@@ -88,6 +93,66 @@ test('the hidden id’s own page is the listed site’s, so a sighting logged fr
   const log = root.root.findAll((n) => n.props.title === 'Log a sighting here' && typeof n.props.onPress === 'function')[0];
   await act(async () => log.props.onPress());
   expect(router.push).toHaveBeenCalledWith({ pathname: '/log/new', params: { siteId: 'cod-hole' } });
+});
+
+const dive = (number, siteId, divedOn, over = {}) => ({
+  id: `dive-${number}`, userId: 'me', number, siteId, divedOn, bottomTimeMin: 45, maxDepthM: 20, synced: true, createdAt: `${divedOn}T09:00:00.000Z`, ...over,
+});
+/** The rows under "Your dives here", in the order shown: each one's label, as a screen reader says it. */
+const diveRows = () =>
+  root.root.findAll(
+    // The card and the pressable inside it carry the same props: count each row once.
+    (n) => typeof n.props.onPress === 'function' && /^No\. [\d,]+ · /.test(n.props.accessibilityLabel ?? '') && n.parent?.props.accessibilityLabel !== n.props.accessibilityLabel,
+  );
+
+test('"Your dives here" lists the diver’s dives at the site and at its hidden copies, newest first, each opening its page', async () => {
+  mockSiteId = 'cod-hole';
+  mockDives = [dive(3, 'cod-hole', '2026-02-01'), dive(7, HIDDEN, '2026-06-10'), dive(5, 'cod-hole', '2026-04-02'), dive(9, 'yongala', '2026-07-01')];
+  // Two animals on dive 7's page (the diver's own sightings of it), and one from another dive that is not counted there.
+  mockMine = [
+    sighting({ id: 'a', userId: 'me', diveId: 'dive-7' }),
+    sighting({ id: 'b', userId: 'me', diveId: 'dive-7', speciesId: 'green-turtle' }),
+    sighting({ id: 'c', userId: 'me', diveId: 'dive-5' }),
+  ];
+  await act(async () => { root = create(<SiteDetailScreen />); });
+  expect(text()).toContain('Your dives here');
+  expect(text()).toContain('3 dives');
+  const rows = diveRows();
+  expect(rows.map((r) => r.props.accessibilityLabel.split(' · ')[0])).toEqual(['No. 7', 'No. 5', 'No. 3']);
+  expect(rows[0].props.accessibilityLabel).toMatch(/20 m · 45 min · 2 sightings$/);
+  expect(rows[1].props.accessibilityLabel).toMatch(/1 sighting$/);
+  await act(async () => rows[0].props.onPress());
+  expect(router.push).toHaveBeenCalledWith('/dive/dive-7');
+});
+
+test('the log button comes right under the facts, before the diver’s dives and the lists', async () => {
+  mockSiteId = 'cod-hole';
+  mockDives = [dive(3, 'cod-hole', '2026-02-01')];
+  await act(async () => { root = create(<SiteDetailScreen />); });
+  const t = text();
+  const order = ['SPECIES', 'Log a sighting here', 'Your dives here', 'What divers see here', 'Recent sightings'].map((heading) => t.indexOf(heading));
+  expect(order).not.toContain(-1); // the totals are the facts' last line
+  expect(order).toEqual([...order].sort((a, b) => a - b));
+});
+
+test('with no dives of the diver’s at the site there is no "Your dives here", and the log button is still there', async () => {
+  mockSiteId = 'cod-hole';
+  mockDives = [];
+  await act(async () => { root = create(<SiteDetailScreen />); });
+  expect(text()).not.toContain('Your dives here');
+  expect(text()).toContain('Log a sighting here');
+});
+
+test('a site the diver knows well lists its newest five dives, and the rest on asking', async () => {
+  mockSiteId = 'cod-hole';
+  mockDives = Array.from({ length: 8 }, (_, i) => dive(i + 1, i % 2 ? HIDDEN : 'cod-hole', `2026-0${i + 1}-15`));
+  await act(async () => { root = create(<SiteDetailScreen />); });
+  expect(text()).toContain('8 dives');
+  expect(diveRows().map((r) => r.props.accessibilityLabel.split(' · ')[0])).toEqual(['No. 8', 'No. 7', 'No. 6', 'No. 5', 'No. 4']);
+  const more = root.root.findAll((n) => n.props.title === 'Show all 8 dives here' && typeof n.props.onPress === 'function')[0];
+  await act(async () => more.props.onPress());
+  expect(diveRows()).toHaveLength(8);
+  expect(root.root.findAll((n) => n.props.title === 'Show all 8 dives here')).toHaveLength(0);
 });
 
 test('on Explore, it counts on the site’s card and for the animal’s filter', async () => {
