@@ -1,0 +1,233 @@
+{
+  "version": 1,
+  "generatedAt": "2026-10-22T03:18:42.057Z",
+  "input": null,
+  "sources": {
+    "inaturalist": {
+      "name": "iNaturalist",
+      "url": "https://www.inaturalist.org",
+      "api": "https://api.inaturalist.org/v1",
+      "credit": "Observations by iNaturalist observers (inaturalist.org)",
+      "licence": "Counts of research-grade observations are facts, so they carry no licence of their own; they are credited to iNaturalist and the people who made the observations. No observation, photo or observer name is stored.",
+      "terms": "https://www.inaturalist.org/terms"
+    },
+    "obis": {
+      "name": "OBIS",
+      "url": "https://obis.org",
+      "api": "https://api.obis.org/v3",
+      "credit": "OBIS and its data providers (obis.org)",
+      "citation": "OBIS. Ocean Biodiversity Information System. Intergovernmental Oceanographic Commission of UNESCO. https://obis.org",
+      "licence": "Counts of occurrence records are facts, credited to OBIS and its data providers. OBIS datasets carry their own licences (CC0, CC BY or CC BY-NC); only a total is stored, never a record or a dataset.",
+      "terms": "https://manual.obis.org/policy.html"
+    }
+  },
+  "method": {
+    "summary": "For each dive site, iNaturalist (research-grade species_counts, marine groups) and the OBIS checklist say which catalogue animals are recorded within the radius. An animal’s waters are the ocean basins where it is recorded at a used site or listed as notable by a seed site. Its share is the used sites in its waters that have it recorded, divided by the used sites in its waters. Shares are cut into percentile bands across the animals that have one.",
+    "radiusKm": 5,
+    "sources": [
+      "inaturalist",
+      "obis"
+    ],
+    "presence": "either",
+    "minRecordsPerSite": 3,
+    "minSiteTaxa": 20,
+    "minSitesInWaters": 5,
+    "sitesAsked": 69,
+    "sitesUsed": 67,
+    "sitesPerBasin": {
+      "tropical-indo-pacific": 42,
+      "tropical-west-atlantic": 11,
+      "tropical-east-pacific": 6,
+      "tropical-east-atlantic": 0,
+      "temperate-north-pacific": 4,
+      "temperate-north-atlantic": 2,
+      "temperate-southern": 2
+    },
+    "basins": [
+      {
+        "id": "tropical-indo-pacific",
+        "name": "Tropical Indo-Pacific (Red Sea included)",
+        "rule": "Latitude 32 S to 30 N and longitude east of 20 E or west of 140 W: the Red Sea, the Indian Ocean, Southeast Asia, the western and central Pacific, Hawaii and French Polynesia, the warm east coast of southern Africa and Australia."
+      },
+      {
+        "id": "tropical-west-atlantic",
+        "name": "Tropical West Atlantic and Caribbean",
+        "rule": "Latitude 25 S to 32.5 N, longitude 98 W to 30 W, on the Atlantic side of the Americas (the Gulf of Mexico, Florida, the Bahamas, Bermuda, Central America’s Caribbean coast, Brazil)."
+      },
+      {
+        "id": "tropical-east-pacific",
+        "name": "Tropical Eastern Pacific",
+        "rule": "Latitude 6 S to 27 N, east of 140 W, on the Pacific side of the Americas: the Gulf of California, Mexico’s Pacific coast and Revillagigedo, Central America’s Pacific coast, Cocos, Galapagos, Ecuador and northern Peru."
+      },
+      {
+        "id": "tropical-east-atlantic",
+        "name": "Tropical Eastern Atlantic",
+        "rule": "Latitude 18 S to 27 N, longitude 30 W to 20 E: West Africa, Cape Verde, the Gulf of Guinea, St Helena."
+      },
+      {
+        "id": "temperate-north-pacific",
+        "name": "Temperate and cold North Pacific",
+        "rule": "North of the tropical limits, longitude east of 100 E or west of 100 W: California and the Pacific North-West, British Columbia, Alaska, Japan north of 30 N, Korea, Russia’s Far East."
+      },
+      {
+        "id": "temperate-north-atlantic",
+        "name": "Temperate and cold North Atlantic (with the Mediterranean)",
+        "rule": "North of the tropical limits, longitude between 100 W and 100 E: Europe and the Mediterranean, Iceland, Norway, the Canaries and Azores, Atlantic Canada and the US north-east."
+      },
+      {
+        "id": "temperate-southern",
+        "name": "Temperate and cold southern waters",
+        "rule": "South of the tropical limits: southern Australia and Tasmania, New Zealand, South Africa’s cold west and south coasts, Chile, Patagonia and the sub-Antarctic."
+      }
+    ],
+    "bands": [
+      {
+        "tier": "common",
+        "percent": 28
+      },
+      {
+        "tier": "uncommon",
+        "percent": 21
+      },
+      {
+        "tier": "rare",
+        "percent": 26
+      },
+      {
+        "tier": "epic",
+        "percent": 15
+      },
+      {
+        "tier": "legendary",
+        "percent": 10
+      }
+    ],
+    "bandsOrder": "from the animal recorded at the largest share of sites in its waters down",
+    "minSpecies": 20,
+    "ties": "Animals with equal shares share the tier at the middle of their block."
+  },
+  "species": {
+    "whale-shark": {"share":0.22,"sites":50,"recordedAt":11,"basins":["tropical-indo-pacific","tropical-east-pacific","temperate-southern"],"tier":"rare"},
+    "great-white-shark": {"share":0.0652,"sites":46,"recordedAt":3,"basins":["tropical-indo-pacific","temperate-north-pacific"],"tier":"epic"},
+    "tiger-shark": {"share":0.1525,"sites":59,"recordedAt":9,"basins":["tropical-indo-pacific","tropical-west-atlantic","tropical-east-pacific"],"tier":"rare"},
+    "great-hammerhead": {"share":0.0377,"sites":53,"recordedAt":2,"basins":["tropical-indo-pacific","tropical-west-atlantic"],"tier":"legendary"},
+    "scalloped-hammerhead": {"share":0.1042,"sites":48,"recordedAt":5,"basins":["tropical-indo-pacific","tropical-east-pacific"],"tier":"epic"},
+    "thresher-shark": {"share":0.0417,"sites":48,"recordedAt":2,"basins":["tropical-indo-pacific","tropical-east-pacific"],"tier":"legendary"},
+    "oceanic-whitetip": {"share":0.0476,"sites":42,"recordedAt":2,"basins":["tropical-indo-pacific"],"tier":"legendary"},
+    "bull-shark": {"share":0.0678,"sites":59,"recordedAt":4,"basins":["tropical-indo-pacific","tropical-west-atlantic","tropical-east-pacific"],"tier":"epic"},
+    "silky-shark": {"share":0.3333,"sites":6,"recordedAt":2,"basins":["tropical-east-pacific"],"tier":"uncommon"},
+    "galapagos-shark": {"share":0.5,"sites":6,"recordedAt":3,"basins":["tropical-east-pacific"],"tier":"common"},
+    "sand-tiger-shark": {"share":0.0714,"sites":42,"recordedAt":3,"basins":["tropical-indo-pacific"],"tier":"epic"},
+    "zebra-shark": {"share":0.1905,"sites":42,"recordedAt":8,"basins":["tropical-indo-pacific"],"tier":"rare"},
+    "tasselled-wobbegong": {"share":0.0952,"sites":42,"recordedAt":4,"basins":["tropical-indo-pacific"],"tier":"epic"},
+    "lemon-shark": {"share":0.1818,"sites":11,"recordedAt":2,"basins":["tropical-west-atlantic"],"tier":"rare"},
+    "grey-reef-shark": {"share":0.2619,"sites":42,"recordedAt":11,"basins":["tropical-indo-pacific"],"tier":"uncommon"},
+    "blacktip-reef-shark": {"share":0.2075,"sites":53,"recordedAt":11,"basins":["tropical-indo-pacific","tropical-west-atlantic"],"tier":"rare"},
+    "whitetip-reef-shark": {"share":0.5208,"sites":48,"recordedAt":25,"basins":["tropical-indo-pacific","tropical-east-pacific"],"tier":"common"},
+    "nurse-shark": {"share":0.5455,"sites":11,"recordedAt":6,"basins":["tropical-west-atlantic"],"tier":"common"},
+    "reef-manta": {"share":0.2619,"sites":42,"recordedAt":11,"basins":["tropical-indo-pacific"],"tier":"uncommon"},
+    "oceanic-manta": {"share":0.1,"sites":50,"recordedAt":5,"basins":["tropical-indo-pacific","tropical-east-pacific","temperate-southern"],"tier":"epic"},
+    "munks-devil-ray": {"share":0,"sites":6,"recordedAt":0,"basins":["tropical-east-pacific"],"tier":"legendary"},
+    "spotted-eagle-ray": {"share":0.3934,"sites":61,"recordedAt":24,"basins":["tropical-indo-pacific","tropical-west-atlantic","tropical-east-pacific","temperate-southern"],"tier":"uncommon"},
+    "marbled-ray": {"share":0.1667,"sites":48,"recordedAt":8,"basins":["tropical-indo-pacific","tropical-east-pacific"],"tier":"rare"},
+    "southern-stingray": {"share":0.8182,"sites":11,"recordedAt":9,"basins":["tropical-west-atlantic"],"tier":"common"},
+    "bluespotted-ribbontail-ray": {"share":0.4048,"sites":42,"recordedAt":17,"basins":["tropical-indo-pacific"],"tier":"uncommon"},
+    "green-turtle": {"share":0.4762,"sites":63,"recordedAt":30,"basins":["tropical-indo-pacific","tropical-west-atlantic","tropical-east-pacific","temperate-north-pacific"],"tier":"common"},
+    "hawksbill-turtle": {"share":0.5094,"sites":53,"recordedAt":27,"basins":["tropical-indo-pacific","tropical-west-atlantic"],"tier":"common"},
+    "loggerhead-turtle": {"share":0.0943,"sites":53,"recordedAt":5,"basins":["tropical-indo-pacific","tropical-west-atlantic"],"tier":"epic"},
+    "olive-ridley-turtle": {"share":0,"sites":42,"recordedAt":0,"basins":["tropical-indo-pacific"],"tier":"legendary"},
+    "leatherback-turtle": {"share":0.0909,"sites":11,"recordedAt":1,"basins":["tropical-west-atlantic"],"tier":"epic"},
+    "bottlenose-dolphin": {"share":0.2923,"sites":65,"recordedAt":19,"basins":["tropical-indo-pacific","tropical-west-atlantic","tropical-east-pacific","temperate-north-pacific","temperate-southern"],"tier":"uncommon"},
+    "spinner-dolphin": {"share":0.0377,"sites":53,"recordedAt":2,"basins":["tropical-indo-pacific","tropical-west-atlantic"],"tier":"legendary"},
+    "humpback-whale": {"share":0.2593,"sites":54,"recordedAt":14,"basins":["tropical-indo-pacific","tropical-east-pacific","temperate-north-pacific","temperate-north-atlantic"],"tier":"rare"},
+    "sperm-whale": {"share":0.0909,"sites":11,"recordedAt":1,"basins":["tropical-west-atlantic"],"tier":"epic"},
+    "orca": {"share":0.4167,"sites":12,"recordedAt":5,"basins":["tropical-east-pacific","temperate-north-pacific","temperate-north-atlantic"],"tier":"uncommon"},
+    "dugong": {"share":0.0714,"sites":42,"recordedAt":3,"basins":["tropical-indo-pacific"],"tier":"epic"},
+    "west-indian-manatee": {"share":0.1818,"sites":11,"recordedAt":2,"basins":["tropical-west-atlantic"],"tier":"rare"},
+    "california-sea-lion": {"share":0.5,"sites":10,"recordedAt":5,"basins":["tropical-east-pacific","temperate-north-pacific"],"tier":"common"},
+    "mola-mola": {"share":0.1304,"sites":46,"recordedAt":6,"basins":["tropical-indo-pacific","temperate-north-pacific"],"tier":"rare"},
+    "sailfish": {"share":0.0476,"sites":42,"recordedAt":2,"basins":["tropical-indo-pacific"],"tier":"legendary"},
+    "napoleon-wrasse": {"share":0.4762,"sites":42,"recordedAt":20,"basins":["tropical-indo-pacific"],"tier":"common"},
+    "bumphead-parrotfish": {"share":0.1667,"sites":42,"recordedAt":7,"basins":["tropical-indo-pacific"],"tier":"rare"},
+    "giant-grouper": {"share":0.1429,"sites":42,"recordedAt":6,"basins":["tropical-indo-pacific"],"tier":"rare"},
+    "goliath-grouper": {"share":0.1818,"sites":11,"recordedAt":2,"basins":["tropical-west-atlantic"],"tier":"rare"},
+    "potato-cod": {"share":0.0952,"sites":42,"recordedAt":4,"basins":["tropical-indo-pacific"],"tier":"epic"},
+    "giant-trevally": {"share":0.3958,"sites":48,"recordedAt":19,"basins":["tropical-indo-pacific","tropical-east-pacific"],"tier":"uncommon"},
+    "great-barracuda": {"share":0.4717,"sites":53,"recordedAt":25,"basins":["tropical-indo-pacific","tropical-west-atlantic"],"tier":"common"},
+    "chevron-barracuda": {"share":0.2619,"sites":42,"recordedAt":11,"basins":["tropical-indo-pacific"],"tier":"uncommon"},
+    "tarpon": {"share":0.4545,"sites":11,"recordedAt":5,"basins":["tropical-west-atlantic"],"tier":"common"},
+    "yellowfin-tuna": {"share":0.1458,"sites":48,"recordedAt":7,"basins":["tropical-indo-pacific","tropical-east-pacific"],"tier":"rare"},
+    "dogtooth-tuna": {"share":0.3333,"sites":42,"recordedAt":14,"basins":["tropical-indo-pacific"],"tier":"uncommon"},
+    "clownfish": {"share":0.3571,"sites":42,"recordedAt":15,"basins":["tropical-indo-pacific"],"tier":"uncommon"},
+    "moorish-idol": {"share":0.7292,"sites":48,"recordedAt":35,"basins":["tropical-indo-pacific","tropical-east-pacific"],"tier":"common"},
+    "emperor-angelfish": {"share":0.6667,"sites":42,"recordedAt":28,"basins":["tropical-indo-pacific"],"tier":"common"},
+    "french-angelfish": {"share":0.9091,"sites":11,"recordedAt":10,"basins":["tropical-west-atlantic"],"tier":"common"},
+    "queen-angelfish": {"share":0.6364,"sites":11,"recordedAt":7,"basins":["tropical-west-atlantic"],"tier":"common"},
+    "king-angelfish": {"share":0.8333,"sites":6,"recordedAt":5,"basins":["tropical-east-pacific"],"tier":"common"},
+    "raccoon-butterflyfish": {"share":0.4762,"sites":42,"recordedAt":20,"basins":["tropical-indo-pacific"],"tier":"common"},
+    "stoplight-parrotfish": {"share":0.9091,"sites":11,"recordedAt":10,"basins":["tropical-west-atlantic"],"tier":"common"},
+    "titan-triggerfish": {"share":0.6905,"sites":42,"recordedAt":29,"basins":["tropical-indo-pacific"],"tier":"common"},
+    "clown-triggerfish": {"share":0.4524,"sites":42,"recordedAt":19,"basins":["tropical-indo-pacific"],"tier":"common"},
+    "queen-triggerfish": {"share":0.5455,"sites":11,"recordedAt":6,"basins":["tropical-west-atlantic"],"tier":"common"},
+    "lionfish": {"share":0.6981,"sites":53,"recordedAt":37,"basins":["tropical-indo-pacific","tropical-west-atlantic"],"tier":"common"},
+    "stonefish": {"share":0.1905,"sites":42,"recordedAt":8,"basins":["tropical-indo-pacific"],"tier":"rare"},
+    "leaf-scorpionfish": {"share":0.381,"sites":42,"recordedAt":16,"basins":["tropical-indo-pacific"],"tier":"uncommon"},
+    "giant-frogfish": {"share":0.2083,"sites":48,"recordedAt":10,"basins":["tropical-indo-pacific","tropical-east-pacific"],"tier":"rare"},
+    "common-seahorse": {"share":0.1132,"sites":53,"recordedAt":6,"basins":["tropical-indo-pacific","tropical-west-atlantic"],"tier":"rare"},
+    "pygmy-seahorse": {"share":0.1905,"sites":42,"recordedAt":8,"basins":["tropical-indo-pacific"],"tier":"rare"},
+    "ornate-ghost-pipefish": {"share":0.2857,"sites":42,"recordedAt":12,"basins":["tropical-indo-pacific"],"tier":"uncommon"},
+    "ribbon-eel": {"share":0.2143,"sites":42,"recordedAt":9,"basins":["tropical-indo-pacific"],"tier":"rare"},
+    "giant-moray": {"share":0.625,"sites":48,"recordedAt":30,"basins":["tropical-indo-pacific","tropical-east-pacific"],"tier":"common"},
+    "green-moray": {"share":0.6364,"sites":11,"recordedAt":7,"basins":["tropical-west-atlantic"],"tier":"common"},
+    "garden-eel": {"share":0.381,"sites":42,"recordedAt":16,"basins":["tropical-indo-pacific"],"tier":"uncommon"},
+    "mandarinfish": {"share":0.1905,"sites":42,"recordedAt":8,"basins":["tropical-indo-pacific"],"tier":"rare"},
+    "blue-tang": {"share":0.2619,"sites":42,"recordedAt":11,"basins":["tropical-indo-pacific"],"tier":"uncommon"},
+    "circular-batfish": {"share":0.3333,"sites":42,"recordedAt":14,"basins":["tropical-indo-pacific"],"tier":"uncommon"},
+    "oriental-sweetlips": {"share":0.381,"sites":42,"recordedAt":16,"basins":["tropical-indo-pacific"],"tier":"uncommon"},
+    "star-puffer": {"share":0.2642,"sites":53,"recordedAt":14,"basins":["tropical-indo-pacific","tropical-west-atlantic"],"tier":"uncommon"},
+    "porcupinefish": {"share":0.5254,"sites":59,"recordedAt":31,"basins":["tropical-indo-pacific","tropical-west-atlantic","tropical-east-pacific"],"tier":"common"},
+    "yellow-boxfish": {"share":0.5476,"sites":42,"recordedAt":23,"basins":["tropical-indo-pacific"],"tier":"common"},
+    "trumpetfish": {"share":0.4576,"sites":59,"recordedAt":27,"basins":["tropical-indo-pacific","tropical-west-atlantic","tropical-east-pacific"],"tier":"common"},
+    "crocodilefish": {"share":0.2619,"sites":42,"recordedAt":11,"basins":["tropical-indo-pacific"],"tier":"uncommon"},
+    "flying-gurnard": {"share":0.1132,"sites":53,"recordedAt":6,"basins":["tropical-indo-pacific","tropical-west-atlantic"],"tier":"rare"},
+    "yellowhead-jawfish": {"share":0.6364,"sites":11,"recordedAt":7,"basins":["tropical-west-atlantic"],"tier":"common"},
+    "wolf-eel": {"share":0.0435,"sites":46,"recordedAt":2,"basins":["tropical-indo-pacific","temperate-north-pacific"],"tier":"legendary"},
+    "sea-goldie": {"share":0.2381,"sites":42,"recordedAt":10,"basins":["tropical-indo-pacific"],"tier":"rare"},
+    "day-octopus": {"share":0.5417,"sites":48,"recordedAt":26,"basins":["tropical-indo-pacific","temperate-north-pacific","temperate-southern"],"tier":"common"},
+    "blue-ringed-octopus": {"share":0.119,"sites":42,"recordedAt":5,"basins":["tropical-indo-pacific"],"tier":"rare"},
+    "mimic-octopus": {"share":0.0952,"sites":42,"recordedAt":4,"basins":["tropical-indo-pacific"],"tier":"epic"},
+    "coconut-octopus": {"share":0.0952,"sites":42,"recordedAt":4,"basins":["tropical-indo-pacific"],"tier":"epic"},
+    "broadclub-cuttlefish": {"share":0.2381,"sites":42,"recordedAt":10,"basins":["tropical-indo-pacific"],"tier":"rare"},
+    "flamboyant-cuttlefish": {"share":0.119,"sites":42,"recordedAt":5,"basins":["tropical-indo-pacific"],"tier":"rare"},
+    "bigfin-reef-squid": {"share":0.1591,"sites":44,"recordedAt":7,"basins":["tropical-indo-pacific","temperate-southern"],"tier":"rare"},
+    "bobtail-squid": {"share":0.1429,"sites":42,"recordedAt":6,"basins":["tropical-indo-pacific"],"tier":"rare"},
+    "chambered-nautilus": {"share":0.0714,"sites":42,"recordedAt":3,"basins":["tropical-indo-pacific"],"tier":"epic"},
+    "anna-chromodoris": {"share":0.2857,"sites":42,"recordedAt":12,"basins":["tropical-indo-pacific"],"tier":"uncommon"},
+    "pikachu-nudibranch": {"share":0.0476,"sites":42,"recordedAt":2,"basins":["tropical-indo-pacific"],"tier":"legendary"},
+    "spanish-dancer": {"share":0.2143,"sites":42,"recordedAt":9,"basins":["tropical-indo-pacific"],"tier":"rare"},
+    "harlequin-shrimp": {"share":0.1875,"sites":48,"recordedAt":9,"basins":["tropical-indo-pacific","tropical-east-pacific"],"tier":"rare"},
+    "peacock-mantis-shrimp": {"share":0.4151,"sites":53,"recordedAt":22,"basins":["tropical-indo-pacific","tropical-west-atlantic"],"tier":"uncommon"},
+    "caribbean-spiny-lobster": {"share":0.9091,"sites":11,"recordedAt":10,"basins":["tropical-west-atlantic"],"tier":"common"},
+    "christmas-tree-worm": {"share":0.6471,"sites":17,"recordedAt":11,"basins":["tropical-west-atlantic","tropical-east-pacific"],"tier":"common"},
+    "giant-clam": {"share":0.0714,"sites":42,"recordedAt":3,"basins":["tropical-indo-pacific"],"tier":"epic"},
+    "banded-sea-krait": {"share":0.2619,"sites":42,"recordedAt":11,"basins":["tropical-indo-pacific"],"tier":"uncommon"},
+    "marine-iguana": {"share":0,"sites":6,"recordedAt":0,"basins":["tropical-east-pacific"],"tier":"legendary"},
+    "golden-jellyfish": {"share":0.0238,"sites":42,"recordedAt":1,"basins":["tropical-indo-pacific"],"tier":"legendary"}
+  },
+  "unresolved": [
+    {"id":"basking-shark","scientificName":"Cetorhinus maximus","reason":"No dive site records it and none lists it as notable, so there is no way to say where its waters are."},
+    {"id":"shortfin-mako","scientificName":"Isurus oxyrinchus","reason":"Only 2 usable dive sites in its waters (Southern temperate); at least 5 are needed."},
+    {"id":"sawfish","scientificName":"Pristis pristis","reason":"No dive site records it and none lists it as notable, so there is no way to say where its waters are."},
+    {"id":"giant-guitarfish","scientificName":"Glaucostegus typus","reason":"No dive site records it and none lists it as notable, so there is no way to say where its waters are."},
+    {"id":"marbled-electric-ray","scientificName":"Torpedo marmorata","reason":"Only 2 usable dive sites in its waters (Southern temperate); at least 5 are needed."},
+    {"id":"harbor-seal","scientificName":"Phoca vitulina","reason":"Only 4 usable dive sites in its waters (North Pacific); at least 5 are needed."},
+    {"id":"sea-otter","scientificName":"Enhydra lutris","reason":"Only 4 usable dive sites in its waters (North Pacific); at least 5 are needed."},
+    {"id":"leafy-seadragon","scientificName":"Phycodurus eques","reason":"Only 2 usable dive sites in its waters (Southern temperate); at least 5 are needed."},
+    {"id":"weedy-seadragon","scientificName":"Phyllopteryx taeniolatus","reason":"Only 2 usable dive sites in its waters (Southern temperate); at least 5 are needed."},
+    {"id":"garibaldi","scientificName":"Hypsypops rubicundus","reason":"Only 4 usable dive sites in its waters (North Pacific); at least 5 are needed."},
+    {"id":"giant-sea-bass","scientificName":"Stereolepis gigas","reason":"Only 4 usable dive sites in its waters (North Pacific); at least 5 are needed."},
+    {"id":"lingcod","scientificName":"Ophiodon elongatus","reason":"Only 4 usable dive sites in its waters (North Pacific); at least 5 are needed."},
+    {"id":"giant-pacific-octopus","scientificName":"Enteroctopus dofleini","reason":"Only 4 usable dive sites in its waters (North Pacific); at least 5 are needed."},
+    {"id":"giant-cuttlefish","scientificName":"Sepia apama","reason":"Only 2 usable dive sites in its waters (Southern temperate); at least 5 are needed."}
+  ]
+}

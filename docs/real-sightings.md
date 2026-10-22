@@ -330,12 +330,21 @@ been checked against the shapes in `types.ts`.
   one, and most are not CC0 or CC BY. The credits screen describes them accurately and does not claim
   otherwise; whether they may stay is a decision for the project, not for this screen.
 
-## See also: worldwide rarity
+## See also: rarity from encounters
 
 The share-of-sites rarity above needs many sites summarised on the device. A separate tier for every
-catalogue animal, from worldwide iNaturalist and OBIS counts fetched once at build time and bundled with
-the app, is in [real-rarity.md](real-rarity.md). It reuses this folder's name matching and synonym table,
-and produces the same `ReadonlyMap<speciesId, Rarity>` the rewards engine takes as `observed`.
+catalogue animal, from how often it is recorded at the dive sites in its own waters, is worked out once at
+build time over every site in `src/data/sites.ts` and bundled with the app. It is in
+[real-rarity.md](real-rarity.md). It reuses this folder's `species_counts` and OBIS checklist clients,
+name matching and synonym table (and `buildSiteSightings`), and produces the same
+`ReadonlyMap<speciesId, Rarity>` the rewards engine takes as `observed`. Worldwide iNaturalist and OBIS
+counts are kept there as supporting evidence only: they measure how much an animal is photographed, not
+how likely a diver is to meet it, and set no tier.
+
+One thing found on the way belongs here: iNaturalist has renamed three catalogue cuttlefish to
+*Ascarosepion* (`ascarosepion latimanus`, `ascarosepion apama`, `ascarosepion pfefferi`). The synonym table
+does not know the new names yet, so a site's page misses them. The encounter script adds them to its own
+matcher; adding the same three lines to `synonyms.ts` fixes the page.
 
 ## The species page: "Recorded near dive sites"
 

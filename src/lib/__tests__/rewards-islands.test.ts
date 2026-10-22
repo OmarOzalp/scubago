@@ -1,9 +1,13 @@
-import { describe, expect, it } from '@jest/globals';
+import { describe, expect, it, jest } from '@jest/globals';
 import { AREAS, foundAreas, foundIslands, HOME_ISLAND, islandOf, ISLANDS, residentsOf } from '@/lib/archipelago';
 import { CATALOG_BY_ID } from '@/lib/catalog';
 import { deriveDex } from '@/lib/dex';
 import { evaluateIslands, type IslandResult, type RewardsInput } from '@/lib/rewards';
 import type { DiveSite, Rarity, Sighting } from '@/lib/types';
+
+// These tests pin the rewards engine's own rules against the catalogue's hand-assigned tiers, so they must
+// not move when src/data/encounter-rarity.json is regenerated: the generated tiers are switched off here.
+jest.mock('@/data/encounter-rarity.json', () => ({ generatedAt: null, species: {} }));
 
 // All the sightings and sites below are hand-written test data, not anyone's log.
 const seen = (speciesId: string, sightedOn: string, over: Partial<Sighting> = {}): Sighting => ({

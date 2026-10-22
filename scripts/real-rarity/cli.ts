@@ -10,19 +10,14 @@ import { basename, dirname, join, resolve } from 'node:path';
 import { SPECIES } from '../../src/data/species';
 import { HttpError } from '../../src/lib/external-sightings/errors';
 import {
-  MIN_SPECIES_FOR_TIERS,
   NOT_FETCHED_REASON,
   REAL_RARITY_REGIONS,
-  bandCounts,
   buildRealRarityData,
-  rarityDifferences,
   readRawCounts,
-  tierCounts,
   type RealRarityData,
   type RealRarityRegion,
   type SpeciesCounts,
 } from '../../src/lib/real-rarity';
-import { RARITY_ORDER } from '../../src/lib/rarity';
 import type { Species } from '../../src/lib/types';
 import { createPoliteClient, type PoliteClient } from './client';
 import {
@@ -42,28 +37,31 @@ export const DEFAULT_OUT = join(DATA_DIR, 'real-rarity.json');
 /** After this many species in a row fail, the run stops: the network is almost certainly down. */
 const MAX_CONSECUTIVE_FAILURES = 5;
 
-export const HELP = `Rarity from real data (docs/real-rarity.md).
+export const HELP = `Worldwide record counts (docs/real-rarity.md).
 
-  npx tsx scripts/real-rarity/fetch.ts                     ask iNaturalist and OBIS, write src/data/real-rarity.json
-  npx tsx scripts/real-rarity/fetch.ts --input saved.json  recompute tiers from saved counts (no network)
+  NODE_USE_ENV_PROXY=1 npx tsx scripts/real-rarity/fetch.ts   ask iNaturalist and OBIS, write src/data/real-rarity.json
+  npx tsx scripts/real-rarity/fetch.ts --input saved.json     recompute the scores from saved counts (no network)
+
+These counts say how much each animal is recorded worldwide. They set no tier: the tiers come from
+encounters at dive sites (scripts/real-rarity/encounters.ts). The file is kept as supporting evidence.
 
 Fetching needs network access to api.inaturalist.org and api.obis.org, one request at a time, at least
 1.1 s apart: about 500 requests, roughly ten minutes. Run it from the repository root. It never writes
-to Supabase and needs no key. After a run, check the differences it prints before relying on the tiers.
+to Supabase and needs no key. Node’s fetch only uses a proxy with NODE_USE_ENV_PROXY=1.
 
 Options:
   --input <file>        Saved counts (this script's own output, a checkpoint, or a hand-made file).
-                        Skips the network; any score and tier in it are worked out again.
+                        Skips the network; any score in it is worked out again, and a tier (from an
+                        earlier version of the script) is dropped.
   --out <file>          Where to write. Default src/data/real-rarity.json (src/data/real-rarity.<region>.json
                         with --region).
   --region gbr|red-sea  Count only inside a box (gbr: Great Barrier Reef and inner Coral Sea; red-sea: the
-                        Red Sea with its gulfs). Tiers are percentiles among the species recorded there.
+                        Red Sea with its gulfs).
   --only <ids>          Fetch just these catalogue ids (comma-separated), as a dry run unless --out is given.
                         Use it for a first look: --only whale-shark --dry-run
   --dry-run             Print the summary and write nothing, not even a checkpoint.
   --fresh               Ignore a checkpoint (<out>.partial.json) from an interrupted run and start over.
   --allow-incomplete    Write the file even if some species could not be fetched; they are listed as unresolved.
-  --min-species <n>     Fewest scored species that may be placed in bands. Default ${MIN_SPECIES_FOR_TIERS}.
   --contact <text>      An email or URL added to the User-Agent (or set REAL_RARITY_CONTACT).
   --help                This text.
 `;
@@ -78,7 +76,6 @@ export interface Options {
   dryRun: boolean;
   fresh: boolean;
   allowIncomplete: boolean;
-  minSpecies: number | undefined;
   contact: string | undefined;
   help: boolean;
 }
@@ -92,7 +89,6 @@ export function parseArgs(argv: readonly string[]): Options {
     dryRun: false,
     fresh: false,
     allowIncomplete: false,
-    minSpecies: undefined,
     contact: undefined,
     help: false,
   };
@@ -113,11 +109,7 @@ export function parseArgs(argv: readonly string[]): Options {
     else if (arg === '--dry-run') options.dryRun = true;
     else if (arg === '--fresh') options.fresh = true;
     else if (arg === '--allow-incomplete') options.allowIncomplete = true;
-    else if (arg === '--min-species') {
-      const n = Number(value(i++, arg));
-      if (!Number.isInteger(n) || n < 1) throw new UsageError('--min-species must be a whole number of 1 or more.');
-      options.minSpecies = n;
-    } else if (arg === '--contact') options.contact = value(i++, arg);
+    else if (arg === '--contact') options.contact = value(i++, arg);
     else if (arg === '--help' || arg === '-h') options.help = true;
     else throw new UsageError(`Unknown option ${arg}. Try --help.`);
   }
@@ -315,7 +307,7 @@ export async function runCli(argv: readonly string[], deps: CliDeps = {}): Promi
     gathered = await gather(options, region, catalog, deps.client, log, warn, now);
   }
 
-  // 2. Work out the scores and tiers.
+  // 2. Work out the scores.
   const dryRun = isDryRun(options);
   const out = outPathFor(options, region);
   const reasons = new Map(gathered.reasons);
@@ -327,29 +319,20 @@ export async function runCli(argv: readonly string[], deps: CliDeps = {}): Promi
     generatedAt,
     region,
     input: inputName,
-    minSpecies: options.minSpecies,
   });
 
   // 3. Say what happened.
-  const tiers = new Map(Object.entries(data.species).map(([id, entry]) => [id, entry.tier] as const));
+  const kept = Object.entries(data.species);
   const unresolved = data.unresolved ?? [];
   log('');
-  log(`Real rarity, ${isoDay(now())}${region ? `, region ${region} (${REGION_BOXES[region].label})` : ', worldwide'}${dryRun ? ' (dry run: nothing written)' : ''}`);
+  log(`Worldwide counts, ${isoDay(now())}${region ? `, region ${region} (${REGION_BOXES[region].label})` : ', worldwide'}${dryRun ? ' (dry run: nothing written)' : ''}`);
   log(`  Counts from: ${inputName ?? 'iNaturalist and OBIS, live'}`);
-  log(`  Catalogue: ${catalog.length} species. Tiered: ${tiers.size}. Unresolved: ${unresolved.length}.`);
-  const fmt = (c: Record<string, number>) => RARITY_ORDER.map((tier) => `${tier} ${c[tier]}`).join(', ');
-  log(`  Tiers now:    ${fmt(tierCounts(tiers.values()))}`);
-  log(`  Bands for ${tiers.size || catalog.length} species: ${fmt(bandCounts(tiers.size || catalog.length))}`);
-  log(`  Catalogue by hand: ${fmt(tierCounts(catalog.map((s) => s.rarity)))}`);
+  log(`  Catalogue: ${catalog.length} species. With counts: ${kept.length}. Unresolved: ${unresolved.length}. (No tier is set from these counts.)`);
   const notFetched = unresolved.filter((u) => u.reason === NOT_FETCHED_REASON);
   for (const u of unresolved.filter((entry) => entry.reason !== NOT_FETCHED_REASON)) log(`  unresolved ${u.id} (${u.scientificName}): ${u.reason}`);
   if (notFetched.length > 0) log(`  Not fetched: ${notFetched.length} species${options.only ? ' (only the ids asked for were fetched)' : ''}.`);
-  const noObis = Object.entries(data.species).filter(([, e]) => e.obis && e.obis.records === 0).map(([id]) => id);
+  const noObis = kept.filter(([, e]) => e.obis && e.obis.records === 0).map(([id]) => id);
   if (noObis.length > 0) log(`  OBIS holds no records under any name for: ${noObis.join(', ')}. Check their names (src/lib/external-sightings/synonyms.ts).`);
-  const differences = rarityDifferences(catalog, tiers);
-  log(`  Different from the catalogue's tier: ${differences.length} of ${tiers.size}.${differences.length ? ' Biggest first:' : ''}`);
-  for (const d of differences.slice(0, 15)) log(`    ${d.id}: catalogue ${d.catalog}, real ${d.real} (${d.steps > 0 ? '+' : ''}${d.steps})`);
-  if (differences.length > 15) log(`    … and ${differences.length - 15} more`);
 
   // 4. Write.
   if (gathered.aborted) {
@@ -360,8 +343,8 @@ export async function runCli(argv: readonly string[], deps: CliDeps = {}): Promi
     warn(`${gathered.failed.size} species could not be fetched (${[...gathered.failed.keys()].join(', ')}). Nothing was written. Run again to carry on from the checkpoint, or pass --allow-incomplete.`);
     return 1;
   }
-  if (tiers.size === 0 && !dryRun) {
-    warn('No species could be tiered, so nothing was written (an empty result would hide the catalogue tiers for no reason).');
+  if (kept.length === 0 && !dryRun) {
+    warn('No species had any counts, so nothing was written.');
     return 1;
   }
   if (!dryRun) {

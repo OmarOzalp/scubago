@@ -4,21 +4,20 @@ import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 
+import bundledEncounters from '@/data/encounter-rarity.json';
 import bundledJson from '@/data/real-rarity.json';
 import { SPECIES } from '@/data/species';
-import { UNLISTED_ID } from '@/lib/catalog';
+import { CATALOG, CATALOG_BY_ID, UNLISTED_ID } from '@/lib/catalog';
 import { HttpError, ParseError } from '@/lib/external-sightings/errors';
 import { SYNONYMS } from '@/lib/external-sightings/synonyms';
-import { RARITY_ORDER, rarityRank } from '@/lib/rarity';
+import { encounterTiersApplied, parseEncounterData, type EncounterEntry } from '@/lib/encounter-rarity';
 import {
-  MIN_SPECIES_FOR_TIERS,
   OBIS_LOG_CAP,
-  RARITY_BANDS,
   REAL_RARITY,
-  bandCounts,
   OBSERVED_NOTE_MAX,
   buildRealRarityData,
   describeRarityEvidence,
+  describeWorldwideCounts,
   parseRealRarityData,
   rarityDifferences,
   rarityObservedNote,
@@ -26,8 +25,6 @@ import {
   realRarity,
   realRarityEntry,
   scoreSpecies,
-  tierCounts,
-  tiersFromScores,
   type RarityEntry,
   type RealRarityData,
   type SpeciesCounts,
@@ -109,143 +106,78 @@ describe('scoring a species', () => {
   });
 });
 
-describe('tiers from scores', () => {
-  const ranked = (count: number) => new Map<string, number>(Array.from({ length: count }, (_, i) => [`s${i + 1}`, i + 1] as const));
-
-  it('keeps the shape of the hand-assigned catalogue', () => {
-    expect(RARITY_BANDS.map((b) => b.tier)).toEqual(RARITY_ORDER);
-    expect(RARITY_BANDS.reduce((sum, b) => sum + b.percent, 0)).toBe(100);
-    const by = tierCounts(SPECIES.map((s) => s.rarity));
-    expect(by).toEqual({ common: 33, uncommon: 25, rare: 31, epic: 19, legendary: 12 });
-    const bands = bandCounts(SPECIES.length);
-    for (const tier of RARITY_ORDER) expect(Math.abs(bands[tier] - by[tier])).toBeLessThanOrEqual(1);
-    expect(bands.legendary).toBe(12);
-  });
-
-  it('cuts 100 species at exactly 28, 49, 75 and 90', () => {
-    const tiers = tiersFromScores(ranked(100)); // s100 is the most recorded, s1 the least
-    expect(tierCounts(tiers.values())).toEqual({ common: 28, uncommon: 21, rare: 26, epic: 15, legendary: 10 });
-    const at = (n: number) => tiers.get(`s${n}`);
-    expect([at(100), at(73)]).toEqual(['common', 'common']);
-    expect([at(72), at(52)]).toEqual(['uncommon', 'uncommon']);
-    expect([at(51), at(26)]).toEqual(['rare', 'rare']);
-    expect([at(25), at(11)]).toEqual(['epic', 'epic']);
-    expect([at(10), at(1)]).toEqual(['legendary', 'legendary']);
-  });
-
-  it('gives the catalogue-sized split of 34, 25, 31, 18 and 12', () => {
-    expect(bandCounts(120)).toEqual({ common: 34, uncommon: 25, rare: 31, epic: 18, legendary: 12 });
-    expect(tierCounts(tiersFromScores(ranked(120)).values())).toEqual(bandCounts(120));
-  });
-
-  it('always places every scored species, whatever the number', () => {
-    for (let n = MIN_SPECIES_FOR_TIERS; n <= 140; n++) {
-      const counts = bandCounts(n);
-      expect(Object.values(counts).reduce((a, b) => a + b, 0)).toBe(n);
-      expect(tiersFromScores(ranked(n)).size).toBe(n);
-    }
-  });
-
-  it('never ranks a higher score in a rarer tier, and gives equal scores one tier', () => {
-    let seed = 12345;
-    const random = () => (seed = (seed * 1664525 + 1013904223) % 4294967296) / 4294967296;
-    // 300 scores from a coarse grid, so there are plenty of ties.
-    const scores = new Map(Array.from({ length: 300 }, (_, i) => [`x${i}`, 0.5 + Math.floor(random() * 80) / 10] as const));
-    const tiers = tiersFromScores(scores);
-    expect(tiers.size).toBe(300);
-    for (const [a, scoreA] of scores) {
-      for (const [b, scoreB] of scores) {
-        const [tierA, tierB] = [tiers.get(a) as Rarity, tiers.get(b) as Rarity];
-        if (scoreA > scoreB) expect(rarityRank(tierA)).toBeLessThanOrEqual(rarityRank(tierB));
-        if (scoreA === scoreB) expect(tierA).toBe(tierB);
-      }
-    }
-  });
-
-  it('puts a tie that straddles an edge in the more common tier, so legendary cannot grow by ties', () => {
-    // 30 species; the bottom ten all tie, starting at position 20 (before the rare band ends at 23).
-    const scores = new Map<string, number>();
-    for (let i = 0; i < 20; i++) scores.set(`a${i}`, 10 + i);
-    for (let i = 0; i < 10; i++) scores.set(`z${i}`, 1);
-    const tiers = tiersFromScores(scores);
-    expect(tiers.get('z0')).toBe('rare');
-    expect(tierCounts(tiers.values()).legendary).toBe(0);
-  });
-
-  it('leaves out species with no evidence, and the unlisted id', () => {
-    const scores = ranked(40);
-    scores.set('no-data', 0);
-    scores.set('negative', -3);
-    scores.set('nan', Number.NaN);
-    scores.set(UNLISTED_ID, 999);
-    const tiers = tiersFromScores(scores);
-    expect(tiers.size).toBe(40);
-    for (const id of ['no-data', 'negative', 'nan', UNLISTED_ID]) expect(tiers.has(id)).toBe(false);
-  });
-
-  it('gives no tiers when there are too few species for percentiles to mean anything', () => {
-    expect(tiersFromScores(ranked(MIN_SPECIES_FOR_TIERS - 1)).size).toBe(0);
-    expect(tiersFromScores(ranked(MIN_SPECIES_FOR_TIERS)).size).toBe(MIN_SPECIES_FOR_TIERS);
-    expect(tiersFromScores(new Map()).size).toBe(0);
-    expect(tiersFromScores(ranked(5), { minSpecies: 5 }).size).toBe(5);
-  });
-
-  it('takes a plain object as well as a map', () => {
-    const record = Object.fromEntries(ranked(25));
-    expect(tiersFromScores(record).size).toBe(25);
-  });
+// HAND-WRITTEN encounter entries to exercise the code. None of it is iNaturalist or OBIS data.
+const encounter = (tier: Rarity, extra: Partial<EncounterEntry> = {}): EncounterEntry => ({
+  share: 0.1463,
+  sites: 41,
+  recordedAt: 6,
+  basins: ['tropical-indo-pacific'],
+  tier,
+  ...extra,
+});
+const encounterFile = (overrides: Record<string, unknown> = {}) => ({
+  version: 1,
+  generatedAt: '2026-10-22T00:00:00.000Z',
+  species: { 'whale-shark': encounter('rare'), orca: encounter('epic') },
+  unresolved: [{ id: 'sawfish', scientificName: 'Pristis pristis', reason: 'No dive site records it and none lists it as notable, so there is no way to say where its waters are.' }],
+  ...overrides,
 });
 
-describe('the bundled tiers', () => {
-  const sample = (tier: Rarity, extra: Partial<RealRarityData['species'][string]> = {}) => ({
-    inaturalist: { observations: 10, observers: 4, taxonId: 7 },
-    obis: { records: 20 },
-    score: 1.5,
-    tier,
-    ...extra,
-  });
-  const file = (overrides: Record<string, unknown> = {}) => ({
-    version: 1,
-    generatedAt: '2026-10-22T00:00:00.000Z',
-    region: null,
-    species: { 'whale-shark': sample('rare'), orca: sample('epic') },
-    unresolved: [{ id: 'sawfish', scientificName: 'Pristis pristis', reason: 'No iNaturalist taxon matched its name.' }],
-    ...overrides,
-  });
-
+describe('the tiers the app applies', () => {
   it('are empty until the data has been generated, so the catalogue tiers stand', () => {
     expect(realRarity({ generatedAt: null, species: {} }).size).toBe(0);
     // Species present but never generated: still nothing.
-    expect(realRarity({ generatedAt: null, species: { 'whale-shark': sample('rare') } }).size).toBe(0);
+    expect(realRarity({ generatedAt: null, species: { 'whale-shark': encounter('rare') } }).size).toBe(0);
   });
 
-  it('match the checked-in file, which is always valid', () => {
-    const parsed = parseRealRarityData(bundledJson);
+  it('come from the encounter file, never from the worldwide counts', () => {
+    // The worldwide file is not even a valid encounter file, and carries no tier.
+    expect(realRarity(bundledJson).size).toBe(0);
+    const worldwide = parseRealRarityData(bundledJson);
+    expect(worldwide && Object.values(worldwide.species).some((entry) => 'tier' in entry)).toBeFalsy();
+    for (const entry of Object.values(bundledJson.species as Record<string, Record<string, unknown>>)) expect(entry).not.toHaveProperty('tier');
+  });
+
+  it('match the checked-in encounter file, which is always valid', () => {
+    const parsed = parseEncounterData(bundledEncounters);
     expect(parsed).not.toBeNull();
-    expect(realRarity().size).toBe(parsed && parsed.generatedAt !== null ? Object.keys(parsed.species).length : 0);
+    const applied = parsed !== null && encounterTiersApplied(parsed);
+    expect(realRarity().size).toBe(applied && parsed ? Object.keys(parsed.species).length : 0);
     expect(REAL_RARITY.size).toBe(realRarity().size);
-    // Whatever it holds, it holds only catalogue species.
+    // Whatever it holds, it holds only catalogue animals, and the catalogue shows exactly these tiers.
     const ids = new Set(SPECIES.map((s) => s.id));
-    for (const id of REAL_RARITY.keys()) expect(ids.has(id)).toBe(true);
+    for (const [id, tier] of REAL_RARITY) {
+      expect(ids.has(id)).toBe(true);
+      expect(CATALOG_BY_ID.get(id)?.rarity).toBe(tier);
+    }
+    for (const species of CATALOG) if (!REAL_RARITY.has(species.id)) expect(species.rarity).toBe(SPECIES.find((s) => s.id === species.id)?.rarity);
   });
 
   it('map each species to its tier', () => {
-    const tiers = realRarity(file());
+    const tiers = realRarity(encounterFile());
     expect(tiers.get('whale-shark')).toBe('rare');
     expect(tiers.get('orca')).toBe('epic');
     expect(tiers.has('sawfish')).toBe(false); // listed as unresolved: no data is absent, not common
     expect(tiers.size).toBe(2);
   });
 
+  it('stay empty while the tiers are switched off, so the app keeps the catalogue tiers', () => {
+    const off = encounterFile({ applied: false, notApplied: 'The sanity check failed.' });
+    expect(parseEncounterData(off)).not.toBeNull();
+    expect(realRarity(off).size).toBe(0);
+    expect(realRarityEntry('whale-shark', off)).toBeUndefined();
+    expect(realRarity(encounterFile({ applied: true })).size).toBe(2);
+  });
+
   it('never include the unlisted id', () => {
-    expect(realRarity(file({ species: { [UNLISTED_ID]: sample('legendary'), orca: sample('epic') } })).has(UNLISTED_ID)).toBe(false);
+    expect(realRarity(encounterFile({ species: { [UNLISTED_ID]: encounter('legendary'), orca: encounter('epic') } })).has(UNLISTED_ID)).toBe(false);
   });
 
   it('turn corrupt input into an empty map without throwing', () => {
+    // (Nothing at all, `undefined`, is not corrupt input: it asks for the bundled file.)
     const throwing = {};
     Object.defineProperty(throwing, 'species', { get() { throw new Error('boom'); }, enumerable: true });
     const corrupt: unknown[] = [
-      undefined,
       null,
       42,
       'text',
@@ -255,44 +187,96 @@ describe('the bundled tiers', () => {
       { species: {} },
       { generatedAt: 'not a date', species: {} },
       { generatedAt: 12345, species: {} },
-      file({ species: [] }),
-      file({ species: { orca: sample('mythic' as Rarity) } }),
-      file({ species: { orca: sample('epic', { score: Number.NaN }) } }),
-      file({ species: { orca: sample('epic', { score: -1 }) } }),
-      file({ species: { orca: sample('epic', { inaturalist: { observations: -4 } }) } }),
-      file({ species: { orca: sample('epic', { inaturalist: { observations: 1.5 } }) } }),
-      file({ species: { orca: sample('epic', { obis: { records: '7' as unknown as number } }) } }),
-      file({ species: { orca: sample('epic', { inaturalist: { observations: 3, taxonId: 0 } }) } }),
-      file({ species: { orca: null, 'whale-shark': sample('rare') } }),
-      file({ region: 'atlantis' }),
-      file({ version: 2 }),
-      file({ sources: [] }),
-      file({ unresolved: {} }),
-      file({ unresolved: [{ id: 'sawfish' }] }),
+      encounterFile({ species: [] }),
+      encounterFile({ species: { orca: encounter('mythic' as Rarity) } }),
+      encounterFile({ species: { orca: encounter('epic', { share: Number.NaN }) } }),
+      encounterFile({ species: { orca: encounter('epic', { share: 1.5 }) } }),
+      encounterFile({ species: { orca: encounter('epic', { share: -0.1 }) } }),
+      encounterFile({ species: { orca: encounter('epic', { sites: 0 }) } }),
+      encounterFile({ species: { orca: encounter('epic', { recordedAt: 42, sites: 41 }) } }),
+      encounterFile({ species: { orca: encounter('epic', { recordedAt: 1.5 }) } }),
+      encounterFile({ species: { orca: encounter('epic', { basins: [] }) } }),
+      encounterFile({ species: { orca: encounter('epic', { basins: ['atlantis' as never] }) } }),
+      encounterFile({ species: { orca: encounter('epic', { basins: ['tropical-indo-pacific', 'tropical-indo-pacific'] }) } }),
+      encounterFile({ species: { orca: null, 'whale-shark': encounter('rare') } }),
+      encounterFile({ version: 2 }),
+      encounterFile({ applied: 'yes' }),
+      encounterFile({ sources: [] }),
+      encounterFile({ unresolved: {} }),
+      encounterFile({ unresolved: [{ id: 'sawfish' }] }),
       throwing,
     ];
     for (const input of corrupt) {
       expect(() => realRarity(input)).not.toThrow();
       expect(realRarity(input).size).toBe(0);
-      expect(parseRealRarityData(input)).toBeNull();
+      expect(parseEncounterData(input)).toBeNull();
     }
   });
 
   it('are accepted whole or not at all: one bad species rejects the file', () => {
-    expect(realRarity(file({ species: { orca: sample('epic'), 'whale-shark': { score: 1, tier: 'nope' } } })).size).toBe(0);
+    expect(realRarity(encounterFile({ species: { orca: encounter('epic'), 'whale-shark': { share: 0.5, tier: 'nope' } } })).size).toBe(0);
   });
 
-  it('accept the empty shape, the full shape and a region file', () => {
+  it('feed effectiveRarity: the real tier where there is one, the catalogue tier otherwise', () => {
+    const tiers = realRarity(encounterFile());
+    expect(effectiveRarity({ id: 'whale-shark', rarity: 'legendary' }, tiers)).toBe('rare');
+    expect(effectiveRarity({ id: 'dugong', rarity: 'legendary' }, tiers)).toBe('legendary');
+    expect(effectiveRarity({ id: 'dugong', rarity: 'legendary' }, realRarity({ generatedAt: null, species: {} }))).toBe('legendary');
+  });
+});
+
+describe('the worldwide counts file', () => {
+  const sample = (extra: Partial<RealRarityData['species'][string]> = {}) => ({
+    inaturalist: { observations: 10, observers: 4, taxonId: 7 },
+    obis: { records: 20 },
+    score: 1.5,
+    ...extra,
+  });
+  const file = (overrides: Record<string, unknown> = {}) => ({
+    version: 1,
+    generatedAt: '2026-10-22T00:00:00.000Z',
+    region: null,
+    species: { 'whale-shark': sample(), orca: sample() },
+    unresolved: [{ id: 'sawfish', scientificName: 'Pristis pristis', reason: 'No iNaturalist taxon matched its name.' }],
+    ...overrides,
+  });
+
+  it('is valid as checked in, and its counts set no tier', () => {
+    const parsed = parseRealRarityData(bundledJson);
+    expect(parsed).not.toBeNull();
+    const ids = new Set(SPECIES.map((s) => s.id));
+    for (const id of Object.keys(parsed?.species ?? {})) expect(ids.has(id)).toBe(true);
+  });
+
+  it('accepts the empty shape, the full shape and a region file', () => {
     expect(parseRealRarityData({ generatedAt: null, species: {} })).not.toBeNull();
     expect(parseRealRarityData(file())).not.toBeNull();
     expect(parseRealRarityData(file({ region: 'gbr' }))?.region).toBe('gbr');
   });
 
-  it('feed effectiveRarity: the real tier where there is one, the catalogue tier otherwise', () => {
-    const tiers = realRarity(file());
-    expect(effectiveRarity({ id: 'whale-shark', rarity: 'legendary' }, tiers)).toBe('rare');
-    expect(effectiveRarity({ id: 'dugong', rarity: 'legendary' }, tiers)).toBe('legendary');
-    expect(effectiveRarity({ id: 'dugong', rarity: 'legendary' }, realRarity({ generatedAt: null, species: {} }))).toBe('legendary');
+  it('drops a tier that an earlier version of the script wrote', () => {
+    const parsed = parseRealRarityData(file({ species: { orca: sample({ tier: 'common' } as never) } }));
+    expect(parsed?.species.orca).toEqual(sample());
+    expect(parsed?.species.orca).not.toHaveProperty('tier');
+  });
+
+  it('rejects damage whole: a bad score, bad counts, an unknown region', () => {
+    const corrupt: unknown[] = [
+      file({ species: { orca: sample({ score: Number.NaN }) } }),
+      file({ species: { orca: sample({ score: -1 }) } }),
+      file({ species: { orca: sample({ inaturalist: { observations: -4 } }) } }),
+      file({ species: { orca: sample({ inaturalist: { observations: 1.5 } }) } }),
+      file({ species: { orca: sample({ obis: { records: '7' as unknown as number } }) } }),
+      file({ species: { orca: sample({ inaturalist: { observations: 3, taxonId: 0 } }) } }),
+      file({ species: { orca: null, 'whale-shark': sample() } }),
+      file({ region: 'atlantis' }),
+      file({ version: 2 }),
+      file({ sources: [] }),
+      file({ unresolved: {} }),
+      file({ unresolved: [{ id: 'sawfish' }] }),
+      { generatedAt: 'not a date', species: {} },
+    ];
+    for (const input of corrupt) expect(parseRealRarityData(input)).toBeNull();
   });
 });
 
@@ -332,12 +316,16 @@ describe('building the file', () => {
   counts.set('sp22', { obis: { records: 5000 } }); // no iNaturalist taxon
   // sp23: nothing at all
 
-  it('tiers or lists every catalogue species, never both and never neither', () => {
+  it('keeps or lists every catalogue species, never both and never neither, and sets no tier', () => {
     const reasons = new Map([['sp22', 'No active iNaturalist species matched Genus species22.']]);
     const data = buildRealRarityData({ catalog, counts, reasons, generatedAt: '2026-10-22T00:00:00.000Z' });
     const tiered = Object.keys(data.species);
     const listed = (data.unresolved ?? []).map((u) => u.id);
     expect(tiered).toHaveLength(22);
+    for (const entry of Object.values(data.species)) {
+      expect(entry).not.toHaveProperty('tier');
+      expect(entry.score).toBeGreaterThan(0);
+    }
     expect([...tiered, ...listed].sort()).toEqual(catalog.map((s) => s.id).sort());
     expect(data.unresolved?.find((u) => u.id === 'sp22')?.reason).toBe(reasons.get('sp22'));
     expect(data.unresolved?.find((u) => u.id === 'sp23')?.reason).toMatch(/Nothing was fetched/);
@@ -347,27 +335,20 @@ describe('building the file', () => {
     expect(JSON.stringify(data.sources)).toMatch(/OBIS/);
   });
 
-  it('lists a species with zero records everywhere instead of calling it legendary', () => {
+  it('lists a species with zero records everywhere instead of keeping it', () => {
     const withZero = new Map(counts).set('sp0', { inaturalist: inat(0, 0), obis: { records: 0 } });
     const data = buildRealRarityData({ catalog, counts: withZero, generatedAt: '2026-10-22T00:00:00.000Z' });
     expect(data.species.sp0).toBeUndefined();
     expect(data.unresolved?.find((u) => u.id === 'sp0')?.reason).toMatch(/No research-grade/);
   });
 
-  it('tiers nothing, and says why, when too few species have data', () => {
-    const few = new Map([...counts].slice(0, 5));
-    const data = buildRealRarityData({ catalog, counts: few, generatedAt: '2026-10-22T00:00:00.000Z' });
-    expect(Object.keys(data.species)).toEqual([]);
-    expect(data.unresolved?.find((u) => u.id === 'sp0')?.reason).toMatch(/Only 5 species could be scored/);
-  });
-
-  it('says in a region that a species with no record there has no tier', () => {
+  it('says in a region that a species with no record there has no counts', () => {
     const data = buildRealRarityData({ catalog, counts: new Map(counts).set('sp1', { inaturalist: inat(0, 0), obis: { records: 0 } }), generatedAt: '2026-10-22T00:00:00.000Z', region: 'gbr' });
     expect(data.region).toBe('gbr');
     expect(data.unresolved?.find((u) => u.id === 'sp1')?.reason).toMatch(/this region \(gbr\)/);
   });
 
-  it('reads its own output back as raw counts, ignoring the score and tier', () => {
+  it('reads its own output back as raw counts, ignoring the score', () => {
     const data = buildRealRarityData({ catalog, counts, generatedAt: '2026-10-22T00:00:00.000Z' });
     const raw = readRawCounts(JSON.parse(JSON.stringify(data)));
     expect(raw?.species.size).toBe(22);
@@ -670,21 +651,21 @@ describe('running the script', () => {
 
   it('reads its options', () => {
     expect(parseArgs([]).out).toBeNull();
-    expect(parseArgs(['--region', 'gbr', '--only', 'orca, dugong', '--min-species', '5']).only).toEqual(['orca', 'dugong']);
+    expect(parseArgs(['--region', 'gbr', '--only', 'orca, dugong']).only).toEqual(['orca', 'dugong']);
     expect(() => parseArgs(['--region', 'atlantic'])).toThrow(/--region must be one of/);
     expect(() => parseArgs(['--out'])).toThrow(/needs a value/);
-    expect(() => parseArgs(['--min-species', '0'])).toThrow(/whole number/);
+    expect(() => parseArgs(['--min-species', '5'])).toThrow(/Unknown option/); // worldwide counts set no tier, so there is no band to fill
     expect(() => parseArgs(['--input', 'x.json', '--only', 'orca'])).toThrow(/cannot be used with --input/);
     expect(() => parseArgs(['--bogus'])).toThrow(/Unknown option/);
     expect(partialPathFor('/a/real-rarity.json')).toBe('/a/real-rarity.partial.json');
     expect(DEFAULT_OUT).toMatch(/src\/data\/real-rarity\.json$/);
   });
 
-  it('recomputes tiers offline from a hand-written raw file, into a scratch file', async () => {
+  it('recomputes the scores offline from a hand-written raw file, into a scratch file', async () => {
     const before = readFileSync(join(REPO_ROOT, 'src/data/real-rarity.json'), 'utf8');
     const out = join(scratch, 'offline', 'real-rarity.json');
     const { lines, warnings, deps } = capture();
-    const code = await runCli(['--input', RAW_FIXTURE, '--out', out, '--min-species', '10'], { ...deps, now: NOW });
+    const code = await runCli(['--input', RAW_FIXTURE, '--out', out], { ...deps, now: NOW });
     expect(code).toBe(0);
     expect(readFileSync(join(REPO_ROOT, 'src/data/real-rarity.json'), 'utf8')).toBe(before); // never the real file
 
@@ -693,8 +674,8 @@ describe('running the script', () => {
     expect(data.generatedAt).toBe('2026-10-22T12:00:00.000Z');
     expect(data.input).toBe('raw-sample.json');
     expect(Object.keys(data.species)).toHaveLength(15);
-    expect(data.species['great-barracuda'].tier).toBe('common');
-    expect(data.species.sawfish.tier).toBe('legendary');
+    expect(data.species['great-barracuda'].score).toBeGreaterThan(data.species.sawfish.score);
+    for (const entry of Object.values(data.species)) expect(entry).not.toHaveProperty('tier');
     expect(data.species['mola-mola'].inaturalist?.taxonIds).toEqual([9, 10]);
     // Every catalogue species is accounted for exactly once.
     const listed = (data.unresolved ?? []).map((u) => u.id);
@@ -706,16 +687,16 @@ describe('running the script', () => {
     expect(reason('dugong')).toBeUndefined();
     expect(data.species[UNLISTED_ID]).toBeUndefined();
     expect(warnings.join('\n')).toMatch(/unlisted, not-in-the-catalogue/);
-    expect(lines.join('\n')).toMatch(/Tiered: 15/);
-    expect(realRarity(data).size).toBe(15);
-    expect(realRarity(data).get('whale-shark')).toBe(data.species['whale-shark'].tier);
+    expect(lines.join('\n')).toMatch(/With counts: 15/);
+    expect(lines.join('\n')).toMatch(/No tier is set/);
+    expect(realRarity(data).size).toBe(0); // not an encounter file: worldwide counts set no tier
   });
 
-  it('gives the same tiers when its own output is fed back in', async () => {
+  it('gives the same scores when its own output is fed back in', async () => {
     const first = join(scratch, 'again', 'first.json');
     const second = join(scratch, 'again', 'second.json');
-    await runCli(['--input', RAW_FIXTURE, '--out', first, '--min-species', '10'], { ...capture().deps, now: NOW });
-    await runCli(['--input', first, '--out', second, '--min-species', '10'], { ...capture().deps, now: NOW });
+    await runCli(['--input', RAW_FIXTURE, '--out', first], { ...capture().deps, now: NOW });
+    await runCli(['--input', first, '--out', second], { ...capture().deps, now: NOW });
     const [a, b] = [read(first), read(second)];
     expect(b.species).toEqual(a.species);
     expect(b.input).toBe('first.json');
@@ -729,7 +710,7 @@ describe('running the script', () => {
     expect(existsSync(out)).toBe(false);
 
     const dry = join(scratch, 'dry', 'out.json');
-    expect(await runCli(['--input', RAW_FIXTURE, '--out', dry, '--min-species', '10', '--dry-run'], capture().deps)).toBe(0);
+    expect(await runCli(['--input', RAW_FIXTURE, '--out', dry, '--dry-run'], capture().deps)).toBe(0);
     expect(existsSync(dry)).toBe(false);
   });
 
@@ -752,7 +733,7 @@ describe('running the script', () => {
     it('fetches, tiers, writes, and carries on from its checkpoint after a failure', async () => {
       const out = join(scratch, 'live', 'out.json');
       const checkpoint = partialPathFor(out);
-      const args = ['--out', out, '--min-species', '3'];
+      const args = ['--out', out];
 
       // First run: the OBIS count for gamma fails (after the client's own retries).
       const broken = fakeNetwork((url) => {
@@ -778,18 +759,21 @@ describe('running the script', () => {
 
       const data = read(out);
       expect(Object.keys(data.species)).toEqual(['alpha', 'beta', 'gamma', 'delta']);
-      // Counts as the stand-ins gave them, tiers by percentile of the score.
+      // Counts as the stand-ins gave them, and scores that rank them, with no tier.
       expect(data.species.alpha.inaturalist).toEqual({ observations: 5000, observers: 500, taxonId: 11 });
       expect(data.species.alpha.obis).toEqual({ records: 15000 });
-      const tiers = Object.fromEntries(Object.entries(data.species).map(([id, e]) => [id, e.tier]));
-      expect(tiers).toEqual({ alpha: 'common', beta: 'uncommon', gamma: 'rare', delta: 'epic' });
+      const scores = Object.fromEntries(Object.entries(data.species).map(([id, e]) => [id, e.score]));
+      expect(scores.alpha).toBeGreaterThan(scores.beta);
+      expect(scores.beta).toBeGreaterThan(scores.gamma);
+      expect(scores.gamma).toBeGreaterThan(scores.delta);
+      expect(JSON.stringify(data)).not.toMatch(/"tier"/);
       expect(data.unresolved).toEqual([]);
     });
 
     it('with --allow-incomplete writes what it has and lists the failed species', async () => {
       const out = join(scratch, 'incomplete', 'out.json');
       const broken = fakeNetwork((url) => (url.includes('/occurrence') && url.includes('Genus%20delta') ? (() => { throw new HttpError(500); })() : undefined));
-      const code = await runCli(['--out', out, '--min-species', '3', '--allow-incomplete'], { ...capture().deps, client: broken, catalog: mini, now: NOW });
+      const code = await runCli(['--out', out, '--allow-incomplete'], { ...capture().deps, client: broken, catalog: mini, now: NOW });
       expect(code).toBe(0);
       const data = read(out);
       expect(Object.keys(data.species)).toEqual(['alpha', 'beta', 'gamma']);
@@ -813,7 +797,7 @@ describe('running the script', () => {
     it('asked for one species with --only, prints the counts and writes nothing', async () => {
       const network = fakeNetwork();
       const run = capture();
-      const code = await runCli(['--only', 'beta', '--min-species', '1'], { ...run.deps, client: network, catalog: mini, now: NOW });
+      const code = await runCli(['--only', 'beta'], { ...run.deps, client: network, catalog: mini, now: NOW });
       expect(code).toBe(0);
       expect(run.lines.join('\n')).toMatch(/\[1\/1\] beta \(Genus beta\): iNaturalist 300 observations by 30 observers, OBIS 900 records/);
       expect(run.lines.join('\n')).toMatch(/dry run: nothing written/);
@@ -832,7 +816,7 @@ describe('running the script', () => {
     it('writes a region file with its own default name beside the bundled one', async () => {
       const out = join(scratch, 'gbr', 'out.json');
       const run = capture();
-      const code = await runCli(['--region', 'gbr', '--out', out, '--min-species', '3'], { ...run.deps, client: fakeNetwork(), catalog: mini, now: NOW });
+      const code = await runCli(['--region', 'gbr', '--out', out], { ...run.deps, client: fakeNetwork(), catalog: mini, now: NOW });
       expect(code).toBe(0);
       expect(read(out).region).toBe('gbr');
       expect(run.lines.join('\n')).toMatch(/region gbr \(Great Barrier Reef/);
@@ -844,8 +828,8 @@ describe('running the script', () => {
     if (!existsSync(tsx)) return;
     const out = join(scratch, 'command', 'real-rarity.json');
     const before = readFileSync(join(REPO_ROOT, 'src/data/real-rarity.json'), 'utf8');
-    const output = execFileSync(tsx, ['scripts/real-rarity/fetch.ts', '--input', RAW_FIXTURE, '--out', out, '--min-species', '10'], { cwd: REPO_ROOT, encoding: 'utf8' });
-    expect(output).toMatch(/Tiered: 15/);
+    const output = execFileSync(tsx, ['scripts/real-rarity/fetch.ts', '--input', RAW_FIXTURE, '--out', out], { cwd: REPO_ROOT, encoding: 'utf8' });
+    expect(output).toMatch(/With counts: 15/);
     expect(parseRealRarityData(read(out))).not.toBeNull();
     expect(readFileSync(join(REPO_ROOT, 'src/data/real-rarity.json'), 'utf8')).toBe(before);
   }, 60_000);
@@ -855,72 +839,105 @@ describe('running the script', () => {
 
 // HAND-WRITTEN entries to exercise the wording. These counts are not iNaturalist or OBIS data.
 describe('the evidence behind one species’ tier', () => {
-  const entry = (tier: Rarity, counts: SpeciesCounts, score = 1.5): RarityEntry => ({ ...counts, score, tier });
-  const full = entry('rare', { inaturalist: { observations: 2314, observers: 1102 }, obis: { records: 845 } });
+  const INDO = 'tropical-indo-pacific' as const;
+  const CARIBBEAN = 'tropical-west-atlantic' as const;
+  const PACIFIC = 'tropical-east-pacific' as const;
+  const entry = (tier: Rarity, recordedAt: number, sites: number, basins: EncounterEntry['basins'] = [INDO], worldwide?: SpeciesCounts): RarityEntry => ({
+    share: recordedAt / sites,
+    sites,
+    recordedAt,
+    basins,
+    tier,
+    ...(worldwide && { worldwide }),
+  });
+  const rare = entry('rare', 6, 41);
 
   describe('describeRarityEvidence', () => {
-    it('names the tier and every count, with thousands separators', () => {
-      expect(describeRarityEvidence(full)).toBe('Rare, ranked from 2,314 iNaturalist observations by 1,102 observers and 845 OBIS records worldwide');
-      expect(describeRarityEvidence(entry('legendary', { inaturalist: { observations: 1_234_567, observers: 20_000 }, obis: { records: 1_000_000 } }))).toBe(
-        'Legendary, ranked from 1,234,567 iNaturalist observations by 20,000 observers and 1,000,000 OBIS records worldwide',
+    it('names the tier, how many dive sites record it and the basin', () => {
+      expect(describeRarityEvidence(rare)).toBe('Rare: recorded near 6 of 41 Indo-Pacific dive sites');
+      expect(describeRarityEvidence(entry('common', 30, 48))).toBe('Common: recorded near 30 of 48 Indo-Pacific dive sites');
+      expect(describeRarityEvidence(entry('uncommon', 7, 11, [CARIBBEAN]))).toBe('Uncommon: recorded near 7 of 11 Caribbean dive sites');
+      expect(describeRarityEvidence(entry('epic', 2, 6, [PACIFIC]))).toBe('Epic: recorded near 2 of 6 Eastern Pacific dive sites');
+    });
+
+    it('names two basins', () => {
+      expect(describeRarityEvidence(entry('rare', 11, 53, [INDO, CARIBBEAN]))).toBe('Rare: recorded near 11 of 53 Indo-Pacific and Caribbean dive sites');
+    });
+
+    it('says "in its waters" and names three or more basins in brackets', () => {
+      expect(describeRarityEvidence(entry('rare', 14, 67, [INDO, CARIBBEAN, PACIFIC]))).toBe(
+        'Rare: recorded near 14 of 67 dive sites in its waters (Indo-Pacific, Caribbean, Eastern Pacific)',
       );
     });
 
-    it('uses the singular for one', () => {
-      expect(describeRarityEvidence(entry('epic', { inaturalist: { observations: 1, observers: 1 }, obis: { records: 1 } }))).toBe(
-        'Epic, ranked from 1 iNaturalist observation by 1 observer and 1 OBIS record worldwide',
+    it('uses thousands separators and says plainly when it is recorded at none', () => {
+      expect(describeRarityEvidence(entry('common', 1_234, 2_345))).toBe('Common: recorded near 1,234 of 2,345 Indo-Pacific dive sites');
+      expect(describeRarityEvidence(entry('legendary', 0, 6, [PACIFIC]))).toBe('Legendary: not recorded near any of the 6 Eastern Pacific dive sites');
+      expect(describeRarityEvidence(entry('legendary', 1, 42))).toBe('Legendary: recorded near 1 of 42 Indo-Pacific dive sites');
+    });
+  });
+
+  describe('describeWorldwideCounts', () => {
+    it('gives the worldwide counts as a second line, with thousands separators', () => {
+      expect(describeWorldwideCounts(entry('rare', 6, 41, [INDO], { inaturalist: { observations: 2654, observers: 1668 } }))).toBe('2,654 iNaturalist observations worldwide');
+      expect(describeWorldwideCounts(entry('rare', 6, 41, [INDO], { inaturalist: { observations: 2654 }, obis: { records: 17_225 } }))).toBe(
+        '2,654 iNaturalist observations and 17,225 OBIS records worldwide',
       );
     });
 
-    it('leaves out a source or a count that was not fetched, instead of showing it as zero', () => {
-      expect(describeRarityEvidence(entry('uncommon', { inaturalist: { observations: 40 } }))).toBe('Uncommon, ranked from 40 iNaturalist observations worldwide');
-      expect(describeRarityEvidence(entry('uncommon', { inaturalist: { observations: 40, observers: 12 } }))).toBe(
-        'Uncommon, ranked from 40 iNaturalist observations by 12 observers worldwide',
-      );
-      expect(describeRarityEvidence(entry('common', { obis: { records: 9_000 } }))).toBe('Common, ranked from 9,000 OBIS records worldwide');
+    it('uses the singular for one, and leaves out a source that held nothing', () => {
+      expect(describeWorldwideCounts(entry('rare', 6, 41, [INDO], { inaturalist: { observations: 1 }, obis: { records: 0 } }))).toBe('1 iNaturalist observation worldwide');
+      expect(describeWorldwideCounts(entry('rare', 6, 41, [INDO], { obis: { records: 1 } }))).toBe('1 OBIS record worldwide');
     });
 
-    it('says "no" for a source that was asked and held nothing', () => {
-      expect(describeRarityEvidence(entry('legendary', { inaturalist: { observations: 3, observers: 2 }, obis: { records: 0 } }))).toBe(
-        'Legendary, ranked from 3 iNaturalist observations by 2 observers and no OBIS records worldwide',
-      );
-      expect(describeRarityEvidence(entry('legendary', { inaturalist: { observations: 0, observers: 0 }, obis: { records: 5 } }))).toBe(
-        'Legendary, ranked from no iNaturalist observations and 5 OBIS records worldwide',
-      );
-    });
-
-    it('names the sources without any number when the entry holds no counts', () => {
-      const sentence = describeRarityEvidence(entry('rare', {}));
-      expect(sentence).toBe('Rare, ranked from iNaturalist and OBIS records worldwide');
-      expect(sentence).not.toMatch(/\d/);
+    it('is undefined when there are no worldwide counts to show, never a zero', () => {
+      expect(describeWorldwideCounts(rare)).toBeUndefined();
+      expect(describeWorldwideCounts(entry('rare', 6, 41, [INDO], {}))).toBeUndefined();
+      expect(describeWorldwideCounts(entry('rare', 6, 41, [INDO], { inaturalist: { observations: 0 }, obis: { records: 0 } }))).toBeUndefined();
     });
   });
 
   describe('realRarityEntry', () => {
-    const file = (overrides: Record<string, unknown> = {}) => ({
+    const worldwide = (overrides: Record<string, unknown> = {}) => ({
       version: 1,
       generatedAt: '2026-10-22T00:00:00.000Z',
       region: null,
-      species: { 'whale-shark': full, orca: entry('epic', { inaturalist: { observations: 12, observers: 5 } }) },
+      species: { 'whale-shark': { inaturalist: { observations: 2654, observers: 1668, taxonId: 52188 }, obis: { records: 845 }, score: 3.6 } },
       ...overrides,
     });
+    const encounters = (overrides: Record<string, unknown> = {}) => encounterFile({ species: { 'whale-shark': encounter('rare'), orca: encounter('epic') }, ...overrides });
 
-    it('is undefined for every species while the checked-in file is empty, so the page claims no data', () => {
-      for (const species of SPECIES) expect(realRarityEntry(species.id)).toBeUndefined();
+    it('is undefined for every species while the checked-in encounter file is not applied, so the page claims no data', () => {
+      const applied = (() => {
+        const parsed = parseEncounterData(bundledEncounters);
+        return parsed !== null && encounterTiersApplied(parsed);
+      })();
+      for (const species of SPECIES) expect(realRarityEntry(species.id) !== undefined).toBe(applied && REAL_RARITY.has(species.id));
       // Not-generated data with species in it is still not data.
-      expect(realRarityEntry('whale-shark', { generatedAt: null, species: { 'whale-shark': full } })).toBeUndefined();
+      expect(realRarityEntry('whale-shark', { generatedAt: null, species: { 'whale-shark': encounter('rare') } })).toBeUndefined();
     });
 
-    it('gives the counts and tier of a species that has them', () => {
-      const found = realRarityEntry('whale-shark', file());
+    it('gives the encounter tier with the worldwide counts beside it', () => {
+      const found = realRarityEntry('whale-shark', encounters(), worldwide());
       expect(found?.tier).toBe('rare');
-      expect(found?.inaturalist).toEqual({ observations: 2314, observers: 1102 });
-      expect(found?.obis).toEqual({ records: 845 });
-      expect(realRarityEntry('orca', file())?.tier).toBe('epic');
+      expect(found).toMatchObject({ share: 0.1463, sites: 41, recordedAt: 6, basins: [INDO] });
+      expect(found?.worldwide?.inaturalist).toEqual({ observations: 2654, observers: 1668, taxonId: 52188 });
+      expect(found?.worldwide?.obis).toEqual({ records: 845 });
+      expect(describeRarityEvidence(found as RarityEntry)).toBe('Rare: recorded near 6 of 41 Indo-Pacific dive sites');
+      expect(describeWorldwideCounts(found as RarityEntry)).toBe('2,654 iNaturalist observations and 845 OBIS records worldwide');
+    });
+
+    it('works without worldwide counts: the tier and its evidence stand on their own', () => {
+      for (const missing of [{ generatedAt: null, species: {} }, worldwide({ region: 'gbr' }), 'nonsense', null, worldwide({ species: {} })]) {
+        const found = realRarityEntry('whale-shark', encounters(), missing);
+        expect(found?.tier).toBe('rare');
+        expect(found?.worldwide).toBeUndefined();
+      }
+      expect(realRarityEntry('orca', encounters(), worldwide())?.worldwide).toBeUndefined(); // no counts for it
     });
 
     it('is undefined for a species the file has no entry for, which keeps its hand-assigned tier', () => {
-      const data = file({ unresolved: [{ id: 'sawfish', scientificName: 'Pristis pristis', reason: 'No iNaturalist taxon matched its name.' }] });
+      const data = encounters();
       expect(realRarityEntry('sawfish', data)).toBeUndefined();
       expect(realRarityEntry('not-a-species', data)).toBeUndefined();
       // Inherited object keys are not species.
@@ -928,47 +945,58 @@ describe('the evidence behind one species’ tier', () => {
       expect(realRarityEntry('__proto__', data)).toBeUndefined();
     });
 
-    it('is undefined for the unlisted id, for a regional file (its counts are not worldwide) and for damaged data', () => {
-      expect(realRarityEntry(UNLISTED_ID, file({ species: { [UNLISTED_ID]: full } }))).toBeUndefined();
-      expect(realRarityEntry('whale-shark', file({ region: 'gbr' }))).toBeUndefined();
-      expect(realRarityEntry('whale-shark', file({ species: { 'whale-shark': { ...full, tier: 'mythic' } } }))).toBeUndefined();
+    it('is undefined for the unlisted id, for damaged data and for the worldwide file', () => {
+      expect(realRarityEntry(UNLISTED_ID, encounters({ species: { [UNLISTED_ID]: encounter('legendary') } }))).toBeUndefined();
+      expect(realRarityEntry('whale-shark', encounters({ species: { 'whale-shark': { ...encounter('rare'), tier: 'mythic' } } }))).toBeUndefined();
       expect(realRarityEntry('whale-shark', 'nonsense')).toBeUndefined();
       expect(realRarityEntry('whale-shark', null)).toBeUndefined();
+      expect(realRarityEntry('whale-shark', worldwide())).toBeUndefined(); // worldwide counts are not a tier
     });
 
     it('agrees with realRarity about which species have a tier', () => {
-      const data = file();
+      const data = encounters();
       for (const id of ['whale-shark', 'orca', 'sawfish']) expect(realRarityEntry(id, data)?.tier).toBe(realRarity(data).get(id));
     });
   });
 
   describe('rarityObservedNote (the line on the share card)', () => {
-    it('is short, names the tier and the iNaturalist count, and says it is worldwide', () => {
-      expect(rarityObservedNote(full)).toBe('Ranked Rare from 2,314 iNaturalist observations worldwide');
+    it('is short and says how many dive sites record it', () => {
+      expect(rarityObservedNote(rare)).toBe('Recorded near 6 of 41 Indo-Pacific dive sites');
+      expect(rarityObservedNote(entry('legendary', 0, 6, [PACIFIC]))).toBe('Not recorded near any of the 6 Eastern Pacific dive sites');
     });
 
-    it('never runs past the card’s slot, whatever the tier and count, and never invents a number', () => {
-      const tiers: Rarity[] = ['common', 'uncommon', 'rare', 'epic', 'legendary'];
-      for (const tier of tiers) {
-        for (const observations of [1, 12, 2314, 99_999, 1_234_567, 123_456_789]) {
-          const note = rarityObservedNote(entry(tier, { inaturalist: { observations, observers: 3 }, obis: { records: 77 } }));
+    it('never runs past the card’s slot, whatever the numbers and basins, and never invents a number', () => {
+      const basinSets: EncounterEntry['basins'][] = [
+        [INDO],
+        [CARIBBEAN],
+        ['temperate-southern'],
+        ['temperate-north-atlantic'],
+        [INDO, CARIBBEAN],
+        [INDO, 'temperate-north-pacific'],
+        [INDO, 'temperate-southern'],
+        [INDO, CARIBBEAN, PACIFIC],
+        ['tropical-indo-pacific', 'tropical-west-atlantic', 'tropical-east-pacific', 'tropical-east-atlantic', 'temperate-north-pacific', 'temperate-north-atlantic', 'temperate-southern'],
+      ];
+      for (const basins of basinSets) {
+        for (const [recordedAt, sites] of [[0, 5], [1, 5], [6, 41], [99, 100], [1_234, 2_345], [123_456, 234_567], [9_999_999, 99_999_999]] as const) {
+          const note = rarityObservedNote(entry('rare', recordedAt, sites, basins));
           expect(note.length).toBeLessThanOrEqual(OBSERVED_NOTE_MAX);
-          expect(note).toMatch(new RegExp(`^Ranked ${tier[0].toUpperCase()}${tier.slice(1)} from `));
-          // Every number in it is the iNaturalist count itself.
-          expect(note.replace(/,/g, '').match(/\d+/g) ?? [observations.toString()]).toEqual([observations.toString()]);
+          // Every number in it is one of the two counts themselves.
+          const numbers = note.replace(/,/g, '').match(/\d+/g) ?? [];
+          for (const n of numbers) expect([String(recordedAt), String(sites)]).toContain(n);
         }
       }
     });
 
-    it('drops "worldwide" before it would overrun, and says "1 observation" for one', () => {
-      expect(rarityObservedNote(entry('legendary', { inaturalist: { observations: 1_234_567 } }))).toBe('Ranked Legendary from 1,234,567 iNaturalist observations');
-      expect(rarityObservedNote(entry('legendary', { inaturalist: { observations: 1 } }))).toBe('Ranked Legendary from 1 iNaturalist observation worldwide');
+    it('drops the basin name, then the waters, before it would overrun', () => {
+      const long = entry('rare', 1_234, 2_345, [INDO, 'temperate-southern']);
+      expect(describeRarityEvidence(long)).toBe('Rare: recorded near 1,234 of 2,345 Indo-Pacific and Southern temperate dive sites');
+      expect(rarityObservedNote(long)).toBe('Recorded near 1,234 of 2,345 dive sites in its waters');
+      expect(rarityObservedNote(entry('rare', 123_456_789, 234_567_890, [INDO, 'temperate-southern']))).toBe('Recorded near 123,456,789 of 234,567,890 dive sites');
     });
 
-    it('falls back to OBIS records, then to no number at all', () => {
-      expect(rarityObservedNote(entry('common', { obis: { records: 4_500 } }))).toBe('Ranked Common from 4,500 OBIS records worldwide');
-      expect(rarityObservedNote(entry('rare', { inaturalist: { observations: 0 }, obis: { records: 0 } }))).toBe('Ranked Rare from public records worldwide');
-      expect(rarityObservedNote(entry('rare', {}))).toBe('Ranked Rare from public records worldwide');
+    it('says what is true for three basins', () => {
+      expect(rarityObservedNote(entry('rare', 14, 67, [INDO, CARIBBEAN, PACIFIC]))).toBe('Recorded near 14 of 67 dive sites in its waters');
     });
   });
 });

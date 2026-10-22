@@ -73,8 +73,8 @@ export default function CreditsScreen() {
         <Paper>
           <ThemedText>
             {REAL_RARITY.size > 0
-              ? 'Each animal’s rarity comes from how often it is recorded worldwide: its research-grade observations and observers on iNaturalist, and its occurrence records in OBIS, ranked across the whole catalogue.'
-              : 'Each animal’s rarity is ScubaGo’s own estimate for now. It will come from how often the animal is recorded worldwide, on iNaturalist and in OBIS, once those counts have been fetched.'}
+              ? 'Each animal’s rarity comes from how often it is recorded at dive sites in its own waters: of the dive sites in the ocean basins where the animal lives, the share with a research-grade iNaturalist observation or an OBIS record of it nearby. Animals are ranked across the whole catalogue. The worldwide counts shown beside a tier are supporting evidence only, and set no tier.'
+              : 'Each animal’s rarity is ScubaGo’s own estimate for now. It will come from how often the animal is recorded at dive sites in its own waters, on iNaturalist and in OBIS, once those records have been fetched.'}
           </ThemedText>
           <Rule />
           <Bullets items={[REAL_RARITY_SOURCES.inaturalist.licence, REAL_RARITY_SOURCES.obis.licence]} />

@@ -13,8 +13,8 @@ import { writeCachedSightings } from '@/lib/external-sightings/cache';
 
 // The species page's rarity line, the "Recorded near dive sites" section and the discovery card's
 // note. EVERY count and record below is HAND-WRITTEN to exercise the code: none of it is iNaturalist
-// or OBIS data, and it is passed in through a stand-in for realRarityEntry, never written to
-// src/data/real-rarity.json (which is empty, because the live services have not been reached).
+// or OBIS data, and it is passed in through a stand-in for realRarityEntry, never read from
+// src/data/encounter-rarity.json or src/data/real-rarity.json.
 
 let mockSpeciesId = 'reef-manta';
 jest.mock('expo-router', () => ({
@@ -33,7 +33,7 @@ jest.mock('@/lib/store', () => ({
   useAllSites: () => require('@/data/sites').SITES,
   useMyUserId: () => 'local',
 }));
-// Stand-in "real data": only reef-manta has a tier worked out from counts, and only when a test sets it.
+// Stand-in "real data": only reef-manta has a tier worked out from encounters, and only when a test sets it.
 let mockEntry;
 jest.mock('@/lib/real-rarity', () => ({
   ...jest.requireActual('@/lib/real-rarity'),
@@ -41,14 +41,17 @@ jest.mock('@/lib/real-rarity', () => ({
 }));
 
 const HAND_WRITTEN_ENTRY = {
-  inaturalist: { observations: 2314, observers: 1102 },
-  obis: { records: 845 },
-  score: 2.1,
+  share: 0.1463,
+  sites: 41,
+  recordedAt: 6,
+  basins: ['tropical-indo-pacific'],
   tier: 'rare',
+  worldwide: { inaturalist: { observations: 2654, observers: 1668 }, obis: { records: 845 } },
 };
 const OWN_ESTIMATE = 'Rarity is ScubaGo’s own estimate for now.';
-const RANKED = 'Rare, ranked from 2,314 iNaturalist observations by 1,102 observers and 845 OBIS records worldwide';
-const NOTE = 'Ranked Rare from 2,314 iNaturalist observations worldwide';
+const EVIDENCE = 'Rare: recorded near 6 of 41 Indo-Pacific dive sites';
+const WORLDWIDE = '2,654 iNaturalist observations and 845 OBIS records worldwide';
+const NOTE = 'Recorded near 6 of 41 Indo-Pacific dive sites';
 
 const sighting = (id, over = {}) => ({
   id, userId: 'local', username: 'you', speciesId: 'reef-manta', siteId: SITES[0].id, sightedOn: '2026-03-01', isDemo: false, synced: true, createdAt: '2026-03-01T10:00:00Z', ...over,
@@ -106,27 +109,39 @@ describe('the rarity line', () => {
     await render();
     const text = textOf();
     expect(text).toContain(OWN_ESTIMATE);
-    expect(text).not.toMatch(/ranked from/i);
+    expect(text).not.toMatch(/recorded near \d+ of \d+ .* dive sites\./);
     // The line itself holds no digits.
     expect(OWN_ESTIMATE).not.toMatch(/\d/);
     // The chip still shows the hand-assigned tier, as before.
     expect(text).toContain(CATALOG_BY_ID.get('reef-manta').rarity.replace(/^./, (c) => c.toUpperCase()));
-    expect(press(/Data and credits$/).filter((n) => n.props.accessibilityLabel.includes('ranked'))).toHaveLength(0);
+    expect(press(/Data and credits$/).filter((n) => n.props.accessibilityLabel.includes('recorded near'))).toHaveLength(0);
   });
 
-  test('with real data it gives the tier, the counts with thousands separators, and a link to Data & credits', async () => {
+  test('with real data it gives the tier and how many dive sites record it, the worldwide counts as a second line, and a link to Data & credits', async () => {
     mockEntry = HAND_WRITTEN_ENTRY;
     await render();
     const text = textOf();
-    expect(text).toContain(RANKED);
+    expect(text).toContain(`${EVIDENCE}.`);
+    expect(text).toContain(`${WORLDWIDE}.`);
+    expect(text.indexOf(WORLDWIDE)).toBeGreaterThan(text.indexOf(EVIDENCE)); // the worldwide counts are the second line
     expect(text).not.toContain(OWN_ESTIMATE);
     expect(text).toContain('A ranking among ScubaGo’s animals, not a promise of seeing one.');
 
-    const [link] = press(/^Rare, ranked from 2,314/);
+    const [link] = press(/^Rare: recorded near 6 of 41/);
     expect(link.props.accessibilityRole).toBe('link');
     expect(link.props.accessibilityLabel).toContain('Data and credits');
+    expect(link.props.accessibilityLabel).toContain(WORLDWIDE);
     await act(async () => link.props.onPress());
     expect(router.push).toHaveBeenCalledWith('/credits');
+  });
+
+  test('without worldwide counts it still gives the tier and its evidence, on one line', async () => {
+    mockEntry = { ...HAND_WRITTEN_ENTRY, worldwide: undefined };
+    await render();
+    const text = textOf();
+    expect(text).toContain(`${EVIDENCE}.`);
+    expect(text).not.toMatch(/worldwide/);
+    expect(text).not.toContain(OWN_ESTIMATE);
   });
 
   test('sits under the names and the rarity chip, before the description', async () => {
@@ -135,8 +150,8 @@ describe('the rarity line', () => {
     const text = textOf();
     const species = CATALOG_BY_ID.get('reef-manta');
     expect(text.indexOf(species.scientificName)).toBeGreaterThan(-1);
-    expect(text.indexOf(RANKED)).toBeGreaterThan(text.indexOf(species.scientificName));
-    expect(text.indexOf(RANKED)).toBeLessThan(text.indexOf(species.blurb));
+    expect(text.indexOf(EVIDENCE)).toBeGreaterThan(text.indexOf(species.scientificName));
+    expect(text.indexOf(EVIDENCE)).toBeLessThan(text.indexOf(species.blurb));
   });
 
   test('another species with no data still says its tier is an estimate', async () => {
@@ -144,7 +159,7 @@ describe('the rarity line', () => {
     mockSpeciesId = 'whale-shark';
     await render();
     expect(textOf()).toContain(OWN_ESTIMATE);
-    expect(textOf()).not.toContain(RANKED);
+    expect(textOf()).not.toContain(EVIDENCE);
   });
 });
 
@@ -165,7 +180,7 @@ describe('the discovery card’s note', () => {
     const [card] = await openShare();
     expect(card).toBeDefined();
     expect(card.props.observedNote).toBeUndefined();
-    expect(textOf()).not.toMatch(/Ranked .* from/);
+    expect(textOf()).not.toMatch(/Recorded near \d+ of \d+/);
   });
 
   test('is not passed for a species that has no data of its own', async () => {

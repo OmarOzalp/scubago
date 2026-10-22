@@ -36,7 +36,7 @@ async function main() {
     common_name: s.commonName,
     scientific_name: s.scientificName,
     category: s.category,
-    // The tier from real records once fetched (docs/real-rarity.md), as the app's catalogue shows it.
+    // The tier from encounters at dive sites once fetched (docs/real-rarity.md), as the app's catalogue shows it.
     rarity: REAL_RARITY.get(s.id) ?? s.rarity,
     blurb: s.blurb,
     emoji: s.emoji ?? null,

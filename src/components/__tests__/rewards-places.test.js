@@ -14,6 +14,10 @@ import { CATALOG_BY_ID } from '@/lib/catalog';
 import { SITES } from '@/data/sites';
 import { evaluateRewards } from '@/lib/rewards';
 
+// These tests pin the rewards engine's own rules against the catalogue's hand-assigned tiers, so they must
+// not move when src/data/encounter-rarity.json is regenerated: the generated tiers are switched off here.
+jest.mock('@/data/encounter-rarity.json', () => ({ generatedAt: null, species: {} }));
+
 // The theme module imports the web stylesheet, which Jest can't parse.
 jest.mock('@/global.css', () => ({}));
 // The engraved plates and the island pictures are drawn from code and take most of the time of a render

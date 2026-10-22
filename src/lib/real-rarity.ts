@@ -1,17 +1,33 @@
-import bundled from '@/data/real-rarity.json';
+import bundledEncounters from '@/data/encounter-rarity.json';
+import bundledWorldwide from '@/data/real-rarity.json';
+import {
+  BASINS_BY_ID,
+  encounterTiersApplied,
+  parseEncounterData,
+  type BasinId,
+  type EncounterEntry,
+  type UnresolvedSpecies,
+} from '@/lib/encounter-rarity';
 import { INATURALIST_CREDIT, OBIS_CITATION, OBIS_CREDIT } from '@/lib/external-sightings/attribution';
-import { RARITY_LABEL, RARITY_ORDER, rarityRank } from '@/lib/rarity';
+import { RARITY_LABEL, rarityRank } from '@/lib/rarity';
 import type { Rarity, Species } from '@/lib/types';
+
+export type { UnresolvedSpecies } from '@/lib/encounter-rarity';
 
 /** The catalogue's id for "something else" (UNLISTED_ID in catalog.ts, which reads this module's tiers, so it is not imported from there). */
 const UNLISTED_ID = 'unlisted';
 
 /**
- * Rarity from real data, worldwide: how often each catalogue animal is recorded at all, by
- * iNaturalist and OBIS, turned into the five tiers. The counts are fetched at build time by
- * `scripts/real-rarity/fetch.ts` and bundled as `src/data/real-rarity.json`, so the tiers do not
- * depend on what a phone happens to have cached (compare `observed-rarity.ts`, which needs many
- * dive sites summarised on the device). See docs/real-rarity.md.
+ * Rarity from real data (docs/real-rarity.md). Two files, built at build time and bundled, so
+ * nothing depends on what a phone happens to have cached:
+ *
+ * - `src/data/encounter-rarity.json` (`scripts/real-rarity/encounters.ts`, the library in
+ *   `encounter-rarity.ts`): how often each animal is recorded at dive sites in its own waters. This
+ *   is what sets the **tiers**: `REAL_RARITY`, and so `CATALOG`, read it.
+ * - `src/data/real-rarity.json` (`scripts/real-rarity/fetch.ts`): how often each animal is recorded
+ *   worldwide on iNaturalist and in OBIS. That measures how much an animal is photographed, not how
+ *   likely a diver is to meet it (ranked by these counts the whale shark and the orca come out
+ *   common), so it sets **no tier**. It is shown beside the encounter tier as supporting evidence.
  *
  * Everything here is pure. Nothing reads the network.
  */
@@ -39,17 +55,13 @@ export interface SpeciesCounts {
   obis?: ObisCounts;
 }
 
-export interface RarityEntry extends SpeciesCounts {
+/**
+ * The worldwide counts of one species and their log score. The score ranks how much the animal is
+ * recorded (photographed, surveyed, tracked) and sets no tier: see the header above.
+ */
+export interface WorldwideEntry extends SpeciesCounts {
   /** From `scoreSpecies`. Higher means recorded more. */
   score: number;
-  tier: Rarity;
-}
-
-/** A catalogue species that has no tier, and why. It keeps its catalogue tier in the app. */
-export interface UnresolvedSpecies {
-  id: string;
-  scientificName: string;
-  reason: string;
 }
 
 /** Regions the script can count in (docs/real-rarity.md). Without one, the counts are worldwide. */
@@ -66,7 +78,7 @@ export interface RealRarityData {
   input?: string | null;
   sources?: Record<string, unknown>;
   method?: Record<string, unknown>;
-  species: Record<string, RarityEntry>;
+  species: Record<string, WorldwideEntry>;
   unresolved?: UnresolvedSpecies[];
 }
 
@@ -126,96 +138,9 @@ export function scoreSpecies(counts: SpeciesCounts | undefined): number {
   return round3(inat + obis);
 }
 
-// ── Tiers ────────────────────────────────────────────────────────────────────
-
-/**
- * Percentile bands, from the most recorded species down. The hand-assigned catalogue of 120 has 33
- * common (27.5%), 25 uncommon (20.8%), 31 rare (25.8%), 19 epic (15.8%) and 12 legendary (10.0%);
- * these are those shares rounded to whole percents, so the shape of the collection stays the same
- * and only who sits where changes. Legendary stays the rarest tenth.
- */
-export const RARITY_BANDS: readonly { tier: Rarity; percent: number }[] = [
-  { tier: 'common', percent: 28 },
-  { tier: 'uncommon', percent: 21 },
-  { tier: 'rare', percent: 26 },
-  { tier: 'epic', percent: 15 },
-  { tier: 'legendary', percent: 10 },
-];
-
-/** With fewer species than this the bands mean nothing (3 species would be one per tier), so no tiers are given. */
-export const MIN_SPECIES_FOR_TIERS = 20;
-
-/** Where each band ends, as a count of species from the top. Whole percents keep the division exact. */
-function bandEnds(total: number): { tier: Rarity; end: number }[] {
-  let cumulative = 0;
-  return RARITY_BANDS.map(({ tier, percent }) => {
-    cumulative += percent;
-    return { tier, end: Math.round((cumulative * total) / 100) };
-  });
-}
-
-/** How many of `total` species each band holds, ignoring ties. 120 gives 34, 25, 31, 18, 12. */
-export function bandCounts(total: number): Record<Rarity, number> {
-  const counts: Record<Rarity, number> = { common: 0, uncommon: 0, rare: 0, epic: 0, legendary: 0 };
-  if (!Number.isFinite(total) || total <= 0) return counts;
-  let previous = 0;
-  for (const { tier, end } of bandEnds(Math.floor(total))) {
-    counts[tier] = end - previous;
-    previous = end;
-  }
-  return counts;
-}
-
-export interface TierOptions {
-  /** Override MIN_SPECIES_FOR_TIERS. */
-  minSpecies?: number;
-}
-
-/**
- * Tiers from scores by percentile across the species given: the highest scores are common, the
- * lowest legendary, in the bands of `RARITY_BANDS`.
- *
- * - Species with a score of 0 (or one that is not a finite number) have no evidence and get no
- *   tier: no records says the data is thin, not that the animal is rare. The "unlisted" id is
- *   never tiered.
- * - Equal scores share a tier, the more common one, so a tie never pushes an animal into a rarer
- *   band than a species it ties with, and legendary cannot grow by ties.
- * - Fewer than `minSpecies` scored species gives an empty map.
- */
-export function tiersFromScores(
-  scores: ReadonlyMap<string, number> | Readonly<Record<string, number>>,
-  options: TierOptions = {},
-): Map<string, Rarity> {
-  const entries = (scores instanceof Map ? [...scores.entries()] : Object.entries(scores))
-    .filter((entry): entry is [string, number] => entry[0] !== UNLISTED_ID && typeof entry[1] === 'number' && Number.isFinite(entry[1]) && entry[1] > 0);
-  const tiers = new Map<string, Rarity>();
-  if (entries.length === 0 || entries.length < (options.minSpecies ?? MIN_SPECIES_FOR_TIERS)) return tiers;
-
-  entries.sort((a, b) => b[1] - a[1] || (a[0] < b[0] ? -1 : 1));
-  const ends = bandEnds(entries.length);
-  let groupScore = Number.NaN;
-  let groupTier: Rarity = 'legendary';
-  entries.forEach(([id, score], position) => {
-    if (score !== groupScore) {
-      groupScore = score;
-      groupTier = (ends.find((band) => position < band.end) ?? ends[ends.length - 1]).tier;
-    }
-    tiers.set(id, groupTier);
-  });
-  return tiers;
-}
-
-/** How many species hold each tier. */
-export function tierCounts(tiers: Iterable<Rarity>): Record<Rarity, number> {
-  const counts: Record<Rarity, number> = { common: 0, uncommon: 0, rare: 0, epic: 0, legendary: 0 };
-  for (const tier of tiers) if (tier in counts) counts[tier] += 1;
-  return counts;
-}
-
 // ── Reading the file ─────────────────────────────────────────────────────────
 
 const isRecord = (value: unknown): value is Record<string, unknown> => typeof value === 'object' && value !== null && !Array.isArray(value);
-const isTier = (value: unknown): value is Rarity => typeof value === 'string' && (RARITY_ORDER as string[]).includes(value);
 const isRegion = (value: unknown): value is RealRarityRegion => typeof value === 'string' && (REAL_RARITY_REGIONS as readonly string[]).includes(value);
 const isTaxonId = (value: unknown): value is number => typeof value === 'number' && Number.isInteger(value) && value > 0;
 
@@ -259,9 +184,10 @@ const isGeneratedAt = (value: unknown): value is string | null => value === null
 
 /**
  * The generated file, checked. Returns null for anything that is not exactly the shape the script
- * writes (or the empty shape that is checked in): not an object, a species without a valid tier,
- * score or counts, a region that is not known, and so on. A damaged file is never half-used.
- * Never throws.
+ * writes (or the empty shape that is checked in): not an object, a species without a valid score
+ * or valid counts, a region that is not known, and so on. A damaged file is never half-used. A
+ * `tier` that an earlier version of the script wrote is accepted and dropped: worldwide counts set
+ * no tier. Never throws.
  */
 export function parseRealRarityData(json: unknown): RealRarityData | null {
   try {
@@ -272,11 +198,11 @@ export function parseRealRarityData(json: unknown): RealRarityData | null {
     for (const key of ['sources', 'method'] as const) {
       if (json[key] !== undefined && !isRecord(json[key])) return null;
     }
-    const species: Record<string, RarityEntry> = {};
+    const species: Record<string, WorldwideEntry> = {};
     for (const [id, entry] of Object.entries(json.species)) {
       const counts = parseCounts(entry);
-      if (!counts || !isRecord(entry) || typeof entry.score !== 'number' || !Number.isFinite(entry.score) || entry.score < 0 || !isTier(entry.tier)) return null;
-      species[id] = { ...counts, score: entry.score, tier: entry.tier };
+      if (!counts || !isRecord(entry) || typeof entry.score !== 'number' || !Number.isFinite(entry.score) || entry.score < 0) return null;
+      species[id] = { ...counts, score: entry.score };
     }
     const unresolved = json.unresolved === undefined ? undefined : parseUnresolved(json.unresolved);
     if (unresolved === null) return null;
@@ -295,92 +221,125 @@ export function parseRealRarityData(json: unknown): RealRarityData | null {
   }
 }
 
+// ── The tiers the app uses ──────────────────────────────────────────────────
+
 /**
  * The real tier of each species, as the rewards engine takes it (`observed` in
- * `effectiveRarity`): species id to tier.
+ * `effectiveRarity`): species id to tier. These are the encounter tiers (how often the animal is
+ * recorded at dive sites in its own waters), never the worldwide counts.
  *
- * Returns an empty map when the data has not been generated (`generatedAt` is null, as in the file
- * that is checked in) or is damaged, so every species keeps its catalogue tier. A species with no
- * data is absent from the map. The "unlisted" id is never in it. Never throws.
+ * Returns an empty map when the encounter data has not been generated (`generatedAt` is null), has
+ * been switched off (`applied` is false: the result did not pass the sanity check) or is damaged, so
+ * every species keeps its catalogue tier. A species with no tier is absent from the map. The
+ * "unlisted" id is never in it. Never throws.
  *
  * Call it once and keep the result (see `REAL_RARITY`): a new map on every render would make a
  * hook that depends on it recompute.
  */
-export function realRarity(data: unknown = bundled): ReadonlyMap<string, Rarity> {
+export function realRarity(data: unknown = bundledEncounters): ReadonlyMap<string, Rarity> {
   const tiers = new Map<string, Rarity>();
-  const parsed = parseRealRarityData(data);
-  if (!parsed || parsed.generatedAt === null) return tiers;
+  const parsed = parseEncounterData(data);
+  if (!parsed || !encounterTiersApplied(parsed)) return tiers;
   for (const [id, entry] of Object.entries(parsed.species)) {
     if (id !== UNLISTED_ID) tiers.set(id, entry.tier);
   }
   return tiers;
 }
 
-/** The tiers from the bundled file: empty until `scripts/real-rarity/fetch.ts` has really run. */
+/** The tiers from the bundled encounter file: empty until `scripts/real-rarity/encounters.ts` has really run, or while its tiers are switched off. */
 export const REAL_RARITY: ReadonlyMap<string, Rarity> = realRarity();
 
 // ── The evidence behind one species' tier ────────────────────────────────────
 
-/** The bundled file, checked once: `realRarityEntry` reads it for every species page. */
-const BUNDLED_PARSED = parseRealRarityData(bundled);
+/** The encounter tier of one species with the worldwide counts beside it. */
+export interface RarityEntry extends EncounterEntry {
+  /** What iNaturalist and OBIS hold for it worldwide: supporting evidence, never the tier. */
+  worldwide?: SpeciesCounts;
+}
+
+/** The bundled files, checked once: `realRarityEntry` reads them for every species page. */
+const BUNDLED_ENCOUNTERS = parseEncounterData(bundledEncounters);
+const BUNDLED_WORLDWIDE = parseRealRarityData(bundledWorldwide);
 
 /**
- * The counts and tier behind one species' real tier: what iNaturalist and OBIS hold for it
- * worldwide. Undefined when there is nothing true to say: the data has not been generated
- * (`generatedAt` is null, as in the file that is checked in), is damaged, is a regional file (its
- * counts are not worldwide), or has no entry for the species (it keeps its hand-assigned tier). The
- * "unlisted" id never has one. Never throws.
+ * The evidence behind one species' real tier: how many dive sites in its waters record it, and, if
+ * the worldwide file has them, what iNaturalist and OBIS hold for it worldwide. Undefined when
+ * there is nothing true to say: the encounter data has not been generated, is switched off or
+ * damaged, or has no entry for the species (it keeps its hand-assigned tier). The "unlisted" id
+ * never has one. A worldwide file that is missing, damaged or regional only leaves out the
+ * worldwide line. Never throws.
  */
-export function realRarityEntry(id: string, data: unknown = bundled): RarityEntry | undefined {
-  const parsed = data === bundled ? BUNDLED_PARSED : parseRealRarityData(data);
-  if (!parsed || parsed.generatedAt === null || parsed.region || id === UNLISTED_ID) return undefined;
-  return Object.prototype.hasOwnProperty.call(parsed.species, id) ? parsed.species[id] : undefined;
+export function realRarityEntry(id: string, data: unknown = bundledEncounters, worldwide: unknown = bundledWorldwide): RarityEntry | undefined {
+  const parsed = data === bundledEncounters ? BUNDLED_ENCOUNTERS : parseEncounterData(data);
+  if (!parsed || !encounterTiersApplied(parsed) || id === UNLISTED_ID) return undefined;
+  if (!Object.prototype.hasOwnProperty.call(parsed.species, id)) return undefined;
+  const counts = parsed.species[id];
+  const wide = worldwide === bundledWorldwide ? BUNDLED_WORLDWIDE : parseRealRarityData(worldwide);
+  const held = wide && wide.generatedAt !== null && !wide.region && Object.prototype.hasOwnProperty.call(wide.species, id) ? wide.species[id] : undefined;
+  const worldwideCounts: SpeciesCounts | undefined = held && (held.inaturalist || held.obis) ? { ...(held.inaturalist && { inaturalist: held.inaturalist }), ...(held.obis && { obis: held.obis }) } : undefined;
+  return { ...counts, ...(worldwideCounts && { worldwide: worldwideCounts }) };
 }
 
 const countText = (n: number) => n.toLocaleString('en-US');
 const plural = (n: number, one: string, many: string) => `${countText(n)} ${n === 1 ? one : many}`;
 
-/** "2,314 iNaturalist observations by 1,102 observers", or "no iNaturalist observations". Undefined when iNaturalist was not counted. */
-function inatEvidence(counts: SpeciesCounts['inaturalist']): string | undefined {
-  if (!counts) return undefined;
-  if (counts.observations === 0) return 'no iNaturalist observations';
-  const observations = plural(counts.observations, 'iNaturalist observation', 'iNaturalist observations');
-  return counts.observers === undefined ? observations : `${observations} by ${plural(counts.observers, 'observer', 'observers')}`;
+/** "Indo-Pacific", "Indo-Pacific and Caribbean"; undefined for three or more basins (the waters are then "its waters"). */
+function basinPhrase(basins: readonly BasinId[]): string | undefined {
+  const names = basins.map((basin) => BASINS_BY_ID.get(basin)?.short).filter((name): name is string => !!name);
+  if (names.length === 0 || names.length > 2) return undefined;
+  return names.join(' and ');
 }
 
-/** "845 OBIS records", or "no OBIS records". Undefined when OBIS was not counted. */
-function obisEvidence(counts: SpeciesCounts['obis']): string | undefined {
-  if (!counts) return undefined;
-  return counts.records === 0 ? 'no OBIS records' : plural(counts.records, 'OBIS record', 'OBIS records');
+/** "6 of 41 Indo-Pacific dive sites", "any of the 41 Indo-Pacific dive sites" (for "not recorded near ..."), "14 of 67 dive sites in its waters". */
+function sitesPhrase(entry: Pick<EncounterEntry, 'recordedAt' | 'sites' | 'basins'>, where: 'named' | 'waters' | 'plain'): string {
+  const area = where === 'named' ? basinPhrase(entry.basins) : undefined;
+  const sites = area ? `${area} dive sites` : where === 'plain' ? 'dive sites' : 'dive sites in its waters';
+  if (entry.recordedAt === 0) return `any of the ${countText(entry.sites)} ${sites}`;
+  return `${countText(entry.recordedAt)} of ${countText(entry.sites)} ${sites}`;
 }
 
 /**
- * One sentence saying where a species' real tier comes from, in numbers:
- * "Rare, ranked from 2,314 iNaturalist observations by 1,102 observers and 845 OBIS records worldwide".
- * A source that was not counted is left out, not shown as zero; an entry with no counts at all names
- * the sources without numbers. Counts are written with thousands separators.
+ * One sentence saying where a species' tier comes from, in numbers:
+ * "Rare: recorded near 6 of 41 Indo-Pacific dive sites". An animal in the waters of three or more
+ * basins says "dive sites in its waters" and names them in brackets; one recorded nowhere says
+ * "not recorded near any of the 41 ... dive sites". Counts are written with thousands separators.
  */
 export function describeRarityEvidence(entry: RarityEntry): string {
-  const parts = [inatEvidence(entry.inaturalist), obisEvidence(entry.obis)].filter((part): part is string => part !== undefined);
-  return `${RARITY_LABEL[entry.tier]}, ranked from ${parts.length > 0 ? parts.join(' and ') : 'iNaturalist and OBIS records'} worldwide`;
+  const tier = RARITY_LABEL[entry.tier];
+  const where = sitesPhrase(entry, 'named');
+  const basins = basinPhrase(entry.basins) ? '' : ` (${entry.basins.map((basin) => BASINS_BY_ID.get(basin)?.short ?? basin).join(', ')})`;
+  return entry.recordedAt === 0 ? `${tier}: not recorded near ${where}${basins}` : `${tier}: recorded near ${where}${basins}`;
+}
+
+/**
+ * The worldwide counts as a second line: "2,654 iNaturalist observations and 845 OBIS records
+ * worldwide". Undefined when the worldwide file has nothing for the species. A source that was asked
+ * and held nothing is left out; the line says what is recorded, not what is missing.
+ */
+export function describeWorldwideCounts(entry: RarityEntry): string | undefined {
+  const inat = entry.worldwide?.inaturalist && entry.worldwide.inaturalist.observations > 0 ? plural(entry.worldwide.inaturalist.observations, 'iNaturalist observation', 'iNaturalist observations') : undefined;
+  const obis = entry.worldwide?.obis && entry.worldwide.obis.records > 0 ? plural(entry.worldwide.obis.records, 'OBIS record', 'OBIS records') : undefined;
+  const parts = [inat, obis].filter((part): part is string => part !== undefined);
+  return parts.length > 0 ? `${parts.join(' and ')} worldwide` : undefined;
 }
 
 /** The longest `rarityObservedNote` the discovery card's note slot is meant to hold (it sets two lines of italic type). */
 export const OBSERVED_NOTE_MAX = 60;
 
 /**
- * A short line about a species' real tier for the share card: "Ranked Rare from 2,314 iNaturalist
- * observations worldwide". It names the number of iNaturalist observations (or, without any, OBIS
- * records), and drops "worldwide", then the number, rather than run past `OBSERVED_NOTE_MAX`
+ * A short line about where a species' tier comes from for the share card:
+ * "Recorded near 6 of 41 Indo-Pacific dive sites". It drops the basin name ("... 14 of 67 dive sites in
+ * its waters"), then the waters ("... dive sites"), rather than run past `OBSERVED_NOTE_MAX`
  * characters. Always true to the data; never invents a count.
  */
 export function rarityObservedNote(entry: RarityEntry): string {
-  const tier = RARITY_LABEL[entry.tier];
-  const inat = entry.inaturalist && entry.inaturalist.observations > 0 ? plural(entry.inaturalist.observations, 'iNaturalist observation', 'iNaturalist observations') : undefined;
-  const obis = entry.obis && entry.obis.records > 0 ? plural(entry.obis.records, 'OBIS record', 'OBIS records') : undefined;
-  const evidence = inat ?? obis;
-  const candidates = evidence ? [`Ranked ${tier} from ${evidence} worldwide`, `Ranked ${tier} from ${evidence}`] : [];
-  candidates.push(`Ranked ${tier} from public records worldwide`, `Ranked ${tier} from public records`);
+  const lead = entry.recordedAt === 0 ? 'Not recorded near' : 'Recorded near';
+  const candidates = [
+    `${lead} ${sitesPhrase(entry, 'named')}`,
+    `${lead} ${sitesPhrase(entry, 'waters')}`,
+    `${lead} ${sitesPhrase(entry, 'plain')}`,
+    `${lead} dive sites`,
+  ];
   return candidates.find((text) => text.length <= OBSERVED_NOTE_MAX) ?? candidates[candidates.length - 1];
 }
 
@@ -507,59 +466,37 @@ export interface BuildOptions {
   region?: RealRarityRegion | null;
   /** The saved file the counts came from, if not the network. */
   input?: string | null;
-  minSpecies?: number;
 }
 
 /**
- * The file the script writes: every catalogue species is either tiered in `species` or listed in
- * `unresolved` with the reason, never both and never neither.
+ * The file the script writes: every catalogue species is either in `species` with its counts and
+ * score or listed in `unresolved` with the reason, never both and never neither. **No tier**:
+ * worldwide counts say how much an animal is photographed, not how likely a diver is to meet it
+ * (docs/real-rarity.md).
  *
- * A species is tiered only when iNaturalist resolved its name to a taxon and the score is above 0.
+ * A species is kept only when iNaturalist resolved its name to a taxon and the score is above 0.
  * Without an iNaturalist taxon the name probably did not match (a rename the synonym table lacks),
- * and an OBIS-only score would make it look rare for the wrong reason, so it is listed instead. In a
- * region a species with no record there has no tier either.
- * If fewer than `minSpecies` can be tiered, nothing is tiered and the reason says so.
+ * and an OBIS-only score would mislead, so it is listed instead. In a region a species with no
+ * record there is listed too.
  */
 export function buildRealRarityData(options: BuildOptions): RealRarityData {
   const { catalog, counts, reasons, region = null } = options;
-  const unresolved = new Map<string, UnresolvedSpecies>();
-  const scored = new Map<string, number>();
-  const entries = new Map<string, SpeciesCounts>();
+  const unresolved: UnresolvedSpecies[] = [];
+  const species: Record<string, WorldwideEntry> = {};
 
-  for (const species of catalog) {
-    if (species.id === UNLISTED_ID) continue;
-    const known = counts.get(species.id);
-    const why = (fallback: string) => reasons?.get(species.id) ?? fallback;
-    const skip = (reason: string) => unresolved.set(species.id, { id: species.id, scientificName: species.scientificName, reason });
+  for (const { id, scientificName } of catalog) {
+    if (id === UNLISTED_ID) continue;
+    const known = counts.get(id);
+    const why = (fallback: string) => reasons?.get(id) ?? fallback;
+    const skip = (reason: string) => unresolved.push({ id, scientificName, reason });
     if (!known || (!known.inaturalist && !known.obis)) {
       skip(why(NOT_FETCHED_REASON));
     } else if (!known.inaturalist) {
       skip(why('No iNaturalist taxon matched its name.'));
     } else {
       const score = scoreSpecies(known);
-      if (score > 0) {
-        scored.set(species.id, score);
-        entries.set(species.id, known);
-      } else {
-        skip(region ? `No records of it in this region (${region}).` : 'No research-grade iNaturalist observations and no OBIS records.');
-      }
-    }
-  }
-
-  const minSpecies = options.minSpecies ?? MIN_SPECIES_FOR_TIERS;
-  const tiers = tiersFromScores(scored, { minSpecies });
-  const species: Record<string, RarityEntry> = {};
-  for (const { id, scientificName } of catalog) {
-    const tier = tiers.get(id);
-    const known = entries.get(id);
-    if (tier && known) {
-      species[id] = { ...known, score: scored.get(id) as number, tier };
-    } else if (known) {
-      unresolved.set(id, {
-        id,
-        scientificName,
-        reason: `Only ${scored.size} species could be scored, fewer than the ${minSpecies} needed to place any in percentile bands.`,
-      });
+      if (score > 0) species[id] = { ...known, score };
+      else skip(region ? `No records of it in this region (${region}).` : 'No research-grade iNaturalist observations and no OBIS records.');
     }
   }
 
@@ -571,17 +508,13 @@ export function buildRealRarityData(options: BuildOptions): RealRarityData {
     sources: REAL_RARITY_SOURCES,
     method: {
       summary:
-        'Each species is scored from log-scaled iNaturalist research-grade observations and observers and OBIS occurrence records, ranked across the catalogue, and cut into percentile bands: the most recorded are common, the least recorded legendary.',
+        'Research-grade iNaturalist observations and observers and OBIS occurrence records of each species, worldwide, with a log-scaled score. Supporting evidence for the encounter tiers (src/data/encounter-rarity.json); it sets no tier, because it measures how much an animal is photographed, not how likely a diver is to meet it.',
       score: 'score = 0.40 * log10(1 + observers) + 0.25 * log10(1 + observations) + 0.35 * min(log10(1 + records), 5)',
       weights: SCORE_WEIGHTS,
       obisLogCap: OBIS_LOG_CAP,
-      bands: RARITY_BANDS,
-      bandsOrder: 'from the most recorded species down',
-      minSpecies,
-      ties: 'Species with equal scores share the more common tier.',
-      scope: region ? `Counts taken inside the ${region} box only; percentiles are among the species recorded there.` : 'Counts are worldwide; percentiles are across the catalogue.',
+      scope: region ? `Counts taken inside the ${region} box only.` : 'Counts are worldwide.',
     },
     species,
-    unresolved: catalog.filter((s) => unresolved.has(s.id)).map((s) => unresolved.get(s.id) as UnresolvedSpecies),
+    unresolved,
   };
 }

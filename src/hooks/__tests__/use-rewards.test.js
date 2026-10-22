@@ -4,6 +4,10 @@ import { create } from 'react-test-renderer';
 import { SITES } from '@/data/sites';
 import { useRewards } from '../use-rewards';
 
+// These tests pin the rewards engine's own rules against the catalogue's hand-assigned tiers, so they must
+// not move when src/data/encounter-rarity.json is regenerated: the generated tiers are switched off here.
+jest.mock('@/data/encounter-rarity.json', () => ({ generatedAt: null, species: {} }));
+
 // The store, as the hook reads it. Like the real ones, the list hooks return a new array on every call.
 let mockReady = true;
 let mockSightings = [];

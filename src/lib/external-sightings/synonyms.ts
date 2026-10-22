@@ -61,6 +61,9 @@ export const SYNONYMS: Readonly<Record<string, string>> = {
   'octopus dofleini': 'giant-pacific-octopus', // former genus
   'octopus lunulatus': 'blue-ringed-octopus', // former genus
   'octopus marginatus': 'coconut-octopus', // former genus
+  'ascarosepion latimanus': 'broadclub-cuttlefish', // iNaturalist's current genus (checked live, October 2026)
+  'ascarosepion apama': 'giant-cuttlefish', // iNaturalist's current genus (checked live, October 2026)
+  'ascarosepion pfefferi': 'flamboyant-cuttlefish', // iNaturalist's current genus (checked live, October 2026)
 
   // ── Macro ─────────────────────────────────────────────────────────────────
   'hymenocera elegans': 'harlequin-shrimp', // junior synonym

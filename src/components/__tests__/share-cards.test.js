@@ -14,6 +14,9 @@ import { Colors } from '@/constants/theme';
 
 // The theme module imports the web stylesheet, which Jest can't parse.
 jest.mock('@/global.css', () => ({}));
+// These tests pin the cards against the catalogue's hand-assigned tiers (whose rarity is on the card), so
+// they must not move when src/data/encounter-rarity.json is regenerated: the generated tiers are switched off here.
+jest.mock('@/data/encounter-rarity.json', () => ({ generatedAt: null, species: {} }));
 // The phone's colour scheme, so a card can be drawn in both.
 let mockScheme = 'light';
 jest.mock('react-native/Libraries/Utilities/useColorScheme', () => ({ __esModule: true, default: () => mockScheme }));
