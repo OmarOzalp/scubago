@@ -139,11 +139,11 @@ const whitetip: SharkSpec = variant(requiem, {
 // Very short blunt snout and a small eye; heavy, deep body; broad triangular first dorsal over the
 // pectoral insertion; large second dorsal; plain grey.
 const bull: SharkSpec = variant(requiem, {
-  ...bodyShape({ ped: 74, depth: 21.5, at: 29, riseTop: 3, riseBot: 2.5, pedH: 5.8, nose: 0.62 }),
-  blunt: 0.9,
+  ...bodyShape({ ped: 74, depth: 18.5, at: 29, riseTop: 3, riseBot: 2.5, pedH: 5.4, nose: 0.5 }),
+  blunt: 0.7,
   noseTilt: 0.2,
   eye: { x: 5.8, f: 0.34, r: 0.75 },
-  d1: { at: 28, base: 10.5, h: 10, sweep: 0.6, rear: 2.6, round: 0.3, concave: 0.06, convex: 0.05 },
+  d1: { at: 28, base: 10.5, h: 11.5, sweep: 0.6, rear: 2.6, round: 0.3, concave: 0.06, convex: 0.05 },
   d2: { at: 60, base: 4, h: 4, rear: 2.8 },
   anal: { at: 60.5, base: 4, h: 3.8, rear: 2.6 },
   pelvic: { at: 46, base: 4.6, h: 5, rear: 2.4 },
