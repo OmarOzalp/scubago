@@ -38,7 +38,7 @@ import { keepPhoto } from '@/lib/photo-files';
 import { DEFAULT_PRIVACY, lastPrivacyChoice, rememberPrivacyChoice, type PrivacySettings } from '@/lib/privacy-choice';
 import { CATEGORY_LABEL, CATEGORY_ORDER } from '@/lib/rarity';
 import { artFor } from '@/lib/species-art';
-import { canEditSighting, isMaterialChange, localIsoDate } from '@/lib/sighting-edit';
+import { canEditSighting, isMaterialChange, localIsoDate, NOTES_MAX } from '@/lib/sighting-edit';
 import { onSiteAdded } from '@/lib/site-added';
 import { useAllSites, useAppStore, useMyDives, useMySightings, useMyUserId, useNextDiveNumber, useSiteById } from '@/lib/store';
 import { searchSpecies } from '@/lib/text-search';
@@ -547,6 +547,7 @@ function LogSightingScreen() {
               value={notes}
               onChangeText={setNotes}
               multiline
+              maxLength={NOTES_MAX}
               style={styles.notes}
             />
           ) : null}

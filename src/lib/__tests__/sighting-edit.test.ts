@@ -63,6 +63,12 @@ describe('the checks every sighting passes', () => {
     expect(validateSightingInput({ ...input, sightedOn: '29/09/2026' }, known)).toMatch(/valid/);
     expect(validateSightingInput({ ...input, sightedOn: '2026-09-30' }, known)).toMatch(/future/);
   });
+
+  it('keeps notes to what the server stores (4000 characters)', () => {
+    expect(validateSightingInput({ ...input, notes: 'x'.repeat(4000) }, known)).toBeNull();
+    expect(validateSightingInput({ ...input, notes: `  ${'x'.repeat(4000)}  ` }, known)).toBeNull();
+    expect(validateSightingInput({ ...input, notes: 'x'.repeat(4001) }, known)).toBe('Keep the notes under 4000 characters.');
+  });
 });
 
 describe('dates', () => {
