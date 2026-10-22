@@ -1,478 +1,722 @@
 {
   "whale-shark": {
-    "url": "https://inaturalist-open-data.s3.amazonaws.com/photos/519729370/medium.jpg",
-    "attribution": "(c) Simon Pierce, some rights reserved (CC BY-NC), uploaded by Simon Pierce"
+    "url": "https://inaturalist-open-data.s3.amazonaws.com/photos/229381770/medium.jpg",
+    "attribution": "(c) Daniel Benák, some rights reserved (CC BY), uploaded by Daniel Benák",
+    "license": "CC BY",
+    "source": "https://www.inaturalist.org/photos/229381770"
   },
   "great-white-shark": {
-    "url": "https://static.inaturalist.org/photos/177202266/medium.jpeg",
-    "attribution": "(c) Sarichia Cacciatore, all rights reserved, uploaded by Sarichia Cacciatore"
+    "url": "https://inaturalist-open-data.s3.amazonaws.com/photos/75109887/medium.jpg",
+    "attribution": "(c) Fábio Olmos, some rights reserved (CC BY)",
+    "license": "CC BY",
+    "source": "https://www.inaturalist.org/photos/75109887"
   },
   "basking-shark": {
-    "url": "https://static.inaturalist.org/photos/310765197/medium.jpg",
-    "attribution": "(c) Karen Straus, all rights reserved, uploaded by Karen Straus"
+    "url": "https://inaturalist-open-data.s3.amazonaws.com/photos/73724669/medium.jpg",
+    "attribution": "(c) Fábio Olmos, some rights reserved (CC BY), uploaded by Fábio Olmos",
+    "license": "CC BY",
+    "source": "https://www.inaturalist.org/photos/73724669"
   },
   "tiger-shark": {
     "url": "https://inaturalist-open-data.s3.amazonaws.com/photos/19051907/medium.jpg",
-    "attribution": "(c) Kris-Mikael Krister, some rights reserved (CC BY)"
+    "attribution": "(c) Kris-Mikael Krister, some rights reserved (CC BY)",
+    "license": "CC BY",
+    "source": "https://www.inaturalist.org/photos/19051907"
   },
   "great-hammerhead": {
-    "url": "https://inaturalist-open-data.s3.amazonaws.com/photos/12399600/medium.jpg",
-    "attribution": "(c) Christa Rohrbach, some rights reserved (CC BY-NC-SA)"
+    "url": "https://inaturalist-open-data.s3.amazonaws.com/photos/86554863/medium.jpg",
+    "attribution": "(c) Jake Mohan, some rights reserved (CC BY)",
+    "license": "CC BY",
+    "source": "https://www.inaturalist.org/photos/86554863"
   },
   "scalloped-hammerhead": {
     "url": "https://inaturalist-open-data.s3.amazonaws.com/photos/86555463/medium.jpeg",
-    "attribution": "(c) Kris Mikael Krister, some rights reserved (CC BY)"
+    "attribution": "(c) Kris Mikael Krister, some rights reserved (CC BY)",
+    "license": "CC BY",
+    "source": "https://www.inaturalist.org/photos/86555463"
   },
   "thresher-shark": {
-    "url": "https://static.inaturalist.org/photos/257429672/medium.jpg",
-    "attribution": "(c) Jenvit Seriburi, all rights reserved, uploaded by Jenvit Seriburi"
+    "url": "https://inaturalist-open-data.s3.amazonaws.com/photos/593010301/medium.jpg",
+    "attribution": "(c) Ben Jobson, some rights reserved (CC BY)",
+    "license": "CC BY",
+    "source": "https://www.inaturalist.org/photos/593010301"
   },
   "oceanic-whitetip": {
-    "url": "https://static.inaturalist.org/photos/21906877/medium.jpg",
-    "attribution": "(c) Lesley Clements, all rights reserved"
+    "url": "https://inaturalist-open-data.s3.amazonaws.com/photos/334402814/medium.jpg",
+    "attribution": "(c) Daniel Benák, some rights reserved (CC BY)",
+    "license": "CC BY",
+    "source": "https://www.inaturalist.org/photos/334402814"
   },
   "shortfin-mako": {
     "url": "https://inaturalist-open-data.s3.amazonaws.com/photos/127467/medium.jpg",
-    "attribution": "(c) jidanchaomian, some rights reserved (CC BY-SA)"
+    "attribution": "(c) jidanchaomian, some rights reserved (CC BY-SA)",
+    "license": "CC BY-SA",
+    "source": "https://www.inaturalist.org/photos/127467"
   },
   "bull-shark": {
-    "url": "https://inaturalist-open-data.s3.amazonaws.com/photos/351417931/medium.jpg",
-    "attribution": "(c) Luis P. B., some rights reserved (CC BY-NC), uploaded by Luis P. B."
+    "url": "https://inaturalist-open-data.s3.amazonaws.com/photos/597561973/medium.jpg",
+    "attribution": "no rights reserved (CC0)",
+    "license": "CC0",
+    "source": "https://www.inaturalist.org/photos/597561973"
   },
   "silky-shark": {
-    "url": "https://inaturalist-open-data.s3.amazonaws.com/photos/477653797/medium.jpg",
-    "attribution": "(c) Jane Kempler &amp; Andrew Goldby Freelance, some rights reserved (CC BY-NC-ND), uploaded by Jane Kempler &amp; Andrew Goldby Freelance"
+    "url": "https://inaturalist-open-data.s3.amazonaws.com/photos/606440062/medium.jpg",
+    "attribution": "(c) Rui Ribeiro, some rights reserved (CC BY)",
+    "license": "CC BY",
+    "source": "https://www.inaturalist.org/photos/606440062"
   },
   "galapagos-shark": {
-    "url": "https://static.inaturalist.org/photos/14244472/medium.jpg",
-    "attribution": "(c) Ian Shaw, all rights reserved, uploaded by Ian Shaw"
+    "url": "https://inaturalist-open-data.s3.amazonaws.com/photos/380126080/medium.jpg",
+    "attribution": "(c) R Vasconcellos, some rights reserved (CC BY), uploaded by R Vasconcellos",
+    "license": "CC BY",
+    "source": "https://www.inaturalist.org/photos/380126080"
   },
   "sand-tiger-shark": {
-    "url": "https://inaturalist-open-data.s3.amazonaws.com/photos/537445585/medium.jpg",
-    "attribution": "(c) Luis P. B., some rights reserved (CC BY-NC), uploaded by Luis P. B."
+    "url": "https://inaturalist-open-data.s3.amazonaws.com/photos/597593028/medium.jpg",
+    "attribution": "(c) Lawrence Hylton, some rights reserved (CC BY)",
+    "license": "CC BY",
+    "source": "https://www.inaturalist.org/photos/597593028"
   },
   "zebra-shark": {
-    "url": "https://inaturalist-open-data.s3.amazonaws.com/photos/671028369/medium.jpg",
-    "attribution": "(c) Luis P. B., some rights reserved (CC BY-NC), uploaded by Luis P. B."
+    "url": "https://inaturalist-open-data.s3.amazonaws.com/photos/60848973/medium.jpg",
+    "attribution": "(c) Kai Squires, some rights reserved (CC BY)",
+    "license": "CC BY",
+    "source": "https://www.inaturalist.org/photos/60848973"
   },
   "tasselled-wobbegong": {
-    "url": "https://static.inaturalist.org/photos/63681167/medium.jpg",
-    "attribution": "(c) Poul Erik Rasmussen, all rights reserved, uploaded by Poul Erik Rasmussen"
+    "url": "https://inaturalist-open-data.s3.amazonaws.com/photos/596668754/medium.jpg",
+    "attribution": "(c) Ben Costamagna, some rights reserved (CC BY)",
+    "license": "CC BY",
+    "source": "https://www.inaturalist.org/photos/596668754"
   },
   "lemon-shark": {
     "url": "https://inaturalist-open-data.s3.amazonaws.com/photos/70552759/medium.jpg",
-    "attribution": "(c) Albert kok, some rights reserved (CC BY-SA)"
+    "attribution": "(c) Albert kok, some rights reserved (CC BY-SA)",
+    "license": "CC BY-SA",
+    "source": "https://www.inaturalist.org/photos/70552759"
   },
   "grey-reef-shark": {
-    "url": "https://inaturalist-open-data.s3.amazonaws.com/photos/187831849/medium.jpg",
-    "attribution": "(c) Mark Rosenstein, some rights reserved (CC BY-NC), uploaded by Mark Rosenstein"
+    "url": "https://inaturalist-open-data.s3.amazonaws.com/photos/343594696/medium.jpg",
+    "attribution": "(c) cello caruso-turiello, some rights reserved (CC BY)",
+    "license": "CC BY",
+    "source": "https://www.inaturalist.org/photos/343594696"
   },
   "blacktip-reef-shark": {
-    "url": "https://inaturalist-open-data.s3.amazonaws.com/photos/608947383/medium.jpg",
-    "attribution": "(c) Poseidon’s Adventure, some rights reserved (CC BY-NC), uploaded by Poseidon’s Adventure"
+    "url": "https://inaturalist-open-data.s3.amazonaws.com/photos/87114974/medium.jpg",
+    "attribution": "(c) Leon Brocard, some rights reserved (CC BY)",
+    "license": "CC BY",
+    "source": "https://www.inaturalist.org/photos/87114974"
   },
   "whitetip-reef-shark": {
-    "url": "https://inaturalist-open-data.s3.amazonaws.com/photos/675226768/medium.jpg",
-    "attribution": "(c) Luis P. B., some rights reserved (CC BY-NC), uploaded by Luis P. B."
+    "url": "https://inaturalist-open-data.s3.amazonaws.com/photos/229382841/medium.jpg",
+    "attribution": "(c) Daniel Benák, some rights reserved (CC BY), uploaded by Daniel Benák",
+    "license": "CC BY",
+    "source": "https://www.inaturalist.org/photos/229382841"
   },
   "nurse-shark": {
-    "url": "https://inaturalist-open-data.s3.amazonaws.com/photos/55987882/medium.jpg",
-    "attribution": "(c) Rafael de la Parra, some rights reserved (CC BY-NC), uploaded by Rafael de la Parra"
+    "url": "https://inaturalist-open-data.s3.amazonaws.com/photos/379827271/medium.jpg",
+    "attribution": "(c) R Vasconcellos, some rights reserved (CC BY), uploaded by R Vasconcellos",
+    "license": "CC BY",
+    "source": "https://www.inaturalist.org/photos/379827271"
   },
   "reef-manta": {
-    "url": "https://inaturalist-open-data.s3.amazonaws.com/photos/241208700/medium.jpg",
-    "attribution": "(c) Luis P. B., some rights reserved (CC BY-NC), uploaded by Luis P. B."
+    "url": "https://inaturalist-open-data.s3.amazonaws.com/photos/464494946/medium.jpg",
+    "attribution": "(c) R Vasconcellos, some rights reserved (CC BY), uploaded by R Vasconcellos",
+    "license": "CC BY",
+    "source": "https://www.inaturalist.org/photos/464494946"
   },
   "oceanic-manta": {
-    "url": "https://inaturalist-open-data.s3.amazonaws.com/photos/33852153/medium.jpg",
-    "attribution": "(c) Programa Marino del Golfo de California, some rights reserved (CC BY-NC), uploaded by Programa Marino del Golfo de California"
+    "url": "https://inaturalist-open-data.s3.amazonaws.com/photos/87122115/medium.jpg",
+    "attribution": "(c) Elias Levy, some rights reserved (CC BY)",
+    "license": "CC BY",
+    "source": "https://www.inaturalist.org/photos/87122115"
   },
   "sawfish": {
-    "url": "https://inaturalist-open-data.s3.amazonaws.com/photos/342552677/medium.jpeg",
-    "attribution": "(c) Michael Verdirame, some rights reserved (CC BY-NC), uploaded by Michael Verdirame"
+    "url": "https://inaturalist-open-data.s3.amazonaws.com/photos/95214734/medium.jpg",
+    "attribution": "(c) Simon Fraser University -  Communications & Marketing, some rights reserved (CC BY)",
+    "license": "CC BY",
+    "source": "https://www.inaturalist.org/photos/95214734"
   },
   "munks-devil-ray": {
-    "url": "https://static.inaturalist.org/photos/299011104/medium.jpg",
-    "attribution": "(c) Ligia Hernandez, all rights reserved, uploaded by Ligia Hernandez"
+    "url": "https://inaturalist-open-data.s3.amazonaws.com/photos/347633255/medium.jpeg",
+    "attribution": "(c) Alberto Alcalá, some rights reserved (CC BY)",
+    "license": "CC BY",
+    "source": "https://www.inaturalist.org/photos/347633255"
   },
   "spotted-eagle-ray": {
-    "url": "https://inaturalist-open-data.s3.amazonaws.com/photos/195315918/medium.jpg",
-    "attribution": "(c) michel candel, some rights reserved (CC BY-NC-SA)"
+    "url": "https://inaturalist-open-data.s3.amazonaws.com/photos/490576649/medium.png",
+    "attribution": "(c) Robbie, some rights reserved (CC BY)",
+    "license": "CC BY",
+    "source": "https://www.inaturalist.org/photos/490576649"
   },
   "marbled-ray": {
-    "url": "https://inaturalist-open-data.s3.amazonaws.com/photos/162046559/medium.jpg",
-    "attribution": "(c) Luis P. B., some rights reserved (CC BY-NC), uploaded by Luis P. B."
+    "url": "https://inaturalist-open-data.s3.amazonaws.com/photos/387908025/medium.jpeg",
+    "attribution": "no rights reserved (CC0)",
+    "license": "CC0",
+    "source": "https://www.inaturalist.org/photos/387908025"
   },
   "southern-stingray": {
-    "url": "https://inaturalist-open-data.s3.amazonaws.com/photos/117019880/medium.jpg",
-    "attribution": "(c) Kerry Lewis, some rights reserved (CC BY-NC), uploaded by Kerry Lewis"
+    "url": "https://inaturalist-open-data.s3.amazonaws.com/photos/174694329/medium.jpeg",
+    "attribution": "(c) er-birds, some rights reserved (CC BY)",
+    "license": "CC BY",
+    "source": "https://www.inaturalist.org/photos/174694329"
   },
   "bluespotted-ribbontail-ray": {
-    "url": "https://inaturalist-open-data.s3.amazonaws.com/photos/511341401/medium.jpg",
-    "attribution": "(c) Luis P. B., some rights reserved (CC BY-NC), uploaded by Luis P. B."
+    "url": "https://inaturalist-open-data.s3.amazonaws.com/photos/229213941/medium.jpg",
+    "attribution": "(c) Daniel Benák, some rights reserved (CC BY)",
+    "license": "CC BY",
+    "source": "https://www.inaturalist.org/photos/229213941"
   },
   "giant-guitarfish": {
-    "url": "https://inaturalist-open-data.s3.amazonaws.com/photos/10940196/medium.jpeg",
-    "attribution": "(c) Ian Banks, some rights reserved (CC BY-NC), uploaded by Ian Banks"
+    "url": "https://inaturalist-open-data.s3.amazonaws.com/photos/128183924/medium.jpeg",
+    "attribution": "(c) Bruce Deagle, some rights reserved (CC BY)",
+    "license": "CC BY",
+    "source": "https://www.inaturalist.org/photos/128183924"
   },
   "marbled-electric-ray": {
-    "url": "https://inaturalist-open-data.s3.amazonaws.com/photos/296434484/medium.jpg",
-    "attribution": "(c) Luis P. B., some rights reserved (CC BY-NC), uploaded by Luis P. B."
+    "url": "https://inaturalist-open-data.s3.amazonaws.com/photos/119462809/medium.jpg",
+    "attribution": "(c) Nathan Mesnildrey, some rights reserved (CC BY)",
+    "license": "CC BY",
+    "source": "https://www.inaturalist.org/photos/119462809"
   },
   "green-turtle": {
-    "url": "https://inaturalist-open-data.s3.amazonaws.com/photos/197457958/medium.jpg",
-    "attribution": "(c) MARC MARTIN SOLA, some rights reserved (CC BY-NC), uploaded by MARC MARTIN SOLA"
+    "url": "https://inaturalist-open-data.s3.amazonaws.com/photos/160686955/medium.jpg",
+    "attribution": "(c) Paul Asman and Jill Lenoble, some rights reserved (CC BY), uploaded by Paul Asman and Jill Lenoble",
+    "license": "CC BY",
+    "source": "https://www.inaturalist.org/photos/160686955"
   },
   "hawksbill-turtle": {
-    "url": "https://inaturalist-open-data.s3.amazonaws.com/photos/308087101/medium.jpeg",
-    "attribution": "(c) malu_md, some rights reserved (CC BY-NC)"
+    "url": "https://inaturalist-open-data.s3.amazonaws.com/photos/250912581/medium.jpg",
+    "attribution": "(c) Sockrosma, some rights reserved (CC BY)",
+    "license": "CC BY",
+    "source": "https://www.inaturalist.org/photos/250912581"
   },
   "loggerhead-turtle": {
-    "url": "https://inaturalist-open-data.s3.amazonaws.com/photos/109713652/medium.jpeg",
-    "attribution": "(c) laurenhues, some rights reserved (CC BY-NC), uploaded by laurenhues"
+    "url": "https://inaturalist-open-data.s3.amazonaws.com/photos/355273645/medium.jpeg",
+    "attribution": "(c) Radu Teodoreanu, some rights reserved (CC BY), uploaded by Radu Teodoreanu",
+    "license": "CC BY",
+    "source": "https://www.inaturalist.org/photos/355273645"
   },
   "olive-ridley-turtle": {
-    "url": "https://static.inaturalist.org/photos/154666409/medium.jpeg",
-    "attribution": "(c) odette a castro, all rights reserved, uploaded by odette a castro"
+    "url": "https://inaturalist-open-data.s3.amazonaws.com/photos/158927228/medium.jpeg",
+    "attribution": "(c) Victor E. Chocho, some rights reserved (CC BY)",
+    "license": "CC BY",
+    "source": "https://www.inaturalist.org/photos/158927228"
   },
   "leatherback-turtle": {
-    "url": "https://inaturalist-open-data.s3.amazonaws.com/photos/244918310/medium.jpg",
-    "attribution": "(c) azure27014, some rights reserved (CC BY-NC)"
+    "url": "https://inaturalist-open-data.s3.amazonaws.com/photos/32807091/medium.jpg",
+    "attribution": "(c) Bill Levine, some rights reserved (CC BY), uploaded by Bill Levine",
+    "license": "CC BY",
+    "source": "https://www.inaturalist.org/photos/32807091"
   },
   "bottlenose-dolphin": {
-    "url": "https://inaturalist-open-data.s3.amazonaws.com/photos/611231392/medium.jpg",
-    "attribution": "(c) Frank Krasovec, some rights reserved (CC BY-NC), uploaded by Frank Krasovec"
+    "url": "https://inaturalist-open-data.s3.amazonaws.com/photos/341667124/medium.jpg",
+    "attribution": "(c) Punkus, some rights reserved (CC BY), uploaded by Punkus",
+    "license": "CC BY",
+    "source": "https://www.inaturalist.org/photos/341667124"
   },
   "spinner-dolphin": {
-    "url": "https://inaturalist-open-data.s3.amazonaws.com/photos/83099258/medium.jpg",
-    "attribution": "(c) martinmoscovich, some rights reserved (CC BY-NC)"
+    "url": "https://inaturalist-open-data.s3.amazonaws.com/photos/71746514/medium.jpeg",
+    "attribution": "(c) Magnus Kjaergaard, some rights reserved (CC BY)",
+    "license": "CC BY",
+    "source": "https://www.inaturalist.org/photos/71746514"
   },
   "humpback-whale": {
-    "url": "https://inaturalist-open-data.s3.amazonaws.com/photos/255461843/medium.jpg",
-    "attribution": "(c) Wayne and Pam Osborn, some rights reserved (CC BY-NC), uploaded by Wayne and Pam Osborn"
+    "url": "https://inaturalist-open-data.s3.amazonaws.com/photos/2562747/medium.jpg",
+    "attribution": "(c) Ken-ichi Ueda, some rights reserved (CC BY)",
+    "license": "CC BY",
+    "source": "https://www.inaturalist.org/photos/2562747"
   },
   "sperm-whale": {
-    "url": "https://static.inaturalist.org/photos/333015482/medium.jpeg",
-    "attribution": "(c) Lewis Burnett, all rights reserved, uploaded by Lewis Burnett"
+    "url": "https://inaturalist-open-data.s3.amazonaws.com/photos/219667126/medium.jpg",
+    "attribution": "(c) Vsevolod Rudyi, some rights reserved (CC BY)",
+    "license": "CC BY",
+    "source": "https://www.inaturalist.org/photos/219667126"
   },
   "orca": {
-    "url": "https://inaturalist-open-data.s3.amazonaws.com/photos/223550594/medium.jpg",
-    "attribution": "(c) Sherry Kirkvold, some rights reserved (CC BY-NC), uploaded by Sherry Kirkvold"
+    "url": "https://inaturalist-open-data.s3.amazonaws.com/photos/363511814/medium.jpeg",
+    "attribution": "(c) Martín Acosta Albarracín, some rights reserved (CC BY), uploaded by Martín Acosta Albarracín",
+    "license": "CC BY",
+    "source": "https://www.inaturalist.org/photos/363511814"
   },
   "dugong": {
-    "url": "https://static.inaturalist.org/photos/32274342/medium.jpg",
-    "attribution": "(c) Carol Kwok, all rights reserved, uploaded by Carol Kwok"
+    "url": "https://inaturalist-open-data.s3.amazonaws.com/photos/15625387/medium.jpg",
+    "attribution": "(c) Wynand Uys, some rights reserved (CC BY)",
+    "license": "CC BY",
+    "source": "https://www.inaturalist.org/photos/15625387"
   },
   "west-indian-manatee": {
     "url": "https://inaturalist-open-data.s3.amazonaws.com/photos/17174106/medium.jpg",
-    "attribution": "(c) U.S. Fish and Wildlife Service Headquarters, some rights reserved (CC BY)"
+    "attribution": "(c) U.S. Fish and Wildlife Service Headquarters, some rights reserved (CC BY)",
+    "license": "CC BY",
+    "source": "https://www.inaturalist.org/photos/17174106"
   },
   "california-sea-lion": {
-    "url": "https://static.inaturalist.org/photos/11888923/medium.png",
-    "attribution": "(c) Jennifer Digdigan, all rights reserved, uploaded by Jennifer Digdigan"
+    "url": "https://inaturalist-open-data.s3.amazonaws.com/photos/116893690/medium.jpeg",
+    "attribution": "(c) Liam Steele, some rights reserved (CC BY), uploaded by Liam Steele",
+    "license": "CC BY",
+    "source": "https://www.inaturalist.org/photos/116893690"
   },
   "harbor-seal": {
-    "url": "https://inaturalist-open-data.s3.amazonaws.com/photos/190781322/medium.jpg",
-    "attribution": "(c) Andrew Reding, some rights reserved (CC BY-NC-ND)"
+    "url": "https://inaturalist-open-data.s3.amazonaws.com/photos/628462029/medium.jpg",
+    "attribution": "(c) Marcel_Pepin, some rights reserved (CC BY)",
+    "license": "CC BY",
+    "source": "https://www.inaturalist.org/photos/628462029"
   },
   "sea-otter": {
     "url": "https://inaturalist-open-data.s3.amazonaws.com/photos/311432614/medium.jpg",
-    "attribution": "(c) Marshal Hedin, some rights reserved (CC BY-SA)"
+    "attribution": "(c) Marshal Hedin, some rights reserved (CC BY-SA)",
+    "license": "CC BY-SA",
+    "source": "https://www.inaturalist.org/photos/311432614"
   },
   "mola-mola": {
-    "url": "https://inaturalist-open-data.s3.amazonaws.com/photos/108840476/medium.jpg",
-    "attribution": "(c) Xavier Rufray, some rights reserved (CC BY-NC), uploaded by Xavier Rufray"
+    "url": "https://inaturalist-open-data.s3.amazonaws.com/photos/114458708/medium.jpg",
+    "attribution": "(c) Sidonio Paes, some rights reserved (CC BY)",
+    "license": "CC BY",
+    "source": "https://www.inaturalist.org/photos/114458708"
   },
   "sailfish": {
-    "url": "https://inaturalist-open-data.s3.amazonaws.com/photos/152543/medium.jpg",
-    "attribution": "(c) Robin Hughes, some rights reserved (CC BY-NC-SA)"
+    "url": "https://inaturalist-open-data.s3.amazonaws.com/photos/313572447/medium.jpeg",
+    "attribution": "(c) Vsevolod Rudyi, some rights reserved (CC BY)",
+    "license": "CC BY",
+    "source": "https://www.inaturalist.org/photos/313572447"
   },
   "napoleon-wrasse": {
-    "url": "https://inaturalist-open-data.s3.amazonaws.com/photos/107582757/medium.jpg",
-    "attribution": "(c) David Roche, some rights reserved (CC BY-NC), uploaded by David Roche"
+    "url": "https://inaturalist-open-data.s3.amazonaws.com/photos/294332977/medium.jpg",
+    "attribution": "(c) Sockrosma, some rights reserved (CC BY)",
+    "license": "CC BY",
+    "source": "https://www.inaturalist.org/photos/294332977"
   },
   "bumphead-parrotfish": {
-    "url": "https://inaturalist-open-data.s3.amazonaws.com/photos/709279/medium.jpg",
-    "attribution": "(c) Mark Rosenstein, some rights reserved (CC BY-NC), uploaded by Mark Rosenstein"
+    "url": "https://inaturalist-open-data.s3.amazonaws.com/photos/96717561/medium.jpg",
+    "attribution": "(c) Rickard Zerpe, some rights reserved (CC BY)",
+    "license": "CC BY",
+    "source": "https://www.inaturalist.org/photos/96717561"
   },
   "giant-grouper": {
-    "url": "https://inaturalist-open-data.s3.amazonaws.com/photos/11975452/medium.jpeg",
-    "attribution": "(c) Ian Banks, some rights reserved (CC BY-NC), uploaded by Ian Banks"
+    "url": "https://inaturalist-open-data.s3.amazonaws.com/photos/30003719/medium.jpg",
+    "attribution": "(c) Julien Renoult, some rights reserved (CC BY)",
+    "license": "CC BY",
+    "source": "https://www.inaturalist.org/photos/30003719"
   },
   "goliath-grouper": {
-    "url": "https://inaturalist-open-data.s3.amazonaws.com/photos/98481122/medium.jpg",
-    "attribution": "(c) victorbach, some rights reserved (CC BY-NC), uploaded by victorbach"
+    "url": "https://inaturalist-open-data.s3.amazonaws.com/photos/8000663/medium.jpg",
+    "attribution": "(c) LASZLO ILYES from Cleveland, Ohio, USA, some rights reserved (CC BY)",
+    "license": "CC BY",
+    "source": "https://www.inaturalist.org/photos/8000663"
   },
   "potato-cod": {
-    "url": "https://static.inaturalist.org/photos/5841125/medium.jpg",
-    "attribution": "(c) Ian Shaw, all rights reserved, uploaded by Ian Shaw"
+    "url": "https://inaturalist-open-data.s3.amazonaws.com/photos/68245421/medium.jpg",
+    "attribution": "(c) desertnaturalist, some rights reserved (CC BY), uploaded by desertnaturalist",
+    "license": "CC BY",
+    "source": "https://www.inaturalist.org/photos/68245421"
   },
   "giant-trevally": {
-    "url": "https://inaturalist-open-data.s3.amazonaws.com/photos/11911542/medium.jpg",
-    "attribution": "(c) Nikolai Vladimirov, some rights reserved (CC BY-NC), uploaded by Nikolai Vladimirov"
+    "url": "https://inaturalist-open-data.s3.amazonaws.com/photos/190231838/medium.jpeg",
+    "attribution": "(c) 呂一起(Lyu yi-chi), some rights reserved (CC BY)",
+    "license": "CC BY",
+    "source": "https://www.inaturalist.org/photos/190231838"
   },
   "great-barracuda": {
-    "url": "https://static.inaturalist.org/photos/64376618/medium.jpeg",
-    "attribution": "(c) Christian Amador Da Silva, all rights reserved, uploaded by Christian Amador Da Silva"
+    "url": "https://inaturalist-open-data.s3.amazonaws.com/photos/305835829/medium.jpg",
+    "attribution": "(c) Pauline Walsh Jacobson, some rights reserved (CC BY)",
+    "license": "CC BY",
+    "source": "https://www.inaturalist.org/photos/305835829"
   },
   "chevron-barracuda": {
-    "url": "https://inaturalist-open-data.s3.amazonaws.com/photos/2995795/medium.jpg",
-    "attribution": "(c) Mark Rosenstein, some rights reserved (CC BY-NC), uploaded by Mark Rosenstein"
+    "url": "https://inaturalist-open-data.s3.amazonaws.com/photos/370213285/medium.jpeg",
+    "attribution": "(c) Debra Baker, some rights reserved (CC BY)",
+    "license": "CC BY",
+    "source": "https://www.inaturalist.org/photos/370213285"
   },
   "tarpon": {
-    "url": "https://inaturalist-open-data.s3.amazonaws.com/photos/54532250/medium.jpeg",
-    "attribution": "(c) Rachel Andres-Beck, some rights reserved (CC BY-NC), uploaded by Rachel Andres-Beck"
+    "url": "https://inaturalist-open-data.s3.amazonaws.com/photos/87143414/medium.jpg",
+    "attribution": "(c) q phia, some rights reserved (CC BY)",
+    "license": "CC BY",
+    "source": "https://www.inaturalist.org/photos/87143414"
   },
   "yellowfin-tuna": {
     "url": "https://inaturalist-open-data.s3.amazonaws.com/photos/207078977/medium.jpg",
-    "attribution": "(c) Almcglashan, some rights reserved (CC BY-SA)"
+    "attribution": "(c) Almcglashan, some rights reserved (CC BY-SA)",
+    "license": "CC BY-SA",
+    "source": "https://www.inaturalist.org/photos/207078977"
   },
   "dogtooth-tuna": {
-    "url": "https://inaturalist-open-data.s3.amazonaws.com/photos/511341324/medium.jpg",
-    "attribution": "(c) Luis P. B., some rights reserved (CC BY-NC), uploaded by Luis P. B."
+    "url": "https://inaturalist-open-data.s3.amazonaws.com/photos/229388164/medium.jpg",
+    "attribution": "(c) Daniel Benák, some rights reserved (CC BY)",
+    "license": "CC BY",
+    "source": "https://www.inaturalist.org/photos/229388164"
   },
   "clownfish": {
-    "url": "https://inaturalist-open-data.s3.amazonaws.com/photos/9045216/medium.jpg",
-    "attribution": "(c) yannickvm, some rights reserved (CC BY-NC)"
+    "url": "https://inaturalist-open-data.s3.amazonaws.com/photos/249409772/medium.jpg",
+    "attribution": "(c) Donald Davesne, some rights reserved (CC BY)",
+    "license": "CC BY",
+    "source": "https://www.inaturalist.org/photos/249409772"
   },
   "moorish-idol": {
-    "url": "https://inaturalist-open-data.s3.amazonaws.com/photos/3080425/medium.jpg",
-    "attribution": "(c) David R, some rights reserved (CC BY-NC)"
+    "url": "https://inaturalist-open-data.s3.amazonaws.com/photos/223662857/medium.jpg",
+    "attribution": "(c) NOAA Photo Library, some rights reserved (CC BY)",
+    "license": "CC BY",
+    "source": "https://www.inaturalist.org/photos/223662857"
   },
   "emperor-angelfish": {
     "url": "https://inaturalist-open-data.s3.amazonaws.com/photos/85515783/medium.jpg",
-    "attribution": "(c) Rickard Zerpe, some rights reserved (CC BY)"
+    "attribution": "(c) Rickard Zerpe, some rights reserved (CC BY)",
+    "license": "CC BY",
+    "source": "https://www.inaturalist.org/photos/85515783"
   },
   "french-angelfish": {
     "url": "https://inaturalist-open-data.s3.amazonaws.com/photos/92794858/medium.jpg",
-    "attribution": "(c) LASZLO ILYES, some rights reserved (CC BY)"
+    "attribution": "(c) LASZLO ILYES, some rights reserved (CC BY)",
+    "license": "CC BY",
+    "source": "https://www.inaturalist.org/photos/92794858"
   },
   "queen-angelfish": {
-    "url": "https://static.inaturalist.org/photos/8872309/medium.jpeg",
-    "attribution": "(c) Phil Garner, all rights reserved, uploaded by Phil Garner"
+    "url": "https://inaturalist-open-data.s3.amazonaws.com/photos/100570488/medium.jpeg",
+    "attribution": "(c) desertnaturalist, some rights reserved (CC BY), uploaded by desertnaturalist",
+    "license": "CC BY",
+    "source": "https://www.inaturalist.org/photos/100570488"
   },
   "king-angelfish": {
-    "url": "https://inaturalist-open-data.s3.amazonaws.com/photos/174040511/medium.jpeg",
-    "attribution": "(c) Sylvain Le Bris, some rights reserved (CC BY-NC), uploaded by Sylvain Le Bris"
+    "url": "https://inaturalist-open-data.s3.amazonaws.com/photos/61404361/medium.jpeg",
+    "attribution": "(c) desertnaturalist, some rights reserved (CC BY), uploaded by desertnaturalist",
+    "license": "CC BY",
+    "source": "https://www.inaturalist.org/photos/61404361"
   },
   "raccoon-butterflyfish": {
-    "url": "https://inaturalist-open-data.s3.amazonaws.com/photos/251578086/medium.jpg",
-    "attribution": "(c) uwkwaj, some rights reserved (CC BY-NC), uploaded by uwkwaj"
+    "url": "https://inaturalist-open-data.s3.amazonaws.com/photos/331/medium.jpg",
+    "attribution": "(c) Ken-ichi Ueda, some rights reserved (CC BY), uploaded by Ken-ichi Ueda",
+    "license": "CC BY",
+    "source": "https://www.inaturalist.org/photos/331"
   },
   "stoplight-parrotfish": {
-    "url": "https://inaturalist-open-data.s3.amazonaws.com/photos/48690384/medium.jpg",
-    "attribution": "(c) Kevin Bryant, some rights reserved (CC BY-NC-SA)"
+    "url": "https://inaturalist-open-data.s3.amazonaws.com/photos/172382359/medium.jpeg",
+    "attribution": "(c) Tom Kennedy, some rights reserved (CC BY), uploaded by Tom Kennedy",
+    "license": "CC BY",
+    "source": "https://www.inaturalist.org/photos/172382359"
   },
   "titan-triggerfish": {
-    "url": "https://inaturalist-open-data.s3.amazonaws.com/photos/487803511/medium.jpg",
-    "attribution": "(c) Frank Krasovec, some rights reserved (CC BY-NC), uploaded by Frank Krasovec"
+    "url": "https://inaturalist-open-data.s3.amazonaws.com/photos/158649889/medium.jpeg",
+    "attribution": "(c) Michal Honskus, some rights reserved (CC BY), uploaded by Michal Honskus",
+    "license": "CC BY",
+    "source": "https://www.inaturalist.org/photos/158649889"
   },
   "clown-triggerfish": {
-    "url": "https://inaturalist-open-data.s3.amazonaws.com/photos/675226765/medium.jpg",
-    "attribution": "(c) Luis P. B., some rights reserved (CC BY-NC), uploaded by Luis P. B."
+    "url": "https://inaturalist-open-data.s3.amazonaws.com/photos/626543903/medium.jpg",
+    "attribution": "(c) Debra Baker, some rights reserved (CC BY)",
+    "license": "CC BY",
+    "source": "https://www.inaturalist.org/photos/626543903"
   },
   "queen-triggerfish": {
-    "url": "https://inaturalist-open-data.s3.amazonaws.com/photos/178657934/medium.jpg",
-    "attribution": "(c) François Libert, some rights reserved (CC BY-NC-SA)"
+    "url": "https://inaturalist-open-data.s3.amazonaws.com/photos/160904575/medium.jpg",
+    "attribution": "(c) Pauline Walsh Jacobson, some rights reserved (CC BY), uploaded by Pauline Walsh Jacobson",
+    "license": "CC BY",
+    "source": "https://www.inaturalist.org/photos/160904575"
   },
   "lionfish": {
-    "url": "https://inaturalist-open-data.s3.amazonaws.com/photos/4675175/medium.jpg",
-    "attribution": "(c) 808_Diver, some rights reserved (CC BY-NC), uploaded by 808_Diver"
+    "url": "https://inaturalist-open-data.s3.amazonaws.com/photos/70521568/medium.png",
+    "attribution": "(c) Jens Petersen, some rights reserved (CC BY)",
+    "license": "CC BY",
+    "source": "https://www.inaturalist.org/photos/70521568"
   },
   "stonefish": {
-    "url": "https://inaturalist-open-data.s3.amazonaws.com/photos/78498234/medium.jpeg",
-    "attribution": "(c) Franco Colnago, some rights reserved (CC BY-NC), uploaded by Franco Colnago"
+    "url": "https://inaturalist-open-data.s3.amazonaws.com/photos/630770479/medium.jpg",
+    "attribution": "no rights reserved (CC0)",
+    "license": "CC0",
+    "source": "https://www.inaturalist.org/photos/630770479"
   },
   "leaf-scorpionfish": {
-    "url": "https://static.inaturalist.org/photos/29368070/medium.jpg",
-    "attribution": "(c) Shigeru Harazaki, all rights reserved, uploaded by Shigeru Harazaki"
+    "url": "https://inaturalist-open-data.s3.amazonaws.com/photos/71820579/medium.jpeg",
+    "attribution": "no rights reserved (CC0)",
+    "license": "CC0",
+    "source": "https://www.inaturalist.org/photos/71820579"
   },
   "giant-frogfish": {
-    "url": "https://static.inaturalist.org/photos/47089414/medium.jpg",
-    "attribution": "(c) saturdaze, all rights reserved, uploaded by saturdaze"
+    "url": "https://inaturalist-open-data.s3.amazonaws.com/photos/565048348/medium.jpg",
+    "attribution": "(c) Borja Fierro-Leva, some rights reserved (CC BY)",
+    "license": "CC BY",
+    "source": "https://www.inaturalist.org/photos/565048348"
   },
   "common-seahorse": {
-    "url": "https://static.inaturalist.org/photos/49705000/medium.jpg",
-    "attribution": "(c) seahorses_of_the_world, all rights reserved, uploaded by seahorses_of_the_world"
+    "url": "https://inaturalist-open-data.s3.amazonaws.com/photos/214834156/medium.jpeg",
+    "attribution": "(c) Doreen, some rights reserved (CC BY)",
+    "license": "CC BY",
+    "source": "https://www.inaturalist.org/photos/214834156"
   },
   "pygmy-seahorse": {
-    "url": "https://inaturalist-open-data.s3.amazonaws.com/photos/154272428/medium.jpg",
-    "attribution": "(c) Julian Hsu, some rights reserved (CC BY-NC), uploaded by Julian Hsu"
+    "url": "https://inaturalist-open-data.s3.amazonaws.com/photos/462814118/medium.jpg",
+    "attribution": "(c) \nIan V. Shaw / Reef Life Survey, some rights reserved (CC BY)",
+    "license": "CC BY",
+    "source": "https://www.inaturalist.org/photos/462814118"
   },
   "leafy-seadragon": {
-    "url": "https://inaturalist-open-data.s3.amazonaws.com/photos/9996656/medium.jpeg",
-    "attribution": "(c) Francesco Ricciardi, some rights reserved (CC BY-NC), uploaded by Francesco Ricciardi"
+    "url": "https://inaturalist-open-data.s3.amazonaws.com/photos/501684378/medium.jpeg",
+    "attribution": "(c) ttsquid, some rights reserved (CC BY)",
+    "license": "CC BY",
+    "source": "https://www.inaturalist.org/photos/501684378"
   },
   "weedy-seadragon": {
-    "url": "https://inaturalist-open-data.s3.amazonaws.com/photos/280641424/medium.jpeg",
-    "attribution": "(c) J. Martin Crossley, some rights reserved (CC BY-NC-SA), uploaded by J. Martin Crossley"
+    "url": "https://inaturalist-open-data.s3.amazonaws.com/photos/59394920/medium.jpg",
+    "attribution": "(c) Kai Squires, some rights reserved (CC BY)",
+    "license": "CC BY",
+    "source": "https://www.inaturalist.org/photos/59394920"
   },
   "ornate-ghost-pipefish": {
-    "url": "https://inaturalist-open-data.s3.amazonaws.com/photos/66886821/medium.jpg",
-    "attribution": "(c) terence zahner, some rights reserved (CC BY-NC), uploaded by terence zahner"
+    "url": "https://inaturalist-open-data.s3.amazonaws.com/photos/279805432/medium.jpg",
+    "attribution": "(c) Pauline Walsh Jacobson, some rights reserved (CC BY)",
+    "license": "CC BY",
+    "source": "https://www.inaturalist.org/photos/279805432"
   },
   "ribbon-eel": {
-    "url": "https://inaturalist-open-data.s3.amazonaws.com/photos/230839617/medium.jpg",
-    "attribution": "(c) François Libert, some rights reserved (CC BY-NC-SA), uploaded by François Libert"
+    "url": "https://inaturalist-open-data.s3.amazonaws.com/photos/197089139/medium.jpg",
+    "attribution": "(c) Steve Childs, some rights reserved (CC BY)",
+    "license": "CC BY",
+    "source": "https://www.inaturalist.org/photos/197089139"
   },
   "giant-moray": {
-    "url": "https://inaturalist-open-data.s3.amazonaws.com/photos/247871410/medium.jpg",
-    "attribution": "(c) Luis P. B., some rights reserved (CC BY-NC), uploaded by Luis P. B."
+    "url": "https://inaturalist-open-data.s3.amazonaws.com/photos/400874044/medium.jpg",
+    "attribution": "(c) Derek Keats, some rights reserved (CC BY)",
+    "license": "CC BY",
+    "source": "https://www.inaturalist.org/photos/400874044"
   },
   "green-moray": {
-    "url": "https://inaturalist-open-data.s3.amazonaws.com/photos/400873304/medium.jpg",
-    "attribution": "(c) Kevin Bryant, some rights reserved (CC BY-NC-SA)"
+    "url": "https://inaturalist-open-data.s3.amazonaws.com/photos/249232725/medium.jpg",
+    "attribution": "(c) Pauline Walsh Jacobson, some rights reserved (CC BY), uploaded by Pauline Walsh Jacobson",
+    "license": "CC BY",
+    "source": "https://www.inaturalist.org/photos/249232725"
   },
   "garden-eel": {
-    "url": "https://inaturalist-open-data.s3.amazonaws.com/photos/236392419/medium.jpg",
-    "attribution": "(c) François Libert, some rights reserved (CC BY-NC-SA), uploaded by François Libert"
+    "url": "https://inaturalist-open-data.s3.amazonaws.com/photos/728078076/medium.jpg",
+    "attribution": "(c) Rachel Crane, some rights reserved (CC BY)",
+    "license": "CC BY",
+    "source": "https://www.inaturalist.org/photos/728078076"
   },
   "mandarinfish": {
     "url": "https://inaturalist-open-data.s3.amazonaws.com/photos/235301873/medium.jpg",
-    "attribution": "(c) Lakshmi Sawitri, some rights reserved (CC BY)"
+    "attribution": "(c) Lakshmi Sawitri, some rights reserved (CC BY)",
+    "license": "CC BY",
+    "source": "https://www.inaturalist.org/photos/235301873"
   },
   "blue-tang": {
     "url": "https://inaturalist-open-data.s3.amazonaws.com/photos/30261643/medium.jpg",
-    "attribution": "(c) H. Krisp, some rights reserved (CC BY)"
+    "attribution": "(c) H. Krisp, some rights reserved (CC BY)",
+    "license": "CC BY",
+    "source": "https://www.inaturalist.org/photos/30261643"
   },
   "circular-batfish": {
-    "url": "https://static.inaturalist.org/photos/346702538/medium.jpg",
-    "attribution": "(c) Lesley Clements, all rights reserved"
+    "url": "https://inaturalist-open-data.s3.amazonaws.com/photos/278051072/medium.jpg",
+    "attribution": "(c) portioid, some rights reserved (CC BY)",
+    "license": "CC BY",
+    "source": "https://www.inaturalist.org/photos/278051072"
   },
   "oriental-sweetlips": {
-    "url": "https://inaturalist-open-data.s3.amazonaws.com/photos/174462898/medium.jpeg",
-    "attribution": "(c) David R, some rights reserved (CC BY-NC), uploaded by David R"
+    "url": "https://inaturalist-open-data.s3.amazonaws.com/photos/66766/medium.jpg",
+    "attribution": "(c) Steve L. Martin, some rights reserved (CC BY)",
+    "license": "CC BY",
+    "source": "https://www.inaturalist.org/photos/66766"
   },
   "star-puffer": {
-    "url": "https://inaturalist-open-data.s3.amazonaws.com/photos/229406690/medium.jpg",
-    "attribution": "(c) François Libert, some rights reserved (CC BY-NC), uploaded by François Libert"
+    "url": "https://inaturalist-open-data.s3.amazonaws.com/photos/339649652/medium.jpg",
+    "attribution": "(c) portioid, some rights reserved (CC BY)",
+    "license": "CC BY",
+    "source": "https://www.inaturalist.org/photos/339649652"
   },
   "porcupinefish": {
-    "url": "https://inaturalist-open-data.s3.amazonaws.com/photos/1554950/medium.jpg",
-    "attribution": "(c) 104623964081378888743, some rights reserved (CC BY-NC), uploaded by 104623964081378888743"
+    "url": "https://inaturalist-open-data.s3.amazonaws.com/photos/320141124/medium.jpg",
+    "attribution": "(c) Pauline Walsh Jacobson, some rights reserved (CC BY), uploaded by Pauline Walsh Jacobson",
+    "license": "CC BY",
+    "source": "https://www.inaturalist.org/photos/320141124"
   },
   "yellow-boxfish": {
-    "url": "https://inaturalist-open-data.s3.amazonaws.com/photos/230133564/medium.jpg",
-    "attribution": "(c) François Libert, some rights reserved (CC BY-NC-SA), uploaded by François Libert"
+    "url": "https://inaturalist-open-data.s3.amazonaws.com/photos/465877519/medium.jpeg",
+    "attribution": "no rights reserved (CC0)",
+    "license": "CC0",
+    "source": "https://www.inaturalist.org/photos/465877519"
   },
   "trumpetfish": {
-    "url": "https://inaturalist-open-data.s3.amazonaws.com/photos/61754806/medium.jpg",
-    "attribution": "(c) Karen Willshaw, some rights reserved (CC BY-NC), uploaded by Karen Willshaw"
+    "url": "https://inaturalist-open-data.s3.amazonaws.com/photos/34227023/medium.jpg",
+    "attribution": "(c) Lennart Hudel, some rights reserved (CC BY)",
+    "license": "CC BY",
+    "source": "https://www.inaturalist.org/photos/34227023"
   },
   "crocodilefish": {
-    "url": "https://static.inaturalist.org/photos/22128988/medium.jpg",
-    "attribution": "(c) Lesley Clements, all rights reserved"
+    "url": "https://inaturalist-open-data.s3.amazonaws.com/photos/693349917/medium.jpg",
+    "attribution": "(c) Roger Rittmaster, some rights reserved (CC BY)",
+    "license": "CC BY",
+    "source": "https://www.inaturalist.org/photos/693349917"
   },
   "flying-gurnard": {
-    "url": "https://inaturalist-open-data.s3.amazonaws.com/photos/11975119/medium.jpeg",
-    "attribution": "(c) Ian Banks, some rights reserved (CC BY-NC), uploaded by Ian Banks"
+    "url": "https://inaturalist-open-data.s3.amazonaws.com/photos/444166037/medium.png",
+    "attribution": "(c) Jason Grant, some rights reserved (CC BY)",
+    "license": "CC BY",
+    "source": "https://www.inaturalist.org/photos/444166037"
   },
   "yellowhead-jawfish": {
-    "url": "https://inaturalist-open-data.s3.amazonaws.com/photos/30510266/medium.jpg",
-    "attribution": "(c) terence zahner, some rights reserved (CC BY-NC), uploaded by terence zahner"
+    "url": "https://inaturalist-open-data.s3.amazonaws.com/photos/127246/medium.jpg",
+    "attribution": "(c) Brian Gratwicke, some rights reserved (CC BY)",
+    "license": "CC BY",
+    "source": "https://www.inaturalist.org/photos/127246"
   },
   "garibaldi": {
-    "url": "https://static.inaturalist.org/photos/410429697/medium.jpg",
-    "attribution": "(c) Nereus, all rights reserved, uploaded by Nereus"
+    "url": "https://inaturalist-open-data.s3.amazonaws.com/photos/311184478/medium.jpg",
+    "attribution": "(c) Eric Klug, some rights reserved (CC BY)",
+    "license": "CC BY",
+    "source": "https://www.inaturalist.org/photos/311184478"
   },
   "giant-sea-bass": {
-    "url": "https://static.inaturalist.org/photos/8768054/medium.jpg",
-    "attribution": "(c) Phil Garner, all rights reserved, uploaded by Phil Garner"
+    "url": "https://inaturalist-open-data.s3.amazonaws.com/photos/239967891/medium.jpg",
+    "attribution": "(c) Donald Davesne, some rights reserved (CC BY), uploaded by Donald Davesne",
+    "license": "CC BY",
+    "source": "https://www.inaturalist.org/photos/239967891"
   },
   "wolf-eel": {
-    "url": "https://inaturalist-open-data.s3.amazonaws.com/photos/88468317/medium.jpeg",
-    "attribution": "(c) Sara Thiebaud, some rights reserved (CC BY-NC), uploaded by Sara Thiebaud"
+    "url": "https://inaturalist-open-data.s3.amazonaws.com/photos/28102185/medium.jpeg",
+    "attribution": "(c) J.R.Frey, some rights reserved (CC BY), uploaded by J.R.Frey",
+    "license": "CC BY",
+    "source": "https://www.inaturalist.org/photos/28102185"
   },
   "lingcod": {
-    "url": "https://static.inaturalist.org/photos/121620546/medium.jpg",
-    "attribution": "(c) Pat Webster @underwaterpat, all rights reserved, uploaded by Pat Webster @underwaterpat"
+    "url": "https://inaturalist-open-data.s3.amazonaws.com/photos/4705/medium.jpg",
+    "attribution": "(c) Dan Hershman, some rights reserved (CC BY)",
+    "license": "CC BY",
+    "source": "https://www.inaturalist.org/photos/4705"
   },
   "sea-goldie": {
-    "url": "https://static.inaturalist.org/photos/12505596/medium.jpg",
-    "attribution": "(c) Ian Shaw, all rights reserved, uploaded by Ian Shaw"
+    "url": "https://inaturalist-open-data.s3.amazonaws.com/photos/253405406/medium.jpg",
+    "attribution": "(c) Pauline Walsh Jacobson, some rights reserved (CC BY), uploaded by Pauline Walsh Jacobson",
+    "license": "CC BY",
+    "source": "https://www.inaturalist.org/photos/253405406"
   },
   "day-octopus": {
-    "url": "https://inaturalist-open-data.s3.amazonaws.com/photos/462969278/medium.jpg",
-    "attribution": "(c) Doug Finney, some rights reserved (CC BY-NC)"
+    "url": "https://inaturalist-open-data.s3.amazonaws.com/photos/260686058/medium.jpeg",
+    "attribution": "(c) Rohan Arthur, some rights reserved (CC BY)",
+    "license": "CC BY",
+    "source": "https://www.inaturalist.org/photos/260686058"
   },
   "giant-pacific-octopus": {
-    "url": "https://inaturalist-open-data.s3.amazonaws.com/photos/174792488/medium.jpg",
-    "attribution": "(c) KJ, some rights reserved (CC BY-NC), uploaded by KJ"
+    "url": "https://inaturalist-open-data.s3.amazonaws.com/photos/104745742/medium.jpeg",
+    "attribution": "(c) Erin McKittrick, some rights reserved (CC BY), uploaded by Erin McKittrick",
+    "license": "CC BY",
+    "source": "https://www.inaturalist.org/photos/104745742"
   },
   "blue-ringed-octopus": {
-    "url": "https://inaturalist-open-data.s3.amazonaws.com/photos/340386429/medium.jpg",
-    "attribution": "(c) uwkwaj, some rights reserved (CC BY-NC), uploaded by uwkwaj"
+    "url": "https://inaturalist-open-data.s3.amazonaws.com/photos/40594012/medium.jpg",
+    "attribution": "(c) desertnaturalist, some rights reserved (CC BY)",
+    "license": "CC BY",
+    "source": "https://www.inaturalist.org/photos/40594012"
   },
   "mimic-octopus": {
-    "url": "https://inaturalist-open-data.s3.amazonaws.com/photos/6298177/medium.jpg",
-    "attribution": "(c) Kimberly Tripp Randal, some rights reserved (CC BY-NC), uploaded by Kimberly Tripp Randal"
+    "url": "https://inaturalist-open-data.s3.amazonaws.com/photos/290986957/medium.jpg",
+    "attribution": "(c) Pauline Walsh Jacobson, some rights reserved (CC BY)",
+    "license": "CC BY",
+    "source": "https://www.inaturalist.org/photos/290986957"
   },
   "coconut-octopus": {
     "url": "https://inaturalist-open-data.s3.amazonaws.com/photos/119030401/medium.jpg",
-    "attribution": "(c) Christian Gloor, some rights reserved (CC BY)"
+    "attribution": "(c) Christian Gloor, some rights reserved (CC BY)",
+    "license": "CC BY",
+    "source": "https://www.inaturalist.org/photos/119030401"
   },
   "broadclub-cuttlefish": {
-    "url": "https://inaturalist-open-data.s3.amazonaws.com/photos/172259460/medium.jpeg",
-    "attribution": "(c) Shankar Meyer, some rights reserved (CC BY-NC), uploaded by Shankar Meyer"
+    "url": "https://inaturalist-open-data.s3.amazonaws.com/photos/106745876/medium.jpg",
+    "attribution": "(c) Paul Asman and Jill Lenoble, some rights reserved (CC BY)",
+    "license": "CC BY",
+    "source": "https://www.inaturalist.org/photos/106745876"
+  },
+  "giant-cuttlefish": {
+    "url": "https://inaturalist-open-data.s3.amazonaws.com/photos/206262991/medium.jpeg",
+    "attribution": "(c) Peter Crowcroft, some rights reserved (CC BY)",
+    "license": "CC BY",
+    "source": "https://www.inaturalist.org/photos/206262991"
   },
   "flamboyant-cuttlefish": {
-    "url": "https://inaturalist-open-data.s3.amazonaws.com/photos/19400690/medium.jpg",
-    "attribution": "(c) Mark Rosenstein, some rights reserved (CC BY-NC), uploaded by Mark Rosenstein"
+    "url": "https://inaturalist-open-data.s3.amazonaws.com/photos/60512620/medium.jpg",
+    "attribution": "(c) Kai Squires, some rights reserved (CC BY), uploaded by Kai Squires",
+    "license": "CC BY",
+    "source": "https://www.inaturalist.org/photos/60512620"
   },
   "bigfin-reef-squid": {
-    "url": "https://inaturalist-open-data.s3.amazonaws.com/photos/115066463/medium.jpg",
-    "attribution": "(c) Jean-Paul Cassez, some rights reserved (CC BY-NC), uploaded by Jean-Paul Cassez"
+    "url": "https://inaturalist-open-data.s3.amazonaws.com/photos/168476805/medium.jpg",
+    "attribution": "no rights reserved (CC0)",
+    "license": "CC0",
+    "source": "https://www.inaturalist.org/photos/168476805"
   },
   "bobtail-squid": {
-    "url": "https://inaturalist-open-data.s3.amazonaws.com/photos/340554286/medium.jpg",
-    "attribution": "(c) uwkwaj, some rights reserved (CC BY-NC), uploaded by uwkwaj"
+    "url": "https://inaturalist-open-data.s3.amazonaws.com/photos/51868742/medium.jpeg",
+    "attribution": "(c) Dan Schofield, some rights reserved (CC BY)",
+    "license": "CC BY",
+    "source": "https://www.inaturalist.org/photos/51868742"
   },
   "chambered-nautilus": {
-    "url": "https://static.inaturalist.org/photos/58051104/medium.jpg",
-    "attribution": "(c) Ian Shaw, all rights reserved, uploaded by Ian Shaw"
+    "url": "https://inaturalist-open-data.s3.amazonaws.com/photos/470639183/medium.jpg",
+    "attribution": "(c) Bryce Watts-Parker, some rights reserved (CC BY)",
+    "license": "CC BY",
+    "source": "https://www.inaturalist.org/photos/470639183"
   },
   "anna-chromodoris": {
-    "url": "https://inaturalist-open-data.s3.amazonaws.com/photos/11622381/medium.jpg",
-    "attribution": "(c) Erik Schlögl, some rights reserved (CC BY-NC), uploaded by Erik Schlögl"
+    "url": "https://inaturalist-open-data.s3.amazonaws.com/photos/90424672/medium.jpg",
+    "attribution": "(c) Dan Schofield, some rights reserved (CC BY), uploaded by Dan Schofield",
+    "license": "CC BY",
+    "source": "https://www.inaturalist.org/photos/90424672"
   },
   "pikachu-nudibranch": {
-    "url": "https://static.inaturalist.org/photos/691552097/medium.jpg",
-    "attribution": "(c) Louis Faivre, all rights reserved, uploaded by Louis Faivre"
+    "url": "https://inaturalist-open-data.s3.amazonaws.com/photos/11015502/medium.jpg",
+    "attribution": "(c) Bernard Picton, some rights reserved (CC BY), uploaded by Bernard Picton",
+    "license": "CC BY",
+    "source": "https://www.inaturalist.org/photos/11015502"
   },
   "spanish-dancer": {
     "url": "https://inaturalist-open-data.s3.amazonaws.com/photos/229212281/medium.jpg",
-    "attribution": "(c) Daniel Benák, some rights reserved (CC BY), uploaded by Daniel Benák"
+    "attribution": "(c) Daniel Benák, some rights reserved (CC BY), uploaded by Daniel Benák",
+    "license": "CC BY",
+    "source": "https://www.inaturalist.org/photos/229212281"
   },
   "harlequin-shrimp": {
     "url": "https://inaturalist-open-data.s3.amazonaws.com/photos/58507441/medium.jpg",
-    "attribution": "(c) Christian Gloor, some rights reserved (CC BY)"
+    "attribution": "(c) Christian Gloor, some rights reserved (CC BY)",
+    "license": "CC BY",
+    "source": "https://www.inaturalist.org/photos/58507441"
   },
   "peacock-mantis-shrimp": {
-    "url": "https://static.inaturalist.org/photos/30551110/medium.jpeg",
-    "attribution": "(c) Jenny, all rights reserved, uploaded by Jenny"
+    "url": "https://inaturalist-open-data.s3.amazonaws.com/photos/67464333/medium.jpg",
+    "attribution": "(c) Silke Baron, some rights reserved (CC BY)",
+    "license": "CC BY",
+    "source": "https://www.inaturalist.org/photos/67464333"
   },
   "caribbean-spiny-lobster": {
-    "url": "https://inaturalist-open-data.s3.amazonaws.com/photos/30862642/medium.jpg",
-    "attribution": "(c) terence zahner, some rights reserved (CC BY-NC), uploaded by terence zahner"
+    "url": "https://inaturalist-open-data.s3.amazonaws.com/photos/360035331/medium.jpeg",
+    "attribution": "(c) Michael Bommerer, some rights reserved (CC BY), uploaded by Michael Bommerer",
+    "license": "CC BY",
+    "source": "https://www.inaturalist.org/photos/360035331"
   },
   "christmas-tree-worm": {
-    "url": "https://inaturalist-open-data.s3.amazonaws.com/photos/30906390/medium.jpg",
-    "attribution": "(c) terence zahner, some rights reserved (CC BY-NC), uploaded by terence zahner"
+    "url": "https://inaturalist-open-data.s3.amazonaws.com/photos/31729006/medium.jpeg",
+    "attribution": "(c) Roger Rittmaster, some rights reserved (CC BY), uploaded by Roger Rittmaster",
+    "license": "CC BY",
+    "source": "https://www.inaturalist.org/photos/31729006"
   },
   "giant-clam": {
-    "url": "https://inaturalist-open-data.s3.amazonaws.com/photos/238306910/medium.jpg",
-    "attribution": "(c) uwkwaj, some rights reserved (CC BY-NC), uploaded by uwkwaj"
+    "url": "https://inaturalist-open-data.s3.amazonaws.com/photos/2765460/medium.JPG",
+    "attribution": "(c) botanygirl, some rights reserved (CC BY)",
+    "license": "CC BY",
+    "source": "https://www.inaturalist.org/photos/2765460"
   },
   "banded-sea-krait": {
-    "url": "https://inaturalist-open-data.s3.amazonaws.com/photos/631998064/medium.jpg",
-    "attribution": "(c) Jeremy Loh, some rights reserved (CC BY-NC), uploaded by Jeremy Loh"
+    "url": "https://inaturalist-open-data.s3.amazonaws.com/photos/485849676/medium.jpeg",
+    "attribution": "(c) Wiljam Eklund, some rights reserved (CC BY)",
+    "license": "CC BY",
+    "source": "https://www.inaturalist.org/photos/485849676"
   },
   "marine-iguana": {
-    "url": "https://inaturalist-open-data.s3.amazonaws.com/photos/223675967/medium.jpg",
-    "attribution": "(c) Simon Pierce, some rights reserved (CC BY-NC), uploaded by Simon Pierce"
+    "url": "https://inaturalist-open-data.s3.amazonaws.com/photos/12462590/medium.jpeg",
+    "attribution": "(c) patrickc, some rights reserved (CC BY), uploaded by patrickc",
+    "license": "CC BY",
+    "source": "https://www.inaturalist.org/photos/12462590"
   },
   "golden-jellyfish": {
-    "url": "https://inaturalist-open-data.s3.amazonaws.com/photos/266170985/medium.jpeg",
-    "attribution": "(c) Sylvain Le Bris, some rights reserved (CC BY-NC), uploaded by Sylvain Le Bris"
+    "url": "https://inaturalist-open-data.s3.amazonaws.com/photos/65343900/medium.jpg",
+    "attribution": "(c) Kai Squires, some rights reserved (CC BY), uploaded by Kai Squires",
+    "license": "CC BY",
+    "source": "https://www.inaturalist.org/photos/65343900"
   }
 }

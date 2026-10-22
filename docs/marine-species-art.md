@@ -8,9 +8,9 @@ real wildlife.
 ## Current inventory
 
 The catalog contains **120 species** (119, plus the giant cuttlefish added with the
-reef animals). 119 have photo URLs, but none have recorded human identity review; the
-giant cuttlefish has none yet (run `node scripts/fetch-species-photos.mjs`, then
-review the result as below). Twenty-five animated GLBs now exist: three family
+reef animals). All 120 have photos under CC0, CC BY or CC BY-SA (October 2026), each
+looked over by eye on contact sheets for the right animal, alive and visible; 16 were
+chosen by hand (`OVERRIDES` in `scripts/fetch-species-photos.ts`). Twenty-five animated GLBs now exist: three family
 representatives and species drafts for whale shark, tiger shark, great white shark,
 scalloped hammerhead, reef manta ray, ocean sunfish, green sea turtle, bottlenose
 dolphin, day octopus, giant cuttlefish, giant moray, great barracuda, sailfish,

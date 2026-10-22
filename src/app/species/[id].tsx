@@ -11,6 +11,7 @@ import { Wash } from '@/components/journal/wash';
 import { OceanButton } from '@/components/ocean-button';
 import { RarityChip } from '@/components/rarity-chip';
 import { ShareDiscoveryButton } from '@/components/share/share-buttons';
+import { openExternalUrl } from '@/components/sightings/open-external';
 import { RaritySource } from '@/components/sightings/rarity-source';
 import { SpeciesRecordsSection } from '@/components/sightings/species-records';
 import { formatDate, SightingRow } from '@/components/sighting-row';
@@ -203,7 +204,19 @@ export default function SpeciesDetailScreen() {
           <Paper padded={false} style={styles.print}>
             <Image source={{ uri: species.photoUrl }} style={styles.photo} contentFit="cover" accessibilityLabel={`Photo of a ${species.commonName}`} />
           </Paper>
-          {species.photoAttribution ? (
+          {species.photoAttribution && species.photoSource ? (
+            // The credit opens the photo's page, where its licence is stated (as CC BY asks).
+            <Pressable
+              onPress={() => void openExternalUrl(species.photoSource!)}
+              accessibilityRole="link"
+              accessibilityLabel={`Photo ${species.photoAttribution}`}
+              accessibilityHint="Opens the photo on iNaturalist"
+              hitSlop={8}>
+              <ThemedText type="caption" themeColor="textSecondary" style={styles.credit}>
+                {species.photoAttribution} · iNaturalist ›
+              </ThemedText>
+            </Pressable>
+          ) : species.photoAttribution ? (
             <ThemedText type="caption" themeColor="textSecondary" style={styles.credit}>
               {species.photoAttribution} · iNaturalist
             </ThemedText>

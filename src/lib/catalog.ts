@@ -3,7 +3,7 @@ import { REAL_RARITY } from '@/lib/real-rarity';
 import type { Species } from '@/lib/types';
 import photos from '@/data/species-photos.json';
 
-type PhotoMap = Record<string, { url: string; attribution: string }>;
+type PhotoMap = Record<string, { url: string; attribution: string; source?: string }>;
 
 /**
  * Species list with reference photos merged in from the generated photo map, and each species'
@@ -15,7 +15,7 @@ export const CATALOG: Species[] = SPECIES.map((s) => {
   const photo = (photos as PhotoMap)[s.id];
   const rarity = REAL_RARITY.get(s.id) ?? s.rarity;
   return photo || rarity !== s.rarity
-    ? { ...s, rarity, ...(photo ? { photoUrl: photo.url, photoAttribution: photo.attribution } : {}) }
+    ? { ...s, rarity, ...(photo ? { photoUrl: photo.url, photoAttribution: photo.attribution, photoSource: photo.source } : {}) }
     : s;
 });
 
