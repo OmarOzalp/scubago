@@ -202,12 +202,12 @@ const mandarin: FishSpec = {
   top: [[0.6, -1.6], [2.4, -4.6], [5, -7.4], [9, -9.6], [14, -10.8], [22, -11], [32, -10.2], [42, -8.8], [52, -7.2], [62, -5.6], [70, -4.6], [76, -4.2]],
   bot: [[0.8, 2.6], [3, 4.6], [7, 6.6], [13, 8.4], [22, 9.4], [32, 9.2], [42, 8], [52, 6.6], [62, 5.2], [70, 4.4], [76, 4]],
   dorsal: [
-    { from: 22, to: 28, spines: 4, rays: 0, h: [[0, 24], [0.3, 17], [1, 6]], notch: 0.25, rake: [15, 40] },
-    { from: 33, to: 70, rays: 9, h: [[0, 6], [1, 7]], rake: [35, 65] },
+    { from: 20, to: 32, spines: 5, rays: 0, h: [[0, 17], [0.15, 23], [0.5, 15], [1, 7]], notch: 0.3, rake: [12, 40] },
+    { from: 33, to: 70, rays: 9, h: [[0, 4], [0.45, 7], [1, 4.4]], rake: [35, 65] },
   ],
-  anal: [{ from: 36, to: 70, rays: 8, h: 6, rake: [35, 65] }],
+  anal: [{ from: 36, to: 70, rays: 8, h: [[0, 3.6], [0.5, 6.4], [1, 4]], rake: [35, 65] }],
   caudal: { type: 'rounded', len: 24, h: 9, rays: 11 },
-  pectoral: { at: [23, 0.48], base: 3, h: [[0, 8], [0.5, 10], [1, 7]], angles: [-25, 45], rays: 10, paint: 'paper' },
+  pectoral: { at: [23, 0.48], base: 3, h: [[0, 8], [0.5, 10], [1, 7]], angles: [-25, 45], rays: 10, paint: '#A9CDEB' },
   pelvic: { at: [15, 0.9], base: 3, h: [[0, 8], [1, 6]], angles: [40, 110], rays: 6 },
   eye: { x: 9, f: 0.06, r: 2.2, iris: '#C0262D' },
   mouth: [[0.3, 0.55], [1.6, 0.6], [2.8, 0.58]],
@@ -219,13 +219,22 @@ const mandarin: FishSpec = {
   extra: (c) => {
     const s = c.s;
     const rand = rng(31);
-    // Orange islands in a blue sea, each ringed in dark blue: the maze.
+    // Wavy orange stripes along the blue body, broken into runs with rounded ends: the maze.
     const islands: Fill[] = [];
-    for (let k = 0; k < 46; k++) {
-      const p = at(s, 0.02 + rand() * 0.97, 0.06 + rand() * 0.88);
-      islands.push({ poly: blob(p, 1.3 + rand() * 1.2, 0.6, rand, 10, 1.6 + rand(), rand() * 180), paint: '#F07A1A', clip: 'body', edge: 1.4 });
-    }
-    const finIslands = (poly: Pt[]) => scatterIn(poly, { r: 1, gap: 0.8, paint: '#F07A1A', rand, tries: 60, wobble: 0.5 }).map((f) => ({ ...f, edge: 1 }));
+    [0.13, 0.31, 0.5, 0.69, 0.87].forEach((f0, ri) => {
+      let t = 0.02 + rand() * 0.08;
+      while (t < 0.94) {
+        const t1 = Math.min(0.98, t + 0.09 + rand() * 0.2);
+        const ph = rand() * 6.3;
+        const fr = 16 + rand() * 12;
+        const hw = 0.055 + rand() * 0.025;
+        const end = (u: number) => Math.max(0.14, Math.sin((Math.PI * (u - t)) / (t1 - t)) ** 0.5);
+        const mid = (u: number) => f0 + 0.05 * Math.sin(u * fr + ph + ri);
+        islands.push({ poly: region(s, t, t1, (u) => mid(u) - hw * end(u), (u) => mid(u) + hw * end(u)), paint: '#F07A1A', clip: 'trunk', edge: 0.45 });
+        t = t1 + 0.025 + rand() * 0.05;
+      }
+    });
+    const finIslands = (poly: Pt[]) => scatterIn(poly, { r: 0.9, gap: 1.2, paint: '#F07A1A', rand, tries: 50, wobble: 0.5 }).map((f) => ({ ...f, edge: 0.5 }));
     return {
       marks: islands,
       median: [
