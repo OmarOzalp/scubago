@@ -3,7 +3,8 @@ import { describe, expect, it } from '@jest/globals';
 import { SPECIES_ALIASES } from '@/data/species-aliases';
 import { SPECIES } from '@/data/species';
 import { SITES } from '@/data/sites';
-import { editDistance, normalizeSearch, searchSites, searchSpecies } from '@/lib/text-search';
+import { editDistance, matchScore, normalizeSearch, scoreSites, scoreSpecies, searchSites, searchSpecies } from '@/lib/text-search';
+import type { DiveSite } from '@/lib/types';
 
 const top = (query: string) => searchSpecies(SPECIES, query)[0]?.commonName;
 const ids = (query: string) => searchSpecies(SPECIES, query).map((s) => s.id);
@@ -23,6 +24,45 @@ describe('editDistance', () => {
     expect(editDistance('hamemrhead', 'hammerhead')).toBe(1);
     expect(editDistance('octpus', 'octopus')).toBe(1);
     expect(editDistance('shark', 'shark')).toBe(0);
+  });
+});
+
+/** The plain textbook version (a full matrix), which the allocation-free one must agree with. */
+function referenceDistance(a: string, b: string): number {
+  const d: number[][] = Array.from({ length: a.length + 1 }, (_, i) => [i, ...Array(b.length).fill(0)]);
+  for (let j = 1; j <= b.length; j++) d[0][j] = j;
+  for (let i = 1; i <= a.length; i++) {
+    for (let j = 1; j <= b.length; j++) {
+      d[i][j] = Math.min(d[i - 1][j] + 1, d[i][j - 1] + 1, d[i - 1][j - 1] + (a[i - 1] === b[j - 1] ? 0 : 1));
+      if (i > 1 && j > 1 && a[i - 1] === b[j - 2] && a[i - 2] === b[j - 1]) d[i][j] = Math.min(d[i][j], d[i - 2][j - 2] + 1);
+    }
+  }
+  return d[a.length][b.length];
+}
+
+describe('editDistance (the fast one)', () => {
+  it('agrees with the plain matrix version on random words, long ones and empty ones', () => {
+    let seed = 7;
+    const random = () => (seed = (seed * 48271) % 2147483647) / 2147483647;
+    const word = () => Array.from({ length: Math.floor(random() * 14) }, () => 'abcde'[Math.floor(random() * 5)]).join('');
+    for (let i = 0; i < 400; i++) {
+      const a = word();
+      const b = word();
+      expect(editDistance(a, b)).toBe(referenceDistance(a, b));
+    }
+    const long = 'x'.repeat(200);
+    expect(editDistance(long, `${long}y`)).toBe(1);
+    expect(editDistance('', 'abc')).toBe(3);
+    expect(editDistance('abc', '')).toBe(3);
+  });
+});
+
+describe('matchScore', () => {
+  it('scores a shown name above another name, and a typo below both', () => {
+    expect(matchScore('shark', ['Shark'])).toBe(100);
+    expect(matchScore('shark', ['Whale'], ['Shark'])).toBe(75);
+    expect(matchScore('sharq', ['Shark'])).toBe(35);
+    expect(matchScore('', ['Shark'])).toBe(0);
   });
 });
 
@@ -74,5 +114,68 @@ describe('searchSites', () => {
     expect(searchSites(SITES, 'richelieu')[0]?.name).toBe('Richelieu Rock');
     expect(searchSites(SITES, 'richleu')[0]?.name).toBe('Richelieu Rock');
     expect(searchSites(SITES, 'egypt').every((s) => s.country === 'Egypt')).toBe(true);
+  });
+
+  it('finds a site by its name first: both Cod Holes, the curated one first', () => {
+    const found = searchSites(SITES, 'cod hole');
+    expect(found.slice(0, 2).map((s) => s.name)).toEqual(['Cod Hole', 'Cod Hole']);
+    expect(found[0].id).toBe('cod-hole');
+    expect(found[1].id.startsWith('osm-')).toBe(true);
+  });
+
+  it('forgives a typo in a site’s name', () => {
+    expect(searchSites(SITES, 'thistlegrom')[0]?.name).toBe('SS Thistlegorm');
+    expect(searchSites(SITES, 'thistlegorm')[0]?.name).toBe('SS Thistlegorm');
+    expect(searchSites(SITES, 'Ras Mohamed')[0]?.name).toBe('Shark & Yolanda Reef');
+  });
+
+  it('lists a region’s or a country’s sites, including the ones whose own region text is shorter', () => {
+    const hurghada = searchSites(SITES, 'hurghada');
+    // The Thistlegorm's own region is just "Red Sea"; regions.ts puts it at Hurghada & Safaga.
+    expect(hurghada.map((s) => s.id)).toContain('ss-thistlegorm');
+    expect(hurghada.length).toBeGreaterThan(80);
+    expect(hurghada.every((s) => s.country === 'Egypt')).toBe(true);
+    const redSea = searchSites(SITES, 'red sea');
+    expect(redSea.length).toBeGreaterThanOrEqual(SITES.filter((s) => s.country === 'Egypt').length);
+    expect(searchSites(SITES, 'egypt')).toHaveLength(SITES.filter((s) => s.country === 'Egypt').length);
+  });
+
+  it('finds a site by its name and where it is, together', () => {
+    const found = searchSites(SITES, 'manta point egypt');
+    expect(found).toHaveLength(1);
+    expect(found[0]).toMatchObject({ name: 'Manta Point', country: 'Egypt' });
+    expect(searchSites(SITES, 'manta point indonesia')[0]).toMatchObject({ id: 'manta-point-penida' });
+  });
+
+  it('ranks a name above a region, and sites that match equally well curated first, then by name', () => {
+    const sites: DiveSite[] = [
+      { id: 'osm-node-2', name: 'Zebra Reef', region: 'Dahab', country: 'Egypt', lat: 0, lng: 0, blurb: '', notableSpecies: [], source: 'seed' },
+      { id: 'osm-node-1', name: 'Anchor Reef', region: 'Dahab', country: 'Egypt', lat: 0, lng: 0, blurb: '', notableSpecies: [], source: 'seed' },
+      { id: 'seed-1', name: 'Mid Reef', region: 'Dahab', country: 'Egypt', lat: 0, lng: 0, blurb: '', notableSpecies: [], source: 'seed' },
+      { id: 'seed-2', name: 'Dahab Lighthouse', region: 'Elsewhere', country: 'Egypt', lat: 0, lng: 0, blurb: '', notableSpecies: [], source: 'seed' },
+    ];
+    expect(searchSites(sites, 'dahab').map((s) => s.id)).toEqual(['seed-2', 'seed-1', 'osm-node-1', 'osm-node-2']);
+  });
+
+  it('returns every site for an empty query, and none for nonsense', () => {
+    expect(searchSites(SITES, '  ')).toHaveLength(SITES.length);
+    expect(searchSites(SITES, 'qqqqqqq')).toEqual([]);
+    expect(scoreSites(SITES, '')).toEqual([]);
+    expect(scoreSpecies(SPECIES, '')).toEqual([]);
+  });
+
+  it('says how well each matched, best first', () => {
+    const scores = scoreSites(SITES, 'cod hole').map((r) => r.score);
+    expect(scores[0]).toBe(100);
+    expect([...scores].sort((a, b) => b - a)).toEqual(scores);
+    expect(scoreSpecies(SPECIES, 'whale shark')[0]).toMatchObject({ score: 100 });
+  });
+
+  it('is quick on a few hundred sites, even for a typo that has to try every name', () => {
+    const many = SITES.flatMap((s, i) => [s, { ...s, id: `${s.id}-2`, name: `${s.name} ${i}` }, { ...s, id: `${s.id}-3`, name: `${s.name} ${i + 1000}` }]);
+    searchSites(many, 'warm up the index');
+    const start = performance.now();
+    for (const query of ['d', 'da', 'dah', 'daha', 'dahab', 'dahav', 'zzzzqx']) searchSites(many, query);
+    expect(performance.now() - start).toBeLessThan(1500);
   });
 });

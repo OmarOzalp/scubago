@@ -5,13 +5,29 @@ import MapView, { Marker, type LongPressEvent, type Region } from 'react-native-
 import { OsmCredit } from '@/components/site-list';
 import { OnFill, Radius, Shadow, Type } from '@/constants/theme';
 import { useSchemeName, useTheme } from '@/hooks/use-theme';
-import { boundsToRegion, clusterSites, hasImportedSites, type MapRegion, type SiteCluster } from '@/lib/site-clusters';
+import { boundsToRegion, clusterSites, hasImportedSites, type MapRegion, type SiteBounds, type SiteCluster } from '@/lib/site-clusters';
 import type { DiveSite } from '@/lib/types';
+
+/**
+ * Something the search asks the map to show: a site, or a place (the box round its sites). The map
+ * moves when it gets a new one (it compares by identity, so asking for the same site again moves
+ * it again). The list on the web scrolls to `siteId`, or to the top when that is null.
+ */
+export interface MapFocus {
+  bounds: SiteBounds;
+  siteId: string | null;
+}
 
 export interface SiteMapProps {
   sites: DiveSite[];
-  /** When set (species filter active), only these sites are highlighted; others dim. */
+  /** When set (a species or place filter is active), only these sites are highlighted; others dim. */
   highlightedSiteIds: Set<string> | null;
+  /** What the highlight means, for the key on the map. */
+  highlightLabel?: string;
+  /** Where to move the map (the web list scrolls to it). Nothing moves for null. */
+  focus?: MapFocus | null;
+  /** The site whose card is open. Only the web list marks it (the map's pins don't change, and must not be redrawn for it). */
+  selectedSiteId?: string | null;
   onSelectSite: (siteId: string) => void;
   onLongPress: (lat: number, lng: number) => void;
 }
@@ -24,6 +40,8 @@ const REGION_DEBOUNCE_MS = 150;
 const SETTLE_MS = 500;
 /** How long the zoom to a tapped cluster takes. */
 const ZOOM_MS = 450;
+/** How long the move to a site or place the search picked takes. */
+const FOCUS_MS = 600;
 /** A cluster's roundel is centred on its position (the default anchor is the foot of a pin). */
 const CENTRE = { x: 0.5, y: 0.5 } as const;
 
@@ -42,7 +60,7 @@ const CENTRE = { x: 0.5, y: 0.5 } as const;
  * the same callbacks every time, so choosing a site (which only changes the screen's card) doesn't
  * touch the map, and moving the map only adds and removes the markers whose cell changed.
  */
-export const SiteMap = memo(function SiteMap({ sites, highlightedSiteIds, onSelectSite, onLongPress }: SiteMapProps) {
+export const SiteMap = memo(function SiteMap({ sites, highlightedSiteIds, highlightLabel = 'Where to see it', focus = null, onSelectSite, onLongPress }: SiteMapProps) {
   const mapRef = useRef<MapView>(null);
   const theme = useTheme();
   const scheme = useSchemeName();
@@ -84,6 +102,11 @@ export const SiteMap = memo(function SiteMap({ sites, highlightedSiteIds, onSele
     const { latitude, longitude } = e.nativeEvent.coordinate;
     latest.current.onLongPress(latitude, longitude);
   }, []);
+
+  // Fly to the site or place the search picked: a site at the closest zoom (where it is a pin of its own), a place framed whole.
+  useEffect(() => {
+    if (focus) mapRef.current?.animateToRegion(boundsToRegion(focus.bounds, { padding: 1.3 }), FOCUS_MS);
+  }, [focus]);
 
   // Group again once the map has settled (it reports once per move, but several can follow one another).
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -156,7 +179,7 @@ export const SiteMap = memo(function SiteMap({ sites, highlightedSiteIds, onSele
             style={[styles.legend, { pointerEvents: 'none', backgroundColor: theme.backgroundElement, borderColor: theme.cardBorder, boxShadow: Shadow[scheme].card }]}>
             <View style={styles.key}>
               <View style={[styles.dot, { backgroundColor: theme.coral, borderColor: theme.text }]} />
-              <Text style={[styles.keyText, { color: theme.text }]}>Where to see it</Text>
+              <Text numberOfLines={1} style={[styles.keyText, { color: theme.text }]}>{highlightLabel}</Text>
             </View>
             <View style={styles.key}>
               <View style={[styles.dot, { backgroundColor: theme.lagoon, borderColor: theme.lagoon, opacity: 0.4 }]} />
@@ -335,6 +358,7 @@ const styles = StyleSheet.create({
   legend: {
     flexDirection: 'row',
     alignItems: 'center',
+    maxWidth: '100%',
     gap: 12,
     borderWidth: 1,
     borderRadius: Radius.sm,
@@ -344,6 +368,7 @@ const styles = StyleSheet.create({
   key: {
     flexDirection: 'row',
     alignItems: 'center',
+    flexShrink: 1,
     gap: 6,
   },
   dot: {
@@ -353,6 +378,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
   },
   keyText: {
+    flexShrink: 1,
     fontFamily: Type.bodyBold,
     fontSize: 12,
     lineHeight: 16,

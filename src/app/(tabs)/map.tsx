@@ -1,17 +1,19 @@
 import { router } from 'expo-router';
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useDeferredValue, useMemo, useState } from 'react';
 import {
-  FlatList,
   Platform,
   Pressable,
   StyleSheet,
   Text,
-  TextInput,
+  useWindowDimensions,
   View,
   type ViewStyle,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { boundsOfSites, buildPlaces, searchExplore, type Place } from '@/components/explore/search';
+import { FilterChip, SearchBar } from '@/components/explore/search-bar';
+import { SearchPanel } from '@/components/explore/search-panel';
 import { Icon } from '@/components/icon';
 import { IconButton } from '@/components/journal/icon-button';
 import { Paper } from '@/components/journal/paper';
@@ -19,37 +21,43 @@ import { ScreenHeader } from '@/components/journal/screen';
 import { Wash } from '@/components/journal/wash';
 import { OceanButton } from '@/components/ocean-button';
 import { SiteList } from '@/components/site-list';
-import { SiteMap } from '@/components/site-map';
+import { SiteMap, type MapFocus } from '@/components/site-map';
 import { SpeciesAvatar } from '@/components/species-avatar';
 import { ThemedText } from '@/components/themed-text';
-import { MaxContentWidth, Radius, Shadow, Spacing, TabBarOverhang, Type } from '@/constants/theme';
-import { useSchemeName, useTheme } from '@/hooks/use-theme';
+import { MaxContentWidth, Radius, Spacing, TabBarOverhang, Type } from '@/constants/theme';
+import { useTheme } from '@/hooks/use-theme';
 import { CATALOG, CATALOG_BY_ID } from '@/lib/catalog';
 import { confirmAction } from '@/lib/confirm';
 import { useAllSites, useAppStore } from '@/lib/store';
-import { searchSpecies } from '@/lib/text-search';
 import type { DiveSite, Species } from '@/lib/types';
 import { hashSeed } from '@/lib/wash';
 
 /**
- * The Explore tab: every dive site on a map (a list on the web), and a species search that shows
- * where an animal is seen. The map is mounted on the page like a chart pasted into the journal.
+ * The Explore tab: every dive site on a map (a list on the web), and one search for dive sites,
+ * places and animals. A site you pick is selected (and the map flies to it); an animal shows where
+ * it is seen; a place shows only its sites. The map is mounted on the page like a chart pasted into
+ * the journal.
  */
 export default function ExploreScreen() {
   const theme = useTheme();
-  const scheme = useSchemeName();
   const insets = useSafeAreaInsets();
+  const { height: windowHeight } = useWindowDimensions();
   const sites = useAllSites();
   const sightings = useAppStore((s) => s.sightings);
 
   const [selectedSiteId, setSelectedSiteId] = useState<string | null>(null);
+  // What the map and list are filtered to: where an animal is seen, or the sites in a place. One at a time.
   const [speciesFilter, setSpeciesFilter] = useState<Species | null>(null);
+  const [placeFilterId, setPlaceFilterId] = useState<string | null>(null);
+  const [focus, setFocus] = useState<MapFocus | null>(null);
   const [searching, setSearching] = useState(false);
   const [query, setQuery] = useState('');
+  // The results follow what is typed a moment behind, so the field keeps up with the keyboard.
+  const typed = useDeferredValue(query);
   // A plain list of sites on phones too: easier for screen readers than pins on a map.
   const [listView, setListView] = useState(false);
-  // The search results open just below the header, over the map.
-  const [headerHeight, setHeaderHeight] = useState(0);
+  // The search results open just below the search bar, over the map.
+  const [barBottom, setBarBottom] = useState(0);
 
   const sightingsBySite = useMemo(() => {
     const map = new Map<string, Map<string, number>>();
@@ -61,17 +69,25 @@ export default function ExploreScreen() {
     return map;
   }, [sightings]);
 
-  const highlightedSiteIds = useMemo(() => {
-    if (!speciesFilter) return null;
-    const ids = new Set<string>();
-    for (const site of sites) {
-      const seenHere = sightingsBySite.get(site.id)?.has(speciesFilter.id);
-      if (seenHere || site.notableSpecies.includes(speciesFilter.id)) ids.add(site.id);
-    }
-    return ids;
-  }, [speciesFilter, sites, sightingsBySite]);
+  const places = useMemo(() => buildPlaces(sites), [sites]);
+  const placeFilter = useMemo(() => (placeFilterId ? (places.find((p) => p.id === placeFilterId) ?? null) : null), [places, placeFilterId]);
 
-  const results = useMemo(() => searchSpecies(CATALOG, query).slice(0, 12), [query]);
+  const highlightedSiteIds = useMemo(() => {
+    if (speciesFilter) {
+      const ids = new Set<string>();
+      for (const site of sites) {
+        const seenHere = sightingsBySite.get(site.id)?.has(speciesFilter.id);
+        if (seenHere || site.notableSpecies.includes(speciesFilter.id)) ids.add(site.id);
+      }
+      return ids;
+    }
+    return placeFilter ? new Set(placeFilter.siteIds) : null;
+  }, [speciesFilter, placeFilter, sites, sightingsBySite]);
+
+  const results = useMemo(
+    () => (typed.trim() ? searchExplore({ sites, places, species: CATALOG, query: typed }) : null),
+    [typed, sites, places],
+  );
 
   const selectedSite = selectedSiteId ? sites.find((s) => s.id === selectedSiteId) : null;
   const selectedTopSpecies = useMemo(() => {
@@ -85,11 +101,43 @@ export default function ExploreScreen() {
       .filter((x): x is { species: Species; count: number } => !!x.species);
   }, [selectedSiteId, sightingsBySite]);
 
-  const pickSpecies = (species: Species) => {
-    setSpeciesFilter(species);
+  const closeSearch = () => {
     setSearching(false);
     setQuery('');
+  };
+  const pickSpecies = (species: Species) => {
+    setSpeciesFilter(species);
+    setPlaceFilterId(null);
     setSelectedSiteId(null);
+    closeSearch();
+  };
+  const pickPlace = (place: Place) => {
+    setPlaceFilterId(place.id);
+    setSpeciesFilter(null);
+    setSelectedSiteId(null);
+    const ids = new Set(place.siteIds);
+    const bounds = boundsOfSites(sites, ids);
+    setFocus(bounds ? { bounds, siteId: null } : null);
+    closeSearch();
+  };
+  // The same as tapping the site's pin (its card opens), and the map flies to it (the list scrolls to it).
+  // A filter that leaves the site out would hide what was asked for, so it goes; one that has it stays.
+  const pickSite = (site: DiveSite) => {
+    if (highlightedSiteIds && !highlightedSiteIds.has(site.id)) {
+      setSpeciesFilter(null);
+      setPlaceFilterId(null);
+    }
+    setSelectedSiteId(site.id);
+    setFocus({ bounds: { south: site.lat, north: site.lat, west: site.lng, east: site.lng }, siteId: site.id });
+    closeSearch();
+  };
+  // Return: the first row of the first section, worked out from what is in the field now.
+  const submitSearch = () => {
+    const top = searchExplore({ sites, places, species: CATALOG, query }).top;
+    if (!top) return;
+    if (top.kind === 'site') pickSite(top.site);
+    else if (top.kind === 'place') pickPlace(top.place);
+    else pickSpecies(top.species);
   };
 
   // Stable, so choosing a site (which only changes the card) doesn't re-render the map and its markers.
@@ -105,6 +153,10 @@ export default function ExploreScreen() {
     setSelectedSiteId(id);
     setSearching(false);
   }, []);
+  const closeCard = useCallback(() => {
+    setSelectedSiteId(null);
+    setFocus(null);
+  }, []);
 
   // The interactive map is native-only; the web build's SiteMap is the site list.
   const mapShown = Platform.OS !== 'web' && !listView;
@@ -112,22 +164,24 @@ export default function ExploreScreen() {
     <SiteMap
       sites={sites}
       highlightedSiteIds={highlightedSiteIds}
+      highlightLabel={placeFilter ? `In ${placeFilter.name}` : undefined}
+      focus={focus}
+      selectedSiteId={Platform.OS === 'web' ? selectedSiteId : undefined}
       onSelectSite={selectSite}
       onLongPress={handleLongPress}
     />
   );
   const card = selectedSite ? (
-    <SiteCard site={selectedSite} topSpecies={selectedTopSpecies} onClose={() => setSelectedSiteId(null)} style={mapShown ? styles.cardOnMap : undefined} />
+    <SiteCard site={selectedSite} topSpecies={selectedTopSpecies} onClose={closeCard} style={mapShown ? styles.cardOnMap : undefined} />
   ) : null;
   const filtered = highlightedSiteIds?.size ?? 0;
-  const barShadow = Shadow[scheme].card;
+  // Over the map the results can reach further down than over a keyboard.
+  const panelMaxHeight = Platform.OS === 'web' ? Math.min(560, Math.max(340, windowHeight - barBottom - 96)) : 340;
 
   return (
     <View style={[styles.container, { backgroundColor: theme.background }]}>
-      {/* The page's head: title, the add-site and list buttons, then the species search (or its filter). */}
-      <View
-        style={[styles.column, styles.header, { paddingTop: insets.top + Spacing.four }]}
-        onLayout={(e) => setHeaderHeight(e.nativeEvent.layout.height)}>
+      {/* The page's head: title, the add-site and list buttons, then the search, and under it the filter it has set. */}
+      <View style={[styles.column, styles.header, { paddingTop: insets.top + Spacing.four }]}>
         <ScreenHeader
           eyebrow="Dive sites"
           title="Explore"
@@ -146,76 +200,43 @@ export default function ExploreScreen() {
           }
         />
 
+        <View onLayout={(e) => setBarBottom(e.nativeEvent.layout.y + e.nativeEvent.layout.height)}>
+          <SearchBar
+            searching={searching}
+            query={query}
+            onQueryChange={setQuery}
+            onOpen={() => setSearching(true)}
+            onCancel={closeSearch}
+            onSubmit={submitSearch}
+          />
+        </View>
+
         {speciesFilter ? (
-          // Edged in coral, like the pins it lights up on the map.
-          <Pressable
-            onPress={() => setSpeciesFilter(null)}
-            accessibilityRole="button"
-            accessibilityLabel={`Showing where to see the ${speciesFilter.commonName}: ${highlightedSiteIds?.size ?? 0} sites. Clear`}
-            style={({ pressed }) => [
-              styles.bar,
-              styles.filterBar,
-              { backgroundColor: pressed ? theme.backgroundSelected : theme.backgroundElement, borderColor: theme.coral, boxShadow: barShadow },
-            ]}>
-            <SpeciesAvatar species={speciesFilter} size={38} showRarityRing />
-            <View style={styles.filterText}>
-              <Text numberOfLines={1} style={[styles.filterName, { color: theme.text }]}>
-                {speciesFilter.commonName}
-              </Text>
-              <Text numberOfLines={1} style={[styles.filterCount, { color: theme.textSecondary }]}>
-                Seen at {filtered} {filtered === 1 ? 'site' : 'sites'}
-              </Text>
-            </View>
-            <View style={[styles.closeCircle, { backgroundColor: theme.backgroundSelected }]}>
-              <Icon name="close" size={16} weight="bold" />
-            </View>
-          </Pressable>
-        ) : searching ? (
-          <View style={[styles.bar, { backgroundColor: theme.backgroundElement, borderColor: theme.tint, boxShadow: barShadow }]}>
-            <Icon name="search" size={20} color={theme.tint} />
-            <TextInput
-              autoFocus
-              value={query}
-              onChangeText={setQuery}
-              accessibilityLabel="Which species? Search by name"
-              placeholder="Whale shark, manta, seahorse…"
-              placeholderTextColor={theme.textSecondary}
-              autoCorrect={false}
-              returnKeyType="search"
-              style={[styles.searchInput, { color: theme.text }]}
-              onSubmitEditing={() => results[0] && pickSpecies(results[0])}
-            />
-            <Pressable
-              onPress={() => {
-                setSearching(false);
-                setQuery('');
-              }}
-              accessibilityRole="button"
-              style={({ pressed }) => [styles.barButton, { opacity: pressed ? 0.6 : 1 }]}>
-              <Text style={[styles.cancel, { color: theme.tint }]}>Cancel</Text>
-            </Pressable>
-          </View>
-        ) : (
-          <Pressable
-            onPress={() => setSearching(true)}
-            accessibilityRole="search"
-            accessibilityLabel="Where can I see a… Search by species"
-            style={({ pressed }) => [
-              styles.bar,
-              { backgroundColor: pressed ? theme.backgroundSelected : theme.backgroundElement, borderColor: theme.rule, boxShadow: barShadow },
-            ]}>
-            <Icon name="search" size={20} color={theme.textSecondary} />
-            <Text numberOfLines={1} style={[styles.placeholder, { color: theme.textSecondary }]}>
-              Where can I see a…
-            </Text>
-            <Icon name="fieldGuide" size={20} color={theme.textSecondary} wash={theme.textSecondary} washOpacity={0.15} />
-          </Pressable>
-        )}
+          <FilterChip
+            leading={<SpeciesAvatar species={speciesFilter} size={38} showRarityRing />}
+            title={speciesFilter.commonName}
+            subtitle={`Seen at ${filtered} ${filtered === 1 ? 'site' : 'sites'}`}
+            accessibilityLabel={`Showing where to see the ${speciesFilter.commonName}: ${filtered} sites. Clear`}
+            onClear={() => setSpeciesFilter(null)}
+          />
+        ) : placeFilter ? (
+          <FilterChip
+            leading={
+              <View style={[styles.placeTile, { backgroundColor: theme.backgroundSelected }]}>
+                <Icon name="map" size={22} wash={theme.coral} washOpacity={0.45} />
+              </View>
+            }
+            title={placeFilter.name}
+            subtitle={`${filtered} ${filtered === 1 ? 'dive site' : 'dive sites'} · ${placeFilter.detail}`}
+            accessibilityLabel={`Showing the dive sites in ${placeFilter.name}: ${filtered} sites. Clear`}
+            onClear={() => setPlaceFilterId(null)}
+          />
+        ) : null}
       </View>
 
       <View style={styles.body}>
         {listView && Platform.OS !== 'web' ? (
-          <SiteList sites={sites} highlightedSiteIds={highlightedSiteIds} onSelectSite={selectSite} />
+          <SiteList sites={sites} highlightedSiteIds={highlightedSiteIds} onSelectSite={selectSite} reveal={focus} selectedSiteId={selectedSiteId} />
         ) : mapShown ? (
           // The chart, mounted like the island on Home: a fine ink frame inside a raised sheet. It stops
           // short of the tab bar so the raised "Log dive" button never covers it.
@@ -244,50 +265,25 @@ export default function ExploreScreen() {
       </View>
 
       {searching ? (
-        <View style={[styles.overlay, { top: headerHeight - Spacing.two, pointerEvents: 'box-none' }]}>
+        <View style={[styles.overlay, { top: barBottom + 6, pointerEvents: 'box-none' }]}>
           <View style={[styles.column, { pointerEvents: 'box-none' }]}>
-            <Paper raised padded={false} style={styles.results}>
-              <FlatList
-                data={results}
-                keyboardShouldPersistTaps="handled"
-                keyExtractor={(s) => s.id}
-                ItemSeparatorComponent={Separator}
-                ListEmptyComponent={
-                  <ThemedText type="caption" themeColor="textSecondary" style={styles.noResults} accessibilityLiveRegion="polite">
-                    No species matches “{query.trim()}”.
-                  </ThemedText>
-                }
-                renderItem={({ item }) => (
-                  <Pressable
-                    onPress={() => pickSpecies(item)}
-                    accessibilityRole="button"
-                    accessibilityLabel={`${item.commonName}. Show where it’s seen`}
-                    style={({ pressed }) => [styles.resultRow, pressed && { backgroundColor: theme.backgroundSelected }]}>
-                    <SpeciesAvatar species={item} size={40} showRarityRing />
-                    <View style={styles.resultText}>
-                      <Text numberOfLines={1} style={[styles.resultName, { color: theme.text }]}>
-                        {item.commonName}
-                      </Text>
-                      <ThemedText type="caption" themeColor="textSecondary" numberOfLines={1} style={styles.resultLatin}>
-                        {item.scientificName}
-                      </ThemedText>
-                    </View>
-                    <Icon name="pin" size={18} color={theme.textSecondary} wash={theme.coral} washOpacity={0.35} />
-                  </Pressable>
-                )}
-              />
-            </Paper>
+            <SearchPanel
+              results={results}
+              maxHeight={panelMaxHeight}
+              onPickSite={pickSite}
+              onPickPlace={pickPlace}
+              onPickSpecies={pickSpecies}
+              onTry={setQuery}
+              onAddSite={(name) => {
+                closeSearch();
+                router.push({ pathname: '/add-site', params: { name } });
+              }}
+            />
           </View>
         </View>
       ) : null}
     </View>
   );
-}
-
-/** A hairline between search results. */
-function Separator() {
-  const theme = useTheme();
-  return <View style={[styles.separator, { backgroundColor: theme.rule }]} />;
 }
 
 /** The site you tapped: where it is, what's been seen there, and the way to its page or to log here. */
@@ -387,58 +383,18 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     gap: Spacing.two,
   },
-  bar: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    borderRadius: Radius.md,
-    borderWidth: 1.5,
-    paddingHorizontal: 14,
-    minHeight: 50,
-    gap: 10,
-  },
-  placeholder: {
-    flex: 1,
-    fontFamily: Type.body,
-    fontSize: 16,
-  },
-  searchInput: {
-    flex: 1,
-    fontFamily: Type.body,
-    fontSize: 16,
-    minHeight: 48,
-  },
-  barButton: {
-    minHeight: 44,
-    minWidth: 44,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  cancel: {
-    fontFamily: Type.bodyHeavy,
-    fontSize: 14,
-  },
-  filterBar: {
-    paddingLeft: 6,
-    paddingRight: 8,
-    paddingVertical: 6,
-  },
-  filterText: {
-    flex: 1,
-  },
-  filterName: {
-    fontFamily: Type.bodyHeavy,
-    fontSize: 15,
-    lineHeight: 20,
-  },
-  filterCount: {
-    fontFamily: Type.body,
-    fontSize: 13,
-    lineHeight: 18,
-  },
   closeCircle: {
     width: 32,
     height: 32,
     borderRadius: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  // Where an animal has its plate in the filter chip, a place has a tile of paper with a map on it.
+  placeTile: {
+    width: 38,
+    height: 38,
+    borderRadius: Radius.sm,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -476,37 +432,6 @@ const styles = StyleSheet.create({
     position: 'absolute',
     left: 0,
     right: 0,
-  },
-  results: {
-    maxHeight: 340,
-    overflow: 'hidden',
-  },
-  separator: {
-    height: 1,
-    marginLeft: 66,
-  },
-  noResults: {
-    padding: Spacing.three,
-  },
-  resultRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-    minHeight: 56,
-    paddingHorizontal: 14,
-    paddingVertical: Spacing.two,
-  },
-  resultText: {
-    flex: 1,
-  },
-  resultName: {
-    fontFamily: Type.bodyHeavy,
-    fontSize: 15,
-    lineHeight: 20,
-  },
-  resultLatin: {
-    fontSize: 14,
-    lineHeight: 19,
   },
   cardOnMap: {
     position: 'absolute',
