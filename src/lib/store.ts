@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useCallback, useMemo } from 'react';
 import { AppState } from 'react-native';
 import { create } from 'zustand';
 
@@ -501,6 +501,15 @@ export const useAppStore = create<StoreState>((set, get) => {
 export function useAllSites(): DiveSite[] {
   const userSites = useAppStore((s) => s.userSites);
   return useMemo(() => (userSites.length === 0 ? SITES : [...SITES, ...userSites]), [userSites]);
+}
+
+/**
+ * A site by id: a seed or imported site, the diver's own, or an imported site OpenStreetMap no longer
+ * lists (retired: never in useAllSites, but a past sighting or dive may still name it).
+ */
+export function useSiteById(): (id: string | null | undefined) => DiveSite | undefined {
+  const userSites = useAppStore((s) => s.userSites);
+  return useCallback((id: string | null | undefined) => (id == null ? undefined : SITES_BY_ID.get(id) ?? userSites.find((s) => s.id === id)), [userSites]);
 }
 
 /** The id that owns "my" rows: the signed-in user, or the device before sign-in. */

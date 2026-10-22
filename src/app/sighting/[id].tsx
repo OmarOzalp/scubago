@@ -24,7 +24,7 @@ import { confirmAction } from '@/lib/confirm';
 import { formatDiveNumber } from '@/lib/dives';
 import { isPrivateSighting, privacySummary, sharesNotes, sharesPhoto } from '@/lib/privacy';
 import { canEditSighting } from '@/lib/sighting-edit';
-import { useAllSites, useAppStore, useMyUserId } from '@/lib/store';
+import { useAppStore, useMyUserId, useSiteById } from '@/lib/store';
 import { displayablePhoto } from '@/lib/sync';
 import type { SightingStatus } from '@/lib/types';
 import { STATUS_COLOR, STATUS_EXPLANATION, STATUS_TEXT, statusOf } from '@/lib/verification';
@@ -48,7 +48,7 @@ export default function SightingDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const theme = useTheme();
   const scheme = useSchemeName();
-  const sites = useAllSites();
+  const siteById = useSiteById();
   const sighting = useAppStore((s) => s.sightings.find((x) => x.id === id));
   // Only the diver's own pages are ever on the phone.
   const dive = useAppStore((s) => (sighting?.diveId ? s.dives.find((d) => d.id === sighting.diveId) : undefined));
@@ -79,7 +79,7 @@ export default function SightingDetailScreen() {
     );
   }
 
-  const site = sites.find((s) => s.id === sighting.siteId);
+  const site = siteById(sighting.siteId);
   const mine = canEditSighting(sighting, myUserId);
   const status = statusOf(sighting);
   const unlisted = sighting.speciesId === UNLISTED_ID;

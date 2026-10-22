@@ -21,6 +21,7 @@ const mockOsmSite = { id: 'osm-test-wreck', name: 'Test Wreck', lat: -19.3, lng:
 jest.mock('@/lib/store', () => ({
   useAppStore: (select) => select({ sightings: [], user: null }),
   useAllSites: () => [...require('@/data/sites').SITES, mockOsmSite],
+  useSiteById: () => (id) => [...require('@/data/sites').SITES, mockOsmSite].find((s) => s.id === id),
   useMySightings: () => [],
 }));
 let mockHook = { summary: null, status: 'loading', refresh: () => {} };

@@ -19,7 +19,7 @@ import { SITES } from '@/data/sites';
 import { CATALOG_BY_ID, speciesForSighting } from '@/lib/catalog';
 import { deriveDex } from '@/lib/dex';
 import { siteAddedBy, siteFacts, siteSourceList } from '@/lib/site-details';
-import { useAllSites, useAppStore, useMySightings } from '@/lib/store';
+import { useAppStore, useMySightings, useSiteById } from '@/lib/store';
 import type { Species } from '@/lib/types';
 import { hashSeed } from '@/lib/wash';
 
@@ -45,14 +45,14 @@ export function generateStaticParams(): { id: string }[] {
 export default function SiteDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const theme = useTheme();
-  const sites = useAllSites();
+  const siteById = useSiteById();
   const sightings = useAppStore((s) => s.sightings);
   const userId = useAppStore((s) => s.user?.id);
   const mySightings = useMySightings();
   // The column's width, measured: a phone's to begin with (the static web render has no window).
   const [inner, setInner] = useState(358);
 
-  const site = sites.find((s) => s.id === id);
+  const site = siteById(id);
   const addedBy = site ? siteAddedBy(site, userId) : null;
 
   const siteSightings = useMemo(

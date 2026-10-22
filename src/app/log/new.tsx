@@ -40,7 +40,7 @@ import { CATEGORY_LABEL, CATEGORY_ORDER } from '@/lib/rarity';
 import { artFor } from '@/lib/species-art';
 import { canEditSighting, isMaterialChange, localIsoDate } from '@/lib/sighting-edit';
 import { onSiteAdded } from '@/lib/site-added';
-import { useAllSites, useAppStore, useMyDives, useMySightings, useMyUserId, useNextDiveNumber } from '@/lib/store';
+import { useAllSites, useAppStore, useMyDives, useMySightings, useMyUserId, useNextDiveNumber, useSiteById } from '@/lib/store';
 import { searchSpecies } from '@/lib/text-search';
 import type { BadgeResult } from '@/lib/rewards';
 import type { Category, DiveSite, Species } from '@/lib/types';
@@ -78,6 +78,7 @@ function LogSightingScreen() {
   const theme = useTheme();
   const scheme = useSchemeName();
   const sites = useAllSites();
+  const siteById = useSiteById();
   const mySightings = useMySightings();
   const myDives = useMyDives();
   const nextNumber = useNextDiveNumber();
@@ -163,7 +164,7 @@ function LogSightingScreen() {
     [],
   );
 
-  const site = siteId ? sites.find((s) => s.id === siteId) : null;
+  const site = siteId ? siteById(siteId) : null;
   const chosen = selected
     .map((id) => (id === UNLISTED_ID ? speciesForSighting({ speciesId: id, customName }) : CATALOG_BY_ID.get(id)))
     .filter((s): s is Species => !!s);
@@ -506,7 +507,7 @@ function LogSightingScreen() {
                 setDraft((d) => ({ ...d, ...patch }));
               }}
               nextNumber={nextNumber}
-              takenBy={takenBy ? { number: takenBy.number, siteName: sites.find((s) => s.id === takenBy.siteId)?.name } : undefined}
+              takenBy={takenBy ? { number: takenBy.number, siteName: siteById(takenBy.siteId)?.name } : undefined}
               carried={start.from !== undefined ? { from: start.from, what: start.what } : undefined}
             />
           ) : null}

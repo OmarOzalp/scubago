@@ -37,7 +37,7 @@ import {
   TANK_MATERIALS,
   timeOut,
 } from '@/lib/dives';
-import { useAllSites, useAppStore, useMyDives, useMyUserId } from '@/lib/store';
+import { useAllSites, useAppStore, useMyDives, useMyUserId, useSiteById } from '@/lib/store';
 import type { Dive, DiveSignature } from '@/lib/types';
 
 function formatTimestamp(iso: string): string {
@@ -53,6 +53,7 @@ export default function DivePageScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const theme = useTheme();
   const sites = useAllSites();
+  const siteById = useSiteById();
   const myUserId = useMyUserId();
   const dives = useMyDives();
   const dive = dives.find((d) => d.id === id);
@@ -85,7 +86,7 @@ export default function DivePageScreen() {
     );
   }
 
-  const site = sites.find((s) => s.id === dive.siteId);
+  const site = siteById(dive.siteId);
   const siteName = site?.name ?? 'Unknown site';
   const milestone = milestoneAt(dive.number);
   const out = timeOut(dive);

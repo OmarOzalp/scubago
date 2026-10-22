@@ -21,7 +21,7 @@ import { announce } from '@/lib/announce';
 import { confirmAction } from '@/lib/confirm';
 import { askBuddyToSign, signShareMessage, SIGNER_ROLE_LABEL, SIGNER_ROLES, withdrawSignCode, type SignerRole } from '@/lib/dive-signature-api';
 import { formatDepth, formatDiveNumber, formatMinutes } from '@/lib/dives';
-import { useAllSites, useAppStore, useMyDives } from '@/lib/store';
+import { useAppStore, useMyDives, useSiteById } from '@/lib/store';
 import { getSupabase } from '@/lib/supabase';
 import { isConnectionProblem } from '@/lib/verification';
 import { verificationError, type CreatedCode, type VerificationError } from '@/lib/verification-api';
@@ -47,7 +47,7 @@ function SignDiveScreen() {
   // `then=page`: opened from the saved screen, so finishing opens the page instead of going back.
   const { id, then } = useLocalSearchParams<{ id: string; then?: string }>();
   const theme = useTheme();
-  const sites = useAllSites();
+  const siteById = useSiteById();
   const dive = useMyDives().find((d) => d.id === id);
   const toPage = () => (then === 'page' ? router.replace(`/dive/${id}`) : router.back());
   const signDive = useAppStore((s) => s.signDive);
@@ -68,7 +68,7 @@ function SignDiveScreen() {
       </ThemedView>
     );
   }
-  const siteName = sites.find((s) => s.id === dive.siteId)?.name ?? 'a dive site';
+  const siteName = siteById(dive.siteId)?.name ?? 'a dive site';
 
   if (done && dive.signature) {
     return (
