@@ -38,7 +38,7 @@ describe('request URLs for a site', () => {
     );
     expect(observationsUrl(SITE)).not.toContain('taxon_id');
     expect(checklistUrl(SITE)).toBe(
-      'https://api.obis.org/v3/checklist?geometry=POLYGON((145.8719%20-16.5269,145.9281%20-16.5269,145.9281%20-16.4731,145.8719%20-16.4731,145.8719%20-16.5269))',
+      'https://api.obis.org/v3/checklist?geometry=POLYGON((145.8719%20-16.5269,145.9281%20-16.5269,145.9281%20-16.4731,145.8719%20-16.4731,145.8719%20-16.5269))&size=1000',
     );
     expect(inatExploreUrl(SITE)).toBe(
       'https://www.inaturalist.org/observations?lat=-16.5&lng=145.9&radius=3&quality_grade=research&verifiable=true',

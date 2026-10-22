@@ -12,9 +12,15 @@ import type { SiteQuery } from '@/lib/external-sightings/inaturalist';
 export const OBIS_API = 'https://api.obis.org/v3';
 export const OBIS_WEBSITE = 'https://obis.org';
 
+/**
+ * Taxa per checklist page. OBIS sends 10 when none is asked for; a busy reef box holds a few hundred
+ * (469 off Ras Mohammed, checked live in October 2026), so one page of 1000 holds a site's whole list.
+ */
+export const CHECKLIST_SIZE = 1000;
+
 /** GET /checklist for a WKT box around the site: one row per taxon with its record count. */
 export function checklistUrl(site: SiteQuery): string {
-  return `${OBIS_API}/checklist${buildQuery({ geometry: boxToWkt(boxAround(site.lat, site.lng, site.radiusKm)) })}`;
+  return `${OBIS_API}/checklist${buildQuery({ geometry: boxToWkt(boxAround(site.lat, site.lng, site.radiusKm)), size: CHECKLIST_SIZE })}`;
 }
 
 export interface ObisTaxon {

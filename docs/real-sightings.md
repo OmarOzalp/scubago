@@ -5,11 +5,8 @@ ScubaGo can show what has really been recorded near a dive site, from two open s
 Information System). Records are matched to the 120 catalogue animals by scientific name, kept on the
 device so they work offline, and credited to the people and organisations who made them.
 
-**Status: built and tested, and shown on every dive site's page (see [Screens](#screens)). It has
-never been run against the live iNaturalist or OBIS servers**: this environment could not reach either host, so the clients
-were written from the documented APIs and tested only against small hand-written responses. See
-[Not yet verified against the live APIs](#not-yet-verified-against-the-live-apis) before relying on
-it. The research behind the licensing rules is in
+**Status: built, tested, shown on every dive site's page (see [Screens](#screens)), and checked
+against the live iNaturalist and OBIS APIs** (see [Checked against the live APIs](#checked-against-the-live-apis)). The research behind the licensing rules is in
 [roadmap/external-sightings-research.md](roadmap/external-sightings-research.md); how this relates
 to ScubaGo's own verified sightings is in [roadmap/sightings-architecture.md](roadmap/sightings-architecture.md).
 
@@ -101,7 +98,7 @@ The requests for the example site (latitude -16.5, longitude 145.9) are:
 
 - `https://api.inaturalist.org/v1/observations/species_counts?lat=-16.5&lng=145.9&radius=3&quality_grade=research&verifiable=true&iconic_taxa=Actinopterygii,Animalia,Mammalia,Mollusca,Reptilia&per_page=200`
 - `https://api.inaturalist.org/v1/observations?lat=-16.5&lng=145.9&radius=3&quality_grade=research&verifiable=true&license=cc0,cc-by&order_by=observed_on&order=desc&per_page=30&taxon_id=<ids from the counts>`
-- `https://api.obis.org/v3/checklist?geometry=POLYGON((145.8719%20-16.5269,145.9281%20-16.5269,145.9281%20-16.4731,145.8719%20-16.4731,145.8719%20-16.5269))`
+- `https://api.obis.org/v3/checklist?geometry=POLYGON((145.8719%20-16.5269,145.9281%20-16.5269,145.9281%20-16.4731,145.8719%20-16.4731,145.8719%20-16.5269))&size=1000`
 
 **The OBIS box.** OBIS takes a polygon, not a circle, so the search area is a box around the site,
 half a side of one radius each way. A degree of longitude shrinks towards the poles, so the east-west
@@ -195,27 +192,25 @@ within the radius). `observedTiers(...)` returns just `Map<speciesId, Rarity>` (
 - To work it out across many sites: `observedTiers(await readCachedSummaries(siteIds), CATALOG)`
   uses only what is cached; `prefetch` fills the cache first.
 
-## Not yet verified against the live APIs
+## Checked against the live APIs
 
-Everything below is from the documentation and memory, and needs one real call to confirm:
+On 22 October 2026 the clients ran against the live services for SS Yongala, Cod Hole, Shark &
+Yolanda Reef and the Blue Hole (Dahab):
 
-1. **iNaturalist.** Parameter names (`quality_grade`, `verifiable`, `license`, `order_by=observed_on`,
-   `order`, `per_page`, `taxon_id`, `lat`/`lng`/`radius` in km); that `per_page=200` is accepted by
-   `species_counts`; the fields read (`results[].count`, `results[].taxon.{id,name,rank}`,
-   `total_results`; observations: `id`, `observed_on`, `quality_grade`, `license_code`, `user.{login,name}`,
-   `taxon.{id,name,rank}`, `geojson.coordinates` as [lng, lat], `obscured`, `geoprivacy`,
-   `taxon_geoprivacy`, `photos[].{url,license_code,attribution}`); that photo URLs for openly licensed
-   photos are on `inaturalist-open-data.*` (if not, photos silently disappear); that
-   `species_counts` rolls subspecies into their species.
-2. **OBIS.** That `/v3/checklist` accepts `geometry` as WKT (including `MULTIPOLYGON`), returns
-   `{ total, results: [{ scientificName, acceptedNameUsage, records, taxonRank }] }`, and how many
-   rows it returns without a `size` (a `size` or `after` paging may be needed); that `records` counts
-   a record under its own taxon, so subspecies rows add up.
-3. **Browsers.** That both hosts answer cross-origin requests from a web build. Only an `Accept`
-   header is sent, so no pre-flight is needed.
-4. **Terms.** The links in `attribution.ts` for the OBIS policy and citation pages
-   (`manual.obis.org`), and OBIS's wording for citation, should be opened and checked.
-5. **The synonym list** is taxonomy from memory. Check it against WoRMS and iNaturalist's taxonomy.
+1. **iNaturalist.** The parameters, fields and paging work as written. `species_counts` took
+   `per_page=200` and returned 190 to 330 marine taxa per site, 11 to 23 of them catalogue animals
+   (at Shark & Yolanda Reef: the bluespotted ribbontail ray, sea goldie, giant moray, Napoleon wrasse,
+   circular batfish and more). Recent CC0 / CC BY observations came back with observers, dates and
+   open photos on `inaturalist-open-data.s3.amazonaws.com`. Some sites have none under an open
+   licence (SS Yongala), and then the list is simply empty.
+2. **OBIS.** `/v3/checklist` takes the WKT box and returns `{ total, results: [{ scientificName,
+   acceptedNameUsage, taxonRank, records, … }] }`, but only **10 rows unless `size` is given**: the
+   client now asks for `size=1000` (`CHECKLIST_SIZE`), a whole reef's list (469 taxa off Ras
+   Mohammed). A box with more than 1000 taxa (SS Yongala) is marked `truncated`.
+3. **Browsers.** Both hosts answer `Access-Control-Allow-Origin: *`, so the web build can call them.
+
+Still to check by hand: the OBIS policy and citation links in `attribution.ts`, and the synonym list
+against WoRMS and iNaturalist's taxonomy.
 
 ## Known limitations
 
@@ -341,3 +336,52 @@ The share-of-sites rarity above needs many sites summarised on the device. A sep
 catalogue animal, from worldwide iNaturalist and OBIS counts fetched once at build time and bundled with
 the app, is in [real-rarity.md](real-rarity.md). It reuses this folder's name matching and synonym table,
 and produces the same `ReadonlyMap<speciesId, Rarity>` the rewards engine takes as `observed`.
+
+## The species page: "Recorded near dive sites"
+
+A species page (`src/app/species/[id].tsx`) turns the same cache around: instead of "what is recorded
+near this site" it answers "which of the sites I have opened record this animal". It sits after the
+diver's own "Where it's been seen" and before the delete-my-log block, under the eyebrow **Public
+records**, and says in its first lines that the records are saved on this phone for dive sites already
+opened, that opening more site pages adds more, and that they are not the diver's sightings and not
+checked by ScubaGo.
+
+**It never uses the network.** `useSpeciesRecords(speciesId, sites)` (`src/hooks/use-species-records.ts`)
+lists the cached site ids (`listCachedSiteIds()` in `cache.ts`: the index, rebuilt from the stored keys if
+lost), reads them with `readCachedSummaries` (which does not change their order), keeps the entry for
+this species from each, and matches the site ids to the app's dive sites. Nothing is fetched, so the
+page stays fast and the two APIs are only ever asked by a dive-site page. It reads again each time the
+screen comes back into view (`useFocusEffect`, because a site page opened meanwhile may have saved
+more), keeps what it showed while it does, and drops a read that is still running when the screen goes
+away. It returns `{ status, sites, checked }` and never throws.
+
+| Status | The section shows |
+| --- | --- |
+| `loading` | Two ruled placeholder lines and "Checking the records saved on this phone…". No spinner. |
+| `ready` | "Recorded near 3 of the 12 sites you've opened", then up to **6** sites (name, region and country, "38 iNaturalist observations · 12 OBIS records", "Within 3 km · Newest on file: 12 Mar 2026"), "Show all N", and the credit line of the sources that appear with a link to Data & credits. A row opens the site's page. |
+| `empty`, `checked` is 0 | "Open a dive site's page to see what's been recorded there." Nothing is counted or credited. |
+| `empty`, `checked` > 0 | "No public records of Reef Manta Ray at the 3 dive sites you've opened. Not finding one here doesn't mean it isn't there." |
+| `error` | "Couldn't read the public records saved on this phone just now." |
+
+- **Ordering.** Most iNaturalist observations first, then most OBIS records, then name.
+- **`checked`** is the number of saved summaries, for sites the app still knows, that a source answered
+  for. A summary of a site that has since been deleted cannot be named or opened and is neither listed
+  nor counted. A summary in which neither source answered says nothing about the animal and is not
+  counted.
+- **Newest on file** is the later of the summary's `lastObservedOn` for the animal and the newest of
+  the `recent` observations of it, so as on a site page it is the newest *openly licensed* observation
+  the app holds, not the newest observation anywhere. It is left out when there is none.
+- **Within N km** is the summary's search radius, so a count is never read as "at the site".
+- **Storage that cannot be read** is, as everywhere in `cache.ts`, "nothing saved": the hook reports
+  `empty` with `checked` 0. `error` is for anything else that goes wrong while reading. (A transient
+  `getItem` failure inside `readCachedSightings` still removes that entry, which is that module's
+  existing handling of an unreadable entry and was left alone.)
+- **If `prefetch` is ever wired to a screen**, summaries will be saved for sites the diver did not
+  open, and the section's wording ("the dive sites you've already opened") will need to change.
+
+Files: `src/components/sightings/species-records.tsx` (`SpeciesRecords`, which takes its data as props,
+and `SpeciesRecordsSection`, which calls the hook), `src/hooks/use-species-records.ts`. Tests:
+`src/components/__tests__/species-records.test.js` (hook, pure helpers and every state, with
+hand-written summaries) and `species-records-screen.test.js` (the page). The layout was reviewed in a
+web export with a temporary preview route and hand-written sample data; that route is deleted.
+
