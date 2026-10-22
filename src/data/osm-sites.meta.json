@@ -1,0 +1,20 @@
+{
+  "generatedAt": null,
+  "source": "OpenStreetMap contributors, via the Overpass API",
+  "licence": "ODbL-1.0",
+  "licenceUrl": "https://opendatacommons.org/licenses/odbl/1-0/",
+  "attribution": "© OpenStreetMap contributors",
+  "copyrightUrl": "https://www.openstreetmap.org/copyright",
+  "overpassUrl": null,
+  "inputFiles": null,
+  "osmBaseTimestamp": null,
+  "queryHash": null,
+  "retrievedOn": null,
+  "count": 0,
+  "active": 0,
+  "retired": 0,
+  "seedDuplicates": 0,
+  "elements": {},
+  "regions": {},
+  "skipped": {}
+}

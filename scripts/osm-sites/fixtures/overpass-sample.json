@@ -1,0 +1,323 @@
+{
+ "_note": "HAND-WRITTEN test fixture shaped like an Overpass response. Every name is invented ('Fixture ...') and the ids are made up (they may even match real OSM elements, which these are not). Not OSM data and never to be copied into src/data/osm-sites.json. Used by src/lib/__tests__/site-import.test.ts and by `npx tsx scripts/osm-sites/import.ts --input scripts/osm-sites/fixtures/overpass-sample.json --out <scratch path>`.",
+ "version": 0.6,
+ "generator": "hand-written ScubaGo test fixture",
+ "osm3s": {
+  "timestamp_osm_base": "2026-01-01T00:00:00Z"
+ },
+ "elements": [
+  {
+   "type": "node",
+   "id": 9000000001,
+   "lat": -12.5,
+   "lon": 143.8,
+   "tags": {
+    "sport": "scuba_diving",
+    "scuba_diving:divespot": "yes",
+    "name": "Fixture Reef Alpha",
+    "natural": "reef",
+    "scuba_diving:maxdepth": "25 m"
+   }
+  },
+  {
+   "type": "way",
+   "id": 9000000002,
+   "center": {
+    "lat": -16.9,
+    "lon": 146.0
+   },
+   "tags": {
+    "sport": "scuba_diving",
+    "scuba_diving:divespot": "yes",
+    "name": "Fixture Wreck Bravo",
+    "historic": "wreck",
+    "depth": "18-32",
+    "scuba_diving:entry": "boat",
+    "description": "Prose from OSM that must never reach the app."
+   }
+  },
+  {
+   "type": "relation",
+   "id": 9000000003,
+   "center": {
+    "lat": -19.9,
+    "lon": 148.9
+   },
+   "tags": {
+    "sport": "scuba_diving",
+    "scuba_diving:divespot": "yes",
+    "name": "Fixture Relation Charlie",
+    "name:en": "Fixture Charlie English",
+    "scuba_diving:type": "wall;drift",
+    "scuba_diving:difficulty": "advanced"
+   }
+  },
+  {
+   "type": "node",
+   "id": 9000000004,
+   "lat": -23.5,
+   "lon": 151.9,
+   "tags": {
+    "sport": "scuba_diving",
+    "scuba_diving:divespot": "yes",
+    "name": "Fixture Cay Delta"
+   }
+  },
+  {
+   "type": "node",
+   "id": 9000000005,
+   "lat": -13.9,
+   "lon": 146.6,
+   "tags": {
+    "sport": "scuba_diving",
+    "scuba_diving:divespot": "yes",
+    "name": "Fixture Pinnacle Echo",
+    "scuba_diving:type:wall": "yes"
+   }
+  },
+  {
+   "type": "node",
+   "id": 9000000006,
+   "lat": 27.2,
+   "lon": 33.9,
+   "tags": {
+    "sport": "scuba_diving",
+    "scuba_diving:divespot": "yes",
+    "name": "Fixture Wreck Foxtrot",
+    "historic": "wreck",
+    "scuba_diving:entry": "shore;boat",
+    "scuba_diving:maxdepth": "100 ft"
+   }
+  },
+  {
+   "type": "node",
+   "id": 9000000007,
+   "lat": 27.9,
+   "lon": 34.3,
+   "tags": {
+    "sport": "scuba_diving",
+    "scuba_diving:divespot": "yes",
+    "name": "Fixture Reef Golf",
+    "natural": "reef"
+   }
+  },
+  {
+   "type": "node",
+   "id": 9000000008,
+   "lat": 25.1,
+   "lon": 34.9,
+   "tags": {
+    "sport": "scuba_diving",
+    "scuba_diving:divespot": "yes",
+    "name": "Fixture Reef Hotel",
+    "natural": "reef"
+   }
+  },
+  {
+   "type": "node",
+   "id": 9000000009,
+   "lat": 25.0,
+   "lon": 35.95,
+   "tags": {
+    "sport": "scuba_diving",
+    "scuba_diving:divespot": "yes",
+    "name": "Fixture Reef India",
+    "natural": "reef"
+   }
+  },
+  {
+   "type": "node",
+   "id": 9000000010,
+   "lat": 29.0,
+   "lon": 32.9,
+   "tags": {
+    "sport": "scuba_diving",
+    "scuba_diving:divespot": "yes",
+    "name": "Fixture Reef Juliet"
+   }
+  },
+  {
+   "type": "node",
+   "id": 9000000011,
+   "lat": 27.25,
+   "lon": 33.81,
+   "tags": {
+    "sport": "scuba_diving",
+    "amenity": "dive_centre",
+    "name": "Fixture Dive Centre"
+   }
+  },
+  {
+   "type": "node",
+   "id": 9000000012,
+   "lat": 27.26,
+   "lon": 33.81,
+   "tags": {
+    "sport": "scuba_diving",
+    "shop": "scuba_diving",
+    "name": "Fixture Dive Shop"
+   }
+  },
+  {
+   "type": "node",
+   "id": 9000000013,
+   "lat": 27.27,
+   "lon": 33.81,
+   "tags": {
+    "sport": "scuba_diving",
+    "club": "scuba_diving",
+    "name": "Fixture Dive Club"
+   }
+  },
+  {
+   "type": "node",
+   "id": 9000000014,
+   "lat": 27.28,
+   "lon": 33.81,
+   "tags": {
+    "sport": "scuba_diving",
+    "scuba_diving:divespot": "yes",
+    "name": "Fixture Hotel",
+    "tourism": "hotel"
+   }
+  },
+  {
+   "type": "node",
+   "id": 9000000015,
+   "lat": 27.29,
+   "lon": 33.81,
+   "tags": {
+    "sport": "scuba_diving",
+    "name": "Fixture Sport Only"
+   }
+  },
+  {
+   "type": "node",
+   "id": 9000000016,
+   "lat": 27.3,
+   "lon": 33.81,
+   "tags": {
+    "sport": "scuba_diving",
+    "scuba_diving:divespot": "yes"
+   }
+  },
+  {
+   "type": "node",
+   "id": 9000000017,
+   "lat": 28.5,
+   "lon": 35.0,
+   "tags": {
+    "sport": "scuba_diving",
+    "scuba_diving:divespot": "yes",
+    "name": "Fixture Far Shore"
+   }
+  },
+  {
+   "type": "node",
+   "id": 9000000018,
+   "lat": 31.2,
+   "lon": 29.9,
+   "tags": {
+    "sport": "scuba_diving",
+    "scuba_diving:divespot": "yes",
+    "name": "Fixture Mediterranean"
+   }
+  },
+  {
+   "type": "way",
+   "id": 9000000019,
+   "tags": {
+    "sport": "scuba_diving",
+    "scuba_diving:divespot": "yes",
+    "name": "Fixture Way Without Centre"
+   }
+  },
+  {
+   "type": "node",
+   "id": 9000000020,
+   "lat": 27.31,
+   "lon": 33.81,
+   "tags": {
+    "sport": "scuba_diving",
+    "scuba_diving:divespot": "no",
+    "name": "Fixture Not A Spot"
+   }
+  },
+  {
+   "type": "node",
+   "id": 9000000021,
+   "lat": -17.0,
+   "lon": 145.5,
+   "tags": {
+    "sport": "scuba_diving",
+    "scuba_diving:divespot": "yes",
+    "name": "Fixture Lake",
+    "water": "lake"
+   }
+  },
+  {
+   "type": "node",
+   "id": 9000000022,
+   "lat": 27.25,
+   "lon": 33.95,
+   "tags": {
+    "sport": "scuba_diving",
+    "scuba_diving:divespot": "yes",
+    "name": "Fixture Twin Reef",
+    "natural": "reef"
+   }
+  },
+  {
+   "type": "way",
+   "id": 9000000023,
+   "center": {
+    "lat": 27.2503,
+    "lon": 33.9501
+   },
+   "tags": {
+    "sport": "scuba_diving",
+    "scuba_diving:divespot": "yes",
+    "name": "Fixture Twin Reef",
+    "natural": "reef",
+    "scuba_diving:maxdepth": "12"
+   }
+  },
+  {
+   "type": "node",
+   "id": 9000000024,
+   "lat": -14.6615,
+   "lon": 145.6415,
+   "tags": {
+    "sport": "scuba_diving",
+    "scuba_diving:divespot": "yes",
+    "name": "Fixture Unrelated Name",
+    "natural": "reef"
+   }
+  },
+  {
+   "type": "node",
+   "id": 9000000025,
+   "lat": 27.813,
+   "lon": 33.93,
+   "tags": {
+    "sport": "scuba_diving",
+    "scuba_diving:divespot": "yes",
+    "name": "Fixture Thistlegorm",
+    "historic": "wreck"
+   }
+  },
+  {
+   "type": "node",
+   "id": 9000000001,
+   "lat": -12.5,
+   "lon": 143.8,
+   "tags": {
+    "sport": "scuba_diving",
+    "scuba_diving:divespot": "yes",
+    "name": "Fixture Reef Alpha",
+    "natural": "reef",
+    "scuba_diving:maxdepth": "25 m"
+   }
+  }
+ ]
+}

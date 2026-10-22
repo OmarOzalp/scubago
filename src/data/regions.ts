@@ -12,6 +12,14 @@ export const REGIONS: Region[] = [
   { id: 'gbr-townsville-whitsunday', name: 'Townsville/Whitsunday', parentId: 'great-barrier-reef', country: 'Australia', source: 'GBRMPA management areas' },
   { id: 'gbr-mackay-capricorn', name: 'Mackay/Capricorn', parentId: 'great-barrier-reef', country: 'Australia', source: 'GBRMPA management areas' },
   { id: 'coral-sea', name: 'Coral Sea', country: 'Australia', source: 'Coral Sea Marine Park' },
+  // The Red Sea is shared by several countries, so its root has none. The children are ScubaGo's own
+  // grouping of Egypt's coast, with the boundaries in src/lib/site-import.ts (docs/osm-sites.md).
+  { id: 'red-sea', name: 'Red Sea', source: 'ScubaGo grouping' },
+  { id: 'red-sea-sinai', name: 'Sinai', parentId: 'red-sea', country: 'Egypt', source: 'ScubaGo grouping (Sharm el-Sheikh, Ras Mohammed, Dahab, Nuweiba, the Straits of Tiran)' },
+  { id: 'red-sea-hurghada', name: 'Hurghada & Safaga', parentId: 'red-sea', country: 'Egypt', source: 'ScubaGo grouping (Hurghada, El Gouna, Safaga, Giftun, the Strait of Gubal)' },
+  { id: 'red-sea-southern', name: 'Marsa Alam & the south', parentId: 'red-sea', country: 'Egypt', source: 'ScubaGo grouping (Marsa Alam to Berenice, Fury Shoals)' },
+  { id: 'red-sea-offshore', name: 'Offshore reefs', parentId: 'red-sea', country: 'Egypt', source: 'ScubaGo grouping (Brothers, Daedalus, Elphinstone, Rocky Island, Zabargad, St John’s)' },
+  { id: 'gulf-of-suez', name: 'Gulf of Suez', parentId: 'red-sea', country: 'Egypt', source: 'ScubaGo grouping' },
 ];
 
 export const REGIONS_BY_ID: Map<string, Region> = new Map(REGIONS.map((r) => [r.id, r]));

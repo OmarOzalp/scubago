@@ -1,11 +1,15 @@
 import type { DiveSite } from '@/lib/types';
 
+// Relative imports, because the seed script runs this file under tsx (without the app's `@/` alias).
+import { mergeSites, type OsmSiteRecord } from '../lib/site-import';
+import osmSites from './osm-sites.json';
+
 /**
  * Seeded dive sites — a curated set of the world's famous sites so the map is alive on
  * day one. Coordinates are approximate (site-marker precision, not navigation precision).
  * notableSpecies ids must exist in src/data/species.ts.
  */
-export const SITES: DiveSite[] = [
+export const SEED_SITES: readonly DiveSite[] = [
   // ── Thailand & Andaman Sea ────────────────────────────────────────────────
   { id: 'richelieu-rock', name: 'Richelieu Rock', lat: 9.3606, lng: 98.0227, region: 'Andaman Sea', country: 'Thailand', blurb: 'Horseshoe pinnacle of purple soft coral; Thailand’s most famous site and a whale shark magnet.', notableSpecies: ['whale-shark', 'chevron-barracuda', 'common-seahorse', 'harlequin-shrimp', 'giant-moray', 'sea-goldie', 'broadclub-cuttlefish', 'ornate-ghost-pipefish'], source: 'seed' },
   { id: 'chumphon-pinnacle', name: 'Chumphon Pinnacle', lat: 10.18, lng: 99.77, region: 'Gulf of Thailand', country: 'Thailand', blurb: 'Koh Tao’s big-fish pinnacle — batfish clouds, barracuda and the occasional whale shark.', notableSpecies: ['whale-shark', 'great-barracuda', 'circular-batfish', 'star-puffer', 'giant-grouper', 'bigfin-reef-squid'], source: 'seed' },
@@ -14,12 +18,12 @@ export const SITES: DiveSite[] = [
   { id: 'hin-daeng', name: 'Hin Daeng & Hin Muang', lat: 7.145, lng: 98.822, region: 'Andaman Sea', country: 'Thailand', blurb: 'Deep crimson-and-purple walls in blue water; mantas and whale sharks cruise by.', notableSpecies: ['reef-manta', 'whale-shark', 'grey-reef-shark', 'leaf-scorpionfish', 'chevron-barracuda'], source: 'seed' },
 
   // ── Red Sea ───────────────────────────────────────────────────────────────
-  { id: 'ss-thistlegorm', name: 'SS Thistlegorm', lat: 27.813, lng: 33.92, region: 'Red Sea', country: 'Egypt', blurb: 'WWII cargo wreck full of trucks and motorbikes — the world’s most famous wreck dive.', notableSpecies: ['circular-batfish', 'great-barracuda', 'giant-moray', 'crocodilefish', 'lionfish', 'star-puffer'], source: 'seed' },
-  { id: 'shark-yolanda', name: 'Shark & Yolanda Reef', lat: 27.723, lng: 34.257, region: 'Ras Mohammed', country: 'Egypt', blurb: 'Twin pinnacles, a cargo of bathtubs, and summer snapper storms at the tip of Sinai.', notableSpecies: ['grey-reef-shark', 'napoleon-wrasse', 'emperor-angelfish', 'moorish-idol', 'sea-goldie', 'giant-moray', 'green-turtle'], source: 'seed' },
-  { id: 'blue-hole-dahab', name: 'Blue Hole', lat: 28.572, lng: 34.537, region: 'Dahab', country: 'Egypt', blurb: 'The infamous sinkhole; recreational divers ride the gorgeous Bells-to-Blue-Hole wall.', notableSpecies: ['sea-goldie', 'moorish-idol', 'emperor-angelfish', 'lionfish', 'green-turtle', 'trumpetfish'], source: 'seed' },
-  { id: 'elphinstone', name: 'Elphinstone Reef', lat: 25.31, lng: 34.86, region: 'Marsa Alam', country: 'Egypt', blurb: 'Current-swept offshore reef where oceanic whitetips patrol in autumn.', notableSpecies: ['oceanic-whitetip', 'grey-reef-shark', 'napoleon-wrasse', 'green-turtle', 'sea-goldie'], source: 'seed' },
-  { id: 'daedalus', name: 'Daedalus Reef', lat: 24.93, lng: 35.87, region: 'Red Sea', country: 'Egypt', blurb: 'Remote lighthouse reef famous for schooling scalloped hammerheads.', notableSpecies: ['scalloped-hammerhead', 'oceanic-whitetip', 'thresher-shark', 'napoleon-wrasse', 'sea-goldie'], source: 'seed' },
-  { id: 'brothers-islands', name: 'Brothers Islands', lat: 26.2, lng: 34.84, region: 'Red Sea', country: 'Egypt', blurb: 'Two volcanic specks with wrecks, walls and reliable pelagic shark action.', notableSpecies: ['oceanic-whitetip', 'grey-reef-shark', 'thresher-shark', 'napoleon-wrasse', 'giant-moray'], source: 'seed' },
+  { id: 'ss-thistlegorm', name: 'SS Thistlegorm', lat: 27.813, lng: 33.92, region: 'Red Sea', country: 'Egypt', blurb: 'WWII cargo wreck full of trucks and motorbikes — the world’s most famous wreck dive.', notableSpecies: ['circular-batfish', 'great-barracuda', 'giant-moray', 'crocodilefish', 'lionfish', 'star-puffer'], source: 'seed', regionId: 'red-sea-hurghada' },
+  { id: 'shark-yolanda', name: 'Shark & Yolanda Reef', lat: 27.723, lng: 34.257, region: 'Ras Mohammed', country: 'Egypt', blurb: 'Twin pinnacles, a cargo of bathtubs, and summer snapper storms at the tip of Sinai.', notableSpecies: ['grey-reef-shark', 'napoleon-wrasse', 'emperor-angelfish', 'moorish-idol', 'sea-goldie', 'giant-moray', 'green-turtle'], source: 'seed', regionId: 'red-sea-sinai' },
+  { id: 'blue-hole-dahab', name: 'Blue Hole', lat: 28.572, lng: 34.537, region: 'Dahab', country: 'Egypt', blurb: 'The infamous sinkhole; recreational divers ride the gorgeous Bells-to-Blue-Hole wall.', notableSpecies: ['sea-goldie', 'moorish-idol', 'emperor-angelfish', 'lionfish', 'green-turtle', 'trumpetfish'], source: 'seed', regionId: 'red-sea-sinai' },
+  { id: 'elphinstone', name: 'Elphinstone Reef', lat: 25.31, lng: 34.86, region: 'Marsa Alam', country: 'Egypt', blurb: 'Current-swept offshore reef where oceanic whitetips patrol in autumn.', notableSpecies: ['oceanic-whitetip', 'grey-reef-shark', 'napoleon-wrasse', 'green-turtle', 'sea-goldie'], source: 'seed', regionId: 'red-sea-offshore' },
+  { id: 'daedalus', name: 'Daedalus Reef', lat: 24.93, lng: 35.87, region: 'Red Sea', country: 'Egypt', blurb: 'Remote lighthouse reef famous for schooling scalloped hammerheads.', notableSpecies: ['scalloped-hammerhead', 'oceanic-whitetip', 'thresher-shark', 'napoleon-wrasse', 'sea-goldie'], source: 'seed', regionId: 'red-sea-offshore' },
+  { id: 'brothers-islands', name: 'Brothers Islands', lat: 26.2, lng: 34.84, region: 'Red Sea', country: 'Egypt', blurb: 'Two volcanic specks with wrecks, walls and reliable pelagic shark action.', notableSpecies: ['oceanic-whitetip', 'grey-reef-shark', 'thresher-shark', 'napoleon-wrasse', 'giant-moray'], source: 'seed', regionId: 'red-sea-offshore' },
 
   // ── Maldives ──────────────────────────────────────────────────────────────
   { id: 'fuvahmulah', name: 'Fuvahmulah', lat: -0.3, lng: 73.43, region: 'Gnaviyani Atoll', country: 'Maldives', blurb: 'The tiger shark capital of the world — dozens on a single dive.', notableSpecies: ['tiger-shark', 'thresher-shark', 'oceanic-manta', 'scalloped-hammerhead', 'whale-shark'], source: 'seed' },
@@ -98,4 +102,16 @@ export const SITES: DiveSite[] = [
   { id: 'skjervoy', name: 'Skjervøy Fjords', lat: 70.03, lng: 20.97, region: 'Troms', country: 'Norway', blurb: 'Snorkel with orcas hunting herring under the northern lights season.', notableSpecies: ['orca', 'humpback-whale'], source: 'seed' },
 ];
 
-export const SITES_BY_ID: Map<string, DiveSite> = new Map(SITES.map((s) => [s.id, s]));
+/**
+ * The seeds, with the dive sites imported from OpenStreetMap (src/data/osm-sites.json, © OpenStreetMap
+ * contributors, ODbL 1.0; docs/osm-sites.md) after them. A seed OpenStreetMap also maps is listed
+ * once, with the OSM element as an external id. This is the one list the app and the seed script read.
+ */
+const merged = mergeSites(SEED_SITES, osmSites as unknown as OsmSiteRecord[]);
+export const SITES: DiveSite[] = merged.sites;
+/** Every site by id, including retired imported ones, so a sighting logged at one still finds its site. */
+export const SITES_BY_ID: Map<string, DiveSite> = merged.byId;
+/** Imported sites OpenStreetMap has stopped listing: in SITES_BY_ID, never in SITES. */
+export const RETIRED_SITE_IDS: ReadonlySet<string> = merged.retiredIds;
+/** Imported sites that are really a seed site, with how they matched. They are not listed again. */
+export const OSM_SEED_DUPLICATES = merged.duplicates;

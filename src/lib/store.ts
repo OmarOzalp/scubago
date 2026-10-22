@@ -2,7 +2,7 @@ import { useMemo } from 'react';
 import { AppState } from 'react-native';
 import { create } from 'zustand';
 
-import { SITES } from '@/data/sites';
+import { SITES, SITES_BY_ID } from '@/data/sites';
 import { deleteAccount as deleteRemoteAccount } from '@/lib/account';
 import { ensureProfile, getSessionUserId, signOut as authSignOut, usernameForUser } from '@/lib/auth';
 import { CATALOG_BY_ID, UNLISTED_ID } from '@/lib/catalog';
@@ -133,7 +133,7 @@ export const useAppStore = create<StoreState>((set, get) => {
   const checkInput = (input: NewSighting) => {
     const problem = validateSightingInput(input, {
       species: (id) => CATALOG_BY_ID.has(id),
-      site: (id) => SITES.some((s) => s.id === id) || get().userSites.some((s) => s.id === id),
+      site: (id) => SITES_BY_ID.has(id) || get().userSites.some((s) => s.id === id),
       today: localIsoDate(new Date()),
     });
     if (problem) throw new Error(problem);
@@ -181,7 +181,7 @@ export const useAppStore = create<StoreState>((set, get) => {
 
   const checkDive = (fields: DiveFields) => {
     const problem = validateDive(fields, {
-      site: (id) => SITES.some((s) => s.id === id) || get().userSites.some((s) => s.id === id),
+      site: (id) => SITES_BY_ID.has(id) || get().userSites.some((s) => s.id === id),
       today: localIsoDate(new Date()),
     });
     if (problem) throw new Error(problem);
@@ -500,7 +500,7 @@ export const useAppStore = create<StoreState>((set, get) => {
 /** Seeded sites + the user's own additions. */
 export function useAllSites(): DiveSite[] {
   const userSites = useAppStore((s) => s.userSites);
-  return userSites.length === 0 ? SITES : [...SITES, ...userSites];
+  return useMemo(() => (userSites.length === 0 ? SITES : [...SITES, ...userSites]), [userSites]);
 }
 
 /** The id that owns "my" rows: the signed-in user, or the device before sign-in. */
