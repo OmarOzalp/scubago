@@ -425,8 +425,12 @@ export function osmElementToSite(element: OverpassElement, retrievedOn: string):
 
 /** Elements this close with the same name are one place mapped twice (a node and a way, say). */
 export const WITHIN_IMPORT_M = 150;
-/** An imported site this close to a seed is the seed, whatever it is called. */
-export const SEED_NEAR_M = 300;
+/**
+ * An imported site this close to a seed is the seed, whatever it is called. Only a few metres: dive
+ * sites crowd together (The Bells is 250 m from the Blue Hole, Satellite Reef 170 m from Shark &
+ * Yolanda Reef), so beyond this the names decide.
+ */
+export const SEED_NEAR_M = 60;
 /** An imported site this close to a seed, with a similar name, is the seed (seed positions are approximate). */
 export const SEED_NAME_M = 1500;
 
@@ -564,12 +568,12 @@ export interface SeedMatch {
   importedId: string;
   seedId: string;
   distanceM: number;
-  /** 'near': inside 300 m. 'name': inside 1.5 km with a similar name. */
+  /** 'near': inside 60 m. 'name': inside 1.5 km with a similar name. */
   basis: 'near' | 'name';
 }
 
 /**
- * Which imported sites are really a seed site. A seed matches within 300 m whatever it is called,
+ * Which imported sites are really a seed site. A seed matches within 60 m whatever it is called,
  * or within 1.5 km when the names are similar. Each imported site matches at most one seed, the
  * nearest that qualifies.
  */

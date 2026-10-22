@@ -358,11 +358,12 @@ describe('duplicates of the seed sites', () => {
   /** Latitude offset in degrees for a distance in metres. */
   const north = (m: number) => m / 111195;
 
-  it('matches within 300 m whatever the name', () => {
-    const [m] = matchSeeds([near(seed.lat + north(250), seed.lng, 'Completely Different')], [seed]);
+  it('matches within 60 m whatever the name, and keeps a differently named site 250 m away apart', () => {
+    const [m] = matchSeeds([near(seed.lat + north(50), seed.lng, 'Completely Different')], [seed]);
     expect(m).toMatchObject({ importedId: 'osm-node-1', seedId: 'seed-wreck', basis: 'near' });
-    expect(m.distanceM).toBeGreaterThan(240);
-    expect(matchSeeds([near(seed.lat + north(350), seed.lng, 'Completely Different')], [seed])).toEqual([]);
+    expect(m.distanceM).toBeGreaterThan(45);
+    // The Bells is about 250 m from the Blue Hole, and a dive of its own.
+    expect(matchSeeds([near(seed.lat + north(250), seed.lng, 'Completely Different')], [seed])).toEqual([]);
   });
 
   it('matches within 1.5 km when the names are similar, but not beyond', () => {

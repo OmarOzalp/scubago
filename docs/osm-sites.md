@@ -140,8 +140,8 @@ normalised by lower-casing, dropping accents, apostrophes and punctuation, turni
 and dropping the words "the", "and", "reef", "dive", "site" and the ship prefixes SS, MV, MS, HMAS,
 HMS, USS, USAT and SV.
 
-**Against the 69 seeds:** an imported site is a seed if it is within **300 m** of it whatever it is
-called, or within **1.5 km** with a similar name (the same once normalised, or one holds all the
+**Against the 69 seeds:** an imported site is a seed if it is within **60 m** of it whatever it is
+called (dive sites crowd together: The Bells is 250 m from the Blue Hole, a dive of its own), or within **1.5 km** with a similar name (the same once normalised, or one holds all the
 words of the other, or one letter apart in a name of six letters or more). Each matches the nearest
 seed only. A match is **not added as a new site**:
 

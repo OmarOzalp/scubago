@@ -285,8 +285,8 @@
   {
    "type": "node",
    "id": 9000000024,
-   "lat": -14.6615,
-   "lon": 145.6415,
+   "lat": -14.6603,
+   "lon": 145.6403,
    "tags": {
     "sport": "scuba_diving",
     "scuba_diving:divespot": "yes",
