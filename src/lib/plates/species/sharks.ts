@@ -643,9 +643,10 @@ const nurse: SharkSpec = variant(requiem, {
   belly: 0.8,
   extra: (c) => {
     const s = c.s;
-    const barbel = spline([atX(s, 0.9, 0.86), atX(s, 1.7, 1.0), add(atX(s, 2.2, 1), [0.6, 2])], false);
+    // The pair of nasal barbels hanging from the snout, heavy enough to show at thumbnail size.
+    const barbel = (x: number, dx: number) => spline([atX(s, x, 0.84), atX(s, x + 0.5, 1.0), add(atX(s, x + 0.9, 1), [dx, 3.4])], false);
     return {
-      lines: [{ pts: barbel, w: 1.2 }, { pts: [atX(s, 5.8, 0.22), atX(s, 6.3, 0.24)], w: 1.1 }],
+      lines: [{ pts: barbel(0.9, 0.4), w: 2.6 }, { pts: barbel(1.9, 0.9), w: 2.3 }, { pts: [atX(s, 5.8, 0.22), atX(s, 6.3, 0.24)], w: 1.1 }],
     };
   },
 });
