@@ -39,6 +39,12 @@ export function RealSightingsView({ summary, status, onRefresh, onOpenSpecies, o
 
   const empty = model.species.length === 0 && model.recent.length === 0;
   const hasInatSpecies = model.species.some((entry) => !!entry.inaturalist);
+  // With no recent observation to show, say why: the request failed, or none of them is openly licensed.
+  const recentGap = model.recentFailed
+    ? 'Recent observations couldn’t be loaded.'
+    : model.inatAnswered && hasInatSpecies
+      ? 'iNaturalist has records here, but none recent that are openly licensed for ScubaGo to show.'
+      : null;
   return (
     <View style={styles.section}>
       <SectionHeader eyebrow="Public records" title="Marine life recorded here" />
@@ -74,13 +80,13 @@ export function RealSightingsView({ summary, status, onRefresh, onOpenSpecies, o
               </ThemedText>
               <RecentObservations recent={model.recent} onOpenUrl={onOpenUrl} />
             </View>
-          ) : model.inatAnswered && hasInatSpecies ? (
+          ) : recentGap ? (
             <View style={styles.block}>
               <ThemedText type="label" accessibilityRole="header">
                 Recent observations
               </ThemedText>
               <ThemedText type="small" themeColor="textSecondary">
-                iNaturalist has records here, but none recent that are openly licensed for ScubaGo to show.
+                {recentGap}
               </ThemedText>
             </View>
           ) : null}

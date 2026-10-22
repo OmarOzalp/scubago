@@ -270,6 +270,16 @@ describe('when one source fails', () => {
     expect(refreshed.sources[0]).toMatchObject({ ok: true, error: 'Recent observations: No connection.', fetchedAt: NOW });
   });
 
+  it('says when the recent observations could not be read, so an empty list is not taken for none licensed', () => {
+    const failed = build({ inat: { ok: true, data: { ...inatData, observations: [], observationsError: 'Recent observations: No connection.' } } });
+    expect(failed.recent).toEqual([]);
+    expect(failed.sources[0]).toMatchObject({ ok: true, recentFailed: true });
+    expect(build().sources[0].recentFailed).toBeUndefined();
+    // When iNaturalist fails altogether the data kept is the last summary's, and so is what it says of the recent list.
+    expect(build({ inat: down('x'), previous: failed }).sources[0]).toMatchObject({ error: 'x', recentFailed: true });
+    expect(build({ inat: down('x'), previous: build() }).sources[0].recentFailed).toBeUndefined();
+  });
+
   it('flags a source that had more taxa than one refresh reads', () => {
     const truncated = build({ inat: { ok: true, data: { ...inatData, truncated: true } }, obis: { ok: true, data: { ...obisData, truncated: true } } });
     expect(truncated.sources.map((s) => s.truncated)).toEqual([true, true]);

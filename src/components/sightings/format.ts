@@ -116,8 +116,10 @@ export interface SightingsModel {
   exploreUrl?: string;
   /** Sources whose records are on show, for the credit line. */
   credited: SourceId[];
-  /** iNaturalist answered, so a missing recent list means there is nothing openly licensed to show. */
+  /** iNaturalist answered, so a missing recent list means there is nothing openly licensed to show, unless `recentFailed`. */
   inatAnswered: boolean;
+  /** iNaturalist answered but its recent observations could not be read: a missing list says nothing. */
+  recentFailed: boolean;
   /** Names of the sources that answered, for the empty state. */
   answered: string[];
 }
@@ -166,6 +168,7 @@ export function buildModel(summary: SiteSightings | null, status: SightingsStatu
     refreshing: false,
     credited: [],
     inatAnswered: false,
+    recentFailed: false,
     answered: [],
   };
   if (status === 'idle') return empty;
@@ -208,6 +211,7 @@ export function buildModel(summary: SiteSightings | null, status: SightingsStatu
     exploreUrl: inat?.ok ? inatUrl(inat.url) : undefined,
     credited: okSources.map((source) => source.id),
     inatAnswered: !!inat?.ok,
+    recentFailed: !!inat?.ok && !!inat.recentFailed,
     answered: okSources.map((source) => NAME[source.id]),
   };
 }

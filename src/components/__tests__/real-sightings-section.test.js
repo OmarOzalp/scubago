@@ -254,6 +254,16 @@ test('open-licence recent observations missing: the counts stay and the gap is e
   expect(textOf()).toContain('none recent that are openly licensed for ScubaGo to show');
 });
 
+test('recent observations that could not be loaded are not said to be none openly licensed', async () => {
+  const inat = source('inaturalist', ago(0), { error: 'Recent observations: iNaturalist is busy (HTTP 429). Try again later.', recentFailed: true });
+  await render({ summary: summary({ recent: [], sources: [inat, source('obis', ago(0))] }), status: 'ready' });
+  const text = textOf();
+  expect(text).toContain('Recent observations couldn’t be loaded.');
+  expect(text).not.toContain('openly licensed for ScubaGo to show');
+  // The counts that did come are still there.
+  expect(text).toContain('212 iNaturalist observations');
+});
+
 test('records that are not in the catalogue, or whose link is not iNaturalist, are never drawn', async () => {
   const odd = summary({
     species: [{ speciesId: 'not-a-real-animal', inaturalist: { observations: 99 } }, { speciesId: 'reef-manta', inaturalist: { observations: 5 } }],

@@ -173,6 +173,12 @@ describe('entries that cannot be trusted', () => {
     }
   });
 
+  it('keeps the word that the recent observations could not be read', () => {
+    const failed = summary('a', T0, { sources: [status('inaturalist', T0, { error: 'Recent observations: No connection.', recentFailed: true }), status('obis', T0)] });
+    expect(parseSiteSightings(failed)?.sources[0]).toMatchObject({ recentFailed: true });
+    expect(parseSiteSightings(summary('a'))?.sources[0].recentFailed).toBeUndefined();
+  });
+
   it('rebuilds the field-by-field shape and drops what does not check out', () => {
     const parsed = parseSiteSightings({
       ...summary('a'),

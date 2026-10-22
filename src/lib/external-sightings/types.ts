@@ -29,6 +29,11 @@ export interface SourceStatus {
   url: string;
   /** The source had more taxa than one refresh reads, so the smallest counts may be missing. */
   truncated?: boolean;
+  /**
+   * iNaturalist only: the recent observations could not be read when this data was fetched, so an
+   * empty recent list does not mean none is openly licensed.
+   */
+  recentFailed?: boolean;
 }
 
 /** What the sources say about one catalogue species near a site. */

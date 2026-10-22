@@ -290,6 +290,8 @@ Per-source flags are respected. A source with `ok: false` is named ("OBIS couldn
 records aren't included") and left out of the credit line. A source with `ok` and an `error` says its
 records are from an earlier day. A `truncated` source says a rarely recorded animal may be missing. If
 iNaturalist answered but no recent observation is openly licensed, the counts stay and a line says so.
+If the recent observations could not be read (`recentFailed` on iNaturalist's status), the line says
+they couldn't be loaded instead.
 
 What is and is not shown:
 

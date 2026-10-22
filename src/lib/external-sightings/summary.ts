@@ -179,7 +179,7 @@ function sourceStatus(
   id: SourceId,
   site: SiteQuery,
   fetchedAt: string,
-  result: { ok: boolean; error?: string; truncated?: boolean },
+  result: { ok: boolean; error?: string; truncated?: boolean; recentFailed?: boolean },
 ): SourceStatus {
   const credit = SOURCE_CREDITS[id];
   return {
@@ -191,6 +191,7 @@ function sourceStatus(
     licenceNote: credit.licenceNote,
     url: id === 'inaturalist' ? inatExploreUrl(site) : OBIS_WEBSITE,
     ...(result.truncated ? { truncated: true } : {}),
+    ...(result.recentFailed ? { recentFailed: true } : {}),
   };
 }
 
@@ -230,7 +231,7 @@ export function buildSiteSightings({ site, fetchedAt, inat, obis, previous, matc
     }
     // Either error makes the answer partial, so it is tried again within the hour (cache.ts).
     const error = [inat.data.countsError, inat.data.observationsError].filter(Boolean).join(' ');
-    statuses.push(sourceStatus('inaturalist', site, fetchedAt, { ok: true, error, truncated: inat.data.truncated }));
+    statuses.push(sourceStatus('inaturalist', site, fetchedAt, { ok: true, error, truncated: inat.data.truncated, recentFailed: !!inat.data.observationsError }));
   } else {
     const kept = hadData(previous, 'inaturalist');
     if (previous && kept) {
