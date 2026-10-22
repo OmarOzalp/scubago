@@ -3,20 +3,22 @@
 **Status:** imported on 22 October 2026 from OpenStreetMap through the Overpass mirrors
 `overpass.kumi.systems` and `overpass.private.coffee` (overpass-api.de refuses connections from the
 build environment). The area was fetched in eight smaller boxes, saved, and passed to the import with
-`--input`. `src/data/osm-sites.json` holds **268 dive sites**:
+`--input`. `src/data/osm-sites.json` holds **268 dive sites**, 265 live and 3 retired as second marks
+for a site already listed (re-run from the same saved boxes after the same-name rule widened to 3 km):
 
 | Region | Sites |
 | --- | --- |
-| Red Sea: Hurghada & Safaga | 88 |
-| Red Sea: Marsa Alam & the south | 73 |
-| Red Sea: Sinai | 58 |
+| Red Sea: Hurghada & Safaga | 87 |
+| Red Sea: Marsa Alam & the south | 72 |
+| Red Sea: Sinai | 57 |
 | Red Sea: offshore reefs | 24 |
 | Great Barrier Reef: Cairns/Cooktown | 19 |
 | Great Barrier Reef: Townsville/Whitsunday | 1 |
 | Coral Sea | 5 |
 
-8 of them are seed sites already (Thistlegorm, Shark & Yolanda Reef, the Blue Hole, Elphinstone,
-Daedalus), so the app lists **260 new sites, 329 in all**. That is short of the ~400 hoped for:
+9 of them are seed sites already (Thistlegorm, Shark & Yolanda Reef, the Blue Hole, Elphinstone,
+Daedalus, Cod Hole) and 3 are a second mark for a site OSM already has (Kormoran, Habili Ali, Sha'ab El
+Erg), so the app lists **256 new sites, 325 in all**. That is short of the ~400 hoped for:
 OpenStreetMap maps the Egyptian Red Sea well but the Great Barrier Reef thinly, and nothing was added to
 make up the number. 53 dive centres, shops, clubs and the like, 10 unnamed points and 10 sites on the
 Jordanian shore were left out. No dive site in this repository was typed in by hand.
@@ -147,8 +149,11 @@ never removed from the file**.
 
 ## Duplicates
 
-**Within the import:** elements within **1 km** with the same **normalised name** are one place (a reef is often drawn as an outline and marked with a point too)
-mapped twice (typically a node and a way). The one kept is a site imported before (its id and its
+**Within the import:** elements within **3 km** with the same **normalised name** are one place (a reef is often drawn as an outline and marked with a point too)
+mapped twice (typically a node and a way; the two "Kormoran" are 1.9 km apart). Different sites
+sharing a name are much further apart: the nearest such pair, two "Manta Point", are on different
+oceans. Check the import's list of merges after a run over new waters, where a common name ("House
+Reef") could repeat closer than that. The one kept is a site imported before (its id and its
 sightings stay put), else a node over a way over a relation, else the lower OSM id. Names are
 normalised by lower-casing, dropping accents, apostrophes and punctuation, turning `&` into "and",
 and dropping the words "the", "and", "reef", "dive", "site" and the ship prefixes SS, MV, MS, HMAS,
@@ -269,12 +274,15 @@ the seed doesn't stop halfway. After committing a new `osm-sites.json`, the owne
 `npm run seed:supabase` with their own key (`SUPABASE_URL` and `SUPABASE_SECRET_KEY`). It
 **upserts**: it adds and updates, never deletes. It writes the regions (the new Red Sea ones
 included) before the sites, then each site's `site_field_sources` and `site_external_ids` rows. A
-retired site is no longer in `SITES`, so it isn't re-sent, and its row stays in Supabase, which is
-what old sightings need.
+retired site, or one found to be a seed's duplicate, is no longer in `SITES`, but the seed still
+sends its `dive_sites` row (every id in `SITES_BY_ID`): a dive or sighting logged at it before then
+points at that id. It sends no sources or external ids for those (a duplicate's OSM id is now its
+seed's).
 
 One catch: `site_external_ids` is unique on (`scheme`, `external_id`, `relation`). If a retired
 site's OSM id is later claimed by a seed (because a seed was added at that place), the seed script
-will hit that constraint; delete the retired site's row in `site_external_ids` first.
+will hit that constraint; delete the retired site's row in `site_external_ids` first. The same goes
+for a site that was seeded while listed and later found to be a seed's duplicate.
 
 ## What the app has to cope with
 
@@ -299,7 +307,9 @@ import report):
 - Region lines and the Egyptian country check are approximate; a few spots near a line may be
   filed in the neighbour. After the first run, read the per-region summary and the sites near the
   Gulf of Aqaba.
-- A site mapped twice with different names, or further than 1 km apart, is listed twice.
+- A site mapped twice with different names, or further than 3 km apart, is listed twice. A seed
+  matches an OSM site within 60 m whatever the names, within 1.5 km with a similar name, or within
+  3 km with the same one (seed positions are approximate).
 - The tags `scuba_diving:difficulty`, `scuba_diving:entry` and `scuba_diving:type` are used as
   hints. Nothing in the file is a recommendation, and the app shows "not known yet" for what is
   missing.

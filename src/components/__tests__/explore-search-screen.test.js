@@ -4,6 +4,7 @@ import { FlatList, StyleSheet, TextInput } from 'react-native';
 import { create } from 'react-test-renderer';
 import { router } from 'expo-router';
 import ExploreMapScreen from '@/app/(tabs)/map';
+import { REGIONS_BY_ID } from '@/data/regions';
 import { SITES } from '@/data/sites';
 import { announce } from '@/lib/announce';
 
@@ -48,6 +49,16 @@ afterEach(async () => {
 });
 
 const PLACEHOLDER = 'Search dive sites or animals';
+
+// Site counts from the data, as each import changes them: Egypt, the Red Sea (its parts included), Hurghada & Safaga.
+const inRegion = (site, id) => {
+  for (let r = site.regionId; r; r = REGIONS_BY_ID.get(r)?.parentId) if (r === id) return true;
+  return false;
+};
+const EGYPT = SITES.filter((s) => s.country === 'Egypt').length;
+const RED_SEA = SITES.filter((s) => inRegion(s, 'red-sea')).length;
+const HURGHADA = SITES.filter((s) => inRegion(s, 'red-sea-hurghada')).length;
+const GBR = SITES.filter((s) => inRegion(s, 'great-barrier-reef')).length;
 const text = () => root.root.findAll((n) => typeof n.children?.[0] === 'string').map((n) => n.children.join('')).join(' | ');
 // Everything pressable that says what it is (once: a row passes its label on to the Pressable inside it).
 const allPressables = () => root.root.findAll((n) => typeof n.props.onPress === 'function' && typeof n.props.accessibilityLabel === 'string');
@@ -92,15 +103,16 @@ test('the bar says it searches dive sites or animals, and opens to suggestions o
   // Tapping a suggestion searches for it.
   await press('Cod Hole. A dive site');
   expect(input().props.value).toBe('Cod Hole');
-  expect(labelsStarting('Cod Hole,')).toHaveLength(2);
+  expect(labelsStarting('Cod Hole,')).toHaveLength(1);
 });
 
 test('"cod hole" finds Cod Hole under dive sites', async () => {
   await render();
   await openSearch();
   await type('cod hole');
-  expect(headings()).toEqual(['Dive sites, 2 matches']);
-  expect(labelsStarting('Cod Hole,')).toEqual(['Cod Hole, Great Barrier Reef, Australia', 'Cod Hole, Cairns/Cooktown, Great Barrier Reef, Australia']);
+  // Once: OpenStreetMap's Cod Hole is the curated one, 2.6 km from where the seed puts it.
+  expect(headings()).toEqual(['Dive sites, 1 match']);
+  expect(labelsStarting('Cod Hole,')).toEqual(['Cod Hole, Great Barrier Reef, Australia']);
 });
 
 test('"manta" shows the reef manta under animals, below the Manta sites, with the old "Where can I see a…" question', async () => {
@@ -120,15 +132,15 @@ test('"egypt" and "hurghada" list the Red Sea sites, and "show all" opens every 
   await render();
   await openSearch();
   await type('egypt');
-  expect(headings()).toEqual(['Places, 1 match', 'Dive sites, 241 matches']);
-  expect(hasButton('Egypt, Country, 241 dive sites')).toBe(true);
+  expect(headings()).toEqual(['Places, 1 match', `Dive sites, ${EGYPT} matches`]);
+  expect(hasButton(`Egypt, Country, ${EGYPT} dive sites`)).toBe(true);
   expect(labelsStarting('Blue Hole, Dahab, Egypt')).toHaveLength(1);
   const rows = () => root.root.findByType(FlatList).props.data;
   // 2 headings, 1 place, 3 sites and the "show all" row.
   expect(rows()).toHaveLength(2 + 1 + 3 + 1);
-  await press('Show all 241 dive sites');
-  expect(rows()).toHaveLength(2 + 1 + 241 + 1);
-  // The way back is in the section's heading, which stays at the top as the rows scroll, not 241 rows down.
+  await press(`Show all ${EGYPT} dive sites`);
+  expect(rows()).toHaveLength(2 + 1 + EGYPT + 1);
+  // The way back is in the section's heading, which stays at the top as the rows scroll, not hundreds of rows down.
   const listProps = root.root.findByType(FlatList).props;
   expect(listProps.stickyHeaderIndices).toEqual([0, 2]);
   expect(pressable('Show fewer dive sites').props.accessibilityState).toEqual({ expanded: true });
@@ -137,7 +149,7 @@ test('"egypt" and "hurghada" list the Red Sea sites, and "show all" opens every 
 
   await type('hurghada');
   expect(headings()[0]).toBe('Places, 1 match');
-  expect(hasButton('Hurghada & Safaga, Red Sea, Egypt, 88 dive sites')).toBe(true);
+  expect(hasButton(`Hurghada & Safaga, Red Sea, Egypt, ${HURGHADA} dive sites`)).toBe(true);
   expect(headings()[1]).toMatch(/^Dive sites, 8\d matches$/);
   expect(labelsStarting('SS Thistlegorm')).toEqual(['SS Thistlegorm, Red Sea, Egypt']);
 });
@@ -217,8 +229,8 @@ test('tapping a place shows only its sites and frames them on the map; picking a
   await openSearch();
   await type('red sea');
   expect(headings()[0]).toBe('Places, 5 matches');
-  await press('Red Sea, Region, 241 dive sites');
-  const chip = 'Showing the dive sites in Red Sea: 241 sites. Clear';
+  await press(`Red Sea, Region, ${RED_SEA} dive sites`);
+  const chip = `Showing the dive sites in Red Sea: ${RED_SEA} sites. Clear`;
   expect(hasButton(chip)).toBe(true);
   expect(text()).toContain('In Red Sea');
   // The map frames the Red Sea's sites (Egypt, 22 to 29 N).
@@ -238,10 +250,10 @@ test('tapping a place shows only its sites and frames them on the map; picking a
 
   await openSearch();
   await type('great barrier reef');
-  await press('Great Barrier Reef, Australia, 22 dive sites');
-  expect(hasButton('Showing the dive sites in Great Barrier Reef: 22 sites. Clear')).toBe(true);
+  await press(`Great Barrier Reef, Australia, ${GBR} dive sites`);
+  expect(hasButton(`Showing the dive sites in Great Barrier Reef: ${GBR} sites. Clear`)).toBe(true);
   expect(hasButton(`Showing where to see the Reef Manta Ray: ${mantaSites.length} sites. Clear`)).toBe(false);
-  await press('Showing the dive sites in Great Barrier Reef: 22 sites. Clear');
+  await press(`Showing the dive sites in Great Barrier Reef: ${GBR} sites. Clear`);
   expect(text()).not.toContain('In Great Barrier Reef');
 });
 
@@ -264,7 +276,7 @@ test('Return picks the top result: a site, a place or an animal', async () => {
   await openSearch();
   await type('egypt');
   await submit();
-  expect(labelsStarting('Showing the dive sites in Egypt: 241 sites')).toHaveLength(1);
+  expect(labelsStarting(`Showing the dive sites in Egypt: ${EGYPT} sites`)).toHaveLength(1);
   expect(labelsStarting('Showing where to see')).toHaveLength(0);
 
   // Nothing to pick: the search stays open.

@@ -39,9 +39,9 @@ describe('the places', () => {
 });
 
 describe('searching Explore', () => {
-  it('finds "cod hole" under dive sites, both of them, and nothing else', () => {
+  it('finds "cod hole" under dive sites, once, and nothing else', () => {
     expect(kinds('cod hole')).toEqual(['sites']);
-    expect(names('cod hole', 'sites')).toEqual(['Cod Hole', 'Cod Hole']);
+    expect(names('cod hole', 'sites')).toEqual(['Cod Hole']);
     expect(search('cod hole').top).toMatchObject({ kind: 'site', id: 'cod-hole' });
   });
 

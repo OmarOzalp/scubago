@@ -116,11 +116,15 @@ describe('searchSites', () => {
     expect(searchSites(SITES, 'egypt').every((s) => s.country === 'Egypt')).toBe(true);
   });
 
-  it('finds a site by its name first: both Cod Holes, the curated one first', () => {
+  it('finds a site by its name first, once (OpenStreetMap’s Cod Hole is the curated one)', () => {
     const found = searchSites(SITES, 'cod hole');
-    expect(found.slice(0, 2).map((s) => s.name)).toEqual(['Cod Hole', 'Cod Hole']);
-    expect(found[0].id).toBe('cod-hole');
-    expect(found[1].id.startsWith('osm-')).toBe(true);
+    expect(found.map((s) => s.id)).toEqual(['cod-hole']);
+  });
+
+  it('lists the curated site first among sites that match as well', () => {
+    const at = (id: string, name: string): DiveSite => ({ id, name, lat: 0, lng: 0, region: 'Somewhere', country: 'Nowhere', blurb: '', notableSpecies: [], source: 'seed' });
+    const found = searchSites([at('osm-node-1', 'Twin Rock'), at('twin-rock', 'Twin Rock')], 'twin rock');
+    expect(found.map((s) => s.id)).toEqual(['twin-rock', 'osm-node-1']);
   });
 
   it('forgives a typo in a site’s name', () => {

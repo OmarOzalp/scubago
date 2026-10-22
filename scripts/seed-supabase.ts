@@ -10,7 +10,7 @@
 import { createClient } from '@supabase/supabase-js';
 
 import { REGIONS } from '../src/data/regions';
-import { SITES } from '../src/data/sites';
+import { SITES, SITES_BY_ID } from '../src/data/sites';
 import photos from '../src/data/species-photos.json';
 import { SPECIES } from '../src/data/species';
 import { REAL_RARITY } from '../src/lib/real-rarity';
@@ -57,7 +57,10 @@ async function main() {
   if (regionsError) throw regionsError;
   console.log(`Seeded ${REGIONS.length} regions`);
 
-  const siteRows = SITES.map((s) => ({
+  // Every site the app can still resolve, listed or not: one retired, or found to be a seed's duplicate,
+  // may have dives and sightings logged at it from before, which need its row to sync. Only the listed
+  // sites send sources and external ids below (a duplicate's OSM id now belongs to its seed).
+  const siteRows = [...SITES_BY_ID.values()].map((s) => ({
     id: s.id,
     name: s.name,
     lat: s.lat,

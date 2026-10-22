@@ -4,6 +4,7 @@ import { FlatList, Platform, TextInput } from 'react-native';
 import { create } from 'react-test-renderer';
 import { router } from 'expo-router';
 import ExploreMapScreen from '@/app/(tabs)/map';
+import { REGIONS_BY_ID } from '@/data/regions';
 import { SITES } from '@/data/sites';
 
 // The theme module imports the web stylesheet, which Jest can't parse.
@@ -40,6 +41,14 @@ afterEach(async () => {
 });
 
 const PLACEHOLDER = 'Search dive sites or animals';
+
+// Site counts from the data, as each import changes them: Egypt, and Hurghada & Safaga.
+const inRegion = (site, id) => {
+  for (let r = site.regionId; r; r = REGIONS_BY_ID.get(r)?.parentId) if (r === id) return true;
+  return false;
+};
+const EGYPT = SITES.filter((s) => s.country === 'Egypt').length;
+const HURGHADA = SITES.filter((s) => inRegion(s, 'red-sea-hurghada')).length;
 const text = () => root.root.findAll((n) => typeof n.children?.[0] === 'string').map((n) => n.children.join('')).join(' | ');
 // The last one: a site is in the list under the search as well as in its results, and the results are drawn over the list.
 const button = (label) => {
@@ -59,14 +68,14 @@ const render = async () => { await act(async () => { root = create(<ExploreMapSc
 test('on the web the Explore tab is the site list, and its search finds a site by name', async () => {
   await render();
   expect(listData()).toHaveLength(SITES.length);
-  expect(text()).toContain('329 sites');
+  expect(text()).toContain(`${SITES.length} sites`);
   await type('cod hole');
   expect(hasButton('Cod Hole, Great Barrier Reef, Australia')).toBe(true);
   await type('thistlegrom');
   expect(hasButton('SS Thistlegorm, Red Sea, Egypt')).toBe(true);
   await type('egypt');
-  expect(hasButton('Egypt, Country, 241 dive sites')).toBe(true);
-  expect(hasButton('Show all 241 dive sites')).toBe(true);
+  expect(hasButton(`Egypt, Country, ${EGYPT} dive sites`)).toBe(true);
+  expect(hasButton(`Show all ${EGYPT} dive sites`)).toBe(true);
 });
 
 test('picking a site selects it and scrolls the list to it, where the native map would fly', async () => {
@@ -99,14 +108,14 @@ test('Return picks the top result on the web too', async () => {
 test('picking a place lists only its sites, and the chip brings the rest back', async () => {
   await render();
   await type('hurghada');
-  await press('Hurghada & Safaga, Red Sea, Egypt, 88 dive sites');
-  expect(listData()).toHaveLength(88);
+  await press(`Hurghada & Safaga, Red Sea, Egypt, ${HURGHADA} dive sites`);
+  expect(listData()).toHaveLength(HURGHADA);
   expect(listData().every((s) => s.country === 'Egypt')).toBe(true);
-  expect(text()).toContain('88 sites');
+  expect(text()).toContain(`${HURGHADA} sites`);
   // The list goes back to the top for the new set.
   await act(async () => { jest.advanceTimersByTime(100); });
   expect(scrollToOffset).toHaveBeenCalledWith({ offset: 0, animated: false });
-  await press('Showing the dive sites in Hurghada & Safaga: 88 sites. Clear');
+  await press(`Showing the dive sites in Hurghada & Safaga: ${HURGHADA} sites. Clear`);
   expect(listData()).toHaveLength(SITES.length);
 });
 

@@ -9,7 +9,7 @@ import { join } from 'path';
 import { describe, expect, it } from '@jest/globals';
 
 import { REGIONS } from '@/data/regions';
-import { SITES } from '@/data/sites';
+import { SITES, SITES_BY_ID } from '@/data/sites';
 
 const migration = readFileSync(join(__dirname, '../../../supabase/migrations/0005_dive_site_details.sql'), 'utf8');
 
@@ -38,11 +38,13 @@ describe('the seed', () => {
     expect(new Set(mrgids).size).toBe(mrgids.length);
   });
 
-  it('sends every site the app can log at, each passing dive_sites’ checks', () => {
+  it('sends a row for every site the app can resolve, each passing dive_sites’ checks', () => {
     const regions = new Set(REGIONS.map((r) => r.id));
     const [types, access, difficulty] = [allowed('dive_types'), allowed('access'), allowed('difficulty')];
     expect(new Set(SITES.map((s) => s.id)).size).toBe(SITES.length);
-    for (const s of SITES) {
+    // Listed, retired, and found to be a seed's duplicate: a dive logged at any of them needs its row.
+    for (const s of SITES) expect(SITES_BY_ID.get(s.id)).toBe(s);
+    for (const s of SITES_BY_ID.values()) {
       const problems = [
         !s.name && 'no name',
         !(Number.isFinite(s.lat) && Number.isFinite(s.lng)) && 'no position',

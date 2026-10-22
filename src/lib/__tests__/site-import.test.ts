@@ -307,7 +307,7 @@ describe('duplicates within the import', () => {
   const a = plain('osm-node-5', 'Twin Reef', 27.25, 33.95);
   const b = plain('osm-way-6', 'Twin Reef', 27.2503, 33.9501);
 
-  it('merges the same name within 1 km and keeps the node', () => {
+  it('merges the same name within 3 km and keeps the node', () => {
     const { sites, merged } = dedupeWithinImport([b, a]);
     expect(sites.map((s) => s.id)).toEqual(['osm-node-5']);
     expect(merged).toEqual([{ kept: 'osm-node-5', dropped: ['osm-way-6'], name: 'Twin Reef' }]);
@@ -330,9 +330,16 @@ describe('duplicates within the import', () => {
     expect(dedupeWithinImport([a, point]).sites.map((s) => s.id)).toEqual(['osm-node-5']);
   });
 
-  it('leaves alone sites further apart than 1 km, or with different names', () => {
-    const far = plain('osm-node-7', 'Twin Reef', 27.2595, 33.95); // about 1.05 km
-    expect(distanceM(a.lat, a.lng, far.lat, far.lng)).toBeGreaterThan(1000);
+  it('merges a wreck marked twice about 2 km apart (two “Kormoran” in the Strait of Tiran)', () => {
+    const one = plain('osm-node-663869851', 'Kormoran', 28.0333, 34.4933);
+    const two = plain('osm-node-663869852', 'Kormoran', 28.0167, 34.4933);
+    expect(distanceM(one.lat, one.lng, two.lat, two.lng)).toBeGreaterThan(1800);
+    expect(dedupeWithinImport([two, one]).sites.map((s) => s.id)).toEqual(['osm-node-663869851']);
+  });
+
+  it('leaves alone sites further apart than 3 km, or with different names', () => {
+    const far = plain('osm-node-7', 'Twin Reef', 27.2775, 33.95); // about 3.06 km
+    expect(distanceM(a.lat, a.lng, far.lat, far.lng)).toBeGreaterThan(3000);
     expect(dedupeWithinImport([a, far]).sites).toHaveLength(2);
     expect(dedupeWithinImport([a, plain('osm-node-8', 'Other Reef', 27.25, 33.95)]).sites).toHaveLength(2);
   });
@@ -377,7 +384,22 @@ describe('duplicates of the seed sites', () => {
     expect(matchSeeds([near(km(1.2), seed.lng, 'Thistlegorm')], [seed])[0]).toMatchObject({ basis: 'name' });
     expect(matchSeeds([near(km(1.2), seed.lng, 'The Thistlegorm Wreck')], [seed])).toHaveLength(1);
     expect(matchSeeds([near(km(1.2), seed.lng, 'Something Else')], [seed])).toEqual([]);
-    expect(matchSeeds([near(km(1.8), seed.lng, 'Thistlegorm')], [seed])).toEqual([]);
+    expect(matchSeeds([near(km(1.8), seed.lng, 'Thistlegorm Wreck Dive')], [seed])).toEqual([]);
+  });
+
+  it('matches within 3 km when the name is the same, as a seed’s position is approximate', () => {
+    const km = (n: number) => seed.lat + north(n * 1000);
+    // The seed "Cod Hole" is 2.6 km from OpenStreetMap's.
+    expect(matchSeeds([near(km(2.6), seed.lng, 'SS Thistlegorm')], [seed])[0]).toMatchObject({ basis: 'name' });
+    expect(matchSeeds([near(km(2.6), seed.lng, 'The Thistlegorm')], [seed])).toHaveLength(1);
+    expect(matchSeeds([near(km(2.6), seed.lng, 'Thistlegorm Wreck Dive')], [seed])).toEqual([]);
+    expect(matchSeeds([near(km(3.2), seed.lng, 'SS Thistlegorm')], [seed])).toEqual([]);
+  });
+
+  it('finds the seed “Cod Hole” in OpenStreetMap’s, and lists it once', () => {
+    expect(SITES.filter((s) => normaliseSiteName(s.name) === 'cod hole').map((s) => s.id)).toEqual(['cod-hole']);
+    expect(SITES.find((s) => s.id === 'cod-hole')?.externalIds).toContainEqual({ scheme: 'osm', id: 'node/270802348', relation: 'same_as' });
+    expect(SITES_BY_ID.get('osm-node-270802348')?.name).toBe('Cod Hole');
   });
 
   it('judges names by words, accents and one stray letter', () => {
