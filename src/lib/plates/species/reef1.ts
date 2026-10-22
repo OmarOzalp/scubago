@@ -349,10 +349,11 @@ const raccoon: FishSpec = {
     const crescent = shapeIn(s, [[tAtX(s, 17), 0.82], [tAtX(s, 19), 0.4], [tAtX(s, 25), 0.05], [tAtX(s, 34), -0.25], [tAtX(s, 38), -0.1], [tAtX(s, 30), 0.15], [tAtX(s, 24), 0.5], [tAtX(s, 21.5), 0.86]]);
     const line = region(s, tAtX(s, 50), tAtX(s, 77), -0.12, 0.06);
     const spot = { poly: ellipse(atX(s, 77, 0.24), 2.4, 2.2), paint: 'ink' as const, clip: 'body' as const };
+    // Thirteen fine orange lines run diagonally over the lower flank.
     const stripes: Fill[] = [];
-    for (let k = 0; k < 8; k++) {
-      const x = 28 + k * 5.2;
-      stripes.push({ poly: shapeIn(s, [[tAtX(s, x), 1.02], [tAtX(s, x + 1.2), 1.02], [tAtX(s, x + 10), 0.42], [tAtX(s, x + 8.8), 0.42]]), paint: '#C8642A', o: 0.85, clip: 'trunk' });
+    for (let k = 0; k < 13; k++) {
+      const x = 24 + k * 3.2;
+      stripes.push({ poly: swell([atX(s, x, 1.02), atX(s, x + 5, 0.72), atX(s, x + 9.6, 0.42)], 0.75, 'both'), paint: '#C8642A', o: 0.9, clip: 'trunk' });
     }
     return {
       tint: [{ poly: dusky, paint: '#B98A2A', o: 0.5, clip: 'body' }],
