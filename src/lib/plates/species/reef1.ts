@@ -218,15 +218,14 @@ const french: FishSpec = {
     const rims = scaleRims(s, 11, 18, tAtX(s, 23), '#E8B92E', 0.95);
     const chin = shapeIn(s, [[tAtX(s, 0.2), 0.55], [tAtX(s, 4), 0.62], [tAtX(s, 8), 0.85], [tAtX(s, 4), 1.02], [tAtX(s, 0.6), 0.85]]);
     const eye = atX(s, 12, 0.33);
-    const fil = filament([c.dorsal[1].tips[c.dorsal[1].tips.length - 2], add(c.dorsal[1].apex, [12, 1]), add(c.dorsal[1].apex, [26, 4])], 1.6, '#F5C531');
+    // The filament leaves the last ray and sweeps back in a short arc.
+    const last = c.dorsal[1].tips[c.dorsal[1].tips.length - 1];
+    const fil = filament([last, add(last, [6, -1.6]), add(last, [14, -1]), add(last, [21, 2.4])], 1.2, '#F5C531');
     const pecBar = shapeIn(s, [[tAtX(s, 25.4), 0.42], [tAtX(s, 27.4), 0.44], [tAtX(s, 28.4), 0.72], [tAtX(s, 26.6), 0.74]]);
     return {
       marks: [...rims, { poly: chin, paint: '#E9E6DA', clip: 'trunk' }, { poly: ring(eye, 1.8, 2.6), paint: '#F2A81D' }],
       near: [fil, { poly: pecBar, paint: '#F2A81D', lines: [], edge: 0.6 }],
-      median: [
-        { part: 'dorsal', index: 1, marks: [margin(c.dorsal[1].outline, 0.9, '#F5C531')] },
-        { part: 'caudal', marks: [margin(c.caudal.trailing, 0.9, '#E8B92E', 0.8)] },
-      ],
+      median: [{ part: 'caudal', marks: [margin(c.caudal.trailing, 0.6, '#E8B92E', 0.8)] }],
     };
   },
 };
