@@ -493,16 +493,19 @@ const clownTrigger: FishSpec = {
       [0.98, [36, 45, 54]],
     ] as [number, number[]][])
       for (const x of xs) spots.push({ poly: ellipse(atX(s, x + (rand() - 0.5) * 1.5, f), 2.6 + rand() * 0.5, 2.4), paint: 'light', clip: 'trunk' });
-    // The yellow net over the back: a saddle of yellow with black spots left in it.
-    const saddle = region(s, tAtX(s, 28), tAtX(s, 72), -0.05, (t) => 0.32 - 0.1 * Math.abs(t - 0.6));
-    const holes = scatter(s, { t0: tAtX(s, 29), t1: tAtX(s, 71), f0: 0.02, f1: 0.26, r: 0.8, gap: 0.5, paint: 'ink', rand, tries: 300 });
+    // The yellow net over the back: a saddle that follows the curve of the back, black spots left in it.
+    const sx = Array.from({ length: 12 }, (_, i) => 27 + (i * 46) / 11);
+    const saddleEdge = (x: number) => 0.32 * Math.sin((Math.PI * (x - 27)) / 46) ** 0.55;
+    const saddlePts = [...sx.map((x) => at(s, tAtX(s, x), -0.07)), ...sx.map((x) => at(s, tAtX(s, x), saddleEdge(x))).reverse()];
+    const saddle = spline(saddlePts, true);
+    const holes = scatterIn(saddle, { r: 0.8, gap: 0.5, paint: 'ink', rand, tries: 500 });
     const snoutBand = shapeIn(s, [[tAtX(s, 10), 0.02], [tAtX(s, 14), 0.0], [tAtX(s, 13), 0.7], [tAtX(s, 9.4), 0.7]]);
     const lips = { poly: ellipse(atX(s, 1.2, 0.72), 1.8, 1.2), paint: '#F59A23' as const, edge: 0.8 };
     const tailBand = region(s, 1, 1, 0, 1);
     void tailBand;
     const band = c.caudal.trailing.map((p) => lerp(atX(s, 80, 0.5), p, 0.5));
     return {
-      marks: [{ poly: saddle, paint: '#E8C93A', clip: 'trunk' }, ...holes, ...spots, { poly: snoutBand, paint: '#EBDD9B', clip: 'trunk' }, lips],
+      marks: [{ poly: saddle, paint: '#E8C93A', clip: 'trunk' }, ...holes.map((h) => ({ ...h, clip: 'trunk' as const })), ...spots, { poly: snoutBand, paint: '#EBDD9B', clip: 'trunk' }, lips],
       median: [{ part: 'caudal', marks: [{ poly: swell(band, 4.4, 'both'), paint: '#EBDD9B' }] }],
     };
   },
