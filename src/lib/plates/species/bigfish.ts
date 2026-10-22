@@ -241,15 +241,21 @@ const bumphead: FishSpec = {
   softBelly: false,
   extra: (c) => {
     const s = c.s;
-    // The front of the head is pale and pinkish; the beak plates bare beneath it.
-    // The pale, pinkish front fades back across the bump.
-    const face = [3, 5.5, 8].map((x, i) => ({ poly: region(s, 0, tAtX(s, x), -0.05, 0.86), paint: '#D8C2B0' as const, o: [0.45, 0.3, 0.2][i], clip: 'trunk' as const }));
-    const beakUpper = shapeIn(s, [[tAtX(s, 1.8), 0.6], [tAtX(s, 4.4), 0.6], [tAtX(s, 5.6), 0.72], [tAtX(s, 4), 0.8], [tAtX(s, 2), 0.78]]);
-    const beakLower = shapeIn(s, [[tAtX(s, 2.2), 0.82], [tAtX(s, 4.2), 0.82], [tAtX(s, 6), 0.84], [tAtX(s, 4.6), 0.97], [tAtX(s, 2.6), 0.95]]);
-    const nodules: Fill[] = Array.from({ length: 8 }, (_, i) => ({ poly: ellipse(atX(s, 2.6 + (i % 4) * 0.8, i < 4 ? 0.7 : 0.89), 0.32), paint: 'dark' as const, o: 0.35 }));
+    // The front of the head is pale and pinkish, brightest on the bump and fading smoothly back
+    // (nested soft blobs, not stacked bands with straight edges).
+    const bump: [number, number][] = [[1, 0.08], [5, -0.06], [14, -0.04], [23, 0.06], [22, 0.32], [12, 0.5], [3, 0.56], [0.6, 0.34]];
+    const face: Fill[] = [1, 0.74, 0.5].map((k, i) => {
+      const cx = 10;
+      const cy = 0.3;
+      return { poly: shapeIn(s, bump.map(([x, f]) => [tAtX(s, cx + (x - cx) * k), cy + (f - cy) * k] as [number, number])), paint: '#DCC8B6' as const, o: [0.2, 0.2, 0.22][i], clip: 'trunk' as const };
+    });
+    // Big, clean beak plates: the fused teeth, upper over lower.
+    const beakUpper = shapeIn(s, [[tAtX(s, 0.9), 0.6], [tAtX(s, 5.2), 0.58], [tAtX(s, 7.4), 0.72], [tAtX(s, 5.2), 0.83], [tAtX(s, 1.6), 0.8]]);
+    const beakLower = shapeIn(s, [[tAtX(s, 1.8), 0.85], [tAtX(s, 5.4), 0.84], [tAtX(s, 7.6), 0.92], [tAtX(s, 5.4), 1.0], [tAtX(s, 2.6), 0.97]]);
     return {
       tint: face,
-      marks: [{ poly: beakUpper, paint: '#EDEADE', edge: 1 }, { poly: beakLower, paint: '#EDEADE', edge: 1 }, ...nodules],
+      marks: [{ poly: beakUpper, paint: '#EEEBDF', edge: 1.1 }, { poly: beakLower, paint: '#EEEBDF', edge: 1.1 }],
+      lines: [{ pts: spline([atX(s, 1.6, 0.82), atX(s, 4.5, 0.835), atX(s, 7, 0.8)], false), w: 1.1 }],
     };
   },
 };
