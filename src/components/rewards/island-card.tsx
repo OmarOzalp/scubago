@@ -63,6 +63,9 @@ export function IslandCard({ island, onOpenSpecies }: { island: IslandResult; on
           </ThemedText>
         </View>
       </View>
+      <ThemedText type="caption" themeColor="textSecondary">
+        {island.blurb}
+      </ThemedText>
       <View style={styles.residents}>
         <Text style={[styles.count, { color: theme.text }]}>
           {island.residentsFound}

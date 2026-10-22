@@ -17,6 +17,8 @@ export interface IslandResult {
   name: string;
   /** The colour of its area (a dot beside the name, never the only cue). */
   color: string;
+  /** What the area is like and who lives there, from `AREAS` ("A cold, rocky coast of towering kelp: sea otters, seals, ..."). */
+  blurb: string;
   unlocked: boolean;
   /** yyyy-mm-dd the first species from its area was logged. Absent for Home's island, which was never locked, and while locked. */
   unlockedOn?: string;
@@ -55,6 +57,7 @@ export function islandsFrom(facts: Facts): IslandResult[] {
       id,
       name: area.name,
       color: area.color,
+      blurb: area.blurb,
       unlocked,
       residentsFound: residents.length - residents.filter((s) => !facts.findOf.has(s.id)).length,
       residentsTotal: residents.length,

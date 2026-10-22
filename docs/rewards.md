@@ -32,7 +32,7 @@ const fresh = newlyEarned(rememberedIds, badges); // what to celebrate now
 ## Badges
 
 Each badge result carries its definition (`id`, `title`, `description`, `kind`, `emblem`, optional
-`tier` and `ladder`) and `earned`, `earnedOn` (yyyy-mm-dd), `progress` (`have` is held at `need`
+`tier` and `ladder`, and `areaId` on the badge of an area's collection, which its medal takes the area's colour and animal from) and `earned`, `earnedOn` (yyyy-mm-dd), `progress` (`have` is held at `need`
 once earned) and, until earned, a `hint` for the next step ("3 more reef sharks"). `emblem` is a key
 the screen maps to a picture. Rungs of a ladder share a `ladder` key and are listed easiest first.
 Badge ids never change: the screen stores them to remember what it has celebrated.
@@ -49,8 +49,11 @@ species.
 
 ## Collections
 
-A collection is a named set of species with `found` / `total`, `foundIds`, `missingIds`, `completed`,
-`completedOn` and a `hint`. Members are listed in the collection's own order.
+A collection is a named set of species with `found` / `total`, `memberIds`, `foundIds`, `missingIds`,
+`completed`, `completedOn` and a `hint`. `memberIds` is every species the catalog has for the set in
+the collection's own order (an area's residents, the catalog's order for a family, the source's order
+for a hand-picked set); `foundIds` and `missingIds` are its two halves, in that same order, so a screen
+can lay the animals out once and paint the found ones. An area's collection also carries `areaId`.
 
 | Kind | Sets | Members |
 | --- | --- | --- |
@@ -59,12 +62,21 @@ A collection is a named set of species with `found` / `total`, `foundIds`, `miss
 | curated | Reef sharks | Grey, blacktip and whitetip reef sharks |
 | | Mantas & devils | Reef manta, oceanic manta, Munk's devil ray |
 | | Hammerheads | Scalloped and great hammerhead |
-| | Wreck regulars | The Shipwreck's residents |
 | | Red Sea classics | Sea goldie, Napoleon wrasse, oceanic whitetip, scalloped hammerhead, pelagic thresher, emperor angelfish, Moorish idol |
+
+No two collections hold the same species: finishing one must not finish another and earn two
+badges. (There used to be a "Wreck regulars" set that was the Shipwreck area's nine residents
+again; it is gone, and the Shipwreck's collection is the area's.) A test keeps it so.
 
 The Red Sea classics are species the seed Red Sea sites list and divers know them for, picked by
 hand, not counted from records. A collection with no members in the catalog (or fewer than its
-minimum: three for the Red Sea classics) is left out, along with its badge.
+`minMembers`) is left out, along with its badge. `minMembers` defaults to 1, so a family with a
+single species is still a family; a hand-picked set says what it needs: three for the Red Sea
+classics, and two for the Hammerheads. The Hammerheads are a pair on purpose: the catalog has only the
+scalloped and the great hammerhead, but they live on two different islands (the Volcanic Pinnacle and
+the Mangroves & Seagrass), so the set is a reason to look at both, and "Hammer pair" is its badge. It
+exists only while the catalog holds both, so one that loses a member drops out rather than becoming
+a "set" of one.
 
 ## Site passport
 
@@ -89,7 +101,7 @@ The badge regions are a small table, `REGION_BADGES`, keyed by region id:
 ## Island unlocks
 
 Each island in `ISLANDS` gets `unlocked`, `unlockedOn`, `raisedBy` (the species that raised it),
-`residentsFound` / `residentsTotal`, `next` (up to three unfound residents with their effective
+`blurb` (the area's words from `AREAS`), `residentsFound` / `residentsTotal`, `next` (up to three unfound residents with their effective
 rarity, easiest first: lowest rarity, then catalog order) and, while locked, a `requirement` line
 ("Log any Kelp Forest animal, such as a Lingcod."). The rules are Home's own, so the result matches
 `foundIslands`: the Coral Reef is always unlocked (and has no `unlockedOn`), and every other island
@@ -108,7 +120,9 @@ available every reward uses the catalog's rarity, which is set by hand, not coun
 `newlyEarned(previousIds, badges)` returns the badges earned now that were not in `previousIds`, in
 list order, and `earnedIds(badges)` gives the ids to remember. On the first run, remember what is
 already earned without celebrating it. Treat the remembered ids, not a fresh evaluation, as the
-record of what was earned (see below).
+record of what was earned (see below). The ids are only ever looked up, never required to exist, so
+the id of a badge that has been retired (`collection-set-wreck-regulars`) just stays in the record
+and never matches anything; its page, `/rewards/collection-set-wreck-regulars`, says "Badge not found".
 
 ## Where the code is
 
@@ -133,8 +147,6 @@ whole call), on small hand-written logs.
 - The Red Sea has no region in `src/data/regions.ts` yet, and the seed Red Sea sites have no
   `regionId`, so they are found by country and region text. Give the imported sites a `regionId` under
   a `red-sea` region and the text fallback stops mattering.
-- The Wreck regulars and the Shipwreck area are the same nine species today, so completing one
-  completes the other, with two badges.
 - The dive-number ladder (1 to 500) is not the bookplate `MILESTONES` in `src/lib/dives.ts`.
 - A site missing from the lookup is invisible to places; one in no badge region and with no country
   is grouped as "Elsewhere".
@@ -165,13 +177,21 @@ the log has loaded.
   A badge not earned yet is a dashed pencil outline with the progress inked over it as an arc, and
   "3 OF 5" underneath. Ladders are one row with their rungs along a line. `emblem` keys map to a
   Phosphor icon, or for an animal to its species plate (`emblem.tsx`).
-- **Collections** are cards: a progress ring, "3 of 9 found", the hint, and the animals as small plates,
-  found ones painted and the rest dashed pencil. A completed one carries a "Complete" stamp.
+- **Collections** are cards: a progress ring, "3 of 9 found", the hint, and the animals as small plates in
+  the collection's own order (`memberIds`), found ones painted and the rest dashed pencil. A completed one
+  carries a "Complete" stamp. A big collection shows its first eleven and "+N". The page for one lists
+  what is found and what is still to find, each in that order.
 - **The passport** draws a rubber stamp per site (`site-stamp.tsx`): double ruled, angled and inked red
   or lagoon from the site's id, with the name, the day of the first visit and the number of days visited.
   A stamp opens the site's page. Only visited sites are stamped; "of 41" is the engine's `knownSites`.
-- **Islands** reuse `IslandArt` for a 2D picture (under a mist with a lock while locked). That art
-  only varies the water, so the islands look alike apart from their colours.
+- **Islands** reuse `IslandArt` for a 2D picture (under a mist with a lock while locked), with the area's
+  `blurb` under it. Each island has its own drawing (`src/components/home/island-art.tsx`): the Coral
+  Reef a forested cay with a jetty in a turquoise lagoon inside a ring of reef and surf; the Kelp Forest
+  a grey headland of cliffs and cypresses with sea stacks, among floating kelp on dark green water; the
+  Volcanic Pinnacle a black cone steaming from its crater over cobalt water; the Mangroves & Seagrass a
+  low green canopy on arching prop roots among seagrass meadows; the Shipwreck a white-sand crescent
+  with a red-banded lighthouse and a broken steamer in its bight. They grow with `level` (more coral,
+  trees, kelp and rocks, a wider shelf, then two islets) in at most about 250 shapes.
 
 ### Celebrating a new badge
 

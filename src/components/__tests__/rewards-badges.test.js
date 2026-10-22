@@ -7,13 +7,16 @@ import { ladderNote } from '@/components/rewards/badge-ladder';
 import { badgeCaption, badgeLabel } from '@/components/rewards/badge-tile';
 import { BadgesView } from '@/components/rewards/badges-view';
 import { longDate, stampDate } from '@/components/rewards/format';
-import { areaOfBadge } from '@/components/rewards/emblem';
+import { BadgeMedal } from '@/components/rewards/badge-medal';
 import { CATALOG_BY_ID } from '@/lib/catalog';
 import { SITES } from '@/data/sites';
 import { evaluateRewards } from '@/lib/rewards';
 
 // The theme module imports the web stylesheet, which Jest can't parse.
 jest.mock('@/global.css', () => ({}));
+// The species plates (an emblem is one) are drawn from code and slow a render down; their own tests
+// cover them, so here each only needs a box (a `plate` that says whose it is).
+jest.mock('@/components/species-art', () => ({ SpeciesArt: ({ species, found }) => require('react').createElement('plate', { id: species.id, found }) }));
 // Reduced motion: things appear in place. The ring and bar only need the hooks to exist.
 jest.mock('react-native-reanimated', () => ({
   __esModule: true,
@@ -87,11 +90,20 @@ test('the latest badges are the ones earned most recently, the harder of two on 
   expect(countEarned(rewards.badges)).toBe(rewards.badges.filter((b) => b.earned).length);
 });
 
-test('a ladder says what comes next, and an area badge knows its habitat', () => {
+test('a ladder says what comes next, and an area badge knows its habitat', async () => {
   expect(ladderNote(ladderOf(rewards.badges, badge('species-10')))).toBe('Next: 5 more species · 5 of 10');
   expect(ladderNote([{ earned: true }, { earned: true }])).toBe('Every rung climbed');
-  expect(areaOfBadge('collection-area-kelp-forest')).toBe('kelp-forest');
-  expect(areaOfBadge('collection-family-shark')).toBeUndefined();
+  // The engine says which habitat an area's badge is for, so nothing reads it out of the badge's id.
+  expect(badge('collection-area-kelp-forest').areaId).toBe('kelp-forest');
+  expect(badge('collection-family-shark').areaId).toBeUndefined();
+  expect(badge('first-shark').areaId).toBeUndefined();
+  // Its medal wears that habitat's animal (the garibaldi for the Kelp Forest), and other collections' own emblem.
+  const plateOf = (b) => root.root.findAll((n) => n.type === 'plate').map((n) => n.props.id);
+  await act(async () => { root = create(<BadgeMedal badge={{ ...badge('collection-area-kelp-forest'), earned: true }} />); });
+  expect(plateOf()).toEqual(['garibaldi']);
+  await act(async () => root.unmount());
+  await act(async () => { root = create(<BadgeMedal badge={{ ...badge('collection-family-shark'), earned: true }} />); });
+  expect(plateOf()).toEqual(['grey-reef-shark']);
   expect(collectionIdOfBadge(badge('collection-family-shark'))).toBe('family-shark');
   expect(collectionIdOfBadge(badge('first-shark'))).toBeUndefined();
 });

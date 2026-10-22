@@ -1,4 +1,5 @@
 import { describe, expect, it } from '@jest/globals';
+import { residentsOf } from '@/lib/archipelago';
 import { CATALOG_BY_ID } from '@/lib/catalog';
 import { BADGES, earnedIds, effectiveRarity, evaluateBadges, newlyEarned, type BadgeResult, type RewardsInput } from '@/lib/rewards';
 import type { Dive, DiveSite, Rarity, Sighting } from '@/lib/types';
@@ -213,6 +214,18 @@ describe('newlyEarned', () => {
     expect(newlyEarned([], now).map((b) => b.id)).toEqual(['first-sighting', 'first-shark', 'first-ray']);
     expect(newlyEarned(['first-sighting', 'first-ray'], now).map((b) => b.id)).toEqual(['first-shark']);
     expect(newlyEarned(['first-sighting', 'first-shark', 'first-ray'], now)).toEqual([]);
+  });
+
+  it('shrugs off the id of a badge that has been retired, as an older install may have stored (the "Wreck regulars")', () => {
+    const retired = 'collection-set-wreck-regulars';
+    expect(BADGES.map((b) => b.id)).not.toContain(retired);
+    // It never matches anything, so what is new is exactly what it was without it.
+    expect(newlyEarned([retired], now).map((b) => b.id)).toEqual(newlyEarned([], now).map((b) => b.id));
+    expect(newlyEarned([retired, 'first-sighting'], now).map((b) => b.id)).toEqual(['first-shark', 'first-ray']);
+    // And it is never earned again, however the Shipwreck's animals are logged.
+    const wreck = evaluate({ sightings: residentsOf('shipwreck').map((id, i) => seen(id, day(i + 1))) });
+    expect(earnedIds(wreck)).not.toContain(retired);
+    expect(newlyEarned([retired], wreck).filter((b) => b.kind === 'collection').map((b) => b.id)).toEqual(['collection-area-shipwreck']);
   });
 
   it('ignores remembered ids that are no longer earned or no longer exist, and never returns unearned badges', () => {

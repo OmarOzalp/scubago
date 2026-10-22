@@ -3,7 +3,7 @@ import { View, type StyleProp, type ViewStyle } from 'react-native';
 import Animated, { useReducedMotion } from 'react-native-reanimated';
 import Svg, { Circle, G, Path } from 'react-native-svg';
 
-import { areaColor, areaOfBadge, EmblemArt } from '@/components/rewards/emblem';
+import { areaColor, EmblemArt } from '@/components/rewards/emblem';
 import { medalPalette } from '@/components/rewards/palette';
 import { useSchemeName, useTheme } from '@/hooks/use-theme';
 import type { BadgeResult } from '@/lib/rewards';
@@ -65,7 +65,7 @@ interface Props {
 export function BadgeMedal({ badge, size = 72, ribbon = false, reveal = false, delay = 0, style }: Props) {
   const theme = useTheme();
   const scheme = useSchemeName();
-  const area = areaOfBadge(badge.id);
+  const area = badge.areaId;
   const palette = useMemo(() => medalPalette(badge, theme, scheme, area ? areaColor(area) : undefined), [badge, theme, scheme, area]);
   const motion = useMedalIn(delay);
   const height = ribbon ? size * 1.22 : size;

@@ -45,11 +45,12 @@ export function PlateChip({ speciesId, found, size = 46 }: { speciesId: string; 
 
 const MOST_PLATES = 11;
 
-/** A collection as a card: its ring, how many are found, and the animals as small plates, found ones first. */
+/** A collection as a card: its ring, how many are found, and the animals as small plates in the collection's own order, the found ones painted and the rest in pencil. */
 export function CollectionCard({ collection, onPress }: { collection: CollectionResult; onPress?: () => void }) {
   const theme = useTheme();
   const { found, total, completed } = collection;
-  const members = [...collection.foundIds.map((id) => ({ id, found: true })), ...collection.missingIds.map((id) => ({ id, found: false }))];
+  const foundIds = new Set(collection.foundIds);
+  const members = collection.memberIds.map((id) => ({ id, found: foundIds.has(id) }));
   const shown = members.length > MOST_PLATES + 1 ? members.slice(0, MOST_PLATES) : members;
   return (
     <PaperButton

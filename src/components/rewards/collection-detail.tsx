@@ -34,8 +34,10 @@ export function CollectionDetailView({
   const columns = Math.max(3, Math.min(6, Math.floor(inner / 150)));
   const cardWidth = Math.floor((inner - GAP * (columns - 1)) / columns);
   const species = (ids: readonly string[]) => ids.map((id) => CATALOG_BY_ID.get(id)).filter((s): s is Species => !!s);
-  const found = species(collection.foundIds);
-  const missing = species(collection.missingIds);
+  // Each section keeps the collection's own order (`memberIds`).
+  const foundIds = new Set(collection.foundIds);
+  const found = species(collection.memberIds.filter((id) => foundIds.has(id)));
+  const missing = species(collection.memberIds.filter((id) => !foundIds.has(id)));
   return (
     <View style={styles.view}>
       <View style={styles.head}>

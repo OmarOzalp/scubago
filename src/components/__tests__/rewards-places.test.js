@@ -16,6 +16,11 @@ import { evaluateRewards } from '@/lib/rewards';
 
 // The theme module imports the web stylesheet, which Jest can't parse.
 jest.mock('@/global.css', () => ({}));
+// The engraved plates and the island pictures are drawn from code and take most of the time of a render
+// (a collections page is a couple of hundred plates); their own tests cover them, so these tests only
+// need a box where each one goes (a `plate` that says whose it is and whether it is painted).
+jest.mock('@/components/species-art', () => ({ SpeciesArt: ({ species, found }) => require('react').createElement('plate', { id: species.id, found }) }));
+jest.mock('@/components/home/island-art', () => ({ IslandArt: () => null }));
 // Reduced motion: things appear in place. The ring and bar only need the hooks to exist.
 jest.mock('react-native-reanimated', () => ({
   __esModule: true,
@@ -124,7 +129,7 @@ test('each island says whether it has risen, how many residents are found, and w
   expect(onOpenSpecies).toHaveBeenCalledWith(kelp.next[0].speciesId);
 });
 
-test('a collection card shows how many are found and what is left, with the animals found before the ones still to find', async () => {
+test('a collection card shows how many are found and what is left, and its animals in the collection\'s own order', async () => {
   const sharks = rewards.collections.find((c) => c.id === 'family-shark');
   const onPress = jest.fn();
   await act(async () => { root = create(<CollectionCard collection={sharks} onPress={onPress} />); });
@@ -134,6 +139,28 @@ test('a collection card shows how many are found and what is left, with the anim
   expect(textOf(root)).toContain(`of ${sharks.total} found`);
   await act(async () => root.root.find((n) => n.props.accessibilityLabel === collectionLabel(sharks) && typeof n.props.onPress === 'function').props.onPress());
   expect(onPress).toHaveBeenCalled();
+});
+
+test('a card lays its animals out in the collection\'s order, the found ones painted and the missing ones in pencil', async () => {
+  // Only the great hammerhead, the second of the pair, is logged: it stays second, painted, after the pencil scalloped.
+  const hammerheads = evaluateRewards({ ...logbook, sightings: [...logbook.sightings, seen('great-hammerhead', 'yongala', '2026-06-02')] }).collections.find((c) => c.id === 'set-hammerheads');
+  expect(hammerheads.memberIds).toEqual(['scalloped-hammerhead', 'great-hammerhead']);
+  await act(async () => { root = create(<CollectionCard collection={hammerheads} />); });
+  const plates = (r) => r.root.findAll((n) => n.type === 'plate').map((n) => [n.props.id, n.props.found]);
+  expect(plates(root)).toEqual([['scalloped-hammerhead', false], ['great-hammerhead', true]]);
+  await act(async () => root.unmount());
+
+  // A set with its first animal found and the rest not: the order is the set's, not "found first".
+  const mantas = rewards.collections.find((c) => c.id === 'set-mantas-and-devils');
+  await act(async () => { root = create(<CollectionCard collection={mantas} />); });
+  expect(plates(root)).toEqual(mantas.memberIds.map((id) => [id, id === 'reef-manta']));
+  await act(async () => root.unmount());
+
+  // A big collection shows the first of its members, in order, and says how many more.
+  const reef = rewards.collections.find((c) => c.id === 'area-coral-reef');
+  await act(async () => { root = create(<CollectionCard collection={reef} />); });
+  expect(plates(root).map(([id]) => id)).toEqual(reef.memberIds.slice(0, 11));
+  expect(textOf(root)).toContain(`+${reef.total - 11}`);
 });
 
 test('a finished collection says so with its day, a stamp and no "to go"', async () => {
@@ -169,6 +196,9 @@ test('the collections page groups the sets by kind; one in full lists what is fo
   await act(async () => { root = create(<CollectionDetailView collection={mantas} counts={new Map()} />); });
   expect(textOf(root)).toContain('Still to find');
   expect(labelsOf(root).some((l) => /^Oceanic Manta Ray, .*not seen yet$/.test(l))).toBe(true);
+  // The animals still to find keep the collection's order too.
+  const toFind = [...new Set(labelsOf(root).filter((l) => /not seen yet$/.test(l)).map((l) => l.split(',')[0]))];
+  expect(toFind).toEqual(['Oceanic Manta Ray', 'Munk’s Devil Ray']);
 });
 
 test('the entry points quote the real numbers, and nothing before there is a log to count', () => {
@@ -176,8 +206,10 @@ test('the entry points quote the real numbers, and nothing before there is a log
   expect(s.earned).toBe(rewards.badges.filter((b) => b.earned).length);
   expect(badgesLine(s)).toBe(`${s.earned} of ${s.badges} badges · ${s.stamps} site stamps`);
   expect(badgesLine(summarize(empty))).toBe('Badges and site stamps start with your first dive');
-  expect(collectionsLine(summarize(empty))).toMatch(/^17 sets to fill/);
-  expect(collectionsLine({ ...s, complete: 2, collections: 17 })).toBe('2 of 17 complete');
+  // Seven habitats, five families and four hand-picked sets (the Shipwreck's residents are one collection, not two).
+  expect(empty.collections).toHaveLength(16);
+  expect(collectionsLine(summarize(empty))).toMatch(/^16 sets to fill/);
+  expect(collectionsLine({ ...s, complete: 2, collections: 16 })).toBe('2 of 16 complete');
 });
 
 test('new badges are celebrated by name and day, with a way to the rest, and nothing at all when there are none', async () => {

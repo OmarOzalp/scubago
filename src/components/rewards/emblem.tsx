@@ -45,12 +45,7 @@ const AREA_PLATES: Record<AreaId, Plate> = {
   shipwreck: { id: 'lionfish', category: 'fish' },
 };
 
-/** The area an area collection's badge (`collection-area-<id>`) is for, or undefined for any other badge. */
-export function areaOfBadge(badgeId: string): AreaId | undefined {
-  const id = badgeId.startsWith('collection-area-') ? badgeId.slice('collection-area-'.length) : undefined;
-  return AREAS.find((a) => a.id === id)?.id;
-}
-
+/** The colour of an area: its collection's medal and its dot (the badge's `areaId` and the collection's say which). */
 export function areaColor(area: AreaId): string {
   return AREAS.find((a) => a.id === area)!.color;
 }

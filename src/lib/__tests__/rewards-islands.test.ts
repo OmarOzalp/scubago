@@ -1,5 +1,5 @@
 import { describe, expect, it } from '@jest/globals';
-import { foundAreas, foundIslands, HOME_ISLAND, islandOf, ISLANDS, residentsOf } from '@/lib/archipelago';
+import { AREAS, foundAreas, foundIslands, HOME_ISLAND, islandOf, ISLANDS, residentsOf } from '@/lib/archipelago';
 import { CATALOG_BY_ID } from '@/lib/catalog';
 import { deriveDex } from '@/lib/dex';
 import { evaluateIslands, type IslandResult, type RewardsInput } from '@/lib/rewards';
@@ -14,6 +14,19 @@ const SITE: DiveSite = { id: 'site-a', name: 'Site A', lat: 0, lng: 0, region: '
 const input = (over: Partial<RewardsInput>): RewardsInput => ({ sightings: [], dives: [], sites: new Map([[SITE.id, SITE]]), catalog: CATALOG_BY_ID, ...over });
 const island = (islands: IslandResult[], id: string) => islands.find((i) => i.id === id)!;
 const ids = (islands: IslandResult[]) => islands.filter((i) => i.unlocked).map((i) => i.id);
+
+describe('island blurbs', () => {
+  it('carry the words of the island\'s area, locked or raised', () => {
+    const islands = evaluateIslands(input({ sightings: [seen('lingcod', '2026-03-01')] }));
+    expect(island(islands, 'kelp-forest').unlocked).toBe(true);
+    expect(island(islands, 'shipwreck').unlocked).toBe(false);
+    for (const i of islands) {
+      const area = AREAS.find((a) => a.id === i.id)!;
+      expect(i.blurb).toBe(area.blurb);
+      expect(i.blurb.length).toBeGreaterThan(20);
+    }
+  });
+});
 
 describe('island unlocks', () => {
   it('lists every island of the archipelago, with the Coral Reef (Home\'s) unlocked from the start', () => {

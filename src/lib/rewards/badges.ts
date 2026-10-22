@@ -1,3 +1,4 @@
+import type { AreaId } from '@/lib/archipelago';
 import { RARITY_LABEL, rarityRank } from '@/lib/rarity';
 import { COLLECTIONS, type CollectionResult, moreOf } from '@/lib/rewards/collections';
 import type { Facts } from '@/lib/rewards/facts';
@@ -130,9 +131,11 @@ export interface BadgeResult extends BadgeDefinition {
   progress: { have: number; need: number };
   /** The next step, while the badge is not earned: "3 more reef sharks". */
   hint?: string;
+  /** The archipelago area of an area collection's badge (its medal takes the area's colour and animal); absent on every other badge. */
+  areaId?: AreaId;
 }
 
-type Judgement = Pick<BadgeResult, 'earned' | 'earnedOn' | 'progress' | 'hint'>;
+type Judgement = Pick<BadgeResult, 'earned' | 'earnedOn' | 'progress' | 'hint' | 'areaId'>;
 
 function judged(have: number, need: number, earnedOn: string | undefined, hint: string): Judgement {
   const progress = { have: Math.min(have, need), need };
@@ -181,7 +184,9 @@ function judge(rule: BadgeRule, facts: Facts, collections: ReadonlyMap<string, C
     }
     case 'collection': {
       const collection = collections.get(rule.collectionId);
-      return collection ? judged(collection.found, collection.total, collection.completedOn, collection.hint ?? '') : null;
+      if (!collection) return null;
+      const judgement = judged(collection.found, collection.total, collection.completedOn, collection.hint ?? '');
+      return collection.areaId ? { ...judgement, areaId: collection.areaId } : judgement;
     }
   }
 }
