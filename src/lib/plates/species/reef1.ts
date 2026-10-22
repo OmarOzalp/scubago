@@ -2,7 +2,7 @@
  * Reef fish, part one: clownfish, Moorish idol, the angelfish, raccoon butterflyfish, stoplight
  * parrotfish, triggerfish and lionfish. Side on, facing left, 1% of total length per unit.
  */
-import { add, ellipse, lerp, mul, norm, perp, type Pt, rng, spline, sub } from '../kit';
+import { add, clipLine, ellipse, lerp, mul, norm, perp, type Pt, rng, spline, sub } from '../kit';
 import { scatter, scatterIn, shapeIn } from '../marks';
 import type { PlateDef } from '../registry';
 import { swell } from '../render';
@@ -63,8 +63,11 @@ const clownfish: FishSpec = {
   lateral: false,
   extra: (c) => {
     const bars = [vband(c, 14, 19.5, -2.4, -0.05, 1.05), vband(c, 42, 49, 3.2, -0.05, 1.05), vband(c, 72.5, 76.5, 0, -0.05, 1.05)];
-    const edges: Line[] = bars.flatMap((b) => [{ pts: b.slice(0, 11), w: 1.6 }, { pts: b.slice(11), w: 1.6 }]);
-    const finMargin = (o: Pt[]) => margin(o, 0.8, 'ink', 0.9);
+    // The inked bar edges are kept inside the body, so they can't overshoot its outline.
+    const edges: Line[] = bars
+      .flatMap((b) => [b.slice(0, 11), b.slice(11)])
+      .flatMap((pts) => clipLine(pts, c.trunk).map((seg) => ({ pts: seg, w: 1.4 })));
+    const finMargin = (o: Pt[]) => margin(o, 0.5, 'ink', 0.9);
     return {
       marks: bars.map((poly) => ({ poly, paint: 'light' as const, clip: 'trunk' as const })),
       lines: edges,
