@@ -130,6 +130,23 @@ describe('Share this page', () => {
     }
   });
 
+  test('counts a private animal of the diver’s own naming, which the page shows', async () => {
+    const mine = [sighting('a', 'reef-manta', { diveId: 'd1' }), sighting('b', 'unlisted', { diveId: 'd1', customName: 'Striped nudibranch', visibility: 'private' })];
+    await render(<ShareDiveButton dive={dive} site={site} sightings={mine} api={api()} />);
+    await act(async () => byHint('Shows a picture of this logbook page to share').props.onPress());
+    expect(texts()).toContain('1 private sighting is left off this card.');
+    await act(async () => root.root.findByType(Switch).props.onValueChange(true));
+    expect(texts()).toContain('Striped nudibranch');
+  });
+
+  test('doesn’t count a private sighting of a species the catalogue no longer has, which can never be on the page', async () => {
+    await render(<ShareDiveButton dive={dive} site={site} sightings={[sighting('a', 'retired-species', { diveId: 'd1', visibility: 'private' })]} api={api()} />);
+    await act(async () => byHint('Shows a picture of this logbook page to share').props.onPress());
+    expect(texts().filter((t) => /private/.test(t))).toEqual([]);
+    expect(root.root.findAllByType(Switch)).toHaveLength(0);
+    expect(texts()).toContain('No sightings logged on this page yet.');
+  });
+
   test('is there even when nothing was logged on the dive', async () => {
     await render(<ShareDiveButton dive={dive} site={undefined} sightings={[]} api={api()} />);
     expect(texts()).toContain('Share this page');
@@ -158,6 +175,16 @@ describe('Share your archipelago', () => {
     await render(<ShareArchipelagoButton {...props} sightings={[sighting('a', 'reef-manta', { visibility: 'private' })]} api={api()} />);
     await act(async () => pressable('Share your archipelago').props.onPress());
     expect(texts()).toEqual(expect.arrayContaining(['Kai’s Atoll', 'Reef Manta Ray', '1 private sighting is on this card. They stay private in your log; nothing is shared until you tap Share.']));
+  });
+
+  test.each([
+    ['an animal of the diver’s own naming', sighting('b', 'unlisted', { customName: 'Striped nudibranch', visibility: 'private' })],
+    ['a species the catalogue no longer has', sighting('b', 'retired-species', { visibility: 'private' })],
+  ])('doesn’t count a private sighting of %s, which the islands have no place for', async (_name, hidden) => {
+    await render(<ShareArchipelagoButton {...props} sightings={[sighting('a', 'reef-manta'), hidden]} api={api()} />);
+    await act(async () => pressable('Share your archipelago').props.onPress());
+    expect(texts().filter((t) => /private/.test(t))).toEqual([]);
+    expect(root.root.findAllByType(Switch)).toHaveLength(0);
   });
 
   test('waits for the 3D snapshot to load before Share is ready', async () => {

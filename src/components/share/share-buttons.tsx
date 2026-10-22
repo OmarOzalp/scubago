@@ -12,7 +12,7 @@ import { OceanButton } from '@/components/ocean-button';
 import { cardFileName } from '@/components/share/card-spec';
 import { ThemedText } from '@/components/themed-text';
 import { useTheme } from '@/hooks/use-theme';
-import { CATALOG_BY_ID } from '@/lib/catalog';
+import { CATALOG_BY_ID, speciesForSighting } from '@/lib/catalog';
 import { releaseSnapshot } from '@/lib/scene-snapshot';
 import type { Dive, DiveSite, Sighting, Species } from '@/lib/types';
 
@@ -139,7 +139,11 @@ export function ShareDiveButton({
   const [open, setOpen] = useState(false);
   const close = useCallback(() => setOpen(false), []);
   const shared = useMemo(() => diveCardData(dive, site, sightings), [dive, site, sightings]);
-  const kept = useMemo(() => privateCount(sightings.filter((s) => s.diveId === dive.id), dive.userId), [sightings, dive.id, dive.userId]);
+  // Only the private sightings the page could show count (not one of a species the catalogue no longer has).
+  const kept = useMemo(
+    () => privateCount(sightings.filter((s) => s.diveId === dive.id && speciesForSighting(s)), dive.userId),
+    [sightings, dive.id, dive.userId],
+  );
   const choice = usePrivateChoice(kept, shared.species.length === 0);
   const withPrivate = useMemo(() => (choice.include ? diveCardData(dive, site, sightings, { includePrivate: true }) : null), [choice.include, dive, site, sightings]);
   const data = withPrivate ?? shared;
@@ -209,7 +213,8 @@ export function ShareArchipelagoButton({
   useEffect(() => () => void attempt.current++, []);
 
   const shared = useMemo(() => archipelagoData(name, sightings, dives, ownerId), [name, sightings, dives, ownerId]);
-  const kept = useMemo(() => privateCount(sightings, ownerId), [sightings, ownerId]);
+  // Only the private sightings the islands could show count: a catalogue species, not an animal outside it.
+  const kept = useMemo(() => privateCount(sightings.filter((s) => CATALOG_BY_ID.has(s.speciesId)), ownerId), [sightings, ownerId]);
   const withPrivate = useMemo(
     () => (kept > 0 ? archipelagoData(name, sightings, dives, ownerId, CATALOG_BY_ID, { includePrivate: true }) : null),
     [kept, name, sightings, dives, ownerId],
