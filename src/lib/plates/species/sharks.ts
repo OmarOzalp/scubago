@@ -198,7 +198,7 @@ const oceanic: SharkSpec = variant(requiem, {
   ...bodyShape({ ped: 73.5, depth: 19, at: 32, riseTop: 2.7, riseBot: 2.2, pedH: 5.4, hump: [31, 0.8], nose: 0.52 }),
   blunt: 0.75,
   eye: { x: 6.2, f: 0.35, r: 0.75 },
-  d1: { at: 31.5, base: 10.5, h: 13, sweep: 0.5, rear: 2.6, round: 4.2, concave: 0.02, convex: 0.16 },
+  d1: { at: 30.5, base: 13, h: 12.5, sweep: 0.5, rear: 2.6, round: 3, concave: 0.02, convex: 0.14 },
   d2: { at: 61, base: 3.3, h: 3.4, rear: 2.6 },
   anal: { at: 61.6, base: 3.4, h: 3.4, rear: 2.6 },
   pelvic: { at: 47, base: 4.4, h: 4.6, rear: 2, round: 1 },
@@ -211,17 +211,17 @@ const oceanic: SharkSpec = variant(requiem, {
   ],
   extra: (c) => {
     const mottle = (shape: { poly: Pt[]; le: Pt[]; te: Pt[] }, from: number) => {
-      const tip = finTip(shape, from, 'light', 1);
-      // The white is blotchy: a solid tip with a few pale blotches below it.
-      const flecks = scatterIn(finTip(shape, from - 0.14, 'light').poly, { r: 0.7, gap: 0.4, paint: 'light', rand: c.rand, o: 0.85, tries: 80 });
-      return [tip, ...flecks];
+      // A clean white cap, with a mottled grey band under it.
+      const cap = finTip(shape, from, 'light', 1);
+      const band = scatterIn(finTip(shape, from - 0.26, 'light').poly, { r: 0.8, gap: 0.35, paint: 'dark', rand: c.rand, o: 0.4, tries: 90 });
+      return [...band, cap];
     };
     return {
       median: [
-        { fin: 'd1', marks: mottle(c.d1!, 0.72) },
-        { fin: 'caudal', marks: [...mottle(tipOf(c), 0.8), ...mottle(c.caudal.lower, 0.68)] },
-        { fin: 'pelvic', marks: [finTip(c.pelvic!, 0.66, 'light', 0.9)] },
-        { fin: 'pec', marks: mottle(c.pec, 0.78) },
+        { fin: 'd1', marks: mottle(c.d1!, 0.6) },
+        { fin: 'caudal', marks: [...mottle(tipOf(c), 0.7), ...mottle(c.caudal.lower, 0.6)] },
+        { fin: 'pelvic', marks: [finTip(c.pelvic!, 0.6, 'light', 0.9)] },
+        { fin: 'pec', marks: mottle(c.pec, 0.68) },
       ],
     };
   },
