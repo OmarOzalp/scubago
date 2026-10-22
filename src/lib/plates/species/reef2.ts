@@ -2,7 +2,7 @@
  * Reef fish, part two: eels, tang, batfish, sweetlips, puffers and boxfish, trumpetfish,
  * crocodilefish and flying gurnard (from above), jawfish, garibaldi, sea bass, lingcod, anthias.
  */
-import { add, blob, type Ctrl, ellipse, inside, lerp, mul, norm, perp, type Pt, rng, spline, sub } from '../kit';
+import { add, blob, clipLine, type Ctrl, ellipse, lerp, mul, norm, perp, type Pt, rng, spline, sub } from '../kit';
 import { scatter, scatterIn, shapeIn } from '../marks';
 import { tube } from '../ray';
 import type { PlateDef } from '../registry';
@@ -325,9 +325,9 @@ const batfish: FishSpec = {
   blunt: 0.7,
   top: [[0.4, 0], [1.4, -5], [3, -10], [4, -14], [5.4, -18], [7, -22], [10, -27], [15, -32], [22, -36], [30, -38], [40, -38], [50, -35], [60, -28], [68, -19], [74, -11], [78, -7], [80, -6]],
   bot: [[0.6, 7], [2.4, 11], [5, 16], [9, 22], [14, 28], [21, 33], [29, 36.4], [38, 37], [48, 34], [58, 27], [66, 19], [72, 11.6], [77, 7.4], [80, 6.4]],
-  dorsal: [{ from: 22, to: 78, spines: 5, rays: 34, h: [[0, 6], [0.15, 15], [0.5, 17], [0.82, 10], [1, 4]], notch: 0.1, rake: [30, 70] }],
-  anal: [{ from: 34, to: 78, spines: 3, rays: 27, h: [[0, 8], [0.25, 16], [0.6, 13], [1, 4]], rake: [30, 70] }],
-  caudal: { type: 'truncate', len: 18, h: 9, rays: 12, paint: 'paper' },
+  dorsal: [{ from: 22, to: 78, spines: 5, rays: 34, h: [[0, 8], [0.12, 20], [0.3, 29], [0.6, 24], [0.85, 13], [1, 5]], notch: 0.1, rake: [40, 78] }],
+  anal: [{ from: 34, to: 78, spines: 3, rays: 27, h: [[0, 9], [0.2, 21], [0.45, 25], [0.75, 15], [1, 5]], rake: [40, 78] }],
+  caudal: { type: 'truncate', len: 25, h: 13, rays: 14, paint: '#D4D0C2' },
   pectoral: { at: [22, 0.55], base: 3, h: [[0, 9], [1, 6]], angles: [-5, 40], rays: 9, paint: 'paper' },
   pelvic: { at: [18, 0.98], base: 2, h: [[0, 16], [1, 10]], angles: [62, 82], rays: 5, paint: 'ink' },
   eye: { x: 9, f: 0.36, r: 1.8, iris: '#B8862E' },
@@ -339,16 +339,26 @@ const batfish: FishSpec = {
   engraving: 'none',
   extra: (c) => {
     const s = c.s;
-    const bar = (x0: number, x1: number, o: number): Fill => ({ poly: region(s, tAtX(s, x0), tAtX(s, x1), -0.1, 1.1), paint: 'dark', o, clip: 'body' });
+    // Dark bands that bow across the disc and fade out into the fins above and below.
+    const bar = (x0: number, x1: number, o: number, bow: number): Fill[] => {
+      const edge = (x: number, k: number): [number, number][] => [[tAtX(s, x + bow * k), -0.02], [tAtX(s, x - bow * k), 0.5], [tAtX(s, x + bow * k), 1.02]];
+      const mk = (m: number): Pt[] => spline([...edge(x0 - m, 1).map(([t, f]) => at(s, t, f)), ...edge(x1 + m, 1).reverse().map(([t, f]) => at(s, t, f))], true);
+      return [{ poly: mk(0.9), paint: 'dark', o: o * 0.35, clip: 'trunk' }, { poly: mk(0), paint: 'dark', o, clip: 'trunk' }];
+    };
+    const finBar = (x0: number, x1: number, h: number): Fill => {
+      const p0 = atX(s, x0, 0);
+      const p1 = atX(s, x1, 0);
+      const m = lerp(p0, p1, 0.5);
+      return { poly: spline([add(p0, [0.6, 4]), add(p0, [-0.4, -h * 0.5]), add(m, [0, -h]), add(p1, [0.4, -h * 0.5]), add(p1, [-0.6, 4])], true), paint: 'dark', o: 0.34 };
+    };
     // A few contours only: the silvery disc stays smooth.
     const shade = contours(s, { top: [0.04, 0.1], bot: [0.84, 0.91, 0.96] });
     return {
       lines: shade.map((l) => ({ ...l, o: 0.55 })),
-      marks: [bar(6.5, 12.5, 0.95), bar(19, 28, 0.85)],
+      marks: [...bar(6.5, 12.5, 0.95, 1.1), ...bar(19, 28, 0.85, 1.6)],
       median: [
-        { part: 'dorsal', marks: [{ ...margin(c.dorsal[0].te, 1.6, 'ink', 0.85) }] },
+        { part: 'dorsal', marks: [{ ...margin(c.dorsal[0].te, 1.6, 'ink', 0.85) }, finBar(19.5, 27.5, 30)] },
         { part: 'anal', marks: [{ ...margin(c.anal[0].te, 1.6, 'ink', 0.85) }] },
-        { part: 'caudal', marks: [{ poly: region(s, 0.995, 1, 0.3, 0.7), paint: '#8A4B2D', o: 0 }] },
       ],
     };
   },
@@ -444,7 +454,7 @@ const starPuffer: FishSpec = {
 
 // ── Porcupinefish ────────────────────────────────────────────────────────────
 // Long spines lying back over the whole body; a huge bulging eye; black spots on the body and on
-// the fins; olive back and white belly; an inset of the inflated spiny ball.
+// the fins; olive back and white belly.
 const porcupine: FishSpec = {
   ...pufferBody,
   eye: { x: 13, f: 0.3, r: 3.1, iris: '#6F7A55', ring: true },
@@ -461,17 +471,9 @@ const porcupine: FishSpec = {
     }
     const spots = scatter(s, { t0: 0.03, t1: 1, f0: 0.02, f1: 0.8, r: 0.5, gap: 1.4, paint: 'ink', rand: c.rand, tries: 700 });
     const finSpots = (poly: Pt[]) => scatterIn(poly, { r: 0.45, gap: 1.2, paint: 'ink', rand: c.rand, tries: 120 });
-    // Inset: the fish blown up into a spiky ball, small, up in the corner.
-    const ic: Pt = [92, -26];
-    const ball = ellipse(ic, 7.4);
-    const ballSpines: Line[] = Array.from({ length: 22 }, (_, k) => {
-      const a = (k / 22) * Math.PI * 2;
-      return { pts: [add(ic, [Math.cos(a) * 7, Math.sin(a) * 7]), add(ic, [Math.cos(a) * 10.4, Math.sin(a) * 10.4])], w: 3, o: 0.85, taper: 'end' as const };
-    });
     return {
       marks: [...spots, ...beak(c)],
       lines: spines,
-      near: [{ poly: ball, paint: 'back', lines: [...ballSpines, { pts: spline([add(ic, [-5, 2]), add(ic, [0, 5]), add(ic, [5, 2])], false), w: 0.6, o: 0.5 }], edge: 0.9, marks: [{ poly: ellipse(add(ic, [-3.4, -1.6]), 1.6), paint: 'ink' }] }],
       median: [
         { part: 'dorsal', marks: finSpots(c.dorsal[0].poly) },
         { part: 'caudal', marks: finSpots(c.caudal.poly) },
@@ -484,44 +486,40 @@ const porcupine: FishSpec = {
 // ── Yellow boxfish (juvenile) ────────────────────────────────────────────────
 // A cube-like box with tiny fins and a fan tail; bright yellow with evenly spaced black dots; a
 // pouting little mouth; hexagonal plates.
+const boxK = 0.68;
+const bx = (pts: Ctrl[]): Ctrl[] => pts.map((p) => (p.length === 3 ? ([p[0] * boxK, p[1], 1] as Ctrl) : ([p[0] * boxK, p[1]] as Ctrl)));
 const boxfish: FishSpec = {
   tip: [0, 7],
   blunt: 0.7,
-  top: [[0.4, 4], [1.4, -1.6], [3.4, -8], [6.6, -12.4], [10.6, -14.6, 1], [20, -15.4], [40, -15.6], [52, -15], [57, -12.6], [61, -7.6], [64, -4.6], [70, -3.8]],
-  bot: [[0.6, 9], [2.6, 11.6], [6.4, 14], [12, 15.4, 1], [30, 15.8], [48, 15.2], [55, 13.4], [60, 9], [63, 5], [70, 3.8]],
-  dorsal: [{ from: 51, to: 59, rays: 9, h: [[0, 5], [0.5, 6.4], [1, 4]], rake: [35, 65] }],
-  anal: [{ from: 52, to: 60, rays: 9, h: [[0, 4.6], [0.5, 6], [1, 4]], rake: [35, 65] }],
-  caudal: { type: 'rounded', len: 28, h: 11, rays: 12 },
-  pectoral: { at: [26, 0.45], base: 3, h: [[0, 6], [1, 4]], angles: [-20, 40], rays: 8, paint: 'paper' },
-  eye: { x: 14, f: 0.26, r: 2.6, iris: '#3A3A2A' },
+  top: bx([[0.4, 4], [1.4, -1.6], [3.4, -8], [6.6, -12.4], [10.6, -14.6, 1], [20, -15.4], [40, -15.6], [52, -15], [57, -12.6], [61, -7.6], [64, -4.6], [70, -3.8]]),
+  bot: bx([[0.6, 9], [2.6, 11.6], [6.4, 14], [12, 15.4, 1], [30, 15.8], [48, 15.2], [55, 13.4], [60, 9], [63, 5], [70, 3.8]]),
+  dorsal: [{ from: 51 * boxK, to: 59 * boxK, rays: 9, h: [[0, 5], [0.5, 6.4], [1, 4]], rake: [35, 65] }],
+  anal: [{ from: 52 * boxK, to: 60 * boxK, rays: 9, h: [[0, 4.6], [0.5, 6], [1, 4]], rake: [35, 65] }],
+  caudal: { type: 'rounded', len: 22, h: 10, rays: 12 },
+  pectoral: { at: [26 * boxK, 0.45], base: 3, h: [[0, 6], [1, 4]], angles: [-20, 40], rays: 8, paint: 'paper' },
+  eye: { x: 14 * boxK + 1, f: 0.26, r: 2.6, iris: '#3A3A2A' },
   lateral: false,
   belly: 1.5,
   softBelly: false,
   engraving: 'smooth',
   extra: (c) => {
     const s = c.s;
-    // Hexagonal plates: a honeycomb of fine seams over the box.
+    // Hexagonal plates: a honeycomb of fine seams over the box, kept inside it.
     const seams: Line[] = [];
-    const hex = 4;
+    const hex = 4.4;
     for (let row = -1; row < 10; row++) {
-      for (let col = -1; col < 18; col++) {
+      for (let col = -1; col < 14; col++) {
         const cx = col * hex * 1.5;
         const cy = -16 + row * hex * 1.73 + (col % 2 ? hex * 0.866 : 0);
         const pts: Pt[] = Array.from({ length: 7 }, (_, k) => [cx + Math.cos((k / 6) * Math.PI * 2) * hex, cy + Math.sin((k / 6) * Math.PI * 2) * hex] as Pt);
-        if (pts.some((p) => inside(p, c.trunk))) seams.push({ pts, w: 0.5, o: 0.55 });
-        if (inside([cx, cy], c.trunk) && cx > 4) seams.push({ pts: [[cx, cy], [cx, cy]], w: 0 });
+        for (const piece of clipLine(pts, c.trunk)) seams.push({ pts: piece, w: 0.5, o: 0.55 });
       }
     }
-    const spots: Fill[] = [];
-    for (let row = 0; row < 10; row++) {
-      for (let col = 0; col < 18; col++) {
-        const cx = col * hex * 1.5;
-        const cy = -16 + row * hex * 1.73 + (col % 2 ? hex * 0.866 : 0);
-        if (inside([cx, cy], c.trunk) && cx > 3) spots.push({ poly: ellipse([cx, cy], 1), paint: 'ink', clip: 'trunk' });
-      }
-    }
+    // Black dots scattered over the box: evenly spaced but not on a grid.
+    const dotRand = rng(23);
+    const spots: Fill[] = scatter(s, { t0: tAtX(s, 3), t1: tAtX(s, 49 * boxK + 2), f0: 0.1, f1: 0.9, r: (t, f) => 0.85 + dotRand() * 0.55, gap: 2.4, paint: 'ink', rand: dotRand, tries: 900, wobble: 0.12 });
     const lips = ellipse(atX(s, 0.6, 0.62), 1.4, 1.1);
-    return { marks: [...spots, { poly: lips, paint: '#E8A23A', edge: 0.9 }], lines: seams.filter((l) => l.w > 0).map((l) => ({ ...l, pts: l.pts })) };
+    return { marks: [...spots, { poly: lips, paint: '#E8A23A', edge: 0.9 }], lines: seams };
   },
 };
 
@@ -535,11 +533,11 @@ const trumpet: FishSpec = {
   top: [[0.3, -1.2], [1.4, -1.3], [4, -0.9], [10, -0.95], [20, -1.25], [26, -2.4], [30, -3], [40, -3.2], [55, -3.2], [66, -3.6], [74, -3.6], [80, -2.4], [86, -1.3], [89, -1]],
   bot: [[0.3, 1.2], [1.4, 1.3], [4, 0.9], [10, 0.95], [20, 1.25], [26, 2.2], [30, 2.8], [40, 3], [55, 3], [66, 3.4], [74, 3.4], [80, 2.2], [86, 1.2], [89, 1]],
   dorsal: [
-    { from: 40, to: 64, spines: 10, rays: 0, h: 2.6, notch: 1, rake: [20, 30] },
+    { from: 42, to: 62, spines: 6, rays: 0, h: 1.9, notch: 1, rake: [20, 30] },
     { from: 66, to: 78, rays: 12, h: [[0, 4], [0.4, 6], [1, 2]], rake: [35, 60] },
   ],
   anal: [{ from: 66, to: 78, rays: 12, h: [[0, 4], [0.4, 6], [1, 2]], rake: [35, 60] }],
-  caudal: { type: 'rounded', len: 11, h: 4.4, rays: 9, paint: '#E2C04A' },
+  caudal: { type: 'rounded', len: 7.5, h: 3.2, rays: 8, paint: '#E2C04A' },
   pectoral: { at: [31, 0.55], base: 1.4, h: 3.6, angles: [0, 40], rays: 6 },
   pelvic: { at: [56, 0.98], base: 1.4, h: 3, angles: [40, 70], rays: 5 },
   eye: { x: 27, f: 0.4, r: 1.1, iris: '#B8862E' },
@@ -552,9 +550,9 @@ const trumpet: FishSpec = {
     const bars: Fill[] = [36, 46, 56, 66, 76].map((x) => ({ poly: region(s, tAtX(s, x), tAtX(s, x + 2), 0, 1), paint: 'dark' as const, o: 0.35, clip: 'trunk' as const }));
     const barbel: Line = { pts: [atX(s, 1.6, 1), add(atX(s, 1.6, 1), [0.8, 2])], w: 1.6, taper: 'end' };
     const gape: Line = { pts: [atX(s, 0.2, 0.5), atX(s, 1.8, 0.55)], w: 1.2 };
-    const tailSpots: Fill[] = [c.caudal.trailing[2], c.caudal.trailing[c.caudal.trailing.length - 3]].map((p) => ({ poly: ellipse(lerp(p, atX(s, 89, 0.5), 0.35), 1), paint: 'ink' }));
+    const tailSpots: Fill[] = [];
     return {
-      marks: [...bars, ...stripes, { poly: ellipse(atX(s, 56, 0.95), 0.8), paint: 'ink' }],
+      marks: [...bars, ...stripes, { poly: ellipse(atX(s, 56, 0.95), 0.8), paint: 'ink' }, { poly: ellipse(atX(s, 84.6, 0.3), 0.75), paint: 'ink', clip: 'trunk' }, { poly: ellipse(atX(s, 87, 0.62), 0.7), paint: 'ink', clip: 'trunk' }],
       lines: [barbel, gape],
       median: [{ part: 'caudal', marks: tailSpots }],
     };
