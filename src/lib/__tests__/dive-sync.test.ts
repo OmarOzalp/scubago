@@ -54,6 +54,15 @@ function phone(server: FakeServer, name: string, userId: string) {
       await db.insertDive(dive, sightings);
       return { dive, sightings };
     },
+    /** Add an animal to a page, as the store does. */
+    addTo: async (dive: Dive, speciesId = 'whale-shark') => {
+      const s: Sighting = {
+        id: `s-${++counter}-x`, userId, username: name, speciesId, siteId: dive.siteId, sightedOn: dive.divedOn,
+        diveId: dive.id, isDemo: false, synced: false, createdAt: new Date(Date.now() + counter).toISOString(),
+      };
+      await db.insertSighting(s);
+      return s;
+    },
     dive: async (id: string) => (await all()).dives.find((d) => d.id === id),
     sighting: async (id: string) => (await all()).sightings.find((s) => s.id === id),
     all,
@@ -280,6 +289,56 @@ describeSqlite('the dive log, offline and across phones', () => {
     await two.sync();
     expect(await two.dive(dive.id)).toBeUndefined();
     expect(await two.sighting(sightings[0].id)).toBeUndefined();
+  });
+
+  it('an animal added offline to a page deleted on another phone goes up without the page', async () => {
+    const server = newServer();
+    const one = phone(server, 'alice', A);
+    const two = phone(server, 'alice-tablet', A);
+    await one.ready();
+    await two.ready();
+    const { dive, sightings } = await one.write();
+    await one.sync();
+    await two.sync();
+
+    one.device.online = false;
+    const extra = await one.addTo(dive);
+    await two.db.deleteDive(dive.id, sightings.map((s) => s.id), { pendingSync: true });
+    await two.sync();
+    expect(server.dive(dive.id)).toBeUndefined();
+
+    one.device.online = true;
+    // The first sync still has the page here and learns it is gone; the next sends the animal without it.
+    await one.sync();
+    expect((await one.sync()).failed).toBe(0);
+    expect(server.sighting(extra.id)).toMatchObject({ species_id: 'whale-shark' });
+    expect(server.sighting(extra.id)?.dive_id ?? null).toBeNull();
+    expect(await one.sighting(extra.id)).toMatchObject({ synced: true, diveId: undefined });
+    expect(await one.dive(dive.id)).toBeUndefined();
+  });
+
+  it('an edit to a page deleted on another phone gives way to the deletion, sightings and all', async () => {
+    const server = newServer();
+    const one = phone(server, 'alice', A);
+    const two = phone(server, 'alice-tablet', A);
+    await one.ready();
+    await two.ready();
+    const { dive, sightings } = await one.write();
+    await one.sync();
+    await two.sync();
+
+    one.device.online = false;
+    await one.db.updateDive({ ...dive, divedOn: '2026-10-02', updatedAt: new Date().toISOString() }, [{ ...sightings[0], sightedOn: '2026-10-02' }]);
+    await two.db.deleteDive(dive.id, sightings.map((s) => s.id), { pendingSync: true });
+    await two.sync();
+
+    one.device.online = true;
+    const result = await one.sync();
+    expect(result).toMatchObject({ failed: 0, droppedSightings: 1 });
+    expect(await one.dive(dive.id)).toBeUndefined();
+    expect(await one.sighting(sightings[0].id)).toBeUndefined();
+    expect(server.dive(dive.id)).toBeUndefined();
+    expect(server.sighting(sightings[0].id)).toBeUndefined();
   });
 
   it('renumbering after setting the dives logged before ScubaGo syncs every page', async () => {

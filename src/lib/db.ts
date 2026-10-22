@@ -874,6 +874,27 @@ export function getRemoteDiveIds(userId: string): Promise<Set<string>> {
   });
 }
 
+/** The diver's pages on this device (deleted ones aside). */
+export function getLocalDiveIds(userId: string): Promise<Set<string>> {
+  return exclusive(async (d) => {
+    const rows = await d.getAllAsync<{ id: string }>(`SELECT id FROM dives WHERE user_id = ? AND deleted = 0`, userId);
+    return new Set(rows.map((r) => r.id));
+  });
+}
+
+/**
+ * A sighting's page is gone from this device too (deleted on another phone): it goes on without one,
+ * as the server's copy did when the page was deleted there.
+ */
+export function clearSightingDive(id: string, diveId: string): Promise<void> {
+  return exclusive(async (d) => {
+    await d.runAsync(
+      `UPDATE sightings SET dive_id = NULL WHERE id = ? AND dive_id = ? AND dive_id NOT IN (SELECT id FROM dives WHERE deleted = 0)`,
+      id, diveId,
+    );
+  });
+}
+
 /** The server has this version of the page; it counts as synced only if nothing changed meanwhile. */
 export function markDivePushed(id: string, version: number): Promise<boolean> {
   return exclusive(async (d) => {

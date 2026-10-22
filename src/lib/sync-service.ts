@@ -2,9 +2,11 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { File } from 'expo-file-system';
 
 import {
+  clearSightingDive,
   forgetDive,
   forgetSighting,
   getDiveOutbox,
+  getLocalDiveIds,
   getRemoteDiveIds,
   getSightingOutbox,
   getUnsyncedUserSites,
@@ -212,6 +214,10 @@ export interface SyncDeps {
   getDiveOutbox: (userId: string) => Promise<OutboxDive[]>;
   /** The diver's pages the server already has. */
   getRemoteDiveIds: (userId: string) => Promise<Set<string>>;
+  /** The diver's pages on this device, synced or not. */
+  getLocalDiveIds: (userId: string) => Promise<Set<string>>;
+  /** Take a sighting off a page that is gone from this device. */
+  clearSightingDive: (id: string, diveId: string) => Promise<void>;
   markDivePushed: (id: string, version: number) => Promise<boolean>;
   markDiveSyncFailed: (id: string, message: string) => Promise<void>;
   markDiveDeletionSynced: (id: string) => Promise<void>;
@@ -283,6 +289,8 @@ const defaultDeps: SyncDeps = {
   mergePulledSightings,
   getDiveOutbox,
   getRemoteDiveIds,
+  getLocalDiveIds,
+  clearSightingDive,
   markDivePushed,
   markDiveSyncFailed,
   markDiveDeletionSynced,
@@ -359,7 +367,13 @@ async function pushSighting(
   deps: SyncDeps,
   dives: DiveState,
 ): Promise<'pushed' | 'dropped'> {
-  // 0. Its page must be on the server first (unless the server has no dive log at all yet).
+  // 0. Its page must be on the server first (unless the server has no dive log at all yet). A page
+  // gone from this device too was deleted on another phone and never will be: the sighting goes
+  // without it (and if the server deleted the sighting with its page, it is dropped below).
+  if (s.diveId && !dives.local.has(s.diveId)) {
+    await deps.clearSightingDive(s.id, s.diveId);
+    s = { ...s, diveId: undefined };
+  }
   const sendDive = !!s.diveId && !dives.notReady && !missingColumns.has('dive_id');
   if (sendDive && !dives.remote.has(s.diveId!)) throw new DiveNotSyncedError();
   // 1. The photo, in the bucket for who may see it.
@@ -468,6 +482,8 @@ async function pullDetails(client: SupabaseClient, userId: string): Promise<Map<
 interface DiveState {
   /** Pages the server has. */
   remote: Set<string>;
+  /** Pages on this device. */
+  local: Set<string>;
   /** The server has no dive log (migration 0009). */
   notReady: boolean;
 }
@@ -580,7 +596,7 @@ export async function syncNow(
 
   // 2. New and edited pages of the log, before the sightings that point at them.
   const diveOutbox = await deps.getDiveOutbox(userId);
-  const dives: DiveState = { remote: new Set(), notReady: false };
+  const dives: DiveState = { remote: new Set(), local: new Set(), notReady: false };
   let pushedDives = 0;
   const diveResult = await drainOutbox(
     diveOutbox.filter((d) => !d.deleted),
@@ -597,6 +613,7 @@ export async function syncNow(
   );
   for (const id of diveResult.failed) await deps.markDiveSyncFailed(id, diveResult.errors[id]);
   dives.remote = await deps.getRemoteDiveIds(userId);
+  dives.local = await deps.getLocalDiveIds(userId);
 
   // 3. Send the diver's changes: new and edited sightings, then deletions.
   const outbox = pushableSightings(await deps.getSightingOutbox(userId), userId);
