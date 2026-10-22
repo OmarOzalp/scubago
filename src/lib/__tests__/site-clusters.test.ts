@@ -10,6 +10,8 @@ import {
   hasImportedSites,
   isImportedSite,
   MERGE_DISTANCE,
+  spreadStackedSites,
+  STACK_SPACING,
   type ClusterableSite,
   type MapRegion,
   type SiteCluster,
@@ -464,6 +466,48 @@ describe('the merge pass', () => {
     clusterSites(many, WORLD);
     clusterSites(many, region(27.4, 34, 12));
     expect(performance.now() - t).toBeLessThan(200);
+  });
+});
+
+describe('sites on one spot', () => {
+  const spot = { lat: 23.61863, lng: 36.20377 };
+  const stacked = (n: number) => Array.from({ length: n }, (_, i) => ({ id: `stack-${String(i).padStart(2, '0')}`, ...spot, region: 'Zabargad' }));
+  const view = (longitudeDelta: number) => region(spot.lat, spot.lng, longitudeDelta);
+  /** How far apart two drawn positions are on screen, in degrees of longitude. */
+  const onScreen = (a: { lat: number; lng: number }, b: { lat: number; lng: number }) => Math.hypot(a.lng - b.lng, mercatorDegrees(a.lat) - mercatorDegrees(b.lat));
+
+  it('draws each a pin’s width from the others and from the spot, close round it, at any close zoom', () => {
+    for (const n of [2, 5, 12]) {
+      for (const delta of [CLOSE_ZOOM_LNG_DELTA, 0.004, 0.0005]) {
+        const clusters = clusterSites([...stacked(n), { id: 'alone', lat: spot.lat + delta / 4, lng: spot.lng, region: 'Zabargad' }], view(delta));
+        const spread = spreadStackedSites(clusters, view(delta));
+        expect([...spread.keys()].sort()).toEqual(stacked(n).map((s) => s.id));
+        const at = [...spread.values()];
+        const gap = STACK_SPACING * delta;
+        for (let i = 0; i < at.length; i++) {
+          expect(onScreen(at[i], spot)).toBeGreaterThanOrEqual(gap * 0.999);
+          expect(onScreen(at[i], spot)).toBeLessThan(gap * Math.max(1, n / 5) * 1.2);
+          for (let j = i + 1; j < at.length; j++) expect(onScreen(at[i], at[j])).toBeGreaterThanOrEqual(gap * 0.999);
+        }
+      }
+    }
+  });
+
+  it('leaves lone sites and clusters where they are, whatever order they come in, and reads an Android region', () => {
+    const sites = [...stacked(5), { id: 'alone', lat: 23.7, lng: 36.3 }];
+    expect(spreadStackedSites(clusterSites(sites, WORLD), WORLD).size).toBe(0);
+    const close = view(0.0075);
+    const spread = spreadStackedSites(clusterSites(sites, close), close);
+    expect(spread.has('alone')).toBe(false);
+    expect(spreadStackedSites(clusterSites([...sites].reverse(), close), close)).toEqual(spread);
+    // North first, then clockwise.
+    expect(spread.get('stack-00')).toMatchObject({ lng: spot.lng });
+    expect(spread.get('stack-00')!.lat).toBeGreaterThan(spot.lat);
+    expect(spread.get('stack-01')!.lng).toBeGreaterThan(spot.lng);
+    // The width as Android reports it across 180° is read as the real one.
+    const fiji = stacked(3).map((s) => ({ ...s, lat: -16.8, lng: 179.999 }));
+    const across: MapRegion = { latitude: -16.8, longitude: 180, latitudeDelta: 0.01, longitudeDelta: 0.0075 - 360 };
+    for (const p of spreadStackedSites(clusterSites(fiji, across), across).values()) expect(Math.abs(p.lng)).toBeGreaterThan(179.99);
   });
 });
 

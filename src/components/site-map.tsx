@@ -5,7 +5,7 @@ import MapView, { Marker, type LongPressEvent, type Region } from 'react-native-
 import { OsmCredit } from '@/components/site-list';
 import { OnFill, Radius, Shadow, Type } from '@/constants/theme';
 import { useSchemeName, useTheme } from '@/hooks/use-theme';
-import { boundsToRegion, clusterSites, hasImportedSites, type MapRegion, type SiteBounds, type SiteCluster } from '@/lib/site-clusters';
+import { boundsToRegion, clusterSites, hasImportedSites, spreadStackedSites, type MapRegion, type SiteBounds, type SiteCluster } from '@/lib/site-clusters';
 import type { DiveSite } from '@/lib/types';
 
 /**
@@ -51,7 +51,8 @@ const CENTRE = { x: 0.5, y: 0.5 } as const;
  * With hundreds of sites, one marker each would be too many pins and too many views to keep up to
  * date, so sites are grouped by lib/site-clusters.ts: zoomed out, a paper roundel with a count stands
  * for the sites in one cell of a world grid, and tapping it zooms to them; zoomed in, every site is
- * its own pin. The grouping is redone once the map has stopped moving, for the region it stopped at.
+ * its own pin (sites mapped on one exact spot are drawn on a small ring round it, so each can be
+ * tapped). The grouping is redone once the map has stopped moving, for the region it stopped at.
  *
  * Single sites are the platform's own pins: lagoon, or coral while a species filter is on and the
  * site matches. The key says what that means.
@@ -83,13 +84,15 @@ export const SiteMap = memo(function SiteMap({ sites, highlightedSiteIds, highli
   const sitesById = useMemo(() => new Map(sites.map((s) => [s.id, s])), [sites]);
   const imported = useMemo(() => hasImportedSites(sites), [sites]);
 
+  // Sites on one exact spot are drawn on a small ring round it, so each pin can be tapped.
+  const spread = useMemo(() => spreadStackedSites(clusters, region), [clusters, region]);
   const markers = useMemo(
     () =>
       clusters.map((cluster) => {
         const matching = highlightedSiteIds === null ? 0 : cluster.siteIds.reduce((n, id) => n + (highlightedSiteIds.has(id) ? 1 : 0), 0);
-        return markerSpec(cluster, matching, highlightedSiteIds !== null, sitesById);
+        return markerSpec(cluster, matching, highlightedSiteIds !== null, sitesById, spread.get(cluster.id));
       }),
-    [clusters, highlightedSiteIds, sitesById],
+    [clusters, highlightedSiteIds, sitesById, spread],
   );
 
   const handleSelect = useCallback((siteId: string) => latest.current.onSelectSite(siteId), []);
@@ -215,15 +218,15 @@ interface MarkerSpec {
   label: string;
 }
 
-/** The plain values a marker is drawn from, including what a screen reader says. */
-function markerSpec(cluster: SiteCluster, matching: number, filtering: boolean, sitesById: Map<string, DiveSite>): MarkerSpec {
+/** The plain values a marker is drawn from, including what a screen reader says. `at` moves a lone site's pin off a spot it shares. */
+function markerSpec(cluster: SiteCluster, matching: number, filtering: boolean, sitesById: Map<string, DiveSite>, at?: { lat: number; lng: number }): MarkerSpec {
   const state = !filtering ? 'plain' : matching > 0 ? 'match' : 'other';
   if (cluster.count === 1) {
     const site = sitesById.get(cluster.id);
     return {
       id: cluster.id,
-      lat: cluster.lat,
-      lng: cluster.lng,
+      lat: at?.lat ?? cluster.lat,
+      lng: at?.lng ?? cluster.lng,
       count: 1,
       state,
       label: site ? `${site.name}, ${site.region}, ${site.country}${state === 'match' ? ', matches your search' : ''}` : cluster.id,

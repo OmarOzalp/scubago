@@ -404,6 +404,45 @@ export function cellLatRange(level: number, row: number): { south: number; north
   return { south: latFromMercatorY(row * rowHeight), north: latFromMercatorY((row + 1) * rowHeight) };
 }
 
+// ── Sites on one spot ────────────────────────────────────────────────────────
+
+/** How far apart the pins of sites on one spot are drawn, as a share of the view's width: about 30 pt on a phone, a pin's width. */
+export const STACK_SPACING = 0.08;
+
+/**
+ * Where to draw lone sites that share one position exactly, by site id (only those are in the map).
+ * OpenStreetMap puts five Zabargad sites on one point, and pins drawn on top of each other leave
+ * only the top one to tap, however close the map zooms. So they go on a small ring round the point,
+ * in id order clockwise from north, `spacing` of the view's width apart on screen at any zoom (the
+ * ring grows with how many there are). This is for drawing only: everywhere else each site keeps
+ * its own position.
+ */
+export function spreadStackedSites(clusters: readonly SiteCluster[], region: MapRegion, spacing: number = STACK_SPACING): Map<string, { lat: number; lng: number }> {
+  const stacks = new Map<string, SiteCluster[]>();
+  for (const c of clusters) {
+    if (c.count !== 1) continue;
+    const key = `${Math.round(c.lat * 1e6)},${Math.round(c.lng * 1e6)}`;
+    const stack = stacks.get(key);
+    if (stack) stack.push(c);
+    else stacks.set(key, [c]);
+  }
+  const step = sanitize(region).longitudeDelta * spacing;
+  const spread = new Map<string, { lat: number; lng: number }>();
+  for (const stack of stacks.values()) {
+    const n = stack.length;
+    if (n < 2) continue;
+    stack.sort((a, b) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0));
+    // Neighbours on the ring are `step` apart, and none is nearer the point than that.
+    const radius = Math.max(step, step / (2 * Math.sin(Math.PI / n)));
+    stack.forEach((c, i) => {
+      const angle = (2 * Math.PI * i) / n;
+      // A circle on screen: the map stretches north-south by 1/cos(latitude), so a degree of latitude is drawn longer.
+      spread.set(c.id, { lat: c.lat + radius * Math.cos(angle) * Math.cos(c.lat * RAD), lng: wrapLng(c.lng + radius * Math.sin(angle)) });
+    });
+  }
+  return spread;
+}
+
 // ── Imported sites ───────────────────────────────────────────────────────────
 
 /** Whether a site came from the OpenStreetMap import (its id starts with `osm-`, or it names OpenStreetMap as a source). */
