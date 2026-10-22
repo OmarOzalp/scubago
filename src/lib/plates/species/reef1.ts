@@ -304,7 +304,8 @@ const king: FishSpec = {
   engraving: 'smooth',
   extra: (c) => {
     const s = c.s;
-    const bar = shapeIn(s, [[tAtX(s, 28.5), -0.02], [tAtX(s, 31), -0.02], [tAtX(s, 31.6), 0.35], [tAtX(s, 30.6), 0.6], [tAtX(s, 29), 0.6], [tAtX(s, 28.8), 0.3]]);
+    // The white bar bows back a little and ends over the pectoral base, well short of the dorsal outline.
+    const bar = shapeIn(s, [[tAtX(s, 29), 0.07], [tAtX(s, 30.8), 0.06], [tAtX(s, 32), 0.3], [tAtX(s, 31.2), 0.56], [tAtX(s, 29.9), 0.58], [tAtX(s, 30.3), 0.32]]);
     const spots = scatter(s, { t0: 0.02, t1: tAtX(s, 22), f0: 0.05, f1: 0.8, r: 0.3, gap: 0.9, paint: '#8EC6F0', rand: c.rand, tries: 200, o: 0.9 });
     return {
       marks: [{ poly: bar, paint: 'light', clip: 'trunk' }, ...spots, angelSpine(c, '#8EC6F0'), { poly: ellipse(atX(s, 1.6, 0.62), 1.3, 0.9), paint: '#F5A623' }],
@@ -617,7 +618,7 @@ export const REEF_FISH_1: Record<string, PlateDef> = {
   'emperor-angelfish': F(emperor, { back: '#2A4FA0', belly: '#2A4FA0', fin: '#2A4FA0' }, 3),
   'french-angelfish': F(french, { back: '#1F1F26', belly: '#1F1F26', fin: '#22222A' }, 4),
   'queen-angelfish': F(queen, { back: '#2E7FA8', belly: '#3E9E8F', fin: '#2E6FA0' }, 5),
-  'king-angelfish': F(king, { back: '#2B3A55', belly: '#2B3A55', fin: '#2B3A55' }, 6),
+  'king-angelfish': F(king, { back: '#18223D', belly: '#18223D', fin: '#1E2A47' }, 6),
   'raccoon-butterflyfish': F(raccoon, { back: '#F2C12E', belly: '#F2C12E', fin: '#F2C12E' }, 7),
   'stoplight-parrotfish': F(stoplight, { back: '#1F9C78', belly: '#1F9C78', fin: '#2A9A7E' }, 8),
   'titan-triggerfish': F(titan, { back: '#E3CF8A', belly: '#E3CF8A', fin: '#D7B048', dark: '#3D4A2F' }, 9),
