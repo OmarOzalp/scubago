@@ -5,7 +5,7 @@ import { create } from 'react-test-renderer';
 import { CATALOG_BY_ID } from '@/lib/catalog';
 import { SITES } from '@/data/sites';
 import { evaluateBadges } from '@/lib/rewards';
-import { parseSeen, seenKey } from '@/lib/badges-seen';
+import { claimSeenBadges, parseSeen, seenKey } from '@/lib/badges-seen';
 import { useNewBadges } from '../use-new-badges';
 
 // The store, as the hook reads it: by default the diver's log has come down from the server.
@@ -158,6 +158,19 @@ test('a record already on the phone is used before any sync, and the device\'s o
   await update({ owner: 'local', badges: badgesFor([shark]), ready: true });
   expect(latest.loaded).toBe(true);
   expect(latest.fresh).toEqual([]);
+});
+
+test('signing in with a screen open: the badges celebrated before signing in are seen on it at once', async () => {
+  const A = seenKey('uid-a');
+  mockStore = { pulledFor: 'uid-a', syncing: false };
+  await AsyncStorage.setItem(A, JSON.stringify({ v: 1, ids: earnedIds(badgesFor([shark])) }));
+  await AsyncStorage.setItem(seenKey('local'), JSON.stringify({ v: 1, ids: ['first-turtle'] }));
+  // The screen has switched to the account; its log has not taken in the device's turtle yet.
+  await show({ owner: 'uid-a', badges: badgesFor([shark]), ready: true });
+  await act(async () => claimSeenBadges('local', 'uid-a'));
+  await update({ owner: 'uid-a', badges: badgesFor([shark, turtle]), ready: true });
+  expect(latest.fresh).toEqual([]);
+  expect(parseSeen(await AsyncStorage.getItem(A))).toContain('first-turtle');
 });
 
 // Two screens open at once, as the Rewards screen stays mounted under the log screen.

@@ -100,3 +100,27 @@ export function addSeen(key: string, ids: readonly string[]): void {
     // Not remembering only means a badge may be celebrated twice.
   });
 }
+
+/**
+ * Signing in hands the device's log to the account (claimLocalSightings), and with it the device's
+ * record: merged into the account's, so a badge celebrated before signing in is not celebrated
+ * again. An account with no record here yet is left without one: its first record takes all it has
+ * earned as seen once its log has come down, the claimed sightings with it.
+ */
+export function claimSeenBadges(from: string, to: string): Promise<void> {
+  const fromKey = seenKey(from);
+  const toKey = seenKey(to);
+  return inTurn(async () => {
+    const stored = parseSeen(await AsyncStorage.getItem(fromKey));
+    const known = knownSeen(fromKey);
+    if (!stored && !known) return;
+    const moved = union(known ?? [], stored ?? []);
+    const account = knownSeen(toKey);
+    if (account) put(toKey, union(account, moved));
+    if (account || parseSeen(await AsyncStorage.getItem(toKey))) await write(toKey, moved);
+    put(fromKey, null);
+    await AsyncStorage.removeItem(fromKey);
+  }).catch(() => {
+    // Not carried over only means a badge may be celebrated twice.
+  });
+}

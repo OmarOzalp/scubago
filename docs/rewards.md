@@ -200,7 +200,8 @@ the diver has seen in AsyncStorage, one record per user id (`scubago:badges-seen
 screen open shares one copy of it (`src/lib/badges-seen.ts`), so a badge celebrated on one is not new
 on another, and a write keeps whatever is stored already. The first time, with no record, it takes
 what is earned as seen, quietly; for a signed-in diver only once a sync has brought their log down
-(the store's `pulledFor`), so on a new phone their history is not celebrated as it arrives. It returns `fresh` (earned, not yet seen) and `markSeen()`; the record
+(the store's `pulledFor`), so on a new phone their history is not celebrated as it arrives. Signing
+in moves the device's record into the account's along with its log (`claimSeenBadges`). It returns `fresh` (earned, not yet seen) and `markSeen()`; the record
 only ever grows.
 
 The log screen (`src/app/log/new.tsx`) calls it when it opens, before anything is saved, so the record

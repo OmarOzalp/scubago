@@ -5,6 +5,7 @@ import { create } from 'zustand';
 import { SITES, SITES_BY_ID } from '@/data/sites';
 import { deleteAccount as deleteRemoteAccount } from '@/lib/account';
 import { ensureProfile, getSessionUserId, signOut as authSignOut, usernameForUser } from '@/lib/auth';
+import { claimSeenBadges } from '@/lib/badges-seen';
 import { CATALOG_BY_ID, UNLISTED_ID } from '@/lib/catalog';
 import {
   bindSightingsToDives,
@@ -490,6 +491,7 @@ export const useAppStore = create<StoreState>((set, get) => {
     onSignedIn: async (user) => {
       set({ user });
       await claimLocalSightings(user.id, user.username);
+      await claimSeenBadges(LOCAL_USER_ID, user.id);
       await reload();
       await bindLoose().catch((e) => console.warn('could not bind past sightings into pages', e));
       // Failures stay queued and are retried (sync-scheduler.ts).
