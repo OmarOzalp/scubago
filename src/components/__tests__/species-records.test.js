@@ -391,8 +391,8 @@ describe('SpeciesRecords, ready', () => {
     expect(text).toContain('Nowhere Sea, Testland');
     // One line per source, so a count never breaks across two lines.
     // (These fixtures were searched with different radii, so each row says its own.)
-    expect(text).toContain('38 iNaturalist observations | 12 OBIS records | Within 3 km | Newest on file:');
-    expect(text).toContain('| Within 5 km |');
+    expect(text).toContain('38 iNaturalist observations | 12 OBIS records | Within 3 km (OBIS: 6 km square) | Newest on file:');
+    expect(text).toContain('| Within 5 km (OBIS: 10 km square) |');
     expect(text).toMatch(/Newest on file: .*2026/);
     // One is "observation" and "record", and a site one source does not record names only the other.
     expect(text).toContain('| 1 iNaturalist observation |');
@@ -406,17 +406,17 @@ describe('SpeciesRecords, ready', () => {
 
   test('says the search radius once when every site used the same one, and on each row when they differ', async () => {
     await render({ sites: [row('a', 'Site A'), row('b', 'Site B')], checked: 2 });
-    expect(textOf()).toContain('Counts are records within about 3 km of each site.');
+    expect(textOf()).toContain('Counts are iNaturalist records within 3 km of each site, and OBIS records in a 6 km square around it.');
     expect(textOf()).not.toMatch(/\| Within \d/);
     await act(async () => root.unmount());
     root = null;
 
     await render({ sites: [row('a', 'Site A'), row('b', 'Site B', { radiusKm: 5 }), row('c', 'Site C', { radiusKm: 0.5 })], checked: 3 });
     const text = textOf();
-    expect(text).not.toContain('Counts are records within about');
-    expect(text).toContain('| Within 3 km |');
-    expect(text).toContain('| Within 5 km |');
-    expect(text).toContain('| Within 0.5 km |');
+    expect(text).not.toContain('Counts are iNaturalist records within');
+    expect(text).toContain('| Within 3 km (OBIS: 6 km square) |');
+    expect(text).toContain('| Within 5 km (OBIS: 10 km square) |');
+    expect(text).toContain('| Within 0.5 km (OBIS: 1 km square) |');
   });
 
   test('says how many of the sites that were opened record it', async () => {
@@ -447,7 +447,7 @@ describe('SpeciesRecords, ready', () => {
   test('a row opens that dive site', async () => {
     const onOpenSite = jest.fn();
     await render({ sites, checked: 5, onOpenSite });
-    const [open] = press(/^Test Reef, Nowhere Sea, Testland, 38 iNaturalist observations, 12 OBIS records, within 3 km, newest on file .*2026/);
+    const [open] = press(/^Test Reef, Nowhere Sea, Testland, 38 iNaturalist observations, 12 OBIS records, within 3 km, OBIS in a 6 km square, newest on file .*2026/);
     expect(open.props.accessibilityRole).toBe('button');
     expect(open.props.accessibilityHint).toBe('Opens the dive site page');
     await act(async () => open.props.onPress());

@@ -102,6 +102,14 @@ test('ready: names the animals with their evidence, labels the records as public
   expect(text).not.toMatch(/-?\d+\.\d{3,}/);
 });
 
+test('says how far the records reach: a circle for iNaturalist, a square for OBIS', async () => {
+  await render({ summary: summary(), status: 'ready' });
+  const text = textOf();
+  // OBIS is asked for a box whose half-side is the radius (geo.ts), so its corners reach further than 3 km.
+  expect(text).toContain('Records from iNaturalist observers within 3 km of this site, and from OBIS scientific datasets in a 6 km square around it.');
+  expect(text).not.toContain('within about');
+});
+
 test('a species row opens that species page', async () => {
   await render({ summary: summary(), status: 'ready' });
   const [row] = press(/^Reef Manta Ray, 212 iNaturalist observations, 38 records in OBIS datasets/);
@@ -124,7 +132,7 @@ test('recent observations: credit, date, "within N km", photo with its credit, a
   expect(text).toContain('Observer 12, CC0 (iNaturalist)');
   const [obscured] = press(/^Green Sea Turtle, observed/);
   expect(obscured.props.accessibilityLabel).not.toMatch(/within/);
-  expect(text.match(/within \d+ km/g)).toHaveLength(1);
+  expect(text.match(/· within \d+ km/g)).toHaveLength(1);
 
   const [first] = press(/^Reef Manta Ray, observed/);
   await act(async () => first.props.onPress());

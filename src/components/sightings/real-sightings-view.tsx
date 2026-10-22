@@ -48,8 +48,9 @@ export function RealSightingsView({ summary, status, onRefresh, onOpenSpecies, o
   return (
     <View style={styles.section}>
       <SectionHeader eyebrow="Public records" title="Marine life recorded here" />
+      {/* OBIS is searched in a box whose half-side is the radius (geo.ts), so its corners reach further. */}
       <ThemedText type="caption" themeColor="textSecondary">
-        {`Records within about ${model.radiusKm} km of this site, from iNaturalist observers and OBIS scientific datasets. Not ScubaGo sightings, and not checked by ScubaGo.`}
+        {`Records from iNaturalist observers within ${model.radiusKm} km of this site, and from OBIS scientific datasets in a ${model.radiusKm * 2} km square around it. Not ScubaGo sightings, and not checked by ScubaGo.`}
       </ThemedText>
 
       {model.kind === 'loading' ? <SightingsPlaceholder /> : null}

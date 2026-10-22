@@ -97,7 +97,7 @@ export function SpeciesRecords({ status, sites, checked, speciesName, onOpenSite
             </ThemedText>
             {radius !== undefined ? (
               <ThemedText type="small" themeColor="textSecondary">
-                {`Counts are records within about ${kmText(radius)} km of each site.`}
+                {`Counts are iNaturalist records within ${kmText(radius)} km of each site, and OBIS records in a ${kmText(radius * 2)} km square around it.`}
               </ThemedText>
             ) : null}
           </View>
@@ -154,9 +154,10 @@ function SiteRecordRow({ site, first, showRadius, onPress }: { site: SpeciesSite
   const theme = useTheme();
   const evidence = evidencePhrases(site);
   const newest = isIsoDate(site.newestOn) ? formatDate(site.newestOn) : undefined;
-  const radius = `within ${kmText(site.radiusKm)} km`;
+  // iNaturalist is searched in a circle, OBIS in a square whose half-side is the radius (geo.ts).
+  const radius = `within ${kmText(site.radiusKm)} km, OBIS in a ${kmText(site.radiusKm * 2)} km square`;
   // One line per fact, so a count never breaks across two lines.
-  const details = [showRadius ? `Within ${kmText(site.radiusKm)} km` : null, newest ? `Newest on file: ${newest}` : null].filter((part): part is string => part !== null);
+  const details = [showRadius ? `Within ${kmText(site.radiusKm)} km (OBIS: ${kmText(site.radiusKm * 2)} km square)` : null, newest ? `Newest on file: ${newest}` : null].filter((part): part is string => part !== null);
   const label = [
     `${site.name}, ${site.region}, ${site.country}`,
     evidence.join(', '),
