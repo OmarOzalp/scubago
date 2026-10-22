@@ -6,16 +6,28 @@ import type { DiveSite, Species } from '@/lib/types';
 const SPELLINGS: Record<string, string> = { grey: 'gray', harbour: 'harbor', colour: 'color', armour: 'armor' };
 
 /**
+ * Punctuation, symbols and spaces, which search reads as spaces: ASCII's, Latin-1's ("«»·"), the
+ * general ones ("–—“”…"), CJK's ("、。「」"), Arabic's ("،؛؟") and the full-width ASCII ones.
+ * Everything else is kept, so are the letters of every script ("رأس محمد", "大瀬崎", "Ζηνοβία"). They
+ * are listed rather than matched as "anything but a letter" (`\p{L}`), because Unicode property
+ * escapes can't be relied on in every JavaScript engine the app runs on.
+ */
+const SEPARATORS = /[\s\x00-\x2f\x3a-\x40\x5b-\x60\x7b-\x7f -¿×÷ -⁯　-〿،؛؟！-／：-＠［-｀｛-･]+/g;
+
+/**
  * Text as search compares it: lower case, accents dropped ("Galápagos" → "galapagos"), apostrophes
  * of any kind removed ("Munk’s" and "Munk's" → "munks"), punctuation as spaces, one spelling per word.
+ * Letters of other scripts are kept, put back together after the accents go (an Arabic hamza, a
+ * Japanese voicing mark), so a name in Arabic or Japanese is found by what is typed in it.
  */
 export function normalizeSearch(text: string): string {
   return text
     .normalize('NFD')
     .replace(/[̀-ͯ]/g, '')
+    .normalize('NFC')
     .toLowerCase()
     .replace(/['’‘`´]/g, '')
-    .replace(/[^a-z0-9]+/g, ' ')
+    .replace(SEPARATORS, ' ')
     .trim()
     .split(' ')
     .map((w) => SPELLINGS[w] ?? w)

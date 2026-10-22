@@ -89,6 +89,19 @@ test('typing filters the whole list with the forgiving search, and finds nothing
   expect(data()).toHaveLength(600);
 });
 
+test('a site named in Arabic or Japanese is found by its name', async () => {
+  const at = (id, name, region) => ({ ...generateSites(1)[0], id, name, region, source: 'user', createdBy: 'me' });
+  await render({ sites: [...SITES, at('user-ras', 'رأس محمد', 'سيناء'), at('user-osezaki', '大瀬崎', '伊豆')] });
+  await type('رأس محمد');
+  expect(data().map((r) => r.site.id)).toEqual(['user-ras']);
+  await type('大瀬');
+  expect(data().map((r) => r.site.id)).toEqual(['user-osezaki']);
+  // Nothing in the list is called that: nothing is listed.
+  await type('ラス');
+  expect(rows()).toHaveLength(0);
+  expect(text()).toContain('No site matches “ラス”.');
+});
+
 test('filtering 600 sites is quick', async () => {
   await render();
   const start = performance.now();
