@@ -1,0 +1,29 @@
+{
+  "_note": "HAND-WRITTEN test fixture. Every number is made up to exercise the script offline (--input); none of it is iNaturalist or OBIS data. Never copy it to src/data/real-rarity.json.",
+  "generatedAt": "2026-10-22T00:00:00.000Z",
+  "species": {
+    "great-barracuda": { "inaturalist": { "observations": 90000, "observers": 20000, "taxonId": 1 }, "obis": { "records": 500000 } },
+    "green-turtle": { "inaturalist": { "observations": 60000, "observers": 15000, "taxonId": 2 }, "obis": { "records": 200000 } },
+    "clownfish": { "inaturalist": { "observations": 30000, "observers": 8000, "taxonId": 3 }, "obis": { "records": 40000 } },
+    "moorish-idol": { "inaturalist": { "observations": 20000, "observers": 6000, "taxonId": 4 }, "obis": { "records": 60000 } },
+    "nurse-shark": { "inaturalist": { "observations": 9000, "observers": 3000, "taxonId": 5 }, "obis": { "records": 30000 } },
+    "hawksbill-turtle": { "inaturalist": { "observations": 8000, "observers": 3500, "taxonId": 6 }, "obis": { "records": 20000 } },
+    "blacktip-reef-shark": { "inaturalist": { "observations": 4000, "observers": 1500, "taxonId": 7 }, "obis": { "records": 15000 } },
+    "bottlenose-dolphin": { "inaturalist": { "observations": 3000, "observers": 1200, "taxonId": 8 }, "obis": { "records": 90000 } },
+    "mola-mola": { "inaturalist": { "observations": 2000, "observers": 900, "taxonId": 9, "taxonIds": [9, 10] }, "obis": { "records": 7000 } },
+    "tiger-shark": { "inaturalist": { "observations": 1500, "observers": 700, "taxonId": 11 }, "obis": { "records": 80000 } },
+    "reef-manta": { "inaturalist": { "observations": 900, "observers": 400, "taxonId": 12 }, "obis": { "records": 2000 } },
+    "whale-shark": { "inaturalist": { "observations": 600, "observers": 300, "taxonId": 13 }, "obis": { "records": 5000 } },
+    "lemon-shark": { "inaturalist": { "observations": 300, "taxonId": 14 }, "obis": { "records": 900 } },
+    "dugong": { "inaturalist": { "observations": 60, "observers": 40, "taxonId": 15 }, "obis": { "records": 300 } },
+    "sawfish": { "inaturalist": { "observations": 8, "observers": 6, "taxonId": 16 }, "obis": { "records": 40 } },
+    "sailfish": { "obis": { "records": 1200 } },
+    "leatherback-turtle": { "inaturalist": { "observations": 0, "observers": 0, "taxonId": 17 }, "obis": { "records": 0 } },
+    "unlisted": { "inaturalist": { "observations": 1, "observers": 1 }, "obis": { "records": 1 } },
+    "not-in-the-catalogue": { "inaturalist": { "observations": 5, "observers": 2 }, "obis": { "records": 5 } },
+    "orca": { "inaturalist": { "observations": "many" } }
+  },
+  "unresolved": [
+    { "id": "sailfish", "scientificName": "Istiophorus platypterus", "reason": "No active iNaturalist species matched Istiophorus platypterus, Istiophorus albicans." }
+  ]
+}

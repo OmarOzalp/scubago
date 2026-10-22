@@ -7,6 +7,7 @@ import { ThemedText } from '@/components/themed-text';
 import { Type } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { INATURALIST_CREDIT, LICENCES, OBIS_CITATION, OBIS_CREDIT, REAL_SIGHTINGS_FOOTNOTE } from '@/lib/external-sightings/attribution';
+import { REAL_RARITY, REAL_RARITY_SOURCES } from '@/lib/real-rarity';
 
 const OSM_COPYRIGHT = 'https://www.openstreetmap.org/copyright';
 const ODBL = 'https://opendatacommons.org/licenses/odbl/1-0/';
@@ -64,6 +65,19 @@ export default function CreditsScreen() {
           <LinkLine first label="OBIS" url={OBIS_CREDIT.homepage} />
           <LinkLine label="OBIS data policy" url={OBIS_CREDIT.termsUrl} />
           <LinkLine label="How to cite OBIS" url={OBIS_CREDIT.guidelinesUrl} />
+        </Paper>
+      </View>
+
+      <View style={styles.section}>
+        <SectionHeader eyebrow="Rarity" title="How rare each animal is" />
+        <Paper>
+          <ThemedText>
+            {REAL_RARITY.size > 0
+              ? 'Each animal’s rarity comes from how often it is recorded worldwide: its research-grade observations and observers on iNaturalist, and its occurrence records in OBIS, ranked across the whole catalogue.'
+              : 'Each animal’s rarity is ScubaGo’s own estimate for now. It will come from how often the animal is recorded worldwide, on iNaturalist and in OBIS, once those counts have been fetched.'}
+          </ThemedText>
+          <Rule />
+          <Bullets items={[REAL_RARITY_SOURCES.inaturalist.licence, REAL_RARITY_SOURCES.obis.licence]} />
         </Paper>
       </View>
 

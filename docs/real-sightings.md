@@ -334,3 +334,10 @@ been checked against the shapes in `types.ts`.
 - The species photographs on species pages (`species-photos.json`) carry the licence iNaturalist gives each
   one, and most are not CC0 or CC BY. The credits screen describes them accurately and does not claim
   otherwise; whether they may stay is a decision for the project, not for this screen.
+
+## See also: worldwide rarity
+
+The share-of-sites rarity above needs many sites summarised on the device. A separate tier for every
+catalogue animal, from worldwide iNaturalist and OBIS counts fetched once at build time and bundled with
+the app, is in [real-rarity.md](real-rarity.md). It reuses this folder's name matching and synonym table,
+and produces the same `ReadonlyMap<speciesId, Rarity>` the rewards engine takes as `observed`.

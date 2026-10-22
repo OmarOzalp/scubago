@@ -72,6 +72,7 @@
     "plates:sheet": "tsx scripts/art/plates-sheet.ts",
     "seed:supabase": "tsx scripts/seed-supabase.ts",
     "import:osm-sites": "tsx scripts/osm-sites/import.ts",
+    "fetch:real-rarity": "tsx scripts/real-rarity/fetch.ts",
     "check:env": "tsx scripts/check-public-env.ts",
     "eas-build-post-install": "tsx scripts/check-public-env.ts --eas",
     "check:supabase": "tsx scripts/check-supabase.ts",

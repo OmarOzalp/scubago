@@ -13,6 +13,7 @@ import { REGIONS } from '../src/data/regions';
 import { SITES } from '../src/data/sites';
 import photos from '../src/data/species-photos.json';
 import { SPECIES } from '../src/data/species';
+import { REAL_RARITY } from '../src/lib/real-rarity';
 import { classifySupabaseKey, isPrivilegedKey } from '../src/lib/supabase-env';
 
 const url = process.env.SUPABASE_URL ?? process.env.EXPO_PUBLIC_SUPABASE_URL;
@@ -35,7 +36,8 @@ async function main() {
     common_name: s.commonName,
     scientific_name: s.scientificName,
     category: s.category,
-    rarity: s.rarity,
+    // The tier from real records once fetched (docs/real-rarity.md), as the app's catalogue shows it.
+    rarity: REAL_RARITY.get(s.id) ?? s.rarity,
     blurb: s.blurb,
     emoji: s.emoji ?? null,
     photo_url: photoMap[s.id]?.url ?? null,

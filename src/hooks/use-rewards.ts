@@ -7,9 +7,9 @@ import { useAllSites, useAppStore, useMyDives, useMySightings } from '@/lib/stor
 import type { Rarity } from '@/lib/types';
 
 /**
- * Rarity tiers worked out from real public sightings records (iNaturalist, OBIS), by species id.
- * They are not available yet, so every reward uses the catalog's rarity (docs/rewards.md). When they
- * are, this is the one place to return them.
+ * Rarity tiers from real records near particular sites, by species id, to override the catalog's.
+ * None yet: the catalog's own rarity already comes from real records worldwide once they have been
+ * fetched (`CATALOG` in catalog.ts, docs/real-rarity.md), and per-region tiers would be returned here.
  */
 function useObservedRarity(): ReadonlyMap<string, Rarity> | undefined {
   return undefined;
