@@ -114,9 +114,11 @@ export interface SpeciesCountsResult {
   counts: InatSpeciesCount[];
   /** There were more taxa than the pages read. */
   truncated: boolean;
+  /** Why a later page could not be read: the counts are those of the pages before it. */
+  error?: unknown;
 }
 
-/** Read up to `maxPages` pages of species counts. A failure on a later page keeps the earlier ones. */
+/** Read up to `maxPages` pages of species counts. A failure on a later page keeps the earlier ones, and says why. */
 export async function fetchInatSpeciesCounts(
   site: SiteQuery,
   { fetchImpl, signal, maxPages = MAX_SPECIES_PAGES }: ClientOptions & { maxPages?: number } = {},
@@ -131,8 +133,8 @@ export async function fetchInatSpeciesCounts(
       parsed = parseSpeciesCounts(await fetchJson(speciesCountsUrl(site, page), { fetchImpl, signal }));
     } catch (error) {
       if (page === 1 || isAbortError(error)) throw error;
-      truncated = true;
-      break;
+      // Not "more than ScubaGo reads": the rest could not be read this time, which is a failure to report.
+      return { counts, truncated: false, error };
     }
     for (const count of parsed.counts) {
       if (count.taxonId !== undefined) {

@@ -217,7 +217,8 @@ against WoRMS and iNaturalist's taxonomy.
 - **Not tested live** (above). First run it against one site and read the result before building on it.
 - **Where the counts are cut off.** `species_counts` reads at most 600 species per site, most
   observed first; near a busy coast the many land species can crowd out rarely observed marine ones.
-  A source with more taxa than it read reports `truncated`. A filter to marine groups, or
+  A source with more taxa than it read reports `truncated`. A later page that fails is not that: the
+  pages before it are kept, the source reports an `error`, and it is tried again within the hour. A filter to marine groups, or
   more pages, is the fix once the live responses are seen. OBIS is read in one page.
 - **The recent list** only covers openly licensed observations, so "newest" means newest of those. It
   holds up to 30 observations of the animals the counts found, before the cap of 20 and 3 per animal.
