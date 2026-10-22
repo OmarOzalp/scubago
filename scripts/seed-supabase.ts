@@ -1,13 +1,18 @@
 /**
  * Seed the remote species catalog and curated dive sites.
  * Run: SUPABASE_URL=... SUPABASE_SECRET_KEY=... npm run seed:supabase
+ *   or put those two lines in .env.seed.local (gitignored, and never read by Expo) and run
+ *   npm run seed:supabase; delete the file afterwards. The terminal's own settings win, then
+ *   .env.seed.local, then .env (where the app's EXPO_PUBLIC_SUPABASE_URL already is).
  * The secret key (sb_secret_…, or the legacy service_role key as SUPABASE_SERVICE_ROLE_KEY)
- * bypasses RLS: pass it only on the command line, never commit it, never use it in the app.
+ * bypasses RLS: never commit it, never use it in the app.
  *
  * Relative imports on purpose: tsx doesn't get the app's `@/` alias here, and the
  * data files' own `@/lib/types` imports are type-only so they erase at runtime.
  */
 import { createClient } from '@supabase/supabase-js';
+import { existsSync, readFileSync } from 'node:fs';
+import { join } from 'node:path';
 
 import { REGIONS } from '../src/data/regions';
 import { SITES, SITES_BY_ID } from '../src/data/sites';
@@ -15,13 +20,45 @@ import photos from '../src/data/species-photos.json';
 import { SPECIES } from '../src/data/species';
 import { REAL_RARITY } from '../src/lib/real-rarity';
 import { classifySupabaseKey, isPrivilegedKey } from '../src/lib/supabase-env';
+import { parseEnvFile } from './lib/env-files';
 
-const url = process.env.SUPABASE_URL ?? process.env.EXPO_PUBLIC_SUPABASE_URL;
-const serviceKey = process.env.SUPABASE_SECRET_KEY ?? process.env.SUPABASE_SERVICE_ROLE_KEY;
-if (!url || !serviceKey) {
-  console.error('Set SUPABASE_URL and SUPABASE_SECRET_KEY (or the legacy SUPABASE_SERVICE_ROLE_KEY)');
+const root = join(__dirname, '..');
+const ENV_FILES = ['.env.seed.local', '.env'];
+const files = ENV_FILES.filter((name) => existsSync(join(root, name))).map((name) => ({
+  name,
+  values: parseEnvFile(readFileSync(join(root, name), 'utf8')),
+}));
+/** A setting and where it came from: this terminal first, then the files in order. */
+function setting(...names: string[]): { value: string; from: string } | null {
+  for (const name of names) if (process.env[name]) return { value: process.env[name], from: 'this terminal' };
+  for (const file of files) for (const name of names) if (file.values[name]) return { value: file.values[name], from: file.name };
+  return null;
+}
+
+const urlSetting = setting('SUPABASE_URL', 'EXPO_PUBLIC_SUPABASE_URL');
+const keySetting = setting('SUPABASE_SECRET_KEY', 'SUPABASE_SERVICE_ROLE_KEY');
+if (!urlSetting || !keySetting) {
+  const missing = [!urlSetting && 'SUPABASE_URL', !keySetting && 'SUPABASE_SECRET_KEY'].filter(Boolean).join(' and ');
+  const looked = ['this terminal', ...files.map((f) => f.name)].join(', ');
+  const lines = [
+    `Missing ${missing}. Looked in: ${looked}.`,
+    '',
+    'Easiest: make a file named .env.seed.local in this folder (git ignores it) with these two lines,',
+    'then run npm run seed:supabase again, and delete the file when it is done:',
+    '',
+    '  SUPABASE_URL=https://<your-project-ref>.supabase.co',
+    '  SUPABASE_SECRET_KEY=sb_secret_...',
+  ];
+  // Notepad and TextEdit like to add their own extension.
+  for (const name of ['.env.seed.local.txt', '.env.seed.local.rtf', 'env.seed.local']) {
+    if (existsSync(join(root, name))) lines.push('', `There is a file named ${name} here: rename it to exactly .env.seed.local.`);
+  }
+  console.error(lines.join('\n'));
   process.exit(1);
 }
+const url = urlSetting.value;
+const serviceKey = keySetting.value;
+console.log(`Project ${url} (from ${urlSetting.from}); secret key from ${keySetting.from}.`);
 if (!isPrivilegedKey(classifySupabaseKey(serviceKey))) {
   console.error('Seeding writes the catalog, which only the secret (or legacy service_role) key may do; the publishable key is read-only here.');
   process.exit(1);
