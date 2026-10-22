@@ -266,25 +266,44 @@ const tiger: SharkSpec = variant(requiem, {
   extra: (c) => {
     const s = c.s;
     const bars: Fill[] = [];
-    // Strongest over the rear flank and tail stock, fading towards the head.
-    for (let x = 20; x < 70; x += 2.2 + c.rand() * 2.6) {
+    // The bars are dark, wide at the back and tapering to a point down the flank, leaning forward
+    // as they fall; strongest over the rear flank and tail stock, fading towards the head.
+    const streak = (t: number, w: number, f0: number, f1: number, lean: number, o: number): Fill => {
+      const n = 8;
+      const left: Pt[] = [];
+      const right: Pt[] = [];
+      for (let i = 0; i <= n; i++) {
+        const u = i / n;
+        const f = f0 + (f1 - f0) * u;
+        const half = (w / 2) * (1 - 0.82 * u ** 1.4) * (0.85 + 0.3 * c.rand());
+        const tc = t + lean * (f - f0) + 0.004 * Math.sin(u * 5 + t * 90);
+        left.push(at(s, tc - half, f));
+        right.push(at(s, tc + half, f));
+      }
+      return { poly: spline([...left, ...right.reverse()], true), paint: 'pattern', o, clip: 'trunk' };
+    };
+    for (let x = 19; x < 69; x += 2.3 + c.rand() * 2.1) {
       const t = tAtX(s, x);
-      const k = Math.min(1, Math.max(0.2, (x - 16) / 34));
-      // Irregular bars, now and then broken in two.
-      const end = 0.32 + k * 0.22 + c.rand() * 0.1;
-      const lean = (c.rand() - 0.3) * 0.03;
-      const w = 0.009 + c.rand() * 0.011;
-      if (c.rand() < 0.35) {
-        const cut = 0.15 + c.rand() * 0.15;
-        bars.push(bar(s, t, w, 0.02, cut, 'pattern', c.rand, 0.3 + k * 0.6, lean));
-        bars.push(bar(s, t + lean * cut + 0.002, w * 0.9, cut + 0.05, end, 'pattern', c.rand, 0.3 + k * 0.6, lean));
-      } else bars.push(bar(s, t, w, 0.02, end, 'pattern', c.rand, 0.3 + k * 0.6, lean));
+      const k = Math.min(1, Math.max(0.3, (x - 15) / 32));
+      const end = 0.42 + k * 0.24 + c.rand() * 0.06;
+      const lean = -0.016 - c.rand() * 0.02;
+      const w = 0.02 + k * 0.008 + c.rand() * 0.008;
+      const o = 0.82 + 0.14 * k;
+      // Now and then a bar breaks in two.
+      if (c.rand() < 0.3) {
+        const cut = 0.16 + c.rand() * 0.14;
+        bars.push(streak(t, w, 0.02, cut, lean, o));
+        bars.push(streak(t + lean * cut + 0.003, w * 0.85, cut + 0.05, end, lean, o));
+      } else bars.push(streak(t, w, 0.02, end, lean, o));
     }
-    // A few short bars across the upper tail lobe.
+    // Three short tapered bars across the upper tail lobe.
     const lobe = c.caudal;
-    const lobeBars = [0.25, 0.42, 0.58].map((f) => {
-      const p = lerp(lobe.le[Math.floor(lobe.le.length * f)], lobe.te[Math.floor(lobe.te.length * f)], 0.5);
-      return { poly: ellipse(p, 0.7, 2.1, 35), paint: 'pattern' as const, o: 0.8 };
+    const lobeBars = [0.26, 0.42, 0.58, 0.73].map((f, i) => {
+      const j = Math.floor((lobe.le.length - 1) * f);
+      const k = Math.floor((lobe.te.length - 1) * f);
+      const a = lerp(lobe.le[j], lobe.te[k], -0.1);
+      const b = lerp(lobe.le[j], lobe.te[k], 0.9 - i * 0.08);
+      return { poly: swell([a, lerp(a, b, 0.5), b], 1.9 - i * 0.2, 'end'), paint: 'pattern' as const, o: 0.88 };
     });
     return {
       marks: bars,
@@ -661,7 +680,7 @@ const PALETTES: Record<string, { spec: SharkSpec; palette: PlateDef['palette'] }
   'galapagos-shark': { spec: galapagos, palette: { back: '#6C6A66', belly: '#F0EFEA' } },
   'oceanic-whitetip': { spec: oceanic, palette: { back: '#7B7466', belly: '#EDE6D2' } },
   'lemon-shark': { spec: lemon, palette: { back: '#A8924F', belly: '#EAE0C2' } },
-  'tiger-shark': { spec: tiger, palette: { back: '#6A6F72', belly: '#EFEDE6', pattern: '#2E3030' } },
+  'tiger-shark': { spec: tiger, palette: { back: '#6A6F72', belly: '#EFEDE6', pattern: '#262828' } },
   'great-white-shark': { spec: greatWhite, palette: { back: '#6E7378', belly: '#F4F2EC' } },
   'shortfin-mako': { spec: mako, palette: { back: '#2E4A7A', belly: '#F6F6F3' } },
   'basking-shark': { spec: basking, palette: { back: '#5D605E', belly: '#C9C6BE', dark: '#3A3C3B' } },
