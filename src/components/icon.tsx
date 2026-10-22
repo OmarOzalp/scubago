@@ -31,6 +31,7 @@ import { CompassIcon } from 'phosphor-react-native/src/icons/Compass';
 import { CopyIcon } from 'phosphor-react-native/src/icons/Copy';
 import { CrosshairIcon } from 'phosphor-react-native/src/icons/Crosshair';
 import { CylinderIcon } from 'phosphor-react-native/src/icons/Cylinder';
+import { DownloadSimpleIcon } from 'phosphor-react-native/src/icons/DownloadSimple';
 import { DropIcon } from 'phosphor-react-native/src/icons/Drop';
 import { EnvelopeSimpleIcon } from 'phosphor-react-native/src/icons/EnvelopeSimple';
 import { ExportIcon } from 'phosphor-react-native/src/icons/Export';
@@ -102,6 +103,7 @@ const ICONS = {
   copy: CopyIcon,
   explore: CompassIcon,
   locate: CrosshairIcon,
+  download: DownloadSimpleIcon,
   drop: DropIcon,
   email: EnvelopeSimpleIcon,
   filter: FunnelSimpleIcon,

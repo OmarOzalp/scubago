@@ -10,6 +10,7 @@ import { Paper } from '@/components/journal/paper';
 import { Screen, SectionHeader } from '@/components/journal/screen';
 import { Wash } from '@/components/journal/wash';
 import { OceanButton } from '@/components/ocean-button';
+import { ShareDiveButton } from '@/components/share/share-buttons';
 import { formatEntryDate, SightingRow } from '@/components/sighting-row';
 import { SyncLine } from '@/components/sync-line';
 import { ThemedText } from '@/components/themed-text';
@@ -300,6 +301,7 @@ export default function DivePageScreen() {
         <SyncLine item={dive} />
       </View>
 
+      <ShareDiveButton dive={dive} site={site} sightings={allSightings} />
       <OceanButton title="Edit page" variant="secondary" icon="edit" disabled={busy} onPress={() => router.push({ pathname: '/dive/edit', params: { id: dive.id } })} />
 
       {/* Turning the pages: the one before (a lower number) on the left, the next on the right. */}

@@ -12,6 +12,7 @@ import { Paper } from '@/components/journal/paper';
 import { ProgressBar } from '@/components/journal/progress-bar';
 import { Screen, ScreenHeader, SectionHeader } from '@/components/journal/screen';
 import { OceanButton } from '@/components/ocean-button';
+import { ShareArchipelagoButton } from '@/components/share/share-buttons';
 import { SpeciesCard } from '@/components/species-card';
 import { ThemedText } from '@/components/themed-text';
 import { Radius, Spacing, Type } from '@/constants/theme';
@@ -40,7 +41,8 @@ export default function HomeScreen() {
   const home = useMemo(() => deriveHome(mine, CATALOG_BY_ID), [mine]);
   const sites = useMemo(() => new Set(mine.filter((s) => !s.isDemo).map((s) => s.siteId)).size, [mine]);
   const saved = useHomePreferences(owner);
-  const pages = useMyDives().length;
+  const dives = useMyDives();
+  const pages = dives.length;
   const nextNumber = useNextDiveNumber();
   const ahead = nextMilestone(nextNumber);
   // "Two dives to your fiftieth" when a milestone is close; otherwise what the log holds.
@@ -92,7 +94,10 @@ export default function HomeScreen() {
       <ScreenHeader
         eyebrow="Growing with every dive"
         title="Your ocean"
-        accessory={<IconButton icon="edit" accessibilityLabel="Customize your home" onPress={() => !loading && setEditing(true)} style={{ opacity: loading ? 0.4 : 1 }} />}
+        accessory={<View style={styles.headerButtons}>
+          {!loading && <ShareArchipelagoButton name={saved.preferences.name} sightings={mine} dives={dives} ownerId={owner} />}
+          <IconButton icon="edit" accessibilityLabel="Customize your home" onPress={() => !loading && setEditing(true)} style={{ opacity: loading ? 0.4 : 1 }} />
+        </View>}
       />
 
       {/* The island, mounted like a print on the page with a fine ink frame. */}
@@ -238,6 +243,7 @@ export default function HomeScreen() {
 
 const styles = StyleSheet.create({
   root: { flex: 1 },
+  headerButtons: { flexDirection: 'row', gap: 8 },
   islandCard: { padding: 8, paddingBottom: 14, gap: 12 },
   mount: { borderWidth: 1, borderRadius: Radius.md + 4, padding: 3 },
   hero: { borderRadius: Radius.md, overflow: 'hidden' },

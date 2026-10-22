@@ -10,6 +10,7 @@ import { Screen, SectionHeader } from '@/components/journal/screen';
 import { Wash } from '@/components/journal/wash';
 import { OceanButton } from '@/components/ocean-button';
 import { RarityChip } from '@/components/rarity-chip';
+import { ShareDiscoveryButton } from '@/components/share/share-buttons';
 import { formatDate, SightingRow } from '@/components/sighting-row';
 import { SpeciesArt } from '@/components/species-art';
 import { ThemedText } from '@/components/themed-text';
@@ -235,6 +236,7 @@ export default function SpeciesDetailScreen() {
               />
             ))}
           </View>
+          <ShareDiscoveryButton species={species} sightings={sightings} sites={sites} ownerId={myUserId} />
           <OceanButton
             title="Log another sighting"
             variant="secondary"
