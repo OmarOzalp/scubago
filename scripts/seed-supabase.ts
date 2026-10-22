@@ -21,6 +21,7 @@ import { SPECIES } from '../src/data/species';
 import { REAL_RARITY } from '../src/lib/real-rarity';
 import { classifySupabaseKey, isPrivilegedKey } from '../src/lib/supabase-env';
 import { parseEnvFile } from './lib/env-files';
+import { EXTERNAL_ID_CONFLICT, externalIdRows } from './lib/seed-rows';
 
 const root = join(__dirname, '..');
 const ENV_FILES = ['.env.seed.local', '.env'];
@@ -130,11 +131,9 @@ async function main() {
     const { error } = await db.from('site_field_sources').upsert(sourceRows, { onConflict: 'site_id,field,source' });
     if (error) throw error;
   }
-  const idRows = SITES.flatMap((s) => (s.externalIds ?? []).map((ext) => ({
-    site_id: s.id, scheme: ext.scheme, external_id: ext.id, relation: ext.relation ?? 'same_as',
-  })));
+  const idRows = externalIdRows(SITES);
   if (idRows.length) {
-    const { error } = await db.from('site_external_ids').upsert(idRows, { onConflict: 'site_id,scheme,external_id' });
+    const { error } = await db.from('site_external_ids').upsert(idRows, { onConflict: EXTERNAL_ID_CONFLICT });
     if (error) throw error;
   }
   console.log(`Seeded ${sourceRows.length} site sources and ${idRows.length} external ids`);
