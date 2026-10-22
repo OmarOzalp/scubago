@@ -396,12 +396,14 @@ const stoplight: FishSpec = {
   extra: (c) => {
     const s = c.s;
     const beak = shapeIn(s, [[tAtX(s, 0.1), 0.48], [tAtX(s, 2.4), 0.46], [tAtX(s, 3), 0.62], [tAtX(s, 2.4), 0.78], [tAtX(s, 0.4), 0.74]]);
+    // Orange streaks run from the snout back across the cheek, under the eye rather than over it.
     const bands: Fill[] = [
-      [0, 0.5, 9, -0.05],
-      [1, 0.72, 13, 0.05],
-      [3, 0.92, 19, 0.3],
-    ].map(([x0, f0, x1, f1]) => ({ poly: shapeIn(s, [[tAtX(s, x0), f0], [tAtX(s, x0 + 1.4), f0 + 0.02], [tAtX(s, x1 + 1.2), f1 + 0.04], [tAtX(s, x1), f1]]), paint: '#F0884A', o: 0.9, clip: 'trunk' as const }));
-    const stop = { poly: ellipse(atX(s, 23, 0.22), 2, 1.6), paint: '#FFD319' as const, clip: 'trunk' as const };
+      [1, 0.5, 14.5, 0.6],
+      [1.4, 0.64, 18, 0.76],
+      [2.4, 0.8, 19.6, 0.93],
+    ].map(([x0, f0, x1, f1]) => ({ poly: shapeIn(s, [[tAtX(s, x0), f0], [tAtX(s, x0 + 1.6), f0 + 0.045], [tAtX(s, x1 + 1.2), f1 + 0.07], [tAtX(s, x1), f1]]), paint: '#F0884A', o: 0.62, clip: 'trunk' as const }));
+    // The yellow nape spot sits at the top edge of the gill cover.
+    const stop = { poly: ellipse(atX(s, 20, 0.2), 2, 1.6), paint: '#FFD319' as const, clip: 'trunk' as const };
     const tailSpot = { poly: ellipse(atX(s, 74, 0.28), 2.4, 1.6), paint: '#FFD319' as const, clip: 'trunk' as const };
     const crescent = c.caudal.trailing.map((p) => lerp(p, atX(s, 78, 0.5), 0.18));
     return {
