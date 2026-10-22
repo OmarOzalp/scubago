@@ -586,16 +586,16 @@ const sandTiger: SharkSpec = variant(requiem, {
 // A low, flag-like tail as long as the body; ridges along the back and flanks; even leopard
 // spots; small barbelled mouth on a blunt head; large rounded pectorals.
 const zebra: SharkSpec = variant(requiem, {
-  ...bodyShape({ ped: 48, depth: 13.5, at: 18, riseTop: 2.6, riseBot: 2.4, pedH: 6, up: 0.55, taper: 0.8, nose: 0.81 }),
+  ...bodyShape({ ped: 48, depth: 13.5, at: 18, riseTop: 2.6, riseBot: 2.4, pedH: 4.2, up: 0.55, taper: 0.8, nose: 0.81 }),
   blunt: 1,
   eye: { x: 3.8, f: 0.36, r: 0.45 },
   gills: { n: 5, x: 10.2, step: 1.1, f0: 0.42, f1: 0.66 },
-  d1: { at: 25, base: 8, h: 5, sweep: 0.5, rear: 1.4, round: 1.6, concave: 0.04, convex: 0.12 },
+  d1: { at: 25, base: 8.6, h: 7.5, sweep: 0.5, rear: 1.4, round: 2.6, concave: 0.04, convex: 0.14 },
   d2: { at: 38.5, base: 4.2, h: 2.7, sweep: 0.5, rear: 1, round: 0.8 },
   anal: { at: 41, base: 3.2, h: 2, sweep: 0.5, rear: 0.8, round: 0.6 },
   pelvic: { at: 27, base: 5.4, h: 3.6, sweep: 0.5, rear: 1, round: 1.4 },
   pec: { at: [12.4, 0.72], base: 6, len: 13, angle: 42, width: 0.62, convex: 0.12, concave: 0.0, round: 3.6, rear: 0.05 },
-  caudal: { upper: [100, -4.6], lower: [61, 7.2], fork: [91, 2.6], notch: 3.2, upperBow: 0.02, lowerBow: 0.1, trail: 0.0, lowerTrail: -0.05, lowerRound: 5 },
+  caudal: { upper: [100, -2.6], lower: [66, 5.2], fork: [93.4, -0.1], notch: 0, upperBow: 0.02, lowerBow: 0.1, trail: 0.12, lowerTrail: 0.02, lowerRound: 4 },
   mouth: [
     [1.6, 0.9],
     [2.8, 0.92],
@@ -605,8 +605,8 @@ const zebra: SharkSpec = variant(requiem, {
     const s = c.s;
     const ridges = [0.06, 0.3, 0.56].map((f) => ({ pts: lineAlong(s, f, tAtX(s, 9), 1), w: 0.95 }));
     const barbel = spline([atX(s, 1, 0.8), atX(s, 1.6, 0.98), add(atX(s, 1.8, 1), [0.3, 1.2])], false);
-    const spots = scatter(s, { t0: 0.03, t1: 1, f0: 0.02, f1: 0.8, r: 0.5, gap: 0.85, paint: 'pattern', rand: c.rand, tries: 1600 });
-    const tailSpots = scatterIn(c.caudal.poly, { r: 0.45, gap: 0.8, paint: 'pattern', rand: c.rand, tries: 700 });
+    const spots = scatter(s, { t0: 0.03, t1: 1, f0: 0.02, f1: 0.8, r: 0.7, gap: 1.3, paint: 'pattern', rand: c.rand, tries: 700 });
+    const tailSpots = scatterIn(c.caudal.poly, { r: 0.55, gap: 1.4, paint: 'pattern', rand: c.rand, tries: 500 });
     return {
       marks: spots,
       lines: [...ridges, { pts: barbel, w: 1 }, { pts: [atX(s, 5.4, 0.3), atX(s, 6, 0.32)], w: 1.2 }],
