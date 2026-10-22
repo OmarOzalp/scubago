@@ -2,7 +2,7 @@
  * Marine mammals, side on, head to the left (1% of total length per unit, snout at x = 0, fluke
  * or flipper tips at x = 100). The flukes are tilted towards the viewer so their shape shows.
  */
-import { add, blob, type Ctrl, ellipse, lerp, mul, norm, perp, type Pt, rng, spline, sub, yAt } from '../kit';
+import { add, blob, type Ctrl, ellipse, lerp, mul, norm, offsetLine, perp, type Pt, rng, spline, sub, yAt } from '../kit';
 import { curveIn, scatter, shapeIn } from '../marks';
 import { tube } from '../ray';
 import type { PlateDef } from '../registry';
@@ -247,11 +247,11 @@ const orca: SharkSpec = {
 // dorsal fin; nail-less flippers.
 const dugong: SharkSpec = {
   kind: 'mammal',
-  tip: [0.6, 5],
+  tip: [0.8, 7.8],
   blunt: 1,
-  noseTilt: -0.6,
-  top: [[0, 1.5], [1.2, -1.8], [4, -4.6], [8, -6.6], [14, -8.6], [22, -10.4], [32, -11.4], [42, -11.2], [52, -10], [62, -7.8], [70, -5.4], [77, -3.4], [82, -2.4]],
-  bot: [[1.4, 6.6], [3.6, 7.8], [7, 8.6], [12, 9.6], [20, 10.8], [30, 11.8], [40, 11.8], [50, 10.6], [60, 8.4], [68, 6], [76, 3.6], [82, 2.4]],
+  noseTilt: -0.9,
+  top: [[0, 2.6], [1.2, -1.8], [4, -4.6], [8, -6.6], [14, -8.6], [22, -10.4], [32, -11.4], [42, -11.2], [52, -10], [62, -7.8], [70, -5.4], [77, -3.4], [82, -2.4]],
+  bot: [[1.6, 9.4], [3.8, 9.8], [7, 10], [12, 10.4], [20, 11.2], [30, 11.8], [40, 11.8], [50, 10.6], [60, 8.4], [68, 6], [76, 3.6], [82, 2.4]],
   pec: { at: [18, 0.78], base: 4.5, len: 14, angle: 50, width: 0.36, round: 1.8, concave: 0.04 },
   caudal: { upper: [99, -10.5], lower: [99.6, 13], fork: [95.5, 0.3], notch: 0, upperBow: 0.08, lowerBow: 0.08, trail: 0.12, lowerTrail: 0.12 },
   eye: { x: 9, f: 0.32, r: 0.45 },
@@ -262,7 +262,7 @@ const dugong: SharkSpec = {
     const s = c.s;
     const rand = rng(81);
     // The flat bristly disc facing the bottom, and the cleft lip above it.
-    const disc = shapeIn(s, [[tAtX(s, 0.5), 0.62], [tAtX(s, 2.6), 0.66], [tAtX(s, 5.6), 0.84], [tAtX(s, 4.6), 0.98], [tAtX(s, 1.6), 0.92]]);
+    const disc = shapeIn(s, [[tAtX(s, 0.6), 0.5], [tAtX(s, 3), 0.54], [tAtX(s, 6.6), 0.78], [tAtX(s, 5.8), 1.0], [tAtX(s, 1.8), 1.0]]);
     const bristles: Line[] = Array.from({ length: 22 }, () => {
       const p = atX(s, 1 + rand() * 4, 0.7 + rand() * 0.22);
       return { pts: [p, add(p, [0.1, 0.5])], w: 0.6, o: 0.7, detail: true };
@@ -270,7 +270,14 @@ const dugong: SharkSpec = {
     const scars: Line[] = Array.from({ length: 4 }, (_, k) => ({ pts: [atX(s, 30 + k * 7, 0.2 + rand() * 0.1), atX(s, 34 + k * 7, 0.24 + rand() * 0.1)], w: 0.6, o: 0.5 }));
     return {
       marks: [{ poly: disc, paint: 'belly', edge: 1 }],
-      lines: [...bristles, ...scars, { pts: curveIn(s, [[tAtX(s, 0.6), 0.5], [tAtX(s, 3), 0.56], [tAtX(s, 6), 0.7]]), w: 1 }],
+      lines: [
+        ...bristles,
+        ...scars,
+        { pts: curveIn(s, [[tAtX(s, 0.6), 0.5], [tAtX(s, 3), 0.56], [tAtX(s, 6.4), 0.74]]), w: 1 },
+        // Nostril crescents on top of the snout.
+        { pts: curveIn(s, [[tAtX(s, 1.6), 0.2], [tAtX(s, 2.4), 0.1], [tAtX(s, 3.4), 0.16]]), w: 1.1, taper: 'both' },
+        { pts: curveIn(s, [[tAtX(s, 3.8), 0.2], [tAtX(s, 4.6), 0.1], [tAtX(s, 5.6), 0.16]]), w: 1.1, taper: 'both' },
+      ],
     };
   },
 };
@@ -281,9 +288,9 @@ const manatee: SharkSpec = {
   kind: 'mammal',
   tip: [0.3, 2.5],
   blunt: 1,
-  top: [[0, 0], [1, -2.6], [3.6, -4.6], [8, -6.4], [12, -7.6], [18, -11], [26, -13.6], [36, -15], [46, -15], [56, -13.6], [64, -10.8], [70, -7.6], [74, -5.4]],
-  bot: [[1, 5.4], [3.6, 6.6], [8, 7.6], [13, 9], [20, 12.2], [30, 14.6], [40, 15.4], [50, 14.6], [58, 12.6], [65, 9.4], [70, 6.4], [74, 4.6]],
-  pec: { at: [18, 0.8], base: 5, len: 13, angle: 50, width: 0.5, round: 3, concave: -0.04, rear: 0.05 },
+  top: [[0, 0], [1, -3.2], [3.6, -6], [8, -8.4], [12, -9.8], [18, -12.2], [26, -14.2], [36, -15], [46, -15], [56, -13.6], [64, -10.8], [70, -7.6], [74, -5.4]],
+  bot: [[1, 6.4], [3.6, 8.2], [8, 9.8], [13, 11.2], [20, 13.2], [30, 14.8], [40, 15.4], [50, 14.6], [58, 12.6], [65, 9.4], [70, 6.4], [74, 4.6]],
+  pec: { at: [17, 0.8], base: 6, len: 15, angle: 54, width: 0.88, round: 7, concave: -0.04, rear: 0.05 },
   caudal: { upper: [0, 0], lower: [0, 0], fork: [0, 0], paddle: [26, 13] },
   eye: { x: 7.5, f: 0.3, r: 0.42 },
   gills: noGills,
@@ -296,14 +303,16 @@ const manatee: SharkSpec = {
       const p = atX(s, 0.6 + rand() * 3, 0.45 + rand() * 0.35);
       return { pts: [p, add(p, [-0.6, 0.2 + rand() * 0.4])], w: 0.55, o: 0.8, detail: true };
     });
-    const nails: Fill[] = [0.25, 0.45, 0.65].map((k) => {
-      const p = lerp(c.pec.apex, c.pec.te[Math.floor(c.pec.te.length * 0.1)], k * 0.3);
-      return { poly: ellipse(p, 0.55, 0.4), paint: '#D8CDB4', edge: 0.6 };
+    const nails: Fill[] = [-0.6, 0, 0.6].map((k) => {
+      const mid = lerp(c.pec.apex, c.pec.te[Math.floor(c.pec.te.length * 0.3)], 0.12);
+      const p = add(mid, [k * 1.5, -k * k * 0.8 + 0.4]);
+      return { poly: ellipse(p, 0.62, 0.42), paint: '#D8CDB4', edge: 0.6 };
     });
-    const wrinkles: Line[] = Array.from({ length: 14 }, (_, k) => ({
-      pts: curveIn(s, [[0.12 + k * 0.05, 0.1], [0.14 + k * 0.05, 0.45], [0.12 + k * 0.05, 0.9]]),
-      w: 0.55,
-      o: 0.45,
+    // A few faint skin creases across the back and flank (not ribs).
+    const wrinkles: Line[] = Array.from({ length: 8 }, (_, k) => ({
+      pts: curveIn(s, [[0.2 + k * 0.08, 0.14], [0.215 + k * 0.08, 0.34], [0.2 + k * 0.08, 0.56]]),
+      w: 0.45,
+      o: 0.28,
       taper: 'both',
     }));
     const scars: Fill[] = [0.42, 0.47, 0.52].map((t) => ({ poly: shapeIn(s, [[t, 0.05], [t + 0.012, 0.05], [t + 0.03, 0.22], [t + 0.018, 0.22]]), paint: '#B8B5AE', o: 0.8, clip: 'trunk' }));
@@ -318,23 +327,25 @@ const seaLion: SharkSpec = {
   kind: 'mammal',
   tip: [0, 0.3],
   blunt: 0.6,
-  top: [[1, -0.9], [3, -1.7], [6, -3], [9, -5], [12, -6.2], [15, -6.8], [19, -7.6], [25, -9.4], [32, -10.6], [40, -10.4], [50, -9], [60, -7], [68, -5], [75, -3.4], [80, -2.4]],
-  bot: [[1, 1.1], [3, 1.8], [7, 2.8], [11, 4.2], [15, 5.6], [20, 7.6], [27, 9.8], [34, 10.6], [44, 10], [54, 8.4], [63, 6.2], [71, 4], [77, 2.6], [80, 2.2]],
-  pec: { at: [28, 0.82], base: 7, len: 26, angle: 58, width: 0.36, convex: 0.08, concave: 0.04, round: 1.6 },
+  top: [[1, -1], [3, -2], [6, -3.8], [9, -6.4], [12, -8.4], [15, -8.8], [18, -7.8], [22, -8], [27, -9.8], [33, -10.8], [40, -10.4], [50, -9], [60, -7], [68, -5], [75, -3.4], [80, -2.4]],
+  bot: [[1, 1.2], [3, 2], [7, 3.4], [11, 5], [15, 5.8], [19, 6.6], [24, 8.8], [29, 10.2], [35, 10.6], [44, 10], [54, 8.4], [63, 6.2], [71, 4], [77, 2.6], [80, 2.2]],
+  pec: { at: [23, 0.8], base: 6, len: 19, angle: 60, width: 0.42, convex: 0.08, concave: 0.04, round: 2 },
   caudal: { upper: [0, 0], lower: [0, 0], fork: [0, 0], paddle: [3, 2.2] },
-  eye: { x: 8.2, f: 0.36, r: 0.75 },
+  eye: { x: 8.6, f: 0.4, r: 0.8 },
   gills: noGills,
   mouth: mouth([[0.4, 0.62], [2.5, 0.66], [4.6, 0.64]]),
   belly: 0.72,
   softBelly: true,
   extra: (c) => {
     const s = c.s;
-    const ear = shapeIn(s, [[tAtX(s, 11), 0.32], [tAtX(s, 12.4), 0.22], [tAtX(s, 13.4), 0.28], [tAtX(s, 12.6), 0.36]]);
+    const ear = shapeIn(s, [[tAtX(s, 13), 0.4], [tAtX(s, 14.4), 0.3], [tAtX(s, 15.4), 0.36], [tAtX(s, 14.6), 0.44]]);
+    // The sagittal crest: a pale ridge over the domed forehead.
+    const crest = curveIn(s, [[tAtX(s, 6), 0.04], [tAtX(s, 10), 0.06], [tAtX(s, 14), 0.1]]);
     const whiskers: Line[] = [0.48, 0.56, 0.64].map((f) => ({ pts: [atX(s, 2.4, f), add(atX(s, 2.4, f), [-3.6, (f - 0.56) * 6])], w: 0.5, o: 0.8, detail: true }));
     const hind = hindFlippers(c, 19, 4.2);
     return {
       marks: [{ poly: ear, paint: 'fin', edge: 0.9 }, { poly: ellipse(atX(s, 0.4, 0.4), 0.45, 0.3), paint: 'ink' }],
-      lines: whiskers,
+      lines: [...whiskers, { pts: crest, w: 0.9, o: 0.6, taper: 'both' as const }],
       near: hind.near,
       far: hind.far,
       median: [{ fin: 'pec', marks: [wash(c.pec, 'dark', 0.5)] }],
@@ -349,13 +360,13 @@ const harborSeal: SharkSpec = {
   kind: 'mammal',
   tip: [0, 0.5],
   blunt: 0.8,
-  top: [[0.6, -1.3], [2.2, -3], [4.4, -5.2], [7.4, -6.8], [10.4, -7.2], [13.6, -7], [17, -8.2], [23, -11.4], [31, -13.4], [39, -13.8], [49, -12.8], [58, -10.4], [66, -7.6], [73, -4.8], [78, -3.2], [81, -2.6]],
-  bot: [[0.6, 1.6], [2.2, 2.9], [5, 4.3], [8.4, 5.4], [12, 6.4], [16, 8], [23, 11], [32, 13.2], [41, 13.6], [51, 12.4], [60, 9.8], [68, 7], [74, 4.4], [79, 3], [81, 2.6]],
+  top: [[0.6, -1.5], [2.2, -3.8], [4.4, -6.6], [7.4, -8.8], [11, -9.8], [14.4, -9], [17, -7.6], [22, -9.8], [28, -12.6], [36, -13.8], [46, -13.4], [56, -11.4], [65, -8], [72, -5], [78, -3.2], [81, -2.6]],
+  bot: [[0.6, 1.7], [2.2, 3.4], [5, 5.6], [8.6, 7.2], [12.4, 8], [16, 8.4], [22, 10.8], [30, 13], [40, 13.6], [50, 12.4], [60, 9.8], [68, 7], [74, 4.4], [79, 3], [81, 2.6]],
   pec: { at: [24, 0.82], base: 4, len: 10, angle: 72, width: 0.42, round: 2, concave: 0, convex: 0.1 },
   caudal: { upper: [0, 0], lower: [0, 0], fork: [0, 0], paddle: [3, 2.4] },
-  eye: { x: 7.2, f: 0.36, r: 0.95 },
+  eye: { x: 7.4, f: 0.38, r: 1 },
   gills: noGills,
-  mouth: mouth([[0.4, 0.62], [2, 0.66], [3.6, 0.64]]),
+  mouth: mouth([[0.4, 0.66], [1.6, 0.7], [2.8, 0.68]]),
   belly: 0.72,
   softBelly: true,
   extra: (c) => {
@@ -371,10 +382,11 @@ const harborSeal: SharkSpec = {
       const p = lerp(c.pec.apex, c.pec.te[Math.floor(c.pec.te.length * 0.2)], k * 0.5);
       return { pts: [p, add(p, [0.5, 0.6])], w: 1 };
     });
-    const nostril: Line = { pts: [atX(s, 0.6, 0.38), atX(s, 1.3, 0.3)], w: 1 };
+    // V-shaped nostrils on top of the short muzzle.
+    const nostril: Line = { pts: [atX(s, 0.7, 0.3), atX(s, 1.3, 0.42), atX(s, 2, 0.3)], w: 1.2, taper: 'both' };
     const hind = hindFlippers(c, 17, 3.6);
     // A crease where the round head meets the body.
-    const neck: Line = { pts: curveIn(s, [[tAtX(s, 13), 0.1], [tAtX(s, 14.4), 0.45], [tAtX(s, 13.6), 0.8]]), w: 0.7, o: 0.5, taper: 'both' };
+    const neck: Line = { pts: curveIn(s, [[tAtX(s, 15.6), 0.1], [tAtX(s, 17), 0.45], [tAtX(s, 16), 0.85]]), w: 0.8, o: 0.55, taper: 'both' };
     return { marks: [...spots, ...rings], lines: [...whiskers, ...claws, nostril, neck], near: hind.near, far: hind.far };
   },
 };
@@ -392,9 +404,10 @@ function seaOtter(): PlateGeom {
   const width = (t: number) => (7.2 + 2.6 * Math.sin(Math.PI * Math.min(1, t * 1.1)) - 2.4 * t ** 3) * Math.min(1, Math.sqrt(Math.min(t, 1 - t) * 14 + 0.12));
   const body = tube(spine, width);
   g.trunk = body;
-  // Head, raised at the left, muzzle up and forward.
-  const head = spline([[6, -6.6], [9.4, -11.6], [15.4, -13.2], [21, -11], [23, -5.6], [21.6, 0], [16, 3.6], [10.4, 2.4], [6.4, -0.6], [4, -3.4]], true);
-  const muzzle = spline([[3.4, -4.4], [5.2, -8.2], [9, -8.4], [10.4, -5], [8.4, -2.2], [4.6, -1.6]], true);
+  // Head (a fifth smaller than it was: an otter's is small), raised at the left, muzzle up and forward.
+  const sh = ([x, y]: Pt): Pt => [15 + (x - 15) * 0.8, -5 + (y + 5) * 0.8];
+  const head = spline(([[6, -6.6], [9.4, -11.6], [15.4, -13.2], [21, -11], [23, -5.6], [21.6, 0], [16, 3.6], [10.4, 2.4], [6.4, -0.6], [4, -3.4]] as Pt[]).map(sh), true);
+  const muzzle = spline(([[3.4, -4.4], [5.2, -8.2], [9, -8.4], [10.4, -5], [8.4, -2.2], [4.6, -1.6]] as Pt[]).map(sh), true);
   // Hind feet raised out of the water on the right, the tail flat between them.
   const foot = (base: Pt, tip: Pt, w: number): Pt[] => {
     const d = norm(sub(tip, base));
@@ -404,42 +417,61 @@ function seaOtter(): PlateGeom {
   const footFar = foot([72, -1], [86, -14], 6.4);
   const footNear = foot([75, 1], [92, -9.6], 7);
   const tail: Pt[] = spline([[74, 3.4], [84, 3.6], [94, 3.2], [96.4, 4.4], [94, 6], [84, 6.4], [74, 6.2]], true);
-  const paws: Pt[][] = [spline([[22, -5.6], [27, -7.6], [30.4, -6.2], [28.6, -3.2], [23.6, -3]], true), spline([[27, -3.6], [32.6, -5], [35, -3], [32, -0.6], [27.4, -1]], true)];
-  const urchin = ellipse([30.6, -8.8], 2.6);
+  // Bigger paws held on the chest, round the urchin it is eating.
+  const pawC: Pt = [27, -3];
+  const sp = ([x, y]: Pt): Pt => [pawC[0] + (x - pawC[0]) * 1.3, pawC[1] + (y - pawC[1]) * 1.3];
+  const paws: Pt[][] = [
+    spline(([[22, -5.6], [27, -7.6], [30.4, -6.2], [28.6, -3.2], [23.6, -3]] as Pt[]).map(sp), true),
+    spline(([[27, -3.6], [32.6, -5], [35, -3], [32, -0.6], [27.4, -1]] as Pt[]).map(sp), true),
+  ];
+  const uc: Pt = [31, -10.6];
+  const urchin = ellipse(uc, 2.6);
   const spines: Line[] = Array.from({ length: 18 }, (_, k) => {
     const a = (k / 18) * Math.PI * 2;
-    return { pts: [add([30.6, -8.8], [Math.cos(a) * 2.4, Math.sin(a) * 2.4]), add([30.6, -8.8], [Math.cos(a) * 3.8, Math.sin(a) * 3.8])], w: 0.7 };
+    return { pts: [add(uc, [Math.cos(a) * 2.4, Math.sin(a) * 2.4]), add(uc, [Math.cos(a) * 3.8, Math.sin(a) * 3.8])], w: 0.7 };
   });
   g.body = body;
   g.far.push({ poly: footFar, paint: 'back', lines: [0.25, 0.5, 0.75].map((k) => ({ pts: [lerp([72, -1], [86, -14], 0.15), add(lerp([72, -1], [86, -14], 0.95), [(k - 0.5) * 6, (k - 0.5) * 3])], w: 0.6, taper: 'end' as const })), edge: 0.85 });
   g.far.push({ poly: tail, paint: 'back', lines: [], edge: 0.85 });
-  // Fur: short strokes over the body, denser on the shadowed underside.
-  const fur: Line[] = [];
-  for (let k = 0; k < 260; k++) {
-    const t = rand();
-    const f = rand();
-    const p0 = spine[Math.floor(t * (spine.length - 1))];
-    const w = width(t);
-    const p: Pt = [p0[0] + (rand() - 0.5) * 2, p0[1] + (f - 0.5) * 2 * w * 0.9];
-    fur.push({ pts: [p, add(p, [0.9, 0.35])], w: 0.6 + f * 0.6, o: 0.65, taper: 'both' });
+  // Fur: long strokes flowing along the body (close together under the belly) and short ticks
+  // over it, so the dark coat carries engraving like every other plate.
+  const dirAt = (i: number): Pt => norm(sub(spine[Math.min(spine.length - 1, i + 1)], spine[Math.max(0, i - 1)]));
+  for (const [f, w] of [[-0.78, 0.7], [-0.5, 0.9], [-0.24, 1.1], [0.02, 1.2], [0.28, 1.2], [0.52, 1.1], [0.74, 1], [0.9, 0.8]] as const) {
+    g.engraving.push({ pts: offsetLine(spine, (t) => width(t) * f).slice(6, -6), w, taper: 'both' });
   }
-  g.engraving = fur;
+  for (let k = 0; k < 520; k++) {
+    const t = 0.03 + rand() * 0.94;
+    const f = rand() * 2 - 1;
+    const i = Math.floor(t * (spine.length - 1));
+    const d = dirAt(i);
+    const p: Pt = add(spine[i], mul(perp(d), f * width(t) * 0.92));
+    const a = (rand() - 0.5) * 0.9;
+    const len = 1.8 + rand() * 1.8;
+    const dd: Pt = [d[0] * Math.cos(a) - d[1] * Math.sin(a), d[0] * Math.sin(a) + d[1] * Math.cos(a)];
+    g.engraving.push({ pts: [p, add(p, mul(dd, len))], w: 0.55 + (f > 0 ? 0.35 : 0), o: 0.6, taper: 'both' });
+  }
   g.tint.push({ poly: body.map(([x, y]) => [x + 1, y + 2.4] as Pt), paint: 'dark', o: 0.18, clip: 'trunk' });
   g.near.push({ poly: footNear, paint: 'back', lines: [0.25, 0.5, 0.75].map((k) => ({ pts: [lerp([75, 1], [92, -9.6], 0.15), add(lerp([75, 1], [92, -9.6], 0.95), [(k - 0.5) * 5, (k - 0.5) * 6])], w: 0.6, taper: 'end' as const })), edge: 0.85 });
   const headLines: Line[] = [];
-  for (let k = 0; k < 70; k++) {
-    const p: Pt = [7 + rand() * 14, -12 + rand() * 14];
-    headLines.push({ pts: [p, add(p, [0.7, 0.3])], w: 0.5, o: 0.45, taper: 'both' });
+  for (let k = 0; k < 110; k++) {
+    const p: Pt = sh([7 + rand() * 14, -12 + rand() * 14]);
+    const a = (rand() - 0.5) * 1.6;
+    headLines.push({ pts: [p, add(p, [Math.cos(a) * 1.4, Math.sin(a) * 1.4 + 0.5])], w: 0.5, o: 0.5, taper: 'both' });
   }
   g.near.push({ poly: head, paint: 'accent', lines: headLines, edge: 1 });
   g.near.push({ poly: muzzle, paint: 'accent', lines: [], edge: 0.9 });
   g.near.push({ poly: urchin, paint: '#5A3E5E', lines: spines, edge: 0.8 });
-  for (const p of paws) g.near.push({ poly: p, paint: 'back', lines: [], edge: 0.85 });
-  g.marks.push({ poly: ellipse([4.6, -5.8], 0.9, 0.7), paint: 'ink' });
+  for (const q of paws) g.near.push({ poly: q, paint: 'back', lines: [], edge: 0.85 });
+  g.marks.push({ poly: ellipse(sh([4.6, -5.8]), 0.9, 0.7), paint: 'ink' });
+  // Whiskers stay inside the plate box (they used to run out past the muzzle).
+  const whisk = (dy: number): Pt[] => {
+    const tip = sh([-0.6, -3.6 + dy * 1.6]);
+    return [sh([6, -3.4 + dy]), [Math.max(tip[0], 2.2), tip[1]]];
+  };
   g.lines.push(
-    ...[-0.6, 0.4, 1.4].map((dy) => ({ pts: [[6, -3.4 + dy], [-0.6, -3.6 + dy * 1.6]] as Pt[], w: 0.5, o: 0.8 })),
-    ...[-0.6, 0.4, 1.4].map((dy) => ({ pts: [[7, -3 + dy], [12, -1.2 + dy * 1.4]] as Pt[], w: 0.5, o: 0.6, detail: true })),
-    { pts: spline([[17.4, -12.6], [18.6, -14.2], [20, -12.4]], false), w: 0.9 },
+    ...[-0.6, 0.4, 1.4].map((dy) => ({ pts: whisk(dy), w: 0.5, o: 0.8 })),
+    ...[-0.6, 0.4, 1.4].map((dy) => ({ pts: [sh([7, -3 + dy]), sh([12, -1.2 + dy * 1.4])] as Pt[], w: 0.5, o: 0.6, detail: true })),
+    { pts: spline([sh([17.4, -12.6]), sh([18.6, -14.2]), sh([20, -12.4])], false), w: 0.9 },
   );
   // The water: a few ripples under the floating body.
   for (const [x0, x1, y] of [
@@ -449,7 +481,7 @@ function seaOtter(): PlateGeom {
     [70, 98, 8],
   ])
     g.lines.push({ pts: Array.from({ length: 20 }, (_, i) => [x0 + ((x1 - x0) * i) / 19, y + Math.sin(i * 1.1) * 0.5] as Pt), w: 0.8, o: 0.55, taper: 'both' });
-  g.eyes.push({ c: [12.2, -8.8], r: 0.7 });
+  g.eyes.push({ c: sh([12.2, -8.8]), r: 0.7 });
   g.heavy.push(body.slice(Math.floor(body.length / 2)));
   void at;
   return g;
@@ -465,7 +497,7 @@ export const MAMMALS: Record<string, PlateDef> = {
   'west-indian-manatee': M(manatee, { back: '#7C7C78', belly: '#9A9A94' }, 7),
   'california-sea-lion': M(seaLion, { back: '#A07C52', belly: '#C9A97E', dark: '#3A2A20' }, 8),
   'harbor-seal': M(harborSeal, { back: '#8E8F8A', belly: '#C9C4B8', pattern: '#3E3D3A' }, 9),
-  'sea-otter': { build: seaOtter, palette: { back: '#4A3528', belly: '#6B5244', accent: '#C8B9A2' } },
+  'sea-otter': { build: seaOtter, palette: { back: '#5E4535', belly: '#7A5E4A', accent: '#D2C3A8' } },
 };
 void ((c: SharkCtx) => c);
 void ([] as Part[]);
