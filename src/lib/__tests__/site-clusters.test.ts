@@ -243,6 +243,16 @@ describe('clusterSites', () => {
       expect(ids(clusterSites(fiji, region(-18, -178, 12)))).toEqual(expect.arrayContaining(['east-1', 'west-1', 'tonga']));
     });
 
+    it('reads a region from Android across the line, whose width comes out negative', () => {
+      // react-native-maps on Android gives longitudeDelta as the east edge minus the west: 6° from 177°E to 177°W is -354.
+      const android: MapRegion = { latitude: -16.8, longitude: 180, latitudeDelta: 9, longitudeDelta: -177 - 177 };
+      const clusters = clusterSites(fiji, android);
+      expect(ids(clusters)).toEqual(expect.arrayContaining(['east-1', 'east-2', 'west-1', 'west-2']));
+      expect(clusters).toEqual(clusterSites(fiji, { ...android, longitudeDelta: 6 }));
+      // A tap on a cluster there still zooms in: to at most half the view's real width.
+      expect(boundsToRegion({ south: -17, west: 170, north: -16, east: 179.9 }, { within: android }).longitudeDelta).toBe(3);
+    });
+
     it('does not show the far side of the world', () => {
       // A 4° region is padded by 4° each side: Tonga (4.8° over the line) is in, Samoa (7.9°) is not.
       const all = ids(clusterSites([...fiji, { id: 'red-sea', lat: 27, lng: 34 }], region(-16.8, 180, 4)));

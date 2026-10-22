@@ -128,6 +128,15 @@ function latFromMercatorY(y: number): number {
   return (2 * Math.atan(Math.exp(y)) - Math.PI / 2) / RAD;
 }
 
+/**
+ * How wide a region is, in degrees of longitude. react-native-maps on Android gives the east edge
+ * minus the west, which is negative when the view crosses the antimeridian (177°E to 177°W comes
+ * out as -354, for 6°).
+ */
+function lngWidth(longitudeDelta: number): number {
+  return longitudeDelta < 0 ? longitudeDelta + 360 : longitudeDelta;
+}
+
 /** A usable region: finite numbers, a latitude on the globe, deltas between a hair and the whole world. */
 function sanitize(region: MapRegion): MapRegion {
   const finite = (n: number, fallback: number) => (Number.isFinite(n) ? n : fallback);
@@ -135,7 +144,7 @@ function sanitize(region: MapRegion): MapRegion {
     latitude: clamp(finite(region.latitude, 0), -90, 90),
     longitude: wrapLng(finite(region.longitude, 0)),
     latitudeDelta: clamp(finite(region.latitudeDelta, 180), 1e-7, 180),
-    longitudeDelta: clamp(finite(region.longitudeDelta, 360), 1e-7, 360),
+    longitudeDelta: clamp(lngWidth(finite(region.longitudeDelta, 360)), 1e-7, 360),
   };
 }
 
@@ -381,7 +390,7 @@ export function boundsToRegion(bounds: SiteBounds, { padding = 1.5, minDelta = M
     latitude: (bounds.south + bounds.north) / 2,
     longitude: (bounds.west + bounds.east) / 2,
     latitudeDelta: fit(bounds.north - bounds.south, within?.latitudeDelta),
-    longitudeDelta: fit(bounds.east - bounds.west, within?.longitudeDelta),
+    longitudeDelta: fit(bounds.east - bounds.west, within && lngWidth(within.longitudeDelta)),
   };
 }
 
