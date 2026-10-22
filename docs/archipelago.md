@@ -8,13 +8,13 @@ that used to offer a sandy island, a coral lagoon or a rocky cove is gone.
 
 | Area | What it is | Who lives there | Species |
 | --- | --- | --- | ---: |
-| Coral Reef | A sandy palm island ringed with coral (Home's island today) | Reef sharks, the wobbegong, reef manta, hawksbill turtle, Napoleon wrasse, bumphead parrotfish, clownfish, angelfish and triggerfish, giant moray, day octopus, giant clam, Christmas tree worms, banded sea krait; golden jellyfish in a marine lake | 34 |
+| Coral Reef | A coral cay in a lagoon ringed by a reef crest (Home's island: `docs/coral-reef.md`) | Reef sharks, the wobbegong, reef manta, hawksbill turtle, Napoleon wrasse, bumphead parrotfish, clownfish, angelfish and triggerfish, giant moray, day octopus, giant clam, Christmas tree worms, banded sea krait; golden jellyfish in a marine lake | 34 |
 | Open Ocean | The deep blue all around the islands | Whale shark, oceanic whitetip, mako and silky sharks, oceanic manta and devil rays, humpback and sperm whales, dolphins, sailfish, yellowfin tuna, mola mola, leatherback and olive ridley turtles | 15 |
 | Kelp Forest | A cold, rocky coast of towering kelp (its own island: `docs/kelp-forest.md`) | Great white and basking sharks, orca, sea lions, harbor seals, sea otters, leafy and weedy seadragons, garibaldi, giant sea bass, wolf eel, lingcod, giant Pacific octopus, giant cuttlefish | 14 |
 | Mangroves & Seagrass | A warm, shallow lagoon of mangrove roots and seagrass (its own island: `docs/mangroves.md`) | Dugong, manatee, green turtle, tiger, lemon, nurse and bull sharks, great hammerhead, sawfish, southern stingray, guitarfish, tarpon, seahorse, reef squid | 14 |
 | Volcanic Pinnacle | A black lava island in strong currents (its own island: `docs/volcanic-pinnacle.md`) | Schooling scalloped hammerheads, Galápagos and thresher sharks, eagle rays, marbled rays, barracuda, giant trevally, dogtooth tuna, king angelfish, chambered nautilus, marine iguanas | 11 |
 | Black Sand Bay | A volcanic sand and rubble slope | Frogfish, mimic, coconut and blue-ringed octopuses, flamboyant cuttlefish, mandarinfish, garden eels, stonefish, ghost pipefish, pygmy seahorse, nudibranchs, harlequin and mantis shrimp | 23 |
-| Shipwreck | An old wreck on the sand | Sand tiger sharks, goliath and giant groupers, great barracuda, lionfish, batfish, green moray, spiny lobster, loggerhead turtle | 9 |
+| Shipwreck | A crescent of dunes with an old steamer wrecked in its bight (its own island: `docs/shipwreck.md`) | Sand tiger sharks, goliath and giant groupers, great barracuda, lionfish, batfish, green moray, spiny lobster, loggerhead turtle | 9 |
 
 A species that lives in more than one kind of place (green turtles graze seagrass and rest on
 reefs) has one home, where divers meet it most. The test in
@@ -31,7 +31,8 @@ species live there, then how many areas are still to discover ("+5 to discover")
 readers hear it as one line ("Your archipelago: Coral Reef, 2 species; Open Ocean, 1 species;
 5 more areas to discover"). The explorer's label reads "Exploring · " and the home's name.
 
-The island on Home is the Coral Reef, drawn with the sandy island's shores (`HOME_SHORE`).
+The island on Home is the Coral Reef (`HOME_SHORE`): a forested coral cay in a pale lagoon inside a
+reef crest where the swell breaks, with a jetty and a dive boat (`docs/coral-reef.md`).
 The other shores (`HABITATS`: the coral lagoon and the rocky cove) stay for the archipelago's
 other islands. Levels still grow the island and its sea as the collection grows; the rewards
 at levels 5 and 6 are its islets.
@@ -53,7 +54,7 @@ where it lives.
 
 Each island has its own shape and size (`OUTLINES` in `src/lib/island-outline.ts`), so the
 archipelago never looks like one island stamped four times: the Coral Reef keeps the sandy bean of
-an island Home always had; the Kelp Forest is the largest, a long, rugged headland with an arm
+an island Home always had, now a forested cay in its lagoon and ring of reef; the Kelp Forest is the largest, a long, rugged headland with an arm
 hooking out south-west and a deep bay biting into its south side; the Volcanic Pinnacle is the
 smallest, a nearly round cone with lava lobes reaching the sea; and the Mangroves & Seagrass is the
 longest, a low cay with a ragged fringe of lobes. Each island's islets rise just off its own shore,
@@ -66,12 +67,13 @@ to sail between by dragging across the water or with a button for each island
 (`docs/island-explorer.md#one-ocean`). They lie in a chain running north to south, each a little to
 one side of the last, like the cays of the Bahamas strung along their bank: the Kelp Forest farthest
 north, in colder water; then the Volcanic Pinnacle, in the clear blue of the currents; Home's Coral
-Reef; and the Mangroves & Seagrass to the south, in warm green shallows. A chain suits a phone held
+Reef; the Mangroves & Seagrass to the south, in warm green shallows; and the Shipwreck at the
+chain's southern end, in gin-clear water over white sand. A chain suits a phone held
 upright, narrow and tall: all the way out it shows every island larger than a cluster would. Each
 island still keeps its animals' water to itself (its swimming area at the last level never reaches
 another's).
 
-![The archipelago from above: the Kelp Forest to the north, the Volcanic Pinnacle, the Coral Reef and the Mangroves & Seagrass to the south, on one shallow turquoise bank with sandbars and small cays between them, the deep blue off its edges](art-previews/archipelago-ocean.png)
+![The archipelago from above: the Kelp Forest to the north, the Volcanic Pinnacle, the Coral Reef, the Mangroves & Seagrass and the Shipwreck to the south, on one shallow turquoise bank with sandbars and small cays between them, the deep blue off its edges](art-previews/archipelago-ocean.png)
 
 ### The bank between the islands
 
@@ -137,6 +139,17 @@ marine iguana, the Galápagos shark, the pelagic thresher, the giant trevally an
 angelfish (`docs/marine-species-art.md`, batch v7); the scalloped hammerheads school here and the
 spotted eagle rays fly in squadrons. All of it is in `docs/volcanic-pinnacle.md`.
 
+## The Coral Reef
+
+![The Coral Reef with its animals](art-previews/island-coral-reef.png)
+
+Home's island: a coral cay of white sand under a bright forest, coconut palms leaning out over the
+beach, beach rock along its west shore and a jetty out to a moored dive boat, in a pale lagoon dotted
+with coral heads inside a reef crest where the swell breaks into surf. Its own animals have their own
+models now: the grey, blacktip and whitetip reef sharks, the hawksbill turtle, the Napoleon wrasse
+and the bumphead parrotfish (`docs/marine-species-art.md`, batch v9). All of it is in
+`docs/coral-reef.md`.
+
 ## The Mangroves & Seagrass
 
 ![The Mangroves & Seagrass with its animals](art-previews/island-mangroves.png)
@@ -149,7 +162,18 @@ have their own models: the dugong, the largetooth sawfish, the lemon shark, the 
 and the tarpon (`docs/marine-species-art.md`, batch v8); the tiger sharks, great hammerheads and
 green turtles, which used to swim at Home's reef, live here now. All of it is in `docs/mangroves.md`.
 
+## The Shipwreck
+
+![The Shipwreck with its animals](art-previews/island-shipwreck.png)
+
+The fifth island: a low crescent of white dunes with beach grass, sea grape, a few palms and a small
+red-and-white lighthouse on its northern point, and in its bight an old steamer run aground long ago,
+her bow up by the sand and her broken stern settled in gin-clear water, her anchor, boiler and plates
+scattered on the bottom. Its first five animals have their own models: the sand tiger shark, the
+loggerhead turtle, the goliath grouper, the lionfish and the batfish (`docs/marine-species-art.md`,
+batch v9). All of it is in `docs/shipwreck.md`.
+
 ## Next
 
-The islands of the other areas, each rising in the same sea as its first species is logged, and
-better models for the Coral Reef's own animals.
+Black Sand Bay, the last area without an island of its own, rising in the same sea as its first
+species is logged.

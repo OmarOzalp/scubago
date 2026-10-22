@@ -72,7 +72,7 @@ export function foundAreas(residents: readonly DexEntry[]): FoundArea[] {
  * The Coral Reef is Home's island; the others rise with their first species. Species of an area
  * without an island yet (the Open Ocean has none: it is the deep blue around them all) swim at Home.
  */
-export const ISLANDS = { 'coral-reef': 'island', 'kelp-forest': 'kelp', 'volcanic-pinnacle': 'volcanic', mangroves: 'mangrove' } as const satisfies Partial<Record<AreaId, Habitat>>;
+export const ISLANDS = { 'coral-reef': 'island', 'kelp-forest': 'kelp', 'volcanic-pinnacle': 'volcanic', mangroves: 'mangrove', shipwreck: 'wreck' } as const satisfies Partial<Record<AreaId, Habitat>>;
 export type IslandId = keyof typeof ISLANDS;
 export const HOME_ISLAND: IslandId = 'coral-reef';
 export const isIsland = (id: string): id is IslandId => Object.hasOwn(ISLANDS, id);
@@ -84,11 +84,12 @@ export const isIsland = (id: string): id is IslandId => Object.hasOwn(ISLANDS, i
  * between. They lie in a chain running north to south, like the cays of the Bahamas strung along
  * their bank (so a phone held upright, narrow and tall, sees the whole chain closer than it would a
  * cluster): the Kelp Forest farthest north, in colder water; then the Volcanic Pinnacle, in the clear
- * blue of the currents; Home's reef; and the Mangroves & Seagrass to the south, in warm, shallow
- * green, each a little to one side of the last. Between them lies the bank they stand on (banks.ts).
+ * blue of the currents; Home's reef; the Mangroves & Seagrass to the south, in warm, shallow
+ * green; and the Shipwreck at the chain's southern end, in gin-clear water over white sand, each a
+ * little to one side of the last. Between them lies the bank they stand on (banks.ts).
  * The explorer shows them all together (src/app/explore.tsx); Home's card one at a time.
  */
-export const ISLAND_PLACES: Record<IslandId, readonly [number, number]> = { 'coral-reef': [0, 0], 'kelp-forest': [-1.6, -23.2], 'volcanic-pinnacle': [1.8, -11.4], mangroves: [2.4, 12.2] };
+export const ISLAND_PLACES: Record<IslandId, readonly [number, number]> = { 'coral-reef': [0, 0], 'kelp-forest': [-1.6, -23.2], 'volcanic-pinnacle': [1.8, -11.4], mangroves: [2.4, 12.2], shipwreck: [-.2, 24] };
 
 /** The island a species swims at: its own area's, if that has an island, else Home's. */
 export function islandOf(speciesId: string): IslandId {

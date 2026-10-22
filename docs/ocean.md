@@ -66,23 +66,32 @@ card, every island found in the explorer (`docs/island-explorer.md#one-ocean`).
 
 - **Depth.** The map reaches 9 units past every island's middle at the same 7.1 texels a
   unit (`DEPTH`), so with the Coral Reef and the Kelp Forest it is 139 × 293, and with the
-  Volcanic Pinnacle too, 152 × 293; with the Mangroves & Seagrass as well, 156 × 380. Each texel's
+  Volcanic Pinnacle too, 152 × 293; with the Mangroves & Seagrass as well, 156 × 380; with the
+  Shipwreck, 156 × 464. Each texel's
   depth comes from the nearest island's shore, measured in that island's own frame, so its
   shelf is the one its kelp and reef animals stand on; past 10 units from an island
   (`ISLAND_REACH`) only open-ocean depth is left of its shelf, so its shore isn't measured.
   `uOceanDepthArea` says where the map lies (x0, z0, width, depth).
+- **The Coral Reef.** Around Home's island the shelf runs on as a lagoon to a reef crest just
+  under the surface before the reef's outer slope drops away (`seabedProfile` with the reef's
+  place, `OCEAN.reefCrest` and `reefShape`: the crest wanders, its outer edge cut into spurs and
+  grooves, two boat passes through it), and the depth map's fourth channel carries its coral (the
+  crest and each bommie's rubble, painted on the seabed in a mottle of coral colours) and where
+  the swell breaks on the crest (`oceanSurf`: sets of white water rolling along it, never quite
+  clearing; the lite map bakes a still line of it). All of it is in `docs/coral-reef.md`.
 - **The bank.** With several islands, they stand on one shallow bank (`archipelagoBank` in
   `src/lib/banks.ts`; `docs/archipelago.md#the-bank-between-the-islands`): wherever its depth
   (`bankDepth`) is shallower than an island's own seabed there, the map takes it, so the open
   sea between neighbours is clear turquoise over pale sand, with sandbars almost at the surface
   and small cays breaking it, and the deep blue only off the bank's edges. The field keeps the
   bank (`field.bank`) for the scene to draw its cays and rocks.
-- **Whose water.** A second map beside it (the region map) holds each texel's share of up to
-  four waters (`OCEAN_REGIONS`, one channel each, in the order of `field.habitats`): an
-  island's own palette around it, giving way to the next across the sea between them
-  (`REGION_BLEND`, 2.4 units). The surface and seabed shaders blend the palettes' colours
-  (`REGION_COLORS`: shallow, mid, deep, sand, wet sand, seagrass, sky) and clarity by those
-  shares (`REGION_GLSL`); the lite map bakes the same blend.
+- **Whose water.** Two more maps beside it (the region maps, four channels each) hold each
+  texel's share of up to eight waters (`OCEAN_REGIONS`, one channel each, in the order of
+  `field.habitats`): an island's own palette around it, giving way to the next across the sea
+  between them (`REGION_BLEND`, 2.4 units). The surface and seabed shaders blend the palettes'
+  colours (`REGION_COLORS`: shallow, mid, deep, sand, wet sand, seagrass, sky) and clarity by
+  those shares (`regionGlsl`, built for as many waters as the ocean has, so the second map is only
+  read past four); the lite map bakes the same blend.
 - **Each island's things.** Everything at an island (its animals, kelp, reef rocks and rising
   islets) reads its own uniforms (`islandOceanUniforms`): the ocean's own waves, clock, depth
   map and haze, but the island's own palette and clarity, so an otter fades into the Kelp
@@ -92,8 +101,8 @@ card, every island found in the explorer (`docs/island-explorer.md#one-ocean`).
   floor lies under the sea between them (finer over the bank, whose sand shows through the clear
   water); the surface lattice covers the box `reach` units past every island (farther across on a
   wide screen: `waterReach` in explorer-view.ts). With the two islands in the explorer, the water
-  is about 14,900 vertices and the seabed 8,800; with all four, about 19,200 and 12,900, and on the
-  widest screen at most 47,500 and 20,900 (16-bit indices allow 65,536).
+  is about 14,900 vertices and the seabed 9,200; with all five, about 22,300 and 16,000, and on the
+  widest screen at most 55,200 and 25,300 (16-bit indices allow 65,536).
 - **From high above.** `uOceanCalm` (0 to 1, set by the explorer's camera as it pulls back over
   several islands) sees the sea as from high above: the facets soften, the sun's glints gather
   into broad wind patches drifting across the water (`oceanWind`) instead of repeating along every

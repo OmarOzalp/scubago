@@ -6,6 +6,7 @@
 import { View, type ColorValue, type StyleProp, type ViewStyle } from 'react-native';
 
 import { AirplaneTiltIcon } from 'phosphor-react-native/src/icons/AirplaneTilt';
+import { AnchorIcon } from 'phosphor-react-native/src/icons/Anchor';
 import { ArrowLeftIcon } from 'phosphor-react-native/src/icons/ArrowLeft';
 import { ArrowLineDownIcon } from 'phosphor-react-native/src/icons/ArrowLineDown';
 import { ArrowsClockwiseIcon } from 'phosphor-react-native/src/icons/ArrowsClockwise';
@@ -30,7 +31,10 @@ import { ClockIcon } from 'phosphor-react-native/src/icons/Clock';
 import { CompassIcon } from 'phosphor-react-native/src/icons/Compass';
 import { CopyIcon } from 'phosphor-react-native/src/icons/Copy';
 import { CrosshairIcon } from 'phosphor-react-native/src/icons/Crosshair';
+import { CrownIcon } from 'phosphor-react-native/src/icons/Crown';
 import { CylinderIcon } from 'phosphor-react-native/src/icons/Cylinder';
+import { DiamondIcon } from 'phosphor-react-native/src/icons/Diamond';
+import { DownloadSimpleIcon } from 'phosphor-react-native/src/icons/DownloadSimple';
 import { DropIcon } from 'phosphor-react-native/src/icons/Drop';
 import { EnvelopeSimpleIcon } from 'phosphor-react-native/src/icons/EnvelopeSimple';
 import { ExportIcon } from 'phosphor-react-native/src/icons/Export';
@@ -42,6 +46,7 @@ import { GlobeHemisphereWestIcon } from 'phosphor-react-native/src/icons/GlobeHe
 import { HouseIcon } from 'phosphor-react-native/src/icons/House';
 import { ImageIcon } from 'phosphor-react-native/src/icons/Image';
 import { InfoIcon } from 'phosphor-react-native/src/icons/Info';
+import { IslandIcon } from 'phosphor-react-native/src/icons/Island';
 import { KeyIcon } from 'phosphor-react-native/src/icons/Key';
 import { ListBulletsIcon } from 'phosphor-react-native/src/icons/ListBullets';
 import { LockSimpleIcon } from 'phosphor-react-native/src/icons/LockSimple';
@@ -51,6 +56,7 @@ import { MapPinPlusIcon } from 'phosphor-react-native/src/icons/MapPinPlus';
 import { MapTrifoldIcon } from 'phosphor-react-native/src/icons/MapTrifold';
 import { MedalIcon } from 'phosphor-react-native/src/icons/Medal';
 import { MinusIcon } from 'phosphor-react-native/src/icons/Minus';
+import { MoonStarsIcon } from 'phosphor-react-native/src/icons/MoonStars';
 import { NavigationArrowIcon } from 'phosphor-react-native/src/icons/NavigationArrow';
 import { NoteIcon } from 'phosphor-react-native/src/icons/Note';
 import { PauseIcon } from 'phosphor-react-native/src/icons/Pause';
@@ -80,6 +86,7 @@ import { useTheme } from '@/hooks/use-theme';
 const ICONS = {
   home: HouseIcon,
   airplane: AirplaneTiltIcon,
+  anchor: AnchorIcon,
   back: ArrowLeftIcon,
   external: ArrowSquareOutIcon,
   sync: ArrowsClockwiseIcon,
@@ -102,7 +109,10 @@ const ICONS = {
   copy: CopyIcon,
   explore: CompassIcon,
   locate: CrosshairIcon,
+  crown: CrownIcon,
+  download: DownloadSimpleIcon,
   drop: DropIcon,
+  gem: DiamondIcon,
   email: EnvelopeSimpleIcon,
   filter: FunnelSimpleIcon,
   share: ExportIcon,
@@ -111,6 +121,7 @@ const ICONS = {
   everyone: GlobeHemisphereWestIcon,
   image: ImageIcon,
   info: InfoIcon,
+  island: IslandIcon,
   key: KeyIcon,
   list: ListBulletsIcon,
   lock: LockSimpleIcon,
@@ -120,6 +131,7 @@ const ICONS = {
   map: MapTrifoldIcon,
   medal: MedalIcon,
   minus: MinusIcon,
+  night: MoonStarsIcon,
   directions: NavigationArrowIcon,
   notes: NoteIcon,
   pause: PauseIcon,

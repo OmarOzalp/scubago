@@ -16,6 +16,7 @@ import { NewBadge, Stamp } from '@/components/journal/stamp';
 import { OceanButton } from '@/components/ocean-button';
 import { PrivacyFields } from '@/components/privacy-fields';
 import { RarityChip } from '@/components/rarity-chip';
+import { NewBadgesCelebration } from '@/components/rewards/new-badges';
 import { SpeciesArt } from '@/components/species-art';
 import { formatDate } from '@/components/sighting-row';
 import { SitePicker } from '@/components/site-picker';
@@ -24,7 +25,9 @@ import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { WhenReady } from '@/components/when-ready';
 import { OnFill, Radius, Shadow, Spacing, Type } from '@/constants/theme';
+import { useNewBadges } from '@/hooks/use-new-badges';
 import { usePhotoUrl } from '@/hooks/use-photo-url';
+import { useRewards } from '@/hooks/use-rewards';
 import { useSchemeName, useTheme } from '@/hooks/use-theme';
 import { announce } from '@/lib/announce';
 import { CATALOG, CATALOG_BY_ID, UNLISTED_ID, UNLISTED_NAME_MAX, speciesForSighting } from '@/lib/catalog';
@@ -37,8 +40,9 @@ import { CATEGORY_LABEL, CATEGORY_ORDER } from '@/lib/rarity';
 import { artFor } from '@/lib/species-art';
 import { canEditSighting, isMaterialChange, localIsoDate } from '@/lib/sighting-edit';
 import { onSiteAdded } from '@/lib/site-added';
-import { useAllSites, useAppStore, useMyDives, useMySightings, useMyUserId, useNextDiveNumber } from '@/lib/store';
+import { useAllSites, useAppStore, useMyDives, useMySightings, useMyUserId, useNextDiveNumber, useSiteById } from '@/lib/store';
 import { searchSpecies } from '@/lib/text-search';
+import type { BadgeResult } from '@/lib/rewards';
 import type { Category, DiveSite, Species } from '@/lib/types';
 import { statusOf } from '@/lib/verification';
 
@@ -74,10 +78,15 @@ function LogSightingScreen() {
   const theme = useTheme();
   const scheme = useSchemeName();
   const sites = useAllSites();
+  const siteById = useSiteById();
   const mySightings = useMySightings();
   const myDives = useMyDives();
   const nextNumber = useNextDiveNumber();
   const myUserId = useMyUserId();
+  // Badges this log earns are celebrated once it is saved. The badges already earned are taken as
+  // seen as soon as this opens, before anything is saved, so only the new ones are.
+  const rewards = useRewards();
+  const { fresh: newBadges, markSeen: markBadgesSeen } = useNewBadges({ owner: myUserId, badges: rewards.badges, ready: rewards.ready });
   const userId = useAppStore((s) => s.user?.id);
   const backendEnabled = useAppStore((s) => s.backendEnabled);
   const addSightings = useAppStore((s) => s.addSightings);
@@ -155,7 +164,7 @@ function LogSightingScreen() {
     [],
   );
 
-  const site = siteId ? sites.find((s) => s.id === siteId) : null;
+  const site = siteId ? siteById(siteId) : null;
   const chosen = selected
     .map((id) => (id === UNLISTED_ID ? speciesForSighting({ speciesId: id, customName }) : CATALOG_BY_ID.get(id)))
     .filter((s): s is Species => !!s);
@@ -321,7 +330,7 @@ function LogSightingScreen() {
   };
 
   if (result) {
-    return <Saved result={result} onLogMore={newDive ? logMore : undefined} />;
+    return <Saved result={result} onLogMore={newDive ? logMore : undefined} newBadges={newBadges} onBadgesSeen={markBadgesSeen} />;
   }
 
   if (params.edit && (!editing || !canEditSighting(editing, myUserId))) {
@@ -498,7 +507,7 @@ function LogSightingScreen() {
                 setDraft((d) => ({ ...d, ...patch }));
               }}
               nextNumber={nextNumber}
-              takenBy={takenBy ? { number: takenBy.number, siteName: sites.find((s) => s.id === takenBy.siteId)?.name } : undefined}
+              takenBy={takenBy ? { number: takenBy.number, siteName: siteById(takenBy.siteId)?.name } : undefined}
               carried={start.from !== undefined ? { from: start.from, what: start.what } : undefined}
             />
           ) : null}
@@ -834,11 +843,12 @@ const ON_TWILIGHT = { text: '#FFFFFF', soft: '#C9D3FF' };
  * After saving. A new species turns over a field-guide card and stamps it "First record"; an
  * ordinary log gets a "Logged" stamp. Nothing moves under Reduce Motion.
  */
-function Saved({ result, onLogMore }: { result: Result; onLogMore?: () => void }) {
+function Saved({ result, onLogMore, newBadges, onBadgesSeen }: { result: Result; onLogMore?: () => void; newBadges: BadgeResult[]; onBadgesSeen: (ids: string[]) => void }) {
   const theme = useTheme();
   const { newSpecies, count, siteName, dive } = result;
   const milestone = dive?.written ? milestoneAt(dive.number) : null;
   const ahead = dive?.written && !milestone ? nextMilestone(dive.number + 1) : null;
+  const badgeCelebration = <NewBadgesCelebration fresh={newBadges} onSeen={onBadgesSeen} onOpenAll={() => router.replace('/rewards')} />;
   const openPage = dive ? () => (dive.written ? router.replace(`/dive/${dive.id}`) : router.back()) : undefined;
   // Signing from here ends on the page (there's no page behind this screen to go back to).
   const askToSign = dive?.written ? () => router.replace({ pathname: '/dive/sign', params: { id: dive.id, then: 'page' } }) : undefined;
@@ -867,6 +877,7 @@ function Saved({ result, onLogMore }: { result: Result; onLogMore?: () => void }
                   : `${count === 1 ? 'Your sighting is' : `${count} sightings are`} in your log, at ${siteName}.`}
             </ThemedText>
             {milestone ? <Bookplate at={milestone} siteName={siteName} style={styles.stretch} /> : null}
+            {badgeCelebration}
             {ahead && ahead.remaining <= 5 ? (
               <ThemedText type="small" themeColor="textSecondary" style={styles.center}>
                 {ahead.remaining === 0 ? `Your next dive is your ${milestoneName(ahead.at)}.` : `${countWord(ahead.remaining + 1)} dives to your ${milestoneName(ahead.at)}.`}
@@ -937,6 +948,7 @@ function Saved({ result, onLogMore }: { result: Result; onLogMore?: () => void }
           </Paper>
         )}
         {milestone ? <Bookplate at={milestone} siteName={siteName} style={styles.stretch} /> : null}
+        {badgeCelebration}
         <View style={styles.gains}>
           <Gain mark={`+${newSpecies.length}`} text={newSpecies.length === 1 ? 'A new resident swims to your island' : `${newSpecies.length} new residents swim to your island`} />
           {dive?.written ? <Gain mark="No." text={`Entry ${formatDiveNumber(dive.number)} written in your logbook`} /> : null}

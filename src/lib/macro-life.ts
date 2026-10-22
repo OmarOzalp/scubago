@@ -90,7 +90,7 @@ export function macroHomes(level: number, species: readonly MacroSpecies[], shap
   if (!homes) {
     const polygons = shorePolygons(level, 24, shape);
     homes = new Map((Object.keys(HOMES) as MacroKind[]).map((kind) => {
-      const place = locate(polygons, HOMES[kind].angle, HOMES[kind].reach);
+      const place = locate(polygons, HOMES[kind].angle, HOMES[kind].reach, shape);
       return [kind, { kind, x: place.x, z: place.z, floor: place.floor, outX: place.nx, outZ: place.nz }];
     }));
     homeCache.set(key, homes);

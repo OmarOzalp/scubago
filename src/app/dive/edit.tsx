@@ -16,7 +16,7 @@ import { announce } from '@/lib/announce';
 import { draftFromDive, hasMoreDetails, readDraft, type DiveDraft } from '@/lib/dive-draft';
 import { formatDiveNumber, signaturesOf } from '@/lib/dives';
 import { onSiteAdded } from '@/lib/site-added';
-import { useAllSites, useAppStore, useMyDives, useMyUserId } from '@/lib/store';
+import { useAllSites, useAppStore, useMyDives, useMyUserId, useSiteById } from '@/lib/store';
 import { statusOf } from '@/lib/verification';
 
 /**
@@ -35,6 +35,7 @@ function EditDiveScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const theme = useTheme();
   const sites = useAllSites();
+  const siteById = useSiteById();
   const dives = useMyDives();
   const myUserId = useMyUserId();
   const dive = dives.find((d) => d.id === id);
@@ -65,7 +66,7 @@ function EditDiveScreen() {
     );
   }
 
-  const site = sites.find((s) => s.id === draft.siteId);
+  const site = siteById(draft.siteId);
   if (picking) {
     return (
       <ThemedView style={styles.container}>
@@ -134,7 +135,7 @@ function EditDiveScreen() {
         <DiveForm
           draft={draft}
           onChange={(patch) => setDraft((d) => (d ? { ...d, ...patch } : d))}
-          takenBy={takenBy ? { number: takenBy.number, siteName: sites.find((s) => s.id === takenBy.siteId)?.name } : undefined}
+          takenBy={takenBy ? { number: takenBy.number, siteName: siteById(takenBy.siteId)?.name } : undefined}
           initiallyOpen={hasMoreDetails(dive)}
         />
 

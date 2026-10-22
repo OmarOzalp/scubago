@@ -10,6 +10,7 @@ import { Paper } from '@/components/journal/paper';
 import { Screen, SectionHeader } from '@/components/journal/screen';
 import { Wash } from '@/components/journal/wash';
 import { OceanButton } from '@/components/ocean-button';
+import { ShareDiveButton } from '@/components/share/share-buttons';
 import { formatEntryDate, SightingRow } from '@/components/sighting-row';
 import { SyncLine } from '@/components/sync-line';
 import { ThemedText } from '@/components/themed-text';
@@ -36,7 +37,7 @@ import {
   TANK_MATERIALS,
   timeOut,
 } from '@/lib/dives';
-import { useAllSites, useAppStore, useMyDives, useMyUserId } from '@/lib/store';
+import { useAllSites, useAppStore, useMyDives, useMyUserId, useSiteById } from '@/lib/store';
 import type { Dive, DiveSignature } from '@/lib/types';
 
 function formatTimestamp(iso: string): string {
@@ -52,6 +53,7 @@ export default function DivePageScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const theme = useTheme();
   const sites = useAllSites();
+  const siteById = useSiteById();
   const myUserId = useMyUserId();
   const dives = useMyDives();
   const dive = dives.find((d) => d.id === id);
@@ -84,7 +86,7 @@ export default function DivePageScreen() {
     );
   }
 
-  const site = sites.find((s) => s.id === dive.siteId);
+  const site = siteById(dive.siteId);
   const siteName = site?.name ?? 'Unknown site';
   const milestone = milestoneAt(dive.number);
   const out = timeOut(dive);
@@ -300,6 +302,7 @@ export default function DivePageScreen() {
         <SyncLine item={dive} />
       </View>
 
+      <ShareDiveButton dive={dive} site={site} sightings={allSightings} />
       <OceanButton title="Edit page" variant="secondary" icon="edit" disabled={busy} onPress={() => router.push({ pathname: '/dive/edit', params: { id: dive.id } })} />
 
       {/* Turning the pages: the one before (a lower number) on the left, the next on the right. */}

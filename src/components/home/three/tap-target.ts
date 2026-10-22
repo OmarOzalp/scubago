@@ -13,6 +13,8 @@ export const MARINE_SIZE = {
   'harbor-seal': 1.3, 'sea-otter': 1, garibaldi: .5, 'leafy-seadragon': .56, orca: 2.4,
   'marine-iguana': .95, 'galapagos-shark': 2.3, 'thresher-shark': 2.9, 'giant-trevally': .95, 'king-angelfish': .5,
   dugong: 1.6, sawfish: 2.7, 'lemon-shark': 2.3, 'southern-stingray': 1, tarpon: 1.5,
+  'grey-reef-shark': 1.95, 'blacktip-reef-shark': 1.65, 'whitetip-reef-shark': 1.8, 'hawksbill-turtle': 1.15, 'napoleon-wrasse': 1.45, 'bumphead-parrotfish': 1.15,
+  'sand-tiger-shark': 2.5, 'loggerhead-turtle': 1.35, 'goliath-grouper': 1.75, lionfish: .5, batfish: .62,
   ...REEF_SIZE,
 } as const;
 

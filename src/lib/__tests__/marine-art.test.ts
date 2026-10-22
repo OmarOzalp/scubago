@@ -21,5 +21,5 @@ test('invalid, repeated, missing, and unsupported inspection queries are safe', 
   expect(inspectionModel({ model: 'missing' })).toBeNull();
   expect(inspectionModel({ model: ['shark', 'manta'] })).toBeNull();
   expect(inspectionModel({ species: 'missing', model: 'shark' })).toBeNull();
-  expect(inspectionModel({ species: 'hawksbill-turtle' })).toBeNull();
+  expect(inspectionModel({ species: 'giant-clam' })).toBeNull();
 });

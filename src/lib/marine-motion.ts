@@ -354,6 +354,81 @@ export const MOVEMENT: Record<MarineModel, Movement> = {
     breathe: { every: 34, rise: 2.2, hold: .8, clearance: .08 }, pitch: .7,
     pause: { every: 26, hold: 6, slow: .15, burst: 1.8, dash: 1 },
   },
+  // The Coral Reef's own animals (Home's island; docs/archipelago.md).
+  // Quick and alert: patrols the outer reef and its crest at mid-depth, swinging out over the drop-off.
+  'grey-reef-shark': {
+    cruise: .46, swing: .12, swingPeriod: 22, surge: .15, turnRate: .5, turnEase: .65, bank: .5, bankMax: .2, bankEase: 1.7, lazyRoll: .04, tilt: 0,
+    halfLength: .88, halfWidth: .36, personalSpace: .26, avoidance: .85, islandClearance: .9, roam: [.35, 1.05], roamPeriod: 36, patrol: .55,
+    depth: -.05, bob: .03, bobPeriod: 17, reverseEvery: 85, weave: .12, weavePeriod: 13,
+  },
+  // A shark of the lagoon's shallows: quick, weaving close in, high in the water.
+  'blacktip-reef-shark': {
+    cruise: .44, swing: .16, swingPeriod: 16, surge: .12, turnRate: .58, turnEase: .7, bank: .5, bankMax: .2, bankEase: 1.8, lazyRoll: .04, tilt: 0,
+    halfLength: .74, halfWidth: .3, personalSpace: .24, avoidance: .85, islandClearance: .6, roam: [0, .55], roamPeriod: 30, patrol: .25,
+    depth: .06, bob: .03, bobPeriod: 14, reverseEvery: 70, weave: .2, weavePeriod: 11,
+  },
+  // Rests on the bottom for long spells, then sets off along the reef, slow and sinuous, low down.
+  'whitetip-reef-shark': {
+    cruise: .32, swing: .12, swingPeriod: 20, surge: 0, turnRate: .45, turnEase: .6, bank: .4, bankMax: .16, bankEase: 1.4, lazyRoll: 0, tilt: 0,
+    halfLength: .8, halfWidth: .3, personalSpace: .24, avoidance: .85, islandClearance: .75, roam: [.15, .75], roamPeriod: 44, patrol: .2,
+    depth: -.3, bob: .015, bobPeriod: 20, reverseEvery: 80,
+    pause: { every: 26, hold: 14, slow: .03, burst: 1.4, dash: 1 },
+  },
+  // Flies along the reef from one sponge to the next, stopping to feed, quicker than the green turtle.
+  'hawksbill-turtle': {
+    cruise: .34, swing: .14, swingPeriod: 16, surge: 0, turnRate: .45, turnEase: .6, bank: .6, bankMax: .14, bankEase: 1.5, lazyRoll: 0, tilt: 0,
+    halfLength: .52, halfWidth: .55, personalSpace: .2, avoidance: 1, islandClearance: .8, roam: [.15, .65], roamPeriod: 38, patrol: 0,
+    depth: -.04, bob: .05, bobPeriod: 14, reverseEvery: 65,
+    pause: { every: 20, hold: 5, slow: .1, burst: 1.3, dash: 1 },
+  },
+  // Big and curious: rows slowly over the reef on its pectorals, turns to look, hangs a while.
+  'napoleon-wrasse': {
+    cruise: .2, swing: .2, swingPeriod: 14, surge: 0, turnRate: .5, turnEase: .6, bank: .3, bankMax: .12, bankEase: 1.6, lazyRoll: 0, tilt: 0,
+    halfLength: .65, halfWidth: .2, personalSpace: .22, avoidance: .9, islandClearance: .7, roam: [.1, .7], roamPeriod: 40, patrol: .1,
+    depth: -.1, bob: .025, bobPeriod: 12, reverseEvery: 50, weave: .25, weavePeriod: 10,
+    pause: { every: 16, hold: 5, slow: .15, burst: 1.6, dash: .8 },
+  },
+  // A herd grazing the reef: slow, side by side, pausing together to bite at the coral.
+  'bumphead-parrotfish': {
+    cruise: .24, swing: .14, swingPeriod: 15, surge: 0, turnRate: .5, turnEase: .6, bank: .3, bankMax: .12, bankEase: 1.6, lazyRoll: 0, tilt: 0,
+    halfLength: .52, halfWidth: .18, personalSpace: .2, avoidance: .9, islandClearance: .65, roam: [.05, .6], roamPeriod: 34, patrol: .1,
+    depth: -.12, bob: .025, bobPeriod: 11, reverseEvery: 55,
+    pause: { every: 14, hold: 4, slow: .2, burst: 1.4, dash: .8 },
+  },
+  // The Shipwreck's animals (they live at its island).
+  // Hangs almost motionless in mid-water by the wreck, then drifts on with slow sweeps of the tail.
+  'sand-tiger-shark': {
+    cruise: .2, swing: .08, swingPeriod: 30, surge: 0, turnRate: .3, turnEase: .4, bank: .35, bankMax: .14, bankEase: 1.1, lazyRoll: 0, tilt: 0,
+    halfLength: 1.12, halfWidth: .4, personalSpace: .28, avoidance: .8, islandClearance: .85, roam: [.15, .7], roamPeriod: 60, patrol: .2,
+    depth: -.1, bob: .02, bobPeriod: 24, reverseEvery: 100,
+    pause: { every: 22, hold: 10, slow: .1, burst: 1.2, dash: 1 },
+  },
+  // Heavy and steady, round the wreck and out over the sand, up for a breath now and then.
+  'loggerhead-turtle': {
+    cruise: .32, swing: .1, swingPeriod: 22, surge: 0, turnRate: .36, turnEase: .5, bank: .55, bankMax: .13, bankEase: 1.3, lazyRoll: 0, tilt: 0,
+    halfLength: .62, halfWidth: .62, personalSpace: .22, avoidance: 1, islandClearance: .9, roam: [.1, .7], roamPeriod: 50, patrol: 0,
+    depth: .04, bob: .06, bobPeriod: 17, reverseEvery: 80,
+  },
+  // Hangs by the wreck, barely moving, and turns slowly to watch.
+  'goliath-grouper': {
+    cruise: .14, swing: .1, swingPeriod: 20, surge: 0, turnRate: .3, turnEase: .4, bank: .2, bankMax: .08, bankEase: 1, lazyRoll: 0, tilt: 0,
+    halfLength: .8, halfWidth: .3, personalSpace: .26, avoidance: .9, islandClearance: .7, roam: [0, .45], roamPeriod: 50, patrol: 0,
+    depth: -.18, bob: .015, bobPeriod: 18, reverseEvery: 60,
+    pause: { every: 12, hold: 12, slow: .05, burst: 1.2, dash: .6 },
+  },
+  // Hovers by the wreck with its fins spread, edging along it now and then.
+  lionfish: {
+    cruise: .08, swing: .25, swingPeriod: 9, surge: 0, turnRate: .8, turnEase: .9, bank: .2, bankMax: .1, bankEase: 2, lazyRoll: 0, tilt: 0,
+    halfLength: .23, halfWidth: .25, personalSpace: .12, avoidance: 1, islandClearance: .55, roam: [0, .35], roamPeriod: 24, patrol: 0,
+    depth: -.15, bob: .02, bobPeriod: 8, reverseEvery: 26,
+    pause: { every: 8, hold: 6, slow: .05, burst: 1.5, dash: .5 },
+  },
+  // A small school gliding gently round the wreck, close together.
+  batfish: {
+    cruise: .22, swing: .14, swingPeriod: 14, surge: 0, turnRate: .5, turnEase: .6, bank: .25, bankMax: .1, bankEase: 1.6, lazyRoll: 0, tilt: 0,
+    halfLength: .28, halfWidth: .12, personalSpace: .14, avoidance: 1, islandClearance: .6, roam: [.05, .6], roamPeriod: 30, patrol: .1,
+    depth: -.02, bob: .025, bobPeriod: 10, reverseEvery: 45,
+  },
   // Reef animals keep to the reef: the octopus on the seabed shelf, the cuttlefish over the reef edge,
   // the moray in its crevice, the clownfish in their anemone (their behavior is in reef-life.ts).
   'day-octopus': { ...FAMILY, cruise: .075, turnRate: .9, halfLength: .5, halfWidth: .55, habitat: 'seabed' },
@@ -376,6 +451,7 @@ export const ARRIVAL_PACE: Partial<Record<MarineModel, number>> = {
   'great-white-shark': 1.35, 'tiger-shark': 1.15, 'scalloped-hammerhead': 1.15, 'bottlenose-dolphin': 1.25, shark: 1.1, 'reef-fish': 1.1,
   sailfish: 1.3, 'california-sea-lion': 1.25, 'great-barracuda': 1.2, 'oceanic-whitetip': 1.1, orca: 1.2, 'harbor-seal': 1.15,
   'galapagos-shark': 1.2, 'thresher-shark': 1.1, 'giant-trevally': 1.3, 'lemon-shark': 1.15, tarpon: 1.2,
+  'grey-reef-shark': 1.25, 'blacktip-reef-shark': 1.2, 'whitetip-reef-shark': 1.1, 'sand-tiger-shark': 1.05,
 };
 /** An arrival that takes longer than this (s) counts as arrived anyway. */
 const ARRIVAL_LIMIT = 30;

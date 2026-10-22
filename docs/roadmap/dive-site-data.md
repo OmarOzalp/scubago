@@ -2,6 +2,8 @@
 
 **Status:** research and plan, September 2026. The data hasn't been expanded yet.
 
+**OSM import (22 October 2026):** 268 Great Barrier Reef and Egyptian Red Sea dive sites imported from OpenStreetMap (260 new, 329 in the app); see [../osm-sites.md](../osm-sites.md).
+
 Facts are marked:
 
 - **[F]** read directly;

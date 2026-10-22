@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
 import { Animated, Platform, StyleSheet, View } from 'react-native';
+import { useThree } from '@react-three/fiber';
 import { SceneCanvas as Canvas } from './three/scene-canvas';
+import { useSceneQuality } from './three/scene-quality';
 import { SceneBoundary, SceneUnavailable } from './scene-boundary';
 import { SceneCamera } from './three/scene-camera';
 import { IslandPerfBadge } from './island-perf-badge';
@@ -17,6 +19,7 @@ import { useSceneActive, useSceneVisible } from '@/hooks/use-scene-active';
 import type { WaterReach } from '@/lib/explorer-view';
 import type { Habitat } from '@/lib/home';
 import { shapeFor } from '@/lib/island-outline';
+import { captureFrame, registerSceneCapture } from '@/lib/scene-snapshot';
 import { MACRO_SPECIES, macroResidents, type MacroSpecies } from '@/lib/macro-life';
 import { clamp, oceanScale } from '@/lib/steering';
 import { hasSchool, MAX_ANIMATED, pickSwimmers, SCHOOL_SPECIES, schoolSpeciesFor, swimmerPages, swimsInSchool, type MarineModel } from '@/lib/swimming';
@@ -79,6 +82,24 @@ export type ExplorerScene = {
 
 /** An island in the scene's ocean (its middle, world units, and its shores) and the species living there. */
 export type ScenePlace = { key: string; habitat: Habitat; x: number; z: number; residents: DexEntry[] };
+
+/**
+ * Home's card tells the Share flow how to take its picture (src/lib/scene-snapshot.ts) for as long as
+ * it can: the scene is drawn and on show, and not in the cheap 'lite' tier of an emulator, where reading
+ * the picture back would stall the software renderer. It reads the renderer only when asked.
+ */
+function SnapshotRegistrar({ ready }: { ready: boolean }) {
+  const get = useThree((state) => state.get);
+  const lite = useSceneQuality() === 'lite';
+  useEffect(() => {
+    if (!ready || lite) return;
+    return registerSceneCapture('home', (request) => {
+      const { gl, scene, camera } = get();
+      return captureFrame({ gl, scene, camera }, request);
+    });
+  }, [ready, lite, get]);
+  return null;
+}
 
 export function SanctuaryScene({ habitat, level, residents, islands, paused = false, loading = false, onInspect, onOpen, moments, explorer }: {
   habitat: Habitat; level: number; residents: DexEntry[]; paused?: boolean; loading?: boolean; onInspect: (model: MarineModel) => void;
@@ -188,6 +209,8 @@ export function SanctuaryScene({ habitat, level, residents, islands, paused = fa
         {/* The view pulls back as the island levels up and its ocean widens. */}
         {!explorer && <SceneCamera scale={oceanScale(level)} />}
         {onOpen && !explorer && <TapAnywhere onTap={onOpen} />}
+        {/* The Share button's picture of the card (not the explorer's). A paused island can still be photographed; one that is still for Reduce Motion is not. */}
+        {!explorer && <SnapshotRegistrar ready={visible && !loading && (active || paused)} />}
         {__DEV__ && <ScenePerformance ready={!!models && !loading} active={active} />}
         {ISLAND_PERF && <IslandPerfProbe />}
         {/* The animals swim inside their island's water, which tints and refracts them. */}

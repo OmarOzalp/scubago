@@ -3,11 +3,14 @@ import { useMemo, useState } from 'react';
 import { ScrollView, StyleSheet, View } from 'react-native';
 
 import { Chip } from '@/components/journal/chip';
+import { LinkRow } from '@/components/journal/link-row';
 import { ProgressRing } from '@/components/journal/progress-ring';
 import { Screen, ScreenHeader, SectionHeader } from '@/components/journal/screen';
+import { collectionsLine, summarize } from '@/components/rewards/summary';
 import { SpeciesCard } from '@/components/species-card';
 import { ThemedText } from '@/components/themed-text';
 import { Spacing } from '@/constants/theme';
+import { useRewards } from '@/hooks/use-rewards';
 import { CATALOG, CATALOG_BY_ID } from '@/lib/catalog';
 import { deriveDex } from '@/lib/dex';
 import { CATEGORY_LABEL, CATEGORY_ORDER, rarityRank } from '@/lib/rarity';
@@ -22,6 +25,8 @@ const NEW_DAYS = 7;
 /** Every species in the catalogue, by group: drawn in colour once seen, in pencil until then. */
 export default function FieldGuideScreen() {
   const mySightings = useMySightings();
+  const rewards = useRewards();
+  const setsLine = useMemo(() => collectionsLine(summarize(rewards)), [rewards]);
   // The column's width, measured: a phone's to begin with (the static web render has no window).
   const [inner, setInner] = useState(358);
   const [filter, setFilter] = useState<Category | 'all'>('all');
@@ -50,6 +55,8 @@ export default function FieldGuideScreen() {
         title={`${dex.length} of ${CATALOG.length} species`}
         accessory={<ProgressRing fraction={dex.length / CATALOG.length} accessibilityLabel={`${Math.round((dex.length / CATALOG.length) * 100)} percent of the field guide seen`} />}
       />
+
+      <LinkRow icon="medal" title="Collections" detail={rewards.ready ? setsLine : undefined} role="link" onPress={() => router.push({ pathname: '/rewards', params: { tab: 'collections' } })} />
 
       <ScrollView
         horizontal

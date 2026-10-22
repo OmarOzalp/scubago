@@ -398,6 +398,43 @@ Previews: `docs/art-previews/dugong.png`, `sawfish.png`, `lemon-shark.png`,
 `southern-stingray.png` and `tarpon.png` (the same studio framing), and `island-mangroves.png`:
 the island's animals at a level 4 island as the app's camera sees them.
 
+## Batch v9: the Coral Reef and the Shipwreck
+
+Six animals for Home's own island (`docs/coral-reef.md`), which until now swam as family models (or,
+like the hawksbill, not at all), and five for the Shipwreck (`docs/shipwreck.md`). As before, each
+was drafted in its own design file over many rounds of studio renders, then reviewed against the
+species' real proportions and corrected. The sharks and fish are on the sharks' lofted body
+(`shark.ts`) and `shark` rig, the three reef sharks sharing a crisp-edged fin lofter, eye and
+nostril decals (`reef-sharks.ts`); the turtles share a scute-by-scute shell, head and flippers
+(`hard-shell.ts`) on the `turtle` rig. All are within the 5,000-triangle, 220 KB budget
+(`npm run verify:marine`).
+
+| Species | Model | Motion | Triangles | GLB bytes |
+| --- | --- | --- | ---: | ---: |
+| Grey reef shark | A sturdy requiem shark with a broadly rounded snout and big round eyes; a plain first dorsal over the pectorals' free tips; a broad, crisp black margin along the whole back edge of the tail; dusky tips under the pectorals and on the pelvics, second dorsal and anal fin. Cool slate grey, white below | `shark`: quick, easy beats. 0.6 beats/s | 3,924 | 160,144 |
+| Blacktip reef shark | Smaller and slimmer, with a short, blunt snout; every fin tipped ink black, the first dorsal's black tip set off by a pale band, the tail's back edge black; a pale wedge along the flank above the pelvics. Sandy grey-brown, white below | `shark`: quicker, shallower beats with a little more roll. 0.8 beats/s | 3,924 | 159,968 |
+| Whitetip reef shark | Slender and lithe, with a short, very blunt, flat snout, tubular flaps at the nostrils and a ridge over each eye; the first dorsal set well back, the second dorsal and anal fin nearly as big; bright white tips on the first dorsal and both tail lobes; a few dark spots. Warm brownish grey | `shark`: slow and sinuous, the head steady, still as it rests (`hover`). 0.7 beats/s | 3,768 | 157,408 |
+| Hawksbill turtle | A narrow head drawn out into a sharp, hooked beak, two pairs of plates between the eyes; an oval shell of thick, overlapping scutes, its back edge serrated; amber and honey tortoiseshell streaked dark brown and black and flared with gold; dark, cream-edged scales on the head and long fore flippers, two claws on each | `turtle`: quicker strokes and shorter glides than the green turtle's. 0.47 strokes/s | 2,706 | 138,856 |
+| Napoleon wrasse | A deep, compressed body under a bulging hump of a forehead; thick, fleshy lips the colour of its face; a long dorsal and anal fin darker at the base, a rounded tail; teal-green, a dark bar on every scale, wavy blue-green and yellow-green lines over the head, two dark lines back from each eye | `shark`: rows on its broad pectorals, the tail slow, hanging still at low effort. 0.6 beats/s | 4,324 | 203,308 |
+| Bumphead parrotfish | A deep body behind a near-vertical, bulbous forehead; pale, knobbly fused tooth plates for a beak; big scales; dark green, the bump and face paler, flushing pink at the front | `shark`: rows on its pectorals, slow tail beats. 0.7 beats/s | 4,246 | 194,148 |
+| Sand tiger shark | Bulky and a little humpbacked, with a conical, pointed snout and small eyes; ragged, needle-like teeth jutting from both jaws even with the mouth closed; two big dorsals of nearly the same size set far back, a large anal fin; a long upper tail lobe and a short lower one; bronze, with reddish-brown spots on its rear half | `shark`: slow sweeps, almost motionless at low effort (`hover`). 0.38 beats/s | 4,346 | 184,956 |
+| Loggerhead turtle | A huge, broad, blocky head with massive jaws (a third of the shell's width, a little exaggerated to read from above); a reddish-brown, heart-shaped shell of five pairs of costal scutes, with a few pale barnacles; reddish-brown head and flippers edged in cream, yellowing below; short, thick fore flippers | `turtle`: slower, heavier strokes and longer glides. 0.37 strokes/s | 2,714 | 126,944 |
+| Goliath grouper | Massive and thick, with a broad, flat-topped head, a wide mouth with a jutting lower jaw and small eyes; a low spiny dorsal, rounded soft fins and tail; olive-brown with faint darker bars and small dark spots over the head and fins | `shark`: slow, heavy beats, barely moving at low effort. 0.45 beats/s | 4,464 | 205,804 |
+| Lionfish | Banded all over in maroon and cream, broad and thin bars; thirteen long, separate, banded pectoral rays a side spread into feathery fans over a rosy web; thirteen banded dorsal spines like a mane; tentacles over the eyes and tabs by the mouth; spotted soft fins | `shark`: hovers, the fans breathing slowly and the mane swaying. 0.5 beats/s | 3,421 | 202,248 |
+| Batfish | The longfin batfish: a deep, compressed, silvery disc of a body with tall dorsal and anal fins swept back into a great diamond; a dark band through the eye and another behind the head; long yellow pelvic fins; a dark smudge at the front of the belly. Listed a few degrees so it shows from above | `shark`: gentle beats, gliding. 0.75 beats/s | 4,288 | 167,640 |
+
+Review notes. The reef sharks first read alike from above: the grey reef is a cooler slate grey
+now and the whitetip a warmer brown-grey. Their pelvic fins closed to a long needle that read as a
+stray stick and are blunt now. The Napoleon wrasse's first lips were an orange duck's bill; they are
+the colour of its face now, set back as a fleshy rim, and its body and fins are deeper. The
+hawksbill's fore flippers were lengthened (a quarter) and its shell toned from orange to amber. The
+batfish is drawn after the longfin batfish; the circular batfish in the catalog swims as it. Other
+fellow species borrow these too: the potato cod, the giant grouper and the giant sea bass swim as the
+goliath grouper, and the olive ridley turtle as the loggerhead.
+
+Previews: `docs/art-previews/island-coral-reef.png` and `island-shipwreck.png`, each island's
+animals as the app's camera sees them.
+
 References used for proportions and pattern placement:
 - [Florida Museum: whale shark](https://www.floridamuseum.ufl.edu/discover-fish/species-profiles/whale-shark/)
 - [Florida Museum: tiger shark](https://www.floridamuseum.ufl.edu/discover-fish/species-profiles/tiger-shark/)
@@ -441,3 +478,14 @@ References used for proportions and pattern placement:
 These simplified drafts still need human comparison against multiple views,
 especially fin contours, mouth detail and individual marking variation, and the
 swimming should be watched on physical hardware before release.
+- [FishBase: grey reef shark](https://www.fishbase.se/summary/Carcharhinus-amblyrhynchos.html)
+- [FishBase: blacktip reef shark](https://www.fishbase.se/summary/Carcharhinus-melanopterus.html)
+- [FishBase: whitetip reef shark](https://www.fishbase.se/summary/Triaenodon-obesus.html)
+- [NOAA Fisheries: hawksbill turtle](https://www.fisheries.noaa.gov/species/hawksbill-turtle)
+- [FishBase: humphead wrasse](https://www.fishbase.se/summary/Cheilinus-undulatus.html)
+- [FishBase: green humphead parrotfish](https://www.fishbase.se/summary/Bolbometopon-muricatum.html)
+- [Florida Museum: sand tiger](https://www.floridamuseum.ufl.edu/discover-fish/species-profiles/carcharias-taurus/)
+- [NOAA Fisheries: loggerhead turtle](https://www.fisheries.noaa.gov/species/loggerhead-turtle)
+- [Florida Museum: goliath grouper](https://www.floridamuseum.ufl.edu/discover-fish/species-profiles/epinephelus-itajara/)
+- [FishBase: red lionfish](https://www.fishbase.se/summary/Pterois-volitans.html)
+- [FishBase: longfin batfish](https://www.fishbase.se/summary/Platax-teira.html)

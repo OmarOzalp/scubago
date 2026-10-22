@@ -50,6 +50,17 @@ jest.mock('@/assets/models/marine/sawfish.glb', () => 37, { virtual: true });
 jest.mock('@/assets/models/marine/lemon-shark.glb', () => 38, { virtual: true });
 jest.mock('@/assets/models/marine/southern-stingray.glb', () => 39, { virtual: true });
 jest.mock('@/assets/models/marine/tarpon.glb', () => 40, { virtual: true });
+jest.mock('@/assets/models/marine/grey-reef-shark.glb', () => 41, { virtual: true });
+jest.mock('@/assets/models/marine/blacktip-reef-shark.glb', () => 42, { virtual: true });
+jest.mock('@/assets/models/marine/whitetip-reef-shark.glb', () => 43, { virtual: true });
+jest.mock('@/assets/models/marine/hawksbill-turtle.glb', () => 44, { virtual: true });
+jest.mock('@/assets/models/marine/napoleon-wrasse.glb', () => 45, { virtual: true });
+jest.mock('@/assets/models/marine/bumphead-parrotfish.glb', () => 46, { virtual: true });
+jest.mock('@/assets/models/marine/sand-tiger-shark.glb', () => 47, { virtual: true });
+jest.mock('@/assets/models/marine/loggerhead-turtle.glb', () => 48, { virtual: true });
+jest.mock('@/assets/models/marine/goliath-grouper.glb', () => 49, { virtual: true });
+jest.mock('@/assets/models/marine/lionfish.glb', () => 50, { virtual: true });
+jest.mock('@/assets/models/marine/batfish.glb', () => 51, { virtual: true });
 
 let loader, Asset, parse, THREE;
 beforeEach(() => {

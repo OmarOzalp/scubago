@@ -43,3 +43,6 @@ example
 /ios
 /android
 supabase/.temp/
+
+# resume checkpoints of the data scripts (scripts/real-rarity)
+src/data/*.partial.json

@@ -19,7 +19,7 @@ import { announce } from '@/lib/announce';
 import { CATALOG_BY_ID } from '@/lib/catalog';
 import { isDiveCode, lookUpDiveCode, SIGN_OUTCOME_MESSAGE, type DivePreview } from '@/lib/dive-signature-api';
 import { formatDiveNumber } from '@/lib/dives';
-import { useAllSites, useAppStore } from '@/lib/store';
+import { useAppStore, useSiteById } from '@/lib/store';
 import { getSupabase } from '@/lib/supabase';
 import { displayablePhoto } from '@/lib/sync';
 import type { SightingStatus } from '@/lib/types';
@@ -49,7 +49,7 @@ export default function VerifyScreen() {
   const theme = useTheme();
   const client = getSupabase();
   const user = useAppStore((s) => s.user);
-  const sites = useAllSites();
+  const siteById = useSiteById();
   const [code, setCode] = useState(() => formatCode(typeof params.code === 'string' ? params.code : ''));
   const [focused, setFocused] = useState(false);
   const [preview, setPreview] = useState<CodePreview | null>(null);
@@ -72,7 +72,7 @@ export default function VerifyScreen() {
 
   const species = preview ? CATALOG_BY_ID.get(preview.speciesId) : undefined;
   const speciesName = species?.commonName ?? preview?.speciesId ?? '';
-  const siteName = preview ? (sites.find((s) => s.id === preview.siteId)?.name ?? preview.siteName ?? 'a dive site') : '';
+  const siteName = preview ? (siteById(preview.siteId)?.name ?? preview.siteName ?? 'a dive site') : '';
 
   const lookUp = async () => {
     setBusy(true);
@@ -132,7 +132,7 @@ export default function VerifyScreen() {
   };
 
   const close = () => (router.canGoBack() ? router.back() : router.replace('/logbook'));
-  const diveSiteName = divePreview ? (sites.find((s) => s.id === divePreview.siteId)?.name ?? divePreview.siteName ?? 'a dive site') : '';
+  const diveSiteName = divePreview ? (siteById(divePreview.siteId)?.name ?? divePreview.siteName ?? 'a dive site') : '';
 
   if (signedDive && divePreview) {
     return <Screen contentStyle={styles.centred}>

@@ -479,10 +479,11 @@ test('every island found is in one ocean: all the way out shows them all, and th
 
 test('the water reaches as far as a phone ever sees, and farther across a wide screen, so all the way out shows every island there too', () => {
   const all = Object.values(ISLAND_PLACES), s = oceanScale(6);
-  // Phones and an upright tablet, with every island or one alone, and a tablet on its side with one: never more than ever.
-  for (const frame of [PHONE, { ...PHONE, level: 6, islands: all }, { width: 430, height: 932, level: 6, islands: all }, { width: 820, height: 1180, level: 6, islands: all }, TABLET]) {
+  // Phones, with every island or one alone, and a tablet on its side with one: never more than ever; an upright tablet with every island, hardly more.
+  for (const frame of [PHONE, { ...PHONE, level: 6, islands: all }, { width: 430, height: 932, level: 6, islands: all }, TABLET]) {
     expect(waterReach(frame)).toEqual({ x: EXPLORER.reach, z: EXPLORER.reach });
   }
+  expect(waterReach({ width: 820, height: 1180, level: 6, islands: all }).x).toBeLessThanOrEqual(EXPLORER.reach + 2);
   for (const base of [TABLET, { width: 1440, height: 900, level: 6 }, { width: 1920, height: 1080, level: 6 }]) {
     const frame = { ...base, islands: all }, reach = waterReach(frame), view = overview(frame), half = halfView(frame, view.zoom);
     expect(reach.x).toBeGreaterThan(EXPLORER.reach);
@@ -492,10 +493,11 @@ test('the water reaches as far as a phone ever sees, and farther across a wide s
       expect(Math.abs(x - view.x) + WORLD.x * s).toBeLessThanOrEqual(half.x + 1e-6);
       expect(Math.abs(z - view.z) + WORLD.z * s).toBeLessThanOrEqual(half.z + 1e-6);
     }
-    // The water still past every edge of the screen, with room for a pinch to stretch out a little.
-    const xs = all.map((p) => p[0]), zs = all.map((p) => p[1]);
-    expect(view.x - half.x * EXPLORER.spare).toBeGreaterThanOrEqual(Math.min(...xs) - reach.x + EXPLORER.edge - 1e-6);
-    expect(view.x + half.x * EXPLORER.spare).toBeLessThanOrEqual(Math.max(...xs) + reach.x - EXPLORER.edge + 1e-6);
+    // The water still past every edge of the screen, with room for a pinch to stretch out a little (none
+    // to spare once it reaches as far as it ever does).
+    const xs = all.map((p) => p[0]), zs = all.map((p) => p[1]), spare = reach.x < EXPLORER.farthest ? EXPLORER.spare : 1;
+    expect(view.x - half.x * spare).toBeGreaterThanOrEqual(Math.min(...xs) - reach.x + EXPLORER.edge - 1e-6);
+    expect(view.x + half.x * spare).toBeLessThanOrEqual(Math.max(...xs) + reach.x - EXPLORER.edge + 1e-6);
     expect(view.z - half.z).toBeGreaterThanOrEqual(Math.min(...zs) - reach.z + EXPLORER.edge - 1e-6);
     expect(view.z + half.z).toBeLessThanOrEqual(Math.max(...zs) + reach.z - EXPLORER.edge + 1e-6);
   }

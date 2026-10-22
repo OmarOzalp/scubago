@@ -11,8 +11,10 @@ import { Paper, PaperButton } from '@/components/journal/paper';
 import { Screen, ScreenHeader, SectionHeader } from '@/components/journal/screen';
 import { Wash } from '@/components/journal/wash';
 import { OceanButton } from '@/components/ocean-button';
+import { badgesLine, summarize } from '@/components/rewards/summary';
 import { ThemedText } from '@/components/themed-text';
 import { OnFill, Radius, Type } from '@/constants/theme';
+import { useRewards } from '@/hooks/use-rewards';
 import { useSchemeName, useTheme } from '@/hooks/use-theme';
 import { CATALOG, CATALOG_BY_ID, speciesForSighting } from '@/lib/catalog';
 import { deriveDex } from '@/lib/dex';
@@ -35,6 +37,8 @@ export default function LogbookScreen() {
   const dives = useMyDives();
   const divesBefore = useDivesBefore();
   const next = useNextDiveNumber();
+  const rewards = useRewards();
+  const rewardsLine = useMemo(() => badgesLine(summarize(rewards)), [rewards]);
 
   const dex = useMemo(() => deriveDex(mySightings, CATALOG_BY_ID), [mySightings]);
   const totals = useMemo(() => logTotals(dives), [dives]);
@@ -132,6 +136,8 @@ export default function LogbookScreen() {
         }
         onPress={() => router.push('/log/new')}
       />
+
+      <LinkRow icon="medal" title="Badges & passport" detail={rewards.ready ? rewardsLine : undefined} role="link" onPress={() => router.push('/rewards')} />
 
       <LinkRow
         icon="logbook"

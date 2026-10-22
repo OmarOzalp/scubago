@@ -12,6 +12,7 @@ import { Paper } from '@/components/journal/paper';
 import { ProgressBar } from '@/components/journal/progress-bar';
 import { Screen, ScreenHeader, SectionHeader } from '@/components/journal/screen';
 import { OceanButton } from '@/components/ocean-button';
+import { ShareArchipelagoButton } from '@/components/share/share-buttons';
 import { SpeciesCard } from '@/components/species-card';
 import { ThemedText } from '@/components/themed-text';
 import { Radius, Spacing, Type } from '@/constants/theme';
@@ -25,10 +26,14 @@ import { AREAS, foundAreas, foundIslands, HOME_ISLAND, ISLANDS, isIsland, island
 import { deriveHome, HOME_STAGES } from '@/lib/home';
 import { useAppStore, useMyDives, useMySightings, useMyUserId, useNextDiveNumber } from '@/lib/store';
 import { macroResidents } from '@/lib/macro-life';
+import { captureScene, HERO_SNAPSHOT } from '@/lib/scene-snapshot';
 import { noneSwim, type MarineModel } from '@/lib/swimming';
 
 /** Ink on the island's water (the scene's own colours, the same in both schemes). */
 const ON_WATER = '#1F4B40';
+
+/** The share card's hero: a fresh picture of the island as it is on this card, or null (the card then draws its illustration). */
+const captureHeroSnapshot = () => captureScene('home', HERO_SNAPSHOT);
 
 export default function HomeScreen() {
   const theme = useTheme();
@@ -40,7 +45,8 @@ export default function HomeScreen() {
   const home = useMemo(() => deriveHome(mine, CATALOG_BY_ID), [mine]);
   const sites = useMemo(() => new Set(mine.filter((s) => !s.isDemo).map((s) => s.siteId)).size, [mine]);
   const saved = useHomePreferences(owner);
-  const pages = useMyDives().length;
+  const dives = useMyDives();
+  const pages = dives.length;
   const nextNumber = useNextDiveNumber();
   const ahead = nextMilestone(nextNumber);
   // "Two dives to your fiftieth" when a milestone is close; otherwise what the log holds.
@@ -92,7 +98,10 @@ export default function HomeScreen() {
       <ScreenHeader
         eyebrow="Growing with every dive"
         title="Your ocean"
-        accessory={<IconButton icon="edit" accessibilityLabel="Customize your home" onPress={() => !loading && setEditing(true)} style={{ opacity: loading ? 0.4 : 1 }} />}
+        accessory={<View style={styles.headerButtons}>
+          {!loading && <ShareArchipelagoButton name={saved.preferences.name} sightings={mine} dives={dives} ownerId={owner} captureSnapshot={captureHeroSnapshot} />}
+          <IconButton icon="edit" accessibilityLabel="Customize your home" onPress={() => !loading && setEditing(true)} style={{ opacity: loading ? 0.4 : 1 }} />
+        </View>}
       />
 
       {/* The island, mounted like a print on the page with a fine ink frame. */}
@@ -238,6 +247,7 @@ export default function HomeScreen() {
 
 const styles = StyleSheet.create({
   root: { flex: 1 },
+  headerButtons: { flexDirection: 'row', gap: 8 },
   islandCard: { padding: 8, paddingBottom: 14, gap: 12 },
   mount: { borderWidth: 1, borderRadius: Radius.md + 4, padding: 3 },
   hero: { borderRadius: Radius.md, overflow: 'hidden' },

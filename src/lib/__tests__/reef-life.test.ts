@@ -17,7 +17,8 @@ const DWELLERS: MarineMember[] = [{ model: 'day-octopus', lane: 5 }, { model: 'g
 /** The seabed's own distance from the shore (as the seabed is drawn) and the bottom's height there. */
 function ground(level: number, x: number, z: number) {
   const d = shoreDistance(shorePolygons(level), x, z), reach = d > 0 ? d / shelfStretch(x, z) : d;
-  return { reach, floor: seabedProfile(reach).floor };
+  // The Coral Reef's seabed: its lagoon, where any other island's shelf would drop away.
+  return { reach, floor: seabedProfile(reach, undefined, { x, z }).floor };
 }
 /** Distance from the shore of where something at world height `y` appears (see apparentShift). */
 const apparent = (level: number, x: number, z: number, y: number) => shoreDistance(shorePolygons(level), x, z + .4 - .5 * (y - SWIM_LEVEL + .02));

@@ -1,13 +1,22 @@
 import { SPECIES } from '@/data/species';
+import { REAL_RARITY } from '@/lib/real-rarity';
 import type { Species } from '@/lib/types';
 import photos from '@/data/species-photos.json';
 
 type PhotoMap = Record<string, { url: string; attribution: string }>;
 
-/** Species list with reference photos merged in from the generated photo map. */
+/**
+ * Species list with reference photos merged in from the generated photo map, and each species'
+ * rarity from real records (how often it is recorded at dive sites in its own waters, from
+ * iNaturalist and OBIS, docs/real-rarity.md) once that has been fetched; until then, while its tiers
+ * are switched off, and for a species it has no tier for, the hand-assigned one.
+ */
 export const CATALOG: Species[] = SPECIES.map((s) => {
   const photo = (photos as PhotoMap)[s.id];
-  return photo ? { ...s, photoUrl: photo.url, photoAttribution: photo.attribution } : s;
+  const rarity = REAL_RARITY.get(s.id) ?? s.rarity;
+  return photo || rarity !== s.rarity
+    ? { ...s, rarity, ...(photo ? { photoUrl: photo.url, photoAttribution: photo.attribution } : {}) }
+    : s;
 });
 
 export const CATALOG_BY_ID: Map<string, Species> = new Map(CATALOG.map((s) => [s.id, s]));

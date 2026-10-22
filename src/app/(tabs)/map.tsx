@@ -1,5 +1,5 @@
 import { router } from 'expo-router';
-import { useMemo, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import {
   FlatList,
   Platform,
@@ -92,18 +92,19 @@ export default function ExploreScreen() {
     setSelectedSiteId(null);
   };
 
-  const handleLongPress = async (lat: number, lng: number) => {
+  // Stable, so choosing a site (which only changes the card) doesn't re-render the map and its markers.
+  const handleLongPress = useCallback(async (lat: number, lng: number) => {
     const ok = await confirmAction({
       title: 'Add a dive site here?',
       message: `A new site will be pinned at ${lat.toFixed(4)}, ${lng.toFixed(4)}.`,
       confirmLabel: 'Add site',
     });
     if (ok) router.push({ pathname: '/add-site', params: { lat: String(lat), lng: String(lng) } });
-  };
-  const selectSite = (id: string) => {
+  }, []);
+  const selectSite = useCallback((id: string) => {
     setSelectedSiteId(id);
     setSearching(false);
-  };
+  }, []);
 
   // The interactive map is native-only; the web build's SiteMap is the site list.
   const mapShown = Platform.OS !== 'web' && !listView;
