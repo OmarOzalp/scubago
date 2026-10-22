@@ -471,32 +471,48 @@ const sawfish: TopSharkSpec = {
   ],
   eyeR: 0.45,
   extra: () => {
-    // The saw: broad at the base, slightly tapering, blunt at the tip, toothed all along.
+    // The saw: broad at the base, tapering to under half that width at a pointed tip, with a
+    // tooth every 1.3 units all along it (24 a side).
+    const edge: [number, number][] = [
+      [-7.4, 0],
+      [-6, 0.55],
+      [-2, 1.2],
+      [5, 1.75],
+      [16, 2.3],
+      [27.5, 2.9],
+    ];
+    const halfAt = (x: number) => {
+      for (let i = 1; i < edge.length; i++) if (x <= edge[i][0]) return edge[i - 1][1] + ((x - edge[i - 1][0]) / (edge[i][0] - edge[i - 1][0])) * (edge[i][1] - edge[i - 1][1]);
+      return edge[edge.length - 1][1];
+    };
     const saw: Pt[] = spline(
       [
         [27.5, -2.9],
-        [14, -2.3],
-        [2, -1.75],
-        [0, -1.2],
-        [0, 1.2],
-        [2, 1.75],
-        [14, 2.3],
+        [16, -2.3],
+        [5, -1.75],
+        [-2, -1.2],
+        [-6, -0.55],
+        [-7.4, 0, 1],
+        [-6, 0.55],
+        [-2, 1.2],
+        [5, 1.75],
+        [16, 2.3],
         [27.5, 2.9],
       ],
       true,
     );
     const teeth: Part[] = [];
-    for (let i = 0; i < 19; i++) {
-      const x = 1.2 + i * 1.3;
-      const half = 1.72 + (x / 27) * 0.6;
+    for (let i = 0; i < 24; i++) {
+      const x = -4.9 + i * 1.3;
+      const len = 1.45 * (0.7 + 0.3 * Math.min(1, (x + 6) / 14));
       for (const s of [-1, 1]) {
-        const b: Pt = [x, s * (half - 0.15)];
-        teeth.push({ poly: [add(b, [-0.32, 0]), add(b, [0.18, s * 1.45]), add(b, [0.45, s * 1.2]), add(b, [0.38, 0])], paint: '#EDE6D3', lines: [], edge: 0.55 });
+        const b: Pt = [x, s * (halfAt(x) - 0.15)];
+        teeth.push({ poly: [add(b, [-0.32, 0]), add(b, [0.18, s * len]), add(b, [0.45, s * len * 0.83]), add(b, [0.38, 0])], paint: '#EDE6D3', lines: [], edge: 0.55 });
       }
     }
-    const ridge: Line = { pts: [[1.5, 0], [27, 0]], w: 0.8, taper: 'both' };
+    const ridge: Line = { pts: [[-5, 0], [27, 0]], w: 0.8, taper: 'both' };
     const spiracles: Fill[] = [-1, 1].map((s) => ({ poly: ellipse([33, s * 2.7], 0.8, 0.5), paint: 'dark', o: 0.85 }));
-    return { far: teeth, near: [{ poly: saw, paint: '#9C8C6C', lines: [ridge, { pts: [[2, -1.1], [26, -1.6]], w: 0.55, taper: 'both' }, { pts: [[2, 1.1], [26, 1.6]], w: 0.9, taper: 'both' }], edge: 0.9 }], marks: spiracles };
+    return { far: teeth, near: [{ poly: saw, paint: '#9C8C6C', lines: [ridge, { pts: [[-3, -0.9], [26, -1.6]], w: 0.55, taper: 'both' }, { pts: [[-3, 0.9], [26, 1.6]], w: 0.9, taper: 'both' }], edge: 0.9 }], marks: spiracles };
   },
 };
 
