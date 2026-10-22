@@ -83,7 +83,10 @@ The field marks behind each plate were researched per species. The decisive ones
 1. Find the species in `src/lib/plates/species/` (the registry says which file). Each one starts
    with a comment listing its field marks; keep the drawing true to them.
 2. Change its proportions, fins or markings. Builders take control points in their own units; the
-   plate is fitted to the box afterwards, so only the shape matters.
+   plate is fitted to the box afterwards, so only the shape matters. The fit uses the body and the
+   fin and limb shapes only, so anything that has to show (an antenna, a tentacle, the ground a fish
+   sits on) should be a shape of its own, or sit inside those; loose engraved lines and whiskers
+   that run past them end up outside the box and are cut off.
 3. Review it: `npm run plates:sheet -- /tmp/plates.html <species-id> …` writes a sheet with each plate
    large, at card size and in pencil. Compare it with photos of the real animal, and check the card
    size especially: that is where look-alikes blur.
