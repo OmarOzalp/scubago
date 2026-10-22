@@ -3,7 +3,7 @@
  * feature, from the chromodoris's banded margin to the lobster's whip antennae.
  */
 import { add, blob, type Ctrl, ellipse, lerp, mul, norm, perp, type Pt, resample, rng, spline, sub } from '../kit';
-import { scatterIn } from '../marks';
+import { scatterIn, shapeIn } from '../marks';
 import { tube } from '../ray';
 import { makeArm } from '../cephalopod';
 import type { PlateDef } from '../registry';
@@ -348,72 +348,112 @@ function harlequin(): PlateGeom {
 }
 
 // ── Peacock mantis shrimp ────────────────────────────────────────────────────
-// A long, low, green segmented body with a short carapace; the pink raptorial clubs folded under
-// the head; stalked eyes split by a band; orange paddle-like antennal scales and orange legs;
-// leopard spots on the front of the carapace.
+// A deep, domed carapace over the front third (leaf-green, spotted like a leopard, with a small
+// rostral plate and big stalked eyes split by a dark midband), a narrower abdomen of six
+// dark-edged armoured segments with a keel; the red-pink raptorial club folded under the face,
+// its swollen heel and spined arm in front of it; short orange legs; orange antennal scales; a
+// spiny telson with two eyespots between orange-edged uropods.
 function mantis(): PlateGeom {
   const g = emptyGeom();
   const rand = rng(87);
   const s = trunk({
-    tip: [14, 30],
-    top: [[16, 27.6], [22, 26], [30, 25], [38, 25], [46, 25.4], [56, 26.4], [66, 27.8], [76, 29.6], [84, 31]],
-    bot: [[16, 32.6], [22, 34.6], [30, 35.6], [38, 36.2], [46, 36.4], [56, 36.2], [66, 35.4], [76, 34], [84, 33]],
-    blunt: 0.6,
+    tip: [16, 29],
+    top: [[17.6, 25.4], [20.4, 22.8], [25, 21.2], [31, 20.8], [37, 21.4], [41, 23], [46, 24.2], [56, 24.8], [66, 25.2], [76, 25.8], [83, 26.6]],
+    bot: [[17.6, 32.2], [20.4, 34.4], [25, 35.8], [31, 36.4], [37, 36.2], [41, 34.6], [46, 33.2], [56, 32.8], [66, 33], [76, 33.2], [83, 33]],
+    blunt: 0.7,
   });
   const body = outlineOf(s);
   g.body = body;
   g.trunk = body;
-  g.engraving = contours(s, { top: [0.06, 0.14], bot: [0.66, 0.78, 0.88, 0.95] });
+  g.engraving = contours(s, { top: [0.05, 0.13], bot: [0.7, 0.8, 0.9, 0.96] });
   g.heavy.push(s.bot);
-  // Segments: the short carapace, exposed thoracic rings, six abdominal segments with dark edges.
-  for (const x of [32, 37, 41, 45, 51.6, 58.2, 64.8, 71.4, 78]) {
-    g.lines.push({ pts: lineAlong(s, () => 0, tAtX(s, x), tAtX(s, x), 2).length ? [atX(s, x, 0), atX(s, x - 0.6, 0.5), atX(s, x, 1)] : [], w: 1.2, o: 0.9, taper: 'both' });
-    g.marks.push({ poly: region(s, tAtX(s, x - 1.2), tAtX(s, x), 0, 1), paint: 'dark', o: 0.35, clip: 'trunk' });
-  }
-  // Keels along the abdomen.
-  g.lines.push({ pts: lineAlong(s, 0.3, tAtX(s, 46), tAtX(s, 82)), w: 0.6, o: 0.6 });
-  // Leopard spots on the carapace front.
-  const front = region(s, tAtX(s, 17), tAtX(s, 31), 0.05, 0.6);
-  g.marks.push({ poly: front, paint: '#B8CFA0', o: 0.85, clip: 'trunk' }, ...scatterIn(front, { r: 0.6, gap: 0.9, paint: 'ink', rand, tries: 200, o: 0.9 }).map((f) => ({ ...f, clip: 'trunk' as const })));
-  // Tail fan: telson and uropods, orange and blue-green.
-  const tail: Part = {
-    poly: spline([atX(s, 83, 0), [88, 27.4], [95, 26.6, 1], [94, 30.4], [96.4, 33.8, 1], [89, 35], atX(s, 83, 1)], true),
-    paint: 'back',
-    lines: [{ pts: [[84, 32], [95, 30.4]], w: 0.6, o: 0.6 }],
+  // The carapace is the front third: a groove behind it, its rear edge warm orange-red.
+  const rear = shapeIn(s, [[tAtX(s, 36.2), 0.02], [tAtX(s, 40.6), 0.0], [tAtX(s, 41.2), 0.5], [tAtX(s, 39.2), 1.02], [tAtX(s, 35.2), 1.02], [tAtX(s, 37.6), 0.5]]);
+  g.marks.push({ poly: rear, paint: '#E8572A', o: 0.5, clip: 'trunk' });
+  g.lines.push({ pts: [atX(s, 41.4, 0.0), atX(s, 40.2, 0.3), atX(s, 40.8, 0.7), atX(s, 39.2, 1)], w: 1.3, o: 0.9, taper: 'both' });
+  g.lines.push({ pts: [atX(s, 27, 0.0), atX(s, 29, 0.4), atX(s, 28, 0.85)], w: 0.7, o: 0.5, taper: 'both' });
+  // Abdomen: six armoured segments, each edged dark at its rear, with a keel along the back.
+  const seg = [48, 54.2, 60.4, 66.6, 72.8, 79];
+  seg.forEach((x, i) => {
+    g.lines.push({ pts: [atX(s, x, 0), atX(s, x - 0.7, 0.5), atX(s, x, 1)], w: 1.1, o: 0.9, taper: 'both' });
+    g.marks.push({ poly: region(s, tAtX(s, x - 1.7), tAtX(s, x), 0, 1), paint: 'dark', o: 0.4, clip: 'trunk' });
+    // A small pointed plate at each segment's top rear corner.
+    g.far.push({ poly: [add(atX(s, x - 3.6, 0), [0, 0.4]), add(atX(s, x - 0.2, 0), [0.8, -1.5 + i * 0.05]), add(atX(s, x, 0), [0, 0.8])], paint: 'back', lines: [], edge: 0.6 });
+  });
+  g.lines.push({ pts: lineAlong(s, 0.2, tAtX(s, 44), tAtX(s, 83)), w: 0.6, o: 0.6 });
+  // Leopard spots on the carapace.
+  const front = shapeIn(s, [[tAtX(s, 19.5), 0.28], [tAtX(s, 24), 0.08], [tAtX(s, 32), 0.06], [tAtX(s, 37), 0.12], [tAtX(s, 37.4), 0.52], [tAtX(s, 32), 0.7], [tAtX(s, 24), 0.7]]);
+  g.marks.push(
+    { poly: front, paint: '#C4D6A8', o: 0.4, clip: 'trunk' },
+    ...scatterIn(front, { r: 0.55, gap: 1.4, paint: 'ink', rand, tries: 220, o: 0.85 }).map((f) => ({ ...f, clip: 'trunk' as const })),
+  );
+  // The tail fan: uropods (orange, dark-edged) either side of a spiny telson with two eyespots.
+  const uropod: Part = {
+    poly: leaf([81, 31], [94.5, 38.4], 6.2, 0.55),
+    paint: '#E8572A',
+    lines: [{ pts: [[82, 31.6], [93, 37.8]], w: 0.6, o: 0.6 }],
     edge: 0.85,
-    marks: [{ poly: spline([[90, 27.2], [95, 26.6, 1], [94, 29], [91, 29]], true), paint: '#E8572A' }, { poly: spline([[90, 34.6], [96.4, 33.8, 1], [94, 32], [91, 32.4]], true), paint: '#2E8FA8' }],
+    marks: [{ poly: leaf([88, 34.4], [94.5, 38.4], 4, 0.4), paint: 'dark', o: 0.5 }, { poly: ellipse([90.6, 35.8], 1.1, 1), paint: '#F0E8C0', edge: 0.6 }, { poly: ellipse([90.6, 35.8], 0.55), paint: 'ink' }],
   };
-  g.far.push(tail);
-  // Walking legs and swimmerets.
-  for (const x of [40, 44, 48]) g.near.push(limb([atX(s, x, 0.95), [x - 1.6, 40], [x - 3, 44.6]], 0.8, 0.5, '#E8572A', 1));
-  for (const x of [54, 60.6, 67.2, 73.8]) g.far.push(limb([atX(s, x, 0.9), [x + 0.6, 39.6], [x + 2, 41]], 1, 0.6, '#E8572A'));
-  // The raptorial club folded under the head.
-  g.near.push(limb([[26, 35], [21, 39.6], [27, 41.6], [33, 40]], 1.4, 1.2, '#E07A8A', 1));
-  g.near.push({ poly: spline([[18, 39], [22, 37.4], [27, 38.6], [25, 42.6], [19.6, 42.4]], true), paint: '#E0506A', lines: [{ pts: [[20, 40.6], [25.6, 40]], w: 0.7, o: 0.6 }], edge: 0.9 });
-  // Antennal scales: orange paddles with a fringe; antennules as fine whips.
-  for (const [tip, far] of [
-    [[4, 22], true],
-    [[5, 27.6], false],
-  ] as const) {
-    const p = leaf([15, 28.4], tip as Pt, 3.6, 0.5);
-    (far ? g.far : g.near).push({ poly: p, paint: '#E8572A', lines: Array.from({ length: 6 }, (_, i) => ({ pts: [lerp([15, 28.4], tip as Pt, 0.3 + i * 0.11), add(lerp([15, 28.4], tip as Pt, 0.3 + i * 0.11), [-0.6, -1.8])] as Pt[], w: 0.5, o: 0.6 })), edge: 0.8 });
+  g.far.push(uropod);
+  const telson = spline([atX(s, 82.6, 0), [87, 24.6], [92, 24], [96.2, 25.6, 1], [94.8, 27.2], [99, 28.6, 1], [95.6, 30.2], [99.4, 32.6, 1], [94.4, 33.6], [89.4, 35.4], atX(s, 82.6, 1)], true);
+  g.far.push({
+    poly: telson,
+    paint: 'back',
+    lines: [{ pts: [[84, 29.8], [95, 29.8]], w: 0.6, o: 0.6 }],
+    edge: 0.85,
+    marks: [{ poly: ellipse([89.6, 28.4], 1.7, 1.5), paint: '#F0E8C0', edge: 0.7 }, { poly: ellipse([89.6, 28.4], 0.85, 0.8), paint: 'ink' }],
+  });
+  // Walking legs: four short pairs under the thorax; pleopods under the abdomen.
+  for (const x of [37, 41, 45, 49]) g.far.push(limb([atX(s, x, 0.95), [x - 1.4, 38.2], [x - 3.2, 41.4]], 0.85, 0.5, '#E8572A', 1));
+  for (const x of [38.5, 42.5, 46.5]) g.near.push(limb([atX(s, x, 0.95), [x - 1.2, 38.8], [x - 3, 42.4]], 0.9, 0.5, '#E8572A', 1));
+  for (const x of [54, 60.2, 66.4, 72.6]) g.far.push(limb([atX(s, x, 0.9), [x + 0.6, 37], [x + 2.4, 39]], 1, 0.6, '#E8572A'));
+  // The raptorial arm: a spined upper arm folding forward and down, the swollen red-pink club
+  // tucked back under the face with its heel at the front.
+  const arm = makeArm({ path: [[27, 34.6], [22, 38.2], [17.4, 41.6]], w: [1.7, 1.5] });
+  g.near.push({ poly: arm.poly, paint: '#E8572A', lines: [], edge: 0.85, marks: [] });
+  const club = spline([[17.4, 41.8, 1], [15.6, 44.6], [18.6, 47.2], [24, 46.6], [30, 44], [33, 41.6], [28, 41.2], [22, 40.2]], true);
+  g.near.push({
+    poly: club,
+    paint: '#E0506A',
+    lines: [{ pts: [[18.6, 44.4], [24, 43.4], [30.4, 42.4]], w: 0.7, o: 0.6, taper: 'both' }],
+    edge: 0.9,
+    marks: [{ poly: ellipse([19.4, 45], 2.4, 2), paint: '#F2A0AC', o: 0.8 }],
+  });
+  for (const k of [0.25, 0.5, 0.75]) {
+    const p = arm.at(k, -1);
+    g.near.push({ poly: [add(p, [0.4, -0.6]), add(p, [-2.4, -1.8]), add(p, [-0.6, 0.8])], paint: '#E8572A', lines: [], edge: 0.7 });
   }
-  for (const [dy, len] of [
-    [-6, 18],
-    [-3, 16],
-    [0, 14],
-  ])
-    g.lines.push({ pts: spline([[15, 27], [9, 26 + dy * 0.4], [15 - len, 25 + dy]], false), w: 0.9, taper: 'end' });
-  // Stalked eyes, each split by a midband.
-  for (const [b, far] of [
-    [[18, 25], true],
-    [[19.6, 26], false],
+  // Antennal scales: orange paddles with a fringe, and short antennules (kept inside the plate).
+  for (const [tip, far] of [
+    [[8, 24.4], true],
+    [[8.6, 30.6], false],
   ] as const) {
-    const top = add(b as Pt, [-1.4, -5.6]);
-    const stalk = limb([b as Pt, top], 0.8, 0.8, 'back');
-    const eye: Part = { poly: ellipse(top, 1.9, 2.3, -15), paint: '#4A8A4A', lines: [{ pts: [add(top, [-1.9, 0.4]), add(top, [1.9, -0.4])], w: 1.4 }], edge: 0.8 };
+    const base: Pt = [17.2, 28.4];
+    (far ? g.far : g.near).push({ poly: leaf(base, tip as Pt, 3.6, 0.5), paint: '#E8572A', lines: Array.from({ length: 5 }, (_, i) => ({ pts: [lerp(base, tip as Pt, 0.3 + i * 0.12), add(lerp(base, tip as Pt, 0.3 + i * 0.12), [-0.6, -1.8])] as Pt[], w: 0.5, o: 0.6 })), edge: 0.8 });
+  }
+  for (const [end, bend] of [
+    [[6, 18], [11, 23]],
+    [[5.4, 22.4], [10.4, 26]],
+  ] as const) g.far.push(limb([[17, 26], bend as Pt, end as Pt], 0.3, 0.2, 'ink', 0, 0.5));
+  // Stalked eyes, each split by a dark midband.
+  for (const [b, far] of [
+    [[19.6, 22.4], true],
+    [[22.4, 21.6], false],
+  ] as const) {
+    const top = add(b as Pt, [-1.6, -4.6]);
+    const stalk = limb([b as Pt, top], 0.9, 0.9, 'back');
+    const eye: Part = {
+      poly: ellipse(top, 3, 3.3, -12),
+      paint: '#4FA7A0',
+      lines: [],
+      edge: 0.85,
+      marks: [{ poly: ellipse(top, 3, 0.9, -12), paint: 'ink', o: 0.85, edge: 0 }, { poly: ellipse(add(top, [-0.8, -1.2]), 0.7), paint: '#F6F0E2', o: 0.8 }],
+    };
     (far ? g.far : g.near).push(stalk, eye);
   }
+  // The rostral plate between the eyes.
+  g.near.push({ poly: spline([[18, 25.8], [14.4, 24.2, 1], [18.8, 24]], true), paint: 'back', lines: [], edge: 0.7 });
   return g;
 }
 
