@@ -9,6 +9,7 @@ import { OceanButton } from '@/components/ocean-button';
 import { OsmCredit } from '@/components/site-list';
 import { ThemedText } from '@/components/themed-text';
 import { Radius, Spacing, Type } from '@/constants/theme';
+import { canonicalSiteId } from '@/data/sites';
 import { useTheme } from '@/hooks/use-theme';
 import { hasImportedSites } from '@/lib/site-clusters';
 import { siteAddedBy } from '@/lib/site-details';
@@ -58,7 +59,9 @@ export function SitePicker({
   // `recentSiteIds` is usually a new array each render; what is in it is what counts.
   const recentKey = recentSiteIds.join('\n');
   const rows = useMemo<Row[]>(() => {
-    const recent = recentKey ? recentKey.split('\n').map((id) => byId.get(id)).filter((s): s is DiveSite => !!s) : [];
+    // A hidden copy's id is the listed site it stands for (once, if both are recent).
+    const recentIds = recentKey ? [...new Set(recentKey.split('\n').map(canonicalSiteId))] : [];
+    const recent = recentIds.map((id) => byId.get(id)).filter((s): s is DiveSite => !!s);
     const out: Row[] = [];
     if (!searching && recent.length > 0) {
       out.push({ kind: 'header', key: 'header:recent', title: 'Recent' });

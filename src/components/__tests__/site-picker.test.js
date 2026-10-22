@@ -6,6 +6,7 @@ import { router } from 'expo-router';
 import { SitePicker } from '../site-picker';
 import { PaperButton } from '@/components/journal/paper';
 import { OceanButton } from '@/components/ocean-button';
+import { SITES_BY_ID } from '@/data/sites';
 import { siteAddedBy } from '@/lib/site-details';
 import { searchSites } from '@/lib/text-search';
 
@@ -117,6 +118,13 @@ test('recent sites come first, in the order given, under their own heading, and 
   expect(spy.mock.calls.flat().join(' ')).not.toMatch(/same key|unique "key"/);
   await type('');
   expect(data()[0].key).toBe('header:recent');
+});
+
+test('a recent site logged at a hidden copy is the listed site it stands for, once', async () => {
+  // OpenStreetMap's own Cod Hole is hidden behind the seed; a diver may have logged there while it was listed.
+  const codHole = SITES_BY_ID.get('cod-hole');
+  await render({ sites: [codHole, ...SITES], recentSiteIds: ['osm-node-270802348', 'gen-3', 'cod-hole'] });
+  expect(data().slice(0, 4).map((r) => r.key)).toEqual(['header:recent', 'recent:cod-hole', 'recent:gen-3', 'header:all']);
 });
 
 test('picking a row hands back its site, and the diver’s own sites say who added them', async () => {

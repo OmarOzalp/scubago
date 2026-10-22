@@ -25,6 +25,7 @@ import { SiteMap, type MapFocus } from '@/components/site-map';
 import { SpeciesAvatar } from '@/components/species-avatar';
 import { ThemedText } from '@/components/themed-text';
 import { MaxContentWidth, Radius, Spacing, TabBarOverhang, Type } from '@/constants/theme';
+import { canonicalSiteId } from '@/data/sites';
 import { useTheme } from '@/hooks/use-theme';
 import { CATALOG, CATALOG_BY_ID } from '@/lib/catalog';
 import { confirmAction } from '@/lib/confirm';
@@ -59,11 +60,13 @@ export default function ExploreScreen() {
   // The search results open just below the search bar, over the map.
   const [barBottom, setBarBottom] = useState(0);
 
+  // By the listed site: one logged at a hidden copy of a site counts at the site.
   const sightingsBySite = useMemo(() => {
     const map = new Map<string, Map<string, number>>();
     for (const s of sightings) {
-      let counts = map.get(s.siteId);
-      if (!counts) map.set(s.siteId, (counts = new Map()));
+      const siteId = canonicalSiteId(s.siteId);
+      let counts = map.get(siteId);
+      if (!counts) map.set(siteId, (counts = new Map()));
       counts.set(s.speciesId, (counts.get(s.speciesId) ?? 0) + 1);
     }
     return map;

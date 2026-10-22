@@ -15,7 +15,7 @@ import { ThemedText } from '@/components/themed-text';
 import { Radius, Type } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { regionPath } from '@/data/regions';
-import { SITES } from '@/data/sites';
+import { canonicalSiteId, SITES } from '@/data/sites';
 import { CATALOG_BY_ID, speciesForSighting } from '@/lib/catalog';
 import { deriveDex } from '@/lib/dex';
 import { siteAddedBy, siteFacts, siteSourceList } from '@/lib/site-details';
@@ -52,16 +52,18 @@ export default function SiteDetailScreen() {
   // The column's width, measured: a phone's to begin with (the static web render has no window).
   const [inner, setInner] = useState(358);
 
-  const site = siteById(id);
+  // A hidden copy's id (an old link, a sighting logged there) opens the listed site it stands for, so
+  // its sightings are on the page and a new one is logged at the listed site.
+  const site = siteById(canonicalSiteId(id));
   const addedBy = site ? siteAddedBy(site, userId) : null;
 
-  const siteSightings = useMemo(
-    () =>
-      sightings
-        .filter((s) => s.siteId === id)
-        .sort((a, b) => b.sightedOn.localeCompare(a.sightedOn)),
-    [sightings, id],
-  );
+  // Sightings logged at a hidden copy of the site count here too.
+  const siteSightings = useMemo(() => {
+    const here = canonicalSiteId(id);
+    return sightings
+      .filter((s) => canonicalSiteId(s.siteId) === here)
+      .sort((a, b) => b.sightedOn.localeCompare(a.sightedOn));
+  }, [sightings, id]);
 
   const speciesCount = useMemo(
     () => new Set(siteSightings.map((s) => s.speciesId).filter((id) => CATALOG_BY_ID.has(id))).size,
