@@ -29,7 +29,7 @@ import { darken, lighten } from '@/lib/art-color';
 import { artFor } from '@/lib/species-art';
 import { useAllSites, useAppStore, useMyUserId, useSiteById } from '@/lib/store';
 import { speciesMarineModel } from '@/lib/swimming';
-import type { DiveSite } from '@/lib/types';
+import type { DiveSite, Species } from '@/lib/types';
 
 /**
  * A species' page in the field guide: its plate, what it is, and the diver's own record of it (each of
@@ -57,6 +57,8 @@ export default function SpeciesDetailScreen() {
   const deleteSpeciesLog = useAppStore((s) => s.deleteSpeciesLog);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // "How rare?" starts closed: the counts behind the tier are a paragraph, and most visits want the Log button first.
+  const [rarityOpen, setRarityOpen] = useState(false);
   // The plate's inner width, measured: a phone's to begin with (the static web render has no window).
   const [plateWidth, setPlateWidth] = useState(320);
 
@@ -197,21 +199,50 @@ export default function SpeciesDetailScreen() {
             {species.scientificName}
           </ThemedText>
           <View style={styles.tags}>
-            <RarityChip rarity={species.rarity} />
+            {/* In a box of its own: the tag pins itself to the top of whatever row it is in. */}
+            <View>
+              <RarityChip rarity={species.rarity} />
+            </View>
+            <Pressable
+              onPress={() => setRarityOpen((open) => !open)}
+              accessibilityRole="button"
+              aria-expanded={rarityOpen}
+              accessibilityHint={rarityOpen ? 'Hides where the rarity comes from' : 'Shows where the rarity comes from'}
+              style={({ pressed }) => [styles.howRare, pressed && { backgroundColor: theme.backgroundSelected }]}>
+              <ThemedText type="smallBold" themeColor="tint">
+                How rare?
+              </ThemedText>
+              <Icon name="chevronDown" size={14} color={theme.tint} weight="bold" style={rarityOpen ? styles.flip : undefined} />
+            </Pressable>
           </View>
-          <View style={styles.raritySource}>
-            <RaritySource entry={rarityEntry} onOpenCredits={() => router.push('/credits')} />
-          </View>
+          {/* All of it is still here, with the link to Data & credits: it only waits to be asked for. */}
+          {rarityOpen ? (
+            <View style={styles.raritySource}>
+              <RaritySource entry={rarityEntry} onOpenCredits={() => router.push('/credits')} />
+            </View>
+          ) : null}
         </View>
       </Paper>
 
       <ThemedText>{species.blurb}</ThemedText>
 
+      {/* Straight after the blurb for an animal not seen yet, so it is on the first screen and not under the photo. */}
+      {!seen ? (
+        <OceanButton
+          title="I saw one! Log it"
+          variant="log"
+          icon="plus"
+          onPress={() =>
+            router.push({ pathname: '/log/new', params: { speciesId: species.id } })
+          }
+        />
+      ) : null}
+
       {species.photoUrl ? (
         <View style={styles.photoBlock}>
           {/* Mounted like a print pasted into the guide. */}
           <Paper padded={false} style={styles.print}>
-            <Image source={{ uri: species.photoUrl }} style={styles.photo} contentFit="cover" accessibilityLabel={`Photo of a ${species.commonName}`} />
+            <PhotoPrint species={species} uri={species.photoUrl} />
           </Paper>
           {species.photoAttribution && species.photoSource ? (
             // The credit opens the photo's page, where its licence is stated (as CC BY asks).
@@ -277,16 +308,7 @@ export default function SpeciesDetailScreen() {
             }
           />
         </>
-      ) : (
-        <OceanButton
-          title="I saw one! Log it"
-          variant="log"
-          icon="plus"
-          onPress={() =>
-            router.push({ pathname: '/log/new', params: { speciesId: species.id } })
-          }
-        />
-      )}
+      ) : null}
 
       <SectionHeader title="Where it’s been seen" />
       {seenAt.length === 0 ? (
@@ -337,6 +359,38 @@ export default function SpeciesDetailScreen() {
         </View>
       ) : null}
     </Screen>
+  );
+}
+
+/**
+ * The photo of the animal. The photo comes from iNaturalist, so it can fail (offline, or taken
+ * down): then a plain box says so, rather than leaving an empty card in the middle of the page.
+ */
+function PhotoPrint({ species, uri }: { species: Species; uri: string }) {
+  const theme = useTheme();
+  // Which address failed, so a page that is reused for another species starts afresh.
+  const [failed, setFailed] = useState<string>();
+  if (failed === uri) {
+    return (
+      <View
+        accessible
+        accessibilityLabel={`Photo of a ${species.commonName}: couldn’t be loaded`}
+        style={[styles.photo, styles.photoMissing, { backgroundColor: theme.backgroundSelected }]}>
+        <Icon name="image" size={28} color={theme.textSecondary} />
+        <ThemedText type="caption" themeColor="textSecondary" style={styles.center}>
+          The photo couldn’t be loaded.
+        </ThemedText>
+      </View>
+    );
+  }
+  return (
+    <Image
+      source={{ uri }}
+      style={styles.photo}
+      contentFit="cover"
+      accessibilityLabel={`Photo of a ${species.commonName}`}
+      onError={() => setFailed(uri)}
+    />
   );
 }
 
@@ -443,12 +497,24 @@ const styles = StyleSheet.create({
   },
   tags: {
     flexDirection: 'row',
+    alignItems: 'center',
     justifyContent: 'center',
-    marginTop: 6,
+    gap: 4,
+    marginTop: 2,
+  },
+  howRare: {
+    minHeight: 44,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 8,
+    borderRadius: Radius.sm,
+  },
+  flip: {
+    transform: [{ rotate: '180deg' }],
   },
   raritySource: {
     alignItems: 'center',
-    marginTop: 2,
   },
   photoBlock: {
     gap: 6,
@@ -460,6 +526,11 @@ const styles = StyleSheet.create({
     width: '100%',
     height: 220,
     borderRadius: Radius.md,
+  },
+  photoMissing: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
   },
   credit: {
     fontSize: 13,
