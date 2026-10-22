@@ -16,9 +16,9 @@ for a site already listed (re-run from the same saved boxes after the same-name 
 | Great Barrier Reef: Townsville/Whitsunday | 1 |
 | Coral Sea | 5 |
 
-9 of them are seed sites already (Thistlegorm, Shark & Yolanda Reef, the Blue Hole, Elphinstone,
-Daedalus, Cod Hole) and 3 are a second mark for a site OSM already has (Kormoran, Habili Ali, Sha'ab El
-Erg), so the app lists **256 new sites, 325 in all**. That is short of the ~400 hoped for:
+10 of them are seed sites already (Thistlegorm, Shark & Yolanda Reef, the Blue Hole, Elphinstone,
+Daedalus, Cod Hole, North Horn) and 3 are a second mark for a site OSM already has (Kormoran, Habili Ali, Sha'ab El
+Erg), so the app lists **255 new sites, 324 in all**. That is short of the ~400 hoped for:
 OpenStreetMap maps the Egyptian Red Sea well but the Great Barrier Reef thinly, and nothing was added to
 make up the number. 53 dive centres, shops, clubs and the like, 10 unnamed points and 10 sites on the
 Jordanian shore were left out. No dive site in this repository was typed in by hand.

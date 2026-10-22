@@ -3,7 +3,7 @@ import { describe, expect, it, jest } from '@jest/globals';
 import osmSites from '@/data/osm-sites.json';
 import osmMeta from '@/data/osm-sites.meta.json';
 import { REGIONS, REGIONS_BY_ID } from '@/data/regions';
-import { canonicalSiteId, RETIRED_SITE_IDS, SEED_SITES, SITE_ALIASES, SITES, SITES_BY_ID } from '@/data/sites';
+import { canonicalSiteId, OSM_SEED_DUPLICATES, RETIRED_SITE_IDS, SEED_SITES, SITE_ALIASES, SITES, SITES_BY_ID } from '@/data/sites';
 import {
   IMPORT_AREAS,
   IMPORT_REGION_IDS,
@@ -667,6 +667,13 @@ describe('hidden site ids in the real data', () => {
     for (const id of listed) expect(canonicalSiteId(id)).toBe(id);
     expect(canonicalSiteId('osm-node-270802348')).toBe('cod-hole');
     expect(canonicalSiteId('osm-node-663869852')).toBe('osm-node-663869851');
+  });
+
+  it('lists North Horn on Osprey Reef once: the seed is where OpenStreetMap has it', () => {
+    expect(SITES.filter((s) => /north horn/i.test(s.name)).map((s) => s.id)).toEqual(['north-horn']);
+    expect(OSM_SEED_DUPLICATES).toContainEqual(expect.objectContaining({ importedId: 'osm-node-270802352', seedId: 'north-horn', basis: 'near' }));
+    expect(canonicalSiteId('osm-node-270802352')).toBe('north-horn');
+    expect(SITES_BY_ID.get('north-horn')?.externalIds).toContainEqual({ scheme: 'osm', id: 'node/270802352', relation: 'same_as' });
   });
 
   it('the famous wrecks are wrecks, the Kormoran kept after the merge included', () => {
