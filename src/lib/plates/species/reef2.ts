@@ -572,8 +572,8 @@ const crocodile: TopSharkSpec = {
   })(),
   pec: { at: 31, base: 7, h: 9, sweep: 0.8, rear: 0.8, round: 4, convex: 0.14, concave: -0.06 },
   pelvic: { at: 41, base: 8, h: 10, sweep: 0.9, rear: 0.8, round: 4, convex: 0.14, concave: -0.06 },
-  d1: { at: 36, base: 10, h: 1.6, sweep: 0.4, round: 1 },
-  d2: { at: 50, base: 18, h: 1.4, sweep: 0.5, round: 1 },
+  d1: { at: 36, base: 10, h: 3.4, sweep: 0.4, round: 1 },
+  d2: { at: 50, base: 18, h: 3, sweep: 0.5, round: 1 },
   caudal: { upper: [0, 0], lower: [0, 0], fork: [0, 0], paddle: [18, 6] },
   eyes: [
     [17, -4.2],
@@ -586,13 +586,13 @@ const crocodile: TopSharkSpec = {
     const s = c.s;
     const mottle: Fill[] = [];
     for (const [paint, r, n] of [
-      ['#4F4A3C', 1.8, 50],
-      ['#CFC8A8', 1.4, 50],
-      ['#7A8B5A', 1.2, 20],
+      ['#5A4E3A', 2.2, 26],
+      ['#E3DAB8', 1.8, 28],
+      ['#9C8A5A', 1.5, 22],
     ] as const) {
       for (let k = 0; k < n; k++) {
         const p = at(s, 0.02 + rand() * 0.97, 0.05 + rand() * 0.9);
-        mottle.push({ poly: blob(p, r * (0.6 + rand() * 0.8), 0.45, rand, 8, 1.4, rand() * 180), paint, o: 0.75, clip: 'body' });
+        mottle.push({ poly: blob(p, r * (0.6 + rand() * 0.8), 0.4, rand, 8, 1.5, rand() * 180), paint, o: 0.8, clip: 'body' });
       }
     }
     // Lacy lappets over each eye.
@@ -619,7 +619,7 @@ function flyingGurnard(): PlateGeom {
   const body = outlineOf(s);
   g.trunk = body;
   // Wings: a fan of rays on each side from the body out to a scalloped margin, reaching the tail.
-  const wing = (side: 1 | -1): Part & { tips: Pt[] } => {
+  const wing = (side: 1 | -1): Part & { tips: Pt[]; rim: Pt[] } => {
     const tips: Pt[] = [];
     const bases: Pt[] = [];
     const n = 26;
@@ -632,14 +632,24 @@ function flyingGurnard(): PlateGeom {
       tips.push([b[0] + Math.sin(a + Math.PI / 2) * r * 0.9 + u * 18, b[1] + side * Math.cos(a + Math.PI / 2) * -r * 0.62 * (u < 0.15 ? 0.8 : 1)]);
     }
     const ctrl: Ctrl[] = [[bases[0][0], bases[0][1], 1]];
+    // The margin band: the scalloped edge, and a line a little way in along each ray.
+    const edgePts: Pt[] = [];
+    const innerPts: Pt[] = [];
     tips.forEach((t, i) => {
       ctrl.push([t[0], t[1], 1]);
-      if (i < n - 1) ctrl.push(lerp(lerp(bases[i], bases[i + 1], 0.5), lerp(t, tips[i + 1], 0.5), 0.94));
+      edgePts.push(t);
+      innerPts.push(lerp(t, bases[i], 0.085));
+      if (i < n - 1) {
+        const nb = lerp(lerp(bases[i], bases[i + 1], 0.5), lerp(t, tips[i + 1], 0.5), 0.94);
+        ctrl.push(nb);
+        edgePts.push(nb);
+        innerPts.push(lerp(nb, lerp(bases[i], bases[i + 1], 0.5), 0.085));
+      }
     });
     ctrl.push([bases[n - 1][0], bases[n - 1][1], 1]);
     const poly = spline(ctrl, true, 1, 6);
     const lines: Line[] = tips.map((t, i) => ({ pts: [bases[i], lerp(bases[i], t, 0.95)], w: 0.55, taper: 'end' as const }));
-    return { poly, paint: 'accent', lines, edge: 0.9, tips };
+    return { poly, paint: 'accent', lines, edge: 0.9, tips, rim: [...edgePts, ...innerPts.reverse()] };
   };
   const wings = [wing(-1), wing(1)];
   for (const w of wings) {
@@ -650,8 +660,7 @@ function flyingGurnard(): PlateGeom {
       const pts = w.tips.map((t, i) => lerp([24, Math.sign(t[1]) * 5.6] as Pt, t, k + Math.sin(i * 0.9) * 0.025));
       wavy.push({ poly: swell(pts, 1, 'both'), paint: '#3A86D4', o: 0.9 });
     }
-    const edge = margin(spline(w.tips, false), 1.4, '#4FB0EE');
-    g.far.push({ ...w, marks: [...spots, ...wavy, edge] });
+    g.far.push({ poly: w.poly, paint: w.paint, lines: w.lines, edge: w.edge, marks: [...spots, ...wavy, { poly: w.rim, paint: '#4FB0EE' }] });
   }
   g.body = body;
   g.engraving = contours(s, { top: [0.05, 0.12, 0.2], bot: [0.75, 0.84, 0.92] });
@@ -680,8 +689,8 @@ function flyingGurnard(): PlateGeom {
 const jawfish: FishSpec = {
   tip: [0, 1],
   blunt: 0.8,
-  top: [[0.6, -2], [2.6, -5], [6, -7], [12, -8], [20, -8], [30, -7.6], [42, -6.6], [54, -5.4], [64, -4.2], [72, -3.4], [78, -3]],
-  bot: [[0.8, 3], [3, 5.6], [8, 7.2], [14, 7.6], [22, 7.4], [32, 7], [44, 6], [56, 4.8], [66, 3.8], [74, 3.2], [78, 3]],
+  top: [[0.6, -2], [2.6, -5], [6, -7.4], [12, -9], [20, -9.4], [30, -8.8], [42, -7.4], [54, -5.8], [64, -4.4], [72, -3.4], [78, -3]],
+  bot: [[0.8, 3], [3, 6], [8, 9], [14, 11], [22, 11.6], [32, 10.6], [44, 8.4], [56, 6], [66, 4.2], [74, 3.3], [78, 3]],
   dorsal: [{ from: 14, to: 76, spines: 11, rays: 15, h: [[0, 4], [0.5, 5], [1, 4.6]], notch: 0.12, rake: [40, 65], paint: '#BFD3E6' }],
   anal: [{ from: 40, to: 76, spines: 2, rays: 15, h: [[0, 4], [1, 4.4]], rake: [40, 65], paint: '#BFD3E6' }],
   caudal: { type: 'rounded', len: 22, h: 6, rays: 11, paint: '#BFD3E6' },
@@ -689,7 +698,8 @@ const jawfish: FishSpec = {
   pelvic: { at: [12, 0.98], base: 1.6, h: [[0, 7], [1, 5]], angles: [40, 70], rays: 5, paint: '#BFD3E6' },
   eye: { x: 8.4, f: 0.24, r: 2.2, iris: '#E0B43A' },
   gill: { x: 18, bow: 2 },
-  mouth: [[0.3, 0.58], [5, 0.66], [9.6, 0.6]],
+  mouth: [[0.3, 0.56], [5, 0.64], [10, 0.6], [13, 0.5]],
+  lips: 1,
   lateral: false,
   belly: 1.5,
   softBelly: false,
@@ -699,12 +709,14 @@ const jawfish: FishSpec = {
     const head = [8, 14, 20].map((x, i) => ({ poly: region(s, 0, tAtX(s, x), -0.1, 1.1), paint: '#F3C623' as const, o: [0.55, 0.3, 0.18][i], clip: 'body' as const }));
     // The burrow below the tail, ringed with rubble.
     const tailEnd = atX(s, 78, 0.5);
-    const rubble: Part[] = Array.from({ length: 9 }, (_, k) => ({
-      poly: blob(add(tailEnd, [28 + (k % 3) * 2.6, (k - 4) * 3.4]), 1.4 + (k % 2) * 0.8, 0.35, c.rand, 7, 1.3),
-      paint: '#D8CCAE',
-      lines: [],
-      edge: 0.7,
-    }));
+    const hole = add(tailEnd, [30, 0]);
+    const rubble: Part[] = [
+      { poly: ellipse(hole, 4.4, 7.4), paint: '#B8AA8A', lines: [], edge: 0.8, marks: [{ poly: ellipse(hole, 2.8, 5.4), paint: 'ink', o: 0.9 }] },
+      ...Array.from({ length: 8 }, (_, k) => {
+        const a = (k / 8) * Math.PI * 2 + 0.3;
+        return { poly: blob(add(hole, [Math.cos(a) * 6.4, Math.sin(a) * 9.4]), 1.2 + (k % 2) * 0.7, 0.35, c.rand, 7, 1.3), paint: '#D8CCAE' as const, lines: [], edge: 0.7 };
+      }),
+    ];
     return { tint: head, far: rubble, median: [{ part: 'dorsal', marks: [{ poly: region(s, tAtX(s, 14), tAtX(s, 26), -1, 0.05), paint: '#F3C623', o: 0.8, clip: 'body' }] }] };
   },
 };
@@ -872,7 +884,15 @@ export const REEF_FISH_2: Record<string, PlateDef> = {
   porcupinefish: F(porcupine, { back: '#9C9A73', belly: '#F3F1E6', fin: '#B4B290' }, 11),
   'yellow-boxfish': F(boxfish, { back: '#F6D20F', belly: '#F6D20F', fin: '#F2DC66' }, 12),
   trumpetfish: F(trumpet, { back: '#8A6A44', belly: '#A68A60', fin: '#9A7A50' }, 13, -24),
-  crocodilefish: { build: () => topShark({ ...crocodile, seed: 14 }), palette: { back: '#8C8A72', belly: '#CFC8A8' } },
+  crocodilefish: {
+    build: () => {
+      const g = topShark({ ...crocodile, seed: 14 });
+      // The eyes are golden with a bar pupil, under a pale lacy lappet (not black beads).
+      g.eyes = g.eyes.map((e) => ({ ...e, r: e.r * 1.15, iris: '#D8C27A', pupil: 'bar' as const, ring: true }));
+      return g;
+    },
+    palette: { back: '#A39A7A', belly: '#D9D1B4' },
+  },
   'flying-gurnard': { build: flyingGurnard, palette: { back: '#7F6F63', belly: '#7F6F63', fin: '#8A7A6A', accent: '#C9A27A', dark: '#3B2C24' } },
   'yellowhead-jawfish': F(jawfish, { back: '#E2E9EE', belly: '#E2E9EE', fin: '#BFD3E6' }, 16, 52),
   garibaldi: F(garibaldi, { back: '#FF6A13', belly: '#FF6A13', fin: '#FF7A2A' }, 17),
