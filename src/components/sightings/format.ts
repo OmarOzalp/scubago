@@ -62,11 +62,20 @@ export function distanceLabel(recent: Pick<RecentSighting, 'distanceKm' | 'locat
   return `within ${Math.max(1, Math.ceil(km))} km`;
 }
 
-/** Whole days between an ISO time and now (never negative); undefined when the time is not readable. */
+/** The local calendar day of a time, as a whole number of days. */
+function calendarDay(ms: number): number {
+  const date = new Date(ms);
+  return Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()) / DAY_MS;
+}
+
+/**
+ * Days on the local calendar between an ISO time and now (never negative); undefined when the time is
+ * not readable. Calendar days, not 24-hour windows: at nine in the morning, ten last night is yesterday.
+ */
 export function daysSince(iso: string, now: number): number | undefined {
   const then = Date.parse(iso);
   if (!Number.isFinite(then)) return undefined;
-  return Math.max(0, Math.floor((now - then) / DAY_MS));
+  return Math.max(0, calendarDay(now) - calendarDay(then));
 }
 
 /** "today", "yesterday", "5 days ago". */

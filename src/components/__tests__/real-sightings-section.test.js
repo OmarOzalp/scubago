@@ -4,6 +4,7 @@ import { router } from 'expo-router';
 import React, { act } from 'react';
 import { create } from 'react-test-renderer';
 
+import { agoText, daysSince } from '@/components/sightings/format';
 import { SiteSightingsSection } from '@/components/sightings/site-sightings-section';
 import { INATURALIST_CREDIT, OBIS_CREDIT } from '@/lib/external-sightings/attribution';
 
@@ -247,6 +248,21 @@ test('a source that kept old data says how old, and a cut-off list says it may b
   expect(text).toContain('iNaturalist has more species here than ScubaGo reads at once');
   // The page is as old as its oldest source.
   expect(text).toContain('Updated 6 days ago');
+});
+
+test('"today" and "yesterday" are days on the diver\'s calendar, not 24-hour windows', () => {
+  // Local times, so the test means the same in every time zone.
+  const at = (date, hour) => new Date(2026, 9, date, hour).getTime();
+  const iso = (date, hour) => new Date(at(date, hour)).toISOString();
+  const now = at(22, 9);
+  const said = (date, hour) => agoText(daysSince(iso(date, hour), now));
+  expect(said(22, 1)).toBe('today');
+  expect(said(21, 22)).toBe('yesterday');
+  expect(said(21, 1)).toBe('yesterday');
+  expect(said(20, 10)).toBe('2 days ago');
+  // A clock a little ahead of this phone's is not "in the future".
+  expect(said(22, 11)).toBe('today');
+  expect(daysSince('never', now)).toBeUndefined();
 });
 
 test('open-licence recent observations missing: the counts stay and the gap is explained', async () => {
