@@ -252,6 +252,10 @@ export interface FishSpec {
   mouth?: [number, number][];
   /** Lips: a thickness, drawn along the mouth line. */
   lips?: number;
+  /** Colour of the lips (default: the body's). */
+  lipPaint?: Paint;
+  /** Weight of the mouth line (default 1.3: big-mouthed fish want a heavier one). */
+  mouthW?: number;
   /** Rows of scales (0 or absent: smooth skin). */
   scales?: number;
   /** Scale columns per row (defaults to match the rows). */
@@ -333,11 +337,12 @@ export function fish(spec: FishSpec): PlateGeom {
   if (pectoral) g.near.push(pectoral);
   if (spec.mouth) {
     const m = spline(spec.mouth.map(([x, f]) => atX(s, x, f)), false);
-    g.lines.push({ pts: m, w: 1.3 });
+    g.lines.push({ pts: m, w: spec.mouthW ?? 1.3 });
     if (spec.lips) {
       const off = spec.lips;
-      g.marks.push({ poly: [...m, ...m.slice().reverse().map(([x, y], i, arr) => [x + off * 0.2, y - off * Math.sin((Math.PI * i) / (arr.length - 1 || 1))] as Pt)], paint: 'back', edge: 0.8 });
-      g.marks.push({ poly: [...m, ...m.slice().reverse().map(([x, y], i, arr) => [x + off * 0.2, y + off * Math.sin((Math.PI * i) / (arr.length - 1 || 1))] as Pt)], paint: 'back', edge: 0.8 });
+      const lip = spec.lipPaint ?? 'back';
+      g.marks.push({ poly: [...m, ...m.slice().reverse().map(([x, y], i, arr) => [x + off * 0.2, y - off * Math.sin((Math.PI * i) / (arr.length - 1 || 1))] as Pt)], paint: lip, edge: 0.8 });
+      g.marks.push({ poly: [...m, ...m.slice().reverse().map(([x, y], i, arr) => [x + off * 0.2, y + off * Math.sin((Math.PI * i) / (arr.length - 1 || 1))] as Pt)], paint: lip, edge: 0.8 });
     }
   }
   const { x: ex, f: ef, r: er, iris = '#C9A54A', ring, pupil } = spec.eye;

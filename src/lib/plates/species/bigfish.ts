@@ -137,9 +137,10 @@ const potato: FishSpec = {
 // fins; a rounded tail.
 const napoleon: FishSpec = {
   tip: [0, 1],
-  blunt: 0.5,
-  top: [[1, -1.5], [3, -3], [5, -5.6], [7, -8.6], [9, -12], [12, -15], [16, -17], [22, -18], [30, -18.5], [40, -18], [50, -16], [60, -13], [70, -9.5], [78, -7], [84, -6.2]],
-  bot: [[1, 1.5], [4, 3.5], [8, 6], [14, 9.5], [22, 13.5], [32, 15.5], [42, 16], [52, 15], [62, 12.5], [70, 9.5], [78, 7.2], [84, 6.4]],
+  blunt: 0.7,
+  // The snout dips, then the forehead rises steeply into the hump.
+  top: [[0.6, -1.9], [1.8, -2.9], [3.6, -3.7], [5.6, -5], [7.6, -8.6], [10, -13.6], [13, -17.4], [18, -18.2], [22, -18.4], [30, -18.6], [40, -18], [50, -16], [60, -13], [70, -9.5], [78, -7], [84, -6.2]],
+  bot: [[0.7, 3.6], [2, 5.4], [5, 7], [9, 8.6], [16, 10.8], [22, 13.5], [32, 15.5], [42, 16], [52, 15], [62, 12.5], [70, 9.5], [78, 7.2], [84, 6.4]],
   dorsal: [
     { from: 28, to: 50, spines: 9, rays: 0, h: [[0, 3], [0.2, 4.2], [1, 4]], notch: 0.3, rake: [30, 45] },
     { from: 51, to: 80, rays: 10, h: [[0, 4.5], [0.6, 8.5], [0.9, 11], [1, 9]], rake: [40, 75], smooth: true },
@@ -150,27 +151,35 @@ const napoleon: FishSpec = {
   pelvic: { at: [32, 0.9], base: 3, h: [[0, 7.5], [1, 4.5]], angles: [30, 82], rays: 7 },
   eye: { x: 11, f: 0.3, r: 1.3, iris: '#C27A3A' },
   gill: { x: 28, bow: 3 },
-  mouth: [[0.3, 0.55], [2.5, 0.58], [4.4, 0.55]],
-  lips: 1.3,
+  mouth: [[0.3, 0.5], [3, 0.57], [6.5, 0.6], [9, 0.57]],
+  lips: 2.4,
+  lipPaint: '#86A99A',
+  mouthW: 1.8,
   scales: 9,
   lateral: (t) => 0.2 + 0.1 * t,
   belly: 0.88,
   extra: (c) => {
     const s = c.s;
     const rand = rng(91);
-    // Head: a maze of wavy yellow lines.
+    // Head: wavy cream lines, tightly set across the forehead and looser over the cheek.
     const headLines: Line[] = [];
-    for (let k = 0; k < 9; k++) {
-      const x0 = 3 + rand() * 18;
-      const f0 = 0.15 + rand() * 0.7;
-      const pts: Pt[] = Array.from({ length: 6 }, (_, i) => atX(s, x0 + i * 1.6, f0 + Math.sin(i * 1.7 + k) * 0.04));
-      headLines.push({ pts: spline(pts, false), w: 1.4, o: 0.9 });
+    for (let k = 0; k < 5; k++) {
+      const f0 = 0.04 + k * 0.045;
+      const x0 = 7.6 + k * 0.7;
+      const pts: Pt[] = Array.from({ length: 9 }, (_, i) => atX(s, x0 + i * 1.7, f0 + Math.sin(i * 1.9 + k * 1.3) * 0.018 + i * 0.004));
+      headLines.push({ pts: spline(pts, false), w: 0.95, o: 0.9 });
     }
-    const wavy: Fill[] = headLines.map((l) => ({ poly: [...l.pts, ...l.pts.slice().reverse().map(([x, y]) => [x + 0.15, y + 0.45] as Pt)], paint: '#D3B45A', o: 0.9, clip: 'trunk' }));
+    for (let k = 0; k < 4; k++) {
+      const f0 = 0.5 + k * 0.08;
+      const pts: Pt[] = Array.from({ length: 6 }, (_, i) => atX(s, 10 + rand() * 2.5 + i * 1.6, f0 + Math.sin(i * 1.8 + k * 2) * 0.025));
+      headLines.push({ pts: spline(pts, false), w: 0.95, o: 0.75 });
+    }
+    const wavy: Fill[] = headLines.map((l) => ({ poly: [...l.pts, ...l.pts.slice().reverse().map(([x, y]) => [x + 0.15, y + 0.55] as Pt)], paint: '#E4D8AC', o: l.o, clip: 'trunk' }));
     const eye = atX(s, 11, 0.3);
+    // Two dark lines run back from the eye.
     const eyeLines: Line[] = [
-      { pts: spline([add(eye, [1.6, -0.6]), add(eye, [5, -2]), add(eye, [8, -2.6])], false), w: 2, taper: 'end' },
-      { pts: spline([add(eye, [1.6, 0.8]), add(eye, [5, 2]), add(eye, [8.5, 2.4])], false), w: 2, taper: 'end' },
+      { pts: spline([add(eye, [1.6, -0.6]), add(eye, [5, -2]), add(eye, [10, -2.4])], false), w: 2.8, taper: 'end' },
+      { pts: spline([add(eye, [1.6, 0.8]), add(eye, [5, 2]), add(eye, [10.5, 2.2])], false), w: 2.8, taper: 'end' },
     ];
     // A short dark vertical bar on each scale.
     const bars: Fill[] = [];
@@ -181,7 +190,7 @@ const napoleon: FishSpec = {
         const t = t0 + (1 - t0) * ((k + (r % 2) * 0.5) / 22);
         const a = at(s, t, f - 0.035);
         const b = at(s, t, f + 0.035);
-        bars.push({ poly: [add(a, [-0.25, 0]), add(a, [0.25, 0]), add(b, [0.25, 0]), add(b, [-0.25, 0])], paint: 'dark', o: 0.55, clip: 'trunk' });
+        bars.push({ poly: [add(a, [-0.25, 0]), add(a, [0.25, 0]), add(b, [0.25, 0]), add(b, [-0.25, 0])], paint: 'dark', o: 0.24, clip: 'trunk' });
       }
     }
     return {
