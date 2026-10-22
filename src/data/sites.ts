@@ -1,4 +1,4 @@
-import type { DiveSite } from '@/lib/types';
+import type { DiveSite, SiteSource } from '@/lib/types';
 
 // Relative imports, because the seed script runs this file under tsx (without the app's `@/` alias).
 import { mergeSites, type OsmSiteRecord } from '../lib/site-import';
@@ -9,6 +9,9 @@ import osmSites from './osm-sites.json';
  * day one. Coordinates are approximate (site-marker precision, not navigation precision).
  * notableSpecies ids must exist in src/data/species.ts.
  */
+/** A seed that is a shipwreck, and named for it: ScubaGo's own curation says so (no import tags it). */
+const CURATED_WRECK: SiteSource = { fields: ['dive_types'], source: 'ScubaGo curation' };
+
 export const SEED_SITES: readonly DiveSite[] = [
   // ── Thailand & Andaman Sea ────────────────────────────────────────────────
   { id: 'richelieu-rock', name: 'Richelieu Rock', lat: 9.3606, lng: 98.0227, region: 'Andaman Sea', country: 'Thailand', blurb: 'Horseshoe pinnacle of purple soft coral; Thailand’s most famous site and a whale shark magnet.', notableSpecies: ['whale-shark', 'chevron-barracuda', 'common-seahorse', 'harlequin-shrimp', 'giant-moray', 'sea-goldie', 'broadclub-cuttlefish', 'ornate-ghost-pipefish'], source: 'seed' },
@@ -41,7 +44,7 @@ export const SEED_SITES: readonly DiveSite[] = [
   { id: 'castle-rock', name: 'Castle Rock', lat: -8.4, lng: 119.63, region: 'Komodo', country: 'Indonesia', blurb: 'Hook in and watch sharks and trevally hunt in the current.', notableSpecies: ['grey-reef-shark', 'whitetip-reef-shark', 'giant-trevally', 'dogtooth-tuna', 'chevron-barracuda'], source: 'seed' },
   { id: 'crystal-bay', name: 'Crystal Bay', lat: -8.716, lng: 115.457, region: 'Nusa Penida, Bali', country: 'Indonesia', blurb: 'The mola mola pilgrimage site — cold upwellings bring sunfish shallow (Jul–Oct).', notableSpecies: ['mola-mola', 'banded-sea-krait', 'clown-triggerfish', 'moorish-idol', 'day-octopus'], source: 'seed' },
   { id: 'manta-point-penida', name: 'Manta Point', lat: -8.79, lng: 115.53, region: 'Nusa Penida, Bali', country: 'Indonesia', blurb: 'Limestone cliffs above, squadrons of reef mantas below — nearly year-round.', notableSpecies: ['reef-manta', 'bluespotted-ribbontail-ray', 'green-turtle', 'porcupinefish'], source: 'seed' },
-  { id: 'liberty-wreck', name: 'USAT Liberty Wreck', lat: -8.274, lng: 115.593, region: 'Tulamben, Bali', country: 'Indonesia', blurb: 'Shore-entry WWII wreck wrapped in coral; dawn bumphead patrol is a ritual.', notableSpecies: ['bumphead-parrotfish', 'garden-eel', 'pygmy-seahorse', 'circular-batfish', 'great-barracuda', 'giant-frogfish', 'sea-goldie'], source: 'seed' },
+  { id: 'liberty-wreck', name: 'USAT Liberty Wreck', lat: -8.274, lng: 115.593, region: 'Tulamben, Bali', country: 'Indonesia', blurb: 'Shore-entry WWII wreck wrapped in coral; dawn bumphead patrol is a ritual.', notableSpecies: ['bumphead-parrotfish', 'garden-eel', 'pygmy-seahorse', 'circular-batfish', 'great-barracuda', 'giant-frogfish', 'sea-goldie'], diveTypes: ['wreck'], sources: [CURATED_WRECK], source: 'seed' },
   { id: 'hairball', name: 'Hairball', lat: 1.44, lng: 125.24, region: 'Lembeh Strait', country: 'Indonesia', blurb: 'Black-sand muck legend — the weirdest critters on Earth per square meter.', notableSpecies: ['mimic-octopus', 'coconut-octopus', 'flamboyant-cuttlefish', 'bobtail-squid', 'harlequin-shrimp', 'giant-frogfish', 'pikachu-nudibranch'], source: 'seed' },
   { id: 'nudi-falls', name: 'Nudi Falls', lat: 1.47, lng: 125.25, region: 'Lembeh Strait', country: 'Indonesia', blurb: 'A mini-wall that delivers exactly what the name promises, plus rhinopias if you’re lucky.', notableSpecies: ['anna-chromodoris', 'pikachu-nudibranch', 'spanish-dancer', 'blue-ringed-octopus', 'ornate-ghost-pipefish', 'peacock-mantis-shrimp'], source: 'seed' },
   { id: 'lekuan-walls', name: 'Lekuan Walls', lat: 1.62, lng: 124.76, region: 'Bunaken', country: 'Indonesia', blurb: 'Vertical coral cliffs with turtles on every ledge.', notableSpecies: ['green-turtle', 'hawksbill-turtle', 'banded-sea-krait', 'moorish-idol', 'emperor-angelfish', 'giant-clam'], source: 'seed' },
@@ -53,12 +56,12 @@ export const SEED_SITES: readonly DiveSite[] = [
   { id: 'blue-corner', name: 'Blue Corner', lat: 7.13, lng: 134.22, region: 'Koror', country: 'Palau', blurb: 'Hook into the plateau and watch the shark parade in ripping current.', notableSpecies: ['grey-reef-shark', 'whitetip-reef-shark', 'napoleon-wrasse', 'chevron-barracuda', 'dogtooth-tuna', 'giant-trevally', 'green-turtle'], source: 'seed' },
   { id: 'german-channel', name: 'German Channel', lat: 7.16, lng: 134.26, region: 'Koror', country: 'Palau', blurb: 'Manta cleaning stations in a WWI-era dredged channel.', notableSpecies: ['reef-manta', 'grey-reef-shark', 'garden-eel', 'crocodilefish', 'giant-clam'], source: 'seed' },
   { id: 'jellyfish-lake', name: 'Jellyfish Lake', lat: 7.161, lng: 134.376, region: 'Eil Malk', country: 'Palau', blurb: 'Snorkel through millions of stingless golden jellyfish.', notableSpecies: ['golden-jellyfish'], source: 'seed' },
-  { id: 'president-coolidge', name: 'SS President Coolidge', lat: -15.529, lng: 167.249, region: 'Espiritu Santo', country: 'Vanuatu', blurb: 'A 200 m luxury-liner-turned-troopship you can shore dive.', notableSpecies: ['lionfish', 'giant-moray', 'sea-goldie', 'great-barracuda', 'giant-grouper'], source: 'seed' },
+  { id: 'president-coolidge', name: 'SS President Coolidge', lat: -15.529, lng: 167.249, region: 'Espiritu Santo', country: 'Vanuatu', blurb: 'A 200 m luxury-liner-turned-troopship you can shore dive.', notableSpecies: ['lionfish', 'giant-moray', 'sea-goldie', 'great-barracuda', 'giant-grouper'], diveTypes: ['wreck'], sources: [CURATED_WRECK], source: 'seed' },
   { id: 'tiputa-pass', name: 'Tiputa Pass', lat: -14.97, lng: -147.63, region: 'Rangiroa', country: 'French Polynesia', blurb: 'Ride the incoming tide with dolphins, sharks and eagle rays.', notableSpecies: ['bottlenose-dolphin', 'grey-reef-shark', 'great-hammerhead', 'spotted-eagle-ray', 'napoleon-wrasse', 'tiger-shark'], source: 'seed' },
   { id: 'fakarava-south', name: 'Fakarava South Pass', lat: -16.51, lng: -145.47, region: 'Fakarava', country: 'French Polynesia', blurb: 'The famous “wall of sharks” — hundreds of grey reefs stacked in the pass.', notableSpecies: ['grey-reef-shark', 'blacktip-reef-shark', 'napoleon-wrasse', 'green-turtle', 'chevron-barracuda'], source: 'seed' },
 
   // ── Australia & New Zealand ───────────────────────────────────────────────
-  { id: 'yongala', name: 'SS Yongala', lat: -19.305, lng: 147.622, region: 'Queensland', country: 'Australia', blurb: 'A 110-year-old wreck that acts as the only reef for miles — everything is HUGE.', notableSpecies: ['giant-grouper', 'marbled-ray', 'olive-ridley-turtle', 'green-turtle', 'great-barracuda', 'bull-shark', 'banded-sea-krait', 'spotted-eagle-ray'], source: 'seed', regionId: 'great-barrier-reef' },
+  { id: 'yongala', name: 'SS Yongala', lat: -19.305, lng: 147.622, region: 'Queensland', country: 'Australia', blurb: 'A 110-year-old wreck that acts as the only reef for miles — everything is HUGE.', notableSpecies: ['giant-grouper', 'marbled-ray', 'olive-ridley-turtle', 'green-turtle', 'great-barracuda', 'bull-shark', 'banded-sea-krait', 'spotted-eagle-ray'], diveTypes: ['wreck'], sources: [CURATED_WRECK], source: 'seed', regionId: 'great-barrier-reef' },
   { id: 'cod-hole', name: 'Cod Hole', lat: -14.66, lng: 145.64, region: 'Great Barrier Reef', country: 'Australia', blurb: 'Face-to-face with enormous, friendly potato cod.', notableSpecies: ['potato-cod', 'napoleon-wrasse', 'whitetip-reef-shark', 'clown-triggerfish', 'giant-clam'], source: 'seed', regionId: 'great-barrier-reef' },
   { id: 'north-horn', name: 'North Horn, Osprey Reef', lat: -13.88, lng: 146.55, region: 'Coral Sea', country: 'Australia', blurb: 'Amphitheater shark feeds on a remote Coral Sea seamount.', notableSpecies: ['grey-reef-shark', 'whitetip-reef-shark', 'great-hammerhead', 'potato-cod', 'dogtooth-tuna'], source: 'seed', regionId: 'coral-sea' },
   { id: 'navy-pier', name: 'Navy Pier', lat: -21.816, lng: 114.19, region: 'Exmouth', country: 'Australia', blurb: 'One of the best pier dives on Earth — wobbegongs stacked like firewood.', notableSpecies: ['tasselled-wobbegong', 'grey-reef-shark', 'lionfish', 'giant-moray', 'flying-gurnard', 'star-puffer'], source: 'seed' },
@@ -75,7 +78,7 @@ export const SEED_SITES: readonly DiveSite[] = [
   { id: 'stingray-city', name: 'Stingray City', lat: 19.39, lng: -81.3, region: 'Grand Cayman', country: 'Cayman Islands', blurb: 'Waist-deep sandbar mobbed by tame southern stingrays.', notableSpecies: ['southern-stingray', 'green-moray', 'great-barracuda'], source: 'seed' },
   { id: 'bloody-bay-wall', name: 'Bloody Bay Wall', lat: 19.7, lng: -80.08, region: 'Little Cayman', country: 'Cayman Islands', blurb: 'A sheer mile-deep wall starting at 6 m, dripping with sponges.', notableSpecies: ['nurse-shark', 'hawksbill-turtle', 'queen-angelfish', 'yellowhead-jawfish', 'green-moray', 'caribbean-spiny-lobster'], source: 'seed' },
   { id: 'salt-pier', name: 'Salt Pier', lat: 12.1, lng: -68.285, region: 'Kralendijk', country: 'Bonaire', blurb: 'Shore-dive under pastel pier pillars wrapped in coral and fish.', notableSpecies: ['tarpon', 'french-angelfish', 'stoplight-parrotfish', 'porcupinefish', 'trumpetfish', 'common-seahorse', 'christmas-tree-worm'], source: 'seed' },
-  { id: 'spiegel-grove', name: 'USS Spiegel Grove', lat: 25.07, lng: -80.3, region: 'Key Largo, Florida', country: 'USA', blurb: 'A 155 m navy ship reefed in the Keys — goliath groupers in the holds.', notableSpecies: ['goliath-grouper', 'great-barracuda', 'green-moray', 'nurse-shark', 'french-angelfish'], source: 'seed' },
+  { id: 'spiegel-grove', name: 'USS Spiegel Grove', lat: 25.07, lng: -80.3, region: 'Key Largo, Florida', country: 'USA', blurb: 'A 155 m navy ship reefed in the Keys — goliath groupers in the holds.', notableSpecies: ['goliath-grouper', 'great-barracuda', 'green-moray', 'nurse-shark', 'french-angelfish'], diveTypes: ['wreck'], sources: [CURATED_WRECK], source: 'seed' },
   { id: 'blue-heron-bridge', name: 'Blue Heron Bridge', lat: 26.783, lng: -80.043, region: 'Riviera Beach, Florida', country: 'USA', blurb: 'America’s best muck dive, hiding in plain sight under a bridge.', notableSpecies: ['common-seahorse', 'flying-gurnard', 'yellowhead-jawfish', 'green-moray', 'peacock-mantis-shrimp', 'star-puffer'], source: 'seed' },
   { id: 'champagne-reef', name: 'Champagne Reef', lat: 15.25, lng: -61.39, region: 'Soufrière', country: 'Dominica', blurb: 'Dive through volcanic bubbles on the island of sperm whales.', notableSpecies: ['common-seahorse', 'trumpetfish', 'french-angelfish', 'caribbean-spiny-lobster', 'sperm-whale'], source: 'seed' },
   { id: 'silfra', name: 'Silfra Fissure', lat: 64.256, lng: -21.117, region: 'Þingvellir', country: 'Iceland', blurb: 'Swim between tectonic plates in 100 m visibility glacier water.', notableSpecies: [], source: 'seed' },
@@ -115,3 +118,14 @@ export const SITES_BY_ID: Map<string, DiveSite> = merged.byId;
 export const RETIRED_SITE_IDS: ReadonlySet<string> = merged.retiredIds;
 /** Imported sites that are really a seed site, with how they matched. They are not listed again. */
 export const OSM_SEED_DUPLICATES = merged.duplicates;
+/** Hidden site ids (a seed's duplicate, a second mark merged away) and the listed site each stands for. */
+export const SITE_ALIASES: ReadonlyMap<string, string> = merged.aliases;
+
+/**
+ * The listed site a site id counts at: itself, or the site a hidden copy stands for. Use it wherever
+ * sightings or dives are grouped, counted or matched by site, so one logged at an old id still counts
+ * at the place (never to rewrite what was logged).
+ */
+export function canonicalSiteId(id: string): string {
+  return SITE_ALIASES.get(id) ?? id;
+}

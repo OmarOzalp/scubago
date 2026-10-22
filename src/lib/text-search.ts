@@ -1,6 +1,5 @@
 import { regionPath } from '@/data/regions';
 import { SPECIES_ALIASES } from '@/data/species-aliases';
-import { isImportedSite } from '@/lib/site-clusters';
 import type { DiveSite, Species } from '@/lib/types';
 
 /** British spellings searched as American ones (and vice versa), so "grey reef" finds "Grey Reef Shark" either way. */
@@ -209,7 +208,8 @@ function siteEntry(site: DiveSite): SiteEntry {
   return {
     fields: prepareNames({ primary: [site.name], secondary: where, joined: [[site.name, ...where].join(' ')] }),
     key: normalizeSearch(site.name),
-    imported: isImportedSite(site),
+    // Listed from the import, by its id: a curated seed that borrows a detail from OpenStreetMap is still curated.
+    imported: site.id.startsWith('osm-'),
   };
 }
 
