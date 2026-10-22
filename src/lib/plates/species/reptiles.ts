@@ -6,6 +6,7 @@ import { add, blob, type Ctrl, lerp, mul, norm, perp, type Pt, resample, rng, sp
 import { scatterIn } from '../marks';
 import { tube } from '../ray';
 import type { PlateDef } from '../registry';
+import { mapGeom } from '../render';
 import { atX, contours, outlineOf, trunk } from '../side';
 import { eel, type EelCtx } from '../eel';
 import { emptyGeom, type Fill, type Line, type Part, type PlateGeom } from '../types';
@@ -66,10 +67,11 @@ function kraitMarks(c: EelCtx) {
 function marineIguana(): PlateGeom {
   const g = emptyGeom();
   const rand = rng(97);
+  // The trunk sits low: its belly a few units above the rock, the tail dragging out behind it.
   const s = trunk({
-    tip: [6, 29.6],
-    top: [[7, 25.4], [9.4, 22.6], [13, 21.4], [17, 22.2], [21, 24.6], [27, 24.4], [36, 22], [46, 21.4], [56, 22.6], [64, 24.6], [78, 27.6], [94, 30.4], [112, 32.6], [130, 34]],
-    bot: [[7, 33.2], [10, 35.4], [15, 36.2], [20, 35.4], [26, 37.6], [36, 39.2], [46, 39.4], [56, 38.2], [64, 36.4], [78, 35.6], [94, 35.2], [112, 34.8], [130, 34.2]],
+    tip: [6, 38],
+    top: [[7, 33.4], [9.4, 30.6], [13, 29.2], [17, 29.8], [21, 31.6], [27, 31.2], [36, 29.2], [46, 28.8], [56, 30], [64, 32.2], [78, 36], [90, 42.4], [96, 46.4], [110, 47.2], [124, 47.7], [136, 48.1]],
+    bot: [[7, 41.4], [10, 43.6], [15, 44.6], [20, 44.2], [26, 46.2], [36, 47.2], [46, 47.2], [56, 46.2], [64, 45.2], [78, 45], [90, 48.2], [96, 50], [110, 49.4], [124, 48.9], [136, 48.3]],
     blunt: 0.95,
   });
   const body = outlineOf(s);
@@ -143,34 +145,35 @@ function marineIguana(): PlateGeom {
     },
   );
   g.eyes.push({ c: atX(s, 13.4, 0.36), r: 1.1, iris: '#9A7A3A' });
-  // The rock: dark lava with a little green algae.
+  // The rock: a low ledge of dark lava with a little green algae.
   const rock = spline(
-    [[2, 64, 1], [6, 54], [16, 50.4], [30, 49.4], [44, 50.6], [58, 49.4], [72, 50.2], [86, 52.4], [96, 56], [100, 64, 1]],
+    [[-3, 57], [-2, 53.6], [6, 51.4], [20, 50.4], [40, 49.8], [60, 49.4], [80, 49.8], [96, 50.4], [103, 52], [105, 56.4], [100, 59.6], [70, 60.2], [10, 59.6]],
     true,
   );
-  g.far.unshift({
+  const rockPart: Part = {
     poly: rock,
     paint: '#6E6A60',
-    lines: [0.3, 0.6].map((k) => ({
+    lines: [0.15, 0.5, 0.8].map((k) => ({
       pts: [
-        [8 + k * 30, 55],
-        [14 + k * 40, 58],
-        [10 + k * 50, 62],
+        [8 + k * 85, 53.4],
+        [14 + k * 85, 55.2],
+        [10 + k * 85, 57.4],
       ] as Pt[],
       w: 0.8,
       o: 0.5,
+      taper: 'both' as const,
     })),
     edge: 0.9,
     marks: scatterIn(rock, {
-      r: 1.2,
-      gap: 2.2,
+      r: 1.1,
+      gap: 3,
       paint: '#7A8B5A',
       rand,
-      tries: 40,
+      tries: 60,
       o: 0.7,
       wobble: 0.5,
     }),
-  });
+  };
   // Legs: short, splayed, with long curved claws gripping the rock.
   const leg = (path: Ctrl[], w0: number, toes: Pt[], far: boolean) => {
     const c = resample(spline(path, false), 30);
@@ -205,31 +208,41 @@ function marineIguana(): PlateGeom {
     (far ? g.far : g.near).push(part, ...toeParts);
     g.lines.push(...claws);
   };
-  leg(
-    [[22, 37], [17, 42], [15, 47], [17, 50]],
-    1.9,
-    [[11, 50.4], [13.4, 51.2], [16, 51.4]],
-    true,
-  );
-  leg(
-    [[54, 37], [48, 42], [47, 47], [49, 50]],
-    2.1,
-    [[43, 50], [45.6, 51], [48.6, 51.2]],
-    true,
-  );
-  leg(
-    [[30, 37.6], [34, 43], [31, 48], [29, 50]],
-    2.2,
-    [[23, 50.6], [25.6, 51.4], [28.6, 51.6], [32, 51]],
-    false,
-  );
-  leg(
-    [[62, 36.6], [68, 42], [65, 47.4], [62, 50]],
-    2.4,
-    [[56, 50.4], [58.6, 51.2], [61.6, 51.4], [65, 51]],
-    false,
-  );
-  return g;
+  // Elbows and knees out: the upper arm drops back, the forearm comes forward, the long toes grip.
+  leg([[16, 42.6], [20.4, 46.2], [16.6, 48.6], [15.6, 50]], 2.1, [[10.8, 50.2], [13, 50.9], [15.6, 51.2]], true);
+  leg([[47, 43], [43, 46.6], [47.4, 48.8], [48.4, 50]], 2.2, [[43, 50.2], [45.4, 50.9], [48, 51.2]], true);
+  leg([[24, 43.4], [28.4, 47], [24.4, 49], [23, 50]], 2.4, [[17.6, 50.3], [20, 51], [22.8, 51.3], [26, 50.8]], false);
+  leg([[57, 43.8], [53, 47.4], [57.4, 49.2], [58.4, 50]], 2.6, [[52, 50.3], [54.6, 51], [57.4, 51.3], [61, 50.8]], false);
+  // The tail lies along the ledge, then slips over its end and hangs down, curling in.
+  const bent = mapGeom(g, droop);
+  bent.far.unshift(rockPart);
+  return bent;
+}
+
+/** Bends a flat tail (running level from x = 96, centre line y = 48.2) down in a hook. */
+const DROOP_X = 96;
+const DROOP_Y = 48.2;
+const droopPath: Pt[] = (() => {
+  const out: Pt[] = [[0, 0]];
+  const L = 44;
+  for (let i = 1; i <= 220; i++) {
+    const t = i / 220;
+    const th = 1.75 * t ** 1.45;
+    const [px, py] = out[i - 1];
+    out.push([px + Math.cos(th) * (L / 220), py + Math.sin(th) * (L / 220)]);
+  }
+  return out;
+})();
+function droop([x, y]: Pt): Pt {
+  if (x <= DROOP_X) return [x, y];
+  const k = Math.min(droopPath.length - 1.001, ((x - DROOP_X) / 44) * (droopPath.length - 1));
+  const i = Math.floor(k);
+  const a = droopPath[i];
+  const b = droopPath[i + 1];
+  const c = lerp(a, b, k - i);
+  const d = norm(sub(b, a));
+  const h = y - DROOP_Y;
+  return [DROOP_X + c[0] - d[1] * h, DROOP_Y + c[1] + d[0] * h];
 }
 
 export const REPTILES: Record<string, PlateDef> = {
