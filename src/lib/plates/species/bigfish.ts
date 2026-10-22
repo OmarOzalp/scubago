@@ -30,10 +30,20 @@ const finSpots = (poly: Pt[], rand: () => number, r = 0.45, gap = 1.3): Fill[] =
 // A huge, thick body with a massive head (a third of its length); rounded tail and fins; small
 // black spots on the yellowish fins; pale mottling on a dark adult body; a small eye over a
 // cavernous mouth.
+/** A grouper's head: blunt and deep, the upper jaw drawn back a little so the lower one juts out. */
+const grouperHead = (b: { top: [number, number][]; bot: [number, number][] }) => ({
+  top: b.top.map(([x, y]) => [x < 7 ? x + 0.9 * (1 - x / 7) ** 1.5 : x, y] as [number, number]),
+  bot: b.bot,
+});
+/** The lower jaw and the corner of the mouth, drawn in as lines so the jaw shows in the head. */
+const grouperJaw = (c: FishCtx): Line[] => [
+  { pts: spline([atX(c.s, 1.4, 0.76), atX(c.s, 7, 0.8), atX(c.s, 13, 0.7), atX(c.s, 16.6, 0.56)], false), w: 1.4 },
+  { pts: spline([atX(c.s, 15, 0.56), atX(c.s, 16.4, 0.64), atX(c.s, 16.6, 0.74)], false), w: 1.2 },
+];
 const grouperBase = {
-  ...bodyShape({ ped: 84, depth: 32, at: 33, up: 0.5, pedH: 12, riseTop: 2.1, riseBot: 1.6, taper: 0.8 }),
-  tip: [0, 1.5] as Pt,
-  blunt: 0.4,
+  ...grouperHead(bodyShape({ ped: 84, depth: 32, at: 33, up: 0.5, pedH: 12, riseTop: 2.1, riseBot: 1.6, taper: 0.8, nose: 0.75 }) as { top: [number, number][]; bot: [number, number][] }),
+  tip: [0, 2.2] as Pt,
+  blunt: 0.8,
   dorsal: [
     { from: 31, to: 54, spines: 11, rays: 0, h: [[0, 3], [0.15, 5], [1, 4.6]] as [number, number][], notch: 0.3, rake: [25, 40] as [number, number] },
     { from: 55, to: 79, rays: 14, h: [[0, 5.2], [0.45, 8], [1, 3.2]] as [number, number][], rake: [35, 70] as [number, number] },
@@ -44,7 +54,10 @@ const grouperBase = {
   pelvic: { at: [35, 0.9] as [number, number], base: 3.4, h: [[0, 8], [1, 5]] as [number, number][], angles: [30, 82] as [number, number], rays: 7 },
   eye: { x: 10, f: 0.28, r: 1.25, iris: '#9C8A4A' as const },
   gill: { x: 33, bow: 3.2 },
-  mouth: [[0.4, 0.56], [7, 0.6], [13, 0.54]] as [number, number][],
+  // A wide gape reaching back under the eye, with thick lips.
+  mouth: [[0.4, 0.58], [8, 0.64], [15, 0.56]] as [number, number][],
+  lips: 1.7,
+  mouthW: 2,
   lateral: (t: number) => 0.22 + 0.06 * t,
   belly: 0.82,
   softBelly: true,
@@ -53,9 +66,10 @@ const grouperBase = {
 const giantGrouper: FishSpec = {
   ...grouperBase,
   extra: (c) => {
-    const mottle = scatter(c.s, { t0: 0.05, t1: 1, f0: 0.05, f1: 0.9, r: (t) => 1.4 + c.rand() * 2.2, gap: 1.4, paint: 'light', rand: c.rand, tries: 300, o: 0.3, wobble: 0.45 });
+    const mottle = scatter(c.s, { t0: 0.05, t1: 1, f0: 0.05, f1: 0.9, r: (t) => 1.4 + c.rand() * 2.2, gap: 1.4, paint: 'light', rand: c.rand, tries: 300, o: 0.18, wobble: 0.45 });
     return {
       marks: mottle,
+      lines: grouperJaw(c),
       median: [
         { part: 'dorsal', index: 1, marks: finSpots(c.dorsal[1].poly, c.rand) },
         { part: 'anal', marks: finSpots(c.anal[0].poly, c.rand) },
@@ -71,8 +85,8 @@ const giantGrouper: FishSpec = {
 // rising into a taller soft dorsal; fine black spots on the head and fins over a mottled body.
 const goliath: FishSpec = {
   ...grouperBase,
-  ...bodyShape({ ped: 84, depth: 29, at: 34, up: 0.48, pedH: 11.5, riseTop: 2.6, riseBot: 1.6, taper: 0.8 }),
-  tip: [0, 1],
+  ...grouperHead(bodyShape({ ped: 84, depth: 29, at: 34, up: 0.48, pedH: 11.5, riseTop: 2.6, riseBot: 1.6, taper: 0.8, nose: 0.75 }) as { top: [number, number][]; bot: [number, number][] }),
+  tip: [0, 1.6],
   eye: { x: 10, f: 0.27, r: 0.95, iris: '#9C8A4A' },
   dorsal: [
     { from: 31, to: 54, spines: 11, rays: 0, h: [[0, 2.4], [0.12, 3.6], [1, 3.4]], notch: 0.25, rake: [25, 40] },
@@ -80,11 +94,13 @@ const goliath: FishSpec = {
   ],
   extra: (c) => {
     const s = c.s;
-    const bands: Fill[] = [26, 40, 54, 68].map((x, i) => bar(s, tAtX(s, x), 0.06, 0.02, 0.85, 'dark', c.rand, 0.5, 0.08 + i * 0.01));
+    // Dark bars slanting back as they fall, as the species is drawn in the field guides.
+    const bands: Fill[] = [24, 37, 50, 63].map((x, i) => bar(s, tAtX(s, x), 0.055, 0.02, 0.85, 'dark', c.rand, 0.5, 0.2 + i * 0.01));
     const mottle = scatter(s, { t0: 0.05, t1: 1, f0: 0.05, f1: 0.9, r: (t) => 1 + c.rand() * 1.2, gap: 2.4, paint: 'light', rand: c.rand, tries: 120, o: 0.15, wobble: 0.45 });
     const spots = scatter(s, { t0: 0.02, t1: 0.75, f0: 0.04, f1: 0.55, r: 0.35, gap: 1.2, paint: 'ink', rand: c.rand, tries: 500, o: 0.75 });
     return {
       marks: [...bands, ...mottle, ...spots],
+      lines: grouperJaw(c),
       median: [
         { part: 'dorsal', index: 1, marks: finSpots(c.dorsal[1].poly, c.rand, 0.35, 1.2) },
         { part: 'caudal', marks: finSpots(c.caudal.poly, c.rand, 0.35, 1.2) },
@@ -99,8 +115,8 @@ const goliath: FishSpec = {
 // a rounded tail; a robust grouper a little slimmer than the giant and goliath.
 const potato: FishSpec = {
   ...grouperBase,
-  ...bodyShape({ ped: 84, depth: 26.5, at: 34, up: 0.5, pedH: 10.5, riseTop: 2.1, riseBot: 1.7, taper: 0.8 }),
-  tip: [0, 1.2],
+  ...grouperHead(bodyShape({ ped: 84, depth: 26.5, at: 34, up: 0.5, pedH: 10.5, riseTop: 2.1, riseBot: 1.7, taper: 0.8, nose: 0.75 }) as { top: [number, number][]; bot: [number, number][] }),
+  tip: [0, 1.4],
   belly: 0.88,
   extra: (c) => {
     const s = c.s;
@@ -122,7 +138,7 @@ const potato: FishSpec = {
     const flecks = scatter(s, { t0: 0.03, t1: 1, f0: 0.04, f1: 0.9, r: 0.3, gap: 1.6, paint: 'pattern', rand, tries: 400, o: 0.7 });
     return {
       marks: [...flecks, ...blotches],
-      lines: streaks,
+      lines: [...streaks, ...grouperJaw(c)],
       median: [
         { part: 'dorsal', index: 1, marks: finSpots(c.dorsal[1].poly, rand, 0.4, 1.4) },
         { part: 'caudal', marks: finSpots(c.caudal.poly, rand, 0.4, 1.4) },
