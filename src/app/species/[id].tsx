@@ -11,6 +11,8 @@ import { Wash } from '@/components/journal/wash';
 import { OceanButton } from '@/components/ocean-button';
 import { RarityChip } from '@/components/rarity-chip';
 import { ShareDiscoveryButton } from '@/components/share/share-buttons';
+import { RaritySource } from '@/components/sightings/rarity-source';
+import { SpeciesRecordsSection } from '@/components/sightings/species-records';
 import { formatDate, SightingRow } from '@/components/sighting-row';
 import { SpeciesArt } from '@/components/species-art';
 import { ThemedText } from '@/components/themed-text';
@@ -20,6 +22,7 @@ import { announce } from '@/lib/announce';
 import { CATALOG, CATALOG_BY_ID } from '@/lib/catalog';
 import { confirmAction } from '@/lib/confirm';
 import { CATEGORY_LABEL } from '@/lib/rarity';
+import { rarityObservedNote, realRarityEntry } from '@/lib/real-rarity';
 import { darken, lighten } from '@/lib/art-color';
 import { artFor } from '@/lib/species-art';
 import { useAllSites, useAppStore, useMyUserId } from '@/lib/store';
@@ -100,6 +103,9 @@ export default function SpeciesDetailScreen() {
   const plateNumber = CATALOG.findIndex((s) => s.id === species.id) + 1;
   const firstSeen = seen ? formatDate([...mine].sort((a, b) => a.sightedOn.localeCompare(b.sightedOn))[0].sightedOn) : '';
   const mySites = new Set(mine.map((s) => s.siteId)).size;
+  // Where the tier comes from: the counts behind a real tier, or nothing when it is only ScubaGo's own estimate.
+  const rarityEntry = realRarityEntry(species.id);
+  const observedNote = rarityEntry ? rarityObservedNote(rarityEntry) : undefined;
   const newestFirst = [...mine].sort((a, b) => b.sightedOn.localeCompare(a.sightedOn) || b.createdAt.localeCompare(a.createdAt));
 
   const removeLog = async () => {
@@ -183,6 +189,9 @@ export default function SpeciesDetailScreen() {
           <View style={styles.tags}>
             <RarityChip rarity={species.rarity} />
           </View>
+          <View style={styles.raritySource}>
+            <RaritySource entry={rarityEntry} onOpenCredits={() => router.push('/credits')} />
+          </View>
         </View>
       </Paper>
 
@@ -236,7 +245,7 @@ export default function SpeciesDetailScreen() {
               />
             ))}
           </View>
-          <ShareDiscoveryButton species={species} sightings={sightings} sites={sites} ownerId={myUserId} />
+          <ShareDiscoveryButton species={species} sightings={sightings} sites={sites} ownerId={myUserId} observedNote={observedNote} />
           <OceanButton
             title="Log another sighting"
             variant="secondary"
@@ -272,6 +281,9 @@ export default function SpeciesDetailScreen() {
           ))}
         </View>
       )}
+
+      {/* Public records saved on this phone: kept apart from the diver's own sightings above, and read from the cache only. */}
+      <SpeciesRecordsSection species={species} sites={sites} />
 
       {/* Set apart below a rule: deleting the log can't be undone. */}
       {seen ? (
@@ -411,6 +423,10 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'center',
     marginTop: 6,
+  },
+  raritySource: {
+    alignItems: 'center',
+    marginTop: 2,
   },
   photoBlock: {
     gap: 6,

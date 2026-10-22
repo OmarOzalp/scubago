@@ -326,3 +326,34 @@ Everything here is from the documentation as I know it. One real call each shoul
 - **Names.** An animal whose taxon moves (a split, a new genus) can fall out, and shows up as
   unresolved. The lumps in `synonyms.ts` mean a few catalogue entries count more than one species.
 - **A snapshot at build time,** shipped with the app. A new tier needs a new build.
+
+## On the species page
+
+The species page says where its tier comes from, under the rarity chip
+(`src/components/sightings/rarity-source.tsx`, fed by `realRarityEntry(id)` in `real-rarity.ts`):
+
+- **With a real tier:** "Rare, ranked from 2,314 iNaturalist observations by 1,102 observers and 845
+  OBIS records worldwide", then "A ranking among ScubaGo's animals, not a promise of seeing one.", and a
+  link to Data & credits. The sentence is `describeRarityEvidence(entry)`: numbers have thousands
+  separators, a source that was not counted is left out (not shown as 0), a source that was asked and
+  held nothing says "no OBIS records", and an entry with no counts names the sources without numbers.
+- **Without one** (the file is empty, as checked in; the species is `unresolved`; the file is damaged):
+  "Rarity is ScubaGo's own estimate for now." No numbers and no link, so a hand-assigned tier is never
+  passed off as data.
+
+`realRarityEntry(id, data?)` returns the species' entry only from a generated, worldwide file: `undefined`
+when `generatedAt` is null, when the file is damaged, when it is a regional file (its counts are not
+worldwide) and for the "unlisted" id. The bundled file is checked once, not on every call.
+
+**The discovery card's note.** When the species has a real tier, the page passes
+`rarityObservedNote(entry)` as `observedNote` to `ShareDiscoveryButton`: "Ranked Rare from 2,314
+iNaturalist observations worldwide". It is held to 60 characters (`OBSERVED_NOTE_MAX`; the card sets the
+note in two lines of italic type): if "worldwide" would not fit it is dropped, and if the count would not
+fit either the line reads "Ranked Rare from public records worldwide". With no iNaturalist observations it
+uses the OBIS record count; with no counts, no number. Without a real tier nothing is passed and the card
+has no note.
+
+Tests: `src/lib/__tests__/real-rarity.test.ts` ("the evidence behind one species' tier", hand-written
+entries) and `src/components/__tests__/species-records-screen.test.js` (the page, with a stand-in for
+`realRarityEntry` because the bundled file is empty).
+

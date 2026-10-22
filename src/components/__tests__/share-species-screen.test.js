@@ -9,6 +9,7 @@ jest.mock('expo-router', () => ({
   router: { back: jest.fn(), push: jest.fn(), canGoBack: () => true },
   useLocalSearchParams: () => ({ id: 'reef-manta' }),
   Stack: { Screen: () => null },
+  useFocusEffect: (callback) => require('react').useEffect(callback, [callback]),
 }));
 jest.mock('expo-image', () => ({ Image: () => null }));
 jest.mock('@/global.css', () => ({}));

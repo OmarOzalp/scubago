@@ -247,6 +247,15 @@ export async function clearCachedSightings(siteId?: string): Promise<void> {
   });
 }
 
+/**
+ * The ids of every site that has a cached summary, least recently used first. Reads the index only
+ * (rebuilt from the stored keys if it is lost); never fetches and never throws: storage that cannot
+ * be read gives an empty list, as everywhere in this module.
+ */
+export async function listCachedSiteIds(): Promise<string[]> {
+  return exclusive(readIndex);
+}
+
 /** The cached summaries for many sites, without touching their order: for working out rarity across sites. */
 export async function readCachedSummaries(siteIds: readonly string[]): Promise<SiteSightings[]> {
   const found = await Promise.all(siteIds.map((id) => readCachedSightings(id, { touch: false })));

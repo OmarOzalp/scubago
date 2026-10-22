@@ -1,6 +1,6 @@
 import bundled from '@/data/real-rarity.json';
 import { INATURALIST_CREDIT, OBIS_CITATION, OBIS_CREDIT } from '@/lib/external-sightings/attribution';
-import { RARITY_ORDER, rarityRank } from '@/lib/rarity';
+import { RARITY_LABEL, RARITY_ORDER, rarityRank } from '@/lib/rarity';
 import type { Rarity, Species } from '@/lib/types';
 
 /** The catalogue's id for "something else" (UNLISTED_ID in catalog.ts, which reads this module's tiers, so it is not imported from there). */
@@ -318,6 +318,71 @@ export function realRarity(data: unknown = bundled): ReadonlyMap<string, Rarity>
 
 /** The tiers from the bundled file: empty until `scripts/real-rarity/fetch.ts` has really run. */
 export const REAL_RARITY: ReadonlyMap<string, Rarity> = realRarity();
+
+// ── The evidence behind one species' tier ────────────────────────────────────
+
+/** The bundled file, checked once: `realRarityEntry` reads it for every species page. */
+const BUNDLED_PARSED = parseRealRarityData(bundled);
+
+/**
+ * The counts and tier behind one species' real tier: what iNaturalist and OBIS hold for it
+ * worldwide. Undefined when there is nothing true to say: the data has not been generated
+ * (`generatedAt` is null, as in the file that is checked in), is damaged, is a regional file (its
+ * counts are not worldwide), or has no entry for the species (it keeps its hand-assigned tier). The
+ * "unlisted" id never has one. Never throws.
+ */
+export function realRarityEntry(id: string, data: unknown = bundled): RarityEntry | undefined {
+  const parsed = data === bundled ? BUNDLED_PARSED : parseRealRarityData(data);
+  if (!parsed || parsed.generatedAt === null || parsed.region || id === UNLISTED_ID) return undefined;
+  return Object.prototype.hasOwnProperty.call(parsed.species, id) ? parsed.species[id] : undefined;
+}
+
+const countText = (n: number) => n.toLocaleString('en-US');
+const plural = (n: number, one: string, many: string) => `${countText(n)} ${n === 1 ? one : many}`;
+
+/** "2,314 iNaturalist observations by 1,102 observers", or "no iNaturalist observations". Undefined when iNaturalist was not counted. */
+function inatEvidence(counts: SpeciesCounts['inaturalist']): string | undefined {
+  if (!counts) return undefined;
+  if (counts.observations === 0) return 'no iNaturalist observations';
+  const observations = plural(counts.observations, 'iNaturalist observation', 'iNaturalist observations');
+  return counts.observers === undefined ? observations : `${observations} by ${plural(counts.observers, 'observer', 'observers')}`;
+}
+
+/** "845 OBIS records", or "no OBIS records". Undefined when OBIS was not counted. */
+function obisEvidence(counts: SpeciesCounts['obis']): string | undefined {
+  if (!counts) return undefined;
+  return counts.records === 0 ? 'no OBIS records' : plural(counts.records, 'OBIS record', 'OBIS records');
+}
+
+/**
+ * One sentence saying where a species' real tier comes from, in numbers:
+ * "Rare, ranked from 2,314 iNaturalist observations by 1,102 observers and 845 OBIS records worldwide".
+ * A source that was not counted is left out, not shown as zero; an entry with no counts at all names
+ * the sources without numbers. Counts are written with thousands separators.
+ */
+export function describeRarityEvidence(entry: RarityEntry): string {
+  const parts = [inatEvidence(entry.inaturalist), obisEvidence(entry.obis)].filter((part): part is string => part !== undefined);
+  return `${RARITY_LABEL[entry.tier]}, ranked from ${parts.length > 0 ? parts.join(' and ') : 'iNaturalist and OBIS records'} worldwide`;
+}
+
+/** The longest `rarityObservedNote` the discovery card's note slot is meant to hold (it sets two lines of italic type). */
+export const OBSERVED_NOTE_MAX = 60;
+
+/**
+ * A short line about a species' real tier for the share card: "Ranked Rare from 2,314 iNaturalist
+ * observations worldwide". It names the number of iNaturalist observations (or, without any, OBIS
+ * records), and drops "worldwide", then the number, rather than run past `OBSERVED_NOTE_MAX`
+ * characters. Always true to the data; never invents a count.
+ */
+export function rarityObservedNote(entry: RarityEntry): string {
+  const tier = RARITY_LABEL[entry.tier];
+  const inat = entry.inaturalist && entry.inaturalist.observations > 0 ? plural(entry.inaturalist.observations, 'iNaturalist observation', 'iNaturalist observations') : undefined;
+  const obis = entry.obis && entry.obis.records > 0 ? plural(entry.obis.records, 'OBIS record', 'OBIS records') : undefined;
+  const evidence = inat ?? obis;
+  const candidates = evidence ? [`Ranked ${tier} from ${evidence} worldwide`, `Ranked ${tier} from ${evidence}`] : [];
+  candidates.push(`Ranked ${tier} from public records worldwide`, `Ranked ${tier} from public records`);
+  return candidates.find((text) => text.length <= OBSERVED_NOTE_MAX) ?? candidates[candidates.length - 1];
+}
 
 // ── Comparing with the hand-assigned tiers ───────────────────────────────────
 

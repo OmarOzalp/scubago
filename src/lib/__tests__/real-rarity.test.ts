@@ -16,14 +16,19 @@ import {
   RARITY_BANDS,
   REAL_RARITY,
   bandCounts,
+  OBSERVED_NOTE_MAX,
   buildRealRarityData,
+  describeRarityEvidence,
   parseRealRarityData,
   rarityDifferences,
+  rarityObservedNote,
   readRawCounts,
   realRarity,
+  realRarityEntry,
   scoreSpecies,
   tierCounts,
   tiersFromScores,
+  type RarityEntry,
   type RealRarityData,
   type SpeciesCounts,
 } from '@/lib/real-rarity';
@@ -844,4 +849,126 @@ describe('running the script', () => {
     expect(parseRealRarityData(read(out))).not.toBeNull();
     expect(readFileSync(join(REPO_ROOT, 'src/data/real-rarity.json'), 'utf8')).toBe(before);
   }, 60_000);
+});
+
+// ── What the species page says about where a tier comes from ─────────────────
+
+// HAND-WRITTEN entries to exercise the wording. These counts are not iNaturalist or OBIS data.
+describe('the evidence behind one species’ tier', () => {
+  const entry = (tier: Rarity, counts: SpeciesCounts, score = 1.5): RarityEntry => ({ ...counts, score, tier });
+  const full = entry('rare', { inaturalist: { observations: 2314, observers: 1102 }, obis: { records: 845 } });
+
+  describe('describeRarityEvidence', () => {
+    it('names the tier and every count, with thousands separators', () => {
+      expect(describeRarityEvidence(full)).toBe('Rare, ranked from 2,314 iNaturalist observations by 1,102 observers and 845 OBIS records worldwide');
+      expect(describeRarityEvidence(entry('legendary', { inaturalist: { observations: 1_234_567, observers: 20_000 }, obis: { records: 1_000_000 } }))).toBe(
+        'Legendary, ranked from 1,234,567 iNaturalist observations by 20,000 observers and 1,000,000 OBIS records worldwide',
+      );
+    });
+
+    it('uses the singular for one', () => {
+      expect(describeRarityEvidence(entry('epic', { inaturalist: { observations: 1, observers: 1 }, obis: { records: 1 } }))).toBe(
+        'Epic, ranked from 1 iNaturalist observation by 1 observer and 1 OBIS record worldwide',
+      );
+    });
+
+    it('leaves out a source or a count that was not fetched, instead of showing it as zero', () => {
+      expect(describeRarityEvidence(entry('uncommon', { inaturalist: { observations: 40 } }))).toBe('Uncommon, ranked from 40 iNaturalist observations worldwide');
+      expect(describeRarityEvidence(entry('uncommon', { inaturalist: { observations: 40, observers: 12 } }))).toBe(
+        'Uncommon, ranked from 40 iNaturalist observations by 12 observers worldwide',
+      );
+      expect(describeRarityEvidence(entry('common', { obis: { records: 9_000 } }))).toBe('Common, ranked from 9,000 OBIS records worldwide');
+    });
+
+    it('says "no" for a source that was asked and held nothing', () => {
+      expect(describeRarityEvidence(entry('legendary', { inaturalist: { observations: 3, observers: 2 }, obis: { records: 0 } }))).toBe(
+        'Legendary, ranked from 3 iNaturalist observations by 2 observers and no OBIS records worldwide',
+      );
+      expect(describeRarityEvidence(entry('legendary', { inaturalist: { observations: 0, observers: 0 }, obis: { records: 5 } }))).toBe(
+        'Legendary, ranked from no iNaturalist observations and 5 OBIS records worldwide',
+      );
+    });
+
+    it('names the sources without any number when the entry holds no counts', () => {
+      const sentence = describeRarityEvidence(entry('rare', {}));
+      expect(sentence).toBe('Rare, ranked from iNaturalist and OBIS records worldwide');
+      expect(sentence).not.toMatch(/\d/);
+    });
+  });
+
+  describe('realRarityEntry', () => {
+    const file = (overrides: Record<string, unknown> = {}) => ({
+      version: 1,
+      generatedAt: '2026-10-22T00:00:00.000Z',
+      region: null,
+      species: { 'whale-shark': full, orca: entry('epic', { inaturalist: { observations: 12, observers: 5 } }) },
+      ...overrides,
+    });
+
+    it('is undefined for every species while the checked-in file is empty, so the page claims no data', () => {
+      for (const species of SPECIES) expect(realRarityEntry(species.id)).toBeUndefined();
+      // Not-generated data with species in it is still not data.
+      expect(realRarityEntry('whale-shark', { generatedAt: null, species: { 'whale-shark': full } })).toBeUndefined();
+    });
+
+    it('gives the counts and tier of a species that has them', () => {
+      const found = realRarityEntry('whale-shark', file());
+      expect(found?.tier).toBe('rare');
+      expect(found?.inaturalist).toEqual({ observations: 2314, observers: 1102 });
+      expect(found?.obis).toEqual({ records: 845 });
+      expect(realRarityEntry('orca', file())?.tier).toBe('epic');
+    });
+
+    it('is undefined for a species the file has no entry for, which keeps its hand-assigned tier', () => {
+      const data = file({ unresolved: [{ id: 'sawfish', scientificName: 'Pristis pristis', reason: 'No iNaturalist taxon matched its name.' }] });
+      expect(realRarityEntry('sawfish', data)).toBeUndefined();
+      expect(realRarityEntry('not-a-species', data)).toBeUndefined();
+      // Inherited object keys are not species.
+      expect(realRarityEntry('constructor', data)).toBeUndefined();
+      expect(realRarityEntry('__proto__', data)).toBeUndefined();
+    });
+
+    it('is undefined for the unlisted id, for a regional file (its counts are not worldwide) and for damaged data', () => {
+      expect(realRarityEntry(UNLISTED_ID, file({ species: { [UNLISTED_ID]: full } }))).toBeUndefined();
+      expect(realRarityEntry('whale-shark', file({ region: 'gbr' }))).toBeUndefined();
+      expect(realRarityEntry('whale-shark', file({ species: { 'whale-shark': { ...full, tier: 'mythic' } } }))).toBeUndefined();
+      expect(realRarityEntry('whale-shark', 'nonsense')).toBeUndefined();
+      expect(realRarityEntry('whale-shark', null)).toBeUndefined();
+    });
+
+    it('agrees with realRarity about which species have a tier', () => {
+      const data = file();
+      for (const id of ['whale-shark', 'orca', 'sawfish']) expect(realRarityEntry(id, data)?.tier).toBe(realRarity(data).get(id));
+    });
+  });
+
+  describe('rarityObservedNote (the line on the share card)', () => {
+    it('is short, names the tier and the iNaturalist count, and says it is worldwide', () => {
+      expect(rarityObservedNote(full)).toBe('Ranked Rare from 2,314 iNaturalist observations worldwide');
+    });
+
+    it('never runs past the card’s slot, whatever the tier and count, and never invents a number', () => {
+      const tiers: Rarity[] = ['common', 'uncommon', 'rare', 'epic', 'legendary'];
+      for (const tier of tiers) {
+        for (const observations of [1, 12, 2314, 99_999, 1_234_567, 123_456_789]) {
+          const note = rarityObservedNote(entry(tier, { inaturalist: { observations, observers: 3 }, obis: { records: 77 } }));
+          expect(note.length).toBeLessThanOrEqual(OBSERVED_NOTE_MAX);
+          expect(note).toMatch(new RegExp(`^Ranked ${tier[0].toUpperCase()}${tier.slice(1)} from `));
+          // Every number in it is the iNaturalist count itself.
+          expect(note.replace(/,/g, '').match(/\d+/g) ?? [observations.toString()]).toEqual([observations.toString()]);
+        }
+      }
+    });
+
+    it('drops "worldwide" before it would overrun, and says "1 observation" for one', () => {
+      expect(rarityObservedNote(entry('legendary', { inaturalist: { observations: 1_234_567 } }))).toBe('Ranked Legendary from 1,234,567 iNaturalist observations');
+      expect(rarityObservedNote(entry('legendary', { inaturalist: { observations: 1 } }))).toBe('Ranked Legendary from 1 iNaturalist observation worldwide');
+    });
+
+    it('falls back to OBIS records, then to no number at all', () => {
+      expect(rarityObservedNote(entry('common', { obis: { records: 4_500 } }))).toBe('Ranked Common from 4,500 OBIS records worldwide');
+      expect(rarityObservedNote(entry('rare', { inaturalist: { observations: 0 }, obis: { records: 0 } }))).toBe('Ranked Rare from public records worldwide');
+      expect(rarityObservedNote(entry('rare', {}))).toBe('Ranked Rare from public records worldwide');
+    });
+  });
 });
