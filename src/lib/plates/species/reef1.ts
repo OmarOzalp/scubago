@@ -416,7 +416,8 @@ const triggerBody = (depth: number) => ({
   softBelly: false,
   engraving: 'smooth' as const,
 });
-const trigger1 = { from: 31, to: 37, spines: 3, rays: 0, h: [[0, 14], [0.5, 8], [1, 4]] as [number, number][], notch: 0.55, rake: [20, 30] as [number, number] };
+// The first dorsal: a low-slung triangle of three spines joined by membrane, not a tall serrated horn.
+const trigger1 = { from: 28, to: 42, spines: 3, rays: 0, h: [[0, 9], [0.5, 7], [1, 4]] as [number, number][], notch: 0.2, rake: [20, 30] as [number, number] };
 
 // ── Titan triggerfish ────────────────────────────────────────────────────────
 // A dark moustache band above the mouth; a cross-hatched pattern of dark scales with pale edges;
@@ -497,7 +498,7 @@ const queenTrigger: FishSpec = {
   ...triggerBody(0.9),
   eye: { x: 22, f: 0.24, r: 1.3, iris: '#C9A54A' },
   dorsal: [
-    { from: 30, to: 35, spines: 3, rays: 0, h: [[0, 10], [1, 4]], notch: 0.5, rake: [20, 30] },
+    { from: 28, to: 42, spines: 3, rays: 0, h: [[0, 9], [0.5, 7], [1, 4]], notch: 0.2, rake: [20, 30] },
     { from: 46, to: 74, rays: 28, h: [[0, 18], [0.15, 12], [0.45, 5], [1, 3.6]], rake: [40, 70] },
   ],
   anal: [{ from: 48, to: 74, rays: 26, h: [[0, 16], [0.15, 10], [0.45, 4.4], [1, 3.2]], rake: [40, 70] }],
