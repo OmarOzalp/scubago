@@ -1,5 +1,5 @@
 import { REGIONS_BY_ID } from '@/data/regions';
-import { canonicalSiteId } from '@/data/sites';
+import { canonicalSiteId, RETIRED_SITE_IDS } from '@/data/sites';
 import { UNLISTED_ID } from '@/lib/catalog';
 import { bySighting, byDive, type Facts } from '@/lib/rewards/facts';
 import { type Place, placeResolver } from '@/lib/rewards/places';
@@ -29,7 +29,7 @@ export interface PassportGroup {
   name: string;
   /** Visited sites, most recently visited first. */
   stamps: PassportStamp[];
-  /** How many sites in the lookup are in this group, visited or not, to show "3 of 41". */
+  /** How many listed sites are in this group, visited or not (and any other with a stamp), to show "3 of 41". */
   knownSites: number;
   firstVisitedOn: string;
   lastVisitedOn: string;
@@ -94,7 +94,10 @@ export function passportFrom(facts: Facts): PassportGroup[] {
     if (stamp.firstVisitedOn < entry.firstVisitedOn) entry.firstVisitedOn = stamp.firstVisitedOn;
     if (stamp.lastVisitedOn > entry.lastVisitedOn) entry.lastVisitedOn = stamp.lastVisitedOn;
   }
+  // Only listed sites are there to visit: a hidden copy is counted as the site it stands for, and a
+  // retired one only once stamped. Counting them would leave a page that can never be completed.
   for (const siteId of facts.input.sites.keys()) {
+    if (!stamps.has(siteId) && (canonicalSiteId(siteId) !== siteId || RETIRED_SITE_IDS.has(siteId))) continue;
     const group = groups.get(facts.placeOf(siteId)!.group.id);
     if (group) group.knownSites++;
   }

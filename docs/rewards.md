@@ -88,7 +88,8 @@ away) counts at the listed site it stands for (`canonicalSiteId` in `src/data/si
 passport and the site and place badges alike.
 
 Each group has an `id` (`region:great-barrier-reef`, `country:thailand`), a `name`, its `stamps`,
-`knownSites` (the sites in the lookup in that group, visited or not, for "3 of 41") and first and
+`knownSites` (the listed sites in that group, visited or not, for "3 of 41"; a retired site only once
+it has a stamp, so visiting every listed site completes the page) and first and
 last visit days. Groups and the stamps in them are sorted most recently visited first. A stamp
 holds the site, `firstVisitedOn`, `lastVisitedOn`, `visits` (distinct days across dives and
 sightings), `dives` and `speciesIds` (in the order first seen). `siteStamp(siteId, input)` gives

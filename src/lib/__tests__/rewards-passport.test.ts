@@ -1,6 +1,6 @@
 import { describe, expect, it } from '@jest/globals';
 import { REGIONS_BY_ID } from '@/data/regions';
-import { SITES_BY_ID } from '@/data/sites';
+import { SITES, SITES_BY_ID } from '@/data/sites';
 import { CATALOG_BY_ID } from '@/lib/catalog';
 import { evaluatePassport, siteStamp, type PassportGroup, type RewardsInput } from '@/lib/rewards';
 import type { Dive, DiveSite, Region, Sighting } from '@/lib/types';
@@ -142,5 +142,16 @@ describe('a site with a hidden copy', () => {
     expect(stamps.map((s) => s.siteId)).toEqual(['cod-hole']);
     expect(stamps[0]).toMatchObject({ siteName: 'Cod Hole', visits: 2, dives: 1, speciesIds: ['clownfish', 'green-turtle'] });
     expect(siteStamp('cod-hole', input)).toEqual(stamps[0]);
+  });
+});
+
+describe('the sites a page counts', () => {
+  it('are the listed ones, so visiting every site on a page completes it', () => {
+    const reef = SITES.filter((s) => s.country === 'Australia');
+    const groups = evaluatePassport({ sightings: [], dives: reef.map((s, i) => dived(s.id, '2026-03-01', i + 1)), sites: SITES_BY_ID, catalog: CATALOG_BY_ID });
+    const page = group(groups, 'region:great-barrier-reef');
+    expect(page.stamps).toHaveLength(page.knownSites);
+    // The hidden Cod Hole is in the lookup, but there is nothing more to visit for it.
+    expect(SITES_BY_ID.has('osm-node-270802348')).toBe(true);
   });
 });
