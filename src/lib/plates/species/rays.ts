@@ -411,13 +411,31 @@ const electric: RaySpec = {
       ],
       true,
     );
-    // Seen from above the dorsal fins are slim leaves standing on the tail's midline.
-    const dorsal = (y: number, len: number): Pt[] => spline([[0, y], [1.3, y + len * 0.35], [1.1, y + len * 0.8], [0, y + len, 1], [-0.7, y + len * 0.6], [-0.6, y + len * 0.2]], true);
+    // The dorsal fins stand up from the tail's midline, seen leaning a little to one side: small
+    // triangles with a swept trailing edge, inked, with a few rays so they don't read as holes.
+    const dorsal = (y: number, len: number, lean: number): { poly: Pt[]; lines: Line[] } => {
+      const apex: Pt = [lean, y + len * 0.5];
+      return {
+        poly: spline([[0, y], [lean * 0.55, y + len * 0.12], [apex[0], apex[1], 1], [lean * 0.45, y + len * 0.82], [0, y + len, 1]], true, 0.8),
+        lines: [0.3, 0.6].map((k) => ({ pts: [[0, y + len * (0.1 + k * 0.8)], lerp([0, y + len * (0.1 + k * 0.8)], apex, 0.82)] as Pt[], w: 0.6, taper: 'end' as const })),
+      };
+    };
+    const d1 = dorsal(94, 10, 7.5);
+    const d2 = dorsal(106.5, 8, 6);
     const fins: Part[] = [
       { poly: caudal, paint: 'back', lines: [0.3, 0.5, 0.7].map((k) => ({ pts: [[0, 122], [lerp([-10, 136], [10, 136], k)[0], 138]] as Pt[], w: 0.7, taper: 'end' as const })), edge: 0.85 },
-      { poly: dorsal(95, 8), paint: 'back', lines: [], edge: 0.8 },
-      { poly: dorsal(107, 6.5), paint: 'back', lines: [], edge: 0.8 },
+      { poly: d1.poly, paint: 'back', lines: d1.lines, edge: 1.2 },
+      { poly: d2.poly, paint: 'back', lines: d2.lines, edge: 1.2 },
     ];
+    // The flat pelvic lobes are engraved with a few rays fanning from their roots.
+    const pelvicLines: Line[] = [0, 1].flatMap((sx) =>
+      [
+        [[13, 82.5], [24.4, 80]],
+        [[12, 84], [23.6, 85.4]],
+        [[10, 85.6], [19.4, 90.2]],
+        [[7.5, 86.6], [10.6, 91.4]],
+      ].map(([a, b]) => ({ pts: [lerp(a as Pt, b as Pt, 0), lerp(a as Pt, b as Pt, 1)].map(([x, y]) => [sx ? -x : x, y] as Pt), w: 1.5, taper: 'both' as const })),
+    );
     // Marbling: a net of cream rings and worm-tracks on dark brown.
     const marks: Fill[] = [];
     for (let k = 0; k < 300; k++) {
@@ -435,7 +453,7 @@ const electric: RaySpec = {
       }
     }
     void c;
-    return { near: fins, marks, lines: papillae };
+    return { near: fins, marks, lines: [...papillae, ...pelvicLines] };
   },
 };
 
