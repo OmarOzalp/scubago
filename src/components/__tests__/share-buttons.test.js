@@ -258,6 +258,43 @@ describe('Share your archipelago', () => {
       expect(revoke).not.toHaveBeenCalled();
     });
 
+    describe('while private sightings are left off the card', () => {
+      // Home's scene shows every one of the diver's animals, private ones too.
+      const privateShark = [sighting('a', 'reef-manta'), sighting('b', 'whale-shark', { visibility: 'private' })];
+      const toggle = () => root.root.findByType(Switch);
+
+      test('the card draws its illustration when they add an animal to the island, and the picture comes back with them', async () => {
+        const pending = deferred();
+        await render(<ShareArchipelagoButton {...props} sightings={privateShark} captureSnapshot={() => pending.promise} api={api()} />);
+        await act(async () => pressable('Share your archipelago').props.onPress());
+        expect(toggle().props.value).toBe(false);
+        // Not held for a picture the card won't use.
+        expect(texts()).not.toContain('Framing your islands…');
+        expect(pressable('Share this card').props.disabled).toBe(false);
+        await act(async () => pending.resolve('blob:http://localhost/island'));
+        expect(root.root.findAllByType(Image)).toHaveLength(0);
+        await act(async () => toggle().props.onValueChange(true));
+        expect(hero().props.source.uri).toBe('blob:http://localhost/island');
+        await act(async () => toggle().props.onValueChange(false));
+        expect(root.root.findAllByType(Image)).toHaveLength(0);
+      });
+
+      test('a snapshot passed in is left off too', async () => {
+        await render(<ShareArchipelagoButton {...props} sightings={privateShark} snapshot="file:///cache/island.png" api={api()} />);
+        await act(async () => pressable('Share your archipelago').props.onPress());
+        expect(root.root.findAllByType(Image)).toHaveLength(0);
+        expect(pressable('Share this card').props.disabled).toBe(false);
+      });
+
+      test('the picture stays when they add nothing the island shows (another sighting of a species already on the card)', async () => {
+        const mine = [sighting('a', 'reef-manta'), sighting('b', 'reef-manta', { visibility: 'private', sightedOn: '2026-03-13' })];
+        await render(<ShareArchipelagoButton {...props} sightings={mine} captureSnapshot={async () => 'blob:http://localhost/island'} api={api()} />);
+        await act(async () => pressable('Share your archipelago').props.onPress());
+        expect(toggle().props.value).toBe(false);
+        expect(hero().props.source.uri).toBe('blob:http://localhost/island');
+      });
+    });
+
     test('a snapshot passed in is used as it is, without taking another', async () => {
       const capture = jest.fn(async () => 'blob:http://localhost/other');
       await render(<ShareArchipelagoButton {...props} sightings={sightings} snapshot="file:///cache/island.png" captureSnapshot={capture} api={api()} />);

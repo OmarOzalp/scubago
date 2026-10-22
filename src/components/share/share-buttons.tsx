@@ -202,10 +202,6 @@ export function ShareArchipelagoButton({
   // The picture taken for this opening of the preview, and whether it is still being taken.
   const [taken, setTaken] = useState<{ uri?: string; framing: boolean }>({ framing: false });
   const attempt = useRef(0);
-  const shown = snapshot ?? taken.uri;
-  // With a snapshot, the card isn't ready to capture until that picture has loaded (or failed to).
-  const [settledFor, setSettledFor] = useState<string | undefined>();
-  const onSettled = useCallback(() => setSettledFor(shown), [shown]);
   // A taken picture is let go when it is replaced, when the preview closes, and on unmount.
   useEffect(() => () => releaseSnapshot(taken.uri), [taken.uri]);
   useEffect(() => () => void attempt.current++, []);
@@ -218,6 +214,18 @@ export function ShareArchipelagoButton({
   );
   const choice = usePrivateChoice(kept, shared === null);
   const { reset } = choice;
+
+  // Home's scene shows all the diver's animals, private ones too. While those are left off the card
+  // and they add a species to it (and so perhaps an island or a level), a picture of the scene would
+  // show what the card leaves out, so the card draws its illustration instead. Private sightings only
+  // ever add, so the same number of species is the same island.
+  const pictureOff = !choice.include && (withPrivate?.speciesCount ?? 0) > (shared?.speciesCount ?? 0);
+  const shown = pictureOff ? undefined : snapshot ?? taken.uri;
+  // A picture the card won't use doesn't hold Share (it is still taken, for the switch to bring in).
+  const framing = taken.framing && !pictureOff;
+  // With a snapshot, the card isn't ready to capture until that picture has loaded (or failed to).
+  const [settledFor, setSettledFor] = useState<string | undefined>();
+  const onSettled = useCallback(() => setSettledFor(shown), [shown]);
 
   const show = useCallback(() => {
     reset();
@@ -250,8 +258,8 @@ export function ShareArchipelagoButton({
         title="Share your archipelago"
         cardLabel={describeArchipelago(data)}
         fileName={cardFileName('archipelago', data.name)}
-        ready={!taken.framing && (!shown || settledFor === shown)}
-        note={taken.framing ? 'Framing your islands…' : privateNote(kept, choice.include)}
+        ready={!framing && (!shown || settledFor === shown)}
+        note={framing ? 'Framing your islands…' : privateNote(kept, choice.include)}
         controls={kept > 0 && shared ? <PrivateSwitch count={kept} value={choice.include} onChange={choice.setInclude} /> : null}
         api={api}>
         <ArchipelagoCard
@@ -264,7 +272,7 @@ export function ShareArchipelagoButton({
           sitesDived={data.sitesDived}
           rarest={data.rarest}
           snapshot={shown}
-          framing={taken.framing}
+          framing={framing}
           onSettled={onSettled}
         />
       </SharePreview>

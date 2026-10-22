@@ -85,7 +85,8 @@ has loaded; if it fails to load the illustration stays.
 **Home passes one.** Tapping Share on Home takes a picture of the live 3D island and puts it on the
 card. The card shows the island Home is showing (Home's own, or the one picked from the archipelago's
 pills): Home's scene draws one island at a time, so the other islands are not in it. Only the
-illustration draws all of them.
+illustration draws all of them. The scene shows private animals too, so while private sightings that
+add a species are left off the card, the card draws the illustration instead.
 
 `ShareArchipelagoButton` takes the picture itself, through a prop (`captureSnapshot`), or is handed
 one (`snapshot`, an image URI: `file://`, `data:` or `blob:`; anything React Native's `<Image>` can
