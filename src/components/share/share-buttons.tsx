@@ -4,11 +4,12 @@
  * and draws nothing until then. The species and dive buttons are paper buttons in the app's
  * style; Home's is a round icon beside "customize".
  */
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { IconButton } from '@/components/journal/icon-button';
 import { OceanButton } from '@/components/ocean-button';
 import { cardFileName } from '@/components/share/card-spec';
+import { releaseSnapshot } from '@/lib/scene-snapshot';
 import type { Dive, DiveSite, Sighting, Species } from '@/lib/types';
 
 import { ArchipelagoCard } from './archipelago-card';
@@ -104,13 +105,22 @@ export function ShareDiveButton({
   );
 }
 
-/** A round Share button for Home: the diver's archipelago as a card. Nothing shows until they have found a species. */
+/**
+ * A round Share button for Home: the diver's archipelago as a card. Nothing shows until they have found a species.
+ *
+ * The hero is a picture of the live 3D scene when there is one. Home passes `captureSnapshot` (it
+ * owns the scene, so it says which one and how big); it is called afresh each time the preview
+ * opens, while the preview says "Framing your islands…" and holds Share, and the card shows its
+ * illustration if the picture can't be taken. A prop rather than a global lookup here keeps the cards
+ * and buttons free of any knowledge of the scene, and lets a test hand in a fake.
+ */
 export function ShareArchipelagoButton({
   name,
   sightings,
   dives,
   ownerId,
   snapshot,
+  captureSnapshot,
   api,
 }: {
   /** The diver's name for their island. */
@@ -120,27 +130,55 @@ export function ShareArchipelagoButton({
   ownerId?: string;
   /** A picture of the 3D scene (an image URI) for the card's hero; without one the card draws an illustration. */
   snapshot?: string;
+  /** Takes a fresh picture of the 3D scene each time the preview opens (null if it can't). Unused when `snapshot` is given. */
+  captureSnapshot?: () => Promise<string | null>;
   api?: ShareApi;
 }) {
   const [open, setOpen] = useState(false);
+  // The picture taken for this opening of the preview, and whether it is still being taken.
+  const [taken, setTaken] = useState<{ uri?: string; framing: boolean }>({ framing: false });
+  const attempt = useRef(0);
+  const shown = snapshot ?? taken.uri;
   // With a snapshot, the card isn't ready to capture until that picture has loaded (or failed to).
   const [settledFor, setSettledFor] = useState<string | undefined>();
-  const close = useCallback(() => setOpen(false), []);
-  const onSettled = useCallback(() => setSettledFor(snapshot), [snapshot]);
+  const onSettled = useCallback(() => setSettledFor(shown), [shown]);
+  // A taken picture is let go when it is replaced, when the preview closes, and on unmount.
+  useEffect(() => () => releaseSnapshot(taken.uri), [taken.uri]);
+  useEffect(() => () => void attempt.current++, []);
+
+  const show = useCallback(() => {
+    setOpen(true);
+    if (!captureSnapshot || snapshot) return;
+    const mine = ++attempt.current;
+    setTaken({ framing: true });
+    new Promise<string | null>((resolve) => resolve(captureSnapshot())).then(
+      (uri) => uri,
+      () => null,
+    ).then((uri) => {
+      if (mine !== attempt.current) return releaseSnapshot(uri); // closed meanwhile
+      setTaken({ uri: uri ?? undefined, framing: false });
+    });
+  }, [captureSnapshot, snapshot]);
+  const close = useCallback(() => {
+    attempt.current++;
+    setTaken({ framing: false });
+    setOpen(false);
+  }, []);
+
   const data = useMemo(() => archipelagoData(name, sightings, dives, ownerId), [name, sightings, dives, ownerId]);
   const kept = useMemo(() => privateCount(sightings, ownerId), [sightings, ownerId]);
   if (!data) return null;
   return (
     <>
-      <IconButton icon="share" accessibilityLabel="Share your archipelago" accessibilityHint="Shows a picture of your islands to share" onPress={() => setOpen(true)} />
+      <IconButton icon="share" accessibilityLabel="Share your archipelago" accessibilityHint="Shows a picture of your islands to share" onPress={show} />
       <SharePreview
         visible={open}
         onClose={close}
         title="Share your archipelago"
         cardLabel={describeArchipelago(data)}
         fileName={cardFileName('archipelago', data.name)}
-        ready={!snapshot || settledFor === snapshot}
-        note={privateNote(kept)}
+        ready={!taken.framing && (!shown || settledFor === shown)}
+        note={taken.framing ? 'Framing your islands…' : privateNote(kept)}
         api={api}>
         <ArchipelagoCard
           name={data.name}
@@ -151,7 +189,8 @@ export function ShareArchipelagoButton({
           islands={data.islands}
           sitesDived={data.sitesDived}
           rarest={data.rarest}
-          snapshot={snapshot}
+          snapshot={shown}
+          framing={taken.framing}
           onSettled={onSettled}
         />
       </SharePreview>

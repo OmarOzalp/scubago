@@ -1,8 +1,9 @@
 import { afterEach, beforeEach, describe, expect, jest, test } from '@jest/globals';
 import React, { act } from 'react';
-import { Modal } from 'react-native';
+import { Image, Modal } from 'react-native';
 import { create } from 'react-test-renderer';
 import HomeScreen from '@/app/(tabs)/index';
+import { HERO_SNAPSHOT, registerSceneCapture } from '@/lib/scene-snapshot';
 
 // The island's 3D scene (three.js), its editor and the first-launch intro are beside the point here.
 jest.mock('@/global.css', () => ({}));
@@ -64,5 +65,82 @@ describe('Home’s Share button', () => {
     await render();
     expect(shareButton()).toHaveLength(0);
     expect(editButton().length).toBeGreaterThan(0);
+  });
+});
+
+describe('the picture of the 3D island on the archipelago card', () => {
+  const cardImage = () => root.root.findAllByType(Image);
+  const offs = [];
+  const scene = (capture) => { const off = registerSceneCapture('home', capture); offs.push(off); return off; };
+  afterEach(() => { while (offs.length) offs.pop()(); });
+  beforeEach(() => { mockSightings = [sighting('a', 'reef-manta'), sighting('b', 'whale-shark')]; });
+
+  test('is taken when Share is tapped, at twice the hero’s size, and put on the card', async () => {
+    const capture = jest.fn(async () => 'blob:http://localhost/island');
+    scene(capture);
+    await render();
+    await act(async () => shareButton()[0].props.onPress());
+    expect(capture).toHaveBeenCalledTimes(1);
+    expect(capture).toHaveBeenCalledWith(HERO_SNAPSHOT);
+    expect(cardImage()).toHaveLength(1);
+    expect(cardImage()[0].props.source).toEqual({ uri: 'blob:http://localhost/island' });
+    expect(texts()).not.toContain('Framing your islands…');
+  });
+
+  test('is taken afresh every time the preview opens', async () => {
+    const capture = jest.fn()
+      .mockResolvedValueOnce('blob:http://localhost/one')
+      .mockResolvedValueOnce('blob:http://localhost/two');
+    scene(capture);
+    await render();
+    await act(async () => shareButton()[0].props.onPress());
+    expect(cardImage()[0].props.source.uri).toBe('blob:http://localhost/one');
+    await act(async () => root.root.findAll((n) => n.props.accessibilityLabel === 'Close the preview' && typeof n.props.onPress === 'function')[0].props.onPress());
+    await act(async () => shareButton()[0].props.onPress());
+    expect(capture).toHaveBeenCalledTimes(2);
+    expect(cardImage()[0].props.source.uri).toBe('blob:http://localhost/two');
+  });
+
+  test('says it is framing the islands while the scene is read', async () => {
+    let finish;
+    scene(() => new Promise((resolve) => { finish = resolve; }));
+    await render();
+    await act(async () => shareButton()[0].props.onPress());
+    expect(texts()).toContain('Framing your islands…');
+    expect(cardImage()).toHaveLength(0);
+    await act(async () => finish('file:///cache/GLView/island.png'));
+    expect(texts()).not.toContain('Framing your islands…');
+    expect(cardImage()[0].props.source.uri).toBe('file:///cache/GLView/island.png');
+  });
+
+  test.each([
+    ['Home has no scene (Lite mode, Reduce Motion, the scene’s error fallback, no WebGL)', null],
+    ['the capture fails', () => { throw new Error('GL lost'); }],
+    ['the capture returns nothing', async () => null],
+  ])('the card draws its illustration when %s', async (_name, capture) => {
+    if (capture) scene(capture);
+    await render();
+    await act(async () => shareButton()[0].props.onPress());
+    expect(root.root.findAllByType(Modal)).toHaveLength(1);
+    expect(cardImage()).toHaveLength(0);
+    expect(texts()).toEqual(expect.arrayContaining(['Share your archipelago', 'My rarest finds']));
+    expect(texts()).not.toContain('Framing your islands…');
+  });
+
+  test('a scene that is too slow gives up after about a second and a half', async () => {
+    jest.useFakeTimers();
+    try {
+      scene(() => new Promise(() => {}));
+      await render();
+      await act(async () => shareButton()[0].props.onPress());
+      expect(texts()).toContain('Framing your islands…');
+      await act(async () => { await jest.advanceTimersByTimeAsync(1400); });
+      expect(texts()).toContain('Framing your islands…');
+      await act(async () => { await jest.advanceTimersByTimeAsync(200); });
+      expect(texts()).not.toContain('Framing your islands…');
+      expect(cardImage()).toHaveLength(0);
+    } finally {
+      jest.useRealTimers();
+    }
   });
 });

@@ -26,10 +26,14 @@ import { AREAS, foundAreas, foundIslands, HOME_ISLAND, ISLANDS, isIsland, island
 import { deriveHome, HOME_STAGES } from '@/lib/home';
 import { useAppStore, useMyDives, useMySightings, useMyUserId, useNextDiveNumber } from '@/lib/store';
 import { macroResidents } from '@/lib/macro-life';
+import { captureScene, HERO_SNAPSHOT } from '@/lib/scene-snapshot';
 import { noneSwim, type MarineModel } from '@/lib/swimming';
 
 /** Ink on the island's water (the scene's own colours, the same in both schemes). */
 const ON_WATER = '#1F4B40';
+
+/** The share card's hero: a fresh picture of the island as it is on this card, or null (the card then draws its illustration). */
+const captureHeroSnapshot = () => captureScene('home', HERO_SNAPSHOT);
 
 export default function HomeScreen() {
   const theme = useTheme();
@@ -95,7 +99,7 @@ export default function HomeScreen() {
         eyebrow="Growing with every dive"
         title="Your ocean"
         accessory={<View style={styles.headerButtons}>
-          {!loading && <ShareArchipelagoButton name={saved.preferences.name} sightings={mine} dives={dives} ownerId={owner} />}
+          {!loading && <ShareArchipelagoButton name={saved.preferences.name} sightings={mine} dives={dives} ownerId={owner} captureSnapshot={captureHeroSnapshot} />}
           <IconButton icon="edit" accessibilityLabel="Customize your home" onPress={() => !loading && setEditing(true)} style={{ opacity: loading ? 0.4 : 1 }} />
         </View>}
       />

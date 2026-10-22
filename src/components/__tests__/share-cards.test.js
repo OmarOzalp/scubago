@@ -228,6 +228,34 @@ describe('ArchipelagoCard', () => {
     expect(tree2.root.findAllByType(Image)).toHaveLength(0);
   });
 
+  test('draws no illustration while the picture is being taken or loading, and brings it back if there is none or it fails', async () => {
+    const { Image } = require('react-native');
+    const size = (tree) => JSON.stringify(tree.toJSON()).length;
+    const plain = await render(<ArchipelagoCard {...props} />);
+    const withArt = size(plain);
+    await act(async () => plain.unmount());
+    // Being taken: calm water only, and no picture yet.
+    const framing = await render(<ArchipelagoCard {...props} framing />);
+    expect(size(framing)).toBeLessThan(withArt - 1000);
+    expect(framing.root.findAllByType(Image)).toHaveLength(0);
+    // Taken, loading: the picture isn't visible yet, and the illustration isn't there to flash under it.
+    await act(async () => framing.update(<ArchipelagoCard {...props} snapshot="blob:http://localhost/island" />));
+    expect(size(framing)).toBeLessThan(withArt - 1000);
+    // Loaded: the picture is the hero. Failed: the illustration is back.
+    await act(async () => framing.root.findAllByType(Image)[0].props.onLoad());
+    expect(framing.root.findAllByType(Image)[0].props.style[1].opacity).toBe(1);
+    await act(async () => framing.update(<ArchipelagoCard {...props} snapshot="blob:http://localhost/gone" />));
+    await act(async () => framing.root.findAllByType(Image)[0].props.onError());
+    expect(framing.root.findAllByType(Image)).toHaveLength(0);
+    expect(size(framing)).toBeGreaterThan(withArt - 200);
+  });
+
+  test('draws each island in the illustration with its own shore (the habitat the 3D scene gives it)', async () => {
+    const { IslandArt } = require('@/components/home/island-art');
+    const tree = await render(<ArchipelagoCard {...props} islands={['coral-reef', 'kelp-forest', 'volcanic-pinnacle', 'mangroves', 'shipwreck']} />);
+    expect(tree.root.findAllByType(IslandArt.type).map((art) => art.props.habitat)).toEqual(['island', 'kelp', 'volcanic', 'mangrove', 'wreck']);
+  });
+
   test('is drawn the same whether the phone is in light or dark mode', async () => {
     const draw = async (scheme) => {
       mockScheme = scheme;

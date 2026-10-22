@@ -20,6 +20,7 @@ The code:
   - `share-buttons.tsx`: the three Share buttons, which build a card from the records a screen
     already has.
 - `src/lib/share.ts` (iOS and Android) and `src/lib/share.web.ts` (web): the share service.
+- `src/lib/scene-snapshot.ts`: a picture of the live 3D scene for the archipelago card's hero (below).
 - The buttons: the species page (only once the diver has shared a sighting of the species), a dive's
   page, and Home (a round button beside "customize", once the diver has a species).
 
@@ -66,7 +67,7 @@ left out), the animals seen as small plates with their names (up to six; past th
 "+N more"), the buddy and the centre stamp. `species` is every animal seen, rarest first.
 
 **`ArchipelagoCard`** (`name`, `rank?`, `level`, `speciesCount`, `islandsFound`, `islandsTotal?`,
-`sitesDived`, `rarest`, `islands?`, `snapshot?`, `onSettled?`): the island's name, the hero picture,
+`sitesDived`, `rarest`, `islands?`, `snapshot?`, `framing?`, `onSettled?`): the island's name, the hero picture,
 level, species, islands found out of five and sites dived, and the three rarest finds as small plates.
 
 ### The hero, and the 3D snapshot
@@ -75,14 +76,84 @@ Without a `snapshot` the hero is an illustration composed from `IslandArt`: Home
 other islands the diver has found around it. With one, the picture covers the illustration once it
 has loaded; if it fails to load the illustration stays.
 
-For whoever captures the 3D scene: pass **`snapshot`** as an image URI (a `file://` path, a `data:` URI
-or a `blob:` URL; anything React Native's `<Image>` can show). The hero frame is about 868×406 design pixels
-(2.1:1; a little shorter when the island's name takes two lines): the image is cropped to fill it,
-centred, so frame the island in the middle and leave room at the sides. 1736×812 pixels or more keeps
-it sharp. `ShareArchipelagoButton` takes the same
-`snapshot` prop and passes it through; Share waits until the picture has loaded or failed
-(`onSettled`), so the shared PNG never has a half-loaded hero. The picture is only used, never
-stored.
+**Home passes one.** Tapping Share on Home takes a picture of the live 3D island and puts it on the
+card. The card shows the island Home is showing (Home's own, or the one picked from the archipelago's
+pills): Home's scene draws one island at a time, so the other islands are not in it. Only the
+illustration draws all of them.
+
+`ShareArchipelagoButton` takes the picture itself, through a prop (`captureSnapshot`), or is handed
+one (`snapshot`, an image URI: `file://`, `data:` or `blob:`; anything React Native's `<Image>` can
+show). Share waits until the picture has loaded or failed (`onSettled`), so the shared PNG never has a
+half-loaded hero. The picture is only used, never stored.
+
+The card wants about 868×406 design pixels (2.1:1; a little shorter when the island's name takes two
+lines), cropped to fill, centred, so the island is framed in the middle with room at the sides.
+1736×812 pixels keeps it sharp on the web (`HERO_SNAPSHOT`); a phone gives what its GL buffer holds
+(below), which is already about 1:1 with the card's own pixels.
+
+#### How the picture is taken (`src/lib/scene-snapshot.ts`)
+
+- **A registry**, so the card and the scene don't know each other. The mounted Home scene
+  registers `capture(request) => Promise<string | null>` under `'home'` (`SnapshotRegistrar`, inside
+  the R3F canvas in `sanctuary-scene.tsx`, using `useThree`'s `get()` for `gl`, `scene` and `camera`
+  when asked, not before), and Home's Share button calls `captureScene('home', HERO_SNAPSHOT)`. It
+  gives up after 1.5 s, and never throws: no scene, an error, a timeout, or something that isn't an
+  image URI all give `null`, and a picture that arrives after the timeout is released rather than
+  leaked. `ShareArchipelagoButton`'s `captureSnapshot` prop is that call, handed in by Home (which
+  owns the scene and so says which one and how big) rather than looked up inside the button: the
+  cards and buttons stay free of any knowledge of the scene, and a test hands in a fake.
+- **Fresh each time.** Every opening of the preview takes a new picture; the preview opens at
+  once, shows "Framing your islands…" under the card (Share held, the hero showing calm water rather
+  than an illustration that would flash under the picture), then the picture. The last one is let go
+  when the preview closes (a web `blob:` URL is revoked; a phone's cache file is left for the
+  system).
+- **Web.** For one synchronous step (a single task, so the browser never paints the in-between) the
+  renderer's drawing buffer is resized to 1736 wide in the canvas's own shape, the camera zoomed
+  out by `widen` (1.25: the whole reef with a margin, where the card's own framing is tight), the
+  scene drawn once, a centred 1736×812 strip copied to a 2D canvas, and everything put back
+  (pixel ratio, size, zoom) and the island drawn again. The 2D canvas is encoded to a PNG `Blob` and
+  shown through an object URL. Why not draw the strip's own shape: the ocean's edge haze is in clip
+  space, so it would fall on the picture's top and bottom. Why a 2D copy: it doesn't depend on when a
+  browser clears the WebGL buffer (`preserveDrawingBuffer` stays off). A pixel budget (4 million) and
+  the GPU's texture limit cap the drawing.
+- **iOS and Android.** `scene.render` (R3F's native one also ends the frame, so the framebuffer holds
+  a whole picture) and then `GLView.takeSnapshotAsync(gl.getContext(), { format: 'png', compress: 1,
+  flip: false, rect })` with `rect` the centred strip of the drawing buffer in the card's shape. It
+  writes a PNG into the cache directory and resolves to its `file://` URI. `flip: false` is upright
+  on both platforms (checked in expo-gl's iOS and Android sources: the GL rows come bottom-up and
+  expo-gl turns them over itself; `flip` is for a framebuffer that is already upside down). `rect` is
+  passed straight to `glReadPixels`, in drawing-buffer pixels from the bottom left. The camera is
+  not touched, because Expo GL presents every frame `render` draws, so a frame drawn at another
+  zoom would flash on screen while the snapshot is read: a phone's picture is the card's own
+  framing, centre-cropped, not widened. The drawing buffer is two pixels per point on a phone, so a
+  Home card is about 840 px wide. Native multisampling must stay off, as it is (`antialias` is only
+  on for the web): expo-gl's iOS snapshot reads the multisampled framebuffer directly.
+
+**What it costs.** Nothing per frame: nothing is registered with the frame loop, and
+`preserveDrawingBuffer` (which makes the browser copy the buffer every frame and takes away the GPU's
+swap) stays off. Once per tap, on the web: one drawing at 1736×1611 (2.8 million pixels: 17 times
+the 415×385 buffer of a phone-width Home card, 4 times a desktop one), one copy, and one normal frame
+to put the canvas back. Measured in headless Chromium on a CPU-only software renderer (SwiftShader,
+the worst case; a GPU does the drawing in a few milliseconds) the page's thread was busy for about
+65 ms, from the resize to handing the picture to the encoder. The PNG then encodes off the main thread
+(1.1 to 1.8 s there for 1.3 MB, which on that machine is the part that can hit the 1.5 s limit; a
+fraction of that on a phone). While it is drawn, the multisampled buffers need up to about 100 MB of
+GPU memory, for that moment only. On a phone: one extra normal frame and a read-back of about 840×393
+pixels, encoded and written off the JS thread.
+
+**When there is no picture** (the card draws its illustration, Share is never blocked):
+
+- no scene is registered: Home's 3D scene isn't mounted (the scene failed to load its animals; web
+  without WebGL; the scene's error boundary showed its fallback), or it is the explorer, which
+  never registers;
+- the scene is not on show (another tab, the app in the background; a GL read in the background never
+  answers on iOS) or is still loading the diver's data;
+- the scene is *still* for Reduce Motion (not active, and not paused by the diver; an island the diver
+  paused with the Pause button can still be photographed);
+- the scene runs in the **lite** tier (the iOS simulator or Android emulator, software GL: reading it
+  back would stall the renderer; `EXPO_PUBLIC_SCENE_QUALITY=full` forces the full tier there);
+- the camera isn't orthographic, the GL context has no id or buffer, expo-gl or the browser fails,
+  or it takes longer than 1.5 s (a slow page, or a CPU-only browser).
 
 ## Preview and share
 
@@ -95,7 +166,8 @@ has no transform), so the picture is full size however small the preview is. The
 
 - shows a busy state while the picture is made ("Making your picture…", a spinner unless the phone has
   Reduce Motion on), and a polite message, also read aloud (`announce`), if it fails;
-- disables Share while the card isn't ready (the hero picture still loading);
+- disables Share while the card isn't ready (the hero picture still loading; on Home's archipelago
+  card, "Framing your islands…" while the scene is photographed);
 - describes the card to a screen reader as a single image (the card's own text is hidden from it);
 - doesn't slide in under Reduce Motion (`AccessibilityInfo`).
 
@@ -152,10 +224,23 @@ first use (a separate chunk), not with the app.
 ## Checking a change
 
 - `npx jest src/lib/__tests__/share src/components/__tests__/share-`: the service on both platforms,
-  the cards' text and privacy, the preview, the buttons and the three screens.
+  the cards' text and privacy, the preview, the buttons and the three screens (including Home's
+  snapshot flow: a picture when the capture works, the illustration when it doesn't).
+- `npx jest src/lib/__tests__/scene-snapshot src/components/home/__tests__/sanctuary-scene-snapshot`:
+  the registry (register, unregister, timeout, throw, no scene), the web and phone captures with
+  mocks, and when Home's scene registers.
+- To see the picture, log a few species through the app (never seed sightings), export the web build,
+  open Home with Playwright on SwiftShader flags, pause the island (a CPU-only browser is slow enough
+  to hit the 1.5 s limit while it animates), tap Share and save what Download gives.
 - To look at the cards, add a temporary route that renders each one at 1080×1350 with sample data from
   the catalogue and the seed sites, export the web build and screenshot it. A card should still read at
   a quarter of its size (the screenshot shrunk to about 540 px wide).
 - Not covered by tests, and worth a pass on a device: the iOS and Android capture and share sheet
   (`captureSize` is derived from view-shot's native code, not run), and the web share dialog on Safari
   and Chrome for Android.
+- Likewise for the 3D picture, only the web capture has been looked at (headless Chromium). On a phone,
+  check: `takeSnapshotAsync` gives an upright, non-blank picture (iOS reads the MSAA-less default
+  framebuffer, Android the preserved back buffer), the crop is centred and the island isn't cut at the
+  strip's edges (it is tighter than the web's, which is widened), the time to "Framing your
+  islands…" going away (under 1.5 s, or the card gets the illustration), no flash on screen when
+  Share is tapped, and Safari's drawing-buffer limits for the temporary 1736-wide render.

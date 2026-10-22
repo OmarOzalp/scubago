@@ -4,8 +4,7 @@ import Svg, { Defs, LinearGradient, Path, Rect, Stop } from 'react-native-svg';
 
 import { IslandArt } from '@/components/home/island-art';
 import { Type } from '@/constants/theme';
-import { HOME_ISLAND, type IslandId } from '@/lib/archipelago';
-import type { Habitat } from '@/lib/home';
+import { HOME_ISLAND, ISLANDS, type IslandId } from '@/lib/archipelago';
 import type { Species } from '@/lib/types';
 
 import { ISLAND_COUNT, trimNumber } from './card-data';
@@ -33,6 +32,8 @@ export interface ArchipelagoCardProps {
    * hero frame, centred. Without one, the hero is an illustration composed from the island art.
    */
   snapshot?: string;
+  /** The picture is being taken: the hero shows calm water, not the illustration it would then be covered over. */
+  framing?: boolean;
   /** Called once the hero is ready to be captured: at once without a snapshot, or when it has loaded (or failed to). */
   onSettled?: () => void;
 }
@@ -44,17 +45,8 @@ const LABEL_ROW = 36;
 const TILE_HEIGHT = 262;
 const FRAME = 10;
 
-/** The shore each island's illustration is drawn with: the rocky and lagoon shores tell the islands apart. */
-const ART: Record<IslandId, Habitat> = {
-  'coral-reef': 'island',
-  'kelp-forest': 'cove',
-  'volcanic-pinnacle': 'cove',
-  mangroves: 'lagoon',
-  shipwreck: 'island',
-};
-
 /** The diver's archipelago as a card: the island and its name, how far it has grown, and their three rarest finds. 1080×1350. */
-export function ArchipelagoCard({ name, rank, level, speciesCount, islandsFound, islandsTotal = ISLAND_COUNT, sitesDived, rarest, islands = [HOME_ISLAND], snapshot, onSettled }: ArchipelagoCardProps) {
+export function ArchipelagoCard({ name, rank, level, speciesCount, islandsFound, islandsTotal = ISLAND_COUNT, sitesDived, rarest, islands = [HOME_ISLAND], snapshot, framing, onSettled }: ArchipelagoCardProps) {
   const finds = rarest.slice(0, 3);
   const title = nameLayout(name, 104);
   const titleHeight = TITLE_HEIGHT - 104 + title.lines * title.lineHeight;
@@ -74,7 +66,7 @@ export function ArchipelagoCard({ name, rank, level, speciesCount, islandsFound,
         ) : null}
       </View>
 
-      <Hero height={heroHeight} islands={islands} level={level} snapshot={snapshot} onSettled={onSettled} />
+      <Hero height={heroHeight} islands={islands} level={level} snapshot={snapshot} framing={framing} onSettled={onSettled} />
 
       <View style={[styles.ledger, { height: LEDGER_HEIGHT }]}>
         <Figure value={String(level)} label="Level" first />
@@ -135,7 +127,7 @@ const SLOTS: { x: number; y: number; w: number }[] = [
   { x: 0.2, y: 0.78, w: 0.52 },
 ];
 
-function Hero({ height, islands, level, snapshot, onSettled }: { height: number; islands: IslandId[]; level: number; snapshot?: string; onSettled?: () => void }) {
+function Hero({ height, islands, level, snapshot, framing, onSettled }: { height: number; islands: IslandId[]; level: number; snapshot?: string; framing?: boolean; onSettled?: () => void }) {
   const id = `hr${useId().replace(/[^a-zA-Z0-9]/g, '')}`;
   const width = BODY_SIZE.width;
   const innerW = width - 2 * FRAME;
@@ -151,6 +143,8 @@ function Hero({ height, islands, level, snapshot, onSettled }: { height: number;
     if (shot !== 'loading') onSettled?.();
   }, [shot, onSettled]);
 
+  // The illustration isn't drawn while the picture is being taken or loading, so it doesn't flash under it (it comes back if the picture fails).
+  const hideArt = framing || (!!snapshot && shot === 'loading');
   const list = [HOME_ISLAND, ...islands.filter((i) => i !== HOME_ISLAND)].slice(0, SLOTS.length);
   return (
     <View style={[styles.hero, { width, height }]}>
@@ -173,13 +167,13 @@ function Hero({ height, islands, level, snapshot, onSettled }: { height: number;
             opacity={0.5}
           />
         </Svg>
-        {list.map((island, i) => {
+        {hideArt ? null : list.map((island, i) => {
           // A lone island is drawn larger, to fill the water.
           const slot = list.length === 1 ? { x: 0.5, y: 0.52, w: 1.62 } : SLOTS[i];
           const w = slot.w * innerH;
           return (
             <View key={island} style={{ position: 'absolute', left: slot.x * innerW - w / 2, top: slot.y * innerH - (w * 390) / 840, width: w, height: (w * 390) / 420 }}>
-              <IslandArt habitat={ART[island]} level={island === HOME_ISLAND ? level : Math.min(level, 3)} />
+              <IslandArt habitat={ISLANDS[island]} level={island === HOME_ISLAND ? level : Math.min(level, 3)} />
             </View>
           );
         })}
