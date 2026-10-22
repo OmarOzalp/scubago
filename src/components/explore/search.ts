@@ -159,20 +159,35 @@ export function sectionLimit(index: number, sectionCount: number): number {
   return index === 0 ? 4 : 3;
 }
 
-/** The box round some sites, or null for none. */
+/**
+ * The box round some sites, or null for none. It goes the short way round: a place with sites either
+ * side of 180° (Fiji) is the few degrees across the line, with its west edge east of its east edge,
+ * not the rest of the world between them.
+ */
 export function boundsOfSites(sites: readonly DiveSite[], ids?: ReadonlySet<string>): SiteBounds | null {
-  let bounds: SiteBounds | null = null;
+  let south = Infinity;
+  let north = -Infinity;
+  const lngs: number[] = [];
   for (const site of sites) {
     if (ids && !ids.has(site.id)) continue;
-    if (!bounds) bounds = { south: site.lat, north: site.lat, west: site.lng, east: site.lng };
-    else {
-      bounds.south = Math.min(bounds.south, site.lat);
-      bounds.north = Math.max(bounds.north, site.lat);
-      bounds.west = Math.min(bounds.west, site.lng);
-      bounds.east = Math.max(bounds.east, site.lng);
+    south = Math.min(south, site.lat);
+    north = Math.max(north, site.lat);
+    lngs.push(site.lng);
+  }
+  if (lngs.length === 0) return null;
+  // The widest stretch of longitude with no site in it is what the box leaves out: across 180° unless a wider one is elsewhere.
+  lngs.sort((a, b) => a - b);
+  let west = lngs[0];
+  let east = lngs[lngs.length - 1];
+  let gap = west + 360 - east;
+  for (let i = 1; i < lngs.length; i++) {
+    if (lngs[i] - lngs[i - 1] > gap) {
+      gap = lngs[i] - lngs[i - 1];
+      west = lngs[i];
+      east = lngs[i - 1];
     }
   }
-  return bounds;
+  return { south, north, west, east };
 }
 
 /**

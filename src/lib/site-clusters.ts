@@ -69,6 +69,7 @@ export type ClusterableSite = Pick<DiveSite, 'id' | 'lat' | 'lng'> & Partial<Pic
 
 export interface SiteBounds {
   south: number;
+  /** East of `east` for a box across the antimeridian (179°E to 179°W). A cluster's never is. */
   west: number;
   north: number;
   east: number;
@@ -379,18 +380,21 @@ export interface ZoomOptions {
 
 /**
  * The region that shows a cluster's bounds with a margin round them (`padding` times their size, at
- * least `MIN_ZOOM_DELTA`), and at most half the region it is zoomed from.
+ * least `MIN_ZOOM_DELTA`, at most the whole world), and at most half the region it is zoomed from.
+ * Bounds across the antimeridian are framed across it.
  */
 export function boundsToRegion(bounds: SiteBounds, { padding = 1.5, minDelta = MIN_ZOOM_DELTA, within }: ZoomOptions = {}): MapRegion {
-  const fit = (span: number, current: number | undefined) => {
-    const wanted = Math.max(span * padding, minDelta);
+  const fit = (span: number, current: number | undefined, world: number) => {
+    const wanted = Math.min(Math.max(span * padding, minDelta), world);
     return current !== undefined && Number.isFinite(current) && current > 0 ? Math.min(wanted, current / 2) : wanted;
   };
+  const across = bounds.west > bounds.east;
+  const width = across ? bounds.east + 360 - bounds.west : bounds.east - bounds.west;
   return {
     latitude: (bounds.south + bounds.north) / 2,
-    longitude: (bounds.west + bounds.east) / 2,
-    latitudeDelta: fit(bounds.north - bounds.south, within?.latitudeDelta),
-    longitudeDelta: fit(bounds.east - bounds.west, within && lngWidth(within.longitudeDelta)),
+    longitude: across ? wrapLng(bounds.west + width / 2) : (bounds.west + bounds.east) / 2,
+    latitudeDelta: fit(bounds.north - bounds.south, within?.latitudeDelta, 180),
+    longitudeDelta: fit(width, within && lngWidth(within.longitudeDelta), 360),
   };
 }
 
