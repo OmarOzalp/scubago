@@ -1,8 +1,10 @@
 import { afterEach, beforeEach, expect, jest, test } from '@jest/globals';
 import React, { act } from 'react';
+import { FlatList } from 'react-native';
 import { create } from 'react-test-renderer';
 import LogbookScreen from '@/app/(tabs)/logbook';
 import DivePageScreen from '@/app/dive/[id]';
+import EditDiveScreen from '@/app/dive/edit';
 import SpeciesDetailScreen from '@/app/species/[id]';
 import { canonicalSiteId, RETIRED_SITE_IDS, SITES, SITES_BY_ID } from '@/data/sites';
 
@@ -18,13 +20,14 @@ jest.mock('expo-image', () => ({ Image: () => null }));
 jest.mock('react-native-safe-area-context', () => ({ useSafeAreaInsets: () => ({ top: 0, bottom: 0, left: 0, right: 0 }) }));
 jest.mock('react-native-reanimated', () => ({ __esModule: true, useReducedMotion: () => true, default: { View: require('react-native').View } }));
 jest.mock('@/lib/confirm', () => ({ confirmAction: jest.fn(async () => true) }));
+jest.mock('@/components/external-link', () => ({ ExternalLink: ({ children, ...props }) => <extlink {...props}>{children}</extlink> }));
 jest.mock('@/hooks/use-rewards', () => ({ useRewards: () => ({ ready: false, badges: [], collections: [], passport: [], islands: [] }) }));
 let mockParams = {};
 let mockDives = [];
 let mockSightings = [];
 jest.mock('@/lib/store', () => {
   const { SITES: all, SITES_BY_ID: byId } = require('@/data/sites');
-  const state = () => ({ sightings: mockSightings, user: null, backendEnabled: false, syncing: false, syncProblem: null, ready: true, requestSync: jest.fn(), deleteDive: jest.fn(), deleteSpeciesLog: jest.fn() });
+  const state = () => ({ sightings: mockSightings, user: null, backendEnabled: false, syncing: false, syncProblem: null, ready: true, requestSync: jest.fn(), deleteDive: jest.fn(), updateDive: jest.fn(), deleteSpeciesLog: jest.fn() });
   return {
     useAppStore: (select) => select(state()),
     useAllSites: () => all,
@@ -85,6 +88,17 @@ test('a dive page’s previous and next buttons name sites at hidden ids', async
   mockParams = { id: 'd2' };
   await act(async () => { root = create(<DivePageScreen />); });
   expect(labels()).toEqual(expect.arrayContaining(['Previous page: dive 1, Shark Reef', 'Next page: dive 3, Kormoran']));
+});
+
+test('the dive editor’s Recent sites are the newest dives’, not the first in the log', async () => {
+  // In the order the log keeps them, oldest first.
+  mockDives = [dive('d1', 1, 'cod-hole'), dive('d2', 2, 'ss-thistlegorm'), dive('d3', 3, 'shark-yolanda'), dive('d4', 4, 'blue-hole-dahab'), dive('d5', 5, 'cod-hole')];
+  mockParams = { id: 'd5' };
+  await act(async () => { root = create(<EditDiveScreen />); });
+  const change = root.root.findAll((n) => n.props.accessibilityLabel === 'Change the site, now Cod Hole' && typeof n.props.onPress === 'function')[0];
+  await act(async () => change.props.onPress());
+  const rows = root.root.findByType(FlatList).props.data;
+  expect(rows.slice(0, 5).map((r) => r.key)).toEqual(['header:recent', 'recent:cod-hole', 'recent:blue-hole-dahab', 'recent:shark-yolanda', 'header:all']);
 });
 
 test('an animal’s page counts a sighting at a hidden id at its site, names the site on its row, and on the share card', async () => {

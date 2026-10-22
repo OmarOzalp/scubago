@@ -14,7 +14,7 @@ import { Spacing, Type } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { announce } from '@/lib/announce';
 import { draftFromDive, hasMoreDetails, readDraft, type DiveDraft } from '@/lib/dive-draft';
-import { formatDiveNumber, signaturesOf } from '@/lib/dives';
+import { formatDiveNumber, signaturesOf, sortDives } from '@/lib/dives';
 import { onSiteAdded } from '@/lib/site-added';
 import { useAllSites, useAppStore, useMyDives, useMyUserId, useSiteById } from '@/lib/store';
 import { statusOf } from '@/lib/verification';
@@ -74,7 +74,8 @@ function EditDiveScreen() {
         <View style={styles.pickerTop} />
         <SitePicker
           sites={sites}
-          recentSiteIds={[...new Set(dives.map((d) => d.siteId))].slice(0, 3)}
+          // The sites of the newest pages, as the logbook lists them (the store holds them as added, oldest first).
+          recentSiteIds={[...new Set(sortDives(dives).map((d) => d.siteId))].slice(0, 3)}
           userId={userId}
           onPick={(s) => {
             setDraft({ ...draft, siteId: s.id });
