@@ -66,6 +66,11 @@ export class FakeServer {
    * of these or at a site in dive_sites (the foreign keys); null leaves site_id unchecked.
    */
   seededSites: Set<string> | null = null;
+  /**
+   * PostgREST's max_rows (supabase/config.toml, and the hosted default): no reply holds more rows
+   * than this, whatever limit the query asked for.
+   */
+  maxRows = 1000;
 
   dive(id: string): Row | undefined {
     return this.tables.dives.find((r) => r.id === id);
@@ -184,7 +189,7 @@ class FakeQuery implements PromiseLike<Result> {
   private op: 'select' | 'insert' | 'upsert' | 'update' | 'delete' = 'select';
   private payload: any;
   private opts: { onConflict?: string; ignoreDuplicates?: boolean } = {};
-  private filters: [string, unknown][] = [];
+  private filters: ((row: Row) => boolean)[] = [];
   private columns = '*';
   private returning = false;
   private orderBy: { col: string; asc: boolean } | null = null;
@@ -222,7 +227,11 @@ class FakeQuery implements PromiseLike<Result> {
     return this;
   }
   eq(col: string, value: unknown) {
-    this.filters.push([col, value]);
+    this.filters.push((row) => row[col] === value);
+    return this;
+  }
+  gt(col: string, value: any) {
+    this.filters.push((row) => row[col] > value);
     return this;
   }
   order(col: string, { ascending = true }: { ascending?: boolean } = {}) {
@@ -246,7 +255,7 @@ class FakeQuery implements PromiseLike<Result> {
   }
 
   private matches(row: Row) {
-    return this.filters.every(([col, value]) => row[col] === value);
+    return this.filters.every((test) => test(row));
   }
 
   private owner(row: Row) {
@@ -291,7 +300,7 @@ class FakeQuery implements PromiseLike<Result> {
         const { col, asc } = this.orderBy;
         out = [...out].sort((a, b) => (a[col] < b[col] ? -1 : a[col] > b[col] ? 1 : 0) * (asc ? 1 : -1));
       }
-      if (this.max !== null) out = out.slice(0, this.max);
+      out = out.slice(0, Math.min(this.max ?? Infinity, server.maxRows));
       const embed = this.columns.includes('profiles(username)');
       const data = out.map((r) => {
         const copy = { ...r };

@@ -54,7 +54,13 @@ import type { Dive, DiveSite, Sighting, Visibility } from '@/lib/types';
 export type PhotoBucket = typeof PHOTO_BUCKET | typeof PRIVATE_PHOTO_BUCKET;
 
 const PULL_LIMIT = 500;
-const OWN_PULL_LIMIT = 2000;
+/**
+ * The most rows the server returns in one reply (PostgREST's max_rows: 1000 in
+ * supabase/config.toml, and on hosted projects), whatever limit a query asks for. A reply that
+ * full may not be all there is, so the diver's own rows are pulled a page at a time, never more than
+ * this per page.
+ */
+const PAGE_SIZE = 1000;
 const SIGHTING_COLUMNS = 'id,user_id,species_id,site_id,sighted_on,notes,photo_url,created_at,profiles(username)';
 /**
  * Columns later migrations add: status (0006), custom_name (0007) and visibility (0008). A project
@@ -164,6 +170,32 @@ async function pullSightings(
     // Postgres names the missing column; if it somehow doesn't, drop the newest one.
     missingColumns.add(optional.find((c) => error.message?.includes(c)) ?? optional[optional.length - 1]);
   }
+}
+
+/**
+ * Every row a query matches, a page at a time in order of `key` (unique), until a page comes back
+ * short. Each page starts after the last key it saw, not at an offset: a row deleted on another
+ * device mid-pull would shift an offset and skip one that is still there, and the merge would take
+ * that one for deleted too.
+ */
+async function pullAll<T extends object>(
+  key: keyof T & string,
+  page: (after: string | null, size: number) => PromiseLike<T[]>,
+): Promise<T[]> {
+  const rows: T[] = [];
+  for (;;) {
+    const last = rows[rows.length - 1];
+    const batch = await page(last ? String(last[key]) : null, PAGE_SIZE);
+    rows.push(...batch);
+    if (batch.length < PAGE_SIZE) return rows;
+  }
+}
+
+/** One page's rows, or its error thrown. */
+async function rowsOf<T>(reply: PromiseLike<PostgrestReply>): Promise<T[]> {
+  const { data, error } = await reply;
+  if (error) throw error;
+  return data as T[];
 }
 
 export interface SyncDeps {
@@ -415,16 +447,21 @@ async function deleteSightingRemote(
 
 /** The diver's own private notes and photos (none on a project without migration 0008). */
 async function pullDetails(client: SupabaseClient, userId: string): Promise<Map<string, RemoteDetailsRow>> {
-  const { data, error } = await client
-    .from('sighting_details')
-    .select('sighting_id,user_id,notes,photo_path')
-    .eq('user_id', userId)
-    .limit(OWN_PULL_LIMIT);
-  if (error) {
-    if (isMissingTable(error)) return new Map();
-    throw error;
+  try {
+    const rows = await pullAll<RemoteDetailsRow>('sighting_id', (after, size) => {
+      const q = client
+        .from('sighting_details')
+        .select('sighting_id,user_id,notes,photo_path')
+        .eq('user_id', userId)
+        .order('sighting_id')
+        .limit(size);
+      return rowsOf(after === null ? q : q.gt('sighting_id', after));
+    });
+    return new Map(rows.map((d) => [d.sighting_id, d]));
+  } catch (e) {
+    if (isMissingTable(e as PostgrestError)) return new Map();
+    throw e;
   }
-  return new Map((data as RemoteDetailsRow[]).map((d) => [d.sighting_id, d]));
 }
 
 /** What a sync knows about the diver's pages while it sends sightings. */
@@ -468,23 +505,35 @@ async function deleteDiveRemote(client: SupabaseClient, userId: string, d: Outbo
   await deps.markDiveDeletionSynced(d.id);
 }
 
-/** The diver's own pages and the signatures buddies sent for them; null on a project without the dive log. */
-async function pullDives(client: SupabaseClient, userId: string): Promise<{ dives: Dive[]; complete: boolean } | null> {
-  const { data, error } = await client.from('dives').select('*').eq('user_id', userId).order('created_at', { ascending: false }).limit(OWN_PULL_LIMIT);
-  if (error) {
-    if (isMissingTable(error)) return null;
-    throw error;
+/** Every one of the diver's own pages, with the signatures buddies sent for them; null on a project without the dive log. */
+async function pullDives(client: SupabaseClient, userId: string): Promise<Dive[] | null> {
+  let rows: RemoteDiveRow[];
+  try {
+    rows = await pullAll<RemoteDiveRow>('id', (after, size) => {
+      const q = client.from('dives').select('*').eq('user_id', userId).order('id').limit(size);
+      return rowsOf(after === null ? q : q.gt('id', after));
+    });
+  } catch (e) {
+    if (isMissingTable(e as PostgrestError)) return null;
+    throw e;
   }
-  const rows = data as RemoteDiveRow[];
   const mine = new Set(rows.map((r) => r.id));
-  const { data: signed, error: signedError } = await client
-    .from('dive_signatures')
-    .select('dive_id,signer_name,role,signature_svg,created_at')
-    .limit(OWN_PULL_LIMIT);
-  if (signedError && !isMissingTable(signedError)) throw signedError;
+  let signed: RemoteDiveSignatureRow[] = [];
+  try {
+    signed = await pullAll<RemoteDiveSignatureRow & { id: string }>('id', (after, size) => {
+      const q = client
+        .from('dive_signatures')
+        .select('id,dive_id,signer_name,role,signature_svg,created_at')
+        .order('id')
+        .limit(size);
+      return rowsOf(after === null ? q : q.gt('id', after));
+    });
+  } catch (e) {
+    if (!isMissingTable(e as PostgrestError)) throw e;
+  }
   // Row-level security also returns pages this diver signed for others: only their own are kept.
-  const signatures = ((signed as RemoteDiveSignatureRow[] | null) ?? []).filter((x) => mine.has(x.dive_id));
-  return { dives: rows.map((r) => remoteRowToDive(r, signatures)), complete: rows.length < OWN_PULL_LIMIT };
+  const signatures = signed.filter((x) => mine.has(x.dive_id));
+  return rows.map((r) => remoteRowToDive(r, signatures));
 }
 
 export interface SyncResult {
@@ -571,10 +620,11 @@ export async function syncNow(
   for (const id of diveDeletion.failed) await deps.markDiveSyncFailed(id, diveDeletion.errors[id]);
 
   // 5. Pull: the diver's pages first (sightings point at them), then community + own sightings
-  // (restores the log on a fresh install).
+  // (restores the log on a fresh install). Every own page and sighting is pulled, so one the pull
+  // didn't return was deleted on the server.
   const pulledDives = await pullDives(client, userId);
   if (pulledDives) {
-    await deps.mergePulledDives(pulledDives.dives, userId, pulledDives.complete);
+    await deps.mergePulledDives(pulledDives, userId, true);
     // The dive log is there (migration 0009), so sightings.dive_id is too: pulls ask for it again.
     missingColumns.delete('dive_id');
   }
@@ -594,14 +644,12 @@ export async function syncNow(
 
   // The community pull above is a global top-N, so a user with more than PULL_LIMIT
   // sightings across the whole app can have their own rows fall out of it. Pull the
-  // user's own log directly (a much higher cap) so a reinstall always restores it in
+  // user's own log directly, every page of it, so a reinstall always restores it in
   // full, independent of how much community activity exists.
-  const own = await pullSightings((columns) => client
-    .from('sightings')
-    .select(columns)
-    .eq('user_id', userId)
-    .order('created_at', { ascending: false })
-    .limit(OWN_PULL_LIMIT));
+  const own = await pullAll<RemoteSightingRow>('id', (after, size) => pullSightings((columns) => {
+    const q = client.from('sightings').select(columns).eq('user_id', userId).order('id').limit(size);
+    return after === null ? q : q.gt('id', after);
+  }));
   const byId = new Map<string, RemoteSightingRow>();
   for (const row of community) byId.set(row.id, row);
   for (const row of own) byId.set(row.id, row);
@@ -611,7 +659,7 @@ export async function syncNow(
     .map((s) => (s.userId === userId ? withPrivateDetails(s, details.get(s.id)) : s));
   await deps.mergePulledSightings(pulled, {
     ownerId: userId,
-    ownComplete: own.length < OWN_PULL_LIMIT,
+    ownComplete: true,
     communitySince:
       community.length < PULL_LIMIT ? null : new Date(community[community.length - 1].created_at).toISOString(),
     diveIds: !missingColumns.has('dive_id'),
