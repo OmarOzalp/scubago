@@ -43,7 +43,8 @@ const greyReef: SharkSpec = variant(requiem, {
     const [a, b] = trailing(c);
     return {
       median: [
-        { fin: 'caudal', marks: [edgeBand(c.caudal.outline, a, b, (t) => 1.4 + 1.6 * Math.sin(Math.PI * Math.min(1, t * 1.2)), 'ink', 1, 0.92)] },
+        // The band thins to nothing at both lobe tips, so it can't hook past the upper one.
+        { fin: 'caudal', marks: [edgeBand(c.caudal.outline, a, b, (t) => 3.4 * Math.sin(Math.PI * Math.min(1, t / 0.9)) ** 0.6, 'ink', 1, 0.92)] },
         { fin: 'd2', marks: [finTip(c.d2!, 0.45, 'ink', 0.85)] },
         { fin: 'anal', marks: [finTip(c.anal!, 0.45, 'ink', 0.85)] },
         { fin: 'pelvic', marks: [finTip(c.pelvic!, 0.55, 'ink', 0.7)] },
