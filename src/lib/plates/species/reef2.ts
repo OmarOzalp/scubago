@@ -771,25 +771,15 @@ const seaBass: FishSpec = {
   pelvic: { at: [28, 0.95], base: 2.4, h: [[0, 7], [1, 4]], angles: [50, 80], rays: 6 },
   eye: { x: 9, f: 0.3, r: 1.1, iris: '#9A8A5A' },
   gill: { x: 25, bow: 3 },
-  mouth: [[0.4, 0.58], [6, 0.62], [11, 0.56]],
+  mouth: [[0.4, 0.5], [7, 0.6], [13, 0.58], [15.4, 0.5]],
+  lips: 1.5,
   scales: 11,
   lateral: (t) => 0.24 + 0.08 * t,
   belly: 0.84,
   extra: (c) => {
-    const spots = scatter(c.s, { t0: 0.18, t1: 1, f0: 0.08, f1: 0.82, r: (t) => 0.9 + c.rand() * 1, gap: 2.6, paint: 'ink', rand: c.rand, tries: 140, wobble: 0.35 });
-    // A frond of kelp behind, for scale and place.
-    const kelp = spline([[58, 36], [63, 18], [57, 0], [63, -18], [59, -36]], false);
-    const stipe: Part = { poly: tube(kelp, (t) => 1.1 - t * 0.5), paint: '#8F9A5A', lines: [], edge: 0.6 };
-    const blades: Part[] = [0.12, 0.3, 0.48, 0.66, 0.84].map((u, i) => {
-      const b = kelp[Math.round(u * (kelp.length - 1))];
-      const side = i % 2 ? 1 : -1;
-      const tip = add(b, [side * 13, -4 - i]);
-      const mid = lerp(b, tip, 0.5);
-      const bulb = add(b, [side * 1.6, 0.4]);
-      const leaf = spline([bulb, add(mid, [0, -2.4]), [tip[0], tip[1], 1], add(mid, [0, 2]), bulb], true);
-      return { poly: leaf, paint: '#A7AD6E', lines: [{ pts: [bulb, lerp(bulb, tip, 0.85)], w: 0.8, o: 0.5, taper: 'end' as const }], edge: 0.6, marks: [{ poly: ellipse(bulb, 1.1), paint: '#8F9A5A', edge: 0.5 }] };
-    });
-    return { marks: spots, far: [...blades, stipe] };
+    const spots = scatter(c.s, { t0: 0.12, t1: 1, f0: 0.06, f1: 0.82, r: (t) => 0.8 + c.rand() * 1.5, gap: 1.6, paint: '#47505A', rand: c.rand, tries: 240, wobble: 0.45, o: 0.3 });
+    // (No kelp stipes behind it: they crossed the top and bottom of the plate and shrank the fish.)
+    return { marks: spots };
   },
 };
 
@@ -826,13 +816,13 @@ const lingcod: FishSpec = {
     const cirrus: Part = { poly: spline([atX(s, 12.4, 0.04), add(atX(s, 12.4, 0.04), [-0.6, -2]), add(atX(s, 13.6, 0.04), [0.6, -1.8]), atX(s, 14, 0.06)], true), paint: 'back', lines: [], edge: 0.6 };
     const ll = lineAlong(s, (t) => 0.32 + 0.04 * t, tAtX(s, 27), 0.99);
     // A rock it rests on.
-    const rock = spline([[2, 21, 1], [5, 13], [12, 10.4], [22, 9.2], [30, 10.6], [40, 8.6], [52, 9.4], [62, 11.6], [74, 10.8], [86, 12.6], [94, 16], [97, 21, 1]], true);
+    const rock = spline([[0, 17], [3, 12.6], [12, 10.4], [22, 9.4], [30, 10.4], [40, 9], [52, 9.6], [62, 11], [74, 10.4], [86, 11.4], [96, 13], [100, 16.4], [92, 18.6], [60, 19.4], [24, 19.2], [6, 19]], true);
     const cracks: Line[] = [
-      { pts: [[30, 10.6], [31, 14], [29, 17], [31, 20]], w: 1.1 },
-      { pts: [[62, 11.6], [60, 15], [62, 19]], w: 1.1 },
-      ...[14, 22, 44, 52, 72, 80, 88].map((x, i) => ({ pts: [[x, 13 + (i % 3)], [x - 3, 20]] as Pt[], w: 0.7, o: 0.45 })),
+      { pts: [[30, 10.6], [31, 13], [29, 15.4], [30.4, 17.6]], w: 1, taper: 'both' as const },
+      { pts: [[62, 11.4], [60.4, 14], [62, 17]], w: 1, taper: 'both' as const },
+      ...[14, 22, 44, 52, 72, 80, 88].map((x, i) => ({ pts: [[x, 13 + (i % 3)], [x - 2.4, 17.6]] as Pt[], w: 0.6, o: 0.4 })),
     ];
-    return { marks: [...mottle, ...fangs, { poly: swell(ll, 0.8, 'both'), paint: '#F0EDE5', clip: 'trunk' }], near: [cirrus], far: [{ poly: rock, paint: '#B2A994', lines: cracks, edge: 0.8 }] };
+    return { marks: [...mottle, ...fangs, { poly: swell(ll, 0.8, 'both'), paint: '#F0EDE5', clip: 'trunk' }], near: [cirrus], far: [{ poly: rock, paint: '#CFC8B4', lines: cracks, edge: 0.8 }] };
   },
 };
 
@@ -858,14 +848,20 @@ const goldie: FishSpec = {
   softBelly: false,
   extra: (c) => {
     const s = c.s;
-    const flecks = scatter(s, { t0: tAtX(s, 18), t1: 1, f0: 0.04, f1: 0.96, r: 0.35, gap: 1.1, paint: '#F6C744', rand: c.rand, tries: 700 });
+    const flecks = scatter(s, { t0: tAtX(s, 18), t1: 1, f0: 0.04, f1: 0.96, r: 0.38, gap: 1.1, paint: '#FBEFA8', rand: c.rand, tries: 700 });
+    // A lilac wash over the back and cheek.
+    const lilac = region(s, 0, 1, -0.04, 0.36);
     const cheek = swell(spline([atX(s, 8, 0.48), atX(s, 13, 0.56), atX(s, 19, 0.58)], false), 1.2, 'both');
     const base = c.dorsal[0].tips[2];
     const filament: Part = { poly: swell(spline([base, add(base, [5, -8]), add(base, [12, -12])], false), 1.2, 'end'), paint: 'back', lines: [], edge: 0.6 };
     return {
+      tint: [
+        { poly: region(s, 0, 1, -0.04, 0.52), paint: '#B084C8', o: 0.16, clip: 'trunk' as const },
+        { poly: lilac, paint: '#B084C8', o: 0.26, clip: 'trunk' as const },
+      ],
       marks: [...flecks, { poly: cheek, paint: '#F59A3A', edge: 0.7 }],
       near: [filament],
-      median: [{ part: 'pectoral', marks: [{ poly: ellipse(lerp(c.pectoral!.tips[0], atX(s, 20, 0.56), 0.6), 2, 1.4, 20), paint: '#8C1D5A', o: 0.85 }] }],
+      median: [{ part: 'pectoral', marks: [{ poly: ellipse(lerp(c.pectoral!.tips[0], atX(s, 20, 0.56), 0.6), 2.2, 1.6, 20), paint: '#B8307A', o: 0.9 }] }],
     };
   },
 };
@@ -897,8 +893,8 @@ export const REEF_FISH_2: Record<string, PlateDef> = {
   'yellowhead-jawfish': F(jawfish, { back: '#E2E9EE', belly: '#E2E9EE', fin: '#BFD3E6' }, 16, 52),
   garibaldi: F(garibaldi, { back: '#FF6A13', belly: '#FF6A13', fin: '#FF7A2A' }, 17),
   'giant-sea-bass': F(seaBass, { back: '#6E6C66', belly: '#BDB8AE', fin: '#5E5C56' }, 18),
-  lingcod: F(lingcod, { back: '#6B6450', belly: '#E8E2D2', fin: '#6B6450', dark: '#3A3128' }, 19),
-  'sea-goldie': F(goldie, { back: '#D63A7A', belly: '#E0567A', fin: '#E05A86' }, 20),
+  lingcod: F(lingcod, { back: '#7E6C46', belly: '#EDE5CF', fin: '#7E6C46', dark: '#3A3128' }, 19),
+  'sea-goldie': F(goldie, { back: '#E8873A', belly: '#F4B860', fin: '#E0703C' }, 20),
 };
 void ring;
 void (null as unknown as EelCtx);
