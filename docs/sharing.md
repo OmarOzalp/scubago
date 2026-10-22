@@ -112,8 +112,8 @@ lines), cropped to fill, centred, so the island is framed in the middle with roo
 - **Fresh each time.** Every opening of the preview takes a new picture; the preview opens at
   once, shows "Framing your islands…" under the card (Share held, the hero showing calm water rather
   than an illustration that would flash under the picture), then the picture. The last one is let go
-  when the preview closes (a web `blob:` URL is revoked; a phone's cache file is left for the
-  system).
+  when the preview closes (a web `blob:` URL is revoked; a phone's cache file, one expo-gl wrote for
+  this module, is deleted).
 - **Web.** For one synchronous step (a single task, so the browser never paints the in-between) the
   renderer's drawing buffer is resized to 1736 wide in the canvas's own shape, the camera zoomed
   out by `widen` (1.25: the whole reef with a margin, where the card's own framing is tight), the

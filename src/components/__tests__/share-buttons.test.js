@@ -5,11 +5,15 @@ import { create } from 'react-test-renderer';
 
 import { ShareArchipelagoButton, ShareDiscoveryButton, ShareDiveButton } from '@/components/share/share-buttons';
 import { CATALOG_BY_ID } from '@/lib/catalog';
+import { captureFrame, HERO_SNAPSHOT } from '@/lib/scene-snapshot';
 import { SITES } from '@/data/sites';
 
 // The theme module imports the web stylesheet, which Jest can't parse.
 jest.mock('@/global.css', () => ({}));
 jest.mock('react-native-safe-area-context', () => ({ useSafeAreaInsets: () => ({ top: 0, bottom: 0, left: 0, right: 0 }) }));
+// A phone's picture files, deleted when let go.
+const mockDelete = jest.fn();
+jest.mock('expo-file-system', () => ({ File: class { constructor(uri) { this.uri = uri; } get exists() { return true; } delete() { mockDelete(this.uri); } } }));
 
 let root;
 beforeEach(() => { global.IS_REACT_ACT_ENVIRONMENT = true; });
@@ -218,7 +222,7 @@ describe('Share your archipelago', () => {
     };
     const hero = () => root.root.findAllByType(Image)[0];
     let revoke;
-    beforeEach(() => { revoke = jest.fn(); Object.assign(URL, { revokeObjectURL: revoke }); });
+    beforeEach(() => { revoke = jest.fn(); Object.assign(URL, { revokeObjectURL: revoke }); mockDelete.mockClear(); });
 
     test('frames the islands while the preview is open, then shows the picture on the card and waits for it to load', async () => {
       const pending = deferred();
@@ -311,11 +315,26 @@ describe('Share your archipelago', () => {
       expect(revoke).toHaveBeenCalledWith('blob:http://localhost/gone');
     });
 
-    test('leaves a phone’s picture file alone (the system clears its cache)', async () => {
-      await render(<ShareArchipelagoButton {...props} sightings={sightings} captureSnapshot={async () => 'file:///cache/GLView/a.png'} api={api()} />);
+    test('deletes a phone’s picture file when the preview closes, and leaves a file it didn’t take alone', async () => {
+      // A picture taken the way a phone takes it: expo-gl writes a PNG into the cache's GLView folder.
+      const context = { contextId: 1, drawingBufferWidth: 840, drawingBufferHeight: 780 };
+      const gl = { domElement: {}, render: () => {}, getContext: () => context, getSize: () => {}, getPixelRatio: () => 2, setPixelRatio: () => {}, setSize: () => {} };
+      const phone = (uri) => () => captureFrame({ gl, scene: {}, camera: {} }, HERO_SNAPSHOT, { takeSnapshot: async () => ({ uri, localUri: uri, width: 840, height: 393 }) });
+      await render(<ShareArchipelagoButton {...props} sightings={sightings} captureSnapshot={phone('file:///cache/GLView/a.png')} api={api()} />);
+      await act(async () => pressable('Share your archipelago').props.onPress());
+      expect(hero().props.source.uri).toBe('file:///cache/GLView/a.png');
+      expect(mockDelete).not.toHaveBeenCalled();
+      await act(async () => pressable('Close the preview').props.onPress());
+      expect(mockDelete).toHaveBeenCalledWith('file:///cache/GLView/a.png');
+      expect(revoke).not.toHaveBeenCalled();
+      await act(async () => root.unmount());
+
+      // Not one this app took: left where it is.
+      mockDelete.mockClear();
+      await render(<ShareArchipelagoButton {...props} sightings={sightings} captureSnapshot={async () => 'file:///cache/GLView/b.png'} api={api()} />);
       await act(async () => pressable('Share your archipelago').props.onPress());
       await act(async () => pressable('Close the preview').props.onPress());
-      expect(revoke).not.toHaveBeenCalled();
+      expect(mockDelete).not.toHaveBeenCalled();
     });
 
     describe('while private sightings are left off the card', () => {
