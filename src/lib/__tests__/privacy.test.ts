@@ -79,15 +79,22 @@ describe('private details', () => {
   });
 
   it('come back on a pull, and stay private', () => {
-    const pulled = remoteRowToSighting({
+    const row = {
       id: 's-1', user_id: UID, species_id: 'reef-manta', site_id: 'blue-corner', sighted_on: '2026-09-01', notes: null,
-      photo_url: null, created_at: '2026-09-01T00:00:00Z', profiles: { username: 'me' }, visibility: 'public',
-    });
+      photo_url: null, created_at: '2026-09-01T00:00:00Z', profiles: { username: 'me' }, visibility: 'public' as const,
+    };
+    const pulled = remoteRowToSighting(row);
     const restored = withPrivateDetails(pulled, { sighting_id: 's-1', user_id: UID, notes: 'mine', photo_path: `${UID}/s-1-a.jpg` });
     expect(restored).toMatchObject({
       visibility: 'public', notes: 'mine', notesPrivate: true, photoUri: `private:${UID}/s-1-a.jpg`, photoPrivate: true,
     });
-    expect(withPrivateDetails(pulled, undefined)).toMatchObject({ notesPrivate: false, photoPrivate: false });
+    // Notes and a photo on the public row were shared.
+    expect(withPrivateDetails(remoteRowToSighting({ ...row, notes: 'look', photo_url: PUBLIC_URL }), undefined))
+      .toMatchObject({ notesPrivate: false, photoPrivate: false });
+    // Neither kept back nor shared: the pull can't say what the diver chose, so it leaves the choice out.
+    const unsaid = withPrivateDetails(pulled, undefined);
+    expect(unsaid.notesPrivate).toBeUndefined();
+    expect(unsaid.photoPrivate).toBeUndefined();
   });
 });
 

@@ -134,17 +134,18 @@ export function privateDetailsRow(s: Sighting, photo: string | null): RemoteDeta
 
 /**
  * One of the diver's own pulled sightings with what only they can read put back. Anything found in
- * sighting_details was kept private, so it stays private if the sighting is shared later.
+ * sighting_details was kept private, so it stays private if the sighting is shared later; notes or a
+ * photo on the public row were shared. With neither, the server can't say what the diver chose (notes
+ * can be kept private before any are written), so the choice is left out and the merge keeps this
+ * device's.
  */
 export function withPrivateDetails(s: Sighting, details: RemoteDetailsRow | undefined): Sighting {
-  const notesPrivate = !!details?.notes;
-  const photoPrivate = !!details?.photo_path;
   return {
     ...s,
-    ...(notesPrivate ? { notes: details!.notes! } : {}),
-    ...(photoPrivate ? { photoUri: privatePhotoRef(details!.photo_path!) } : {}),
-    notesPrivate,
-    photoPrivate,
+    ...(details?.notes ? { notes: details.notes } : {}),
+    ...(details?.photo_path ? { photoUri: privatePhotoRef(details.photo_path) } : {}),
+    notesPrivate: details?.notes ? true : s.notes ? false : undefined,
+    photoPrivate: details?.photo_path ? true : s.photoUri ? false : undefined,
   };
 }
 
