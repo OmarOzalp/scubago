@@ -28,6 +28,7 @@ import { ThemedView } from '@/components/themed-view';
 import { WhenReady } from '@/components/when-ready';
 import { OnFill, Radius, Shadow, Spacing, Type } from '@/constants/theme';
 import { useDiscardGuard, useHardwareBack } from '@/hooks/use-discard-guard';
+import { useKeyboard } from '@/hooks/use-keyboard';
 import { useNewBadges } from '@/hooks/use-new-badges';
 import { usePhotoUrl } from '@/hooks/use-photo-url';
 import { useRewards } from '@/hooks/use-rewards';
@@ -161,6 +162,7 @@ function LogSightingScreen() {
   const nameField = useRef<TextInput>(null);
   const privacyField = useRef<View>(null);
   const { scrollView, onScroll, scrollTo } = useScrollTo();
+  const keyboard = useKeyboard();
   const [result, setResult] = useState<Result | null>(null);
 
   // Leaving with something entered asks first; once saved there is nothing to lose.
@@ -475,47 +477,49 @@ function LogSightingScreen() {
           headerLeft: ({ tintColor }) => <HeaderBack onPress={goBack} label={previousStep ? `Back to ${STEP_NAMES[previousStep].toLowerCase()}` : 'Close'} tintColor={tintColor} />,
         }}
       />
-      {/* The three steps, numbered like the pages of a form: done ones ticked, the current one inked in. */}
-      <View style={[styles.steps, { borderBottomColor: theme.rule }]} accessibilityRole="tablist" accessibilityLabel="Steps">
-        {crumbs.map((c, i) => {
-          const current = step === c.step;
-          const done = i < stepIndex && (c.enabled || (c.step === 'site' && !!page));
-          return (
-            <View key={c.step} style={styles.stepWrap}>
-              {i > 0 ? <View style={[styles.stepRule, { backgroundColor: i <= stepIndex ? theme.lagoon : theme.rule }]} /> : null}
-              <Pressable
-                onPress={() => c.enabled && goTo(c.step)}
-                disabled={!c.enabled}
-                accessibilityRole="tab"
-                accessibilityLabel={`Step ${i + 1}, ${STEP_NAMES[c.step]}${c.label !== STEP_NAMES[c.step] ? `: ${c.label}` : ''}`}
-                aria-selected={current}
-                aria-disabled={!c.enabled}
-                style={({ pressed }) => [styles.step, { opacity: pressed ? 0.6 : 1 }]}>
-                <View
-                  style={[
-                    styles.stepDot,
-                    current
-                      ? { backgroundColor: theme.lagoon, borderColor: theme.lagoon }
-                      : done
-                        ? { backgroundColor: theme.backgroundElement, borderColor: theme.lagoon }
-                        : { backgroundColor: theme.backgroundElement, borderColor: theme.rule },
-                  ]}>
-                  {done ? (
-                    <Icon name="check" size={14} color={theme.tint} weight="bold" />
-                  ) : (
-                    <Text style={[styles.stepNumber, { color: current ? OnFill[scheme].lagoon : theme.textSecondary }]}>{i + 1}</Text>
-                  )}
-                </View>
-                <Text
-                  numberOfLines={1}
-                  style={[styles.stepLabel, { color: current ? theme.text : c.enabled || done ? theme.text : theme.textSecondary, fontFamily: current ? Type.bodyHeavy : Type.bodyBold }]}>
-                  {c.label}
-                </Text>
-              </Pressable>
-            </View>
-          );
-        })}
-      </View>
+      {/* The three steps, numbered like the pages of a form: done ones ticked, the current one inked in. Out of the way while typing: it is a sixth of a small phone with the keyboard up. */}
+      {!keyboard.open && (
+        <View style={[styles.steps, { borderBottomColor: theme.rule }]} accessibilityRole="tablist" accessibilityLabel="Steps">
+          {crumbs.map((c, i) => {
+            const current = step === c.step;
+            const done = i < stepIndex && (c.enabled || (c.step === 'site' && !!page));
+            return (
+              <View key={c.step} style={styles.stepWrap}>
+                {i > 0 ? <View style={[styles.stepRule, { backgroundColor: i <= stepIndex ? theme.lagoon : theme.rule }]} /> : null}
+                <Pressable
+                  onPress={() => c.enabled && goTo(c.step)}
+                  disabled={!c.enabled}
+                  accessibilityRole="tab"
+                  accessibilityLabel={`Step ${i + 1}, ${STEP_NAMES[c.step]}${c.label !== STEP_NAMES[c.step] ? `: ${c.label}` : ''}`}
+                  aria-selected={current}
+                  aria-disabled={!c.enabled}
+                  style={({ pressed }) => [styles.step, { opacity: pressed ? 0.6 : 1 }]}>
+                  <View
+                    style={[
+                      styles.stepDot,
+                      current
+                        ? { backgroundColor: theme.lagoon, borderColor: theme.lagoon }
+                        : done
+                          ? { backgroundColor: theme.backgroundElement, borderColor: theme.lagoon }
+                          : { backgroundColor: theme.backgroundElement, borderColor: theme.rule },
+                    ]}>
+                    {done ? (
+                      <Icon name="check" size={14} color={theme.tint} weight="bold" />
+                    ) : (
+                      <Text style={[styles.stepNumber, { color: current ? OnFill[scheme].lagoon : theme.textSecondary }]}>{i + 1}</Text>
+                    )}
+                  </View>
+                  <Text
+                    numberOfLines={1}
+                    style={[styles.stepLabel, { color: current ? theme.text : c.enabled || done ? theme.text : theme.textSecondary, fontFamily: current ? Type.bodyHeavy : Type.bodyBold }]}>
+                    {c.label}
+                  </Text>
+                </Pressable>
+              </View>
+            );
+          })}
+        </View>
+      )}
 
       {step === 'site' && (
         <SitePicker sites={sites} recentSiteIds={recentSiteIds(mySightings)} userId={userId} onPick={pickSite} />
@@ -538,7 +542,9 @@ function LogSightingScreen() {
           onScroll={onScroll}
           scrollEventThrottle={16}
           contentContainerStyle={styles.details}
-          keyboardShouldPersistTaps="handled">
+          keyboardShouldPersistTaps="handled"
+          keyboardDismissMode="on-drag"
+          automaticallyAdjustKeyboardInsets>
           <Paper style={styles.sawCard}>
             <View style={styles.sawHeader}>
               <ThemedText type="label">{editing ? 'Logbook entry' : page ? formatDiveNumber(page.number) : 'New logbook entry'}</ThemedText>
@@ -731,7 +737,7 @@ function LogSightingScreen() {
       )}
       {/* Pinned, like the species step's: the button is never at the end of a long page. */}
       {showDetails && (
-        <BottomBar>
+        <BottomBar keyboardOpen={keyboard.open}>
           {/* What the last choice was, in plain sight: nothing goes private or public by surprise. */}
           {backendEnabled && chosen.length > 0 ? (
             <Pressable
@@ -815,7 +821,9 @@ function SpeciesPicker({
   onToggle: (id: string, customName?: string) => void;
   onDone: () => void;
 }) {
-  const theme = useTheme();
+  // The bar with "Next" is at the foot of this view, and the view is lifted clear of the keyboard.
+  const lift = useRef<View>(null);
+  const keyboard = useKeyboard(lift);
   const [query, setQuery] = useState('');
   const [category, setCategory] = useState<Category | null>(null);
   const searching = query.trim().length > 0;
@@ -839,7 +847,7 @@ function SpeciesPicker({
   const count = selected.length;
 
   return (
-    <View style={{ flex: 1 }}>
+    <View ref={lift} collapsable={false} style={{ flex: 1, paddingBottom: keyboard.overlap }}>
       <View style={[styles.picker, styles.pickerTop]}>
         <FormField
           label={multi ? 'What did you see? Tick everything' : 'What did you see?'}
@@ -866,7 +874,7 @@ function SpeciesPicker({
           ))}
         </ScrollView>
       </View>
-      <ScrollView contentContainerStyle={[styles.picker, multi && { paddingBottom: 104 }]} keyboardShouldPersistTaps="handled">
+      <ScrollView contentContainerStyle={styles.picker} keyboardShouldPersistTaps="handled" keyboardDismissMode="on-drag">
         {likely.length > 0 ? (
           <>
             <ThemedText type="label" accessibilityRole="header" style={styles.groupLabel}>
@@ -904,14 +912,14 @@ function SpeciesPicker({
         />
       </ScrollView>
       {multi ? (
-        <View style={[styles.doneBar, { backgroundColor: theme.background, borderTopColor: theme.rule }]}>
+        <BottomBar keyboardOpen={keyboard.open}>
           <OceanButton
             title={count === 0 ? (allowNone ? 'Nothing to log · next' : 'Tick what you saw') : `Next · ${count} ${count === 1 ? 'species' : 'species'}`}
             variant={count === 0 && allowNone ? 'secondary' : 'primary'}
             onPress={onDone}
             disabled={count === 0 && !allowNone}
           />
-        </View>
+        </BottomBar>
       ) : null}
     </View>
   );
@@ -1314,14 +1322,6 @@ const styles = StyleSheet.create({
     borderWidth: 1.5,
     alignItems: 'center',
     justifyContent: 'center',
-  },
-  doneBar: {
-    position: 'absolute',
-    left: 0,
-    right: 0,
-    bottom: 0,
-    padding: Spacing.three,
-    borderTopWidth: 1,
   },
   details: { padding: Spacing.three, gap: Spacing.four, paddingBottom: Spacing.four, width: '100%', maxWidth: 720, alignSelf: 'center' },
   sawCard: { gap: 4, paddingBottom: 8 },

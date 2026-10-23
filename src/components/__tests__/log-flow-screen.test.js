@@ -15,6 +15,7 @@ let mockGuard = null;
 let mockNavigation = null;
 let mockState = null;
 const mockScrollTo = jest.fn();
+let mockKeyboard = { open: false, overlap: 0 };
 
 jest.mock('expo-router', () => ({
   router: { back: jest.fn(), push: jest.fn(), replace: jest.fn(), dismissTo: jest.fn(), canGoBack: jest.fn(() => true) },
@@ -42,6 +43,7 @@ jest.mock('react-native-reanimated', () => ({
   default: { View: require('react-native').View },
 }));
 jest.mock('@/lib/confirm', () => ({ confirmAction: jest.fn(async () => true) }));
+jest.mock('@/hooks/use-keyboard', () => ({ useKeyboard: () => mockKeyboard }));
 jest.mock('@/hooks/use-scroll-to', () => ({
   useScrollTo: () => ({ scrollView: { current: null }, onScroll: () => {}, scrollTo: (...args) => mockScrollTo(...args) }),
 }));
@@ -67,6 +69,7 @@ let root;
 beforeEach(() => {
   global.IS_REACT_ACT_ENVIRONMENT = true;
   mockParams = {};
+  mockKeyboard = { open: false, overlap: 0 };
   mockOptions = null;
   mockGuard = null;
   mockNavigation = { dispatch: jest.fn() };
@@ -476,5 +479,53 @@ describe('What you saw', () => {
     expect(visibleTo()).toBeUndefined();
     expect(texts()).not.toContain('Who can see this');
     expect(labels()).toContain('Notes about the animals');
+  });
+});
+
+describe('with the keyboard', () => {
+  const steps = () => root.root.findAll((n) => typeof n.type === 'string' && n.props.accessibilityRole === 'tablist');
+  const rerender = async () => act(async () => root.update(<LogSightingScreen />));
+  const flat = (style) => Object.assign({}, ...[style].flat(Infinity).filter(Boolean));
+  const withPadding = (px) => root.root.findAll((n) => typeof n.type === 'string' && flat(n.props.style).paddingBottom === px);
+
+  test('the species step’s Next bar is pinned under the list, lifted clear of the keyboard, and dragging the list puts the keyboard away', async () => {
+    await render();
+    await pickSite();
+    const bar = root.root.findAll((n) => n.type?.name === 'BottomBar')[0];
+    expect(bar).toBeDefined();
+    expect(bar.findAll((n) => n.props.title === 'Nothing to log · next').length).toBeGreaterThan(0);
+    const list = root.root.findAllByType(ScrollView).find((scroll) => scroll.props.keyboardShouldPersistTaps === 'handled');
+    expect(list.props.keyboardDismissMode).toBe('on-drag');
+
+    // The keyboard reaches 300 into the screen: the step is padded by that much.
+    expect(withPadding(300)).toHaveLength(0);
+    mockKeyboard = { open: true, overlap: 300 };
+    await rerender();
+    expect(withPadding(300).length).toBeGreaterThan(0);
+    mockKeyboard = { open: false, overlap: 0 };
+    await rerender();
+    expect(withPadding(300)).toHaveLength(0);
+  });
+
+  test('the details form adjusts for the keyboard and lets go of it when dragged', async () => {
+    await render();
+    await pickSite();
+    await tickFirstSpecies();
+    await press(byTitle('Next · 1 species'));
+    const form = root.root.findAllByType(ScrollView).find((scroll) => scroll.props.keyboardShouldPersistTaps === 'handled');
+    expect(form.props.automaticallyAdjustKeyboardInsets).toBe(true);
+    expect(form.props.keyboardDismissMode).toBe('on-drag');
+  });
+
+  test('the step bar steps aside while the keyboard is up', async () => {
+    await render();
+    await pickSite();
+    expect(steps()).toHaveLength(1);
+    mockKeyboard = { open: true, overlap: 300 };
+    await rerender();
+    expect(steps()).toHaveLength(0);
+    mockKeyboard = { open: false, overlap: 0 };
+    await rerender();
+    expect(steps()).toHaveLength(1);
   });
 });

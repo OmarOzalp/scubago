@@ -91,7 +91,7 @@ export default function AddSiteScreen() {
 
   return (
     <ThemedView style={{ flex: 1 }}>
-      <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
+      <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled" keyboardDismissMode="on-drag" automaticallyAdjustKeyboardInsets>
         <View style={styles.intro}>
           <ThemedText type="label">A new page for the chart</ThemedText>
           <ThemedText type="caption" themeColor="textSecondary">
