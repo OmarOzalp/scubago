@@ -6,7 +6,7 @@ import { FormField } from '@/components/form-field';
 import { ThemedText } from '@/components/themed-text';
 import { OnFill, Radius, Spacing, Type } from '@/constants/theme';
 import { useSchemeName, useTheme } from '@/hooks/use-theme';
-import type { HomePreferences } from '@/lib/home';
+import { HOME_NAME_MAX, type HomePreferences } from '@/lib/home';
 
 /** "Customize your home": its name, on a paper sheet. (Its islands are the archipelago's, raised by the diver's discoveries.) */
 export function HomeEditor({ preferences, saving, error, onSave, onClose }: {
@@ -19,6 +19,7 @@ export function HomeEditor({ preferences, saving, error, onSave, onClose }: {
   const insets = useSafeAreaInsets();
   const reduceMotion = useReducedMotion();
   const cannotSave = saving || !draft.name.trim();
+  const atLimit = draft.name.length >= HOME_NAME_MAX;
   return <Modal visible animationType={reduceMotion ? 'none' : 'slide'} presentationStyle="pageSheet" onRequestClose={() => { if (!saving) onClose(); }}>
     <ScrollView keyboardShouldPersistTaps="handled" style={{ backgroundColor: theme.background }} contentContainerStyle={[styles.content, { paddingTop: Math.max(insets.top, 28), paddingBottom: insets.bottom + 32 }]}>
       <View style={styles.header}>
@@ -32,7 +33,13 @@ export function HomeEditor({ preferences, saving, error, onSave, onClose }: {
       </View>
       <ThemedText type="caption" themeColor="textSecondary" style={styles.lead}>A little corner of the ocean, just for you. Its islands rise with the animals you log.</ThemedText>
 
-      <FormField label="Home name" value={draft.name} onChangeText={(name) => setDraft((s) => ({ ...s, name }))} maxLength={32} placeholder="My little island" selectionColor={theme.tint} style={styles.nameInput} />
+      <View style={styles.nameField}>
+        <FormField label="Home name" value={draft.name} onChangeText={(name) => setDraft((s) => ({ ...s, name }))} maxLength={HOME_NAME_MAX} placeholder="My little island" selectionColor={theme.tint} style={styles.nameInput} />
+        {/* The field stops typing at the limit without a word; this says how far along the name is, and (read aloud, too) when it can be no longer. */}
+        <ThemedText type="small" themeColor={atLimit ? 'tint' : 'textSecondary'} style={styles.count} accessibilityLiveRegion={atLimit ? 'polite' : 'none'}>
+          {atLimit ? `${HOME_NAME_MAX} of ${HOME_NAME_MAX} · that is as long as a name can be` : `${draft.name.length} of ${HOME_NAME_MAX}`}
+        </ThemedText>
+      </View>
 
       {!!error && <ThemedText type="small" themeColor="danger" accessibilityRole="alert" accessibilityLiveRegion="polite">{error}</ThemedText>}
       {/* Drawn like the primary OceanButton, with room for a spinner while the save is on its way. */}
@@ -51,7 +58,9 @@ const styles = StyleSheet.create({
   cancel: { minHeight: 44, minWidth: 44, justifyContent: 'center', alignItems: 'flex-end', paddingLeft: Spacing.two },
   cancelText: { fontSize: 15 },
   lead: { marginTop: -6, marginBottom: 6 },
+  nameField: { gap: 6 },
   nameInput: { fontSize: 17 },
+  count: { textAlign: 'right' },
   save: { minHeight: 52, borderRadius: Radius.md, paddingHorizontal: 20, alignItems: 'center', justifyContent: 'center', marginTop: 12 },
   saveText: { fontFamily: Type.bodyHeavy, fontSize: 16, textAlign: 'center' },
 });

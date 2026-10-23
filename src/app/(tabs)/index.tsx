@@ -89,8 +89,12 @@ export default function HomeScreen() {
   const swimming = !loading && here.length > 0 && (!none || small > 0);
   // The island full screen, to zoom in on and look around (src/app/explore.tsx): the button, or a tap on the island.
   const explore = () => router.push(island === HOME_ISLAND ? '/explore' : { pathname: '/explore', params: { island } });
+  // A first run (no page, no animal yet): the hero holds the way in, and says the ocean is empty once.
+  const first = !loading && pages === 0 && count === 0;
   const sceneHint = count === 0
-    ? 'Your ocean is empty for now. Log a sighting and that animal comes to live here.'
+    ? first
+      ? 'Your ocean is empty for now. The animals you meet on your first dive come to live here.'
+      : 'Your ocean is empty for now. Log a sighting and that animal comes to live here.'
     : none && small > 0
       ? `${small === 1 ? 'Your small creature lives' : `Your ${small} small creatures live`} on the reef, too small to see from here: tap the island to go full screen and zoom in close to find ${small === 1 ? 'it' : 'them'}.`
       : none
@@ -114,11 +118,11 @@ export default function HomeScreen() {
         <View style={[styles.mount, { borderColor: theme.text }]}>
           <View style={[styles.hero, { backgroundColor: WATER[habitat] }]}>
             <View style={styles.heroHeader}>
-              <View style={styles.pill}><View style={styles.liveDot} /><Text style={styles.pillText}>{island === HOME_ISLAND ? 'YOUR SANCTUARY' : islandName.toUpperCase()}</Text></View>
+              <View style={styles.pill}><View style={styles.liveDot} /><Text style={styles.pillText}>YOUR SANCTUARY</Text></View>
               <View style={styles.heroButtons}>
                 {swimming && <Pressable
                   accessibilityRole="button"
-                  accessibilityLabel="Explore your ocean full screen"
+                  accessibilityLabel="Open full screen"
                   onPress={explore}
                   style={({ pressed }) => [styles.motionButton, { opacity: pressed ? 0.7 : 1 }]}>
                   <Icon name="expand" size={20} color={ON_WATER} wash="#FFFFFF" washOpacity={0.6} />
@@ -135,9 +139,17 @@ export default function HomeScreen() {
             <SanctuaryScene habitat={habitat} level={moments.level} residents={here} loading={loading} paused={paused || editing || loading} onInspect={inspect} onOpen={swimming ? explore : undefined}
               moments={{ featured: moments.featured, waiting: moments.waiting, now: moments.now, onArrived: moments.onArrived, tag: moments.tag, banner: moments.banner, note: moments.note, busy: moments.busy }} />
             <View style={styles.heroFooter}>
-              <Text style={styles.homeName}>{saved.preferences.name}</Text>
+              {/* Home's island is named by the diver (tap to rename); any other island is named for its habitat. */}
+              {island === HOME_ISLAND
+                ? <Pressable accessibilityRole="button" accessibilityLabel={`${saved.preferences.name}, your home`} accessibilityHint="Rename your home" onPress={() => !loading && setEditing(true)}
+                  style={({ pressed }) => [styles.nameRow, { opacity: pressed ? 0.7 : 1 }]}>
+                  <Text style={[styles.homeName, styles.nameText]}>{saved.preferences.name}</Text>
+                  <Icon name="edit" size={18} color={ON_WATER} wash="#FFFFFF" washOpacity={0.6} />
+                </Pressable>
+                : <Text style={styles.homeName} accessibilityRole="header">{islandName}</Text>}
               <Text style={styles.heroSubtitle}>{loading ? ' ' : home.stage.place}</Text>
               <Text style={styles.sceneHint}>{loading ? ' ' : sceneHint}</Text>
+              {first && <OceanButton title="Log your first dive" variant="log" icon="plus" onPress={() => router.push('/log/new')} style={styles.firstDive} />}
               {/* The archipelago so far: an island's pill shows it in the card; with only Home's, there is nothing to choose. */}
               {!loading && count > 0 && (islands.length > 1
                 ? <IslandPills pills={pills} chosen={island} onChoose={setChosen} />
@@ -196,19 +208,19 @@ export default function HomeScreen() {
         ]}
       />
 
-      <SectionHeader
-        title="Life around you"
-        accessory={<Pressable accessibilityRole="link" accessibilityLabel="Your field guide" onPress={() => router.push('/field-guide')} style={styles.textButton}><ThemedText type="smallBold" themeColor="tint">Field guide ›</ThemedText></Pressable>}
-      />
-      {count > 0 ? <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.residentsScroll} contentContainerStyle={styles.residents}>
-        {home.residents.map((entry) => <SpeciesCard key={entry.species.id} species={entry.species} width={124} count={entry.count} onPress={() => router.push(`/species/${entry.species.id}`)} />)}
-      </ScrollView> : <View style={[styles.empty, { borderColor: theme.rule }]}>
-        <ThemedText type="heading" style={{ textAlign: 'center' }}>A quiet ocean. A world to discover.</ThemedText>
-        <ThemedText type="small" themeColor="textSecondary" style={{ textAlign: 'center', maxWidth: 280 }}>Log the marine life you meet, and watch your little home come alive.</ThemedText>
-      </View>}
+      {/* Nothing here until the first animal: the island above has already said the ocean is empty. */}
+      {count > 0 && <>
+        <SectionHeader
+          title="Life around you"
+          accessory={<Pressable accessibilityRole="link" accessibilityLabel="Your field guide" onPress={() => router.push('/field-guide')} style={styles.textButton}><ThemedText type="smallBold" themeColor="tint">Field guide ›</ThemedText></Pressable>}
+        />
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.residentsScroll} contentContainerStyle={styles.residents}>
+          {home.residents.map((entry) => <SpeciesCard key={entry.species.id} species={entry.species} width={124} count={entry.count} onPress={() => router.push(`/species/${entry.species.id}`)} />)}
+        </ScrollView>
+      </>}
 
-      {/* The next page of the logbook, by its number. */}
-      <View style={styles.nextPage}>
+      {/* The next page of the logbook, by its number (on a first run, the island's own button starts it). */}
+      {!first && <View style={styles.nextPage}>
         <View style={styles.nextHead} accessible accessibilityLabel={`Next in your logbook: dive ${nextNumber}. ${logLine}`}>
           <ThemedText type="label">Next in your logbook</ThemedText>
           <View style={styles.nextLine}>
@@ -216,8 +228,8 @@ export default function HomeScreen() {
             <ThemedText type="small" themeColor="textSecondary" style={{ flex: 1 }}>{logLine}</ThemedText>
           </View>
         </View>
-        <OceanButton title={`Begin entry ${formatDiveNumber(nextNumber)}`} variant="log" icon="plus" accessibilityLabel={`Log a dive, entry ${nextNumber}`} onPress={() => router.push('/log/new')} />
-      </View>
+        <OceanButton title={`Log dive ${formatDiveNumber(nextNumber)}`} variant="log" icon="plus" onPress={() => router.push('/log/new')} />
+      </View>}
 
       <View style={styles.journeyHeader}><ThemedText type="label">Species to grow your island</ThemedText></View>
       <View style={styles.journey}>
@@ -284,8 +296,11 @@ const styles = StyleSheet.create({
   motionButton: { width: 44, height: 44, borderRadius: 22, backgroundColor: 'rgba(255,255,255,0.55)', borderWidth: 1, borderColor: 'rgba(31,75,64,0.18)', alignItems: 'center', justifyContent: 'center' },
   heroFooter: { paddingHorizontal: 16, paddingBottom: 20, gap: 4, alignItems: 'center' },
   homeName: { color: ON_WATER, fontSize: 24, lineHeight: 30, fontFamily: Type.display, textAlign: 'center' },
+  nameRow: { minHeight: 44, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, maxWidth: '100%' },
+  nameText: { flexShrink: 1 },
   heroSubtitle: { color: ON_WATER, fontSize: 14, lineHeight: 20, fontFamily: Type.bodySemiBold, textAlign: 'center' },
   sceneHint: { color: ON_WATER, fontSize: 13, lineHeight: 18, fontFamily: Type.body, textAlign: 'center', marginTop: 6 },
+  firstDive: { alignSelf: 'stretch', marginTop: 14 },
   // Only Home's island so far: its name and count as plain text, since there is nothing to choose.
   areas: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, marginTop: 10 },
   // Pills, an island each, are what can be tapped; anything with no border is only said.
@@ -303,7 +318,6 @@ const styles = StyleSheet.create({
   textButton: { minHeight: 44, justifyContent: 'center' },
   residentsScroll: { marginHorizontal: -Spacing.three, flexGrow: 0 },
   residents: { gap: 10, paddingHorizontal: Spacing.three, paddingVertical: 2 },
-  empty: { borderWidth: 1.5, borderStyle: 'dashed', padding: 22, alignItems: 'center', gap: 8, borderRadius: Radius.lg },
   nextPage: { gap: 10 },
   nextHead: { gap: 2 },
   nextLine: { flexDirection: 'row', alignItems: 'baseline', gap: 10 },
