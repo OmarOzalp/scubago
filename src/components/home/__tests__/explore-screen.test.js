@@ -65,8 +65,8 @@ test('the explorer draws the island full screen with its own camera, and its but
 
   press('Close the explorer');
   expect(router.back).toHaveBeenCalled();
-  // The hint is there to start with, and fades.
-  expect(root.root.findAll((node) => node.props.children === 'Pinch or double-tap to look closer · drag to look around').length).toBeGreaterThan(0);
+  // The hint is there to start with (it says to tap an animal, too), and fades.
+  expect(root.root.findAll((node) => node.props.children === 'Tap an animal to meet it\nPinch or double-tap to look closer · drag to look around').length).toBeGreaterThan(0);
 });
 
 test('no tap gesture on the screen: one would count two quick pinches as a double tap and zoom in', async () => {
@@ -81,4 +81,34 @@ test('with small life on the reef, the hint says it is there to find up close', 
   const hint = root.root.findAll((node) => typeof node.props.children === 'string' && node.props.children.includes('small creatures'));
   expect(hint.length).toBeGreaterThan(0);
   expect(hint[0].props.children).toContain('2 small creatures live on the reef: zoom in close to find them');
+});
+
+// The sightings of two islands' animals: Home's reef and the Kelp Forest.
+const twoIslands = () => {
+  const sighting = (speciesId, i) => ({ id: `s${i}`, speciesId, siteId: 'blue-corner', sightedOn: '2026-01-0' + (i + 1), isDemo: false });
+  mockSightings = [sighting('reef-manta', 0), sighting('sea-otter', 1)];
+};
+const { StyleSheet } = require('react-native');
+const styleOf = (node) => StyleSheet.flatten(node.props.style);
+
+test('the title pill names the ocean and the island, and a long home name is cut short rather than run into the buttons', async () => {
+  await act(async () => { root = create(<ExploreScreen />); });
+  const label = root.root.findAll((node) => typeof node.props.children?.[0] === 'string' && node.props.children[0].startsWith('YOUR OCEAN · '));
+  expect(label.length).toBeGreaterThan(0);
+  expect(label[0].props.children.join('')).toBe('YOUR OCEAN · HOME');
+  expect(label[0].props.numberOfLines).toBe(1);
+  // The pill itself shrinks to what the buttons leave it.
+  const pill = root.root.findAll((node) => node.props.accessibilityLiveRegion === 'polite')[0];
+  expect(styleOf(pill).flexShrink).toBe(1);
+});
+
+test('with several islands, a chip for each is at least 44 points tall, and the hint says how to sail between them', async () => {
+  twoIslands();
+  await act(async () => { root = create(<ExploreScreen />); });
+  // (The host views, whose style is the one drawn.)
+  const chips = root.root.findAll((node) => node.type === 'View' && typeof node.props.accessibilityLabel === 'string' && node.props.accessibilityLabel.endsWith('Sail there'));
+  expect(chips.length).toBeGreaterThan(1);
+  for (const chip of chips) expect(styleOf(chip).minHeight).toBeGreaterThanOrEqual(44);
+  const hint = root.root.findAll((node) => typeof node.props.children === 'string' && node.props.children.startsWith('Tap an animal to meet it'));
+  expect(hint[0].props.children).toBe('Tap an animal to meet it\nPinch or double-tap to look closer · drag to sail between your islands');
 });
