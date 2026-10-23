@@ -18,7 +18,7 @@ export function summarize({ badges, collections, passport, islands }: Pick<Rewar
 
 export type RewardsSummary = ReturnType<typeof summarize>;
 
-/** The Logbook's line under "Badges & passport": "6 of 48 badges · 3 site stamps". */
+/** The Logbook's line under "Badges & collections": "6 of 48 badges · 3 site stamps". */
 export function badgesLine(s: RewardsSummary): string {
   if (s.earned === 0 && s.stamps === 0) return 'Badges and site stamps start with your first dive';
   return `${s.earned} of ${s.badges} badges · ${plural(s.stamps, 'site stamp')}`;
