@@ -2,6 +2,7 @@ import { Stack, router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 
+import { BottomBar } from '@/components/dive/bottom-bar';
 import { DiveForm } from '@/components/dive/dive-form';
 import { HeaderBack } from '@/components/dive/header-back';
 import { Icon } from '@/components/icon';
@@ -13,9 +14,10 @@ import { ThemedView } from '@/components/themed-view';
 import { WhenReady } from '@/components/when-ready';
 import { Spacing, Type } from '@/constants/theme';
 import { useDiscardGuard, useHardwareBack } from '@/hooks/use-discard-guard';
+import { useScrollTo } from '@/hooks/use-scroll-to';
 import { useTheme } from '@/hooks/use-theme';
 import { announce } from '@/lib/announce';
-import { draftFromDive, hasMoreDetails, readDraft, type DiveDraft } from '@/lib/dive-draft';
+import { draftFromDive, fieldOfProblem, hasMoreDetails, readDraft, type DiveDraft, type DraftField } from '@/lib/dive-draft';
 import { formatDiveNumber, signaturesOf, sortDives } from '@/lib/dives';
 import { onSiteAdded } from '@/lib/site-added';
 import { useAllSites, useAppStore, useMyDives, useMyUserId, useSiteById } from '@/lib/store';
@@ -47,7 +49,10 @@ function EditDiveScreen() {
   const [draft, setDraft] = useState<DiveDraft | null>(() => (dive ? draftFromDive(dive) : null));
   const [picking, setPicking] = useState(false);
   const [saving, setSaving] = useState(false);
+  // What is wrong with a field, shown under it; and a problem with the page as a whole, above the button.
+  const [problem, setProblem] = useState<{ field: DraftField; message: string } | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const { scrollView, onScroll, scrollTo } = useScrollTo();
 
   // Leaving with edits that aren't saved asks first.
   const [startKey] = useState(() => (dive ? JSON.stringify(draftFromDive(dive)) : ''));
@@ -113,24 +118,29 @@ function EditDiveScreen() {
   const signed = signaturesOf(dive).length > 0;
   const takenBy = dives.find((d) => d.id !== dive.id && String(d.number) === draft.number);
 
+  // A problem with a field goes under it (the site is chosen apart from the form, so it goes above the button).
+  const complain = (message: string, field?: DraftField) => {
+    if (field && field !== 'siteId') setProblem({ field, message });
+    else setError(message);
+    announce(message);
+  };
   const save = async () => {
     if (saving) return;
+    setProblem(null);
+    setError(null);
     const read = readDraft(draft);
     if (read.problem !== undefined) {
-      setError(read.problem);
-      announce(read.problem);
+      complain(read.problem, read.field);
       return;
     }
     setSaving(true);
-    setError(null);
     try {
       await updateDive(dive.id, read.fields);
       allowLeaving();
       router.back();
     } catch (e: any) {
-      const message = e.message ?? 'Could not save the page';
-      setError(message);
-      announce(message);
+      const message: string = e.message ?? 'Could not save the page';
+      complain(message, fieldOfProblem(message));
       setSaving(false);
     }
   };
@@ -139,7 +149,7 @@ function EditDiveScreen() {
     <ThemedView style={styles.container}>
       {/* The picker's own back arrow is gone again: the navigator's closes this screen. */}
       <Stack.Screen options={{ title: `Edit ${formatDiveNumber(dive.number)}`, headerLeft: undefined }} />
-      <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
+      <ScrollView ref={scrollView} onScroll={onScroll} scrollEventThrottle={16} contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
         <View style={styles.field}>
           <ThemedText type="label">Site</ThemedText>
           <Paper style={styles.siteRow}>
@@ -157,7 +167,13 @@ function EditDiveScreen() {
 
         <DiveForm
           draft={draft}
-          onChange={(patch) => setDraft((d) => (d ? { ...d, ...patch } : d))}
+          problem={problem}
+          onReveal={scrollTo}
+          onChange={(patch) => {
+            // Putting the field right is the end of its problem.
+            if (problem && problem.field in patch) setProblem(null);
+            setDraft((d) => (d ? { ...d, ...patch } : d));
+          }}
           takenBy={takenBy ? { number: takenBy.number, siteName: siteById(takenBy.siteId)?.name } : undefined}
           initiallyOpen={hasMoreDetails(dive)}
         />
@@ -175,13 +191,15 @@ function EditDiveScreen() {
           </Paper>
         ) : null}
 
+      </ScrollView>
+      <BottomBar>
         {error ? (
           <ThemedText type="small" themeColor="danger" accessibilityLiveRegion="polite">
             {error}
           </ThemedText>
         ) : null}
         <OceanButton title={saving ? 'Saving…' : 'Save changes'} onPress={() => void save()} disabled={saving} />
-      </ScrollView>
+      </BottomBar>
     </ThemedView>
   );
 }
@@ -189,7 +207,7 @@ function EditDiveScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1 },
   centered: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: Spacing.four },
-  content: { padding: Spacing.three, gap: Spacing.four, paddingBottom: Spacing.six, width: '100%', maxWidth: 720, alignSelf: 'center' },
+  content: { padding: Spacing.three, gap: Spacing.four, paddingBottom: Spacing.four, width: '100%', maxWidth: 720, alignSelf: 'center' },
   pickerTop: { height: Spacing.three },
   field: { gap: 6 },
   flex: { flex: 1 },

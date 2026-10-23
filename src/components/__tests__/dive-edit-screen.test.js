@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, jest, test } from '@jest/globals';
 import React, { act } from 'react';
-import { TextInput } from 'react-native';
+import { ScrollView, TextInput } from 'react-native';
 import { create } from 'react-test-renderer';
 import EditDiveScreen from '@/app/dive/edit';
 import { confirmAction } from '@/lib/confirm';
@@ -140,5 +140,45 @@ describe('leaving the edit page', () => {
     await act(async () => { mockGuard.callback({ data: { action } }); });
     expect(confirmAction).not.toHaveBeenCalled();
     expect(mockNavigation.dispatch).toHaveBeenCalledWith(action);
+  });
+});
+
+describe('a problem on the edit page', () => {
+  const inside = (parent, text) => parent.findAll((n) => n.children?.join?.('') === text).length > 0;
+  const texts = () => root.root.findAll((n) => typeof n.children?.[0] === 'string').map((n) => n.children.join(''));
+  const bars = () => root.root.findAll((n) => n.type?.name === 'BottomBar');
+
+  test('Save changes is pinned under the page', async () => {
+    await render();
+    const save = byTitle('Save changes');
+    expect(root.root.findAllByType(ScrollView).every((scroll) => scroll.findAll((n) => n === save).length === 0)).toBe(true);
+    expect(bars().some((bar) => bar.findAll((n) => n === save).length > 0)).toBe(true);
+  });
+
+  test('something typed that is not a number is said under its field, which is focused', async () => {
+    await render();
+    await typeInto('Max depth (m)', '28m');
+    await press(byTitle('Save changes'));
+    expect(mockState.updateDive).not.toHaveBeenCalled();
+    const scroll = root.root.findAllByType(ScrollView)[0];
+    expect(inside(scroll, 'Maximum depth has to be a number.')).toBe(true);
+    expect(bars().some((bar) => inside(bar, 'Maximum depth has to be a number.'))).toBe(false);
+    await act(async () => { await new Promise((resolve) => setTimeout(resolve, 0)); });
+    expect(field('Max depth (m)').instance.focus).toHaveBeenCalled();
+    await typeInto('Max depth (m)', '28');
+    expect(texts()).not.toContain('Maximum depth has to be a number.');
+  });
+
+  test('a check by the log is under its field too, and one about the page as a whole is above the button', async () => {
+    mockState.updateDive = jest.fn(async () => { throw new Error('Maximum depth has to be between 0 and 350.'); });
+    await render();
+    await typeInto('Max depth (m)', '500');
+    await press(byTitle('Save changes'));
+    expect(inside(root.root.findAllByType(ScrollView)[0], 'Maximum depth has to be between 0 and 350.')).toBe(true);
+
+    mockState.updateDive = jest.fn(async () => { throw new Error('Could not save the page'); });
+    await typeInto('Max depth (m)', '30');
+    await press(byTitle('Save changes'));
+    expect(bars().some((bar) => inside(bar, 'Could not save the page'))).toBe(true);
   });
 });

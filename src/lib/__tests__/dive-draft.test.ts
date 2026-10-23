@@ -1,6 +1,7 @@
 import { describe, expect, it } from '@jest/globals';
 
-import { carryOver, draftFromDive, emptyDraft, hasMoreDetails, readDraft } from '@/lib/dive-draft';
+import { carryOver, draftFromDive, emptyDraft, fieldOfProblem, hasMoreDetails, readDraft, TYPED_NUMBERS } from '@/lib/dive-draft';
+import { validateDive } from '@/lib/dives';
 import type { Dive, DiveFields } from '@/lib/types';
 
 const start = { number: 49, siteId: 'blue-corner', divedOn: '2026-10-12' };
@@ -20,11 +21,36 @@ describe('a page being written', () => {
     expect(readDraft(draft).fields).toMatchObject({ timeIn: '09:30', maxDepthM: 28.5, bottomTimeMin: 52, waterTempC: -1, gas: 'nitrox', o2Percent: 32 });
   });
 
-  it('says what to fix when something typed isn’t a number or a time', () => {
-    expect(readDraft({ ...emptyDraft(start), maxDepthM: '28m' })).toEqual({ problem: 'Maximum depth has to be a number.' });
-    expect(readDraft({ ...emptyDraft(start), timeIn: 'morning' }).problem).toMatch(/hours and minutes/);
-    expect(readDraft({ ...emptyDraft(start), number: '' }).problem).toBe('Give the dive a number.');
-    expect(readDraft({ ...emptyDraft(start), siteId: null }).problem).toBe('Choose the dive site.');
+  it('says what to fix when something typed isn’t a number or a time, and which field it is about', () => {
+    expect(readDraft({ ...emptyDraft(start), maxDepthM: '28m' })).toEqual({ problem: 'Maximum depth has to be a number.', field: 'maxDepthM' });
+    expect(readDraft({ ...emptyDraft(start), timeIn: 'morning' })).toMatchObject({ problem: expect.stringMatching(/hours and minutes/), field: 'timeIn' });
+    expect(readDraft({ ...emptyDraft(start), number: '' })).toEqual({ problem: 'Give the dive a number.', field: 'number' });
+    expect(readDraft({ ...emptyDraft(start), siteId: null })).toEqual({ problem: 'Choose the dive site.', field: 'siteId' });
+  });
+
+  it('finds the field of every message the store’s checks can give', () => {
+    const known = { site: (id: string) => id === 'blue-corner', today: '2026-10-22' };
+    const base = { number: 49, siteId: 'blue-corner', divedOn: '2026-10-12' };
+    const check = (over: object) => validateDive({ ...base, ...over }, known)!;
+    expect(fieldOfProblem(check({ number: 0 }))).toBe('number');
+    expect(fieldOfProblem(check({ siteId: 'nowhere' }))).toBe('siteId');
+    expect(fieldOfProblem(check({ divedOn: '2026-02-30' }))).toBe('divedOn');
+    expect(fieldOfProblem(check({ divedOn: '2026-10-23' }))).toBe('divedOn');
+    expect(fieldOfProblem(check({ timeIn: '25:00' }))).toBe('timeIn');
+    // Each number's range message belongs to that number.
+    const outOfRange: Record<string, number> = {
+      bottomTimeMin: 9999, maxDepthM: 400, avgDepthM: 400, waterTempC: 99, airTempC: 99, visibilityM: 9999,
+      o2Percent: 5, tankL: 999, pressureStartBar: 9999, pressureEndBar: 9999, weightKg: 999,
+    };
+    for (const key of TYPED_NUMBERS) {
+      expect([key, fieldOfProblem(check({ [key]: outOfRange[key] }))]).toEqual([key, key]);
+    }
+    expect(fieldOfProblem(check({ avgDepthM: 30, maxDepthM: 20 }))).toBe('avgDepthM');
+    expect(fieldOfProblem(check({ pressureStartBar: 50, pressureEndBar: 120 }))).toBe('pressureEndBar');
+    expect(fieldOfProblem(check({ gas: 'air', o2Percent: 32 }))).toBe('o2Percent');
+    // A message about the page as a whole has no field.
+    expect(fieldOfProblem('Could not save')).toBeUndefined();
+    expect(fieldOfProblem(check({ notes: 'x'.repeat(5000) }))).toBeUndefined();
   });
 
   it('a page read back into the form and out again is the same page', () => {

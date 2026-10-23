@@ -1,5 +1,5 @@
-import { useState, type ReactNode } from 'react';
-import { Pressable, StyleSheet, View, type KeyboardTypeOptions } from 'react-native';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
+import { Pressable, StyleSheet, TextInput, View, type KeyboardTypeOptions } from 'react-native';
 
 import { DateField } from '@/components/date-field';
 import { ChoiceChips } from '@/components/dive/choice-chips';
@@ -8,7 +8,7 @@ import { Icon } from '@/components/icon';
 import { ThemedText } from '@/components/themed-text';
 import { Radius, Spacing, Type } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
-import type { DiveDraft, TypedNumber } from '@/lib/dive-draft';
+import type { DiveDraft, DraftField, TypedNumber } from '@/lib/dive-draft';
 import { airConsumption, CURRENTS, ENTRIES, formatDiveNumber, GASES, KINDS, parseNumber, SUITS, SURFACES, TANK_MATERIALS } from '@/lib/dives';
 import type { Dive } from '@/lib/types';
 
@@ -38,10 +38,17 @@ const PLACEHOLDERS: Partial<Record<TypedNumber, string>> = {
   weightKg: 'e.g. 6',
 };
 
+/** The fields under "More details", which is closed until one of them has a problem to show. */
+const MORE_DETAILS: DraftField[] = ['avgDepthM', 'waterTempC', 'airTempC', 'visibilityM', 'o2Percent', 'tankL', 'pressureStartBar', 'pressureEndBar', 'weightKg'];
+
 /**
  * The page's fields. The quick ones (number, date, time in, bottom time, maximum depth, notes) are
  * always shown; "More details" opens conditions, gas and gear, the buddy and dive centre, and a
  * rating. Numbers are kept as typed; readDraft (lib/dive-draft) reads them when the page is saved.
+ *
+ * A `problem` is shown under the field it is about, which is outlined in red; the form opens "More
+ * details" if the field is in it, focuses the field, and hands it to `onReveal` for the screen to
+ * scroll to.
  */
 export function DiveForm({
   draft,
@@ -50,6 +57,8 @@ export function DiveForm({
   takenBy,
   carried,
   initiallyOpen = false,
+  problem,
+  onReveal,
 }: {
   draft: DiveDraft;
   onChange: (patch: Partial<DiveDraft>) => void;
@@ -60,11 +69,45 @@ export function DiveForm({
   /** What was carried over from the latest page. */
   carried?: { from: number; what: string[] };
   initiallyOpen?: boolean;
+  problem?: { field: DraftField; message: string } | null;
+  onReveal?: (field: View | TextInput) => void;
 }) {
   const theme = useTheme();
   const [open, setOpen] = useState(initiallyOpen);
+  // The fields' views, to take the diver to the one with a problem.
+  const fields = useRef<Partial<Record<DraftField, View | TextInput | null>>>({});
+  const invalid = (key: DraftField) => (problem?.field === key ? { borderColor: theme.danger } : undefined);
+  const problemAt = (...keys: DraftField[]) =>
+    problem && keys.includes(problem.field) ? (
+      <ThemedText type="small" themeColor="danger" accessibilityLiveRegion="polite">
+        {problem.message}
+      </ThemedText>
+    ) : null;
+
+  // A problem under "More details" opens it (once, as it arrives: the diver can close it again).
+  const [shownProblem, setShownProblem] = useState(problem);
+  if (problem !== shownProblem) {
+    setShownProblem(problem);
+    if (problem && MORE_DETAILS.includes(problem.field)) setOpen(true);
+  }
+  useEffect(() => {
+    if (!problem) return;
+    // After the section has opened, so the field is there to find.
+    const timer = setTimeout(() => {
+      const node = fields.current[problem.field];
+      if (!node) return;
+      onReveal?.(node);
+      node.focus?.();
+    }, 0);
+    return () => clearTimeout(timer);
+  }, [problem, onReveal]);
+
   const number = (key: TypedNumber, keyboard: KeyboardTypeOptions = 'decimal-pad') => (
     <FormField
+      ref={(node) => {
+        fields.current[key] = node;
+      }}
+      style={invalid(key)}
       label={LABELS[key]}
       value={draft[key]}
       onChangeText={(text) => onChange({ [key]: text } as Partial<DiveDraft>)}
@@ -94,15 +137,22 @@ export function DiveForm({
       <View style={styles.field}>
         <Pair>
           <FormField
+            ref={(node) => {
+              fields.current.number = node;
+            }}
             label="Dive number"
             value={draft.number}
             onChangeText={(text) => onChange({ number: text.replace(/[^0-9]/g, '') })}
             keyboardType="number-pad"
             inputMode="numeric"
             maxLength={6}
-            style={styles.numberInput}
+            style={[styles.numberInput, invalid('number')]}
           />
           <FormField
+            ref={(node) => {
+              fields.current.timeIn = node;
+            }}
+            style={invalid('timeIn')}
             label="Time in"
             value={draft.timeIn}
             onChangeText={(timeIn) => onChange({ timeIn })}
@@ -111,6 +161,7 @@ export function DiveForm({
             maxLength={8}
           />
         </Pair>
+        {problemAt('number', 'timeIn')}
         {takenBy ? (
           <ThemedText type="small" themeColor="danger" accessibilityLiveRegion="polite">
             {formatDiveNumber(takenBy.number)} is already a page in your log{takenBy.siteName ? ` (${takenBy.siteName})` : ''}. You can keep it, but each dive usually has its own number.
@@ -122,12 +173,23 @@ export function DiveForm({
         ) : null}
       </View>
 
-      <DateField label="Date" value={draft.divedOn} onChange={(divedOn) => onChange({ divedOn })} />
+      <View
+        ref={(node) => {
+          fields.current.divedOn = node;
+        }}
+        collapsable={false}
+        style={styles.field}>
+        <DateField label="Date" value={draft.divedOn} onChange={(divedOn) => onChange({ divedOn })} />
+        {problemAt('divedOn')}
+      </View>
 
-      <Pair>
-        {number('bottomTimeMin', 'number-pad')}
-        {number('maxDepthM')}
-      </Pair>
+      <View style={styles.field}>
+        <Pair>
+          {number('bottomTimeMin', 'number-pad')}
+          {number('maxDepthM')}
+        </Pair>
+        {problemAt('bottomTimeMin', 'maxDepthM')}
+      </View>
 
       <FormField
         label="Notes (just for you)"
@@ -164,10 +226,12 @@ export function DiveForm({
               {number('waterTempC', signed)}
               {number('airTempC', signed)}
             </Pair>
+            {problemAt('waterTempC', 'airTempC')}
             <Pair>
               {number('visibilityM')}
               {number('avgDepthM')}
             </Pair>
+            {problemAt('visibilityM', 'avgDepthM')}
             <ChoiceChips label="Current" options={CURRENTS} value={draft.current} onChange={(current) => onChange({ current })} />
             <ChoiceChips label="Surface" options={SURFACES} value={draft.surface} onChange={(surface) => onChange({ surface })} />
             <ChoiceChips label="Entry" options={ENTRIES} value={draft.entry} onChange={(entry) => onChange({ entry })} />
@@ -182,15 +246,18 @@ export function DiveForm({
               onChange={(gas) => onChange(gas === 'nitrox' || gas === 'trimix' ? { gas } : { gas, o2Percent: '' })}
             />
             {nitrox ? number('o2Percent', 'number-pad') : null}
+            {problemAt('o2Percent')}
             <Pair>
               {number('tankL')}
               {number('weightKg')}
             </Pair>
+            {problemAt('tankL', 'weightKg')}
             <ChoiceChips label="Tank" options={TANK_MATERIALS} value={draft.tankMaterial} onChange={(tankMaterial) => onChange({ tankMaterial })} />
             <Pair>
               {number('pressureStartBar', 'number-pad')}
               {number('pressureEndBar', 'number-pad')}
             </Pair>
+            {problemAt('pressureStartBar', 'pressureEndBar')}
             {sac !== undefined ? (
               <ThemedText type="small" themeColor="textSecondary" accessibilityLiveRegion="polite">
                 About {sac} litres a minute at the surface (your air consumption on this dive).

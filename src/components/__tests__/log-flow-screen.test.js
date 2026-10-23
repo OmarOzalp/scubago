@@ -185,7 +185,7 @@ describe('leaving Log a dive with something entered', () => {
     await render();
     await pickSite();
     await press(byTitle('Nothing to log · next'));
-    await press(byTitle('Write entry No. 28'));
+    await press(byTitle('Save dive No. 28'));
     expect(mockState.logDive).toHaveBeenCalled();
     expect(mockGuard.preventRemove).toBe(false);
     expect(texts()).toContain('Entry No. 28');
@@ -220,7 +220,7 @@ describe('the saved page', () => {
     } else {
       await press(byTitle('Nothing to log · next'));
     }
-    await press(byTitle('Write entry No. 28'));
+    await press(byTitle('Save dive No. 28'));
   };
   const titles = () => root.root.findAll((n) => typeof n.props.title === 'string' && typeof n.props.onPress === 'function').map((n) => n.props.title);
   const pinned = (title) => {
@@ -278,5 +278,98 @@ describe('the saved page', () => {
     expect(mockOptions.headerLeft({}).props.label).toBe('Close');
     // Nothing entered on the new page yet, so leaving it isn't questioned.
     expect(mockGuard.preventRemove).toBe(false);
+  });
+});
+
+describe('the details step', () => {
+  const goToDetails = async ({ unlisted = false } = {}) => {
+    await render();
+    await pickSite();
+    if (unlisted) {
+      await press(root.root.findAll((n) => typeof n.props.accessibilityLabel === 'string' && n.props.accessibilityLabel.startsWith('Something else') && typeof n.props.onPress === 'function')[0]);
+      await press(byTitle('Next · 1 species'));
+    } else {
+      await tickFirstSpecies();
+      await press(byTitle('Next · 1 species'));
+    }
+  };
+  const inside = (parent, text) => parent.findAll((n) => n.children?.join?.('') === text).length > 0;
+  const scrollers = () => root.root.findAllByType(ScrollView);
+  const bars = () => root.root.findAll((n) => n.type?.name === 'BottomBar');
+  const tick = async () => act(async () => { await new Promise((resolve) => setTimeout(resolve, 0)); });
+
+  test('"Save dive No. 28" is pinned under the page, not at the end of it', async () => {
+    await goToDetails();
+    const save = byTitle('Save dive No. 28');
+    expect(save).toBeDefined();
+    expect(scrollers().every((scroll) => scroll.findAll((n) => n === save).length === 0)).toBe(true);
+    expect(bars().some((bar) => bar.findAll((n) => n === save).length > 0)).toBe(true);
+    expect(byTitle('Write entry No. 28')).toBeUndefined();
+  });
+
+  test('a problem with a field is under that field, which is focused, and not by the button', async () => {
+    mockState.logDive = jest.fn(async () => { throw new Error('Maximum depth has to be between 0 and 350.'); });
+    await goToDetails();
+    await typeInto('Max depth (m)', '500');
+    await press(byTitle('Save dive No. 28'));
+    const message = 'Maximum depth has to be between 0 and 350.';
+    const form = scrollers().find((scroll) => inside(scroll, message));
+    expect(form).toBeDefined();
+    expect(bars().some((bar) => inside(bar, message))).toBe(false);
+    // The field is outlined, and taken to.
+    const depth = field('Max depth (m)');
+    expect(JSON.stringify(depth.props.style)).toContain('borderColor');
+    await tick();
+    expect(depth.instance.focus).toHaveBeenCalled();
+    // Putting the field right ends the problem.
+    await typeInto('Max depth (m)', '30');
+    expect(scrollers().some((scroll) => inside(scroll, message))).toBe(false);
+  });
+
+  test('a typing problem names its field too, and opens More details when the field is in it', async () => {
+    await goToDetails();
+    await typeInto('Time in', 'morning');
+    await press(byTitle('Save dive No. 28'));
+    expect(mockState.logDive).not.toHaveBeenCalled();
+    expect(scrollers().some((scroll) => inside(scroll, 'Write the time in as hours and minutes, like 09:30.'))).toBe(true);
+
+    mockState.logDive = jest.fn(async () => { throw new Error('The end pressure can’t be higher than the start pressure.'); });
+    await typeInto('Time in', '09:30');
+    await press(byTitle('Save dive No. 28'));
+    await tick();
+    // "End (bar)" is under More details, closed until now.
+    expect(field('End (bar)')).toBeDefined();
+    expect(scrollers().some((scroll) => inside(scroll, 'The end pressure can’t be higher than the start pressure.'))).toBe(true);
+    expect(field('End (bar)').instance.focus).toHaveBeenCalled();
+  });
+
+  test('a problem with the page as a whole is above the button', async () => {
+    mockState.logDive = jest.fn(async () => { throw new Error('Could not save'); });
+    await goToDetails();
+    await press(byTitle('Save dive No. 28'));
+    expect(bars().some((bar) => inside(bar, 'Could not save'))).toBe(true);
+  });
+
+  test('"Something else" without a name is never a greyed-out button: a tap says what is missing and goes to the field', async () => {
+    await goToDetails({ unlisted: true });
+    const save = byTitle('Save dive No. 28');
+    expect(save.props.disabled).toBe(false);
+    await press(save);
+    expect(mockState.logDive).not.toHaveBeenCalled();
+    expect(scrollers().some((scroll) => inside(scroll, 'Name the animal first'))).toBe(true);
+    await tick();
+    expect(field('What was it?').instance.focus).toHaveBeenCalled();
+    // Naming it ends the message, and the dive can be saved.
+    await typeInto('What was it?', 'Nudibranch');
+    expect(scrollers().some((scroll) => inside(scroll, 'Name the animal first'))).toBe(false);
+    await press(byTitle('Save dive No. 28'));
+    expect(mockState.logDive).toHaveBeenCalledWith(expect.objectContaining({ sightings: [expect.objectContaining({ speciesId: 'unlisted', customName: 'Nudibranch' })] }));
+  });
+
+  test('"What was it?" is directly under the species card, before the dive’s own fields', async () => {
+    await goToDetails({ unlisted: true });
+    const labels = scrollers().at(-1).findAll((n) => n.type === TextInput).map((n) => n.props.accessibilityLabel);
+    expect(labels[0]).toBe('What was it?');
+    expect(labels.indexOf('Dive number')).toBeGreaterThan(0);
   });
 });

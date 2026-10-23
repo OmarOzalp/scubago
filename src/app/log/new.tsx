@@ -1,8 +1,8 @@
 import * as ImagePicker from 'expo-image-picker';
 import { Image } from 'expo-image';
 import { Stack, router, useLocalSearchParams } from 'expo-router';
-import { useEffect, useMemo, useState, type ReactNode } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import Animated, { useAnimatedStyle, useReducedMotion, useSharedValue, withDelay, withTiming } from 'react-native-reanimated';
 
 import { DateField } from '@/components/date-field';
@@ -31,10 +31,11 @@ import { useDiscardGuard, useHardwareBack } from '@/hooks/use-discard-guard';
 import { useNewBadges } from '@/hooks/use-new-badges';
 import { usePhotoUrl } from '@/hooks/use-photo-url';
 import { useRewards } from '@/hooks/use-rewards';
+import { useScrollTo } from '@/hooks/use-scroll-to';
 import { useSchemeName, useTheme } from '@/hooks/use-theme';
 import { announce } from '@/lib/announce';
 import { CATALOG, CATALOG_BY_ID, UNLISTED_ID, UNLISTED_NAME_MAX, speciesForSighting } from '@/lib/catalog';
-import { carryOver, emptyDraft, readDraft, type DiveDraft } from '@/lib/dive-draft';
+import { carryOver, emptyDraft, fieldOfProblem, readDraft, type DiveDraft, type DraftField } from '@/lib/dive-draft';
 import { formatDiveNumber, milestoneAt, milestoneName, nextDiveNumber, nextMilestone, sortDives } from '@/lib/dives';
 import { recentDiveDate, rememberDiveDate } from '@/lib/last-dive-date';
 import { keepPhoto } from '@/lib/photo-files';
@@ -61,6 +62,7 @@ type Result = {
 
 const STEP_NAMES: Record<Step, string> = { site: 'Site', species: 'Species', details: 'Details' };
 const STEP_ORDER: Step[] = ['site', 'species', 'details'];
+const NAME_FIRST = 'Name the animal first';
 
 /**
  * What the diver has put in, as one string, so that "has anything changed since the start?" is a
@@ -150,7 +152,14 @@ function LogSightingScreen() {
   );
   const [privacyTouched, setPrivacyTouched] = useState(false);
   const [saving, setSaving] = useState(false);
+  // A general problem (a photo that wouldn't come, a save that failed), above the save button.
   const [error, setError] = useState<string | null>(null);
+  // What is wrong with a field of the page, shown under it; and how often "Something else" has been
+  // saved without a name (each time takes the diver back to that field).
+  const [problem, setProblem] = useState<{ field: DraftField; message: string } | null>(null);
+  const [nameAsked, setNameAsked] = useState(0);
+  const nameField = useRef<TextInput>(null);
+  const { scrollView, onScroll, scrollTo } = useScrollTo();
   const [result, setResult] = useState<Result | null>(null);
 
   // Leaving with something entered asks first; once saved there is nothing to lose.
@@ -190,6 +199,12 @@ function LogSightingScreen() {
     };
   }, [editing, privacyTouched]);
 
+  useEffect(() => {
+    if (nameAsked === 0) return;
+    scrollTo(nameField.current);
+    nameField.current?.focus();
+  }, [nameAsked, scrollTo]);
+
   // Back from "Add a dive site" with the new site: carry on to the species.
   useEffect(
     () =>
@@ -204,10 +219,12 @@ function LogSightingScreen() {
   const chosen = selected
     .map((id) => (id === UNLISTED_ID ? speciesForSighting({ speciesId: id, customName }) : CATALOG_BY_ID.get(id)))
     .filter((s): s is Species => !!s);
+  const unlisted = selected.includes(UNLISTED_ID);
 
   const goTo = (next: Step) => {
     setStep(next);
     setError(null);
+    setProblem(null);
     announce(
       `Step ${STEP_ORDER.indexOf(next) + 1} of 3: ${next === 'site' ? 'choose the dive site' : next === 'species' ? 'choose what you saw' : newDive ? 'the dive' : 'notes'}`,
     );
@@ -286,16 +303,25 @@ function LogSightingScreen() {
     }
   };
 
-  const fail = (message: string) => {
-    setError(message);
+  // A problem with a field of the page goes under it; one with the page as a whole above the button.
+  const complain = (message: string, field?: DraftField) => {
+    if (field && field !== 'siteId' && newDive) setProblem({ field, message });
+    else setError(message);
     announce(message);
   };
 
   const save = async () => {
     if (!siteId || !site || saving) return;
     if (!newDive && chosen.length === 0) return;
+    // Said under the field, with the diver taken there: never a button that is just greyed out.
+    if (unlisted && !customName.trim()) {
+      setNameAsked((n) => n + 1);
+      announce(NAME_FIRST);
+      return;
+    }
     setSaving(true);
     setError(null);
+    setProblem(null);
     // On a page, the sightings take the page's site and date.
     const base = { siteId: page?.siteId ?? siteId, sightedOn: page?.divedOn ?? date, notes: notes.trim() || undefined, ...privacy };
     const picks = selected.map((speciesId) => ({
@@ -338,7 +364,7 @@ function LogSightingScreen() {
       } else {
         const read = readDraft({ ...draft, siteId, divedOn: date });
         if (read.problem !== undefined) {
-          fail(read.problem);
+          complain(read.problem, read.field);
           setSaving(false);
           return;
         }
@@ -368,7 +394,8 @@ function LogSightingScreen() {
         ].join(' '),
       );
     } catch (e: any) {
-      fail(e.message ?? 'Could not save');
+      const message: string = e.message ?? 'Could not save';
+      complain(message, fieldOfProblem(message));
     } finally {
       setSaving(false);
     }
@@ -419,7 +446,7 @@ function LogSightingScreen() {
     selected.length === 1 &&
     isMaterialChange(editing, { speciesId: selected[0], siteId: page?.siteId ?? siteId, sightedOn: page?.divedOn ?? date, customName });
 
-  const unlisted = selected.includes(UNLISTED_ID);
+  const nameMissing = unlisted && nameAsked > 0 && !customName.trim();
   const takenBy = newDive ? myDives.find((d) => String(d.number) === draft.number) : undefined;
   const crumbs: { step: Step; label: string; enabled: boolean }[] = [
     { step: 'site', label: page ? `${formatDiveNumber(page.number)} · ${site?.name ?? ''}` : site ? site.name : 'Site', enabled: !page },
@@ -432,6 +459,7 @@ function LogSightingScreen() {
   ];
 
   const stepIndex = STEP_ORDER.indexOf(step);
+  const showDetails = step === 'details' && !!site && (chosen.length > 0 || newDive);
 
   return (
     <ThemedView style={styles.container}>
@@ -503,8 +531,13 @@ function LogSightingScreen() {
           onDone={() => goTo('details')}
         />
       )}
-      {step === 'details' && site && (chosen.length > 0 || newDive) && (
-        <ScrollView contentContainerStyle={styles.details} keyboardShouldPersistTaps="handled">
+      {showDetails && (
+        <ScrollView
+          ref={scrollView}
+          onScroll={onScroll}
+          scrollEventThrottle={16}
+          contentContainerStyle={styles.details}
+          keyboardShouldPersistTaps="handled">
           <Paper style={styles.sawCard}>
             <View style={styles.sawHeader}>
               <ThemedText type="label">{editing ? 'Logbook entry' : page ? formatDiveNumber(page.number) : 'New logbook entry'}</ThemedText>
@@ -559,10 +592,35 @@ function LogSightingScreen() {
             ) : null}
           </Paper>
 
+          {unlisted ? (
+            <View style={styles.nameField}>
+              <FormField
+                ref={nameField}
+                label="What was it?"
+                // The reason is under the field, so the hint gives way to it.
+                hint={nameMissing ? undefined : 'Not in our catalogue yet. It’s saved in your log but doesn’t count towards your collection.'}
+                placeholder="e.g. Nudibranch I couldn’t identify"
+                value={customName}
+                onChangeText={setCustomName}
+                maxLength={UNLISTED_NAME_MAX}
+                style={nameMissing ? { borderColor: theme.danger } : undefined}
+              />
+              {nameMissing ? (
+                <ThemedText type="small" themeColor="danger" accessibilityLiveRegion="polite">
+                  {NAME_FIRST}
+                </ThemedText>
+              ) : null}
+            </View>
+          ) : null}
+
           {newDive ? (
             <DiveForm
               draft={{ ...draft, siteId, divedOn: date }}
+              problem={problem}
+              onReveal={scrollTo}
               onChange={(patch) => {
+                // Putting the field right is the end of its problem.
+                if (problem && problem.field in patch) setProblem(null);
                 if (patch.divedOn !== undefined) {
                   setDate(patch.divedOn);
                   setDateTouched(true);
@@ -578,17 +636,6 @@ function LogSightingScreen() {
             <ThemedText type="caption" themeColor="textSecondary" style={styles.dateNote}>
               Dated the same day as your last log.
             </ThemedText>
-          ) : null}
-
-          {unlisted ? (
-            <FormField
-              label="What was it?"
-              hint="Not in our catalogue yet. It’s saved in your log but doesn’t count towards your collection."
-              placeholder="e.g. Nudibranch I couldn’t identify"
-              value={customName}
-              onChangeText={setCustomName}
-              maxLength={UNLISTED_NAME_MAX}
-            />
           ) : null}
 
           {!newDive && !page ? (
@@ -674,6 +721,11 @@ function LogSightingScreen() {
               count={chosen.length}
             />
           ) : null}
+        </ScrollView>
+      )}
+      {/* Pinned, like the species step's: the button is never at the end of a long page. */}
+      {showDetails && (
+        <BottomBar>
           {error ? (
             <ThemedText type="small" themeColor="danger" accessibilityLiveRegion="polite">
               {error}
@@ -686,17 +738,15 @@ function LogSightingScreen() {
                 : editing
                   ? 'Save changes'
                   : newDive
-                    ? `Write entry${draft.number ? ` No. ${draft.number}` : ''}`
-                    : chosen.length > 1
-                      ? `Add ${chosen.length} sightings`
-                      : 'Add it to the page'
+                    ? `Save dive${draft.number ? ` No. ${draft.number}` : ''}`
+                    : `Add to ${formatDiveNumber(page!.number)}`
             }
             variant={editing ? 'primary' : 'log'}
             icon={editing || saving ? undefined : 'stamp'}
             onPress={save}
-            disabled={saving || (unlisted && !customName.trim())}
+            disabled={saving}
           />
-        </ScrollView>
+        </BottomBar>
       )}
     </ThemedView>
   );
@@ -1249,8 +1299,9 @@ const styles = StyleSheet.create({
     padding: Spacing.three,
     borderTopWidth: 1,
   },
-  details: { padding: Spacing.three, gap: Spacing.four, paddingBottom: Spacing.six, width: '100%', maxWidth: 720, alignSelf: 'center' },
+  details: { padding: Spacing.three, gap: Spacing.four, paddingBottom: Spacing.four, width: '100%', maxWidth: 720, alignSelf: 'center' },
   sawCard: { gap: 4, paddingBottom: 8 },
+  nameField: { gap: 6 },
   sawHeader: { gap: 2, marginBottom: 8 },
   summary: {
     flexDirection: 'row',
