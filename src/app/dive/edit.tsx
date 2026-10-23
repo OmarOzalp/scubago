@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 
 import { DiveForm } from '@/components/dive/dive-form';
+import { HeaderBack } from '@/components/dive/header-back';
 import { Icon } from '@/components/icon';
 import { Paper } from '@/components/journal/paper';
 import { OceanButton } from '@/components/ocean-button';
@@ -11,6 +12,7 @@ import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { WhenReady } from '@/components/when-ready';
 import { Spacing, Type } from '@/constants/theme';
+import { useDiscardGuard, useHardwareBack } from '@/hooks/use-discard-guard';
 import { useTheme } from '@/hooks/use-theme';
 import { announce } from '@/lib/announce';
 import { draftFromDive, hasMoreDetails, readDraft, type DiveDraft } from '@/lib/dive-draft';
@@ -47,6 +49,19 @@ function EditDiveScreen() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // Leaving with edits that aren't saved asks first.
+  const [startKey] = useState(() => (dive ? JSON.stringify(draftFromDive(dive)) : ''));
+  const allowLeaving = useDiscardGuard(!!draft && JSON.stringify(draft) !== startKey, {
+    title: 'Discard your changes?',
+    message: 'The changes you’ve made to this page won’t be saved.',
+  });
+  // The site picker is a step inside this screen: Back closes it, not the screen.
+  useHardwareBack(() => {
+    if (!picking) return false;
+    setPicking(false);
+    return true;
+  });
+
   // Back from "Add a dive site" with the new site.
   useEffect(
     () =>
@@ -70,7 +85,12 @@ function EditDiveScreen() {
   if (picking) {
     return (
       <ThemedView style={styles.container}>
-        <Stack.Screen options={{ title: 'Choose the site' }} />
+        <Stack.Screen
+          options={{
+            title: 'Choose the site',
+            headerLeft: ({ tintColor }) => <HeaderBack onPress={() => setPicking(false)} label={`Back to ${formatDiveNumber(dive.number)}`} tintColor={tintColor} />,
+          }}
+        />
         <View style={styles.pickerTop} />
         <SitePicker
           sites={sites}
@@ -105,6 +125,7 @@ function EditDiveScreen() {
     setError(null);
     try {
       await updateDive(dive.id, read.fields);
+      allowLeaving();
       router.back();
     } catch (e: any) {
       const message = e.message ?? 'Could not save the page';
@@ -116,7 +137,8 @@ function EditDiveScreen() {
 
   return (
     <ThemedView style={styles.container}>
-      <Stack.Screen options={{ title: `Edit ${formatDiveNumber(dive.number)}` }} />
+      {/* The picker's own back arrow is gone again: the navigator's closes this screen. */}
+      <Stack.Screen options={{ title: `Edit ${formatDiveNumber(dive.number)}`, headerLeft: undefined }} />
       <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
         <View style={styles.field}>
           <ThemedText type="label">Site</ThemedText>
