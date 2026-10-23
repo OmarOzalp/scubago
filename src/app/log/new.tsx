@@ -1,11 +1,12 @@
 import * as ImagePicker from 'expo-image-picker';
 import { Image } from 'expo-image';
 import { Stack, router, useLocalSearchParams } from 'expo-router';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import Animated, { useAnimatedStyle, useReducedMotion, useSharedValue, withDelay, withTiming } from 'react-native-reanimated';
 
 import { DateField } from '@/components/date-field';
+import { BottomBar } from '@/components/dive/bottom-bar';
 import { DiveForm } from '@/components/dive/dive-form';
 import { HeaderBack } from '@/components/dive/header-back';
 import { Bookplate } from '@/components/dive/marks';
@@ -904,7 +905,8 @@ const ON_TWILIGHT = { text: '#FFFFFF', soft: '#C9D3FF' };
 
 /**
  * After saving. A new species turns over a field-guide card and stamps it "First record"; an
- * ordinary log gets a "Logged" stamp. Nothing moves under Reduce Motion.
+ * ordinary log gets a "Logged" stamp. Nothing moves under Reduce Motion. Either way the next steps
+ * are one footer pinned under the page, so they are in reach whatever the page above holds.
  */
 function Saved({ result, onLogMore, newBadges, onBadgesSeen }: { result: Result; onLogMore?: () => void; newBadges: BadgeResult[]; onBadgesSeen: (ids: string[]) => void }) {
   const theme = useTheme();
@@ -915,11 +917,13 @@ function Saved({ result, onLogMore, newBadges, onBadgesSeen }: { result: Result;
   const openPage = dive ? () => (dive.written ? router.replace(`/dive/${dive.id}`) : router.back()) : undefined;
   // Signing from here ends on the page (there's no page behind this screen to go back to).
   const askToSign = dive?.written ? () => router.replace({ pathname: '/dive/sign', params: { id: dive.id, then: 'page' } }) : undefined;
+  // A dive written without animals can have them added now: the same steps, on its page.
+  const addWhatYouSaw = dive?.written && count === 0 ? () => router.replace({ pathname: '/log/new', params: { dive: dive.id } }) : undefined;
   if (newSpecies.length === 0) {
     return (
-      <ThemedView style={styles.centered}>
+      <ThemedView style={styles.container}>
         {/* The form's own back arrow steps back through its steps; here the navigator's leaves. */}
-        <Stack.Screen options={{ headerLeft: undefined }} />
+        <Stack.Screen options={{ title: 'Logged', headerLeft: undefined }} />
         <ScrollView contentContainerStyle={styles.savedScroll}>
           <Paper raised style={styles.savedCard}>
             <Stamp
@@ -935,12 +939,13 @@ function Saved({ result, onLogMore, newBadges, onBadgesSeen }: { result: Result;
             <ThemedText style={styles.center} themeColor="textSecondary">
               {dive?.written
                 ? count === 0
-                  ? `Your dive at ${siteName} is written in your logbook.`
+                  ? `Your dive at ${siteName} is written in your logbook, with no animals on it yet.`
                   : `Written in your logbook, with ${count === 1 ? 'one sighting' : `${count} sightings`} at ${siteName}.`
                 : dive
                   ? `${count === 1 ? 'Your sighting is' : `${count} sightings are`} on ${formatDiveNumber(dive.number)}.`
                   : `${count === 1 ? 'Your sighting is' : `${count} sightings are`} in your log, at ${siteName}.`}
             </ThemedText>
+            {addWhatYouSaw ? <OceanButton title="Add what you saw" icon="plus" variant="secondary" onPress={addWhatYouSaw} style={styles.stretch} /> : null}
             {milestone ? <Bookplate at={milestone} siteName={siteName} style={styles.stretch} /> : null}
             {badgeCelebration}
             {ahead && ahead.remaining <= 5 ? (
@@ -948,18 +953,15 @@ function Saved({ result, onLogMore, newBadges, onBadgesSeen }: { result: Result;
                 {ahead.remaining === 0 ? `Your next dive is your ${milestoneName(ahead.at)}.` : `${countWord(ahead.remaining + 1)} dives to your ${milestoneName(ahead.at)}.`}
               </ThemedText>
             ) : null}
-            {dive?.written ? (
-              <>
-                <OceanButton title="Open the page" icon="logbook" onPress={openPage!} style={styles.stretch} />
-                <OceanButton title="Ask your buddy to sign" icon="signature" variant="secondary" onPress={askToSign!} style={styles.stretch} />
-                {onLogMore ? <OceanButton title="Log another dive" variant="secondary" icon="plus" onPress={onLogMore} style={styles.stretch} /> : null}
-                <OceanButton title="Done" variant="quiet" onPress={() => router.back()} style={styles.stretch} />
-              </>
-            ) : (
-              <OceanButton title={dive ? 'Back to the page' : 'Done'} onPress={() => router.back()} style={styles.stretch} />
-            )}
           </Paper>
         </ScrollView>
+        <SavedFooter
+          primary={<OceanButton title={dive && !dive.written ? 'Back to the page' : 'Done'} onPress={() => router.back()} style={styles.stretch} />}
+          // Sightings added to a page end on the page already: "Back to the page" is the way there.
+          page={dive?.written ? { title: 'Open the page', onPress: openPage! } : undefined}
+          onSign={askToSign}
+          onLogMore={onLogMore}
+        />
       </ThemedView>
     );
   }
@@ -1020,12 +1022,56 @@ function Saved({ result, onLogMore, newBadges, onBadgesSeen }: { result: Result;
           {dive?.written ? <Gain mark="No." text={`Entry ${formatDiveNumber(dive.number)} written in your logbook`} /> : null}
           {count > newSpecies.length ? <Gain mark={`${count}`} text={`${count} sightings saved at ${siteName}`} /> : null}
         </View>
-        <OceanButton title="Visit my home" variant="log" icon="home" onPress={() => router.dismissTo('/(tabs)')} style={styles.stretch} />
-        {openPage ? <OceanButton title={dive?.written ? 'Open the page' : 'Back to the page'} variant="secondary" icon="logbook" onPress={openPage} style={styles.stretch} /> : null}
-        {askToSign ? <OceanButton title="Ask your buddy to sign" variant="secondary" icon="signature" onPress={askToSign} style={styles.stretch} /> : null}
-        {onLogMore ? <OceanButton title="Log another dive" variant="secondary" icon="plus" onPress={onLogMore} style={styles.stretch} /> : null}
       </ScrollView>
+      <SavedFooter
+        twilight
+        primary={<OceanButton title="Visit my home" variant="log" icon="home" onPress={() => router.dismissTo('/(tabs)')} style={styles.stretch} />}
+        page={openPage ? { title: dive?.written ? 'Open the page' : 'Back to the page', onPress: openPage } : undefined}
+        onSign={askToSign}
+        onLogMore={onLogMore}
+      />
     </View>
+  );
+}
+
+/**
+ * What to do next, pinned under the saved page: the main way on, then the page itself, then the
+ * quieter ones side by side.
+ */
+function SavedFooter({
+  twilight = false,
+  primary,
+  page,
+  onSign,
+  onLogMore,
+}: {
+  twilight?: boolean;
+  primary: ReactNode;
+  page?: { title: string; onPress: () => void };
+  onSign?: () => void;
+  onLogMore?: () => void;
+}) {
+  return (
+    <BottomBar tone={twilight ? 'twilight' : 'page'} maxWidth={440}>
+      {primary}
+      {page ? <OceanButton title={page.title} variant="secondary" icon="logbook" onPress={page.onPress} style={styles.stretch} /> : null}
+      {onSign || onLogMore ? (
+        <View style={styles.quietRow}>
+          {onSign ? <QuietLink title="Ask your buddy to sign" onPress={onSign} twilight={twilight} /> : null}
+          {onLogMore ? <QuietLink title="Log another dive" onPress={onLogMore} twilight={twilight} /> : null}
+        </View>
+      ) : null}
+    </BottomBar>
+  );
+}
+
+/** A text-only action: lagoon ink on paper, white on the twilight page (where lagoon is too dim to read). */
+function QuietLink({ title, onPress, twilight }: { title: string; onPress: () => void; twilight: boolean }) {
+  const theme = useTheme();
+  return (
+    <Pressable onPress={onPress} accessibilityRole="button" style={({ pressed }) => [styles.quietLink, { opacity: pressed ? 0.6 : 1 }]}>
+      <Text style={[styles.quietText, { color: twilight ? ON_TWILIGHT.text : theme.tint }]}>{title}</Text>
+    </Pressable>
   );
 }
 
@@ -1219,13 +1265,16 @@ const styles = StyleSheet.create({
   photoPreview: { width: '100%', height: 220, borderRadius: Radius.md, borderWidth: 1 },
   warning: { flexDirection: 'row', alignItems: 'flex-start', gap: 10 },
   centered: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: Spacing.three, padding: Spacing.four },
-  savedScroll: { flexGrow: 1, justifyContent: 'center', alignItems: 'center', width: '100%' },
+  savedScroll: { flexGrow: 1, justifyContent: 'center', alignItems: 'center', width: '100%', padding: Spacing.three },
   savedCard: { width: '100%', maxWidth: 420, alignItems: 'center', gap: Spacing.three, paddingVertical: Spacing.four },
   dateNote: { marginTop: -Spacing.three },
   center: { textAlign: 'center' },
   stretch: { alignSelf: 'stretch' },
+  quietRow: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', columnGap: Spacing.three },
+  quietLink: { flexGrow: 1, flexBasis: 0, minWidth: 140, minHeight: 44, alignItems: 'center', justifyContent: 'center', paddingHorizontal: Spacing.two },
+  quietText: { fontFamily: Type.bodyBold, fontSize: 15, lineHeight: 20, textAlign: 'center' },
   twilight: { flex: 1 },
-  twilightContent: { padding: Spacing.three, paddingTop: Spacing.four, paddingBottom: Spacing.six, gap: 20, alignItems: 'center', width: '100%', maxWidth: 440, alignSelf: 'center' },
+  twilightContent: { padding: Spacing.three, paddingTop: Spacing.four, paddingBottom: Spacing.four, gap: 20, alignItems: 'center', width: '100%', maxWidth: 440, alignSelf: 'center' },
   twilightEyebrow: { fontFamily: Type.label, fontSize: 12, letterSpacing: 1.4, textAlign: 'center' },
   twilightTitle: { fontFamily: Type.display, fontSize: 32, lineHeight: 38, textAlign: 'center' },
   twilightSub: { fontFamily: Type.bodySemiBold, fontSize: 15, lineHeight: 20, textAlign: 'center' },

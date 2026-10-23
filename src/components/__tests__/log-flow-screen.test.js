@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, jest, test } from '@jest/globals';
 import React, { act } from 'react';
-import { TextInput } from 'react-native';
+import { ScrollView, TextInput } from 'react-native';
 import { create } from 'react-test-renderer';
 import LogSightingScreen from '@/app/log/new';
 import { confirmAction } from '@/lib/confirm';
@@ -205,5 +205,78 @@ describe('leaving Log a dive with something entered', () => {
     await act(async () => { mockGuard.callback({ data: { action } }); });
     expect(confirmAction).not.toHaveBeenCalled();
     expect(mockNavigation.dispatch).toHaveBeenCalledWith(action);
+  });
+});
+
+describe('the saved page', () => {
+  /** Writes a dive with no animals, or with one the diver has seen before, and is on the saved page. */
+  const writeDive = async ({ animals = false, firstRecord = false } = {}) => {
+    mockState.logDive = jest.fn(async () => ({ dive: { id: 'd-28', number: 28 }, newSpeciesIds: firstRecord ? ['reef-manta'] : [] }));
+    await render();
+    await pickSite();
+    if (animals) {
+      await tickFirstSpecies();
+      await press(byTitle('Next · 1 species'));
+    } else {
+      await press(byTitle('Nothing to log · next'));
+    }
+    await press(byTitle('Write entry No. 28'));
+  };
+  const titles = () => root.root.findAll((n) => typeof n.props.title === 'string' && typeof n.props.onPress === 'function').map((n) => n.props.title);
+  const pinned = (title) => {
+    const node = byTitle(title);
+    // Pinned means outside every ScrollView: the page above scrolls and this doesn't.
+    return !!node && root.root.findAllByType(ScrollView).every((scroll) => scroll.findAll((n) => n === node).length === 0);
+  };
+
+  test('an ordinary log: "Logged" in the header, "Done" first, then the page, with sign and log another as quieter links', async () => {
+    await writeDive({ animals: true });
+    expect(mockOptions.title).toBe('Logged');
+    expect(mockOptions.headerLeft).toBeUndefined();
+    expect(titles()).toEqual(['Done', 'Open the page', 'Ask your buddy to sign', 'Log another dive']);
+    expect(pinned('Done')).toBe(true);
+    expect(pinned('Open the page')).toBe(true);
+    expect(pinned('Ask your buddy to sign')).toBe(true);
+    expect(pinned('Log another dive')).toBe(true);
+    await press(byTitle('Open the page'));
+    expect(router.replace).toHaveBeenCalledWith('/dive/d-28');
+    await press(byTitle('Done'));
+    expect(router.back).toHaveBeenCalledTimes(1);
+    await press(byTitle('Ask your buddy to sign'));
+    expect(router.replace).toHaveBeenCalledWith({ pathname: '/dive/sign', params: { id: 'd-28', then: 'page' } });
+  });
+
+  test('a first record: "Visit my home" first, then the same rows in the same footer', async () => {
+    await writeDive({ animals: true, firstRecord: true });
+    expect(mockOptions.title).toBe('Logged');
+    expect(mockOptions.headerLeft).toBeUndefined();
+    expect(titles()).toEqual(['Visit my home', 'Open the page', 'Ask your buddy to sign', 'Log another dive']);
+    expect(pinned('Visit my home')).toBe(true);
+    expect(pinned('Open the page')).toBe(true);
+    expect(pinned('Ask your buddy to sign')).toBe(true);
+    expect(pinned('Log another dive')).toBe(true);
+    await press(byTitle('Visit my home'));
+    expect(router.dismissTo).toHaveBeenCalledWith('/(tabs)');
+  });
+
+  test('a dive with no animals offers "Add what you saw", which adds them on its page', async () => {
+    await writeDive();
+    expect(titles()).toEqual(['Add what you saw', 'Done', 'Open the page', 'Ask your buddy to sign', 'Log another dive']);
+    await press(byTitle('Add what you saw'));
+    expect(router.replace).toHaveBeenCalledWith({ pathname: '/log/new', params: { dive: 'd-28' } });
+  });
+
+  test('a dive with animals does not', async () => {
+    await writeDive({ animals: true });
+    expect(titles()).not.toContain('Add what you saw');
+  });
+
+  test('"Log another dive" starts a page afresh at the site step', async () => {
+    await writeDive({ animals: true });
+    await press(byTitle('Log another dive'));
+    expect(mockOptions.title).toBe('Log a dive');
+    expect(mockOptions.headerLeft({}).props.label).toBe('Close');
+    // Nothing entered on the new page yet, so leaving it isn't questioned.
+    expect(mockGuard.preventRemove).toBe(false);
   });
 });
