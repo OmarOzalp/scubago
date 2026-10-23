@@ -55,8 +55,8 @@ export function buildDayOctopus() {
     return r0 + (r1 - r0) * t;
   };
   const bodySkin = (u: number): Skin => blendSkins({ Root: 1 }, { Mantle: 1 }, smoothstep(.34, .46, u));
-  const us = Array.from({ length: 19 }, (_, i) => (i / 18) ** .95);
-  const sides = 14;
+  const us = Array.from({ length: 28 }, (_, i) => (i / 27) ** .95);
+  const sides = 20;
   mesh.begin();
   const rings = us.map((u) => {
     const center = spine(u), ahead = spine(Math.min(1, u + .01)).sub(spine(Math.max(0, u - .01))).normalize();
@@ -65,7 +65,7 @@ export function buildDayOctopus() {
     return Array.from({ length: sides }, (_, k) => {
       const a = TAU * k / sides, r = radius(u);
       // Slightly irregular skin, so the low-poly surface reads as soft, faceted flesh.
-      const bump = 1 + .07 * noise(u * 23 + k * 1.7, 4);
+      const bump = 1 + .035 * noise(u * 23 + k * 1.7, 4);
       const p = center.clone().addScaledVector(lateral, Math.sin(a) * r * bump).addScaledVector(normal, Math.cos(a) * r * .9 * bump);
       const under = smoothstep(.1, -.6, Math.cos(a));
       return mesh.vertex(p, mix(skinColor(p, 3), BELOW, under * (u < .4 ? .85 : .55)), bodySkin(u));
@@ -116,13 +116,13 @@ export function buildDayOctopus() {
     const y = r < .16 ? .02 - .026 * smoothstep(ARM_BASE, .16, r) : -.006;
     return new Vector3(Math.sin(angle) * r, y, CROWN.z * (1 - smoothstep(ARM_BASE, .2, r)) + Math.cos(angle) * r);
   };
-  const armRadius = (r: number) => .031 * (1 - .88 * clamp((r - ARM_BASE) / (ARM_TIP - ARM_BASE)) ** 1.05);
+  const armRadius = (r: number) => .042 * (1 - .88 * clamp((r - ARM_BASE) / (ARM_TIP - ARM_BASE)) ** 1.05);
   for (const { name, angle } of OCTOPUS_ARMS) {
     const names = Array.from({ length: OCTOPUS_SEGMENTS }, (_, s) => octopusArmBone(name, s + 1));
     names.forEach((bone, s) => bones.push({ name: bone, parent: s ? names[s - 1] : 'Root', position: armAt(angle, JOINTS[s]) }));
     const seed = angle * 7.3;
-    const rs = Array.from({ length: 12 }, (_, i) => ARM_BASE + (ARM_TIP - .012 - ARM_BASE) * (i / 11) ** .9);
-    const armSides = 6;
+    const rs = Array.from({ length: 16 }, (_, i) => ARM_BASE + (ARM_TIP - .012 - ARM_BASE) * (i / 15) ** .9);
+    const armSides = 8;
     const skin = (r: number): Skin => blendSkins({ Root: 1 }, chainSkin(r, JOINTS, names, ARM_TIP), smoothstep(ARM_BASE, .075, r));
     mesh.begin();
     const armRings = rs.map((r, i) => {
@@ -133,7 +133,7 @@ export function buildDayOctopus() {
         const p = center.clone().addScaledVector(across, Math.sin(a) * ra).addScaledVector(new Vector3(0, 1, 0), Math.cos(a) * ra * .72);
         // Beneath: lighter, with pale dots for the suckers along the underside's edges.
         const under = Math.cos(a) < -.2;
-        const sucker = under && Math.abs(Math.sin(a)) > .3 && (i % 2 === 0);
+        const sucker = under && Math.abs(Math.sin(a)) > .3;
         const color = under ? (sucker ? SUCKER : BELOW) : skinColor(p.clone().add(out.clone().multiplyScalar(seed * .01)), 7 + Math.round(seed));
         return mesh.vertex(p, color, skin(r));
       });
@@ -150,23 +150,28 @@ export function buildDayOctopus() {
     mesh.end();
   }
 
-  // --- Web: the membrane between neighboring arms' bases, its edge dipping between them ---
+  // --- Web: the membrane between neighboring arms, reaching well out along them, its edge scalloped between arms ---
   mesh.begin();
   const order = [...OCTOPUS_ARMS].sort((a, b) => a.angle - b.angle);
+  const SCALLOP = 5, WEB_END = .22;
   for (let i = 0; i < order.length; i++) {
     const a = order[i], b = order[(i + 1) % order.length];
     const span = ((b.angle - a.angle) % TAU + TAU) % TAU;
-    const mid = a.angle + span / 2, reach = .125 - .03 * clamp((span - .6) / .9);
-    const ia = octopusArmBone(a.name, 1), ib = octopusArmBone(b.name, 1);
-    const pa = armAt(a.angle, .15).add(new Vector3(0, .006, 0)), pb = armAt(b.angle, .15).add(new Vector3(0, .006, 0));
-    const pm = new Vector3(Math.sin(mid) * reach, .008, CROWN.z * .4 + Math.cos(mid) * reach);
+    const reach = .19 - .05 * clamp((span - .6) / .9);
+    const namesA = Array.from({ length: OCTOPUS_SEGMENTS }, (_, s) => octopusArmBone(a.name, s + 1));
+    const namesB = Array.from({ length: OCTOPUS_SEGMENTS }, (_, s) => octopusArmBone(b.name, s + 1));
     const c = CROWN.clone().add(new Vector3(0, -.006, 0));
-    const va = mesh.vertex(pa, WEB, blendSkins({ Root: .3 }, { [ia]: 1 }, .7));
-    const vb = mesh.vertex(pb, WEB, blendSkins({ Root: .3 }, { [ib]: 1 }, .7));
-    const vm = mesh.vertex(pm, mix(WEB, BLOTCH, .3), blendSkins({ [ia]: .5 }, { [ib]: .5 }, .5));
-    const vc = mesh.vertex(c, WEB, { Root: 1 });
-    mesh.tri(vc, va, vm);
-    mesh.tri(vc, vm, vb);
+    const vc = mesh.vertex(c, mix(WEB, BASE, .5), { Root: 1 });
+    // The edge: out to the arms' own length at each arm, dipping back to `reach` midway between them.
+    const edge = Array.from({ length: SCALLOP + 1 }, (_, k) => {
+      const t = k / SCALLOP, angle = a.angle + span * t;
+      const r = WEB_END - (WEB_END - reach) * Math.sin(Math.PI * t) ** .8;
+      const p = new Vector3(Math.sin(angle) * r, k === 0 || k === SCALLOP ? -.004 : .002, CROWN.z * .4 * (1 - smoothstep(.1, .2, r)) + Math.cos(angle) * r);
+      const weights = blendSkins(chainSkin(r, JOINTS, namesA, ARM_TIP), chainSkin(r, JOINTS, namesB, ARM_TIP), t);
+      const tone = mix(mix(WEB, BLOTCH, .25), PATCH, .35 * Math.sin(Math.PI * t));
+      return mesh.vertex(p, mix(skinColor(p, 3), tone, .55), blendSkins({ Root: .1 }, weights, .9));
+    });
+    for (let k = 0; k < SCALLOP; k++) mesh.tri(vc, edge[k], edge[k + 1]);
   }
   mesh.end({ closed: false, outward: () => new Vector3(0, 1, 0) });
 
