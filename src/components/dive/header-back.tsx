@@ -1,4 +1,4 @@
-import { Pressable, StyleSheet, type ColorValue } from 'react-native';
+import { Platform, Pressable, StyleSheet, type ColorValue } from 'react-native';
 
 import { Icon } from '@/components/icon';
 import { useTheme } from '@/hooks/use-theme';
@@ -23,5 +23,6 @@ export function HeaderBack({ onPress, label, tintColor }: { onPress: () => void;
 }
 
 const styles = StyleSheet.create({
-  button: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center' },
+  // On the web the navigator's own arrow sits a little in from the edge; this one keeps to it.
+  button: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center', marginLeft: Platform.OS === 'web' ? 4 : 0 },
 });

@@ -9,6 +9,7 @@ import { OceanButton } from '@/components/ocean-button';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { MaxContentWidth, Spacing } from '@/constants/theme';
+import { DISMISS_ON_DRAG } from '@/hooks/use-keyboard';
 import { useTheme } from '@/hooks/use-theme';
 import { announce } from '@/lib/announce';
 import { describeCoordinates, readCoordinates } from '@/lib/coordinates';
@@ -91,7 +92,7 @@ export default function AddSiteScreen() {
 
   return (
     <ThemedView style={{ flex: 1 }}>
-      <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled" keyboardDismissMode="on-drag" automaticallyAdjustKeyboardInsets>
+      <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled" keyboardDismissMode={DISMISS_ON_DRAG} automaticallyAdjustKeyboardInsets>
         <View style={styles.intro}>
           <ThemedText type="label">A new page for the chart</ThemedText>
           <ThemedText type="caption" themeColor="textSecondary">
@@ -137,7 +138,8 @@ export default function AddSiteScreen() {
               autoCorrect={false}
               autoCapitalize="none"
               placeholder="e.g. 7.81, 98.54"
-              hint="Latitude first, then longitude."
+              // Until what was typed reads as a pair (or says what is wrong), a nudge; then it gives way.
+              hint={place.problem !== undefined && problem?.field !== 'coordinates' ? 'Latitude first, then longitude.' : undefined}
               style={problem?.field === 'coordinates' ? { borderColor: theme.danger } : undefined}
             />
             {problem?.field === 'coordinates' ? (

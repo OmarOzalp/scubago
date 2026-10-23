@@ -14,6 +14,7 @@ import { ThemedView } from '@/components/themed-view';
 import { WhenReady } from '@/components/when-ready';
 import { Spacing, Type } from '@/constants/theme';
 import { useDiscardGuard, useHardwareBack } from '@/hooks/use-discard-guard';
+import { DISMISS_ON_DRAG } from '@/hooks/use-keyboard';
 import { useScrollTo } from '@/hooks/use-scroll-to';
 import { useTheme } from '@/hooks/use-theme';
 import { announce } from '@/lib/announce';
@@ -149,7 +150,7 @@ function EditDiveScreen() {
     <ThemedView style={styles.container}>
       {/* The picker's own back arrow is gone again: the navigator's closes this screen. */}
       <Stack.Screen options={{ title: `Edit ${formatDiveNumber(dive.number)}`, headerLeft: undefined }} />
-      <ScrollView ref={scrollView} onScroll={onScroll} scrollEventThrottle={16} contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled" keyboardDismissMode="on-drag" automaticallyAdjustKeyboardInsets>
+      <ScrollView ref={scrollView} onScroll={onScroll} scrollEventThrottle={16} contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled" keyboardDismissMode={DISMISS_ON_DRAG} automaticallyAdjustKeyboardInsets>
         <View style={styles.field}>
           <ThemedText type="label">Site</ThemedText>
           <Paper style={styles.siteRow}>

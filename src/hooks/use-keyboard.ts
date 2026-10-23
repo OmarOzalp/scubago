@@ -2,6 +2,13 @@ import { useEffect, useState, type RefObject } from 'react';
 import { Dimensions, Keyboard, Platform, type View } from 'react-native';
 
 /**
+ * `keyboardDismissMode` for a form's ScrollView: dragging it puts the keyboard away. Not on the web,
+ * where React Native Web puts the keyboard away on any scroll at all, including the one that takes
+ * the diver to a field with a problem, which would drop the focus the field has just been given.
+ */
+export const DISMISS_ON_DRAG = Platform.OS === 'web' ? undefined : ('on-drag' as const);
+
+/**
  * Whether the on-screen keyboard is up, and how far it reaches into `container`: pad the bottom of
  * the container by `overlap` and what sits at its foot (a bar with the main button) stays above the
  * keyboard. The overlap is measured against where the container is on the screen, so it is 0 where

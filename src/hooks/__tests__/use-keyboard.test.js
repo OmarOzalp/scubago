@@ -98,3 +98,24 @@ test('stops listening when it is gone', async () => {
   root = null;
   expect(remove).toHaveBeenCalledTimes(2);
 });
+
+describe('keyboardDismissMode for a form', () => {
+  /** The constant as it is on `os`: read when the module loads, so it is loaded afresh with that platform. */
+  const dismissOnDrag = (os) => {
+    let value;
+    jest.isolateModules(() => {
+      require('react-native').Platform.OS = os;
+      value = require('../use-keyboard').DISMISS_ON_DRAG;
+    });
+    return value;
+  };
+
+  test('is dragging on a phone', () => {
+    expect(dismissOnDrag('ios')).toBe('on-drag');
+    expect(dismissOnDrag('android')).toBe('on-drag');
+  });
+
+  test('is not set on the web, where any scroll would put the keyboard away, even one that goes to a field', () => {
+    expect(dismissOnDrag('web')).toBeUndefined();
+  });
+});
