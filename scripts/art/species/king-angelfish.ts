@@ -21,7 +21,7 @@ const WHITE = hex('#ffffff'), GILL_EDGE = hex('#43b4ee');
 // Fins.
 const FIN_DEEP = hex('#0d2150'), FIN_BLUE = hex('#173c80'), TURQUOISE = hex('#35d6e6'), STREAMER = hex('#ffbc30');
 const TAIL_ORANGE = hex('#ff7e00'), TAIL_YELLOW = hex('#ffb200');
-const PECTORAL_DUSK = hex('#7c7a54'), PECTORAL_YELLOW = hex('#dcb94a');
+const PECTORAL_DUSK = hex('#a8923a'), PECTORAL_YELLOW = hex('#e8c52a');
 const PELVIC = hex('#e9f1f6'), PELVIC_TIP = hex('#b9c9d8');
 const EYE = hex('#c7952c'), PUPIL = hex('#05070c'), MOUTH = hex('#0a0f1c'), LIP = hex('#7f93b8');
 
@@ -201,7 +201,7 @@ export function buildKingAngelfish() {
       thickness: .007, stations: 7, chordPoints: 7, bone: side > 0 ? 'PectoralL' : 'PectoralR', side,
       color: (t, u) => {
         const rim = Math.max(smoothstep(.55, .98, t), 1 - smoothstep(0, .2, Math.min(u, 1 - u)));
-        return mix(PECTORAL_DUSK, PECTORAL_YELLOW, .7 * rim);
+        return mix(PECTORAL_DUSK, PECTORAL_YELLOW, .45 + .55 * rim);
       },
     });
     pectorals.push(root);
