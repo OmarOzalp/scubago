@@ -41,11 +41,11 @@ function RewardsScreen() {
 
   return (
     <Screen>
-      <ScreenHeader eyebrow="Badges, sets and stamps" title="Rewards" />
+      <ScreenHeader eyebrow="Your rewards" title="Badges & collections" />
       <Ledger
         items={[
           { value: String(earned), unit: ` / ${badges.length}`, label: 'Badges', accessibilityLabel: `${earned} of ${badges.length} badges earned` },
-          { value: String(complete), unit: ` / ${collections.length}`, label: 'Sets', accessibilityLabel: `${complete} of ${collections.length} collections complete` },
+          { value: String(complete), unit: ` / ${collections.length}`, label: 'Collections', accessibilityLabel: `${complete} of ${collections.length} collections complete` },
           { value: String(stamps), label: stamps === 1 ? 'Stamp' : 'Stamps', accessibilityLabel: `${plural(stamps, 'passport stamp')}` },
           { value: String(raised), unit: ` / ${islands.length}`, label: 'Islands', accessibilityLabel: `${raised} of ${islands.length} islands raised` },
         ]}

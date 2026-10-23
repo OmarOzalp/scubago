@@ -180,7 +180,7 @@ export default function SiteDetailScreen() {
 
         {/* Right under the facts, so it is there on the first screen and not after the lists. */}
         <OceanButton
-          title="Log a sighting here"
+          title="Log a dive here"
           variant="log"
           icon="plus"
           onPress={() => router.push({ pathname: '/log/new', params: { siteId: site.id } })}

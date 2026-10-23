@@ -90,7 +90,7 @@ test('the hidden id’s own page is the listed site’s, so a sighting logged fr
   await act(async () => { root = create(<SiteDetailScreen />); });
   expect(text()).toContain(SITES_BY_ID.get('cod-hole').blurb);
   expect(root.root.findAll((n) => n.props.accessibilityLabel === '1 sightings, 1 species').length).toBeGreaterThan(0);
-  const log = root.root.findAll((n) => n.props.title === 'Log a sighting here' && typeof n.props.onPress === 'function')[0];
+  const log = root.root.findAll((n) => n.props.title === 'Log a dive here' && typeof n.props.onPress === 'function')[0];
   await act(async () => log.props.onPress());
   expect(router.push).toHaveBeenCalledWith({ pathname: '/log/new', params: { siteId: 'cod-hole' } });
 });
@@ -130,7 +130,7 @@ test('the log button comes right under the facts, before the diver’s dives and
   mockDives = [dive(3, 'cod-hole', '2026-02-01')];
   await act(async () => { root = create(<SiteDetailScreen />); });
   const t = text();
-  const order = ['SPECIES', 'Log a sighting here', 'Your dives here', 'What divers see here', 'Recent sightings'].map((heading) => t.indexOf(heading));
+  const order = ['SPECIES', 'Log a dive here', 'Your dives here', 'What divers see here', 'Recent sightings'].map((heading) => t.indexOf(heading));
   expect(order).not.toContain(-1); // the totals are the facts' last line
   expect(order).toEqual([...order].sort((a, b) => a - b));
 });
@@ -140,7 +140,7 @@ test('with no dives of the diver’s at the site there is no "Your dives here", 
   mockDives = [];
   await act(async () => { root = create(<SiteDetailScreen />); });
   expect(text()).not.toContain('Your dives here');
-  expect(text()).toContain('Log a sighting here');
+  expect(text()).toContain('Log a dive here');
 });
 
 test('a site the diver knows well lists its newest five dives, and the rest on asking', async () => {

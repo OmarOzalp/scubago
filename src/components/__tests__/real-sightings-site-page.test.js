@@ -68,13 +68,13 @@ test('a site with no species list reads well while the records load, and when th
   mockHook = { summary: null, status: 'loading', refresh: () => {} };
   await render();
   expect(textOf()).toContain('Looking up public records…');
-  expect(textOf()).toContain('Log a sighting here');
+  expect(textOf()).toContain('Log a dive here');
   await act(async () => root.unmount());
 
   mockHook = { summary: null, status: 'offline', refresh: () => {} };
   await render();
   expect(textOf()).toContain('Couldn’t reach the public records right now.');
-  expect(textOf()).toContain('Log a sighting here');
+  expect(textOf()).toContain('Log a dive here');
 });
 
 test('a curated site shows both its hand-made list and the public records, each with its own title', async () => {
