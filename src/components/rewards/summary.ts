@@ -26,5 +26,5 @@ export function badgesLine(s: RewardsSummary): string {
 
 /** The Field guide's line under "Collections": "2 of 17 complete", or what there is to fill. */
 export function collectionsLine(s: RewardsSummary): string {
-  return s.complete > 0 ? `${s.complete} of ${s.collections} complete` : `${s.collections} sets to fill, from sharks to shipwrecks`;
+  return s.complete > 0 ? `${s.complete} of ${s.collections} complete` : `${s.collections} collections to fill, from sharks to shipwrecks`;
 }

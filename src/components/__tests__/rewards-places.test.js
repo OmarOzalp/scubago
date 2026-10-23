@@ -212,7 +212,7 @@ test('the entry points quote the real numbers, and nothing before there is a log
   expect(badgesLine(summarize(empty))).toBe('Badges and site stamps start with your first dive');
   // Seven habitats, five families and four hand-picked sets (the Shipwreck's residents are one collection, not two).
   expect(empty.collections).toHaveLength(16);
-  expect(collectionsLine(summarize(empty))).toMatch(/^16 sets to fill/);
+  expect(collectionsLine(summarize(empty))).toMatch(/^16 collections to fill/);
   expect(collectionsLine({ ...s, complete: 2, collections: 16 })).toBe('2 of 16 complete');
 });
 

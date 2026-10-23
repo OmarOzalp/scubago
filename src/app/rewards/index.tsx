@@ -46,7 +46,6 @@ function RewardsScreen() {
         items={[
           { value: String(earned), unit: ` / ${badges.length}`, label: 'Badges', accessibilityLabel: `${earned} of ${badges.length} badges earned` },
           { value: String(complete), unit: ` / ${collections.length}`, label: 'Collections', accessibilityLabel: `${complete} of ${collections.length} collections complete` },
-          { value: String(stamps), label: stamps === 1 ? 'Stamp' : 'Stamps', accessibilityLabel: `${plural(stamps, 'passport stamp')}` },
           { value: String(raised), unit: ` / ${islands.length}`, label: 'Islands', accessibilityLabel: `${raised} of ${islands.length} islands raised` },
         ]}
       />
