@@ -14,8 +14,8 @@ import { blendSkins, clamp, fin, hex, mix, noise, path, smoothstep, TAU, type RG
 import { sharkContext, type SharkContext, type SharkDesign } from './shark';
 
 // Body: a deep blue-green back, a teal flank, a paler greenish belly; the head olive, yellowing below.
-const BACK = hex('#40766d'), FLANK = hex('#5a9d92'), LOWER = hex('#83b29d'), BELLY = hex('#b6cbae');
-const HEAD_TOP = hex('#79975a'), HEAD_LOW = hex('#b2ad63'), LIP = hex('#a9b06c'), LIP_DARK = hex('#7f9656');
+const BACK = hex('#3a6f78'), FLANK = hex('#4a8f9a'), LOWER = hex('#7aa9a6'), BELLY = hex('#b0c8c4');
+const HEAD_TOP = hex('#79975a'), HEAD_LOW = hex('#9fae78'), LIP = hex('#a9b06c'), LIP_DARK = hex('#7f9656');
 // Head lines and the bars on each scale.
 const BLUE_LINE = hex('#43b0ad'), YELLOW_LINE = hex('#c5d062'), EYE_LINE = hex('#17242a'), BAR = hex('#1f3d3a');
 // Fins.
@@ -199,11 +199,11 @@ export function buildNapoleonWrasse() {
   for (const side of [1, -1]) {
     const s = .29, theta = side * angle(s, -.03);
     const root = ctx.surface(s, theta, 0);
-    const yaw = .6;
+    const yaw = .28;
     leafFin(ctx, {
       root: root.clone().addScaledVector(ctx.normal(s, theta), -.012),
-      axis: new Vector3(side * Math.sin(yaw), -.06, -Math.cos(yaw)).normalize(), up: new Vector3(side * .55, 1, 0).normalize(),
-      length: .185, half: (t) => .08 * Math.sqrt(Math.max(0, 1 - ((t - .4) / (t > .4 ? .6 : .46)) ** 2)),
+      axis: new Vector3(side * Math.sin(yaw), -.06, -Math.cos(yaw)).normalize(), up: new Vector3(side * .2, 1, 0).normalize(),
+      length: .165, half: (t) => .055 * Math.sqrt(Math.max(0, 1 - ((t - .4) / (t > .4 ? .6 : .46)) ** 2)),
       thickness: .007, stations: 8, chordPoints: 7, bone: side > 0 ? 'PectoralL' : 'PectoralR', side,
       color: (t, u) => mix(mix(PECTORAL_BASE, PECTORAL, smoothstep(.05, .45, t)), TAIL_EDGE, .5 * Math.max(smoothstep(.8, 1, t), 1 - smoothstep(0, .14, Math.min(u, 1 - u)))),
     });
@@ -215,7 +215,7 @@ export function buildNapoleonWrasse() {
   const tail = ctx.caudalFin({
     low: axis - .125, high: axis + .125,
     le: [[axis - .125, .925], [axis - .1, .875], [axis - .065, .84], [axis - .025, .82], [axis, .815], [axis + .025, .82], [axis + .065, .84], [axis + .1, .875], [axis + .125, .925]],
-    te: [[axis - .125, .925], [axis - .115, .958], [axis - .09, .985], [axis - .05, .998], [axis, 1], [axis + .05, .998], [axis + .09, .985], [axis + .115, .958], [axis + .125, .925]],
+    te: [[axis - .125, .925], [axis - .115, .95], [axis - .09, .965], [axis - .05, .98], [axis, .985], [axis + .05, .98], [axis + .09, .965], [axis + .115, .95], [axis + .125, .925]],
     thickness: (y) => .004 + .014 * Math.max(0, 1 - Math.abs(y - axis) / .1) ** 1.2,
     upperPivot: .04, lowerPivot: .04, stations: 14,
     color: (_p, v, u) => mix(mix(TAIL, TAIL_BAND, smoothstep(.45, .8, u)), TAIL_EDGE, smoothstep(.88, 1, u)),
