@@ -146,8 +146,8 @@
   "giant-cuttlefish": {
     "status": "stylized-draft",
     "version": 2,
-    "bytes": 101844,
-    "triangles": 1752,
+    "bytes": 138084,
+    "triangles": 2816,
     "source": "Original procedural geometry and rig",
     "bones": 25,
     "clip": "Swim",
