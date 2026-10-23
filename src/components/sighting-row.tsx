@@ -19,11 +19,13 @@ interface Props {
   pending?: boolean;
   /** Leave the date out (the logbook already groups entries under their date). */
   hideDate?: boolean;
+  /** Said under the name in place of the site and date, for a list whose rows share both (a dive's page). Empty says nothing. */
+  detail?: string;
   onPress?: () => void;
 }
 
 /** One entry in a log: the species' plate, its name, where and when. */
-export function SightingRow({ sighting, species, site, showUsername = false, pending = false, hideDate = false, onPress }: Props) {
+export function SightingRow({ sighting, species, site, showUsername = false, pending = false, hideDate = false, detail, onPress }: Props) {
   const theme = useTheme();
   const scheme = useSchemeName();
   const showStatus = !!sighting.status && sighting.status !== 'unverified' && !pending;
@@ -33,8 +35,7 @@ export function SightingRow({ sighting, species, site, showUsername = false, pen
   const label = [
     species.commonName,
     showUsername && !sighting.isDemo ? `logged by @${sighting.username}` : null,
-    site?.name,
-    formatDate(sighting.sightedOn),
+    ...(detail === undefined ? [site?.name, formatDate(sighting.sightedOn)] : [detail]),
     sighting.photoUri ? 'with photo' : null,
     hidden ? 'only you can see it' : null,
     sighting.isDemo ? 'example data, not a real sighting' : null,
@@ -43,9 +44,11 @@ export function SightingRow({ sighting, species, site, showUsername = false, pen
   ]
     .filter(Boolean)
     .join(', ');
-  const where = [showUsername && !sighting.isDemo ? `@${sighting.username}` : null, site?.name, hideDate ? null : formatDate(sighting.sightedOn)]
-    .filter(Boolean)
-    .join(' · ');
+  const where =
+    detail ??
+    [showUsername && !sighting.isDemo ? `@${sighting.username}` : null, site?.name, hideDate ? null : formatDate(sighting.sightedOn)]
+      .filter(Boolean)
+      .join(' · ');
   return (
     <Pressable
       onPress={onPress}

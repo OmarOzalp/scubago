@@ -129,12 +129,15 @@ export function ShareDiveButton({
   site,
   sightings,
   api,
+  variant = 'button',
 }: {
   dive: Dive;
   site: Pick<DiveSite, 'name' | 'region' | 'country'> | undefined;
   /** The diver's sightings (the screen's). */
   sightings: readonly Sighting[];
   api?: ShareApi;
+  /** 'header': a round icon button the height of a navigation bar, for the page's header, in place of the paper button. */
+  variant?: 'button' | 'header';
 }) {
   const [open, setOpen] = useState(false);
   const close = useCallback(() => setOpen(false), []);
@@ -147,18 +150,17 @@ export function ShareDiveButton({
   const choice = usePrivateChoice(kept, shared.species.length === 0);
   const withPrivate = useMemo(() => (choice.include ? diveCardData(dive, site, sightings, { includePrivate: true }) : null), [choice.include, dive, site, sightings]);
   const data = withPrivate ?? shared;
+  const show = () => {
+    choice.reset();
+    setOpen(true);
+  };
   return (
     <>
-      <OceanButton
-        title="Share this page"
-        variant="secondary"
-        icon="share"
-        accessibilityHint="Shows a picture of this logbook page to share"
-        onPress={() => {
-          choice.reset();
-          setOpen(true);
-        }}
-      />
+      {variant === 'header' ? (
+        <IconButton icon="share" size={44} accessibilityLabel="Share this page" accessibilityHint="Shows a picture of this logbook page to share" onPress={show} />
+      ) : (
+        <OceanButton title="Share this page" variant="secondary" icon="share" accessibilityHint="Shows a picture of this logbook page to share" onPress={show} />
+      )}
       <SharePreview
         visible={open}
         onClose={close}

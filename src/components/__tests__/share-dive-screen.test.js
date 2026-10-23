@@ -2,12 +2,14 @@ import { afterEach, beforeEach, describe, expect, jest, test } from '@jest/globa
 import React, { act } from 'react';
 import { Modal } from 'react-native';
 import { create } from 'react-test-renderer';
+import { router } from 'expo-router';
 import DivePageScreen from '@/app/dive/[id]';
 
+// The header's buttons are drawn by the navigator; here the screen's own options are drawn in its place.
 jest.mock('expo-router', () => ({
   router: { back: jest.fn(), push: jest.fn(), replace: jest.fn() },
   useLocalSearchParams: () => ({ id: 'd1' }),
-  Stack: { Screen: () => null },
+  Stack: { Screen: ({ options }) => (options?.headerRight ? options.headerRight() : null) },
 }));
 jest.mock('@/global.css', () => ({}));
 jest.mock('react-native-safe-area-context', () => ({ useSafeAreaInsets: () => ({ top: 0, bottom: 0, left: 0, right: 0 }) }));
@@ -33,9 +35,11 @@ afterEach(async () => { if (root) await act(async () => root.unmount()); root = 
 const render = async () => { await act(async () => { root = create(<DivePageScreen />); }); };
 const shareButton = () => root.root.findAll((n) => n.props.accessibilityHint === 'Shows a picture of this logbook page to share' && typeof n.props.onPress === 'function');
 const texts = () => root.root.findAll((n) => typeof n.children?.[0] === 'string').map((n) => n.children.join(''));
+const button = (label) => root.root.findAll((n) => n.props.accessibilityLabel === label && typeof n.props.onPress === 'function');
+const titled = (title) => root.root.findAll((n) => n.props.title === title && typeof n.props.onPress === 'function');
 
 describe('the dive page’s Share button', () => {
-  test('is on a dive’s page, and opens that dive’s card without its notes or its private sightings', async () => {
+  test('is in the page’s header, and opens that dive’s card without its notes or its private sightings', async () => {
     mockSightings = [sighting('a', 'reef-manta'), sighting('b', 'whale-shark', { visibility: 'private' })];
     await render();
     expect(shareButton().length).toBeGreaterThan(0);
@@ -53,5 +57,41 @@ describe('the dive page’s Share button', () => {
     mockDives = [];
     await render();
     expect(shareButton()).toHaveLength(0);
+  });
+});
+
+describe('the dive page’s actions', () => {
+  test('Edit is a header button, and there is no Edit or Share button left at the foot of the page', async () => {
+    await render();
+    expect(button('Edit page').length).toBeGreaterThan(0);
+    await act(async () => button('Edit page')[0].props.onPress());
+    expect(router.push).toHaveBeenCalledWith({ pathname: '/dive/edit', params: { id: 'd1' } });
+    expect(titled('Edit page')).toHaveLength(0);
+    expect(titled('Share this page')).toHaveLength(0);
+  });
+
+  test('“Ask your buddy to sign” is a secondary button, whether or not the page is signed', async () => {
+    await render();
+    expect(titled('Ask your buddy to sign')[0].props.variant).toBe('secondary');
+    await act(async () => root.unmount());
+    mockDives = [dive({ signature: { name: 'Maya', svg: '<svg/>', at: '2026-03-12T12:00:00Z' } })];
+    await render();
+    expect(titled('Add a signature')[0].props.variant).toBe('secondary');
+  });
+
+  test('deleting stays in its own zone at the foot', async () => {
+    await render();
+    expect(texts()).toContain('Delete page');
+  });
+
+  test('a row under “What you saw” says how rare the animal is and what was written about it, not the site again', async () => {
+    mockSightings = [sighting('a', 'reef-manta', { notes: 'Came in over the cleaning station' }), sighting('b', 'whale-shark'), sighting('c', 'unlisted', { notes: 'A nudibranch I could not name' })];
+    await render();
+    const shown = texts();
+    expect(shown).toContain('Uncommon · Came in over the cleaning station');
+    expect(shown).toContain('Rare');
+    expect(shown).toContain('A nudibranch I could not name');
+    // The site is in the page's head, once, not under every animal.
+    expect(shown.filter((t) => t.includes('Shark & Yolanda'))).toHaveLength(1);
   });
 });
