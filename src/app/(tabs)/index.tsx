@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { router } from 'expo-router';
 import { HomeEditor } from '@/components/home/home-editor';
@@ -62,13 +62,18 @@ export default function HomeScreen() {
   // New species arriving and level-ups, played when Home is on screen (see useDiscoveryMoments).
   const moving = useSceneActive(paused || editing);
   const moments = useDiscoveryMoments({ owner, ready, residents: home.residents, sightings: mine, level: home.level, animate: moving });
-  // The archipelago's areas the diver has found, in the order they rose (src/lib/archipelago.ts).
-  const areas = useMemo(() => foundAreas(home.residents), [home.residents]);
-  const undiscovered = AREAS.length - areas.length;
   const count = home.residents.length;
   // The islands so far (Home's, and each other one once its first species is logged): the card shows
   // one at a time, chosen from the archipelago's pills. A new discovery arrives at its own island.
   const islands = useMemo(() => foundIslands(home.residents), [home.residents]);
+  // A pill counts the species that swim at its island, as Rewards → Islands does ("8 of 72 residents found"): Home's
+  // include the Open Ocean's and Black Sand Bay's, which have no island of their own and swim at Home (archipelago.ts).
+  const pills = useMemo(() => islands.map((id) => {
+    const area = AREAS.find((a) => a.id === id)!;
+    return { id, name: area.name, color: area.color, count: islandResidents(home.residents, id).length };
+  }), [islands, home.residents]);
+  const swimAtHome = useMemo(() => foundAreas(home.residents).filter((a) => !isIsland(a.area.id)), [home.residents]);
+  const islandsToRaise = Object.keys(ISLANDS).length - islands.length;
   const [chosen, setChosen] = useState<IslandId>(HOME_ISLAND);
   const arrivingAt = moments.now ? islandOf(moments.now) : null;
   const [arrived, setArrived] = useState(arrivingAt);
@@ -133,33 +138,18 @@ export default function HomeScreen() {
               <Text style={styles.homeName}>{saved.preferences.name}</Text>
               <Text style={styles.heroSubtitle}>{loading ? ' ' : home.stage.place}</Text>
               <Text style={styles.sceneHint}>{loading ? ' ' : sceneHint}</Text>
-              {/* The archipelago so far: each area the diver has found, with how many of their species live there. */}
-              {/* With more than one island, an island's pill shows it in the card. */}
-              {!loading && areas.length > 0 && islands.length < 2 && <View style={styles.areas} accessible accessibilityLabel={`Your archipelago: ${areas.map((a) => `${a.area.name}, ${a.count} species`).join('; ')}${undiscovered ? `; ${undiscovered} more ${undiscovered === 1 ? 'area' : 'areas'} to discover` : ''}`}>
-                {areas.map(({ area, count: living }) => <View key={area.id} style={styles.area}>
-                  <View style={[styles.areaDot, { backgroundColor: area.color }]} />
-                  <Text style={styles.areaName}>{area.name}</Text>
-                  <Text style={styles.areaCount}>{living}</Text>
+              {/* The archipelago so far: an island's pill shows it in the card; with only Home's, there is nothing to choose. */}
+              {!loading && count > 0 && (islands.length > 1
+                ? <IslandPills pills={pills} chosen={island} onChoose={setChosen} />
+                : <View style={styles.areas} accessible accessibilityLabel={`${pills[0].name}, ${pills[0].count} species`}>
+                  <View style={[styles.areaDot, { backgroundColor: pills[0].color }]} />
+                  <Text style={styles.areaName}>{pills[0].name}</Text>
+                  <Text style={styles.areaCount}>{pills[0].count}</Text>
                 </View>)}
-                {undiscovered > 0 && <View style={[styles.area, styles.areaAhead]}><Text style={styles.areaName}>+{undiscovered} to discover</Text></View>}
-              </View>}
-              {!loading && islands.length > 1 && <View style={styles.areas}>
-                {/* Home's island has a pill even before its own area has a species: it is home. */}
-                {(areas.some((a) => a.area.id === HOME_ISLAND) ? areas : [{ area: AREAS.find((a) => a.id === HOME_ISLAND)!, count: 0 }, ...areas]).map(({ area, count: living }) => {
-                  const selected = area.id === island;
-                  const label = `${area.name}${living ? `, ${living} species` : ''}`;
-                  const inner = <>
-                    <View style={[styles.areaDot, { backgroundColor: area.color }]} />
-                    <Text style={styles.areaName}>{area.name}</Text>
-                    {living > 0 && <Text style={styles.areaCount}>{living}</Text>}
-                  </>;
-                  return isIsland(area.id)
-                    ? <Pressable key={area.id} accessibilityRole="button" accessibilityState={{ selected }} accessibilityLabel={`${label}. ${selected ? 'Showing this island' : 'Show this island'}`}
-                      onPress={() => setChosen(area.id as IslandId)} hitSlop={6} style={({ pressed }) => [styles.area, styles.areaButton, selected && styles.areaChosen, { opacity: pressed ? 0.7 : 1 }]}>{inner}</Pressable>
-                    : <View key={area.id} style={styles.area} accessible accessibilityLabel={label}>{inner}</View>;
-                })}
-                {undiscovered > 0 && <View style={[styles.area, styles.areaAhead]} accessible accessibilityLabel={`${undiscovered} more ${undiscovered === 1 ? 'area' : 'areas'} to discover`}><Text style={styles.areaName}>+{undiscovered} to discover</Text></View>}
-              </View>}
+              {/* The species of areas with no island of their own are in Home's count, not pills of their own. */}
+              {!loading && island === HOME_ISLAND && swimAtHome.length > 0 && <Text style={styles.swimAtHome}>
+                Includes {swimAtHome.map(({ area, count: living }) => `${living} from ${area.name}`).join(' and ')}
+              </Text>}
             </View>
           </View>
         </View>
@@ -186,6 +176,10 @@ export default function HomeScreen() {
                   ? `${home.remaining} more new ${home.remaining === 1 ? 'species' : 'species'} to unlock ${home.next.reward.toLowerCase()}.`
                   : 'Your archipelago is flourishing. Every new discovery adds another story to your ocean.'}
               </ThemedText>
+              {/* The same count as Rewards → Islands ("4 of 5 raised"). */}
+              {count > 0 && <ThemedText type="small" themeColor="textSecondary">
+                {islandsToRaise > 0 ? `${islands.length} of ${islands.length + islandsToRaise} islands raised · ${islandsToRaise} more to discover` : `All ${islands.length} islands raised`}
+              </ThemedText>}
             </>
           )}
         </View>
@@ -245,6 +239,37 @@ export default function HomeScreen() {
   </View>;
 }
 
+/** One island of the archipelago, as a pill: its habitat's colour, its name, and how many of the diver's species swim there. */
+type Pill = { id: IslandId; name: string; color: string; count: number };
+
+/**
+ * The islands the diver has found, as one row of pills to choose from. It scrolls sideways (there can
+ * be five, and wrapping them took the card's height), and brings the chosen island's pill to the
+ * middle, as a new discovery arrives at its island without the diver touching a pill.
+ */
+function IslandPills({ pills, chosen, onChoose }: { pills: Pill[]; chosen: IslandId; onChoose: (id: IslandId) => void }) {
+  const scroll = useRef<ScrollView>(null);
+  const spots = useRef(new Map<IslandId, { x: number; width: number }>());
+  const [width, setWidth] = useState(0);
+  useEffect(() => {
+    const spot = spots.current.get(chosen);
+    if (spot && width > 0) scroll.current?.scrollTo({ x: Math.max(0, spot.x + spot.width / 2 - width / 2), animated: true });
+  }, [chosen, width]);
+  return <ScrollView ref={scroll} horizontal showsHorizontalScrollIndicator={false} onLayout={(e) => setWidth(e.nativeEvent.layout.width)} style={styles.pillsScroll} contentContainerStyle={styles.pills}>
+    {pills.map((pill) => {
+      const selected = pill.id === chosen;
+      return <Pressable key={pill.id} accessibilityRole="button" accessibilityState={{ selected }}
+        accessibilityLabel={`${pill.name}${pill.count ? `, ${pill.count} species` : ''}. ${selected ? 'Showing this island' : 'Show this island'}`}
+        onLayout={(e) => { spots.current.set(pill.id, { x: e.nativeEvent.layout.x, width: e.nativeEvent.layout.width }); }}
+        onPress={() => onChoose(pill.id)} style={({ pressed }) => [styles.island, selected && styles.islandChosen, { opacity: pressed ? 0.7 : 1 }]}>
+        <View style={[styles.areaDot, { backgroundColor: pill.color }]} />
+        <Text style={styles.areaName}>{pill.name}</Text>
+        {pill.count > 0 && <Text style={styles.areaCount}>{pill.count}</Text>}
+      </Pressable>;
+    })}
+  </ScrollView>;
+}
+
 const styles = StyleSheet.create({
   root: { flex: 1 },
   headerButtons: { flexDirection: 'row', gap: 8 },
@@ -261,11 +286,14 @@ const styles = StyleSheet.create({
   homeName: { color: ON_WATER, fontSize: 24, lineHeight: 30, fontFamily: Type.display, textAlign: 'center' },
   heroSubtitle: { color: ON_WATER, fontSize: 14, lineHeight: 20, fontFamily: Type.bodySemiBold, textAlign: 'center' },
   sceneHint: { color: ON_WATER, fontSize: 13, lineHeight: 18, fontFamily: Type.body, textAlign: 'center', marginTop: 6 },
-  areas: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', gap: 6, marginTop: 10 },
-  area: { flexDirection: 'row', alignItems: 'center', gap: 6, minHeight: 30, paddingHorizontal: 11, borderRadius: 15, backgroundColor: 'rgba(255,255,255,0.55)', borderWidth: 1, borderColor: 'rgba(31,75,64,0.18)' },
-  areaAhead: { backgroundColor: 'transparent', borderStyle: 'dashed', borderColor: 'rgba(31,75,64,0.4)' },
-  areaButton: { minHeight: 36, borderRadius: 18 },
-  areaChosen: { backgroundColor: '#FFFFFF', borderColor: ON_WATER, borderWidth: 1.5 },
+  // Only Home's island so far: its name and count as plain text, since there is nothing to choose.
+  areas: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, marginTop: 10 },
+  // Pills, an island each, are what can be tapped; anything with no border is only said.
+  pillsScroll: { alignSelf: 'stretch', flexGrow: 0, marginHorizontal: -16, marginTop: 10 },
+  pills: { flexGrow: 1, justifyContent: 'center', gap: 8, paddingHorizontal: 16 },
+  island: { flexDirection: 'row', alignItems: 'center', gap: 6, minHeight: 44, paddingHorizontal: 14, borderRadius: 22, backgroundColor: 'rgba(255,255,255,0.55)', borderWidth: 1, borderColor: 'rgba(31,75,64,0.18)' },
+  islandChosen: { backgroundColor: '#FFFFFF', borderColor: ON_WATER, borderWidth: 1.5 },
+  swimAtHome: { color: ON_WATER, fontSize: 13, lineHeight: 18, fontFamily: Type.body, textAlign: 'center', marginTop: 8 },
   areaDot: { width: 8, height: 8, borderRadius: 4 },
   areaName: { color: ON_WATER, fontSize: 13, fontFamily: Type.bodySemiBold },
   areaCount: { color: ON_WATER, fontSize: 13, fontFamily: Type.bodyHeavy },
