@@ -402,8 +402,8 @@
   "leafy-seadragon": {
     "status": "stylized-draft",
     "version": 2,
-    "bytes": 153380,
-    "triangles": 3768,
+    "bytes": 195076,
+    "triangles": 4576,
     "source": "Original procedural geometry and rig",
     "bones": 12,
     "clip": "Swim",

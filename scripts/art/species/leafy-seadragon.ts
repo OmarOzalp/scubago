@@ -5,7 +5,7 @@
  * mouth, a deep, pot-bellied trunk, and a thin tail with no fin, curling down; and rounded, frond-like
  * lobes on short spines from the head, back, belly and tail, the seaweed it hides as.
  * Tiny, see-through fins (a little dorsal on the back, pectorals behind the head) do all its
- * swimming. Yellow-ochre and olive with thin pale bands, rosy on the head; the leaves yellow-green.
+ * swimming. Yellow-ochre and olive with thin pale bands, rosy on the head; the leaves golden-yellow with olive.
  */
 import { Vector3 } from 'three';
 import { SWIM_RIGS, type SharkRig } from '../../../src/lib/marine-rigs';
@@ -13,9 +13,11 @@ import { fin, hex, mix, noise, smoothstep, type RGB, type Skin } from './kit';
 import { sharkContext, type SharkDesign } from './shark';
 
 const BODY = hex('#b8913e'), OLIVE = hex('#8a8a3c'), BAND = hex('#e2d39a'), ROSE = hex('#b97e78');
-const LEAF = hex('#bdb556'), LEAF_TIP = hex('#ddd27e'), LEAF_DARK = hex('#8e8a38'), FIN = hex('#b39a52'), EYE = hex('#2a1f14');
+const LEAF = hex('#d2a73f'), LEAF_TIP = hex('#e8cf6a'), LEAF_DARK = hex('#9a8a34'), FIN = hex('#b39a52'), EYE = hex('#2a1f14');
 
 const rig = SWIM_RIGS['leafy-seadragon'] as SharkRig;
+/** Sections along each leaf (the base and tip are single points) and points across it. */
+const LEAF_STATIONS = 9, LEAF_CHORD = 5;
 
 const skin = (s: number, theta: number, p: Vector3): RGB => {
   // Olive along the back, ochre on the flanks; thin pale bands at each bony ring; rosy on the head.
@@ -33,7 +35,7 @@ export const LEAFY_SEADRAGON: SharkDesign = {
   bottom: [[0, .004], [.04, .005], [.12, .006], [.16, .014], [.2, .022], [.24, .021], [.3, .042], [.38, .064], [.47, .056], [.56, .028], [.68, .013], [.84, .006], [.995, .002]],
   // An S: the snout held a little down, the neck arched, the back high over the belly, the tail sloping
   // away and curling down at its end.
-  center: [[0, -.062], [.06, -.042], [.12, -.022], [.18, -.006], [.24, .006], [.32, .01], [.45, .002], [.58, -.012], [.7, -.032], [.82, -.065], [.92, -.1], [.995, -.125]],
+  center: [[0, -.062], [.06, -.042], [.12, -.022], [.18, -.006], [.24, .006], [.32, .01], [.45, .002], [.58, -.012], [.7, -.032], [.82, -.09], [.92, -.14], [.995, -.19]],
   squareTop: [[0, 2], [.3, 2.4], [.995, 2]],
   squareBottom: [[0, 2], [.995, 2]],
   rings: 46, columnsAbove: 5, columnsBelow: 4,
@@ -71,19 +73,43 @@ export function buildLeafySeadragon() {
       const spread = (k - (lobes - 1) / 2) * .7 + (noise(seed + k, 3) - .5) * .3;
       const leafDir = dir.clone().multiplyScalar(Math.cos(spread)).addScaledVector(plane, Math.sin(spread)).normalize();
       const across = new Vector3().crossVectors(leafDir, out.clone().cross(back).normalize()).normalize();
-      const size = length * (.75 + .25 * noise(seed * 3 + k, 7)), width = size * .42;
+      const size = length * 1.2 * (.75 + .25 * noise(seed * 3 + k, 7)), width = size * .42;
       // A rounded paddle, broadest past its middle and rounded at the tip, its edges gently rippled.
-      const edge = (v: number) => width * .5 * Math.sqrt(Math.max(0, 1 - ((v - .55) / .55) ** 2)) * (1 + .12 * Math.sin(v * Math.PI * 3 + seed));
-      fin(mesh, {
-        stations: 5, chordPoints: 3,
-        le: (v) => fork.clone().addScaledVector(leafDir, size * v).addScaledVector(across, edge(v)),
-        te: (v) => fork.clone().addScaledVector(leafDir, size * v).addScaledVector(across, -edge(v)),
-        thickness: () => .0025, side: out.clone().cross(back).normalize(),
-        color: (_p, v, u) => mix(mix(LEAF_DARK, LEAF, smoothstep(0, .4, v)), LEAF_TIP, smoothstep(.6, 1, v) * .7 + .15 * Math.abs(u - .5)),
-        skin: () => skinHere,
-      });
+      const edge = (v: number) => width * .5 * Math.sqrt(Math.max(0, 1 - ((v - .55) / (v > .55 ? .45 : .55)) ** 2)) * (1 + .12 * Math.sin(v * Math.PI * 3 + seed));
+      blade(fork, leafDir, across, size, width, edge, seed + k, skinHere);
     }
   };
+
+  /**
+   * One leaf as a thin, slightly folded sheet (the skin is double-sided): a rib down the middle, the two halves
+   * tilting a little back from it, the whole blade rippling along its length like kelp in a current. A single
+   * smooth surface rather than a closed shell, so it reads as a ribbon, not a chunky wedge.
+   */
+  function blade(fork: Vector3, leafDir: Vector3, across: Vector3, size: number, width: number, edge: (v: number) => number, seed: number, skinHere: Skin) {
+    const faceNormal = new Vector3().crossVectors(leafDir, across).normalize();
+    const point = (v: number, a: number) => fork.clone()
+      .addScaledVector(leafDir, size * v)
+      .addScaledVector(across, edge(v) * a)
+      .addScaledVector(faceNormal, edge(v) * .13 * (1 - Math.abs(a)) + width * .09 * Math.sin(v * Math.PI * 2.2 + seed) * smoothstep(0, .3, v));
+    const color = (v: number, a: number) => mix(mix(LEAF_DARK, LEAF, smoothstep(0, .4, v)), LEAF_TIP, smoothstep(.6, 1, v) * .7 + .15 * Math.abs(a));
+    mesh.begin();
+    const baseP = point(0, 0), tipP = point(1, 0);
+    const base = mesh.vertex(baseP, LEAF_DARK, skinHere), tip = mesh.vertex(tipP, LEAF_TIP, skinHere);
+    const rows: number[][] = [];
+    for (let i = 1; i < LEAF_STATIONS - 1; i++) {
+      const v = i / (LEAF_STATIONS - 1);
+      rows.push(Array.from({ length: LEAF_CHORD }, (_, j) => {
+        const a = 2 * j / (LEAF_CHORD - 1) - 1, p = point(v, a);
+        return mesh.vertex(p, color(v, a), skinHere);
+      }));
+    }
+    for (let j = 0; j < LEAF_CHORD - 1; j++) {
+      mesh.tri(base, rows[0][j + 1], rows[0][j]);
+      mesh.tri(tip, rows[rows.length - 1][j], rows[rows.length - 1][j + 1]);
+      for (let i = 0; i < rows.length - 1; i++) mesh.quad(rows[i][j], rows[i][j + 1], rows[i + 1][j + 1], rows[i + 1][j]);
+    }
+    mesh.end({ closed: false, normals: true, outward: () => faceNormal });
+  }
   // Leaves on the head, the back, the belly and along the tail, in pairs.
   for (const side of [1, -1]) {
     leafy(.18, side * .45, 0.08, 1, -.4, 1 + side);
@@ -96,19 +122,21 @@ export function buildLeafySeadragon() {
     leafy(.67, side * .55, 0.12, 1, .6, 13 + side);
     leafy(.64, side * 2.6, 0.11, 1, .65, 15 + side);
     leafy(.8, side * .7, 0.08, 1, .7, 17 + side);
+    leafy(.86, side * 2.5, 0.075, 1, .7, 19 + side);
+    leafy(.92, side * .8, 0.07, 1, .75, 21 + side);
   }
 
   // The tiny, see-through dorsal fin on the back that it swims with (on `Dorsal`).
   const dorsal = ctx.midlineFin({
-    le: [[-.004, .5], [0, .502], [.014, .51], [.022, .53]],
-    te: [[-.004, .6], [0, .598], [.014, .585], [.022, .56]],
-    height: .022, thickness: .003, stations: 4, chordPoints: 6, bone: 'Dorsal', color: () => FIN,
+    le: [[-.004, .5], [0, .502], [.022, .51], [.035, .53]],
+    te: [[-.004, .6], [0, .598], [.022, .585], [.035, .56]],
+    height: .035, thickness: .003, stations: 4, chordPoints: 6, bone: 'Dorsal', color: () => FIN,
   });
   // Tiny pectorals behind the head.
   const pectorals = ctx.pairedFin({
-    rootS: .225, theta: 1.4, span: .018, droop: .2, sweep: .3, thickness: .002, stations: 3,
-    le: [[-.004, 0], [0, 0], [.01, .004], [.018, .01]],
-    te: [[-.004, .014], [0, .015], [.01, .016], [.018, .01]],
+    rootS: .225, theta: 1.4, span: .03, droop: .2, sweep: .3, thickness: .002, stations: 4,
+    le: [[-.004, 0], [0, 0], [.016, .006], [.03, .016]],
+    te: [[-.004, .022], [0, .024], [.016, .026], [.03, .016]],
     bone: (left) => (left ? 'PectoralL' : 'PectoralR'),
     color: () => FIN,
   });
