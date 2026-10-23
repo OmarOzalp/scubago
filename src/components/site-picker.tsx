@@ -1,11 +1,10 @@
 import { router } from 'expo-router';
 import { memo, useCallback, useDeferredValue, useLayoutEffect, useMemo, useRef, useState } from 'react';
-import { FlatList, StyleSheet, Text, View, type ListRenderItemInfo } from 'react-native';
+import { FlatList, Pressable, StyleSheet, Text, View, type ListRenderItemInfo } from 'react-native';
 
 import { FormField } from '@/components/form-field';
 import { Icon } from '@/components/icon';
 import { PaperButton } from '@/components/journal/paper';
-import { OceanButton } from '@/components/ocean-button';
 import { OsmCredit } from '@/components/site-list';
 import { ThemedText } from '@/components/themed-text';
 import { Radius, Spacing, Type } from '@/constants/theme';
@@ -41,6 +40,7 @@ export function SitePicker({
   userId: string | undefined;
   onPick: (site: DiveSite) => void;
 }) {
+  const theme = useTheme();
   const [query, setQuery] = useState('');
   const typed = useDeferredValue(query);
   const searching = typed.trim().length > 0;
@@ -91,6 +91,20 @@ export function SitePicker({
       <View style={styles.search}>
         <FormField
           label="Where did you dive?"
+          // Where the diver is looking when the site isn't there, not at the end of a list of hundreds.
+          labelAccessory={
+            <Pressable
+              onPress={() => router.push({ pathname: '/add-site', params: { then: 'log', name: query.trim() } })}
+              accessibilityRole="button"
+              accessibilityLabel="Can’t find it? Add a dive site"
+              hitSlop={{ top: 4, bottom: 4, left: 8, right: 4 }}
+              style={({ pressed }) => [styles.addSite, { opacity: pressed ? 0.6 : 1 }]}>
+              {/* Two lines, so it fits beside the label on a phone. */}
+              <Text numberOfLines={2} style={[styles.addSiteText, { color: theme.tint }]}>
+                {'Can’t find it?\nAdd a dive site'}
+              </Text>
+            </Pressable>
+          }
           value={query}
           onChangeText={setQuery}
           placeholder="Search sites, regions, countries…"
@@ -116,15 +130,11 @@ export function SitePicker({
           ) : null
         }
         ListFooterComponent={
-          <View style={styles.footer}>
-            <OceanButton
-              title="Can’t find it? Add a dive site"
-              icon="addSite"
-              variant="secondary"
-              onPress={() => router.push({ pathname: '/add-site', params: { then: 'log', name: query.trim() } })}
-            />
-            {credit ? <OsmCredit /> : null}
-          </View>
+          credit ? (
+            <View style={styles.footer}>
+              <OsmCredit />
+            </View>
+          ) : null
         }
       />
     </View>
@@ -175,8 +185,9 @@ const styles = StyleSheet.create({
   search: { paddingHorizontal: Spacing.three, paddingBottom: Spacing.two + 2 },
   content: { paddingHorizontal: Spacing.three, paddingBottom: Spacing.three },
   separator: { height: Spacing.two + 2 },
-  // Below the last row as the button used to sit: the list's 10 and a little more.
-  footer: { marginTop: Spacing.three + 2, gap: Spacing.two },
+  footer: { marginTop: Spacing.three + 2 },
+  addSite: { flexShrink: 1, minHeight: 36, justifyContent: 'center' },
+  addSiteText: { fontFamily: Type.bodyBold, fontSize: 13, lineHeight: 18, textAlign: 'right' },
   groupLabel: { marginTop: Spacing.two },
   row: {
     flexDirection: 'row',

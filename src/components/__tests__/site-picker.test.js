@@ -4,6 +4,7 @@ import { FlatList, TextInput } from 'react-native';
 import { create } from 'react-test-renderer';
 import { router } from 'expo-router';
 import { SitePicker } from '../site-picker';
+import { FormField } from '@/components/form-field';
 import { PaperButton } from '@/components/journal/paper';
 import { OceanButton } from '@/components/ocean-button';
 import { SITES_BY_ID } from '@/data/sites';
@@ -47,6 +48,7 @@ const rows = () => root.root.findAllByType(PaperButton);
 const labels = () => rows().map((r) => r.props.accessibilityLabel);
 const type = async (text) => { await act(async () => root.root.findByType(TextInput).props.onChangeText(text)); };
 const data = () => root.root.findByType(FlatList).props.data;
+const addSiteLink = () => root.root.findAll((n) => n.props.accessibilityLabel === 'Can’t find it? Add a dive site' && typeof n.props.onPress === 'function')[0];
 const text = () => root.root.findAll((n) => typeof n.children?.[0] === 'string').map((n) => n.children.join('')).join(' | ');
 
 test('with 600 sites it builds only the rows near the top, in alphabetical order, and keeps the search and the add button', async () => {
@@ -57,7 +59,7 @@ test('with 600 sites it builds only the rows near the top, in alphabetical order
   expect(labels()[0]).toBe(`${alphabetical[0].name}, ${alphabetical[0].region}, ${alphabetical[0].country}`);
   expect(data()).toHaveLength(600);
   expect(root.root.findByType(TextInput).props.accessibilityLabel).toBe('Where did you dive?');
-  expect(text()).toContain('Can’t find it? Add a dive site');
+  expect(addSiteLink()).toBeDefined();
   // The list is windowed rather than a plain ScrollView of everything, and rows are keyed by site.
   const list = root.root.findByType(FlatList).props;
   expect(list.windowSize).toBeLessThan(21);
@@ -83,7 +85,7 @@ test('typing filters the whole list with the forgiving search, and finds nothing
   expect(rows()).toHaveLength(0);
   expect(text()).toContain('No site matches “zzzqx”.');
   expect(root.root.findAll((n) => n.props.accessibilityLiveRegion === 'polite').length).toBeGreaterThan(0);
-  expect(text()).toContain('Can’t find it? Add a dive site');
+  expect(addSiteLink()).toBeDefined();
   // Clearing the search brings the whole list back.
   await type('');
   expect(data()).toHaveLength(600);
@@ -167,10 +169,23 @@ test('a parent that makes a new onPick each render does not rebuild the rows', a
 test('"Add a dive site" carries what was typed', async () => {
   await render();
   await type('  New Reef ');
-  const [button] = root.root.findAllByType(OceanButton);
-  expect(button.props.title).toBe('Can’t find it? Add a dive site');
-  await act(async () => button.props.onPress());
+  await act(async () => addSiteLink().props.onPress());
   expect(router.push).toHaveBeenCalledWith({ pathname: '/add-site', params: { then: 'log', name: 'New Reef' } });
+});
+
+test('"Can’t find it? Add a dive site" is beside the "Where did you dive?" label, not at the end of the list', async () => {
+  await render();
+  expect(root.root.findAllByType(OceanButton)).toHaveLength(0);
+  // It is part of the search field's label line, so it is in view with the search.
+  const field = root.root.findByType(FormField);
+  expect(field.props.labelAccessory).toBeDefined();
+  expect(field.findAll((n) => n === addSiteLink()).length).toBe(1);
+  // And not down in the list's footer, where there are hundreds of rows to scroll past first.
+  const footer = root.root.findByType(FlatList).props.ListFooterComponent;
+  expect(footer).toBeNull();
+  // Still there with a search that finds nothing.
+  await type('zzzqx');
+  expect(addSiteLink()).toBeDefined();
 });
 
 test('the OpenStreetMap credit is under the list only when imported sites are in it', async () => {

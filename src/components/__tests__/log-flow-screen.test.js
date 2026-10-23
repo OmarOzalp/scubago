@@ -43,7 +43,7 @@ jest.mock('react-native-reanimated', () => ({
   default: { View: require('react-native').View },
 }));
 jest.mock('@/lib/confirm', () => ({ confirmAction: jest.fn(async () => true) }));
-jest.mock('@/hooks/use-keyboard', () => ({ useKeyboard: () => mockKeyboard }));
+jest.mock('@/hooks/use-keyboard', () => ({ ...jest.requireActual('@/hooks/use-keyboard'), useKeyboard: () => mockKeyboard }));
 jest.mock('@/hooks/use-scroll-to', () => ({
   useScrollTo: () => ({ scrollView: { current: null }, onScroll: () => {}, scrollTo: (...args) => mockScrollTo(...args) }),
 }));
@@ -105,7 +105,7 @@ describe('the back arrow of Log a dive', () => {
     expect(header().label).toBe('Back to site');
     await tickFirstSpecies();
     await press(byTitle('Next · 1 species'));
-    expect(header().label).toBe('Back to species');
+    expect(header().label).toBe('Back to animals');
 
     await act(async () => header().onPress());
     expect(router.back).not.toHaveBeenCalled();
@@ -186,7 +186,7 @@ describe('leaving Log a dive with something entered', () => {
   test('asks for a typed dive field, too', async () => {
     await render();
     await pickSite();
-    await press(byTitle('Nothing to log · next'));
+    await press(byTitle('Skip animals'));
     await typeInto('Max depth (m)', '18');
     expect(mockGuard.preventRemove).toBe(true);
   });
@@ -194,7 +194,7 @@ describe('leaving Log a dive with something entered', () => {
   test('is not questioned after saving, nor when it saves itself', async () => {
     await render();
     await pickSite();
-    await press(byTitle('Nothing to log · next'));
+    await press(byTitle('Skip animals'));
     await press(byTitle('Save dive No. 28'));
     expect(mockState.logDive).toHaveBeenCalled();
     expect(mockGuard.preventRemove).toBe(false);
@@ -228,7 +228,7 @@ describe('the saved page', () => {
       await tickFirstSpecies();
       await press(byTitle('Next · 1 species'));
     } else {
-      await press(byTitle('Nothing to log · next'));
+      await press(byTitle('Skip animals'));
     }
     await press(byTitle('Save dive No. 28'));
   };
@@ -493,7 +493,7 @@ describe('with the keyboard', () => {
     await pickSite();
     const bar = root.root.findAll((n) => n.type?.name === 'BottomBar')[0];
     expect(bar).toBeDefined();
-    expect(bar.findAll((n) => n.props.title === 'Nothing to log · next').length).toBeGreaterThan(0);
+    expect(bar.findAll((n) => n.props.title === 'Skip animals').length).toBeGreaterThan(0);
     const list = root.root.findAllByType(ScrollView).find((scroll) => scroll.props.keyboardShouldPersistTaps === 'handled');
     expect(list.props.keyboardDismissMode).toBe('on-drag');
 
@@ -527,5 +527,66 @@ describe('with the keyboard', () => {
     mockKeyboard = { open: false, overlap: 0 };
     await rerender();
     expect(steps()).toHaveLength(1);
+  });
+});
+
+describe('the step bar', () => {
+  const tabs = () => root.root
+    .findAll((n) => typeof n.type === 'string' && n.props.accessibilityRole === 'tab')
+    .map((tab) => ({ label: tab.props.accessibilityLabel, text: tab.findAll((n) => typeof n.children?.[0] === 'string').map((n) => n.children.join('')).filter((t) => !/^\d$/.test(t)).join('') }));
+  const pressText = async (text) => act(async () => {
+    root.root.findAll((n) => n.props.accessibilityRole === 'button' && typeof n.props.onPress === 'function' && n.findAll((c) => c.children?.join?.('') === text).length > 0)[0].props.onPress();
+  });
+
+  test('names each step with a short fixed word until something is chosen in it', async () => {
+    await render();
+    expect(tabs().map((t) => t.text)).toEqual(['Site', 'Animals', 'Details']);
+    expect(tabs()[0].label).toBe('Step 1, Site');
+    await pickSite();
+    expect(tabs().map((t) => t.text)).toEqual([SITE.name.length > 14 ? `${SITE.name.slice(0, 13).trimEnd()}…` : SITE.name, 'Animals', 'Details']);
+    expect(tabs()[0].label).toBe(`Step 1, Site: ${SITE.name}`);
+    await tickFirstSpecies();
+    expect(tabs()[1].text.length).toBeLessThanOrEqual(14);
+    await press(byTitle('Next · 1 species'));
+    // The third step is always "Details", not the dive's number.
+    expect(tabs()[2].text).toBe('Details');
+  });
+
+  test('cuts a long name to about 14 characters, and says how many animals when there are several', async () => {
+    await render();
+    await pickSite();
+    await press(root.root.findAll((n) => typeof n.props.accessibilityLabel === 'string' && n.props.accessibilityLabel.startsWith('Something else') && typeof n.props.onPress === 'function')[0]);
+    await press(byTitle('Next · 1 species'));
+    await typeInto('What was it?', 'A very long name for a nudibranch I could not identify at all, with a long description besides');
+    await act(async () => { mockOptions.headerLeft({}).props.onPress(); });
+    expect(tabs()[1].text).toBe('A very long n…');
+    expect(tabs()[1].label).toContain('A very long name for a nudibranch');
+    const rows = root.root.findAll((n) => n.props.accessibilityRole === 'checkbox' && typeof n.props.onPress === 'function');
+    await press(rows[0]);
+    expect(tabs()[1].text).toBe('2 animals');
+  });
+
+  test('is not there when editing a sighting, which has no steps: the animal and the site are changed from the card', async () => {
+    mockState.sightings = [{ id: 'sg-1', userId: 'local', username: 'you', speciesId: 'reef-manta', siteId: SITE.id, sightedOn: '2026-10-01', isDemo: false, synced: true, createdAt: '2026-10-01T10:00:00Z' }];
+    mockParams = { edit: 'sg-1' };
+    await render();
+    expect(tabs()).toEqual([]);
+    await pressText('Change the site');
+    expect(root.root.findAll((n) => n.props.accessibilityLabel === 'Where did you dive?').length).toBeGreaterThan(0);
+    // Back goes to the sighting, not out of the screen.
+    expect(mockOptions.headerLeft({}).props.label).toBe('Back to details');
+    await act(async () => { mockOptions.headerLeft({}).props.onPress(); });
+    expect(router.back).not.toHaveBeenCalled();
+    await pressText('Change the animal');
+    expect(root.root.findAll((n) => n.props.accessibilityLabel === 'What did you see?').length).toBeGreaterThan(0);
+  });
+
+  test('on a page, an edit changes the animal only: the site is the page’s', async () => {
+    mockState.dives = [{ id: 'd-26', userId: 'local', number: 26, siteId: SITE.id, divedOn: '2026-10-16', synced: true, createdAt: '2026-10-16T10:00:00Z' }];
+    mockState.sightings = [{ id: 'sg-1', userId: 'local', username: 'you', speciesId: 'reef-manta', siteId: SITE.id, sightedOn: '2026-10-16', diveId: 'd-26', isDemo: false, synced: true, createdAt: '2026-10-16T10:00:00Z' }];
+    mockParams = { edit: 'sg-1' };
+    await render();
+    expect(texts()).toContain('Change the animal');
+    expect(texts()).not.toContain('Change the site');
   });
 });

@@ -1,4 +1,4 @@
-import { forwardRef, useState } from 'react';
+import { forwardRef, useState, type ReactNode } from 'react';
 import { StyleSheet, TextInput, View, type TextInputProps } from 'react-native';
 
 import { ThemedText } from '@/components/themed-text';
@@ -10,20 +10,31 @@ type Props = TextInputProps & {
   label: string;
   /** Stays visible below the field (e.g. "At least 6 characters"). */
   hint?: string;
+  /** At the right end of the label's line: a link that goes with the field. */
+  labelAccessory?: ReactNode;
 };
 
 /**
  * A labelled text field: a typewriter label over a paper box that takes a lagoon edge while you type.
  * The label is visible and is the field's accessible name.
  */
-export const FormField = forwardRef<TextInput, Props>(function FormField({ label, hint, style, onFocus, onBlur, ...input }, ref) {
+export const FormField = forwardRef<TextInput, Props>(function FormField({ label, hint, labelAccessory, style, onFocus, onBlur, ...input }, ref) {
   const theme = useTheme();
   const [focused, setFocused] = useState(false);
   return (
     <View style={styles.field}>
-      <ThemedText type="label" importantForAccessibility="no" accessibilityElementsHidden>
-        {label}
-      </ThemedText>
+      {labelAccessory ? (
+        <View style={styles.labelRow}>
+          <ThemedText type="label" importantForAccessibility="no" accessibilityElementsHidden>
+            {label}
+          </ThemedText>
+          {labelAccessory}
+        </View>
+      ) : (
+        <ThemedText type="label" importantForAccessibility="no" accessibilityElementsHidden>
+          {label}
+        </ThemedText>
+      )}
       <TextInput
         ref={ref}
         accessibilityLabel={label}
@@ -55,6 +66,7 @@ export const FormField = forwardRef<TextInput, Props>(function FormField({ label
 
 const styles = StyleSheet.create({
   field: { gap: 6 },
+  labelRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', columnGap: Spacing.two },
   input: {
     borderWidth: 1.5,
     borderRadius: Radius.sm,

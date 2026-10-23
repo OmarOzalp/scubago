@@ -28,7 +28,7 @@ import { ThemedView } from '@/components/themed-view';
 import { WhenReady } from '@/components/when-ready';
 import { OnFill, Radius, Shadow, Spacing, Type } from '@/constants/theme';
 import { useDiscardGuard, useHardwareBack } from '@/hooks/use-discard-guard';
-import { useKeyboard } from '@/hooks/use-keyboard';
+import { DISMISS_ON_DRAG, useKeyboard } from '@/hooks/use-keyboard';
 import { useNewBadges } from '@/hooks/use-new-badges';
 import { usePhotoUrl } from '@/hooks/use-photo-url';
 import { useRewards } from '@/hooks/use-rewards';
@@ -61,7 +61,13 @@ type Result = {
   dive?: { id: string; number: number; written: boolean };
 };
 
-const STEP_NAMES: Record<Step, string> = { site: 'Site', species: 'Species', details: 'Details' };
+const STEP_NAMES: Record<Step, string> = { site: 'Site', species: 'Animals', details: 'Details' };
+
+/** A name cut to fit its step, with room for the other two: "Hin Daeng & Hi…". */
+function shortName(name: string, max = 14): string {
+  const letters = [...name.trim()];
+  return letters.length <= max ? letters.join('') : `${letters.slice(0, max - 1).join('').trimEnd()}…`;
+}
 const STEP_ORDER: Step[] = ['site', 'species', 'details'];
 const NAME_FIRST = 'Name the animal first';
 
@@ -451,14 +457,11 @@ function LogSightingScreen() {
 
   const nameMissing = unlisted && nameAsked > 0 && !customName.trim();
   const takenBy = newDive ? myDives.find((d) => String(d.number) === draft.number) : undefined;
-  const crumbs: { step: Step; label: string; enabled: boolean }[] = [
-    { step: 'site', label: page ? `${formatDiveNumber(page.number)} · ${site?.name ?? ''}` : site ? site.name : 'Site', enabled: !page },
-    {
-      step: 'species',
-      label: chosen.length === 0 ? 'Species' : chosen.length === 1 ? chosen[0].commonName : `${chosen.length} species`,
-      enabled: !!site,
-    },
-    { step: 'details', label: newDive && draft.number ? `No. ${draft.number}` : 'Details', enabled: !!site && (chosen.length > 0 || newDive) },
+  // Each step is named by a fixed short word, or by what was chosen in it (cut short: the three share one line).
+  const crumbs: { step: Step; chosen?: string; enabled: boolean }[] = [
+    { step: 'site', chosen: site?.name, enabled: !page },
+    { step: 'species', chosen: chosen.length === 0 ? undefined : chosen.length === 1 ? chosen[0].commonName : `${chosen.length} animals`, enabled: !!site },
+    { step: 'details', enabled: !!site && (chosen.length > 0 || newDive) },
   ];
 
   const stepIndex = STEP_ORDER.indexOf(step);
@@ -477,8 +480,8 @@ function LogSightingScreen() {
           headerLeft: ({ tintColor }) => <HeaderBack onPress={goBack} label={previousStep ? `Back to ${STEP_NAMES[previousStep].toLowerCase()}` : 'Close'} tintColor={tintColor} />,
         }}
       />
-      {/* The three steps, numbered like the pages of a form: done ones ticked, the current one inked in. Out of the way while typing: it is a sixth of a small phone with the keyboard up. */}
-      {!keyboard.open && (
+      {/* The three steps, numbered like the pages of a form: done ones ticked, the current one inked in. Out of the way while typing (it is a sixth of a small phone with the keyboard up), and when editing one sighting, which has no steps to take. */}
+      {!keyboard.open && !editing && (
         <View style={[styles.steps, { borderBottomColor: theme.rule }]} accessibilityRole="tablist" accessibilityLabel="Steps">
           {crumbs.map((c, i) => {
             const current = step === c.step;
@@ -490,7 +493,7 @@ function LogSightingScreen() {
                   onPress={() => c.enabled && goTo(c.step)}
                   disabled={!c.enabled}
                   accessibilityRole="tab"
-                  accessibilityLabel={`Step ${i + 1}, ${STEP_NAMES[c.step]}${c.label !== STEP_NAMES[c.step] ? `: ${c.label}` : ''}`}
+                  accessibilityLabel={`Step ${i + 1}, ${STEP_NAMES[c.step]}${c.chosen ? `: ${c.chosen}` : ''}`}
                   aria-selected={current}
                   aria-disabled={!c.enabled}
                   style={({ pressed }) => [styles.step, { opacity: pressed ? 0.6 : 1 }]}>
@@ -512,7 +515,7 @@ function LogSightingScreen() {
                   <Text
                     numberOfLines={1}
                     style={[styles.stepLabel, { color: current ? theme.text : c.enabled || done ? theme.text : theme.textSecondary, fontFamily: current ? Type.bodyHeavy : Type.bodyBold }]}>
-                    {c.label}
+                    {c.chosen ? shortName(c.chosen) : STEP_NAMES[c.step]}
                   </Text>
                 </Pressable>
               </View>
@@ -543,7 +546,7 @@ function LogSightingScreen() {
           scrollEventThrottle={16}
           contentContainerStyle={styles.details}
           keyboardShouldPersistTaps="handled"
-          keyboardDismissMode="on-drag"
+          keyboardDismissMode={DISMISS_ON_DRAG}
           automaticallyAdjustKeyboardInsets>
           <Paper style={styles.sawCard}>
             <View style={styles.sawHeader}>
@@ -594,7 +597,25 @@ function LogSightingScreen() {
                   {chosen.length === 0 ? 'Add what you saw' : 'Add another species'}
                 </ThemedText>
               </Pressable>
-            ) : null}
+            ) : (
+              // An edit has no step bar: the animal, and the site if it isn't a page's, are changed from here.
+              <View style={styles.changes}>
+                <Pressable onPress={() => goTo('species')} accessibilityRole="button" style={styles.textButton}>
+                  <Icon name="edit" size={16} color={theme.tint} weight="bold" />
+                  <ThemedText type="smallBold" themeColor="tint">
+                    Change the animal
+                  </ThemedText>
+                </Pressable>
+                {!page ? (
+                  <Pressable onPress={() => goTo('site')} accessibilityRole="button" style={styles.textButton}>
+                    <Icon name="pin" size={16} color={theme.tint} weight="bold" />
+                    <ThemedText type="smallBold" themeColor="tint">
+                      Change the site
+                    </ThemedText>
+                  </Pressable>
+                ) : null}
+              </View>
+            )}
           </Paper>
 
           {unlisted ? (
@@ -874,7 +895,7 @@ function SpeciesPicker({
           ))}
         </ScrollView>
       </View>
-      <ScrollView contentContainerStyle={styles.picker} keyboardShouldPersistTaps="handled" keyboardDismissMode="on-drag">
+      <ScrollView contentContainerStyle={styles.picker} keyboardShouldPersistTaps="handled" keyboardDismissMode={DISMISS_ON_DRAG}>
         {likely.length > 0 ? (
           <>
             <ThemedText type="label" accessibilityRole="header" style={styles.groupLabel}>
@@ -914,7 +935,7 @@ function SpeciesPicker({
       {multi ? (
         <BottomBar keyboardOpen={keyboard.open}>
           <OceanButton
-            title={count === 0 ? (allowNone ? 'Nothing to log · next' : 'Tick what you saw') : `Next · ${count} ${count === 1 ? 'species' : 'species'}`}
+            title={count === 0 ? (allowNone ? 'Skip animals' : 'Tick what you saw') : `Next · ${count} ${count === 1 ? 'species' : 'species'}`}
             variant={count === 0 && allowNone ? 'secondary' : 'primary'}
             onPress={onDone}
             disabled={count === 0 && !allowNone}
@@ -1337,6 +1358,7 @@ const styles = StyleSheet.create({
   },
   iconButton: { width: 44, height: 44, borderRadius: 22, alignItems: 'center', justifyContent: 'center' },
   textButton: { alignSelf: 'flex-start', minHeight: 44, flexDirection: 'row', alignItems: 'center', gap: 6 },
+  changes: { flexDirection: 'row', flexWrap: 'wrap', columnGap: Spacing.four },
   notes: { minHeight: 104, textAlignVertical: 'top' },
   photoButtons: { flexDirection: 'row', gap: Spacing.two },
   photoPreview: { width: '100%', height: 220, borderRadius: Radius.md, borderWidth: 1 },
@@ -1348,7 +1370,7 @@ const styles = StyleSheet.create({
   center: { textAlign: 'center' },
   stretch: { alignSelf: 'stretch' },
   quietRow: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', columnGap: Spacing.three },
-  quietLink: { flexGrow: 1, flexBasis: 0, minWidth: 140, minHeight: 44, alignItems: 'center', justifyContent: 'center', paddingHorizontal: Spacing.two },
+  quietLink: { flexGrow: 1, flexShrink: 1, flexBasis: 'auto', minHeight: 44, alignItems: 'center', justifyContent: 'center', paddingHorizontal: Spacing.two },
   quietText: { fontFamily: Type.bodyBold, fontSize: 15, lineHeight: 20, textAlign: 'center' },
   twilight: { flex: 1 },
   twilightContent: { padding: Spacing.three, paddingTop: Spacing.four, paddingBottom: Spacing.four, gap: 20, alignItems: 'center', width: '100%', maxWidth: 440, alignSelf: 'center' },
