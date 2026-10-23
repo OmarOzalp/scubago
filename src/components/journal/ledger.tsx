@@ -15,6 +15,9 @@ export interface LedgerItem {
   color?: string;
 }
 
+/** A figure ("4h 57m") as opposed to a name ("Whale Shark"). */
+const isFigure = (value: string) => /^\d/.test(value);
+
 /** A row of figures ruled off from each other, like the totals at the foot of a logbook page. */
 export function Ledger({ items, bare = false }: { items: LedgerItem[]; bare?: boolean }) {
   const theme = useTheme();
@@ -26,8 +29,13 @@ export function Ledger({ items, bare = false }: { items: LedgerItem[]; bare?: bo
           accessible
           accessibilityLabel={item.accessibilityLabel ?? `${item.value}${item.unit ? ` ${item.unit}` : ''} ${item.label}`}
           style={[styles.cell, index > 0 && { borderLeftWidth: 1, borderLeftColor: theme.rule }]}>
-          {/* A name (a species, say) is set smaller and may take two lines, so it isn't cut short. */}
-          <Text numberOfLines={item.value.length > 5 ? 2 : 1} style={[styles.value, item.value.length > 5 && styles.word, { color: item.color ?? theme.text }]}>
+          {/* A name (a species, say) is set smaller and may take two lines, so it isn't cut short. A long figure
+              ("4h 57m") stays on one line, shrinking to fit where it can: wrapped, it took a third line of the cell. */}
+          <Text
+            numberOfLines={item.value.length > 5 && !isFigure(item.value) ? 2 : 1}
+            adjustsFontSizeToFit={item.value.length > 5 && isFigure(item.value)}
+            minimumFontScale={0.7}
+            style={[styles.value, item.value.length > 5 && styles.word, { color: item.color ?? theme.text }]}>
             {item.value}
             {item.unit ? <Text style={styles.unit}>{item.unit}</Text> : null}
           </Text>
