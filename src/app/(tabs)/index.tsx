@@ -94,7 +94,7 @@ export default function HomeScreen() {
   const sceneHint = count === 0
     ? first
       ? 'Your ocean is empty for now. The animals you meet on your first dive come to live here.'
-      : 'Your ocean is empty for now. Log a sighting and that animal comes to live here.'
+      : 'Your ocean is empty for now. Log a dive with the animals you saw, and they come to live here.'
     : none && small > 0
       ? `${small === 1 ? 'Your small creature lives' : `Your ${small} small creatures live`} on the reef, too small to see from here: tap the island to go full screen and zoom in close to find ${small === 1 ? 'it' : 'them'}.`
       : none
