@@ -1,13 +1,17 @@
 import { breachFlight, breachHeight, DOLPHIN_BREACH, type BreachConfig, type BreachStage } from './breach';
 import { KELP } from './kelp';
-import { createShoreField, type IslandShape } from './island-outline';
+import { createShoreField, type IslandShape, type ShoreField, type ShoreSample } from './island-outline';
+import { hullOf, hullTop, landReach, lowestMiddle, marginOf, shallowClearOf, stanceOf, tooShallow, type Hull, type Stance } from './marine-bodies';
 import { followerLane, GROUP_STYLES, type GroupStyle } from './marine-groups';
 import { OCEAN } from './ocean';
-import { sampleDive, surfaceShift, SWIM_LEVEL } from './ocean-depth';
+import { DIVE_DEPTH, sampleDive, surfaceShift, SWIM_LEVEL } from './ocean-depth';
 import { createReefLife, isReefModel, REEF_THREAT, type MarineHabitat, type ReefVisitor } from './reef-life';
-import { apparentShift, clamp, ease, frame, OCEAN_GROWTH, roamFor, smoothstep, TAU, variation, viewBounds, viewHeight, WORLD, worldFor, wrap } from './steering';
+import { openingFor, SCHOOL_SHELF, shelfWater, type ShelfInput } from './shelf-water';
+import { avoidShallows, createSeabed, SURFACE_Y, type OceanIsland, type Seabed, type Shallows } from './seabed';
+import type { WaterExtent } from './seabed-lattice';
+import { apparentShift, clamp, ease, frame, OCEAN_GROWTH, roamFor, smoothstep, TAU, variation, viewBounds, viewHeight, WORLD, worldFor, wrap, type World } from './steering';
 import type { MarineModel } from './swimming';
-import { attackRoll, createTunaSchool, GREAT_WHITE_HUNT, SCHOOL_REACTIONS, TUNA_SCHOOL, type SchoolNeighbor } from './tuna-school';
+import { attackRoll, createTunaSchool, GREAT_WHITE_HUNT, SCHOOL_REACTIONS, SCHOOL_SLACK, SCHOOL_WATER, TUNA_MARGIN, TUNA_SCHOOL, type SchoolNeighbor } from './tuna-school';
 
 export { WORLD } from './steering';
 
@@ -15,7 +19,11 @@ export { WORLD } from './steering';
  * One species on the island. `group` animals of it swim together as one (see marine-groups.ts):
  * the species' own animal leads, and the rest follow it. 1, the default, is a lone animal.
  */
-export type MarineMember = { model: MarineModel; lane: number; group?: number };
+export type MarineMember = {
+  model: MarineModel; lane: number; group?: number;
+  /** The species' id, for one that lives differently from its model's family (a nurse shark on the shark model, a guitarfish on the manta's): see stanceOf. */
+  speciesId?: string;
+};
 /** An animal the scene draws: a species' leader (`index` 0, `leader` its own lane) or a follower in its group. */
 export type MarineSwimmer = { model: MarineModel; lane: number; leader: number; index: number };
 export { followerLane } from './marine-groups';
@@ -125,7 +133,7 @@ export const MOVEMENT: Record<MarineModel, Movement> = {
   'reef-manta': {
     cruise: .33, swing: .2, swingPeriod: 12, surge: 0, turnRate: .3, turnEase: .45, bank: 1.9, bankMax: .38, bankEase: 1.1, lazyRoll: 0, tilt: 0,
     halfLength: .7, halfWidth: 1, personalSpace: .25, avoidance: .8, islandClearance: 1.2, roam: [.1, .8], roamPeriod: 50, patrol: 0,
-    depth: .06, bob: .09, bobPeriod: 17, reverseEvery: 80,
+    depth: .06, bob: .12, bobPeriod: 17, reverseEvery: 80,
   },
   // Slow, heavy and a little clumsy: drifts tilted on its side through deeper water, turning reluctantly.
   'mola-mola': {
@@ -475,6 +483,51 @@ const SWAY_FLOW = { x: Math.cos(KELP.current), z: Math.sin(KELP.current) };
 const STEP = 1 / 60;
 /** How far ahead (s) animals look for another animal crossing their path, and for one they will pass. */
 const LOOKAHEAD = 3, LANE_LOOKAHEAD = 14;
+/**
+ * Where the water lets a body swim (`waterFor`): it keeps this share of its turning room (`shallowClearOf`) off the shallows, judged
+ * where the camera shows it (`SHALLOWS_SHIFT` units nearer the viewer than the map, the usual apparent shift of an animal swimming a
+ * little below the surface). What a body does where the shelf leaves it no water in the view is shelf-water.ts's.
+ */
+const KEEP_OFF_SHALLOWS = .6, SHALLOWS_SHIFT = .4;
+/** The steepest bottom (units under its body, nose to wingtip) a bottom-dweller lies along: it keeps off steeper slopes. */
+export const STEEPEST_BOTTOM = .35;
+/** How quickly (per step) the room an animal has to sink on a dive follows the bottom, and its body's pitch follows its path. */
+const ROOM_EASE = ease(2, 1 / 60), PITCH_EASE = { flying: ease(30, 1 / 60), leap: ease(9, 1 / 60), bottom: ease(4, 1 / 60), free: ease(1.6, 1 / 60) };
+/**
+ * How far above the lowest its body may be (units) when it was last surveyed for that to be more than the bottom can rise
+ * by under it before the next frame: slopes of up to 2.6 (the Coral Reef's crest) at its speed, and its turning.
+ */
+const CLEAR_WELL = .2;
+/** How far (units) into the land a drawn body may be put right in one frame. */
+const NUDGE = .06;
+/** Room (units) a school asks of the water beyond the first it fits in, to turn and live in: its length and a little more. */
+const SCHOOL_ROOM = 1.4;
+/** How fast (units/s) an animal is eased out of dry land it finds itself in. */
+const EASE_OUT = 1.2;
+/** How far ahead (units) along its way round the island a body whose water is cut off looks for the dead end, and how long (s) it goes round the other way before it may turn about again. */
+const DEAD_END_LOOK = 2.4, DEAD_END_REST = 12;
+/** The farthest out (a share of the usual frame) a body may be, whatever its ocean (`FRAME_HOLD`: the frame's bound, 1.15, with some to spare for the lift a body rising over the bottom gets between two looks) and in its own ocean (1.09), and a pod's follower, swinging a little wide of its leader, is held to 1.11 (its bound is 1.12). */
+const FRAME_HOLD = 1.13, FOLLOWER_HOLD = 1.11, FRAME_HOLD_OWN = 1.09;
+/**
+ * A body that has not moved `moved` units in `window` seconds, and is not just resting, is stalled: it swings round (at its usual turn
+ * rate and pace, for no more than `swing` seconds, almost where it is) and goes the other way.
+ */
+const STALL = { window: 5, moved: .6, swing: 14 };
+/** How far apart in depth (units) a pod's follower keeps from a larger animal it passes (a back and a keel between them), and how far ahead (footprint gap, units) it starts to. */
+const FOLLOWER_CLEAR = .2, FOLLOWER_SEE = 1.6;
+/** The quickest a body banks (rad/s). */
+const BANK_SLEW = .55;
+/** The quickest a body's pace may be, swimming and being eased out of land together (a share of its cruising pace). */
+const MOST_PACE = 2.2;
+
+/** How many steps apart an animal looks for how far out the water lets it go. */
+const RIDGE_EVERY = 6;
+/** How many steps apart an animal looks ahead for the bottom rising under it. */
+const LOOK_EVERY = 10;
+/** How far ahead (s) an animal looks along its way for the bottom rising under it, and how fast (units/s) its aim sinks back after it has risen over something. */
+const LOOK_AHEAD = [1.2, 2.6] as const;
+/** How fast (units/s) the envelope of the bottom under an animal sinks back after a rise: slowly, for most, which then ride over broken ground; quickly for a bottom-dweller, which follows it. */
+const ENVELOPE_FALL = .3, ENVELOPE_FALL_BOTTOM = 1;
 /** How long (s) before an animal returns from a dive (see ocean-depth.ts) the others start making room for it. */
 const SURFACING_LEAD = 6;
 /** The tuna school steps every other simulation step (30 Hz, interpolated like the animals): smooth for small fish, half the cost. */
@@ -575,8 +628,8 @@ type Animal = {
   leap: Leap | null;
   /** Body pitch (rad, positive nose down), how far out of the water it is (0..1), and its world height last step. */
   pitch: number; air: number; worldY: number;
-  /** A barrel roll's progress (rad, 0 between rolls), on top of its bank. */
-  spin: number;
+  /** A barrel roll's progress (rad, 0 between rolls), on top of its bank; and whether the water had room for the roll of the time that has come round. */
+  spin: number; rolled: { index: number; room: boolean };
   x: number; z: number; y: number; heading: number; speed: number; turn: number; bank: number; climb: number;
   /** Apparent offset toward the viewer (see apparentShift), and how much closer than its island clearance it may pass islets. */
   shift: number; allowance: number;
@@ -589,6 +642,34 @@ type Animal = {
   previous: { x: number; z: number; y: number; heading: number; bank: number; pitch: number; spin: number };
   /** Its depth before any breath at the surface (air-breathers rise from it and settle back to it). */
   level: number;
+  /** Its body, how it lives in the water and the room it keeps from the bottom (marine-bodies.ts). */
+  hull: Hull; stance: Stance; margin: number;
+  /** The island's steering field with the water too shallow for this animal counted as shore (seabed.ts). */
+  field: ShoreField;
+  /** The ocean it keeps to: the usual one (OCEAN_GROWTH: widening as the island levels up), wider by this factor where the shelf leaves a big body no water in the view (shelf-water.ts). */
+  world: World; factor: number;
+  /** Whether its water is cut off somewhere round the island (shelf-water.ts), and when it last turned about at such a dead end (s). */
+  cut: boolean; turnedAbout: number;
+  /** Where it was `since` s ago, to tell a body stalled in a dead end of its water (`STALL`), and the heading it swings round to while it gets out of one until `escape`. */
+  stall: { x: number; z: number; since: number }; escape: { heading: number; until: number };
+  /** Where its body fits (signed distance to the places too shallow for it, negative in them) and how far into them a turn may take it (units). */
+  free: Shallows; wall: number;
+  /**
+   * Where the bottom puts it (heights above the swimming level): the lowest its middle may be right now,
+   * the lowest it will need to be a few seconds ahead, and the highest (its back just under the surface);
+   * and how far it may sink on a dive from where it is (units).
+   */
+  lo: number; ahead: number; hi: number; room: number;
+  /** The highest the bottom puts its middle at the points ahead of it, as of its last look. */
+  seen: number;
+  /** How far it sinks on a dive as of the last step (units below its height). */
+  sunk: number;
+  /** The bottom's envelope it aims over (heights above the swimming level): never lower than the lowest it needs to be ahead, falling back slowly. */
+  envelope: number;
+  /** How much farther out from the shore the water lets it go (units, as of its last look; negative before the first). */
+  ridge: number;
+  /** How fast its swimming height is climbing (units/s, smoothed): the slope it follows, for its pitch. */
+  slope: number;
   pose: MarinePose;
   steering: { roam: [number, number]; island: [number, number]; animals: [number, number]; frame: [number, number]; band: number; lane: number };
   /** Only for species that hunt the tuna school, when there is one. */
@@ -625,22 +706,155 @@ export function createMarineMotion(everyMember: readonly MarineMember[], level =
   arriving?: readonly number[];
   /** Which island they swim around (its own outline and size): the reef's unless told. */
   shape?: IslandShape;
+  /**
+   * With several islands in one ocean (the explorer), all of them and which this is, and how far the water reaches: the bank between them
+   * and the open sea's floor shape the seabed under the animals, as the water draws it.
+   */
+  world?: { islands: readonly OceanIsland[]; index: number; reach?: WaterExtent };
+  /** The bottom they swim over instead of the island's (the tests': a flat one to see how an animal moves by itself, a rough one to see it never clip). */
+  seabed?: Seabed;
 } = {}) {
   const shape = options.shape ?? 'reef';
   let field = createShoreField(level, shape), current = level;
+  // The bottom they swim over (seabed.ts), baked once per island and level.
+  let reach = options.world?.reach;
+  const bake = () => options.seabed ?? createSeabed(current, shape, options.world && { ...options.world, reach });
+  let seabed = bake();
+  /** The bare bottom as it is drawn, with the big things on it (the steamer), for the animals that lie on it: the reef's own (reef-life.ts). */
+  const underReef = (x: number, z: number) => seabed.exact(x, z) + Math.max(0, seabed.solid(x, z) - seabed.ground(x, z));
   const seed = options.seed ?? 0;
   // The reef's animals keep to the reef (reef-life.ts); everything here is the open water's, which pays them no attention.
   const onReef = (m: MarineMember) => (MOVEMENT[m.model].habitat ?? 'open-water') !== 'open-water' && isReefModel(m.model);
   const members = everyMember.filter((m) => !onReef(m));
   const reefMembers = everyMember.flatMap((m) => (onReef(m) && isReefModel(m.model) ? [{ model: m.model, lane: m.lane }] : []));
-  const reef = reefMembers.length ? createReefLife(reefMembers, level, { seed, arriving: options.arriving, shape }) : null;
+  const reef = reefMembers.length ? createReefLife(reefMembers, level, { seed, arriving: options.arriving, shape, bottom: () => underReef }) : null;
   /** Species on the island: dives are staggered among them (see ocean-depth.ts); group members count once. */
   const population = members.length;
   // The ocean area animals keep to and their extra roaming room: this level's, easing to a new level's after setLevel().
   const ocean = { world: worldFor(level), roam: roamFor(level) };
   let goal = { world: worldFor(level), roam: roamFor(level) };
   const size = typeof options.school === 'number' ? options.school : options.school ? TUNA_SCHOOL.size : 0;
-  const school = size > 0 ? createTunaSchool(field, { seed, size, ocean }) : null;
+  /**
+   * Where the water lets an animal swim, for its body (marine-bodies.ts tooShallow): its steering field, the island's with the
+   * places too shallow for it counted as shore, so the steering that follows the coast follows the lagoon, the crest and the shelf
+   * too. Where the shelf leaves a big body no water inside the view, shelf-water.ts decides what it does (`factor`: how much wider
+   * than the usual its ocean is). Animals of a kind share them. `free` is how far a place is from the shore.
+   */
+  type Water = { field: ShoreField; factor: number; cut: boolean; free: Shallows; wall: number };
+  const waters = new Map<string, Water>();
+  function waterFor(islandClearance: number, roamInner: number, tilt: number, hull: Hull, margin: number, stance: Stance, fit?: ShelfInput['fit']): Water {
+    const steepest = stance.kind === 'bottom' ? STEEPEST_BOTTOM : Infinity, clear = shallowClearOf(hull) * KEEP_OFF_SHALLOWS;
+    const key = `${hull.keel},${hull.wing},${hull.nose},${hull.tail},${hull.crest},${hull.width},${hull.length},${margin},${tilt},${steepest}`, id = `${key}|${islandClearance}|${roamInner}|${fit?.ring}|${current}`, kept = waters.get(id);
+    if (kept) return kept;
+    // The places too shallow for the body, judged where it is drawn (nearer the viewer than the map: shallows are judged there).
+    const shallows = seabed.distanceTo(key, tooShallow(seabed, field, hull, margin, tilt, steepest));
+    const shelf = shelfWater({ world: worldFor(current), fit, open: openingFor(Math.max(.75 * hull.length, .85 * hull.width)), shallow: (x, z) => shallows(x, z - SHALLOWS_SHIFT) < 0 });
+    const free = seabed.distanceTo(`${id}|free`, shelf.blocked, shelf.opening);
+    // (the room it keeps off the shallows is steering's: they count that much nearer than they are)
+    const water = { field: avoidShallows(field, free, islandClearance + roamInner - clear), factor: shelf.factor, cut: shelf.cut, free, wall: 0 };
+    waters.set(id, water);
+    return water;
+  }
+  // The school keeps to water of its own the same way (SCHOOL_WATER is the least it lives in), in an ocean as wide as that water asks.
+  const schoolWater = () => waterFor(TUNA_SCHOOL.fishClearance + SCHOOL_SLACK, 0, 0, SCHOOL_WATER, TUNA_MARGIN, { kind: 'open', band: .5 }, SCHOOL_SHELF);
+  /** A field of the water an animal keeps to (looked up where the camera shows it) at the bottom's own places (SHALLOWS_SHIFT nearer the viewer). */
+  const atBottom = (free: Shallows): Shallows => Object.assign((x: number, z: number) => free(x, z + SHALLOWS_SHIFT), { sample: (x: number, z: number, out: ShoreSample) => free.sample(x, z + SHALLOWS_SHIFT, out) });
+  const firstWater = size > 0 ? schoolWater() : null;
+  let schoolFactor = firstWater?.factor ?? 1;
+  const schoolOcean = { world: { x: ocean.world.x * schoolFactor, z: ocean.world.z * schoolFactor }, get roam() { return ocean.roam; } };
+  const school = firstWater ? createTunaSchool(firstWater.field, { seed, size, ocean: schoolOcean, seabed, keepOut: atBottom(firstWater.free) }) : null;
+  /** Where the bottom puts an animal at (x, z), `ahead` seconds along its way; heights above the swimming level, which the motion works in. */
+  function survey(a: Animal, now = false) {
+    // The bottom under it is read every other step and the slope ahead of it every tenth (staggered, so they are not all in one step):
+    // the bottom changes slowly under a swimmer, and what is drawn is checked against it again every frame (publish).
+    const tick = Math.round(time / STEP) + a.lane;
+    if (now || tick % 2 === 0) {
+      const roll = a.bank + a.spin;
+      a.lo = lowestMiddle(seabed, a.hull, a.margin, a.x, a.z, a.heading, a.pitch, roll) - SWIM_LEVEL;
+      a.hi = SURFACE_Y - hullTop(a.hull, a.pitch, roll) - SWIM_LEVEL;
+      // Looking ahead along its heading, so it rises for a slope before it reaches it.
+      if (now || tick % LOOK_EVERY === 0) {
+        const hx = Math.sin(a.heading), hz = Math.cos(a.heading);
+        let ahead = -Infinity;
+        for (const seconds of LOOK_AHEAD) ahead = Math.max(ahead, lowestMiddle(seabed, a.hull, a.margin, a.x + hx * a.speed * seconds, a.z + hz * a.speed * seconds, a.heading, a.pitch, roll) - SWIM_LEVEL);
+        a.seen = ahead;
+      }
+    }
+    a.ahead = Math.max(a.lo, a.seen);
+  }
+  /** The pitch (nose down positive) that lays a body along the bottom under it: from where its nose and tail end are over it. */
+  function groundPitch(a: Animal) {
+    const end = .75 * a.hull.length, hx = Math.sin(a.heading), hz = Math.cos(a.heading);
+    return clamp(-Math.atan2(seabed.floor(a.x + hx * end, a.z + hz * end) - seabed.floor(a.x - hx * end, a.z - hz * end), 2 * end), -.4, .4);
+  }
+  /**
+   * A turn can take a big body into the places too shallow for it (a half turn of a whale shark is three units across, and where the
+   * deep water is a narrow ring it swings out over the shelf, or past the edge of its ocean): it is held to the edge of the water it
+   * fits in, sliding along it, by taking back the step that went into it. Not while it is leaping or arriving from beyond the view.
+   */
+  const way: ShoreSample = { distance: 0, nx: 0, nz: 1 };
+  function leaveShallows(a: Animal) {
+    if (a.leap || !settled(a)) return;
+    const inside = a.free(a.x, a.z + a.shift);
+    if (inside < -a.wall) {
+      a.free.sample(a.x, a.z + a.shift, way);
+      takeBack(a, way.nx, way.nz, -a.wall - inside);
+    }
+    // It keeps to the frame's bounds all the same (squeezed between the slope and the frame's edge, or swinging wide behind its leader, steering alone lets it drift out),
+    // a charge through the school aside, which runs its line.
+    // (as it appears now, and as it will when it comes up to breathe, or rides over shallows: the nearer the surface, the farther up the screen)
+    if (a.hunt?.phase === 'charge') return;
+    const here = frame(a.x, a.z + a.shift, ocean.world), up = frame(a.x, a.z + apparentShift(Math.max(a.hi, a.lo, a.ahead, SURFACE)), ocean.world), edge = up.edge > here.edge ? up : here;
+    const past = edge.edge - Math.min(a.index ? FOLLOWER_HOLD : FRAME_HOLD, FRAME_HOLD_OWN * a.factor);
+    if (past > 0) takeBack(a, edge.nx, edge.nz, past * Math.min(ocean.world.x, ocean.world.z));
+  }
+  /**
+   * Back from where its step took it, away along (nx, nz), by `deficit` at most, no farther than the step went, and so that it moves no
+   * faster than it swims: heading into the edge of its water it is turned aside (the step reflected), heading along it, it slides.
+   */
+  function takeBack(a: Animal, nx: number, nz: number, deficit: number) {
+    const step = a.speed * STEP, into = -(Math.sin(a.heading) * nx + Math.cos(a.heading) * nz);
+    const push = Math.min(deficit, step, 2 * into * step);
+    if (push > 0) { a.x += nx * push; a.z += nz * push; }
+  }
+  /** However it is moved (swimming, eased out of land, held to its water), a body goes no faster than `MOST_PACE` times its cruising pace: nobody is suddenly moved. */
+  function capStep(a: Animal, fromX: number, fromZ: number) {
+    const dx = a.x - fromX, dz = a.z - fromZ, d = Math.hypot(dx, dz), most = MOST_PACE * a.m.cruise * STEP;
+    if (d > most) { a.x = fromX + dx / d * most; a.z = fromZ + dz / d * most; }
+  }
+  function leaveLand(a: Animal) {
+    if (field.shore(a.x, a.z) >= a.hull.length + .1) return;
+    const reach = landReach(field, a.hull, a.x, a.z, a.heading, a.pitch, a.bank + a.spin);
+    if (!reach) return;
+    const push = Math.min(reach.depth + .01, EASE_OUT * STEP);
+    a.x += reach.nx * push; a.z += reach.nz * push;
+  }
+  /**
+   * The height (above the swimming level) an animal swims at over this bottom, with `extra` on top (its
+   * drift, a lift, a dip): its place in the water between the bottom and the surface, never lower than
+   * its body clears the bottom (looking ahead, so it climbs a slope in good time) or higher than its back
+   * stays under the surface. Where the water is too shallow for it, it rides the bottom.
+   */
+  function swimHeight(a: Animal, extra: number, now = false) {
+    survey(a, now);
+    // Over broken ground its aim is the bottom's envelope: it climbs as soon as the bottom does, and settles back down slowly, so it never zigzags with the ground.
+    // The look-ahead never lifts it above where its back stays under the surface (the steering is what turns it from a shoal ahead).
+    const ceiling = Math.max(a.lo, a.hi);
+    a.envelope = Math.max(a.lo, Math.min(Math.max(a.ahead, a.envelope - (a.stance.kind === 'bottom' ? ENVELOPE_FALL_BOTTOM : ENVELOPE_FALL) * STEP), ceiling));
+    const low = a.envelope, high = Math.max(low, a.hi), { kind, band } = a.stance;
+    return clamp((kind === 'bottom' ? low + band : low + band * (high - low)) + extra, low, high);
+  }
+  /** The bottom is another (a new level, or a wider sea): its shallows move, so every animal's water is found again, and it looks at once at what is under it. */
+  function rebuild() {
+    seabed = bake();
+    waters.clear();
+    for (const a of everyone) {
+      const water = waterFor(a.m.islandClearance, a.m.roam[0], a.m.tilt, a.hull, a.margin, a.stance);
+      a.field = water.field; a.factor = water.factor; a.cut = water.cut; a.free = water.free; a.wall = water.wall;
+      survey(a, true);
+    }
+    if (school) { const water = schoolWater(); schoolFactor = water.factor; school.setField(water.field, seabed, atBottom(water.free)); }
+  }
   let time = 0, accumulator = 0, schoolTick = 0;
   /** The last few splashes (a leap's exit and re-entry), oldest overwritten first: where, when (s) and how strong (0..1). */
   const splashes = Array.from({ length: 8 }, () => ({ x: 0, z: 0, time: -Infinity, strength: 0 }));
@@ -649,17 +863,39 @@ export function createMarineMotion(everyMember: readonly MarineMember[], level =
     const base = MOVEMENT[member.model], style = GROUP_STYLES[member.model] ?? null;
     const count = style ? clamp(Math.round(member.group ?? 1), 1, 1 + style.places.length) : 1;
     const m = count > 1 ? spread(base, style!, count - 1) : base;
+    const hull = hullOf(member.model), margin = marginOf(hull), { field: steering, free: open, factor, cut, wall } = waterFor(m.islandClearance, m.roam[0], m.tilt, hull, margin, stanceOf(member.model, member.speciesId));
+    const world = { x: ocean.world.x * factor, z: ocean.world.z * factor };
     const shift = apparentShift(m.depth);
     const direction = variation(member.lane, 0) < .68 ? 1 : -1;
     // Start spread around the island in the middle of the species' roaming band, heading along the coast.
-    const angle = index * TAU / Math.max(1, members.length) + .3;
+    const first = index * TAU / Math.max(1, members.length) + .3;
     const target = m.islandClearance + (m.roam[0] + m.roam[1]) / 2;
-    let radius = 1.5;
     const allowance = Math.max(0, m.islandClearance - m.halfWidth - ISLET_MARGIN);
-    while (frame(radius * Math.cos(angle), radius * Math.sin(angle), ocean.world).edge < .9
-      && field.island(radius * Math.cos(angle), radius * Math.sin(angle), allowance).distance < target) radius += .05;
+    // Out from the island to the first water it fits in with the room it likes, or where there is most room if never that much
+    // (a lagoon narrower than its band: it starts in the middle of the lagoon, not out beyond the reef); never in water too shallow
+    // for it while there is any other; and well within the usual frame, round the island from its own angle to the first where there is.
+    let angle = first, radius = 1.5, fallback: { angle: number; radius: number } | null = null;
+    for (let turn = 0, found = false; turn < 12 && !found; turn++) {
+      angle = first + (turn % 2 ? -1 : 1) * Math.ceil(turn / 2) * TAU / 12;
+      const best = { free: { room: -Infinity, at: NaN }, any: { room: -Infinity, at: 1.5 } };
+      radius = 1.5;
+      while (frame(radius * Math.cos(angle), radius * Math.sin(angle), ocean.world).edge < .9) {
+        const px = radius * Math.cos(angle), pz = radius * Math.sin(angle), here = steering.island(px, pz, allowance), room = here.distance;
+        // Never where some part of its body, heading along the coast there, would be in the island's dry land.
+        const dry = !landReach(field, hull, px, pz - shift, Math.atan2(-here.nz * direction, here.nx * direction), 0, m.tilt);
+        const free = open(px, pz) >= 0;
+        if (dry && free && room >= target) { best.free = { room, at: radius }; break; }
+        if (dry && free && room > best.free.room) best.free = { room, at: radius };
+        if (dry && room > best.any.room) best.any = { room, at: radius };
+        radius += .05;
+      }
+      found = !Number.isNaN(best.free.at);
+      radius = found ? best.free.at : best.any.at;
+      fallback ??= { angle, radius };
+      if (!found && turn === 11) ({ angle, radius } = fallback);
+    }
     const x = radius * Math.cos(angle), apparentZ = radius * Math.sin(angle), z = apparentZ - shift;
-    const shore = field.island(x, apparentZ, allowance);
+    const shore = steering.island(x, apparentZ, allowance);
     const heading = Math.atan2(-shore.nz * direction, shore.nx * direction);
     const y = -.02 + m.depth + Math.sin(member.lane * 1.7) * m.bob;
     const group: Group = {
@@ -671,13 +907,17 @@ export function createMarineMotion(everyMember: readonly MarineMember[], level =
       direction, halfTurn: 0, nextReverse: m.reverseEvery ? m.reverseEvery * (.5 + variation(member.lane, 1)) : Infinity, reversals: 0,
       want: 0, brake: 0, lift: 0, follow: 0, followSpeed: m.cruise, busy: 0,
       previous: { x, z, y, heading, bank: m.tilt, pitch: 0, spin: 0 }, level: y,
+      hull, stance: stanceOf(member.model, member.speciesId), margin, field: steering, world, factor, cut, turnedAbout: -Infinity, stall: { x, z, since: 0 }, escape: { heading: 0, until: -Infinity }, free: open, wall, lo: 0, ahead: 0, seen: -Infinity, sunk: 0, hi: 0, room: Infinity, envelope: -Infinity, ridge: -1, slope: 0,
       pose: { x, y, z, heading, bank: m.tilt, effort: 1, pace: 1, turn: 0, speed: m.cruise, climb: 0, pitch: 0, air: 0 },
       steering: { roam: [0, 0], island: [0, 0], animals: [0, 0], frame: [0, 0], band: target, lane: target },
       hunt: school && SCHOOL_REACTIONS[member.model].hunts
         ? { phase: 'normal' as HuntPhase, since: 0, encounters: 0, attack: false, charges: 0, away: true, rested: 0, aimX: 0, aimZ: 0, committed: false, line: 0, waiting: '' }
         : null,
-      index: 0, place: null, slotX: x, slotZ: z, delay: 0, cycle: NaN, leapt: NaN, waiting: -Infinity, leap: null, pitch: 0, air: 0, worldY: NaN, spin: 0,
+      index: 0, place: null, slotX: x, slotZ: z, delay: 0, cycle: NaN, leapt: NaN, waiting: -Infinity, leap: null, pitch: 0, air: 0, worldY: NaN, spin: 0, rolled: { index: NaN, room: true },
     };
+    // It starts where the water puts it, not at a height of its own.
+    animal.y = animal.level = animal.previous.y = animal.pose.y = swimHeight(animal, Math.sin(member.lane * 1.7) * m.bob, true);
+    animal.shift = apparentShift(animal.y);
     group.members.push(animal);
     if (group.style) group.nextSwap = group.style.swapEvery ? group.style.swapEvery * (.5 + variation(member.lane + 17, 0)) : Infinity;
     return animal;
@@ -687,10 +927,10 @@ export function createMarineMotion(everyMember: readonly MarineMember[], level =
   for (const head of animals) {
     const style = head.group.style;
     for (let index = 1; style && index < head.group.size; index++) {
-      const m = head.base, [across, behind] = style.places[index - 1];
+      const m = head.base, [across, behind] = style.places[index - 1], hull = head.hull, { field: steering, free, wall } = waterFor(m.islandClearance, m.roam[0], m.tilt, hull, head.margin, head.stance);
       const hx = Math.sin(head.heading), hz = Math.cos(head.heading), allowance = Math.max(0, m.islandClearance - m.halfWidth - ISLET_MARGIN);
       let x = head.x + hz * across - hx * behind, z = head.z - hx * across - hz * behind;
-      const shore = field.island(x, z + head.shift, allowance);
+      const shore = steering.island(x, z + head.shift, allowance);
       if (shore.distance < m.islandClearance) { x += shore.nx * (m.islandClearance - shore.distance); z += shore.nz * (m.islandClearance - shore.distance); }
       const y = head.y + style.depthSpread * (index % 2 ? -1 : 1), lane = followerLane(head.lane, index);
       const follower: Animal = {
@@ -698,12 +938,15 @@ export function createMarineMotion(everyMember: readonly MarineMember[], level =
         shift: head.shift, allowance, direction: head.direction, halfTurn: 0, nextReverse: Infinity, reversals: 0,
         want: 0, brake: 0, lift: 0, follow: 0, followSpeed: m.cruise, busy: 0,
         previous: { x, z, y, heading: head.heading, bank: m.tilt, pitch: 0, spin: 0 }, level: y,
+        hull, stance: head.stance, margin: head.margin, field: steering, world: { ...head.world }, factor: head.factor, cut: head.cut, turnedAbout: -Infinity, stall: { x: 0, z: 0, since: 0 }, escape: { heading: 0, until: -Infinity }, free, wall, lo: 0, ahead: 0, seen: -Infinity, sunk: 0, hi: 0, room: Infinity, envelope: -Infinity, ridge: -1, slope: 0,
         pose: { x, y, z, heading: head.heading, bank: m.tilt, effort: 1, pace: 1, turn: 0, speed: m.cruise, climb: 0, pitch: 0, air: 0 },
         steering: { roam: [0, 0], island: [0, 0], animals: [0, 0], frame: [0, 0], band: 0, lane: 0 },
         hunt: null,
         index, place: { from: style.places[index - 1], to: style.places[index - 1], since: Infinity, dip: 0 }, slotX: x, slotZ: z,
-        delay: index * DIVE_STAGGER, cycle: NaN, leapt: NaN, waiting: -Infinity, leap: null, pitch: 0, air: 0, worldY: NaN, spin: 0,
+        delay: index * DIVE_STAGGER, cycle: NaN, leapt: NaN, waiting: -Infinity, leap: null, pitch: 0, air: 0, worldY: NaN, spin: 0, rolled: { index: NaN, room: true },
       };
+      follower.y = follower.level = follower.previous.y = follower.pose.y = swimHeight(follower, style.depthSpread * (index % 2 ? -1 : 1), true);
+      follower.shift = apparentShift(follower.y);
       head.group.members.push(follower);
       followers.push(follower);
     }
@@ -732,6 +975,14 @@ export function createMarineMotion(everyMember: readonly MarineMember[], level =
     if (stage === 'offstage') return OFFSTAGE_DIVE;
     if (stage === 'entering') return ENTERING_DIVE;
     return sampleDive(at - a.delay - g.diveShift, g.members[0].lane, population);
+  };
+  /**
+   * How far it sinks on a dive now (units below its height): its dive's depth, but never past what the
+   * bottom leaves it, so in shallow water it fades out where it swims (ocean-depth.ts has the dive itself).
+   */
+  const sink = (a: Animal, at: number) => {
+    const dive = diveOf(a, at);
+    return dive === OFFSTAGE_DIVE || dive === ENTERING_DIVE ? 0 : Math.min(dive.depth * DIVE_DEPTH, a.room);
   };
   /** Swimming as usual: not waiting to arrive or on its way in. */
   const settled = (a: Animal) => !a.group.arrival || a.group.arrival.stage === 'arrived';
@@ -792,7 +1043,8 @@ export function createMarineMotion(everyMember: readonly MarineMember[], level =
     return breath > 0 ? a.level + (SURFACE - a.m.breathe!.clearance - a.level) * breath : a.level;
   }
   for (const a of everyone) {
-    a.worldY = a.y + diveOf(a, 0).y;
+    a.sunk = sink(a, 0);
+    a.worldY = a.y + SWIM_LEVEL - a.sunk;
     if (a.m.breathe) a.cycle = breathCycle(a).index;
   }
 
@@ -822,7 +1074,9 @@ export function createMarineMotion(everyMember: readonly MarineMember[], level =
     // The run-up's last stretch, the arc and the plunge (it lines up on the heading through the rest of the run-up).
     for (let k = -1; k <= 6; k++) {
       const t = k < 0 ? runUp * k / 3 : reach * k / 6, x = ex + hx * t, z = ez + hz * t + a.shift;
-      if (field.island(x, z, a.allowance).distance < a.base.islandClearance + margin || frame(x, z, ocean.world).edge > edge) return false;
+      if (field.island(x, z, a.allowance).distance < a.base.islandClearance + margin || frame(x, z, a.world).edge > edge) return false;
+      // Water to plunge into: well over its depth where it leaves the water, comes down and swims on.
+      if (k >= 0 && OCEAN.surfaceLevel - seabed.floor(x, z - a.shift) < c.water) return false;
       // The arc and the splashes stay in the clear middle of the view (judged at the leap's height).
       const air = Math.min(Math.max(t, 0), c.length) / speed;
       if (k >= 0 && Math.abs(viewHeight(OCEAN.surfaceLevel + Math.max(0, rise * air - gravity * air * air / 2), ez + hz * t, scale)) > view) return false;
@@ -853,7 +1107,7 @@ export function createMarineMotion(everyMember: readonly MarineMember[], level =
     }
     // The smallest turn that fits, among headings the run-up can still turn onto: either way from its own,
     // and along the coastline either way (where the ring of water is usually longest).
-    const shore = field.island(a.x, a.z + a.shift, a.allowance), coast = Math.atan2(-shore.nz, shore.nx);
+    const shore = a.field.island(a.x, a.z + a.shift, a.allowance), coast = Math.atan2(-shore.nz, shore.nx);
     const turns = [0, .15, -.15, .3, -.3, .45, -.45, .6, -.6, .8, -.8];
     for (const way of [coast, coast + Math.PI]) for (const off of [0, .15, -.15]) turns.push(wrap(way + off - a.heading));
     turns.sort((p, q) => Math.abs(p) - Math.abs(q) || (a.turn < 0 ? p - q : q - p));
@@ -940,23 +1194,40 @@ export function createMarineMotion(everyMember: readonly MarineMember[], level =
    * leap follows breach.ts's curves; a called-off one fades into the breath.
    */
   function rise(a: Animal, target: number) {
+    const was = a.level;
     a.level += (target - a.level) * ease(.9, STEP);
+    // However gently it eases, never lower than its body clears the bottom here.
+    if (a.level < a.lo) a.level = a.lo;
+    a.slope += ((a.level - was) / STEP - a.slope) * ease(3, STEP);
     const L = a.leap;
     if (!L) return breathHeight(a);
     if (L.stage === 'settle') return breathHeight(a) + L.offset * (1 - smoothstep(0, a.m.breach!.settle, L.since));
     return breachHeight(L.stage, L.since, a.level, SURFACE, a.m.breach, L.start)[0];
   }
   /** Take a new height: climb for the rig, body pitch following its path through the water (and air), and how far out it is. */
-  function settleHeight(a: Animal, y: number) {
+  function settleHeight(a: Animal, height: number) {
     const m = a.m;
+    // Whatever a breath, a leap's plunge or a dive does, no part of it goes below the bottom: the bottom is the floor of every height here.
+    const y = Math.max(height, a.lo);
     a.climb = clamp((y - a.y) / STEP / (m.bob * TAU / m.bobPeriod + .02), -1, 1);
     a.y = y;
-    const world = y + diveOf(a, time).y, rate = (world - a.worldY) / STEP;
+    // A dive may take it only as far down as the water leaves it, easing as the bottom rises under it and never more than it has.
+    const room = y - a.lo;
+    a.room = Number.isFinite(a.room) ? Math.min(room, a.room + (room - a.room) * ROOM_EASE) : room;
+    // Where the camera sees it against the island depends on how high it is: the apparent shift follows its height.
+    a.shift = apparentShift(a.level);
+    a.sunk = sink(a, time);
+    const world = y + SWIM_LEVEL - a.sunk, rate = (world - a.worldY) / STEP;
     a.worldY = world;
     const flying = !!a.leap && a.leap.stage !== 'settle';
-    const target = flying ? -Math.atan2(rate, Math.max(a.speed, .05)) : clamp(-rate * (m.pitch ?? .35), -.22, .22);
-    // Leaping, the body follows its path closely (level at the apex, nose first back in).
-    a.pitch += (target - a.pitch) * ease(flying ? 30 : a.leap ? 9 : 1.6, STEP);
+    // The body follows the slope it swims along (the part of its climb that is the bottom rising or falling) as a fish does, and tips with a breath's rise or a dive's fall more gently.
+    const bottom = a.stance.kind === 'bottom';
+    const terrain = bottom ? groundPitch(a) : clamp(-Math.atan2(a.slope, Math.max(a.speed, .12)) * .6, -.3, .3);
+    const target = flying ? -Math.atan2(rate, Math.max(a.speed, .05))
+      : bottom ? clamp(clamp(-(rate - a.slope) * (m.pitch ?? .35), -.1, .1) + terrain, -.4, .4)
+      : clamp(clamp(-(rate - a.slope) * (m.pitch ?? .35), -.22, .22) + terrain, -.34, .34);
+    // Leaping, the body follows its path closely (level at the apex, nose first back in); a bottom-dweller lies along the bottom quickly.
+    a.pitch += (target - a.pitch) * (flying ? PITCH_EASE.flying : a.leap ? PITCH_EASE.leap : bottom ? PITCH_EASE.bottom : PITCH_EASE.free);
     a.air = smoothstep(SURFACE - .05, SURFACE + .3, y);
   }
   /**
@@ -979,8 +1250,12 @@ export function createMarineMotion(everyMember: readonly MarineMember[], level =
   /** A barrel roll's progress (rad): now and then (not every time), up in the water and not breathing or leaping. */
   function barrel(a: Animal) {
     const b = a.base.barrel;
-    if (!b || !settled(a) || a.leap || breathing(a) > 0) return 0;
+    if (!b) return 0;
     const at = time + a.lane * 3.7, index = Math.floor(at / b.every), into = at - index * b.every;
+    // Only where there is water to roll in (its span over the bottom and under the surface), decided as the roll's time comes round:
+    // the water under it changes as it swims, and a roll never stops half way round.
+    if (a.rolled.index !== index) { a.rolled.index = index; a.rolled.room = a.hi - a.lo >= 2 * a.hull.width; }
+    if (!settled(a) || a.leap || breathing(a) > 0 || !a.rolled.room) return 0;
     if (into > b.time || variation(a.lane + 31, index) > .6 || diveOf(a, time - into).depth > 0) return 0;
     return (variation(a.lane + 47, index) < .5 ? 1 : -1) * TAU * smoothstep(0, b.time, into);
   }
@@ -992,7 +1267,9 @@ export function createMarineMotion(everyMember: readonly MarineMember[], level =
     // A floater lies on its back, its turns hardly rolling it.
     const float = floating(a);
     const bank = clamp(-a.turn * m.bank + lazy, -m.bankMax, m.bankMax) * (1 - float) + display + m.tilt * (1 + .12 * Math.sin(time * TAU / 31 + a.lane)) + Math.PI * float;
-    a.bank += (bank - a.bank) * ease(float > 0 ? Math.max(m.bankEase, 1.6) : m.bankEase, STEP);
+    // Never quicker in a turn than a body banks (an S-bend where the water is tight reverses it in a moment); turning over onto its back is another matter.
+    const toward = (bank - a.bank) * ease(float > 0 ? Math.max(m.bankEase, 1.6) : m.bankEase, STEP);
+    a.bank += float > 0 || display !== 0 ? toward : clamp(toward, -BANK_SLEW * STEP, BANK_SLEW * STEP);
     a.spin = barrel(a);
   }
   function remember(a: Animal) {
@@ -1009,7 +1286,7 @@ export function createMarineMotion(everyMember: readonly MarineMember[], level =
     let room = Infinity;
     for (const [along, across] of [[r, r], [0, 2 * r]]) {
       const x = a.x + hx * along + side * hz * across, z = a.z + a.shift + hz * along - side * hx * across;
-      room = Math.min(room, field.island(x, z, a.allowance).distance - a.m.islandClearance, (1 - frame(x, z, ocean.world).edge) * 4);
+      room = Math.min(room, a.field.island(x, z, a.allowance).distance - a.m.islandClearance, (1 - frame(x, z, a.world).edge) * 4);
     }
     return room;
   }
@@ -1033,14 +1310,15 @@ export function createMarineMotion(everyMember: readonly MarineMember[], level =
    */
   function chargeFits(a: Animal, hunt: Hunt) {
     const H = GREAT_WHITE_HUNT;
-    if (presence(a) < .95 || diveOf(a, time + H.chargeDuration).opacity < .9) { hunt.waiting = 'dive'; return false; }
+    // (in sight now, not only about to be: a shark still sunk and surfacing mid-charge would run through the school unseen and unfeared)
+    if (presence(a) < .95 || diveOf(a, time).opacity < .9 || diveOf(a, time + H.chargeDuration).opacity < .9) { hunt.waiting = 'dive'; return false; }
     aim(a, hunt);
     const dx = hunt.aimX - a.x, dz = hunt.aimZ - a.z, d = Math.hypot(dx, dz);
     if (d < .7 || d > H.encounterRadius + 2.5) { hunt.waiting = 'range'; return false; }
     if (Math.abs(wrap(Math.atan2(dx, dz) - a.heading)) > 1.6) { hunt.waiting = 'bearing'; return false; }
     for (let k = 1; k <= 4; k++) {
       const t = (d + 1.5) * k / 4, x = a.x + dx / d * t, z = a.z + a.shift + dz / d * t;
-      if (field.island(x, z, a.allowance).distance < a.m.islandClearance * .6 || frame(x, z, ocean.world).edge > 1.02) { hunt.waiting = 'line'; return false; }
+      if (a.field.island(x, z, a.allowance).distance < a.m.islandClearance * .6 || frame(x, z, a.world).edge > 1.02) { hunt.waiting = 'line'; return false; }
     }
     hunt.waiting = '';
     return true;
@@ -1084,11 +1362,24 @@ export function createMarineMotion(everyMember: readonly MarineMember[], level =
     for (const a of animals) if (a.hunt && settled(a)) stalk(a, a.hunt);
     const snapshot = animals.map((a) => {
       const m = a.m, hx = Math.sin(a.heading), hz = Math.cos(a.heading), x = a.x, z = a.z + a.shift, r2 = x * x + z * z || 1;
-      const shore = field.island(x, z, a.allowance);
+      const shore = a.field.island(x, z, a.allowance);
       // The farthest out it may go here: just inside the frame (a group's leader keeps its whole group inside).
-      const edge = frame(x, z, ocean.world).edge, outward = frame(x + shore.nx * .5, z + shore.nz * .5, ocean.world).edge;
+      const edge = frame(x, z, a.world).edge, outward = frame(x + shore.nx * .5, z + shore.nz * .5, a.world).edge;
       const low = m.islandClearance + .2, spread = m.halfWidth - a.base.halfWidth;
-      const high = Math.max(low, (outward > edge + 1e-4 ? shore.distance + (.97 - edge) * .5 / (outward - edge) : shore.distance + 3) - spread);
+      // How far out the water lets it go here besides the frame: its distance from the shore (and the shallows it keeps off) stops growing
+      // out at sea at a ridge, as in a lagoon narrower than its band, where the middle is as far as it can be from both sides.
+      // (looked for every few steps: it changes slowly, and is asked about by every animal in each of them)
+      if ((Math.round(time / STEP) + a.lane) % RIDGE_EVERY === 0 || a.ridge < 0) {
+        let ridge = shore.distance;
+        for (let k = 1; k <= 3; k++) {
+          const out = a.field.island(x + shore.nx * .35 * k, z + shore.nz * .35 * k, a.allowance).distance;
+          if (out < ridge) break;
+          ridge = out;
+          if (k === 3) ridge += 3;
+        }
+        a.ridge = ridge - shore.distance;
+      }
+      const high = Math.max(low, Math.min(shore.distance + a.ridge, outward > edge + 1e-4 ? shore.distance + (.97 - edge) * .5 / (outward - edge) : shore.distance + 3) - spread);
       return {
         x, z, hx, hz, vx: hx * a.speed, vz: hz * a.speed, a: m.halfLength, b: m.halfWidth, space: m.personalSpace, speed: a.speed,
         // How much of the room-making it leaves to others: bigger and less nimble animals move less.
@@ -1162,7 +1453,8 @@ export function createMarineMotion(everyMember: readonly MarineMember[], level =
         // Too narrow to pass side by side: the one swimming higher rises a little, the other sinks a little.
         const shortfall = lateral - (outerLane - innerLane);
         const squeeze = weight * Math.max(smoothstep(0, .35, shortfall), smoothstep(lateral, lateral * .6, Math.abs(now)) * smoothstep(length + .5, length * .8, gap));
-        const higher = self.depth > o.depth || (self.depth === o.depth && a.lane > animals[j].lane);
+        // (by where each is in the water now: how it lives there, marine-bodies.ts, is not its species' usual depth)
+        const other = animals[j], higher = a.y > other.y + 1e-3 || (Math.abs(a.y - other.y) <= 1e-3 && a.lane > other.lane);
         lift = higher ? Math.max(lift, .16 * squeeze) : Math.min(lift, -.1 * squeeze);
         // Catching up with one it cannot pass here: ease to its pace for a while and pass where the water widens.
         const behind = (o.x - px) * hx + (o.z - pz) * hz > 0 && hx * o.hx + hz * o.hz > .5 && closing > 0;
@@ -1173,9 +1465,37 @@ export function createMarineMotion(everyMember: readonly MarineMember[], level =
       a.follow = follow; a.followSpeed = followSpeed; a.busy = laneWeight;
       let target = self.band;
       if (laneTotal > 0) target += (laneSum / laneTotal - target) * laneWeight;
-      const edgeHere = frame(px, pz, ocean.world);
+      const edgeHere = frame(px, pz, a.world);
 
-      // Roaming: follow the coastline's shape at that distance offshore.
+      // Roaming: follow the coastline's shape at that distance offshore. Where the water it fits in is cut off ahead (a dead end it
+      // could not turn about in, shelf-water.ts), it turns about before it gets there and goes round the other way.
+      if (a.cut && !a.leap && settled(a) && time - a.turnedAbout > DEAD_END_REST) {
+        const ux = -here.nz * a.direction, uz = here.nx * a.direction;
+        if (a.free(px + ux * DEAD_END_LOOK, pz + uz * DEAD_END_LOOK) < -a.wall && a.free(px + ux * DEAD_END_LOOK * .5, pz + uz * DEAD_END_LOOK * .5) < -a.wall * .5) {
+          a.direction *= -1; a.turnedAbout = time; a.reversals++;
+          a.halfTurn = turnRoom(a, 1) >= turnRoom(a, -1) ? 1 : -1;
+          if (a.group.style) mirror(a.group);
+        }
+      }
+      // Stalled (a big body in the dead end of its water, or two meeting in a pass too narrow for them, held where it is by the edge of its
+      // water; not a pause, which hangs still on purpose): it swings round, away from where it is heading and out of the edge, over a few seconds, and goes the other way round the island.
+      if (a.cut && !a.index && !a.leap && settled(a) && !a.hunt?.phase.startsWith('c') && time >= a.escape.until) {
+        if (a.base.pause && pausing(a).slow > .05) { a.stall.x = a.x; a.stall.z = a.z; a.stall.since = time; }
+        else if (time - a.stall.since >= STALL.window) {
+          const moved = Math.hypot(a.x - a.stall.x, a.z - a.stall.z);
+          if (moved < STALL.moved && floating(a) === 0) {
+            a.free.sample(px, pz, way);
+            let ex = way.nx * .7 - hx * .5, ez = way.nz * .7 - hz * .5;
+            if (ex * ex + ez * ez < 1e-4) { ex = -hx; ez = -hz; }
+            a.escape.heading = Math.atan2(ex, ez);
+            a.escape.until = time + STALL.swing;
+            a.direction = (-here.nz * ex + here.nx * ez) >= 0 ? 1 : -1;
+            a.turnedAbout = time; a.reversals++;
+            if (a.group.style) mirror(a.group);
+          }
+          a.stall.x = a.x; a.stall.z = a.z; a.stall.since = time;
+        }
+      } else if (time < a.escape.until) { a.stall.x = a.x; a.stall.z = a.z; a.stall.since = time; }
       const tx = -here.nz * a.direction, tz = here.nx * a.direction;
       // Out to sea briskly, in toward the island gently, so it settles into an inner lane without overshooting.
       const radial = clamp((target - here.distance) * 1.3, -.55, 1);
@@ -1205,7 +1525,7 @@ export function createMarineMotion(everyMember: readonly MarineMember[], level =
       const reach = m.halfLength * .5 + a.speed * (1.5 + .8 / m.turnRate);
       let threat = 0, nx = 0, nz = 0;
       for (const part of [.35, .7, 1]) {
-        const sample = field.island(px + hx * reach * part, pz + hz * reach * part, a.allowance);
+        const sample = a.field.island(px + hx * reach * part, pz + hz * reach * part, a.allowance);
         const closing = (here.distance - sample.distance) * a.speed / (reach * part);
         if (closing <= 1e-3) continue;
         const urgency = smoothstep(4 + 1 / m.turnRate, 1 + .3 / m.turnRate, (here.distance - m.islandClearance) / closing);
@@ -1223,7 +1543,7 @@ export function createMarineMotion(everyMember: readonly MarineMember[], level =
         ix += here.nx * push; iz += here.nz * push;
       }
       // Frame: before reaching the edge of the view, turn to run along it (and back in if already past it).
-      const edgeAhead = frame(px + hx * reach, pz + hz * reach, ocean.world);
+      const edgeAhead = frame(px + hx * reach, pz + hz * reach, a.world);
       const along = smoothstep(.97, 1.04, edgeAhead.edge) * 1.6, back = smoothstep(.99, 1.03, edgeHere.edge) * 1.5 + Math.max(0, edgeHere.edge - 1) * 10;
       const skirt = Math.sign(edgeAhead.nx * hz - edgeAhead.nz * hx) || 1;
       const bx = edgeAhead.nx * (along * .8 + back) - edgeAhead.nz * skirt * along, bz = edgeAhead.nz * (along * .8 + back) + edgeAhead.nx * skirt * along;
@@ -1290,6 +1610,10 @@ export function createMarineMotion(everyMember: readonly MarineMember[], level =
       }
       if (Math.abs(change) < 1.2) a.halfTurn = 0;
       // Blend toward the new desire rather than jumping to it, so competing influences never flicker.
+      if (time < a.escape.until) {
+        change = wrap(a.escape.heading - a.heading);
+        if (Math.abs(change) < .3) a.escape.until = time;
+      }
       a.want += (change - a.want) * ease(2, STEP);
       a.steering.roam = [rx, rz]; a.steering.island = [ix, iz]; a.steering.animals = [ax, az]; a.steering.frame = [bx, bz];
       a.steering.band = self.band; a.steering.lane = target;
@@ -1341,12 +1665,16 @@ export function createMarineMotion(everyMember: readonly MarineMember[], level =
       target *= 1 - .85 * floating(a);
       const leaping = leapSpeed(a);
       a.speed = leaping ?? a.speed + (target - a.speed) * ease(response, STEP);
+      const fromX = a.x, fromZ = a.z;
       a.x += Math.sin(a.heading) * a.speed * STEP;
       a.z += Math.cos(a.heading) * a.speed * STEP;
-      // Gentle vertical drift around the species' preferred depth; an air-breather rises from there to
-      // just below the surface for a breath, or now and then leaps (heights here are above the swimming
-      // level, see ocean-depth.ts).
-      settleHeight(a, rise(a, -.02 + m.depth + m.bob * Math.sin(time * TAU / m.bobPeriod + a.lane * 1.7) + a.lift));
+      leaveLand(a);
+      leaveShallows(a);
+      capStep(a, fromX, fromZ);
+      // Gentle vertical drift around its place in the water over the bottom (swimHeight); an air-breather
+      // rises from there to just below the surface for a breath, or now and then leaps (heights here are
+      // above the swimming level, see ocean-depth.ts).
+      settleHeight(a, rise(a, swimHeight(a, m.bob * Math.sin(time * TAU / m.bobPeriod + a.lane * 1.7) + a.lift)));
       roll(a);
       if (time >= a.nextReverse && settled(a)) reverse(a);
     }
@@ -1373,13 +1701,13 @@ export function createMarineMotion(everyMember: readonly MarineMember[], level =
     const behind = place.from[1] + (place.to[1] - place.from[1]) * k + style.wander * .7 * Math.sin(time * TAU / (style.wanderPeriod * 1.37) + a.lane * 2.7);
     const lx = Math.sin(head.heading), lz = Math.cos(head.heading);
     let px = head.x + lz * across - lx * behind, pz = head.z - lx * across - lz * behind;
-    const spot = field.island(px, pz + a.shift, a.allowance);
+    const spot = a.field.island(px, pz + a.shift, a.allowance);
     if (spot.distance < m.islandClearance + .1) {
       if (spot.distance < m.islandClearance - .15) a.group.blocked = true;
       px += spot.nx * (m.islandClearance + .1 - spot.distance); pz += spot.nz * (m.islandClearance + .1 - spot.distance);
     }
-    const inView = frame(px, pz + a.shift, ocean.world);
-    if (inView.edge > .94 && !entering) { px += inView.nx * (inView.edge - .94) * ocean.world.z; pz += inView.nz * (inView.edge - .94) * ocean.world.z; }
+    const inView = frame(px, pz + a.shift, a.world);
+    if (inView.edge > .94 && !entering) { px += inView.nx * (inView.edge - .94) * a.world.z; pz += inView.nz * (inView.edge - .94) * a.world.z; }
     a.slotX = px; a.slotZ = pz;
     // Swim the leader's course, turning in toward the place's side the farther off it is (so the group
     // turns together), and catch up with it or drop back to it by pace. Lining up for a leap, its own heading.
@@ -1395,13 +1723,23 @@ export function createMarineMotion(everyMember: readonly MarineMember[], level =
     // a member ahead of it in the group (its leader, or a follower before it), or a bigger animal, it
     // slips beneath.
     const hx = Math.sin(a.heading), hz = Math.cos(a.heading);
-    let ax = 0, az = 0, wait = 0, under = 0;
+    let ax = 0, az = 0, wait = 0, under = 0, over = 0, sink = 0;
     for (const o of everyone) {
       // Only animals whose footprints could come within the room it keeps (0.6 at most) are measured.
       const qx = o.x - a.x, qz = o.z - a.z, near = m.halfLength + o.base.halfLength + .6;
       if (o === a || qx * qx + qz * qz > near * near) continue;
       const gap = footprintGap(a.base, a.heading, o.base, o.heading, qx, qz);
-      if (o.group === a.group ? o.index < a.index : o.base.halfLength >= a.base.halfLength) under = Math.max(under, smoothstep(.2, -.1, gap));
+      if (o.group === a.group ? o.index < a.index : o.base.halfLength >= a.base.halfLength) {
+        const coming = smoothstep(.2, -.1, gap);
+        if (o.group === a.group) under = Math.max(under, coming);
+        else {
+          // Another's: it passes over it if it is the higher, beneath it if the lower, by the depth between them as they are in the water
+          // now (a body's stance, marine-bodies.ts, is not its species' usual depth), and no more.
+          // (well before they meet: it changes its depth slowly)
+          const apart = a.worldY - o.worldY, ahead = smoothstep(FOLLOWER_SEE, .1, gap);
+          if (apart >= 0) over = Math.max(over, ahead * Math.max(0, FOLLOWER_CLEAR - apart)); else sink = Math.max(sink, ahead * Math.max(0, FOLLOWER_CLEAR + apart));
+        }
+      }
       if (Math.abs(o.worldY - a.worldY) > .22) continue;
       // Its own group swims close, flank to flank: only nearly touching counts.
       const push = o.group === a.group ? smoothstep(.12, -.06, gap) : smoothstep(m.personalSpace + .3, m.personalSpace - .05, gap);
@@ -1414,14 +1752,14 @@ export function createMarineMotion(everyMember: readonly MarineMember[], level =
     const pushed = Math.hypot(ax, az);
     if (pushed > .75) { ax *= .75 / pushed; az *= .75 / pushed; }
     // Island and islets, looking a little ahead, and the frame.
-    const here = field.island(a.x, a.z + a.shift, a.allowance), look = m.halfLength * .5 + a.speed * 1.5;
-    const ahead = field.island(a.x + hx * look, a.z + a.shift + hz * look, a.allowance);
+    const here = a.field.island(a.x, a.z + a.shift, a.allowance), look = m.halfLength * .5 + a.speed * 1.5;
+    const ahead = a.field.island(a.x + hx * look, a.z + a.shift + hz * look, a.allowance);
     let ix = 0, iz = 0;
     if (ahead.distance < m.islandClearance + .2) { const push = (m.islandClearance + .2 - ahead.distance) * 3; ix += ahead.nx * push; iz += ahead.nz * push; }
     if (here.distance < m.islandClearance + .05) { const push = (m.islandClearance + .05 - here.distance) * 8; ix += here.nx * push; iz += here.nz * push; }
     // The frame: before reaching it, turn back in toward the group (not along the edge, as a leader does), and back in if past it.
     const reach = m.halfLength * .5 + a.speed * (1.5 + .8 / m.turnRate);
-    const edgeHere = frame(a.x, a.z + a.shift, ocean.world), edgeAhead = frame(a.x + hx * reach, a.z + a.shift + hz * reach, ocean.world);
+    const edgeHere = frame(a.x, a.z + a.shift, a.world), edgeAhead = frame(a.x + hx * reach, a.z + a.shift + hz * reach, a.world);
     const inward = entering ? 0 : smoothstep(.93, 1.02, edgeAhead.edge) * 2 + smoothstep(.97, 1.02, edgeHere.edge) * 2 + Math.max(0, edgeHere.edge - 1) * 10;
     const bx = edgeAhead.nx * inward, bz = edgeAhead.nz * inward;
     const wx = rx + ax + ix + bx, wz = rz + az + iz + bz;
@@ -1441,12 +1779,16 @@ export function createMarineMotion(everyMember: readonly MarineMember[], level =
     const target = (flying ? m.cruise : Math.min(m.cruise * 2.2, head.speed * clamp(1 + forward, .5, 1.9))) * (1 - .4 * wait) * (1 - turning);
     const leaping = leapSpeed(a);
     a.speed = leaping ?? a.speed + (target - a.speed) * ease(1.6, STEP);
+    const fromX = a.x, fromZ = a.z;
     a.x += Math.sin(a.heading) * a.speed * STEP;
     a.z += Math.cos(a.heading) * a.speed * STEP;
+    leaveLand(a);
+    leaveShallows(a);
+    capStep(a, fromX, fromZ);
     // Its own depth, a little apart from the others', and deeper while passing beneath one.
     const dip = Math.max(place.dip * Math.sin(Math.PI * k), style.dip * under);
-    const depth = -.02 + m.depth + style.depthSpread * (a.index % 2 ? -1 : 1) + m.bob * Math.sin(time * TAU / m.bobPeriod + a.lane * 1.7) - dip;
-    settleHeight(a, rise(a, depth));
+    const apart = style.depthSpread * (a.index % 2 ? -1 : 1) + m.bob * Math.sin(time * TAU / m.bobPeriod + a.lane * 1.7) - dip + over - sink;
+    settleHeight(a, rise(a, swimHeight(a, apart)));
     roll(a);
     a.steering.roam = [rx, rz]; a.steering.island = [ix, iz]; a.steering.animals = [ax, az]; a.steering.frame = [bx, bz];
   }
@@ -1524,7 +1866,8 @@ export function createMarineMotion(everyMember: readonly MarineMember[], level =
       a.x = x + hz * across - hx * behind; a.z = z - hx * across - hz * behind;
       a.heading = heading; a.turn = 0; a.want = 0; a.halfTurn = 0; a.bank = a.m.tilt; a.spin = 0;
       a.speed = a.base.cruise; a.slotX = a.x; a.slotZ = a.z;
-      a.worldY = a.y + diveOf(a, time).y;
+      a.sunk = sink(a, time);
+      a.worldY = a.y + SWIM_LEVEL - a.sunk;
       remember(a);
       Object.assign(a.pose, { x: a.x, y: a.y, z: a.z, heading, bank: a.bank, turn: 0, speed: a.speed });
     }
@@ -1542,6 +1885,7 @@ export function createMarineMotion(everyMember: readonly MarineMember[], level =
     A.since += STEP;
     if (A.stage !== 'entering') return;
     const head = g.members[0];
+    // In the usual frame, not only in its own wider ocean: that is where its place is.
     const inside = frame(head.x, head.z + head.shift, ocean.world).edge < .92;
     if ((inside && Math.hypot(A.homeX - head.x, A.homeZ - head.z) < 1.2) || A.since > ARRIVAL_LIMIT) settle(g);
   }
@@ -1551,8 +1895,12 @@ export function createMarineMotion(everyMember: readonly MarineMember[], level =
     const k = ease(OCEAN_GROWTH.ease, STEP), w = ocean.world;
     w.x += (goal.world.x - w.x) * k; w.z += (goal.world.z - w.z) * k;
     ocean.roam += (goal.roam - ocean.roam) * k;
+    for (const a of everyone) { a.world.x = w.x * a.factor; a.world.z = w.z * a.factor; }
+    schoolOcean.world.x = w.x * schoolFactor; schoolOcean.world.z = w.z * schoolFactor;
   }
 
+  /** The bottom for the reef's own animals: without the rocks and dens they live in and against. */
+  const bare = { floor: (x: number, z: number) => seabed.solid(x, z) };
   /** Poses between the last two simulation steps, so motion stays smooth at any frame rate. */
   function publish() {
     const t = accumulator / STEP;
@@ -1581,8 +1929,35 @@ export function createMarineMotion(everyMember: readonly MarineMember[], level =
         const swing = a.base.sway * Math.sin(TAU / KELP.surge.period * time - (SWAY_FLOW.x * pose.x + SWAY_FLOW.z * pose.z) * .55 + a.lane);
         pose.x += SWAY_FLOW.x * swing; pose.z += SWAY_FLOW.z * swing;
       }
+      // No part of the body is inside the island's dry land (a ray's tail over the tip of a beach, between two steps): nudged out along
+      // the shore (only looked for where the land is within a body's reach; more than a nudge is for the steps, which ease it out).
+      if (field.shore(pose.x, pose.z) < a.hull.length + .1) {
+        const reach = landReach(field, a.hull, pose.x, pose.z, pose.heading, pose.pitch, pose.bank);
+        if (reach && reach.depth < NUDGE) { pose.x += reach.nx * (reach.depth + .01); pose.z += reach.nz * (reach.depth + .01); }
+      }
+      // Whatever the interpolation between steps and the surge's rocking did, what is drawn clears the bottom
+      // under it (with the dive's sinking, which the scene adds): half the margin it keeps in the steps. An animal well
+      // above where the bottom last put it (more than it can have come up to in a few steps) needs no looking at.
+      if (pose.y - a.sunk < a.lo + CLEAR_WELL) {
+        const lowest = lowestMiddle(seabed, a.hull, a.margin / 2, pose.x, pose.z, pose.heading, pose.pitch, pose.bank) - SWIM_LEVEL + a.sunk;
+        if (pose.y < lowest) pose.y = lowest;
+      }
     }
-    reef?.publish(t);
+    if (reef) {
+      reef.publish(t);
+      // The reef's own animals lie on the bare bottom as it is drawn (exactly: the baked bottom is never lower than that, and over a steep slope a good deal higher): whatever the interpolation did, their bodies clear it (by a hair).
+      const drawn = { floor: underReef };
+      for (const swimmer of reef.swimmers) {
+        const pose = reef.get(swimmer.lane);
+        if (!pose) continue;
+        const hull = hullOf(swimmer.model);
+        // Nothing of it inside the island's dry land, but what is out of sight inside a den (its tail: point 2) is no matter.
+        const reach = landReach(field, hull, pose.x, pose.z, pose.heading, pose.pitch, pose.bank, pose.hide && pose.hide[0] > .3 ? 4 : 0);
+        if (reach) { pose.x += reach.nx * (reach.depth + .01); pose.z += reach.nz * (reach.depth + .01); }
+        const lowest = lowestMiddle(drawn, hull, .004, pose.x, pose.z, pose.heading, pose.pitch, pose.bank) - SWIM_LEVEL;
+        if (pose.y < lowest) pose.y = lowest;
+      }
+    }
     // The school's last step is up to one simulation step older than the animals'.
     school?.publish((schoolTick * STEP + accumulator) / SCHOOL_STEP);
   }
@@ -1600,7 +1975,7 @@ export function createMarineMotion(everyMember: readonly MarineMember[], level =
   function refreshNeighbors() {
     for (let i = 0; i < everyone.length; i++) {
       const a = everyone[i], o = neighbors[i], dive = diveOf(a, time);
-      o.x = a.x; o.z = a.z; o.y = a.y + dive.y; o.heading = a.heading; o.speed = a.speed; o.presence = dive.opacity;
+      o.x = a.x; o.z = a.z; o.y = a.y + SWIM_LEVEL - a.sunk; o.heading = a.heading; o.speed = a.speed; o.presence = dive.opacity;
       // The fish read a charge from the rush itself: lined up and accelerating, not while it turns in.
       o.charging = !!a.hunt && (a.hunt.phase === 'charge' || a.hunt.phase === 'exit') && a.speed > a.m.cruise * 1.3;
     }
@@ -1616,7 +1991,9 @@ export function createMarineMotion(everyMember: readonly MarineMember[], level =
      */
     dive(lane: number, at = time + accumulator) {
       const a = byLane.get(lane);
-      if (a) return diveOf(a, at);
+      // Its depth and fade as the dive has them, its height as far down as the bottom lets it sink (and keeps half its margin clear: what is drawn
+      // is not where the last step put it).
+      if (a) { const dive = diveOf(a, at); return dive === OFFSTAGE_DIVE || dive === ENTERING_DIVE ? dive : { ...dive, y: SWIM_LEVEL - Math.min(sink(a, at), Math.max(0, a.room - a.margin / 2)) }; }
       return reef?.get(lane) ? reef.dive(lane) : sampleDive(at, lane, population);
     },
     /** The reef's animals and their rocks (null when there are none). */
@@ -1633,6 +2010,9 @@ export function createMarineMotion(everyMember: readonly MarineMember[], level =
       return {
         m: a.m, x: a.x, z: a.z + a.shift, shift: a.shift, allowance: a.allowance, heading: a.heading, want: a.heading + a.want, halfTurn: a.halfTurn, brake: a.brake, ...a.steering,
         leader: a.group.members[0].lane, index: a.index, slot: [a.slotX, a.slotZ + a.shift] as [number, number],
+        factor: a.factor, free: a.free, wall: a.wall, cut: a.cut, field: a.field, escaping: time < a.escape.until,
+        // What the bottom allows (world y): the lowest its middle may be, the lowest it will need to be shortly, the highest, and the room it has to sink on a dive.
+        bottom: { lo: a.lo + SWIM_LEVEL, ahead: a.ahead + SWIM_LEVEL, hi: a.hi + SWIM_LEVEL, room: a.room, level: a.level + SWIM_LEVEL },
         leap: L && { stage: L.stage, since: L.since, locked: L.locked, exit: [L.exitX, L.exitZ] as [number, number], land: [L.landX, L.landZ] as [number, number] },
       };
     },
@@ -1694,6 +2074,8 @@ export function createMarineMotion(everyMember: readonly MarineMember[], level =
     },
     /** The tuna school, when there is one: stepped with the animals, its poses published with theirs. */
     school,
+    /** How much wider than the usual the school's ocean is (1: the usual; shelf-water.ts). */
+    get schoolFactor() { return schoolFactor; },
     /** The island's shape at the current level, which decides where animals may swim. */
     get field() { return field; },
     /** The level the ocean is growing (or shrinking) toward. */
@@ -1712,9 +2094,15 @@ export function createMarineMotion(everyMember: readonly MarineMember[], level =
       if (next === current) return;
       current = next;
       field = createShoreField(next, shape);
-      school?.setField(field);
+      rebuild();
       reef?.setLevel(next);
       goal = { world: worldFor(next), roam: roamFor(next) };
+    },
+    /** The explorer's water reaches another distance (its window changed size): the open sea's floor under the animals is another. */
+    setReach(next?: WaterExtent) {
+      if (JSON.stringify(next ?? null) === JSON.stringify(reach ?? null)) return;
+      reach = next;
+      rebuild();
     },
     step(delta: number, active: boolean) {
       if (!active) return;

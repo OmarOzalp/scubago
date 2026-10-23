@@ -1,4 +1,5 @@
 import { createShoreField, islandScale, seabedProps, shoreDistance, shorePolygons, type IslandShape, type ShoreField } from './island-outline';
+import { hullOf, lowestMiddle } from './marine-bodies';
 import { followerLane } from './marine-groups';
 import type { MarinePose } from './marine-motion';
 import { OCEAN, seabedProfile, shelfStretch } from './ocean';
@@ -48,7 +49,7 @@ export const REEF = {
     /** Its patch of shelf: between these reaches, within `spread` (rad) either way of its rock, every arm clear of the beach as seen. */
     reach: [.5, .98], spread: .5, clear: .62,
     /** Walking pace (units/s), fastest turn (rad/s) and how high its body sits off the bottom. */
-    crawl: .075, turnRate: .9, lift: .03,
+    crawl: .075, turnRate: .9, lift: .005,
     /** Seconds resting by its rock; walks per outing; how often a walk ends in a pause, and for how long (s). */
     rest: [9, 20], legs: [2, 4], pause: { chance: .35, time: [1.5, 4] },
     /**
@@ -82,7 +83,7 @@ export const REEF = {
     /** Sliding in and out of a den and swimming between dens (units/s); fastest turn (rad/s); a pause inside a den before coming out (s). */
     slide: .16, swim: .2, turnRate: .75, turnAround: [1.5, 3],
     /** Its body lies this high off the bottom; swimming between dens it keeps to this reach. */
-    lift: .1, reach: .88,
+    lift: .005, reach: .88,
     /** A large animal (half-length) passing within `near` (apparent gap) of its head sends it back in; it comes out once all are `far` away for `calm` s. */
     retreat: { size: .9, near: .15, far: .5, calm: 3 },
   },
@@ -90,7 +91,7 @@ export const REEF = {
     /** How far from the anemone's middle they keep (units), and how far one now and then ventures before darting back. */
     radius: .36, venture: { chance: .12, reach: .7 },
     /** Heights above the bottom (units): over the tentacle tips, and nestled down among them. */
-    height: [.2, .32], nestle: .1,
+    height: [.2, .32], nestle: .12,
     /** Darting: top speed (units/s), fastest turn (rad/s), a dart's length (units); seconds hovering between darts. */
     dart: .34, turnRate: 3.2, hop: [.08, .3], hover: [.5, 2.2],
     /** How close the second of the pair keeps to the first's next spot (units). */
@@ -278,7 +279,11 @@ const OFFSTAGE = { depth: 1, surfacing: false, y: SWIM_LEVEL, opacity: 0, visibl
  * The reef's animals on the island. `members` are reef species only (marine-motion.ts hands them
  * over); `arriving` lanes wait out of sight until arrive() brings them in.
  */
-export function createReefLife(members: readonly { model: ReefModel; lane: number }[], level: number, options: { seed?: number; arriving?: readonly number[]; shape?: IslandShape } = {}) {
+export function createReefLife(members: readonly { model: ReefModel; lane: number }[], level: number, options: {
+  seed?: number; arriving?: readonly number[]; shape?: IslandShape;
+  /** The bare seabed exactly as it is drawn (seabed.ts, `exact`), for the animals that lie on it; else the formula it is drawn from. */
+  bottom?: () => (x: number, z: number) => number;
+} = {}) {
   const seed = options.seed ?? 0, shape = options.shape ?? 'reef';
   let current = level, scale = islandScale(level);
   let field: ShoreField = createShoreField(level, shape);
@@ -298,7 +303,15 @@ export function createReefLife(members: readonly { model: ReefModel; lane: numbe
   // --- The seabed and the island, as these animals need them ---
   /** The seabed's distance from the shore here (reach) and the bottom's height (world y), as the seabed is drawn (on the field's grid). */
   const reach = (x: number, z: number) => { const d = field.shore(x, z); return d > 0 ? d / shelfStretch(x, z) : d; };
-  const floor = (x: number, z: number) => seabedProfile(reach(x, z), OCEAN, shape === 'reef' ? { x, z } : undefined).floor;
+  const formula = (x: number, z: number) => seabedProfile(reach(x, z), OCEAN, shape === 'reef' ? { x, z } : undefined).floor;
+  const floor = (x: number, z: number) => (options.bottom ? options.bottom()(x, z) : formula(x, z));
+  /**
+   * The height (above the swimming level) an animal's middle holds its body clear of the bare bottom: its
+   * keel over the bottom under it, its arms, fins and tail over the bottom out at their reach, turned as it
+   * is (the hulls are in marine-bodies.ts). The octopus and the moray lie on the bottom by this.
+   */
+  const ground = { floor };
+  const clear = (model: ReefModel, x: number, z: number, heading: number) => lowestMiddle(ground, hullOf(model), 0, x, z, heading, 0, 0) - SWIM_LEVEL;
   /** How far toward the viewer something this high (above the swimming level) appears shifted (see apparentShift). */
   const shiftAt = (y: number) => .4 - .5 * (y + .02);
   /**
@@ -380,7 +393,7 @@ export function createReefLife(members: readonly { model: ReefModel; lane: numbe
     }
     d.hide[1] = 0;
     if (d.kind !== 'moray') d.hide[0] = 0;
-    if (d.kind === 'octopus' || d.kind === 'moray') d.y = floor(d.x, d.z) - SWIM_LEVEL + (d.kind === 'moray' ? REEF.moray.lift : REEF.octopus.lift);
+    if (d.kind === 'octopus' || d.kind === 'moray') d.y = clear(d.model, d.x, d.z, d.heading) + (d.kind === 'moray' ? REEF.moray.lift : REEF.octopus.lift);
     const tone = d.kind === 'octopus' ? REEF.octopus.tone.rest : REEF.cuttlefish.tone.calm;
     d.tone[0] = tone[0]; d.tone[1] = tone[1]; d.tone[2] = tone[2];
   }
@@ -556,7 +569,7 @@ export function createReefLife(members: readonly { model: ReefModel; lane: numbe
     move(d, dt);
     d.lift += (lift - d.lift) * ease(lift > d.lift ? 5 : 2.2, dt);
     d.rest = rest; d.jet = jet; d.ground = ground;
-    const y = floor(d.x, d.z) - SWIM_LEVEL + O.lift + d.lift;
+    const y = clear(d.model, d.x, d.z, d.heading) + O.lift + d.lift;
     d.climb = clamp((y - d.y) / dt / .05, -1, 1);
     d.y = y;
     look(d, d.alarm ? O.tone.wary : jet || ground < 1 ? O.tone.jet : rest > .5 ? O.tone.rest : O.tone.walk, dt, jet ? 4 : 1.2);
@@ -573,7 +586,10 @@ export function createReefLife(members: readonly { model: ReefModel; lane: numbe
   }
   /** Heights it may hover at here (above the swimming level): its band, kept off the bottom. */
   function heights(x: number, z: number) {
-    const low = Math.max(F.height[0], floor(x, z) + F.floor);
+    // Over the bottom here, and its body clear of it whichever way it points (along the coast, or across).
+    const way = Math.atan2(z, x) + Math.PI / 2;
+    let low = Math.max(F.height[0], floor(x, z) + F.floor);
+    for (let k = 0; k < 4; k++) low = Math.max(low, clear('giant-cuttlefish', x, z, way + k * Math.PI / 4) + SWIM_LEVEL);
     return [low - SWIM_LEVEL, Math.max(low, F.height[1]) - SWIM_LEVEL] as const;
   }
   function hoverSpot(d: Dweller) {
@@ -581,6 +597,8 @@ export function createReefLife(members: readonly { model: ReefModel; lane: numbe
       const p = pointAt(d.angle + (roll(d) - .5) * 2 * F.spread, F.reach[0] + (F.reach[1] - F.reach[0]) * roll(d));
       if (i < 11 && !cuttlefishRoom(d, p.x, p.z)) continue;
       const [low, high] = heights(p.x, p.z);
+      // Not where its body must ride above its band to clear the bottom (the foot of the reef's crest, or the lagoon by the beach: its back would be out of the water).
+      if (i < 11 && low + SWIM_LEVEL > F.height[1] + .06) continue;
       return { x: p.x, z: p.z, y: low + (high - low) * roll(d) };
     }
     return { x: d.x, z: d.z, y: d.y };
@@ -786,7 +804,7 @@ export function createReefLife(members: readonly { model: ReefModel; lane: numbe
     d.jet = 0; d.ground = 1;
     // At a den it lies on the bottom by the den's mouth (most of the rest of it is in the rock); swimming, under its middle.
     const atDen = d.state !== 'swim' && d.state !== 'approach';
-    const y = (atDen ? d.dens[d.den].floor : floor(d.x, d.z)) - SWIM_LEVEL + M.lift;
+    const y = clear(d.model, d.x, d.z, d.heading) + M.lift;
     d.climb = 0;
     d.y += (y - d.y) * ease(3, dt);
   }
@@ -812,7 +830,11 @@ export function createReefLife(members: readonly { model: ReefModel; lane: numbe
         const a = roll(d) * 2 * Math.PI, r = out ? C.venture.reach : C.radius * Math.sqrt(roll(d));
         x = home.x + Math.cos(a) * r; z = home.z + Math.sin(a) * r;
       }
+      // The last try, with nothing found over water it has room in, stays over the anemone.
+      if (i === 7 && !nestle) { x = home.x; z = home.z; }
       const distance = Math.hypot(x - d.x, z - d.z);
+      // Over water it has room in, not the beach or the island (a venture toward the shore would end there).
+      if (i < 7 && !nestle && floor(x, z) > OCEAN.surfaceLevel - .3) continue;
       if (i < 7 && !nestle && (distance < C.hop[0] || (distance > C.hop[1] && Math.hypot(d.x - home.x, d.z - home.z) < C.radius && !first))) continue;
       d.tx = x; d.tz = z;
       d.ty = nestle ? C.nestle : C.height[0] + (C.height[1] - C.height[0]) * roll(d);
@@ -855,7 +877,9 @@ export function createReefLife(members: readonly { model: ReefModel; lane: numbe
     }
     d.speed += (speed - d.speed) * ease(speed > d.speed ? 7 : 9, dt);
     move(d, dt);
-    const y = d.y + clamp((home.floor - SWIM_LEVEL + d.ty - d.y) * 3, -.25, .25) * dt;
+    // Its height over the anemone's floor, and never lower than its belly clears the bottom where it is.
+    const bottom = clear(d.model, d.x, d.z, d.heading) + .005;
+    const y = Math.max(bottom, d.y + clamp((Math.max(home.floor - SWIM_LEVEL + d.ty, bottom) - d.y) * 3, -.25, .25) * dt);
     d.climb = clamp((y - d.y) / dt / .05, -1, 1);
     d.y = y;
     d.bank += (clamp(-d.turn * .08, -.2, .2) - d.bank) * ease(4, dt);

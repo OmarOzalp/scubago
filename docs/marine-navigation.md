@@ -94,6 +94,115 @@ side with more room (checked one turning circle out), and switches only if that
 side becomes blocked. Roll follows the turn rate (`bank`, capped at `bankMax`,
 eased at `bankEase`), around any resting `tilt` (the sunfish swims on its side).
 
+## Depth
+
+Animals swim in the water over the seabed under them, never in it. Where in that water, and how the
+steering keeps them to places with room for them, is in `src/lib/seabed.ts` (the bottom),
+`src/lib/marine-bodies.ts` (the bodies and where each lives) and the height code of
+`src/lib/marine-motion.ts` (`swimHeight`, `settleHeight`).
+
+**The bottom.** One function, `createSeabedField`, gives the seabed for the depth map the water and
+seabed are drawn from (`ocean-mesh.ts` asks it) and for the animals above it, so what they swim over is
+what is drawn. `createSeabed(level, shape, world)` bakes it for one island's animals once per island and
+level: a grid every .1 unit with the beach, shelf, the Coral Reef's lagoon and crest (`seabedProfile`), the
+bank between the islands in the explorer (`world`: all the islands and which this is), and the things standing
+on it, as domes (the Coral Reef's coral heads, showpiece corals, reef rock, dens and anemones; the Shipwreck's
+steamer). `floor()` is everything; `ground()` is the bare seabed, which the reef's own animals (octopus, cuttlefish,
+moray, clownfish) live in and against. Looking a height up is a bilinear read of the grid, never a profile.
+
+**The bodies.** Each model's reach from its middle is a *hull* (`HULLS`): how far its body hangs below, how far
+its fins or wings, nose and tail do (a shark's tail hangs lower than its nose), how high its back or dorsal fin
+reaches, and half its span and length, measured from the shipped models over a swimming stroke at cruise and in
+gentle turns and climbs, rounded up. `npm run verify:marine` checks that no model has grown past its hull. Seven
+points of a hull (keel, nose, tail, both sides halfway out, both fin tips), turned as the animal is drawn (roll,
+then pitch, then heading), must each be at least a *margin* (`marginOf`: .03 plus .03 of its half length, so a
+whale shark keeps .14 and a clownfish .04) above the seabed under it.
+
+**Where each lives** (`STANCES`, and `stanceOf` for species that share a family model):
+
+| Stance | Who | Swims at |
+| --- | --- | --- |
+| `bottom` | rays, stingrays, sawfish, guitarfish, wobbegong, zebra and nurse sharks, whitetip reef shark, groupers, lionfish, batfish, leafy seadragon, dugong, and the bottom-living fish (frogfish, stonefish, eels, jawfish, lingcod, mandarinfish) | `band` units above the lowest its body may be (.03–.12), following the bottom |
+| `reef` | reef fish, angelfish, parrotfish and wrasse, turtles, trevally, barracuda, eagle rays, grey and blacktip reef sharks, lemon and sand tiger sharks, tarpon, seals, sea lions, otters, jellyfish, the iguana | `band` of the way up the water between the lowest it may be and just under the surface: .3 for the low ones (the garibaldi, the angelfish) to .9 for the jellyfish and 1 for the iguana, which swims at the surface |
+| `open` | whale shark, great white, tiger, hammerhead, thresher and Galápagos sharks, mantas, mola, whales, orca, sailfish, dolphins, whitetip, leatherback | .3 (whale shark, whales) to .75 (the dolphin and the sailfish): the deeper ones deep, off the reef |
+
+Air-breathers still come up to breathe and the dolphin still leaps: those start from wherever its depth is.
+
+**Its height.** Each step, `survey` finds the lowest its middle may be here (`lowestMiddle`: every hull point above
+the bottom under it by the margin, at its heading, pitch and roll), the same a second and a half and two and a half
+seconds ahead along its way (so it climbs a slope in good time), and the highest (its back just under the surface).
+It aims at its place between them (`swimHeight`), over the *envelope* of the lowest: it rises with the bottom at
+once and sinks back only at .3 units/s, so it never zigzags with broken ground (and the look-ahead never lifts
+it above where its back stays under the surface: the steering is what turns it from a shoal ahead). Its height eases to that as it
+always did, and is never below the lowest, whatever a breath, a plunge or a dive do (`settleHeight`). Where the
+water is too shallow for it (the lowest above the highest) it rides the lowest, with its back out of the water,
+and the steering keeps it from such places. Its pitch follows the slope it swims along (`slope`, the climb of its
+height, as the angle of its path, a little over half of it, up to .3 rad), and a breath or a dive tips it as they
+always did. What is published each frame is checked once more against the bottom under where it is drawn, with
+the dive's sinking added: the interpolation between two steps, the surge rocking a seadragon, none of it can
+put a body below the seabed, and a body that has a tail or fin over the dry sand is nudged out along the shore.
+
+**Where it fits** (the steering). A body too big for the water at a place (`tooShallow`: it could not swim there
+along the coast, going either way, or turned either way off the coast by up to .45 rad (three headings for a small body, up to nine for the widest: close
+enough that a wingtip is within about the bottom grid's own reach of its place at one of them, so a wall is not stepped over
+between two), with the whole of its hull above the bottom and no more than the top fifth of its back out of the water) is *shore* to it. The island's steering field for that animal (`avoidShallows`) is the
+land's distance blended with the distance to those places, which count `offset` units nearer than they are (its
+island clearance and .05, less the room it keeps from them, `shallowClearOf`: .1 for a fish, up to .5 for a whale), so everything
+that follows the coast follows the lagoon, the crest and the shelf as well: roaming at its distance offshore,
+the predictive turning away, lanes measured offshore, the U-turn's room, followers' clearance, leaps. A whale shark
+at the Coral Reef keeps beyond the reef; a clownfish keeps to the lagoon. It starts at the first water with the
+room its band asks for (with no part of its body on the dry sand), or where there is most, and its band reaches
+no farther than the water does (a lagoon narrower than the band puts it in the middle of the lagoon). A body taller than the deepest water there is (the sunfish, on its side) fits where the water is deepest and no
+more, with whatever of it stands out of the water standing out.
+
+**The biggest animals and the Coral Reef's shelf** (`src/lib/shelf-water.ts`). The Coral Reef's crest comes almost to the
+edge of the frame, and a whale shark, a manta or a leatherback needs a unit of deep water beyond the slope outside it for its
+wingtips (the hulls' `wing` and `width`). So the reef's outer slope, which ran down gently to a floor out past the frame, falls away as a steep wall just past
+the coral (`OCEAN.reefCrest`: `wall`, shelf reach 1.96 to 2.16, to a floor `drop`, .6, deeper than any other island's, in
+`src/lib/ocean.ts`; the island, the beach, the lagoon, the crest and its shoulder are as they were): the water just outside
+the crest is deep enough for the biggest bodies from about the edge of the frame, not past it. The wall is in the one depth
+field the water is drawn from and the animals swim over (`seabed-lattice.ts` has rings of its own on it, at fixed values of the
+reef's measure of distance, so each is at one height round the island), so what a body avoids is what is drawn. (The seabed is
+drawn without depth testing, so its triangles are drawn farthest from the camera first, `farthestFirst` in ocean-mesh.ts: a wall
+that steep hides the floor beyond the crest, and drawn the other way round that floor would be painted over the crest; and what
+the depth map, which is read from above, makes of a wall, is made deeper blue the deeper it really is, so that it reads as water.) What is left is a ring of deep water round the island that is narrow at the edge of the frame; for the
+widest bodies it is cut off in a few directions (the south, where the camera's tilt puts an animal nearer the viewer than the
+map, and the cardinal points). `shelfWater` deals with it:
+
+- the ocean such a body keeps to is a little wider than the usual (`factor`, at most 1.15: the most the frame's bounds allow)
+  until the water it fits in is a ring all the way round the island (with all but a tenth of the directions open);
+- the edge of that ocean is shore to the body, and the water it keeps to is *opened* (`Seabed.distanceTo`'s `opening`, `OPENING`,
+  .4 units; the school's is half its ring's width): a strip of it narrower than twice that is closed, so where the ring is cut off the
+  water ends in a blunt end that wide and not in a thread, which steering has no way out of, and a neck of it too narrow for the body's
+  wingtips and tail (it would be lifted over the slope in it, and shown higher up the picture, at the edge of the frame out of it) is a dead
+  end like any other, which it turns about before;
+- the places too shallow for it are held to exactly (`leaveShallows`: a step that takes it into them is taken back, so that it moves
+  no faster than it swims: heading into the edge of its water it is turned aside, heading along it, it slides), and every body is
+  held to the frame's bounds the same way (1.13 of the usual frame, or 1.09 of its own ocean; a pod's follower, which swings a little wide of its leader, 1.11);
+- where the ring is still cut off, it turns about before it comes to the dead end (`DEAD_END_LOOK`, `DEAD_END_REST`)
+  and goes round the other way, rather than be caught there; and a body that has not moved .6 units in 5 s (two big bodies
+  meeting in a pass too narrow for both, or one held at the edge of its water) swings round almost where it is (at its usual pace and turn rate), for up to 14 s, and goes
+  the other way (`STALL`; not while it rests at the surface, leaps or charges).
+
+Only a body whose water is cut off is touched, and only on an island whose shelf cuts it off: the tuna school asks for less
+(`SCHOOL_SHELF`, a pass a unit wide in an ocean 1.1 times the usual, and its fish are kept out of water too shallow for them),
+the other islands' animals, the reef's small sharks and every bottom-dweller swim as they always did. At the Coral Reef every
+large animal is in view (inside the camera's picture, on a square canvas) all the time, at every level, and the biggest are
+within the frame's usual bounds (`npm run verify:swim` reports the share out of view and in water too shallow for the body, per
+animal).
+
+**The bottom, as the grid has it and as it is drawn.** The baked grid (`Seabed.floor`, `solid`, `ground`) holds the highest the
+drawing is within a tenth of a unit of each point, so what is read between its points is never lower than the drawing: a body
+that clears it clears the seabed. Over a steep slope that is a good deal higher than the drawing (the Coral Reef's outer wall
+drops about two units in a third of one), which is right for a body that must not touch it and wrong for one that lies on it.
+So the reef's own animals (the octopus, the cuttlefish, the moray) and the tuna school's fish, which are smaller than the grid's
+reach, read and clear the bottom exactly as it is drawn (`Seabed.exact`: the very triangles of the water's seabed, found in a
+grid of lists).
+
+**Diving.** A dive no longer sinks an animal into the seabed: it sinks as far as the water under it leaves it (drawn, less half its margin, since what is drawn is not where the last step put it)
+(`sink`, from `room`, easing as the bottom rises under it), and fades out of sight where it is when there is no more
+room, in the same time as before. An animal on a dive is still passed over by the others (it is faded).
+
 ## Groups
 
 A species that swims in a group is still one species: one discovery, one of the
@@ -137,7 +246,10 @@ member has its own tail phase and depth (`depthSpread`).
 - **Trading places.** Now and then (`swapEvery`) two members trade places, or a pair's
   follower crosses to the leader's other side, over `swapTime` seconds; the one
   dropping back passes beneath (`dip`). A member crowding one ahead of it in the group
-  also slips beneath it.
+  also slips beneath it. A larger animal of another species in its way, it passes over if it is the higher
+  and beneath if it is the lower, by the depth `FOLLOWER_CLEAR` asks between them as they are in the water now
+  (a body's stance is not its species' usual depth), starting while the two are still a unit and a half apart,
+  as a change of depth is slow.
 - **Along the shore.** A place that would put a follower inside its island clearance
   moves out to the clearance, and the group then swings its places to the open side.
   When the leader turns around (a reversal), its group turns with it and their places
@@ -650,6 +762,13 @@ The tests cover:
   body entering the rock right at the mouth, and retreating from a large animal (not a turtle);
   the three arrivals; and a level change moving the rocks and the animals out together.
 
+- depth (`swim-depth.test.ts`, `seabed.test.ts`, `marine-bodies.test.ts`): no body ever below the seabed as it is drawn, grazing
+  it or inside an island, for every model on every island; animals at the depth they live at (bottom-dwellers near the bottom,
+  the big open-water animals in deeper water); and, on the Coral Reef, the biggest animals in view and in water deep enough for
+  them. `npm run verify:swim` is the exhaustive version: every model, in scenes of eight, on every island at every level, for
+  minutes at a time (split it by island and level to use more than one core), reporting clips, bodies in the island's dry land,
+  where animals swim by how they live in the water, and the share out of view or in water too shallow for the body.
+
 `npm run verify:underwater` checks that slender animals' tap targets are at least 28 pt
 across at levels 1 and 6, on the body, and follow it when it pitches and leaps, that the
 reef's animals have their simple tap shapes (never every arm) at the same minimum, and that
@@ -665,6 +784,15 @@ touching the open water's programs.
 - At level 6, a whale shark rounding the southwest islet can swing briefly toward
   the bottom haze, because there is little room between that islet and the view's
   corner.
+- The ring of water deep enough for the biggest bodies round the Coral Reef is narrower than a whale shark is long, and cut off
+  at its south side: such a body goes round the island the long way and turns about, almost where it is, at the two ends of
+  the ring (the water is closed in a blunt end there, `Seabed.distanceTo`'s `opening`). The largest bodies are longer than the ring is
+  wide there, so a turn about at a dead end swings an end of it over the crest: the body rises to clear it (it never
+  clips) and for a few seconds rides with part of it out of the water. Measured over two minutes at levels 1 and 6, eight large
+  animals together (the lanes of the scene rotated three ways): about 3% of samples have the body's middle at or above the
+  surface (the whale shark, the humpback and the leatherback most, about 6% each; the sperm whale, which also rests at the
+  surface by design, 2.5%, the sunfish 1.7%, the rest under 1%), and about 4% of ten-second windows find a body stalled
+  (moved less than .6 units: the whale shark and the sperm whale 8%, the sunfish 6%, the tiger shark 5%).
 - In crowded scenes an animal may make a small (4–8°) corrective S-curve every
   half minute or so while lanes settle.
 - Leaps need a stretch of open water in the clear part of the view, so they stay rare.

@@ -1,8 +1,10 @@
 import { expect, test } from '@jest/globals';
+import { hullOf, lowestMiddle } from '../marine-bodies';
 import { islandScale, islets, SEABED_PROPS, shoreDistance, shorePolygons } from '../island-outline';
 import { createMarineMotion, MOVEMENT, type MarineMember } from '../marine-motion';
-import { seabedProfile, shelfStretch } from '../ocean';
+import { OCEAN, seabedProfile, shelfStretch } from '../ocean';
 import { SWIM_LEVEL } from '../ocean-depth';
+import { createSeabed } from '../seabed';
 import { createReefLife, isReefModel, REEF, REEF_ROCK, REEF_SIZE, REEF_SPECIES, reefRocks, visitorGap, type ReefModel, type ReefVisitor } from '../reef-life';
 import type { MarineModel } from '../swimming';
 
@@ -59,7 +61,7 @@ test('open-water animals and the tuna school move exactly as they would without 
 
 test('each keeps to its habitat at every level: the octopus on the shelf, the cuttlefish over the reef edge, the moray at its dens', () => {
   for (const level of [1, 6]) {
-    const motion = createMarineMotion([...VISITORS, ...DWELLERS], level, { school: true, seed: .7 });
+    const motion = createMarineMotion([...VISITORS, ...DWELLERS], level, { school: true, seed: .7 }), seabed = createSeabed(level, 'reef'), drawn = { floor: seabed.exact }, propped = { floor: seabed.floor };
     const seen = { octopus: 0, cuttlefish: 0, moray: 0 };
     for (let frame = 0; frame < 7200; frame++) {
       motion.step(1 / 30, true);
@@ -76,7 +78,9 @@ test('each keeps to its habitat at every level: the octopus on the shelf, the cu
           expect(reach).toBeLessThan(REEF.octopus.reach[1] + .1);
           expect(apparent(level, pose.x, pose.z, world)).toBeGreaterThan(REEF.octopus.clear - .08);
           expect(world - floor).toBeGreaterThan(0);
-          expect(world - floor).toBeLessThan(.25);
+          // (its middle rides as high as its arms, spread half a unit to a side, need over the sloping shelf: its hull, marine-bodies.ts, over
+          // the bare bottom as it is drawn; a hair more in a jet)
+          expect(world - lowestMiddle(drawn, hullOf('day-octopus'), 0, pose.x, pose.z, pose.heading, pose.pitch, pose.bank)).toBeLessThan(.12);
           expect(pose.hide).toEqual([0, 0]);
           seen.octopus++;
         } else if (model === 'giant-cuttlefish') {
@@ -84,7 +88,15 @@ test('each keeps to its habitat at every level: the octopus on the shelf, the cu
           expect(reach).toBeGreaterThan(REEF.cuttlefish.reach[0] - .2);
           expect(reach).toBeLessThan(REEF.cuttlefish.reach[1] + .25);
           expect(world).toBeGreaterThan(REEF.cuttlefish.height[0] - .05);
-          expect(world).toBeLessThan(REEF.cuttlefish.height[1] + .08);
+          // (or as high as its body needs to clear the bottom under it whichever way it points, marine-bodies.ts: in the shallow lagoon by
+          // the beach and over the foot of the crest's rise that is all the water it has, and then its back is at the surface, not above it.
+          // The bottom as it is drawn, which is a little higher than the formula between the lattice's rings on the rise.)
+          const way = Math.atan2(pose.z, pose.x) + Math.PI / 2;
+          // (and as it is banked and pitched as drawn)
+          let needs = lowestMiddle(drawn, hullOf('giant-cuttlefish'), .004, pose.x, pose.z, pose.heading, pose.pitch, pose.bank);
+          for (let k = 0; k < 4; k++) needs = Math.max(needs, lowestMiddle(drawn, hullOf('giant-cuttlefish'), 0, pose.x, pose.z, way + k * Math.PI / 4, 0, 0));
+          expect(world).toBeLessThan(Math.max(REEF.cuttlefish.height[1] + .08, needs + .06));
+          expect(world + hullOf('giant-cuttlefish').crest).toBeLessThan(OCEAN.surfaceLevel + .05);
           expect(world - floor).toBeGreaterThan(REEF.cuttlefish.floor * .5);
           seen.cuttlefish++;
         } else if (Math.max(...pose.hide!) < .99) {
@@ -93,8 +105,10 @@ test('each keeps to its habitat at every level: the octopus on the shelf, the cu
           const out = pose.hide![1] > 0 ? null : head;
           if (out) expect(ground(level, out.x, out.z).reach).toBeGreaterThan(.45);
           if (out) expect(ground(level, out.x, out.z).reach).toBeLessThan(1.05);
-          // On the bottom (judged under its middle, which may be in the rock while it slides in or out).
-          expect(world - floor).toBeLessThan(.35);
+          // On the bottom (judged under its middle, which may be in the rock while it slides in or out): as low as its hull allows over the
+          // bottom with the coral heads and rock it lies against on it, as the octopus's (it rides over them, half withdrawn, for the seconds a
+          // visitor lingers by the den).
+          expect(world - lowestMiddle(propped, hullOf('giant-moray'), 0, pose.x, pose.z, pose.heading, pose.pitch, pose.bank)).toBeLessThan(.12);
           seen.moray++;
         }
       }

@@ -1,4 +1,5 @@
 import { expect, test } from '@jest/globals';
+import { flatSeabed } from '../../test-support/flat-seabed';
 import { followerLane, groupSizes } from '../marine-groups';
 import { createMarineMotion, MOVEMENT, type MarineMember } from '../marine-motion';
 import { createSwimRig, CRUISE, JELLY_ARMS, SWIM_RIGS, type PinnipedRig, type SwimDrive, type SwimRigModel } from '../marine-rigs';
@@ -104,8 +105,9 @@ const SIX: MarineMember[] = [
   { model: 'great-barracuda', lane: 0 }, { model: 'sailfish', lane: 1 }, { model: 'california-sea-lion', lane: 2, group: 3 },
   { model: 'spotted-eagle-ray', lane: 3, group: 3 }, { model: 'golden-jellyfish', lane: 4, group: 5 },
 ];
-function watch(seconds: number, each: (motion: ReturnType<typeof createMarineMotion>, t: number) => void) {
-  const motion = createMarineMotion(SIX, 3, { school: false, seed: .3 });
+/** The six over the island's own seabed, or (`flat`) a flat deep one, for what an animal does by itself, which the island's shallows would thin out. */
+function watch(seconds: number, each: (motion: ReturnType<typeof createMarineMotion>, t: number) => void, flat = false) {
+  const motion = createMarineMotion(SIX, 3, { school: false, seed: .3, seabed: flat ? flatSeabed(3) : undefined });
   for (let t = 0; t < seconds; t += 1 / 30) { motion.step(1 / 30, true); each(motion, t); }
 }
 
@@ -135,7 +137,7 @@ test('a sea lion now and then rolls a full turn about its length and ends the wa
     if (Math.abs(bank) > Math.PI * .9 && !inRoll) { rolls++; inRoll = true; }
     if (Math.abs(bank) < .6) inRoll = false;
     previous = bank;
-  });
+  }, true);
   expect(rolls).toBeGreaterThanOrEqual(2);
 });
 
@@ -174,7 +176,8 @@ test('a clownfish pair darts about its anemone, never straying far, and ducks do
       far = Math.max(far, Math.hypot(pose.x - home.x, pose.z - home.z));
       const height = pose.y + SWIM_LEVEL - home.floor;
       expect(height).toBeGreaterThan(REEF.clownfish.nestle - .05);
-      expect(height).toBeLessThan(REEF.clownfish.height[1] + .05);
+      // (a hair more over a slope: its body, marine-bodies.ts, clears the sand under it)
+      expect(height).toBeLessThan(REEF.clownfish.height[1] + .1);
     }
     moved += Math.abs(reef.get(4)!.x - last); last = reef.get(4)!.x;
   }

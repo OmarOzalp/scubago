@@ -1,7 +1,7 @@
 /** World height the animals swim around while up in the water (their motion adds each one's own offset). */
 export const SWIM_LEVEL = -.92;
 /** How much deeper the bottom of a dive is (units). */
-const DIVE_DEPTH = 1.65;
+export const DIVE_DEPTH = 1.65;
 
 /** Seconds from one dive to the next. */
 export const DIVE_CYCLE = 38;

@@ -5,6 +5,8 @@ import type { IslandShape } from '@/lib/island-outline';
 import { GROUP_BUDGET, groupSizes } from '@/lib/marine-groups';
 import { createMarineMotion, MOVEMENT, type MarineMember, type MarineMotion } from '@/lib/marine-motion';
 import { isReefModel, REEF_SPECIES } from '@/lib/reef-life';
+import type { OceanIsland } from '@/lib/seabed';
+import type { WaterExtent } from '@/lib/seabed-lattice';
 import { oceanScale, worldFor } from '@/lib/steering';
 import type { MarineModels } from './marine-loader';
 import { AnimatedMarine } from './animated-marine';
@@ -60,10 +62,12 @@ const scratch = { x: 0, y: 0 };
  * The animals and the tuna school. A species that swims in a group (marine-groups.ts) is drawn as
  * several animals, all opening its one page; `onSchoolPress` makes the school one tap target too.
  */
-export function MarineSwimmers({ residents, models, active, level = 1, school = false, onSchoolPress, schoolSpecies = [], arrivals, tapScale, shape = 'reef' }: {
+export function MarineSwimmers({ residents, models, active, level = 1, school = false, onSchoolPress, schoolSpecies = [], arrivals, tapScale, shape = 'reef', world }: {
   residents: Resident[]; models: MarineModels; active: boolean; level?: number; onSchoolPress?: () => void;
   /** The island they swim around (its own outline and size). */
   shape?: IslandShape;
+  /** With several islands in the ocean (the explorer): all of them and which this is, for the bank between them that shapes the seabed under the animals. */
+  world?: { islands: readonly OceanIsland[]; index: number; reach?: WaterExtent };
   /** How much larger tap targets are than the animals need at the first level's zoom: the level's pullback unless set (the explorer's zoom, tapScaleAt). */
   tapScale?: number;
   /** Whether the tuna school swims here (a tuna is logged). */
@@ -77,16 +81,18 @@ export function MarineSwimmers({ residents, models, active, level = 1, school = 
   const aspect = size.width / Math.max(1, size.height);
   // Group members come from a budget of their own, smaller where the GPU is emulated.
   const sizes = groupSizes(residents, lite ? GROUP_BUDGET.lite : GROUP_BUDGET.full, SEED);
-  const signature = JSON.stringify(residents.map(({ model, lane }, i) => ({ model, lane, group: sizes[i] })));
+  const signature = JSON.stringify(residents.map(({ model, lane, id }, i) => ({ model, lane, group: sizes[i], speciesId: id })));
   const members = useMemo<MarineMember[]>(() => JSON.parse(signature), [signature]);
   // Who waits out of sight is read only when a simulation starts (a new set of animals), so a change to
   // it never restarts one.
   const waiting = arrivals?.waiting ?? [];
   const schoolPending = waiting.some((id) => schoolSpecies.includes(id));
   const holdable = schoolPending && !arrivals?.visible && !arrivals?.instant;
+  // The islands are read only when a simulation starts, like who is waiting: the same islands in the same places keep it.
+  const places = world ? JSON.stringify({ islands: world.islands, index: world.index }) : '';
   const start = () => {
     const arriving = residents.filter((r) => waiting.includes(r.id)).map((r) => r.lane);
-    const motion = createMarineMotion(members, level, { school, seed: SEED, leap: LEAP, arriving, shape });
+    const motion = createMarineMotion(members, level, { school, seed: SEED, leap: LEAP, arriving, shape, world });
     // A new tuna brings the whole school in, from out of sight (only ever before the scene is shown).
     if (holdable) motion.holdSchool(aspect);
     return motion;
@@ -95,13 +101,16 @@ export function MarineSwimmers({ residents, models, active, level = 1, school = 
   // level reshapes the island and widens the ocean around the same animals rather than starting over.
   // The school joining (a tuna logged) or leaving (its last sighting deleted) starts one too, and so does
   // another island (Home's card shows one island at a time).
-  const [simulation, setSimulation] = useState(() => ({ members, school, shape, motion: start() }));
+  const [simulation, setSimulation] = useState(() => ({ members, school, shape, places, motion: start() }));
   let motion = simulation.motion;
-  if (simulation.members !== members || simulation.school !== school || simulation.shape !== shape) {
+  if (simulation.members !== members || simulation.school !== school || simulation.shape !== shape || simulation.places !== places) {
     motion = start();
-    setSimulation({ members, school, shape, motion });
+    setSimulation({ members, school, shape, places, motion });
   }
   useEffect(() => { motion.setLevel(level); }, [motion, level]);
+  // How far the explorer's water reaches changes with its window, never the animals.
+  const reach = JSON.stringify(world?.reach ?? null);
+  useEffect(() => { motion.setReach(JSON.parse(reach) ?? undefined); }, [motion, reach]);
 
   // A new tuna logged while the scene was away: the school steps out of sight to arrive.
   useEffect(() => {

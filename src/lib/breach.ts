@@ -27,10 +27,13 @@ export const DOLPHIN_BREACH = {
   settle: 1.5,
   /**
    * The room a leap needs: this far (units) beyond the island clearance, inside this much of the
-   * frame, and in the clear middle of the view (this share of its half-height from the center),
-   * short of the haze at the top and bottom, so it is always seen well.
+   * frame (the dolphin's water at the Coral Reef is the deep ring beyond the reef, at the edge of the frame: a little
+   * outside it still, in its own ocean), and in the clear middle of the view (this share of its half-height from the
+   * center), short of the haze at the top and bottom, so it is always seen well.
    */
-  islandMargin: .2, frameEdge: 1, view: .64,
+  islandMargin: .2, frameEdge: 1.06, view: .7,
+  /** The water (units over the bottom) it needs wherever it leaves the water, plunges back in and swims on: its plunge goes deeper than it swims. */
+  water: .8,
   /**
    * Clear water (units) between the leap's path and any other animal's footprint (its pod swims close,
    * so less for them), and, as it decides, between its own footprint and any other large animal's.

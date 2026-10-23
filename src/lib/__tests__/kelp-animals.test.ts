@@ -5,6 +5,7 @@ import { createSwimRig, CRUISE, type SwimDrive } from '../marine-rigs';
 import { OCEAN } from '../ocean';
 import { sampleDive } from '../ocean-depth';
 import type { MarineModel } from '../swimming';
+import { waterEdge } from '../../test-support/water-edge';
 
 const TAU = Math.PI * 2;
 const range = (values: number[]) => Math.max(...values) - Math.min(...values);
@@ -82,7 +83,8 @@ test('the garibaldi and the leafy seadragon keep near the rocky shore, the seadr
       swayed = Math.max(swayed, Math.hypot(pose.x - seen.x, pose.z - seen.z + seen.shift));
       px = seen.x; pz = seen.z; last = seen;
     }
-    expect(distance).toBeLessThan(1.4);
+    // (near the edge of the water its body has room in: the shelf's shallows, which it keeps off, push it out from the shore itself)
+    expect(distance).toBeLessThan(waterEdge(model, 'kelp', 3) + 1);
     // Its drawn place rocks back and forth about where it steers (Movement.sway).
     expect(swayed).toBeGreaterThan(MOVEMENT[model].sway! * .5);
     expect(swayed).toBeLessThan(MOVEMENT[model].sway! * 1.5);

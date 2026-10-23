@@ -6,6 +6,7 @@ import { createMarineMotion, MOVEMENT } from '../marine-motion';
 import { createSwimRig, CRUISE } from '../marine-rigs';
 import { OCEAN } from '../ocean';
 import { marineModelFor, type MarineModel } from '../swimming';
+import { waterEdge } from '../../test-support/water-edge';
 
 const TAU = Math.PI * 2;
 const range = (values: number[]) => Math.max(...values) - Math.min(...values);
@@ -73,8 +74,9 @@ function habits(model: MarineModel, frames = 6000) {
 
 test('the iguana and the angelfish keep to the shore, the iguana up at the surface for long spells; the thresher keeps out in the blue, deeper', () => {
   const iguana = habits('marine-iguana'), angelfish = habits('king-angelfish'), thresher = habits('thresher-shark'), galapagos = habits('galapagos-shark');
-  expect(iguana.distance).toBeLessThan(1.3);
-  expect(angelfish.distance).toBeLessThan(1.3);
+  // (near the edge of the water its body has room in: the shelf's shallows, which it keeps off, push it out from the shore itself, as the kelp's)
+  expect(iguana.distance).toBeLessThan(waterEdge('marine-iguana', 'volcanic', 3) + 1.1);
+  expect(angelfish.distance).toBeLessThan(waterEdge('king-angelfish', 'volcanic', 3) + 1.1);
   expect(iguana.near).toBeGreaterThan(.5);
   expect(iguana.breaths).toBeGreaterThanOrEqual(5);
   expect(thresher.distance).toBeGreaterThan(iguana.distance + .5);

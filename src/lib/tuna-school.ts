@@ -1,4 +1,6 @@
 import type { ShoreField } from './island-outline';
+import { lowestMiddle, type Hull } from './marine-bodies';
+import { SURFACE_Y, type Seabed, type Shallows } from './seabed';
 import { apparentShift, clamp, ease, smoothstep, TAU, variation, WORLD, type World } from './steering';
 import type { MarineModel } from './swimming';
 
@@ -161,6 +163,47 @@ const LOOKS = [.35, .7, 1];
 const LEVEL = -.94;
 /** Islets are small sandbars: fish may pass them this much closer than the main island (units). */
 const ISLET_ALLOWANCE = .45;
+/** A tuna's body (see marine-bodies.ts), and the room the fish keep between its lowest point and the bottom (units). */
+export const TUNA_HULL: Hull = { keel: .09, wing: .05, nose: .04, tail: .08, crest: .1, width: .1, length: .3 };
+export const TUNA_MARGIN = .04;
+/**
+ * The least water (units from the bottom to the calm surface) the school lives in: a school is deep, not just a fish (its fish
+ * spread a third of a unit above and below the lead, which rides at mid-depth), and tuna keep to deep water, off the shelf and
+ * away from its walls, where a fish would be lifted to the surface. As a hull for the places too shallow for it: its keel is
+ * that much water less the room it keeps.
+ */
+export const SCHOOL_DEPTH = 1.1;
+/**
+ * How much nearer the shallows than the large animals keep (units) the school's fish may come: they are small, and a school in a
+ * narrow pass between the island's shelf and the edge of the view must not be pushed apart by the shelf (the fish rise over a slope).
+ */
+export const SCHOOL_SLACK = .3;
+/** How fast (units/s) a fish is put back out of water too shallow for it (about a few times its pace), and how far in from the edge of such water it is kept (about its length: its nose or tail then is not over the slope). */
+const KEEP_OUT_PUSH = 1.5, KEEP_OUT_EDGE = .2;
+export const SCHOOL_WATER: Hull = { ...TUNA_HULL, keel: SCHOOL_DEPTH - TUNA_MARGIN, crest: 0 };
+/** How far out the school's lead starts at most (its ocean's edge: 1), and how far beyond the fishes' clearance from the shore. */
+const START_EDGE = .96, START_CLEAR = .6;
+/** An arriving school is in when its middle is this far in (its ocean's edge: 1). */
+const ENTERED_EDGE = .95;
+const FISH = TUNA_HULL, FISH_MARGIN = TUNA_MARGIN, FISH_ROOM = FISH.keel + FISH_MARGIN;
+/**
+ * The bottom a fish clears (world y): as it is drawn, with the corals and rocks standing on it. A fish is smaller than the baked grid's
+ * reach (the grid holds the highest the drawing is nearby, which over the Coral Reef's outer wall is a good deal higher than the
+ * drawing a fish passes a hand's breadth from): it would be lifted to the surface by the wall it swims along.
+ */
+const bottomAt = (seabed: Seabed, x: number, z: number) => seabed.exact(x, z) + Math.max(0, seabed.floor(x, z) - seabed.ground(x, z));
+/** The lowest a fish's middle may be (world y): every point of its hull `margin` over the bottom under it (marine-bodies.ts, `lowestMiddle`). */
+let fishBed: Seabed | null = null;
+const underFish = { floor: (x: number, z: number) => bottomAt(fishBed!, x, z) };
+function lowestFish(seabed: Seabed, margin: number, x: number, z: number, heading: number, pitch: number, roll: number) {
+  fishBed = seabed;
+  return lowestMiddle(underFish, FISH, margin, x, z, heading, pitch, roll);
+}
+/**
+ * A height (world y) a fish's middle is never below the lowest it may be, found from the baked grid alone (which is never lower than
+ * what `bottomAt` is, drawing and rocks together: the exact lookup is a good deal dearer): a fish above it needs no looking at.
+ */
+const surelyAbove = (seabed: Seabed, margin: number, x: number, z: number, heading: number, pitch: number, roll: number) => lowestMiddle(seabed, FISH, margin, x, z, heading, pitch, roll);
 /** How much farther up the screen a point appears per unit higher in the water (see apparentShift()). */
 const SLANT = apparentShift(0) - apparentShift(1);
 /**
@@ -168,6 +211,8 @@ const SLANT = apparentShift(0) - apparentShift(1);
  * are stragglers, or the other part of a split school, and the target does not stretch to them.
  */
 const HIT_STRAY = 2.5;
+/** The quickest the tap target moves (units/s: a bit over a fleeing fish's top speed), and how far it has to be from the school's middle to be put there at once, not carried (units). */
+const HIT_SPEED = 1.6, HIT_SNAP = 4;
 /** Tail phases wrap at a multiple of a full beat, so they stay precise as 32-bit floats. */
 const PHASE_WRAP = TAU * 64;
 /** Where fish start turning back from the frame (its edge measure), tested as a sixth power without roots. */
@@ -202,11 +247,21 @@ export function createTunaSchool(initialField: ShoreField, options: {
    * the large animals: they widen as the island levels up (OCEAN_GROWTH in steering.ts). Read live.
    */
   ocean?: { world: World; roam: number };
+  /**
+   * The bottom the school swims over: it keeps off the shallows, rides higher where the water is shallow
+   * and never lets a fish below the bottom. Without one, it swims at its usual depth (TUNA_SCHOOL.depth).
+   */
+  seabed?: Seabed;
+  /** The places too shallow for a fish, and the edge of the water it keeps to (seabed.ts, `distanceTo`; at the bottom's own places, not as the camera shows them): no fish is ever put in them. */
+  keepOut?: Shallows;
 } = {}) {
   const n = Math.max(1, Math.round(options.size ?? TUNA_SCHOOL.size));
   const seed = options.seed ?? 0;
   const ocean = options.ocean ?? { world: { ...WORLD }, roam: 0 };
-  let field = initialField;
+  let seabed = options.seabed ?? null;
+  // (the island's field, with the water too shallow for the fish counted as shore as for the large animals, seabed.ts: the caller's)
+  let field = initialField, keepOut = options.keepOut ?? null;
+  const away = { distance: 0, nx: 0, nz: 1 };
   const T = TUNA_SCHOOL;
   const f32 = () => new Float32Array(n);
   // Fish state.
@@ -250,7 +305,10 @@ export function createTunaSchool(initialField: ShoreField, options: {
   {
     const angle = -2.3 + variation(seed, 11) * .6, shift = apparentShift(T.depth - LEVEL);
     let radius = 1.5;
-    while (radius < 6 && field.island(radius * Math.cos(angle), radius * Math.sin(angle), ISLET_ALLOWANCE).distance < (T.roam[0] + T.roam[1] + ocean.roam) / 2) radius += .05;
+    // (it starts in the first water that is clear of the shallows, no farther out than the view's edge: with a wide shelf the deep water is a ring there)
+    const start = { edge: 0, nx: 0, nz: 0 };
+    while (radius < 6 && frameAt(radius * Math.cos(angle), radius * Math.sin(angle), start, ocean.world).edge < START_EDGE
+      && field.island(radius * Math.cos(angle), radius * Math.sin(angle), ISLET_ALLOWANCE).distance < Math.min((T.roam[0] + T.roam[1] + ocean.roam) / 2, T.fishClearance + START_CLEAR)) radius += .05;
     lead.x = radius * Math.cos(angle);
     lead.z = radius * Math.sin(angle) - shift;
     const shore = field.island(lead.x, lead.z + shift, ISLET_ALLOWANCE);
@@ -284,6 +342,22 @@ export function createTunaSchool(initialField: ShoreField, options: {
     return along;
   };
 
+  /**
+   * The height the school swims at (world y): its place in the water between the lowest it may be, over the
+   * highest bottom under its lead and the way it is heading, and just under the surface; `band` is how far
+   * up (0 to 1). Each fish rides over the bottom under it on its own (advanceFish). Without a seabed, its
+   * usual depth, drifting by `depthRange` about it.
+   */
+  const levelFor = (band: number) => {
+    if (!seabed) return T.depth + T.depthRange * (band * 2 - 1);
+    const hx = Math.sin(lead.heading), hz = Math.cos(lead.heading);
+    let top = bottomAt(seabed, lead.x, lead.z);
+    for (const d of [1.2 * lead.speed, 3 * lead.speed]) top = Math.max(top, bottomAt(seabed, lead.x + hx * d, lead.z + hz * d));
+    const low = top + FISH_ROOM + T.shape[2] * 1.2, high = Math.max(low, SURFACE_Y - FISH.crest - T.shape[2] * 1.2 - .02);
+    // Its usual depth, drifting up and down about it; where the water leaves it no room for that, as high or low as it allows.
+    return clamp(T.depth + T.depthRange * (band * 2 - 1), low, high);
+  };
+  lead.y = levelFor(.5);
   const sampleShore = (i: number) => {
     const s = field.island(x[i], z[i] + apparentShift(y[i] - LEVEL), ISLET_ALLOWANCE);
     shoreD[i] = s.distance; shoreNX[i] = s.nx; shoreNZ[i] = s.nz;
@@ -296,7 +370,9 @@ export function createTunaSchool(initialField: ShoreField, options: {
       const width = T.shape[1] * Math.sin(Math.PI * (.1 + .8 * a));
       x[i] = p.x + p.hz * (slotB[i] + driftB[i]) * width;
       z[i] = p.z - p.hx * (slotB[i] + driftB[i]) * width;
-      y[i] = T.depth + clamp(slotC[i] + driftC[i], -1.2, 1.2) * T.shape[2];
+      // (a fish strung out behind the lead that would be in the shallows is drawn in to the lead instead)
+      for (let k = 0; k < 6 && field.island(x[i], z[i] + apparentShift(lead.y - LEVEL), ISLET_ALLOWANCE).distance < T.fishClearance; k++) { x[i] = (x[i] + lead.x) / 2; z[i] = (z[i] + lead.z) / 2; }
+      y[i] = lead.y + clamp(slotC[i] + driftC[i], -1.2, 1.2) * T.shape[2];
       heading[i] = Math.atan2(p.hx, p.hz);
       vx[i] = p.hx * T.cruiseSpeed; vz[i] = p.hz * T.cruiseSpeed;
       prevX[i] = x[i]; prevY[i] = y[i]; prevZ[i] = z[i]; prevHeading[i] = heading[i]; prevPhase[i] = phase[i];
@@ -388,6 +464,7 @@ export function createTunaSchool(initialField: ShoreField, options: {
   /** The fish the tap target is built around, and how many fish are within HIT_STRAY of each (refreshed each step). */
   let hitAnchor = 0;
   const hitCounts = new Uint16Array(n);
+  let hitTime = 0, hitMeasured = false;
   /**
    * The fish with the most others near it: in the thick of the school, and in its larger part when it
    * splits. Kept until another fish is clearly more central, so the target never flickers between two
@@ -417,7 +494,14 @@ export function createTunaSchool(initialField: ShoreField, options: {
     // The middle of the fish around the anchor, then of those around that: a step into the densest part.
     gather(pose.x[hitAnchor], pose.z[hitAnchor]);
     gather(middle.x, middle.z);
-    const cx = middle.x, cy = middle.y, cz = middle.z;
+    let cx = middle.x, cz = middle.z;
+    const cy = middle.y;
+    // It moves with the school at the school's pace, never faster than the quickest of the fish (HIT_SPEED): a school splitting in two
+    // or a fish leaving its reach moves the middle of the fish around the anchor in a jump. (A school put somewhere else is another matter.)
+    const step = Math.max(1 / 60, time - hitTime) * HIT_SPEED, jump = Math.hypot(cx - hitArea.x, cz - hitArea.z);
+    hitTime = time;
+    if (hitMeasured && jump > step && jump < HIT_SNAP) { cx = hitArea.x + (cx - hitArea.x) / jump * step; cz = hitArea.z + (cz - hitArea.z) / jump * step; }
+    hitMeasured = true;
     // Their spread as the camera shows it: a fish higher in the water appears farther up the screen.
     let xx = 0, xz = 0, zz = 0;
     for (let i = 0; i < n; i++) {
@@ -542,8 +626,10 @@ export function createTunaSchool(initialField: ShoreField, options: {
     lead.speed += (target - lead.speed) * ease(1.2, dt);
     lead.x += Math.sin(lead.heading) * lead.speed * dt;
     lead.z += Math.cos(lead.heading) * lead.speed * dt;
-    // Depth: slow rises and descents.
-    lead.y = T.depth + T.depthRange * (.65 * Math.sin(time * TAU / 43 + seed * 5.3) + .35 * Math.sin(time * TAU / 101 + seed));
+    // Depth: slow rises and descents, over the bottom wherever it lies.
+    const band = .5 + .5 * (.65 * Math.sin(time * TAU / 43 + seed * 5.3) + .35 * Math.sin(time * TAU / 101 + seed));
+    if (seabed) lead.y += (levelFor(band) - lead.y) * ease(1.1, dt);
+    else lead.y = levelFor(band);
     // Record the trail every TRAIL_STEP of travel.
     sinceTrail += lead.speed * dt;
     while (sinceTrail >= TRAIL_STEP) {
@@ -593,8 +679,12 @@ export function createTunaSchool(initialField: ShoreField, options: {
     }
     // The shore near each fish: a third of the school per step, and every step for fish close to it.
     for (let i = 0; i < n; i++) if (i % 3 === steps % 3 || shoreD[i] < T.fishClearance + .6) sampleShore(i);
-    const floor = T.depth - T.depthRange - .3, ceiling = T.depth + T.depthRange + .25;
+    // (its usual band's top, or, over water too shallow for that, as far up as the surface lets it)
+    const band = T.depth + T.depthRange + .25, surface = SURFACE_Y - FISH.crest - .02;
     for (let i = 0; i < n; i++) {
+      // Not below the bottom under the fish (or, without one, below the school's band).
+      const floor = seabed ? bottomAt(seabed, x[i], z[i]) + FISH_ROOM : T.depth - T.depthRange - .3;
+      const ceiling = seabed ? Math.min(surface, Math.max(band, floor + .2)) : band;
       if (i % 30 === steps % 30) {
         const drift = time * .05 + i * 1.7;
         driftA[i] = .05 * Math.sin(drift * 1.3 + seed); driftB[i] = .18 * Math.sin(drift * 1.9 + 2.1); driftC[i] = .35 * Math.sin(drift * 1.1 + 4.2);
@@ -759,6 +849,26 @@ export function createTunaSchool(initialField: ShoreField, options: {
         if (out > 0) { mx += out * edge.nx; mz += out * edge.nz; }
       }
       x[i] += mx; z[i] += mz; y[i] += vy[i] * dt;
+      // (and never into water too shallow for it, or out past the edge of the water it keeps to: back out along the way out of it)
+      if (keepOut) {
+        const inside = keepOut(x[i], z[i]) - KEEP_OUT_EDGE;
+        if (inside < 0) {
+          keepOut.sample(x[i], z[i], away);
+          const push = Math.min(-inside, KEEP_OUT_PUSH * dt), px = away.nx * push, pz = away.nz * push;
+          // (a fish pushed back while it swims its fastest is not faster than a fish can be: the push gives way, not the swimming)
+          const most = T.panicSpeed * 1.06 * 1.03 * dt, a = px * px + pz * pz, b = 2 * (mx * px + mz * pz), c = mx * mx + mz * mz - most * most;
+          const share = c >= 0 ? 0 : a + b + c <= 0 ? 1 : (-b + Math.sqrt(b * b - 4 * a * c)) / (2 * a);
+          x[i] += px * share; z[i] += pz * share;
+        }
+      }
+      // Hard limits, whatever the steering: never into the bottom (it slides along it while it turns away), and not above its band
+      // where the water is deep enough for it to be below it (a lead riding up a slope ahead must not take the whole school to the surface).
+      const roll = clamp(-turn[i] * .12, -.45, .45);
+      if (seabed && !(y[i] <= ceiling && y[i] >= surelyAbove(seabed, FISH_MARGIN, x[i], z[i], h, pitch[i], roll))) {
+        const bottom = lowestFish(seabed, FISH_MARGIN, x[i], z[i], h, pitch[i], roll);
+        if (y[i] > ceiling && y[i] > bottom) { y[i] = Math.max(ceiling, bottom); if (vy[i] > 0) vy[i] = 0; }
+        if (y[i] < bottom) { y[i] = bottom; if (vy[i] < 0) vy[i] = 0; }
+      }
       heading[i] = wrapAngle(h);
       pitch[i] += (clamp(-vy[i] / Math.max(.2, newSpeed) * .9, -.35, .35) - pitch[i]) * ease(4, dt);
       // Tail: beats faster with speed, a little harder when accelerating or fleeing.
@@ -776,6 +886,8 @@ export function createTunaSchool(initialField: ShoreField, options: {
       pose.heading[i] = prevHeading[i] + wrapAngle(heading[i] - prevHeading[i]) * t;
       pose.pitch[i] = pitch[i];
       pose.roll[i] = clamp(-turn[i] * .12, -.45, .45);
+      // Whatever the interpolation did, what is drawn clears the bottom under it.
+      if (seabed && pose.y[i] < surelyAbove(seabed, FISH_MARGIN / 2, pose.x[i], pose.z[i], pose.heading[i], pose.pitch[i], pose.roll[i])) pose.y[i] = Math.max(pose.y[i], lowestFish(seabed, FISH_MARGIN / 2, pose.x[i], pose.z[i], pose.heading[i], pose.pitch[i], pose.roll[i]));
       pose.bend[i] = clamp(turn[i] * .07, -.22, .22);
       const beat = phase[i] - prevPhase[i];
       pose.phase[i] = prevPhase[i] + (beat < 0 ? beat + PHASE_WRAP : beat) * t;
@@ -803,7 +915,7 @@ export function createTunaSchool(initialField: ShoreField, options: {
       time += dt;
       steps++;
       measure();
-      if (arrival.entering && frameAt(state.centerX, state.centerZ + apparentShift(state.centerY - LEVEL), frameA, ocean.world).edge < .8) arrival.entering = false;
+      if (arrival.entering && frameAt(state.centerX, state.centerZ + apparentShift(state.centerY - LEVEL), frameA, ocean.world).edge < ENTERED_EDGE) arrival.entering = false;
       // Only animals near enough to matter, judged once for the whole school.
       near.length = 0;
       let alert = 0;
@@ -835,7 +947,7 @@ export function createTunaSchool(initialField: ShoreField, options: {
     /** Poses between the last two steps (t in 0..1), written into `pose`, and the tap target over them. */
     publish,
     /** The island's shape at a new level (it grows a little, and islets appear). */
-    setField(next: ShoreField) { field = next; },
+    setField(next: ShoreField, nextSeabed?: Seabed, nextKeepOut?: Shallows) { if (nextSeabed) seabed = nextSeabed; if (nextKeepOut) keepOut = nextKeepOut; field = next; },
     /**
      * Wait out of sight: the lead at (x, z) heading along `heading`, the fish strung out behind it, still
      * until release(); then the school swims in toward (goalX, goalZ). Used while the scene isn't shown.

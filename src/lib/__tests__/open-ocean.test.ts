@@ -1,4 +1,5 @@
 import { expect, test } from '@jest/globals';
+import { flatSeabed } from '../../test-support/flat-seabed';
 import { shoreDistance, shorePolygons } from '../island-outline';
 import { createMarineMotion, MOVEMENT, type MarineMember } from '../marine-motion';
 import { createSwimRig, CRUISE, SWIM_RIGS } from '../marine-rigs';
@@ -36,8 +37,9 @@ test('the Open Ocean animals stay in view and clear of the island and islets, at
 
 test('they keep farther out than the reef-side animals, the whales farthest of all', () => {
   const [main] = shorePolygons(1);
+  // (over a flat bottom: where each would like to swim, not where the Coral Reef's shelf lets it)
   const offshore = (model: MarineModel) => {
-    const motion = createMarineMotion([{ model, lane: 0 }]);
+    const motion = createMarineMotion([{ model, lane: 0 }], 1, { seabed: flatSeabed() });
     let sum = 0;
     for (let frame = 0; frame < 6000; frame++) {
       motion.step(.05, true);
@@ -77,7 +79,8 @@ test('the whales come up to breathe now and then, the sperm whale resting longes
   const surfaceTime: Partial<Record<MarineModel, number>> = {};
   for (const model of ['humpback-whale', 'sperm-whale'] as const) {
     const top = OCEAN.surfaceLevel - MOVEMENT[model].breathe!.clearance;
-    const motion = createMarineMotion([{ model, lane: 0 }], 1);
+    // (over a flat bottom: the breathing, not the shelf's shallows, which keep a whale's back near the surface)
+    const motion = createMarineMotion([{ model, lane: 0 }], 1, { seabed: flatSeabed() });
     let breaths = 0, up = false, highest = -Infinity, near = 0;
     for (let frame = 0; frame < 12000; frame++) {
       motion.step(.05, true);

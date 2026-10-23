@@ -6,6 +6,7 @@ import { createMarineMotion, MOVEMENT } from '../marine-motion';
 import { OCEAN } from '../ocean';
 import { SEAGRASS, seagrassTufts } from '../seagrass';
 import { marineModelFor, type MarineModel } from '../swimming';
+import { waterEdge } from '../../test-support/water-edge';
 
 const NEW = ['dugong', 'sawfish', 'lemon-shark', 'southern-stingray', 'tarpon'] as const;
 
@@ -65,7 +66,8 @@ function habits(model: MarineModel, frames = 6000) {
 
 test('the dugong grazes close in and comes up to breathe; the tarpon roll up for air; the stingray keeps low over the bottom', () => {
   const dugong = habits('dugong'), tarpon = habits('tarpon'), stingray = habits('southern-stingray'), lemon = habits('lemon-shark');
-  expect(dugong.distance).toBeLessThan(1.5);
+  // (near the edge of the water its body has room in: the shelf's shallows, which it keeps off, push it out from the shore itself)
+  expect(dugong.distance).toBeLessThan(waterEdge('dugong', 'mangrove', 3) + 1.2);
   expect(dugong.breaths).toBeGreaterThanOrEqual(3);
   expect(tarpon.breaths).toBeGreaterThanOrEqual(3);
   expect(stingray.depth).toBeLessThan(lemon.depth);
