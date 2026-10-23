@@ -738,8 +738,8 @@
   "hawksbill-turtle": {
     "status": "stylized-draft",
     "version": 2,
-    "bytes": 138856,
-    "triangles": 2706,
+    "bytes": 127056,
+    "triangles": 2606,
     "source": "Original procedural geometry and rig",
     "bones": 9,
     "clip": "Swim",
