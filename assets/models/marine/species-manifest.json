@@ -354,8 +354,8 @@
   "harbor-seal": {
     "status": "stylized-draft",
     "version": 2,
-    "bytes": 188992,
-    "triangles": 4162,
+    "bytes": 213000,
+    "triangles": 4216,
     "source": "Original procedural geometry and rig",
     "bones": 13,
     "clip": "Swim",
