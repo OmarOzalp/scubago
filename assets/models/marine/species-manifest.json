@@ -258,7 +258,7 @@
   "golden-jellyfish": {
     "status": "stylized-draft",
     "version": 2,
-    "bytes": 118376,
+    "bytes": 118328,
     "triangles": 2400,
     "source": "Original procedural geometry and rig",
     "bones": 19,
