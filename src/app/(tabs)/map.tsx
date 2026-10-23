@@ -29,9 +29,19 @@ import { canonicalSiteId } from '@/data/sites';
 import { useTheme } from '@/hooks/use-theme';
 import { CATALOG, CATALOG_BY_ID } from '@/lib/catalog';
 import { confirmAction } from '@/lib/confirm';
-import { useAllSites, useAppStore } from '@/lib/store';
+import { sortDives } from '@/lib/dives';
+import { useAllSites, useAppStore, useMyDives, useMyUserId, useSiteById } from '@/lib/store';
 import type { DiveSite, Species } from '@/lib/types';
 import { hashSeed } from '@/lib/wash';
+
+/** How many sightings of an animal are the diver's own and how many are other divers'. */
+type Seen = { mine: number; others: number };
+type TopSpecies = Seen & { species: Species };
+
+/** Whose sightings a count is: "3 of yours", "5 by others", or both. */
+function whose({ mine, others }: Seen): string {
+  return [mine ? `${mine} of yours` : null, others ? `${others} by others` : null].filter(Boolean).join(' · ');
+}
 
 /**
  * The Explore tab: every dive site on a map (a list on the web), and one search for dive sites,
@@ -43,8 +53,13 @@ export default function ExploreScreen() {
   const theme = useTheme();
   const insets = useSafeAreaInsets();
   const { height: windowHeight } = useWindowDimensions();
-  const sites = useAllSites();
+  const allSites = useAllSites();
+  // A to Z: the list (the web's map, and the phone's list view) otherwise follows the order the sites were added in.
+  const sites = useMemo(() => [...allSites].sort((a, b) => a.name.localeCompare(b.name)), [allSites]);
   const sightings = useAppStore((s) => s.sightings);
+  const myUserId = useMyUserId();
+  const myDives = useMyDives();
+  const siteById = useSiteById();
 
   const [selectedSiteId, setSelectedSiteId] = useState<string | null>(null);
   // What the map and list are filtered to: where an animal is seen, or the sites in a place. One at a time.
@@ -60,17 +75,32 @@ export default function ExploreScreen() {
   // The search results open just below the search bar, over the map.
   const [barBottom, setBarBottom] = useState(0);
 
-  // By the listed site: one logged at a hidden copy of a site counts at the site.
+  // By the listed site: one logged at a hidden copy of a site counts at the site. Each count is kept as the
+  // diver's own and everyone else's, so a card can say whose it is (the store holds other divers' sightings too).
   const sightingsBySite = useMemo(() => {
-    const map = new Map<string, Map<string, number>>();
+    const map = new Map<string, Map<string, Seen>>();
     for (const s of sightings) {
       const siteId = canonicalSiteId(s.siteId);
       let counts = map.get(siteId);
       if (!counts) map.set(siteId, (counts = new Map()));
-      counts.set(s.speciesId, (counts.get(s.speciesId) ?? 0) + 1);
+      const seen = counts.get(s.speciesId) ?? { mine: 0, others: 0 };
+      if (s.userId === myUserId) seen.mine++;
+      else seen.others++;
+      counts.set(s.speciesId, seen);
     }
     return map;
-  }, [sightings]);
+  }, [sightings, myUserId]);
+
+  // Where the native map opens: the diver's last dive's site (else where they last logged an animal), so it starts
+  // in their own part of the world instead of South-East Asia. Plain numbers, so the map isn't redrawn for a new copy of them.
+  const lastSite = useMemo(() => {
+    const lastDive = sortDives(myDives)[0];
+    const lastSeen = sightings.filter((s) => s.userId === myUserId).sort((a, b) => b.sightedOn.localeCompare(a.sightedOn) || b.createdAt.localeCompare(a.createdAt))[0];
+    return siteById(canonicalSiteId(lastDive?.siteId ?? lastSeen?.siteId ?? ''));
+  }, [myDives, sightings, myUserId, siteById]);
+  const lastLat = lastSite?.lat;
+  const lastLng = lastSite?.lng;
+  const startAt = useMemo(() => (lastLat === undefined || lastLng === undefined ? null : { south: lastLat, north: lastLat, west: lastLng, east: lastLng }), [lastLat, lastLng]);
 
   const places = useMemo(() => buildPlaces(sites), [sites]);
   const placeFilter = useMemo(() => (placeFilterId ? (places.find((p) => p.id === placeFilterId) ?? null) : null), [places, placeFilterId]);
@@ -98,10 +128,10 @@ export default function ExploreScreen() {
     const counts = sightingsBySite.get(selectedSiteId);
     if (!counts) return [];
     return [...counts.entries()]
-      .sort((a, b) => b[1] - a[1])
+      .sort((a, b) => b[1].mine + b[1].others - (a[1].mine + a[1].others))
       .slice(0, 4)
-      .map(([speciesId, count]) => ({ species: CATALOG_BY_ID.get(speciesId), count }))
-      .filter((x): x is { species: Species; count: number } => !!x.species);
+      .map(([speciesId, seen]) => ({ species: CATALOG_BY_ID.get(speciesId), ...seen }))
+      .filter((x): x is TopSpecies => !!x.species);
   }, [selectedSiteId, sightingsBySite]);
 
   const closeSearch = () => {
@@ -175,6 +205,7 @@ export default function ExploreScreen() {
       highlightedSiteIds={highlightedSiteIds}
       highlightLabel={placeFilter ? `In ${placeFilter.name}` : undefined}
       focus={focus}
+      startAt={startAt}
       selectedSiteId={Platform.OS === 'web' ? selectedSiteId : undefined}
       onSelectSite={selectSite}
       onLongPress={handleLongPress}
@@ -303,7 +334,7 @@ function SiteCard({
   style,
 }: {
   site: DiveSite;
-  topSpecies: { species: Species; count: number }[];
+  topSpecies: TopSpecies[];
   onClose: () => void;
   style?: ViewStyle;
 }) {
@@ -334,17 +365,17 @@ function SiteCard({
 
       {topSpecies.length > 0 ? (
         <View style={styles.chipsRow}>
-          {topSpecies.map(({ species, count }) => (
+          {topSpecies.map(({ species, mine, others }) => (
             <View
               key={species.id}
               accessible
-              accessibilityLabel={`${species.commonName}, ${count} ${count === 1 ? 'sighting' : 'sightings'}`}
+              accessibilityLabel={`${species.commonName}, ${whose({ mine, others })}`}
               style={[styles.speciesChip, { backgroundColor: theme.background, borderColor: theme.rule }]}>
               <SpeciesAvatar species={species} size={28} />
               <Text numberOfLines={1} style={[styles.chipName, { color: theme.text }]}>
                 {species.commonName}
               </Text>
-              <Text style={[styles.chipCount, { color: theme.textSecondary }]}>×{count}</Text>
+              <Text style={[styles.chipCount, { color: theme.textSecondary }]}>{whose({ mine, others })}</Text>
             </View>
           ))}
         </View>
@@ -362,10 +393,12 @@ function SiteCard({
           accessibilityLabel={`Details about ${site.name}`}
           style={styles.detailsButton}
         />
+        {/* Coral, as logging is everywhere else. */}
         <OceanButton
-          title="Log sighting here"
+          title="Log a dive here"
+          variant="log"
           onPress={() => router.push({ pathname: '/log/new', params: { siteId: site.id } })}
-          accessibilityLabel={`Log a sighting at ${site.name}`}
+          accessibilityLabel={`Log a dive here, at ${site.name}`}
           style={styles.logButton}
         />
       </View>
@@ -508,7 +541,7 @@ const styles = StyleSheet.create({
     flex: 1,
     paddingHorizontal: 12,
   },
-  // Wider than "Details", so "Log sighting here" stays on one line on a phone.
+  // Wider than "Details", so "Log a dive here" stays on one line on a phone.
   logButton: {
     flex: 1.6,
     paddingHorizontal: 12,

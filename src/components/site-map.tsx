@@ -26,6 +26,8 @@ export interface SiteMapProps {
   highlightLabel?: string;
   /** Where to move the map (the web list scrolls to it). Nothing moves for null. */
   focus?: MapFocus | null;
+  /** Where the map opens (the diver's last site, say), instead of South-East Asia. Read once, as the map appears. */
+  startAt?: SiteBounds | null;
   /** The site whose card is open. Only the web list marks it (the map's pins don't change, and must not be redrawn for it). */
   selectedSiteId?: string | null;
   onSelectSite: (siteId: string) => void;
@@ -34,6 +36,8 @@ export interface SiteMapProps {
 
 /** What the map shows when it opens: South-East Asia, where most of the sites are. */
 const INITIAL_REGION: MapRegion = { latitude: 12, longitude: 100, latitudeDelta: 60, longitudeDelta: 80 };
+/** The least the map shows across, in degrees, when it opens on a site: the region round it, a few hundred kilometres. */
+const START_DELTA = 4;
 /** How long the map must stop moving before the sites are grouped again for where it ended up. */
 const REGION_DEBOUNCE_MS = 150;
 /** How long a cluster's view is redrawn into the map after it appears or changes (see `useSettledTracking`). */
@@ -61,11 +65,13 @@ const CENTRE = { x: 0.5, y: 0.5 } as const;
  * the same callbacks every time, so choosing a site (which only changes the screen's card) doesn't
  * touch the map, and moving the map only adds and removes the markers whose cell changed.
  */
-export const SiteMap = memo(function SiteMap({ sites, highlightedSiteIds, highlightLabel = 'Where to see it', focus = null, onSelectSite, onLongPress }: SiteMapProps) {
+export const SiteMap = memo(function SiteMap({ sites, highlightedSiteIds, highlightLabel = 'Where to see it', focus = null, startAt = null, onSelectSite, onLongPress }: SiteMapProps) {
   const mapRef = useRef<MapView>(null);
   const theme = useTheme();
   const scheme = useSchemeName();
-  const [region, setRegion] = useState<MapRegion>(INITIAL_REGION);
+  // A few degrees across at the least, so the sites round it show too, not only the one.
+  const [start] = useState<MapRegion>(() => (startAt ? boundsToRegion(startAt, { minDelta: START_DELTA }) : INITIAL_REGION));
+  const [region, setRegion] = useState<MapRegion>(start);
 
   // The newest callbacks, read when a marker is pressed, so the markers never depend on them.
   const latest = useRef({ onSelectSite, onLongPress });
@@ -136,7 +142,7 @@ export const SiteMap = memo(function SiteMap({ sites, highlightedSiteIds, highli
         ref={mapRef}
         style={StyleSheet.absoluteFill}
         userInterfaceStyle={scheme}
-        initialRegion={INITIAL_REGION}
+        initialRegion={start}
         // Android moves the camera to a tapped marker by itself, which would fight the zoom to a cluster; iOS never does.
         moveOnMarkerPress={false}
         onRegionChangeComplete={handleRegionChangeComplete}

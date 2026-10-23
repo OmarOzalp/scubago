@@ -19,7 +19,8 @@ jest.mock('@/components/external-link', () => ({ ExternalLink: ({ children, ...p
 // The real dive sites: 69 curated and the imported ones.
 jest.mock('@/lib/store', () => {
   const { SITES: all } = require('@/data/sites');
-  return { useAppStore: (select) => select({ sightings: [] }), useAllSites: () => all };
+  const none = [];
+  return { useAppStore: (select) => select({ sightings: [] }), useAllSites: () => all, useMyDives: () => none, useMyUserId: () => 'local', useSiteById: () => () => undefined };
 });
 const mockAnimateToRegion = jest.fn();
 let mockMapRenders = 0;
@@ -170,7 +171,7 @@ test('tapping a site selects it as a tapped pin does: its card opens and the map
   // The search is closed, and the card for the site is up with its way to the page and to logging.
   expect(root.root.findAllByType(TextInput)).toHaveLength(0);
   expect(text()).toContain('SS Thistlegorm');
-  expect(text()).toContain('Log sighting here');
+  expect(text()).toContain('Log a dive here');
   expect(mockAnimateToRegion).toHaveBeenCalledTimes(1);
   const [region] = mockAnimateToRegion.mock.calls[0];
   expect(region.latitude).toBeCloseTo(27.813, 3);
@@ -181,7 +182,7 @@ test('tapping a site selects it as a tapped pin does: its card opens and the map
   expect(router.push).toHaveBeenCalledWith('/site/ss-thistlegorm');
   // Closing the card leaves the map where it is.
   await act(async () => pressable('Close').props.onPress());
-  expect(text()).not.toContain('Log sighting here');
+  expect(text()).not.toContain('Log a dive here');
   expect(mockAnimateToRegion).toHaveBeenCalledTimes(1);
 });
 
@@ -215,7 +216,7 @@ test('a site the filter includes keeps the filter; one it leaves out clears it, 
   await type('manta sandy');
   await press('Manta Sandy, Raja Ampat, Indonesia');
   expect(hasButton(chip)).toBe(true);
-  expect(text()).toContain('Log sighting here');
+  expect(text()).toContain('Log a dive here');
 
   await openSearch();
   await type('thistlegorm');
@@ -304,7 +305,7 @@ test('Return picks the top result: a site, a place or an animal', async () => {
   await openSearch();
   await type('cod hole');
   await submit();
-  expect(text()).toContain('Log sighting here');
+  expect(text()).toContain('Log a dive here');
   expect(hasButton('Details about Cod Hole')).toBe(true);
   expect(root.root.findAllByType(TextInput)).toHaveLength(0);
   await act(async () => pressable('Details about Cod Hole').props.onPress());

@@ -36,6 +36,7 @@ jest.mock('@/lib/store', () => {
     useSiteById: () => (id) => byId.get(id),
     useMySightings: () => mockMine,
     useMyDives: () => mockDives,
+    useMyUserId: () => 'local',
   };
 });
 jest.mock('react-native-maps', () => {
@@ -163,7 +164,7 @@ test('on Explore, it counts on the site’s card and for the animal’s filter',
 
     // The card for Cod Hole has the giant moray logged at the copy.
     await act(async () => map().props.onSelectSite('cod-hole'));
-    expect(root.root.findAll((n) => n.props.accessibilityLabel === 'Giant Moray, 1 sighting').length).toBeGreaterThan(0);
+    expect(root.root.findAll((n) => n.props.accessibilityLabel === 'Giant Moray, 1 by others').length).toBeGreaterThan(0);
     await act(async () => withLabel('Close').props.onPress());
 
     // "Where can I see a giant moray" has Cod Hole, where it was logged.

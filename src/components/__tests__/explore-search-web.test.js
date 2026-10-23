@@ -17,7 +17,8 @@ jest.mock('@/lib/announce', () => ({ announce: jest.fn() }));
 jest.mock('@/components/external-link', () => ({ ExternalLink: ({ children, ...props }) => <extlink {...props}>{children}</extlink> }));
 jest.mock('@/lib/store', () => {
   const { SITES: all } = require('@/data/sites');
-  return { useAppStore: (select) => select({ sightings: [] }), useAllSites: () => all };
+  const none = [];
+  return { useAppStore: (select) => select({ sightings: [] }), useAllSites: () => all, useMyDives: () => none, useMyUserId: () => 'local', useSiteById: () => () => undefined };
 });
 // The web build's Explore tab: the site list stands in for the map (Metro picks this file on the web).
 jest.mock('@/components/site-map', () => jest.requireActual('@/components/site-map.web'));
@@ -83,16 +84,15 @@ test('picking a site selects it and scrolls the list to it, where the native map
   await type('thistlegorm');
   await press('SS Thistlegorm, Red Sea, Egypt');
   // The card is up (above the list), and the list was asked to show the site.
-  expect(text()).toContain('Log sighting here');
+  expect(text()).toContain('Log a dive here');
   expect(reveal()).toMatchObject({ siteId: 'ss-thistlegorm' });
   await act(async () => { jest.advanceTimersByTime(100); });
   const index = listData().findIndex((s) => s.id === 'ss-thistlegorm');
   expect(index).toBeGreaterThan(0);
   expect(scrollToIndex).toHaveBeenCalledTimes(1);
   expect(scrollToIndex).toHaveBeenCalledWith({ index, animated: true, viewPosition: 0.1 });
-  // Its row in the list is marked as the selected one, and no other is.
-  const rowsSelected = () => root.root.findAll((n) => typeof n.props.onPress === 'function' && n.props.accessibilityState?.selected === true && /, Egypt$|, Thailand$|, Maldives$/.test(n.props.accessibilityLabel ?? '')).map((n) => n.props.accessibilityLabel);
-  expect([...new Set(rowsSelected())]).toEqual(['SS Thistlegorm, Red Sea, Egypt']);
+  // Its row in the list is the one marked as selected (the list is windowed, and A to Z puts it well below the first screen of rows).
+  expect(root.root.findAll((n) => n.props.selectedSiteId === 'ss-thistlegorm' && Array.isArray(n.props.sites)).length).toBeGreaterThan(0);
   await act(async () => button('Details about SS Thistlegorm').props.onPress());
   expect(router.push).toHaveBeenCalledWith('/site/ss-thistlegorm');
 });
@@ -132,4 +132,11 @@ test('picking an animal still filters the list to where it is seen, and the sear
   await press('SS Thistlegorm, Red Sea, Egypt');
   expect(listData()).toHaveLength(SITES.length);
   expect(hasButton(`Showing where to see the Reef Manta Ray: ${seen.length} sites. Clear`)).toBe(false);
+});
+
+test('the site list is in alphabetical order, not the order the sites were added in', async () => {
+  await render();
+  const names = listData().map((s) => s.name);
+  expect(names).toHaveLength(SITES.length);
+  expect(names).toEqual([...names].sort((a, b) => a.localeCompare(b)));
 });
