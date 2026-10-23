@@ -1,7 +1,7 @@
 import { describe, expect, it } from '@jest/globals';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-import { DEFAULT_PRIVACY, lastPrivacyChoice, privacyExplanation, rememberPrivacyChoice } from '@/lib/privacy-choice';
+import { DEFAULT_PRIVACY, lastPrivacyChoice, privacyExplanation, privacySummary, rememberPrivacyChoice } from '@/lib/privacy-choice';
 
 describe('privacy choice', () => {
   it('shares the sighting and photo, and keeps notes with the diver, until they choose otherwise', () => {
@@ -32,5 +32,15 @@ describe('privacy choice', () => {
       .toBe('Only you will see this sighting, its notes and photo. It still counts towards your collection.');
     expect(privacyExplanation({ ...DEFAULT_PRIVACY, visibility: 'private' }, { photo: false, count: 3 }))
       .toBe('Only you will see these sightings, their notes and any photo. They still count towards your collection.');
+  });
+
+  it('sums the choice up in a few words, for "Visible to: …"', () => {
+    expect(privacySummary({ visibility: 'private', notesPrivate: false, photoPrivate: false }, { photo: true })).toBe('Only me');
+    expect(privacySummary({ visibility: 'public', notesPrivate: false, photoPrivate: false }, { photo: true })).toBe('Everyone');
+    expect(privacySummary(DEFAULT_PRIVACY, { photo: true })).toBe('Everyone, but not your notes');
+    expect(privacySummary({ visibility: 'public', notesPrivate: true, photoPrivate: true }, { photo: true })).toBe('Everyone, but not your notes and photo');
+    expect(privacySummary({ visibility: 'public', notesPrivate: false, photoPrivate: true }, { photo: true })).toBe('Everyone, but not your photo');
+    // Several species carry no photo, so a private photo choice leaves nothing out.
+    expect(privacySummary({ visibility: 'public', notesPrivate: false, photoPrivate: true }, { photo: false })).toBe('Everyone');
   });
 });

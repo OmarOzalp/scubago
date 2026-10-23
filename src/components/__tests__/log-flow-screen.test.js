@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, jest, test } from '@jest/globals';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import React, { act } from 'react';
 import { ScrollView, TextInput } from 'react-native';
 import { create } from 'react-test-renderer';
@@ -6,12 +7,14 @@ import LogSightingScreen from '@/app/log/new';
 import { confirmAction } from '@/lib/confirm';
 import { router } from 'expo-router';
 import { SITES } from '@/data/sites';
+import { PrivacyFields } from '@/components/privacy-fields';
 
 let mockParams = {};
 let mockOptions = null;
 let mockGuard = null;
 let mockNavigation = null;
 let mockState = null;
+const mockScrollTo = jest.fn();
 
 jest.mock('expo-router', () => ({
   router: { back: jest.fn(), push: jest.fn(), replace: jest.fn(), dismissTo: jest.fn(), canGoBack: jest.fn(() => true) },
@@ -39,6 +42,9 @@ jest.mock('react-native-reanimated', () => ({
   default: { View: require('react-native').View },
 }));
 jest.mock('@/lib/confirm', () => ({ confirmAction: jest.fn(async () => true) }));
+jest.mock('@/hooks/use-scroll-to', () => ({
+  useScrollTo: () => ({ scrollView: { current: null }, onScroll: () => {}, scrollTo: (...args) => mockScrollTo(...args) }),
+}));
 jest.mock('@/hooks/use-rewards', () => ({ useRewards: () => ({ badges: [], ready: true }) }));
 jest.mock('@/hooks/use-new-badges', () => ({ useNewBadges: () => ({ fresh: [], markSeen: jest.fn() }) }));
 jest.mock('@/lib/store', () => {
@@ -70,6 +76,7 @@ beforeEach(() => {
     logDive: jest.fn(async () => ({ dive: { id: 'd-28', number: 28 }, newSpeciesIds: [] })),
   };
   jest.clearAllMocks();
+  return AsyncStorage.clear();
 });
 afterEach(async () => { if (root) await act(async () => root.unmount()); root = null; });
 
@@ -159,7 +166,7 @@ describe('leaving Log a dive with something entered', () => {
     await pickSite();
     await tickFirstSpecies();
     await press(byTitle('Next · 1 species'));
-    await typeInto('Notes on what you saw (optional)', 'Came up to check us out');
+    await typeInto('Notes about the animals', 'Came up to check us out');
     expect(mockGuard.preventRemove).toBe(true);
 
     const action = { type: 'POP' };
@@ -196,7 +203,7 @@ describe('leaving Log a dive with something entered', () => {
     mockState.updateSighting = jest.fn(async () => ({ sighting: mockState.sightings[0], isNewSpecies: false }));
     mockParams = { edit: 'sg-1' };
     await render();
-    await typeInto('Notes (optional)', 'Came in close');
+    await typeInto('Notes about the animals', 'Came in close');
     expect(mockGuard.preventRemove).toBe(true);
     await press(byTitle('Save changes'));
     expect(router.back).toHaveBeenCalledTimes(1);
@@ -371,5 +378,103 @@ describe('the details step', () => {
     const labels = scrollers().at(-1).findAll((n) => n.type === TextInput).map((n) => n.props.accessibilityLabel);
     expect(labels[0]).toBe('What was it?');
     expect(labels.indexOf('Dive number')).toBeGreaterThan(0);
+  });
+});
+
+describe('What you saw', () => {
+  const labels = () => root.root.findAll((n) => n.type === TextInput).map((n) => n.props.accessibilityLabel);
+  const visibleTo = () => root.root.findAll((n) => typeof n.props.accessibilityLabel === 'string' && n.props.accessibilityLabel.startsWith('Visible to:') && typeof n.props.onPress === 'function')[0];
+  const goToDetails = async () => {
+    await render();
+    await pickSite();
+    await tickFirstSpecies();
+    await press(byTitle('Next · 1 species'));
+  };
+  const choose = async (name, label) => {
+    await act(async () => {
+      root.root.findAll((n) => n.props.accessibilityRole === 'radiogroup' && n.props.accessibilityLabel === label)[0]
+        .findAll((n) => n.props.accessibilityRole === 'radio' && n.props.accessibilityLabel === undefined && typeof n.props.onPress === 'function')
+        .find((n) => n.findAll((c) => c.children?.join?.('') === name).length > 0)
+        .props.onPress();
+    });
+  };
+
+  test('notes about the animals, the photo and who can see it are one section, right under the animals; the dive’s own notes stay with the dive', async () => {
+    await goToDetails();
+    const order = labels();
+    expect(order.indexOf('Notes about the animals')).toBe(0);
+    expect(order.indexOf('Notes about the animals')).toBeLessThan(order.indexOf('Dive number'));
+    expect(order).toContain('Notes about the dive (just for you)');
+    expect(order.indexOf('Notes about the dive (just for you)')).toBeGreaterThan(order.indexOf('Dive number'));
+    const text = texts();
+    expect(text).toEqual(expect.arrayContaining(['What you saw', 'Photo', 'Who can see this']));
+    // The section's parts come in this order, all before the dive's fields.
+    const at = (t) => text.indexOf(t);
+    expect(at('What you saw')).toBeLessThan(at('Photo'));
+    expect(at('Photo')).toBeLessThan(at('Who can see this'));
+    expect(at('Who can see this')).toBeLessThan(at('Dive number') === -1 ? Infinity : at('Dive number'));
+  });
+
+  test('with a name to give, "What was it?" comes first, then the section', async () => {
+    await render();
+    await pickSite();
+    await press(root.root.findAll((n) => typeof n.props.accessibilityLabel === 'string' && n.props.accessibilityLabel.startsWith('Something else') && typeof n.props.onPress === 'function')[0]);
+    await press(byTitle('Next · 1 species'));
+    expect(labels().slice(0, 2)).toEqual(['What was it?', 'Notes about the animals']);
+  });
+
+  test('several species: the notes go to each, and there is one photo note instead of a photo', async () => {
+    await render();
+    await pickSite();
+    const rows = root.root.findAll((n) => n.props.accessibilityRole === 'checkbox' && typeof n.props.onPress === 'function');
+    await press(rows[0]);
+    await press(rows[1]);
+    await press(byTitle('Next · 2 species'));
+    expect(texts().join(' ')).toContain('Added to each of the 2 sightings.');
+    expect(texts()).not.toContain('Photo');
+    expect(texts().join(' ')).toContain('Photos go with one sighting each');
+  });
+
+  test('the last choice is remembered, and shown as a line above the save button: "Visible to: Only me · change"', async () => {
+    await AsyncStorage.setItem('scubago.privacyChoice', JSON.stringify({ visibility: 'private', notesPrivate: true, photoPrivate: false }));
+    await goToDetails();
+    expect(visibleTo().props.accessibilityLabel).toBe('Visible to: Only me. Change who can see this');
+    const line = texts().filter((t) => t === 'Only me' || t === 'change' || t.startsWith('Visible to:'));
+    expect(line).toEqual(expect.arrayContaining(['Only me', 'change']));
+    // It is in the bar under the form, not in the form.
+    const bar = root.root.findAll((n) => n.type?.name === 'BottomBar')[0];
+    expect(bar.findAll((n) => n === visibleTo()).length).toBe(1);
+  });
+
+  test('with nothing remembered the line says what the default is, and changing the choice changes the line', async () => {
+    await goToDetails();
+    expect(visibleTo().props.accessibilityLabel).toBe('Visible to: Everyone, but not your notes. Change who can see this');
+    await choose('Only me', 'Who can see this sighting');
+    expect(visibleTo().props.accessibilityLabel).toBe('Visible to: Only me. Change who can see this');
+  });
+
+  test('tapping the line takes the diver to the privacy choice', async () => {
+    await goToDetails();
+    mockScrollTo.mockClear();
+    await press(visibleTo());
+    expect(mockScrollTo).toHaveBeenCalledTimes(1);
+    const [target] = mockScrollTo.mock.calls[0];
+    // The view around the privacy fields.
+    expect(target.props.children.type).toBe(PrivacyFields);
+  });
+
+  test('saving remembers the choice for the next log', async () => {
+    await goToDetails();
+    await choose('Only me', 'Who can see this sighting');
+    await press(byTitle('Save dive No. 28'));
+    expect(JSON.parse(await AsyncStorage.getItem('scubago.privacyChoice'))).toEqual({ visibility: 'private', notesPrivate: true, photoPrivate: false });
+  });
+
+  test('without a backend nothing leaves the phone, so there is no line and no choice', async () => {
+    mockState.backendEnabled = false;
+    await goToDetails();
+    expect(visibleTo()).toBeUndefined();
+    expect(texts()).not.toContain('Who can see this');
+    expect(labels()).toContain('Notes about the animals');
   });
 });

@@ -4,7 +4,7 @@ import { Pressable, StyleSheet, TextInput, View, type KeyboardTypeOptions } from
 import { DateField } from '@/components/date-field';
 import { ChoiceChips } from '@/components/dive/choice-chips';
 import { FormField } from '@/components/form-field';
-import { Icon } from '@/components/icon';
+import { Icon, type IconName } from '@/components/icon';
 import { ThemedText } from '@/components/themed-text';
 import { Radius, Spacing, Type } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
@@ -192,7 +192,7 @@ export function DiveForm({
       </View>
 
       <FormField
-        label="Notes (just for you)"
+        label="Notes about the dive (just for you)"
         value={draft.notes}
         onChangeText={(notes) => onChange({ notes })}
         placeholder="Drifted along the wall; turtles at the safety stop…"
@@ -309,7 +309,8 @@ function Pair({ children }: { children: ReactNode }) {
   return <View style={styles.pair}>{Array.isArray(children) ? children.map((c, i) => <View key={i} style={styles.flex}>{c}</View>) : children}</View>;
 }
 
-function Group({ title, icon, children }: { title: string; icon: 'waves' | 'tank' | 'buddies'; children: ReactNode }) {
+/** A titled section of the form: an icon, a heading and a rule under it. */
+export function Group({ title, icon, children }: { title: string; icon: IconName; children: ReactNode }) {
   const theme = useTheme();
   return (
     <View style={styles.group}>

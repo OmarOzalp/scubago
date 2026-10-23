@@ -7,7 +7,7 @@ import Animated, { useAnimatedStyle, useReducedMotion, useSharedValue, withDelay
 
 import { DateField } from '@/components/date-field';
 import { BottomBar } from '@/components/dive/bottom-bar';
-import { DiveForm } from '@/components/dive/dive-form';
+import { DiveForm, Group } from '@/components/dive/dive-form';
 import { HeaderBack } from '@/components/dive/header-back';
 import { Bookplate } from '@/components/dive/marks';
 import { FormField } from '@/components/form-field';
@@ -39,7 +39,7 @@ import { carryOver, emptyDraft, fieldOfProblem, readDraft, type DiveDraft, type 
 import { formatDiveNumber, milestoneAt, milestoneName, nextDiveNumber, nextMilestone, sortDives } from '@/lib/dives';
 import { recentDiveDate, rememberDiveDate } from '@/lib/last-dive-date';
 import { keepPhoto } from '@/lib/photo-files';
-import { DEFAULT_PRIVACY, lastPrivacyChoice, rememberPrivacyChoice, type PrivacySettings } from '@/lib/privacy-choice';
+import { DEFAULT_PRIVACY, lastPrivacyChoice, privacySummary, rememberPrivacyChoice, type PrivacySettings } from '@/lib/privacy-choice';
 import { CATEGORY_LABEL, CATEGORY_ORDER } from '@/lib/rarity';
 import { artFor } from '@/lib/species-art';
 import { canEditSighting, isMaterialChange, localIsoDate, NOTES_MAX } from '@/lib/sighting-edit';
@@ -159,6 +159,7 @@ function LogSightingScreen() {
   const [problem, setProblem] = useState<{ field: DraftField; message: string } | null>(null);
   const [nameAsked, setNameAsked] = useState(0);
   const nameField = useRef<TextInput>(null);
+  const privacyField = useRef<View>(null);
   const { scrollView, onScroll, scrollTo } = useScrollTo();
   const [result, setResult] = useState<Result | null>(null);
 
@@ -542,9 +543,7 @@ function LogSightingScreen() {
             <View style={styles.sawHeader}>
               <ThemedText type="label">{editing ? 'Logbook entry' : page ? formatDiveNumber(page.number) : 'New logbook entry'}</ThemedText>
               <ThemedText type="heading" accessibilityRole="header">
-                {newDive
-                  ? `${draft.number ? `No. ${draft.number}` : 'A dive'} at ${site.name}`
-                  : `${chosen.length === 1 ? 'What you saw' : `${chosen.length} species`} at ${site.name}`}
+                {newDive ? `${draft.number ? `No. ${draft.number}` : 'A dive'} at ${site.name}` : site.name}
               </ThemedText>
               {page ? (
                 <ThemedText type="small" themeColor="textSecondary">
@@ -613,6 +612,97 @@ function LogSightingScreen() {
             </View>
           ) : null}
 
+          {!newDive && !page ? (
+            <View style={{ gap: 6 }}>
+              <DateField
+                value={date}
+                onChange={(iso) => {
+                  setDate(iso);
+                  setDateTouched(true);
+                }}
+              />
+            </View>
+          ) : null}
+
+          {/* What was seen, together under the animals: notes about them, a photo, who can see it. The dive's own notes stay with the dive. */}
+          {chosen.length > 0 ? (
+            <Group title="What you saw" icon="fieldGuide">
+              <FormField
+                label="Notes about the animals"
+                hint={chosen.length > 1 ? `Added to each of the ${chosen.length} sightings.` : undefined}
+                placeholder="Came up to check us out at the safety stop…"
+                value={notes}
+                onChangeText={setNotes}
+                multiline
+                maxLength={NOTES_MAX}
+                style={styles.notes}
+              />
+
+              {chosen.length === 1 ? (
+                <View style={{ gap: 6 }}>
+                  <ThemedText type="label" accessibilityRole="header">
+                    Photo
+                  </ThemedText>
+                  {photoUri ? (
+                    <>
+                      <Image
+                        source={photoPreview ? { uri: photoPreview } : undefined}
+                        style={[styles.photoPreview, { backgroundColor: theme.backgroundElement, borderColor: theme.cardBorder }]}
+                        contentFit="cover"
+                        accessibilityLabel={`Your photo of the ${chosen[0].commonName}`}
+                      />
+                      <Pressable onPress={() => setPhotoUri(undefined)} accessibilityRole="button" style={styles.textButton}>
+                        <Icon name="trash" size={16} color={theme.textSecondary} />
+                        <ThemedText type="smallBold" themeColor="textSecondary">
+                          Remove photo
+                        </ThemedText>
+                      </Pressable>
+                    </>
+                  ) : (
+                    <>
+                      <ThemedText type="small" themeColor="textSecondary">
+                        Sightings with a photo get a credibility badge.
+                      </ThemedText>
+                      <View style={styles.photoButtons}>
+                        <OceanButton title="Take photo" icon="camera" variant="secondary" onPress={() => pickPhoto('camera')} style={{ flex: 1 }} />
+                        <OceanButton title="Choose photo" icon="image" variant="secondary" onPress={() => pickPhoto('library')} style={{ flex: 1 }} />
+                      </View>
+                    </>
+                  )}
+                </View>
+              ) : chosen.length > 1 ? (
+                <ThemedText type="caption" themeColor="textSecondary">
+                  Photos go with one sighting each: add one afterwards from the sighting in your logbook.
+                </ThemedText>
+              ) : null}
+
+              {/* Without a backend nothing leaves the phone, so there is nobody to keep it from. */}
+              {backendEnabled ? (
+                <View ref={privacyField} collapsable={false}>
+                  <PrivacyFields
+                    value={privacy}
+                    onChange={(next) => {
+                      setPrivacy(next);
+                      setPrivacyTouched(true);
+                    }}
+                    photo={chosen.length === 1}
+                    count={chosen.length}
+                  />
+                </View>
+              ) : null}
+            </Group>
+          ) : null}
+
+          {losesVerification ? (
+            <Paper tone="sand" style={styles.warning}>
+              <Icon name="warning" size={20} wash={theme.sun} />
+              <ThemedText type="small" style={{ flex: 1 }}>
+                Changing the species, site or date removes this sighting’s verification. It can be confirmed again
+                afterwards.
+              </ThemedText>
+            </Paper>
+          ) : null}
+
           {newDive ? (
             <DiveForm
               draft={{ ...draft, siteId, divedOn: date }}
@@ -637,95 +727,29 @@ function LogSightingScreen() {
               Dated the same day as your last log.
             </ThemedText>
           ) : null}
-
-          {!newDive && !page ? (
-            <View style={{ gap: 6 }}>
-              <DateField
-                value={date}
-                onChange={(iso) => {
-                  setDate(iso);
-                  setDateTouched(true);
-                }}
-              />
-            </View>
-          ) : null}
-
-          {chosen.length > 0 ? (
-            <FormField
-              label={newDive ? (chosen.length > 1 ? 'Notes on what you saw (optional, added to each)' : 'Notes on what you saw (optional)') : chosen.length > 1 ? 'Notes (optional, added to each sighting)' : 'Notes (optional)'}
-              placeholder="Came up to check us out at the safety stop…"
-              value={notes}
-              onChangeText={setNotes}
-              multiline
-              maxLength={NOTES_MAX}
-              style={styles.notes}
-            />
-          ) : null}
-
-          {chosen.length === 1 ? (
-            <View style={{ gap: 6 }}>
-              <ThemedText type="label" accessibilityRole="header">
-                Photo (optional)
-              </ThemedText>
-              {photoUri ? (
-                <>
-                  <Image
-                    source={photoPreview ? { uri: photoPreview } : undefined}
-                    style={[styles.photoPreview, { backgroundColor: theme.backgroundElement, borderColor: theme.cardBorder }]}
-                    contentFit="cover"
-                    accessibilityLabel={`Your photo of the ${chosen[0].commonName}`}
-                  />
-                  <Pressable onPress={() => setPhotoUri(undefined)} accessibilityRole="button" style={styles.textButton}>
-                    <Icon name="trash" size={16} color={theme.textSecondary} />
-                    <ThemedText type="smallBold" themeColor="textSecondary">
-                      Remove photo
-                    </ThemedText>
-                  </Pressable>
-                </>
-              ) : (
-                <>
-                  <ThemedText type="small" themeColor="textSecondary">
-                    Sightings with a photo get a credibility badge.
-                  </ThemedText>
-                  <View style={styles.photoButtons}>
-                    <OceanButton title="Take photo" icon="camera" variant="secondary" onPress={() => pickPhoto('camera')} style={{ flex: 1 }} />
-                    <OceanButton title="Choose photo" icon="image" variant="secondary" onPress={() => pickPhoto('library')} style={{ flex: 1 }} />
-                  </View>
-                </>
-              )}
-            </View>
-          ) : chosen.length > 1 ? (
-            <ThemedText type="caption" themeColor="textSecondary">
-              Photos go with one sighting each: add one afterwards from the sighting in your logbook.
-            </ThemedText>
-          ) : null}
-
-          {losesVerification ? (
-            <Paper tone="sand" style={styles.warning}>
-              <Icon name="warning" size={20} wash={theme.sun} />
-              <ThemedText type="small" style={{ flex: 1 }}>
-                Changing the species, site or date removes this sighting’s verification. It can be confirmed again
-                afterwards.
-              </ThemedText>
-            </Paper>
-          ) : null}
-          {/* Without a backend nothing leaves the phone, so there is nobody to keep it from. */}
-          {backendEnabled && chosen.length > 0 ? (
-            <PrivacyFields
-              value={privacy}
-              onChange={(next) => {
-                setPrivacy(next);
-                setPrivacyTouched(true);
-              }}
-              photo={chosen.length === 1}
-              count={chosen.length}
-            />
-          ) : null}
         </ScrollView>
       )}
       {/* Pinned, like the species step's: the button is never at the end of a long page. */}
       {showDetails && (
         <BottomBar>
+          {/* What the last choice was, in plain sight: nothing goes private or public by surprise. */}
+          {backendEnabled && chosen.length > 0 ? (
+            <Pressable
+              onPress={() => {
+                scrollTo(privacyField.current, 24);
+                announce('Who can see this');
+              }}
+              accessibilityRole="button"
+              accessibilityLabel={`Visible to: ${privacySummary(privacy, { photo: chosen.length === 1 })}. Change who can see this`}
+              hitSlop={{ top: 6, bottom: 6 }}
+              style={({ pressed }) => [styles.visibleTo, { opacity: pressed ? 0.6 : 1 }]}>
+              <Text style={[styles.visibleToText, { color: theme.textSecondary }]} numberOfLines={2}>
+                Visible to: <Text style={{ fontFamily: Type.bodyHeavy, color: theme.text }}>{privacySummary(privacy, { photo: chosen.length === 1 })}</Text>
+                {' · '}
+                <Text style={{ fontFamily: Type.bodyHeavy, color: theme.tint }}>change</Text>
+              </Text>
+            </Pressable>
+          ) : null}
           {error ? (
             <ThemedText type="small" themeColor="danger" accessibilityLiveRegion="polite">
               {error}
@@ -1302,6 +1326,8 @@ const styles = StyleSheet.create({
   details: { padding: Spacing.three, gap: Spacing.four, paddingBottom: Spacing.four, width: '100%', maxWidth: 720, alignSelf: 'center' },
   sawCard: { gap: 4, paddingBottom: 8 },
   nameField: { gap: 6 },
+  visibleTo: { minHeight: 36, justifyContent: 'center' },
+  visibleToText: { fontFamily: Type.bodySemiBold, fontSize: 14, lineHeight: 19 },
   sawHeader: { gap: 2, marginBottom: 8 },
   summary: {
     flexDirection: 'row',
