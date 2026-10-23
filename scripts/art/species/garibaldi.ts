@@ -10,8 +10,8 @@ import { SWIM_RIGS, type SharkRig } from '../../../src/lib/marine-rigs';
 import { hex, mix, noise, smoothstep, type RGB } from './kit';
 import { sharkContext, type SharkDesign } from './shark';
 
-const ORANGE = hex('#ff6a0d'), DEEP = hex('#ef5704'), BRIGHT = hex('#ff8a2a'), FIN = hex('#ff7418');
-const EYE = hex('#ff8a2a'), PUPIL = hex('#0b0a0a'), MOUTH = hex('#b2420b');
+const ORANGE = hex('#ff7f12'), DEEP = hex('#f2680a'), BRIGHT = hex('#ff9a2e'), FIN = hex('#ff8c1c');
+const EYE = hex('#ff9a2e'), PUPIL = hex('#0b0a0a'), MOUTH = hex('#b2420b');
 
 const rig = SWIM_RIGS.garibaldi as SharkRig;
 
@@ -63,7 +63,7 @@ export function buildGaribaldi() {
   const pectorals = ctx.pairedFin({
     rootS: .22, theta: 1.86, span: .08, droop: .45, sweep: .6, thickness: .008, stations: 6,
     le: [[-.012, 0], [0, 0], [.025, .004], [.05, .016], [.07, .034], [.08, .058]],
-    te: [[-.012, .066], [0, .068], [.03, .08], [.06, .082], [.074, .074], [.08, .058]],
+    te: [[-.012, .083], [0, .085], [.03, .1], [.06, .103], [.074, .092], [.08, .058]],
     bone: (left) => (left ? 'PectoralL' : 'PectoralR'),
     color: (_p, v) => mix(BRIGHT, FIN, .4 * v),
   });

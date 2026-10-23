@@ -386,7 +386,7 @@
   "garibaldi": {
     "status": "stylized-draft",
     "version": 2,
-    "bytes": 133904,
+    "bytes": 133908,
     "triangles": 3328,
     "source": "Original procedural geometry and rig",
     "bones": 12,
