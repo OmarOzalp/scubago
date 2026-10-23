@@ -106,10 +106,10 @@ export function buildLoggerheadTurtle() {
 
   // --- Front flippers: short, thick paddles with two claws each ---
   buildFrontFlippers(mesh, bones, {
-    le: [[.19, -.012, .14], [.3, -.02, .14], [.39, -.03, .08], [.47, -.038, -.03]],
-    te: [[.21, -.024, .02], [.31, -.032, .0], [.4, -.038, -.02], [.47, -.038, -.03]],
+    le: [[.19, -.012, .14], [.3, -.02, .14], [.39, -.03, .08], [.47, -.038, -.04]],
+    te: [[.21, -.024, -.01], [.31, -.032, -.035], [.4, -.038, -.045], [.47, -.038, -.04]],
     stations: 8, chordPoints: 6,
-    thickness: (v) => .04 * (1 - .7 * v),
+    thickness: (v) => .05 * (1 - .45 * v),
     color: (v, u, face) => {
       if (face < 0) return mix(FLIPPER_BELOW, FLIPPER_EDGE, smoothstep(.8, 1, u) * .5);
       const edge = (1 - smoothstep(0, .13, u)) * (hash(Math.round(v * 9), 3) > .3 ? .75 : .3);
