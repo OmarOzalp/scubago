@@ -3,11 +3,10 @@ import {
   Uint16BufferAttribute, UnsignedByteType, Vector2, Vector3, Vector4,
 } from 'three';
 import type { Habitat } from '@/lib/home';
-import { OCEAN, reefCrestAt, seabedPatch, seabedProfile, shelfStretch, waveTerms, type OceanConfig } from '@/lib/ocean';
+import { OCEAN, reefCrestAt, seabedPatch, waveTerms, type OceanConfig } from '@/lib/ocean';
 import { coralHeads } from '@/lib/reef-coast';
-import { archipelagoBank, bankDepth } from '@/lib/banks';
-import { islandReach, shapeFor } from '@/lib/island-outline';
-import { curveSegments, islandScale, shoreDistance, shorePolygons, shoreline } from './island-shape';
+import { createSeabedField, type OceanIsland } from '@/lib/seabed';
+import { hash, oceanBox, type WaterExtent } from '@/lib/seabed-lattice';
 
 /**
  * The ocean around the islands: a low-poly water surface displaced by several
@@ -29,8 +28,6 @@ import { curveSegments, islandScale, shoreDistance, shorePolygons, shoreline } f
  * one island's 18 units). `maxDepth` is the deepest depth it encodes.
  */
 const DEPTH = { margin: 9, perUnit: 128 / 18, maxDepth: 4 };
-/** Past this far from an island's middle (units), its shore is too far to shape the seabed (beyond its islets, the open-ocean depth is reached). */
-const ISLAND_REACH = 10;
 /** How many different waters (palettes) one ocean blends: one channel each of the region maps (four to a map). */
 export const OCEAN_REGIONS = 8;
 /** How gradually one island's water gives way to the next across the open water between them (units). */
@@ -40,16 +37,11 @@ const REGION_COLORS = ['shallow', 'mid', 'deep', 'sandShallow', 'sandWet', 'patc
 const REGION_NAMES = ['shallow', 'mid', 'deep', 'sandShallow', 'sandWet', 'seagrass', 'sky'] as const;
 const WAVES = Object.keys(OCEAN.waves).length;
 
-/** An island in the ocean: its middle (world units) and the habitat whose water surrounds it. */
-export type OceanIsland = { x: number; z: number; habitat: Habitat };
+export type { OceanIsland, WaterExtent };
 
 const linear = (hex: string) => new Color(hex);
 /** A color as a GLSL constant (linear). */
 const glslColor = (hex: string) => { const c = linear(hex); return `vec3(${c.r.toFixed(4)}, ${c.g.toFixed(4)}, ${c.b.toFixed(4)})`; };
-const hash = (x: number, y: number) => {
-  const v = Math.sin(x * 127.1 + y * 311.7) * 43758.5453;
-  return v - Math.floor(v);
-};
 
 /** `card` is the page color the view blends into at its edges (defaults to the sky tone). */
 export function createOceanUniforms(habitat: Habitat = 'island', card?: string, config: OceanConfig = OCEAN) {
@@ -210,40 +202,19 @@ function dataTexture(data: Uint8Array, width: number, depth: number) {
  * islands of different waters.
  */
 export function buildDepthField(level: number, islands: readonly OceanIsland[] = HOME_OCEAN, config: OceanConfig = OCEAN) {
-  // Each island's own shores, in its own frame (its outline and size: island-outline.ts).
-  const shores = islands.map((island) => shorePolygons(level, 24, shapeFor(island.habitat)));
+  // The seabed under the islands (seabed.ts: one function for this map and for the animals above it): each island's own
+  // shores in its own frame (its outline and size: island-outline.ts), the nearest one wherever two reach, the Coral
+  // Reef's lagoon and crest, and the bank between the islands.
+  const { shores, reefs, nearest, profileAt, bank, lattice } = createSeabedField(level, islands, config);
   const xs = islands.map((i) => i.x), zs = islands.map((i) => i.z);
   const x0 = Math.min(...xs) - DEPTH.margin, z0 = Math.min(...zs) - DEPTH.margin;
   const width = Math.max(...xs) - Math.min(...xs) + 2 * DEPTH.margin, depth = Math.max(...zs) - Math.min(...zs) + 2 * DEPTH.margin;
   const columns = Math.round(width * DEPTH.perUnit), rows = Math.round(depth * DEPTH.perUnit);
   const habitats = [...new Set(islands.map((i) => i.habitat))].slice(0, OCEAN_REGIONS);
-  // The Coral Reef's lagoon and crest (seabedProfile), and its bommies' rubble on the lagoon floor.
-  const reefs = islands.map((island) => shapeFor(island.habitat) === 'reef');
+  // The Coral Reef's bommies' rubble on the lagoon floor.
   const bommies = islands.map((_, n) => (reefs[n] ? coralHeads(level).filter((head) => !head.crest) : []));
   // Every island's shores in the world, for anything measuring from them.
   const polygons = islands.flatMap((island, n) => shores[n].map((poly) => poly.map((v, k) => v + (k % 2 ? island.z : island.x))));
-  // The shelf widens and narrows around each island's coast (in its own frame); the land itself is unchanged.
-  // Far from an island's middle, only the open ocean's depth is left of its shelf.
-  const nearest = (x: number, z: number) => {
-    let best = Infinity, nx = x, nz = z, which = 0;
-    for (let n = 0; n < islands.length; n++) {
-      const island = islands[n], lx = x - island.x, lz = z - island.z;
-      if (Math.hypot(lx, lz) > ISLAND_REACH && best < Infinity) continue;
-      const distance = shoreDistance(shores[n], lx, lz);
-      const reach = distance > 0 ? distance / shelfStretch(lx, lz, config) : distance;
-      if (reach < best) { best = reach; nx = lx; nz = lz; which = n; }
-    }
-    return { reach: best, x: nx, z: nz, reef: reefs[which], island: which };
-  };
-  // With several islands, they stand on one shallow bank (banks.ts): the seabed rises to it wherever
-  // the bank is shallower than the ocean around the islands would be.
-  const bank = islands.length > 1 ? archipelagoBank(islands) : null;
-  const profileAt = (x: number, z: number, near = nearest(x, z)) => {
-    const own = seabedProfile(near.reach, config, near.reef ? near : undefined);
-    if (!bank || near.reach <= 0) return own;
-    const held = bankDepth(bank, x, z);
-    return held < own.depth ? { floor: config.surfaceLevel - held, depth: Math.max(0, held), wet: held } : own;
-  };
   // The coral channel: the crest's coral and the bommies' rubble up to .5, the crest's surf on to 1.
   const reefAt = (x: number, z: number, reach: number, heads: ReturnType<typeof coralHeads>) => {
     if (reach <= 0) return 0;
@@ -284,7 +255,7 @@ export function buildDepthField(level: number, islands: readonly OceanIsland[] =
   return {
     texture: dataTexture(data, columns, rows), region: dataTexture(region, columns, rows), regionMore: dataTexture(regionMore, columns, rows), habitats, polygons, islands, bank,
     area: { x0, z0, width, depth }, columns, rows,
-    profile: (x: number, z: number) => profileAt(x, z),
+    profile: (x: number, z: number) => profileAt(x, z), lattice,
   };
 }
 export type DepthField = ReturnType<typeof buildDepthField>;
@@ -601,18 +572,23 @@ vec3 oceanCoral(vec2 p) {
 }
 uniform vec3 uOceanCard;
 uniform vec3 uOceanSeabed; uniform vec3 uOceanSunDir; uniform vec2 uOceanEdge;
+uniform float uOceanSurface;
 varying vec3 vWorld;
 varying float vClipY;
 void main() {
   vec3 n = normalize(cross(dFdx(vWorld), dFdy(vWorld)));
   if (n.y < 0.0) n = -n;
   vec3 depthAt = oceanDepthAt(vWorld.xz);
+  // The depth map is read from above, so a wall (the Coral Reef's outer slope) would keep the depth of its top all the way down it: the
+  // deeper it really is here than the map says (by more than the seabed's own relief and a facet's sag from the profile, .3), the deeper the water over it reads (and the sooner it is all water color).
+  depthAt.x += 8.0 * max(0.0, uOceanSurface - vWorld.y - depthAt.x - .3);
   OceanWater water = oceanWaterAt(vWorld.xz);
   // Wet sand at the waterline brightens to clean sand under the shallows, broken by seagrass.
   vec3 sand = mix(water.sandWet, water.sandShallow, smoothstep(-.02, .18, depthAt.y));
   sand = mix(sand, water.seagrass, depthAt.z * uOceanSeabed.z);
   sand = mix(sand, oceanCoral(vWorld.xz), oceanReefAt(vWorld.xz).x * .92);
-  sand *= 1.0 + uOceanSeabed.y * clamp((dot(n, uOceanSunDir) - uOceanSunDir.y) * 6.0, -1.0, 1.0);
+  // (a wall steeper than the reef's inner slope gets no light and shade of its facets: tall thin ones would read as stripes)
+  sand *= 1.0 + uOceanSeabed.y * smoothstep(.05, .3, n.y) * clamp((dot(n, uOceanSunDir) - uOceanSunDir.y) * 6.0, -1.0, 1.0);
   // The deeper the seabed, the more it disappears into the water color.
   float fade = 1.0 - exp(-depthAt.x / water.clarity.x);
   vec3 color = mix(sand, oceanWaterColorIn(water, depthAt.x), fade);
@@ -621,18 +597,9 @@ void main() {
 }`;
 
 /** How far the water reaches from every island's middle (units): the same each way, or farther across than in depth (the explorer's, on a wide screen). */
-export type WaterExtent = number | { readonly x: number; readonly z: number };
-const extentOf = (extent: WaterExtent) => (typeof extent === 'number' ? { x: extent, z: extent } : extent);
-/** The box reaching `extent` units each way from every island's middle (x0, z0, width, depth). */
-function oceanBox(field: DepthField, extent: WaterExtent) {
-  const xs = field.islands.map((i) => i.x), zs = field.islands.map((i) => i.z), { x: ex, z: ez } = extentOf(extent);
-  const x0 = Math.min(...xs) - ex, z0 = Math.min(...zs) - ez;
-  return { x0, z0, width: Math.max(...xs) + ex - x0, depth: Math.max(...zs) + ez - z0 };
-}
-
 /** A jittered triangle lattice: irregular low-poly facets instead of a visible grid, `extent` units each way from every island's middle. */
 function waterLattice(field: DepthField, config: OceanConfig, extent: WaterExtent) {
-  const s = config.facetSize, h = s * Math.sqrt(3) / 2, box = oceanBox(field, extent);
+  const s = config.facetSize, h = s * Math.sqrt(3) / 2, box = oceanBox(field.islands, extent);
   const cols = Math.ceil(box.width / s) + 1, rows = Math.ceil(box.depth / h) + 1;
   const positions: number[] = [], shoaling: number[] = [], indices: number[] = [];
   for (let r = 0; r < rows; r++) {
@@ -691,6 +658,30 @@ export function createLiteOceanMesh(uniforms: OceanUniforms, field: DepthField, 
 }
 
 /**
+ * The camera looks down and away at `SLANT` (the scene camera's offset from what it looks at: 12.15 up and 6 toward the viewer): a point
+ * is that much farther the lower and the farther from the viewer it is.
+ */
+const SLANT = { y: 12.15, z: 6 };
+/**
+ * The seabed's triangles from the terrain on, the farthest from the camera first (the coarse floor before it, which the terrain lies
+ * over, as it is). The seabed is drawn without depth testing, so what is nearer must be drawn later: a wall as steep as the Coral
+ * Reef's outer one hides the floor beyond the crest, and drawn in the order the lattice has them (inner ring to outer) that floor
+ * would be drawn over the crest. Judged by each triangle's middle, which is near enough for a terrain of small triangles.
+ */
+function farthestFirst(positions: readonly number[], indices: readonly number[], from: number) {
+  const count = (indices.length - from) / 3, far = new Float64Array(count), order = Array.from({ length: count }, (_, t) => t), length = Math.hypot(SLANT.y, SLANT.z);
+  for (let t = 0; t < count; t++) {
+    let y = 0, z = 0;
+    for (let k = 0; k < 3; k++) { const p = indices[from + t * 3 + k] * 3; y += positions[p + 1]; z += positions[p + 2]; }
+    far[t] = -(y * SLANT.y + z * SLANT.z) / (3 * length);
+  }
+  order.sort((a, b) => far[b] - far[a] || a - b);
+  const sorted = indices.slice(0, from);
+  for (const t of order) sorted.push(indices[from + t * 3], indices[from + t * 3 + 1], indices[from + t * 3 + 2]);
+  return sorted;
+}
+
+/**
  * The seabed: a radial terrain around each island (beach slope, sandy shelf, reef
  * drop-off, deep floor) with a little relief. It is a backdrop drawn first without
  * depth testing, so swimmers are never hidden behind it. Under water that reaches
@@ -699,84 +690,12 @@ export function createLiteOceanMesh(uniforms: OceanUniforms, field: DepthField, 
  * short of its neighbours' and a coarse deep floor lies under the open sea between
  * them (drawn first, so the islands' terrain lies over it).
  */
-export function createSeabedMesh(uniforms: OceanUniforms, field: DepthField, level: number, reach: WaterExtent = OCEAN.waterExtent) {
-  const rays = 96;
-  const near = [-.12, -.04, 0, .04, .08, .12, .17, .23, .3, .38, .47, .57, .68, .8, .95, 1.15, 1.4, 1.75, 2.2, 2.8, 3.6, 4.6, 6, 8, 10.5];
-  const corner = Math.hypot(extentOf(reach).x, extentOf(reach).z) + 1;
-  const alone = field.islands.length === 1;
-  // Alone, out past the water's corners; among others, no farther than halfway to the nearest (less its own size).
-  const spacing = (island: OceanIsland) => Math.min(...field.islands.filter((other) => other !== island).map((other) => Math.hypot(other.x - island.x, other.z - island.z)));
-  // The Coral Reef's crest rises and falls within a few tenths of a unit: rings of its own pick it out.
-  const crest = [1.42, 1.6, 1.78, 1.95, 2.3], rings = (island: OceanIsland) => (shapeFor(island.habitat) === 'reef' ? [...near, ...crest].sort((a, b) => a - b) : near);
-  const offsetsFor = (island: OceanIsland) => {
-    if (alone) return corner > 12 ? [...rings(island), ...[14, 18, 23, 28].filter((o, i, all) => o < corner || all[i - 1] < corner)] : rings(island);
-    const limit = spacing(island) / 2 - islandReach(shapeFor(island.habitat)) * islandScale(level) - .2;
-    return rings(island).filter((o, i) => o <= limit || i < 4);
-  };
-  // Each island's own outline (its shape and size).
-  const outlineOf = (island: OceanIsland) => {
-    const shape = shapeFor(island.habitat);
-    return shoreline(shape).getPoints(curveSegments(shape, 24)).map((p) => [p.x * islandScale(level), -p.y * islandScale(level)] as const);
-  };
-  // Distance from the island center to its shore along each ray: the nearest crossing, so a bay's water
-  // has seabed under it too (where the ray crosses land again, the island covers the terrain beneath).
-  const shoreRadius = (outline: readonly (readonly [number, number])[], angle: number) => {
-    const dx = Math.cos(angle), dz = Math.sin(angle);
-    let best = Infinity;
-    for (let i = 0; i < outline.length; i++) {
-      const [ax, az] = outline[i], [bx, bz] = outline[(i + 1) % outline.length];
-      const ex = bx - ax, ez = bz - az, det = dx * -ez + dz * ex;
-      if (Math.abs(det) < 1e-9) continue;
-      const t = (ax * -ez + az * ex) / det, u = (dx * az - dz * ax) / det;
-      if (t > 0 && u >= 0 && u <= 1) best = Math.min(best, t);
-    }
-    return best === Infinity ? 0 : best;
-  };
-  const positions: number[] = [], indices: number[] = [];
-  // The open sea's floor between the islands: a coarse grid under all the water (finer where the islands
-  // stand on a shallow bank, which shows through the clear water above it).
-  if (!alone) {
-    const box = oceanBox(field, reach), step = field.bank ? .75 : 1.5;
-    const cols = Math.ceil(box.width / step) + 1, rows = Math.ceil(box.depth / step) + 1;
-    for (let r = 0; r < rows; r++) {
-      for (let c = 0; c < cols; c++) {
-        const x = box.x0 + c * step, z = box.z0 + r * step;
-        positions.push(x, field.profile(x, z).floor, z);
-      }
-    }
-    for (let r = 0; r < rows - 1; r++) {
-      for (let c = 0; c < cols - 1; c++) {
-        const a = r * cols + c;
-        indices.push(a, a + cols, a + 1, a + 1, a + cols, a + cols + 1);
-      }
-    }
-  }
-  for (const island of field.islands) {
-    const offsets = offsetsFor(island), first = positions.length / 3, outline = outlineOf(island);
-    for (let r = 0; r < rays; r++) {
-      const angle = Math.PI * 2 * r / rays, radius = shoreRadius(outline, angle);
-      for (const [k, offset] of offsets.entries()) {
-        const jitter = k > 1 && k < offsets.length - 2 ? (hash(r, k) - .5) * .08 * Math.min(1, offset) : 0;
-        const x = island.x + Math.cos(angle) * (radius + offset + jitter), z = island.z + Math.sin(angle) * (radius + offset + jitter);
-        const { floor } = field.profile(x, z);
-        // Gentle ripples on the sandy shelf, growing into rougher reef past its edge.
-        const roughness = .018 + .07 * Math.min(1, Math.max(0, (offset - .6) / 1.2)) ** 2;
-        const relief = (hash(r * 3.1, k * 7.7) - .5) * roughness * Math.min(1, Math.max(0, offset * 4));
-        // (never up through the surface, where the Coral Reef's crest comes close to it)
-        positions.push(x, offset > .3 ? Math.min(floor + relief, OCEAN.surfaceLevel - .025) : floor + relief, z);
-      }
-    }
-    const n = offsets.length;
-    for (let r = 0; r < rays; r++) {
-      for (let k = 0; k < n - 1; k++) {
-        const a = first + r * n + k, b = first + ((r + 1) % rays) * n + k;
-        indices.push(a, b, a + 1, b, b + 1, a + 1);
-      }
-    }
-  }
+export function createSeabedMesh(uniforms: OceanUniforms, field: DepthField, reach: WaterExtent = OCEAN.waterExtent) {
+  // (its triangles are made in seabed-lattice.ts: the animals swim over the same ones)
+  const { positions, indices, terrain } = field.lattice(reach);
   const geometry = new BufferGeometry();
   geometry.setAttribute('position', new Float32BufferAttribute(positions, 3));
-  geometry.setIndex(new Uint16BufferAttribute(indices, 1));
+  geometry.setIndex(new Uint16BufferAttribute(farthestFirst(positions, indices, terrain), 1));
   geometry.computeBoundingSphere();
   const material = new ShaderMaterial({
     uniforms, vertexShader: SEABED_VERTEX, fragmentShader: seabedFragment(field.habitats.length), depthWrite: false, depthTest: false, side: DoubleSide,

@@ -115,9 +115,11 @@ export const OCEAN = {
    * The Coral Reef's seabed (Home's island) goes on past the shelf as a broad, sandy lagoon to a reef
    * crest: where it rises out of the lagoon, its top, its outer edge and the foot of its outer slope
    * (shelf reach), the height of its top (just under the surface, where the swell breaks), and its
-   * coral's colors (a mottle of these, linear sRGB after conversion).
+   * coral's colors (a mottle of these, linear sRGB after conversion). Just past the coral the outer slope
+   * falls away as a steep wall (`wall`: from and to, shelf reach) to a floor `drop` deeper than any other
+   * island's, so that water deep enough for the biggest animals starts inside the picture, not past its edge.
    */
-  reefCrest: { rise: 1.32, top: 1.48, edge: 1.8, foot: 2.75, height: -.212, coral: ['#9A7A55', '#7D6A5E', '#8A8C5C', '#BBA57E', '#B98272'] },
+  reefCrest: { rise: 1.32, top: 1.48, edge: 1.8, foot: 2.75, wall: [1.96, 2.16] as readonly [number, number], drop: .6, height: -.212, coral: ['#9A7A55', '#7D6A5E', '#8A8C5C', '#BBA57E', '#B98272'] },
   /**
    * The crest is never a neat ring: it wanders in and out (shelf reach), its outer edge is cut into
    * spurs and grooves, and boat passes break it (the angles about the island's middle, radians, and
@@ -214,8 +216,8 @@ export function seabedPatch(x: number, z: number, distance: number) {
  * color. Depth keeps growing smoothly past the reef edge, so the turquoise halo
  * fades gradually into open water instead of stopping at a ring.
  */
-export function seabedProfile(distance: number, config: OceanConfig = OCEAN, reef?: { x: number; z: number }) {
-  if (reef && distance > 0) return reefProfile(distance, reef.x, reef.z, config);
+export function seabedProfile(distance: number, config: OceanConfig = OCEAN, reef?: { x: number; z: number; main?: number }) {
+  if (reef && distance > 0) return reefProfile(distance, reef.x, reef.z, config, reef.main);
   const { shelfWidth, shelfFloor, reefEdge, openDistance, openDepth, floorDrop } = config.seabed;
   // The beach rises gently inland and slopes down to the shelf offshore.
   const beach = distance < 0 ? -.125 - distance * .1 : lerp(-.125, shelfFloor, smoothstep(0, shelfWidth, distance));
@@ -232,14 +234,16 @@ export function seabedProfile(distance: number, config: OceanConfig = OCEAN, ree
  * rises almost to the surface, then the reef's outer slope falls to the deep floor and the water goes
  * on deepening into the open ocean as any island's does.
  */
-function reefProfile(distance: number, x: number, z: number, config: OceanConfig) {
+function reefProfile(distance: number, x: number, z: number, config: OceanConfig, main?: number) {
   const { shelfWidth, shelfFloor, reefEdge, openDistance, openDepth, floorDrop } = config.seabed;
-  const { rise, top, edge, foot, height } = config.reefCrest;
+  const { rise, top, edge, foot, height, wall, drop } = config.reefCrest;
   const { shift, groove, open } = reefShape(x, z, config);
   const beach = lerp(-.125, shelfFloor, smoothstep(0, shelfWidth, distance));
   const d = distance - shift, outer = smoothstep(edge + groove, foot, d);
-  // Where a pass breaks the crest, the lagoon's floor runs on out to the reef's outer slope.
-  const floor = lerp(beach, height, smoothstep(rise, top, d) * (1 - outer) * (1 - open)) - floorDrop * outer;
+  // Where a pass breaks the crest, the lagoon's floor runs on out to the reef's outer slope; past the coral, it falls away as a wall to the deep floor.
+  const slope = lerp(beach, height, smoothstep(rise, top, d) * (1 - outer) * (1 - open)) - floorDrop * outer;
+  // (the wall belongs to the reef round the main island: where an islet's shelf is nearer than its, over a few tenths of a unit, the slope is the usual one)
+  const floor = lerp(slope, shelfFloor - floorDrop - drop, smoothstep(wall[0], wall[1], d) * (main === undefined ? 1 : 1 - smoothstep(0, .3, main - distance)));
   // Past the crest the water deepens toward the open ocean's depth, never shallower than over the floor.
   const over = Math.max(0, config.surfaceLevel - floor), deep = config.surfaceLevel - (shelfFloor - floorDrop);
   const depth = over + Math.max(0, openDepth - deep) * smoothstep(edge, edge + openDistance - reefEdge, d) ** .8;

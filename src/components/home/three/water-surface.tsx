@@ -25,7 +25,7 @@ export function useOcean(habitat: Habitat, level: number, card: string, quality:
   const field = useMemo(() => buildDepthField(level, JSON.parse(placed) as OceanIsland[]), [level, placed]);
   const lite = quality === 'lite';
   const meshes = useMemo(() => lite ? [createLiteOceanMesh(uniforms, field, OCEAN, reach)]
-    : [createSeabedMesh(uniforms, field, level, reach), createWaterMesh(uniforms, field, OCEAN, reach)], [lite, uniforms, field, level, reach]);
+    : [createSeabedMesh(uniforms, field, reach), createWaterMesh(uniforms, field, OCEAN, reach)], [lite, uniforms, field, reach]);
   const liteMap = useMemo(() => lite ? buildLiteOceanMap(field) : null, [lite, field]);
   useLayoutEffect(() => { applyOceanPalette(uniforms, habitat, card); }, [uniforms, habitat, card]);
   useLayoutEffect(() => {
