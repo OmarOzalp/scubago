@@ -24,8 +24,13 @@ are retained. Re-export without studio renders using:
 
 ```sh
 blender --background --factory-startup --python scripts/art/prepare-marine.py -- --export-only
+python3 scripts/art/refine-reef-fish.py
 npm run verify:marine
 ```
+
+`refine-reef-fish.py` post-processes the exported reef-fish GLB (body 1.35x wider, eyes
+smaller and set into the head) without touching bones or animation; run it after every
+Blender export, since the export rewrites the file.
 
 The verifier checks actual vertex deformation, loop seams, normalization,
 independent skeletons, and budgets of 5,000 triangles / 220,000 bytes per rig.
