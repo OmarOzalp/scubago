@@ -62,14 +62,14 @@ type Result = {
 };
 
 const STEP_NAMES: Record<Step, string> = { site: 'Site', species: 'Animals', details: 'Details' };
+const STEP_ORDER: Step[] = ['site', 'species', 'details'];
+const NAME_FIRST = 'Name the animal first';
 
 /** A name cut to fit its step, with room for the other two: "Hin Daeng & Hi…". */
 function shortName(name: string, max = 14): string {
   const letters = [...name.trim()];
   return letters.length <= max ? letters.join('') : `${letters.slice(0, max - 1).join('').trimEnd()}…`;
 }
-const STEP_ORDER: Step[] = ['site', 'species', 'details'];
-const NAME_FIRST = 'Name the animal first';
 
 /**
  * What the diver has put in, as one string, so that "has anything changed since the start?" is a
