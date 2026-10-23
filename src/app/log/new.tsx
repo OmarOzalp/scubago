@@ -7,6 +7,7 @@ import Animated, { useAnimatedStyle, useReducedMotion, useSharedValue, withDelay
 
 import { DateField } from '@/components/date-field';
 import { DiveForm } from '@/components/dive/dive-form';
+import { HeaderBack } from '@/components/dive/header-back';
 import { Bookplate } from '@/components/dive/marks';
 import { FormField } from '@/components/form-field';
 import { Icon } from '@/components/icon';
@@ -25,6 +26,7 @@ import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { WhenReady } from '@/components/when-ready';
 import { OnFill, Radius, Shadow, Spacing, Type } from '@/constants/theme';
+import { useDiscardGuard, useHardwareBack } from '@/hooks/use-discard-guard';
 import { useNewBadges } from '@/hooks/use-new-badges';
 import { usePhotoUrl } from '@/hooks/use-photo-url';
 import { useRewards } from '@/hooks/use-rewards';
@@ -58,6 +60,25 @@ type Result = {
 
 const STEP_NAMES: Record<Step, string> = { site: 'Site', species: 'Species', details: 'Details' };
 const STEP_ORDER: Step[] = ['site', 'species', 'details'];
+
+/**
+ * What the diver has put in, as one string, so that "has anything changed since the start?" is a
+ * comparison. The date and who can see it count once they have been chosen: until then they are
+ * filled in for the diver (and the last log's date arrives a moment late).
+ */
+function entrySnapshot(entry: {
+  siteId: string | null;
+  selected: string[];
+  customName: string;
+  notes: string;
+  photoUri?: string;
+  date: string | null;
+  draft: DiveDraft | null;
+  privacy: PrivacySettings | null;
+}): string {
+  // The draft carries the site and date itself, so those are left out of it here.
+  return JSON.stringify({ ...entry, draft: entry.draft && { ...entry.draft, siteId: null, divedOn: '' } });
+}
 
 /**
  * Log a dive: pick the site, tick what you saw (or nothing), then fill in the page (its number,
@@ -131,6 +152,20 @@ function LogSightingScreen() {
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<Result | null>(null);
 
+  // Leaving with something entered asks first; once saved there is nothing to lose.
+  const snapshot = entrySnapshot({
+    siteId,
+    selected,
+    customName,
+    notes,
+    photoUri,
+    date: dateTouched ? date : null,
+    draft: newDive ? draft : null,
+    privacy: editing || privacyTouched ? privacy : null,
+  });
+  const [startSnapshot, setStartSnapshot] = useState(snapshot);
+  const allowLeaving = useDiscardGuard(!result && snapshot !== startSnapshot);
+
   // Logging the rest of a trip: start from the date chosen last time, if that was recent.
   useEffect(() => {
     if (!newDive) return;
@@ -176,6 +211,27 @@ function LogSightingScreen() {
       `Step ${STEP_ORDER.indexOf(next) + 1} of 3: ${next === 'site' ? 'choose the dive site' : next === 'species' ? 'choose what you saw' : newDive ? 'the dive' : 'notes'}`,
     );
   };
+  // The way back through the steps; null on the first, where Back closes. An edit starts on the
+  // details, so the species and site it can reach from there lead back to them.
+  const previousStep: Step | null = editing
+    ? step === 'details'
+      ? null
+      : 'details'
+    : step === 'details'
+      ? 'species'
+      : step === 'species' && !page
+        ? 'site'
+        : null;
+  const goBack = () => {
+    if (previousStep) goTo(previousStep);
+    else if (router.canGoBack()) router.back();
+    else router.replace('/');
+  };
+  useHardwareBack(() => {
+    if (result || !previousStep) return false;
+    goTo(previousStep);
+    return true;
+  });
   const pickSite = (s: DiveSite) => {
     setSiteId(s.id);
     goTo(selected.length > 0 ? 'details' : 'species');
@@ -254,6 +310,7 @@ function LogSightingScreen() {
         const speciesId = selected[0];
         const { isNewSpecies } = await updateSighting(editing.id, { ...picks[0], photoUri });
         if (!isNewSpecies) {
+          allowLeaving();
           router.back();
           return;
         }
@@ -325,7 +382,10 @@ function LogSightingScreen() {
     // The next page: numbered after the one just written, with its gear and buddy.
     const { dives, divesBefore } = useAppStore.getState();
     const mine = dives.filter((d) => d.userId === myUserId);
-    setDraft({ ...emptyDraft({ number: nextDiveNumber(mine, divesBefore[myUserId] ?? 0), siteId: null, divedOn: date }), ...carryOver(sortDives(mine)[0], date).patch });
+    const next = { ...emptyDraft({ number: nextDiveNumber(mine, divesBefore[myUserId] ?? 0), siteId: null, divedOn: date }), ...carryOver(sortDives(mine)[0], date).patch };
+    setDraft(next);
+    // A page begun afresh: nothing entered yet, though the site and date stay as they were.
+    setStartSnapshot(entrySnapshot({ siteId, selected: [], customName: '', notes: '', date: dateTouched ? date : null, draft: next, privacy: privacyTouched ? privacy : null }));
     goTo('site');
   };
 
@@ -381,6 +441,8 @@ function LogSightingScreen() {
           headerStyle: { backgroundColor: theme.background },
           headerTintColor: theme.text,
           headerTitleStyle: { fontFamily: Type.display, fontSize: 19, color: theme.text },
+          // Back goes back a step, and leaves only from the first.
+          headerLeft: ({ tintColor }) => <HeaderBack onPress={goBack} label={previousStep ? `Back to ${STEP_NAMES[previousStep].toLowerCase()}` : 'Close'} tintColor={tintColor} />,
         }}
       />
       {/* The three steps, numbered like the pages of a form: done ones ticked, the current one inked in. */}
@@ -856,6 +918,8 @@ function Saved({ result, onLogMore, newBadges, onBadgesSeen }: { result: Result;
   if (newSpecies.length === 0) {
     return (
       <ThemedView style={styles.centered}>
+        {/* The form's own back arrow steps back through its steps; here the navigator's leaves. */}
+        <Stack.Screen options={{ headerLeft: undefined }} />
         <ScrollView contentContainerStyle={styles.savedScroll}>
           <Paper raised style={styles.savedCard}>
             <Stamp
@@ -907,6 +971,7 @@ function Saved({ result, onLogMore, newBadges, onBadgesSeen }: { result: Result;
           headerStyle: { backgroundColor: theme.twilight },
           headerTintColor: ON_TWILIGHT.text,
           headerTitleStyle: { fontFamily: Type.display, fontSize: 19, color: ON_TWILIGHT.text },
+          headerLeft: undefined,
           title: 'Logged',
         }}
       />
