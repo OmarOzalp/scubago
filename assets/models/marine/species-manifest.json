@@ -722,7 +722,7 @@
   "batfish": {
     "status": "stylized-draft",
     "version": 2,
-    "bytes": 167640,
+    "bytes": 167660,
     "triangles": 4288,
     "source": "Original procedural geometry and rig",
     "bones": 12,
