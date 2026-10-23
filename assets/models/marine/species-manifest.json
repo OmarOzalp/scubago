@@ -370,7 +370,7 @@
   "sea-otter": {
     "status": "stylized-draft",
     "version": 2,
-    "bytes": 133620,
+    "bytes": 133616,
     "triangles": 3262,
     "source": "Original procedural geometry and rig",
     "bones": 13,
