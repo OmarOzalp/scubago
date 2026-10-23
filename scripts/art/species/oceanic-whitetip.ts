@@ -10,7 +10,7 @@ import { SWIM_RIGS, type SharkRig } from '../../../src/lib/marine-rigs';
 import { hex, mix, noise, smoothstep, type RGB } from './kit';
 import { sharkContext, type SharkDesign } from './shark';
 
-const TOP = hex('#6e6c60'), DARK = hex('#5f5e54'), BELLY = hex('#f2f2ec'), TIP = hex('#efede4');
+const TOP = hex('#6e6c60'), DARK = hex('#5f5e54'), BELLY = hex('#f2f2ec'), TIP = hex('#f7f5ee');
 const GILL = hex('#4e4d45'), EYE = hex('#07090a'), MOUTH = hex('#5a5a52');
 
 const rig = SWIM_RIGS['oceanic-whitetip'] as SharkRig;
@@ -19,8 +19,8 @@ const rig = SWIM_RIGS['oceanic-whitetip'] as SharkRig;
 const boundary = (s: number) => 1.55 + .1 * smoothstep(.12, .3, s) + .08 * smoothstep(.45, .75, s) + .04 * noise(s * 18, 3);
 
 /** The white tips: mottled where the fin's colour gives way to white near its tip (`v`, 0 at the root and 1 at the tip). */
-const tipped = (base: RGB, v: number, p: Vector3, from = .7) =>
-  mix(base, TIP, smoothstep(from, from + .14, v + .07 * noise(p.x * 90 + p.z * 70, 4) + .05 * noise(p.y * 120, 9)));
+const tipped = (base: RGB, v: number, p: Vector3, from = .58) =>
+  mix(base, TIP, smoothstep(from, from + .05, v + .07 * noise(p.x * 90 + p.z * 70, 4) + .05 * noise(p.y * 120, 9)));
 
 export const OCEANIC_WHITETIP: SharkDesign = {
   rig, nose: .4, bodyEnd: .8,
@@ -43,8 +43,8 @@ export function buildOceanicWhitetip() {
   const finColor = (p: Vector3, v: number, u: number) => tipped(mix(TOP, DARK, .3 + .2 * u), v, p);
   // The great first dorsal, its top broadly rounded: leading and trailing edges flatten as they meet.
   const dorsal = ctx.midlineFin({
-    le: [[-.012, .295], [0, .3], [.04, .318], [.08, .338], [.11, .356], [.126, .372], [.133, .39]],
-    te: [[-.012, .448], [0, .452], [.008, .455], [.04, .443], [.08, .428], [.11, .414], [.126, .402], [.133, .39]],
+    le: [[-.012, .295], [0, .3], [.04, .318], [.08, .338], [.11, .356], [.124, .392], [.133, .39]],
+    te: [[-.012, .448], [0, .452], [.008, .455], [.04, .443], [.08, .428], [.11, .414], [.122, .41], [.133, .39]],
     height: .133, thickness: .022, bone: 'Dorsal', stations: 9, color: finColor,
   });
   // Small second dorsal and anal fins.
@@ -59,20 +59,25 @@ export function buildOceanicWhitetip() {
     height: .017, thickness: .006, stations: 4, ventral: true,
     color: (_p, v) => mix(BELLY, TOP, .15 + .3 * v),
   });
-  // The enormous pectorals: long, broad paddles with rounded tips, white-tipped on both faces.
+  // The enormous pectorals: long, broad paddles with rounded tips, white-tipped on both faces. The outline is a
+  // swept mid-line with a half-chord that is wide at the root and closes in an ellipse at the tip.
+  const pectoralEnd = .244;
+  const chord = (x: number) => x <= .104 ? .125 - .17 * Math.max(0, x) : .108 * Math.sqrt(Math.max(0, 1 - ((x - .104) / (pectoralEnd - .104)) ** 2));
+  const sweep = (x: number) => .054 + .31 * Math.max(0, x);
+  const outline = [-.015, 0, .05, .104, .14, .17, .2, .22, .232, .24, pectoralEnd];
   const pectorals = ctx.pairedFin({
     rootS: .205, theta: 1.98, span: .229, droop: .2, sweep: .2, thickness: .021, stations: 11,
-    le: [[-.015, 0], [0, 0], [.05, .02], [.1, .044], [.15, .068], [.19, .087], [.21, .099], [.222, .112], [.229, .128]],
-    te: [[-.015, .108], [0, .112], [.05, .119], [.1, .128], [.15, .137], [.19, .143], [.21, .143], [.222, .138], [.229, .128]],
+    le: outline.map((x) => [x, sweep(x) - chord(x) / 2] as const),
+    te: outline.map((x) => [x, sweep(x) + chord(x) / 2] as const),
     bone: (left) => (left ? 'PectoralL' : 'PectoralR'),
-    color: (p, v, u, _left, face) => tipped(face > 0 ? mix(TOP, DARK, .25 + .1 * u) : mix(BELLY, TOP, .25 * (1 - v)), v, p, .62),
+    color: (p, v, u, _left, face) => tipped(face > 0 ? mix(TOP, DARK, .25 + .1 * u) : mix(BELLY, TOP, .25 * (1 - v)), v, p, .5),
   });
   // Pelvic fins, white-tipped too.
   ctx.pairedFin({
     rootS: .51, theta: 2.35, span: .05, droop: .8, sweep: .12, thickness: .009, stations: 5,
     le: [[-.01, 0], [0, 0], [.025, .014], [.05, .036]],
     te: [[-.01, .046], [0, .047], [.025, .044], [.042, .04], [.05, .036]],
-    color: (p, v, _u, _left, face) => tipped(face > 0 ? mix(TOP, DARK, .2) : mix(BELLY, TOP, .2 * v), v, p, .6),
+    color: (p, v, _u, _left, face) => tipped(face > 0 ? mix(TOP, DARK, .2) : mix(BELLY, TOP, .2 * v), v, p, .5),
   });
   const axis = ctx.center(rig.joints[4]);
   // A heterocercal tail: the upper lobe long and pointed, the lower shorter; both tips white.
@@ -85,7 +90,7 @@ export function buildOceanicWhitetip() {
     color: (p, _v, u) => {
       const base = mix(TOP, DARK, .35 + .2 * u);
       const reach = (p.y - axis) / .17, low = (axis - p.y) / .1;
-      return tipped(base, Math.max(reach, low), p, .7);
+      return tipped(base, Math.max(reach, low), p, .55);
     },
   });
   ctx.eyes({ s: .062, theta: 1.25, radius: .0078, color: EYE, sink: .3 });
