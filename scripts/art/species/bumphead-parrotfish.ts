@@ -53,9 +53,9 @@ const skin = (s: number, theta: number, p: Vector3): RGB => {
   const t = theta + .05 * noise(p.z * 30 + p.y * 18, 3);
   const flank = mix(mix(BACK, FLANK, smoothstep(.2, 1.1, t)), LOWER, smoothstep(1.4, 2.3, t));
   const body = mix(flank, BELLY, smoothstep(2.3, 2.95, t));
-  const pale = (1 - smoothstep(.09, .22, s + .05 * smoothstep(.9, 2.2, t))) * (1 - .75 * smoothstep(1.6, 2.5, t));
+  const pale = (1 - smoothstep(.06, .38, s + .05 * smoothstep(.9, 2.2, t))) * (1 - .75 * smoothstep(1.6, 2.5, t));
   const front = mix(mix(BUMP, FACE, smoothstep(0, .5, 1 - s / .12)), PINK, .55 * (1 - smoothstep(0, .07, s)));
-  return mix(mix(body, front, .94 * pale), FLANK, .08 * noise(p.z * 110 + p.y * 90, 6));
+  return mix(mix(body, front, .65 * pale), FLANK, .08 * noise(p.z * 110 + p.y * 90, 6));
 };
 
 export const BUMPHEAD_PARROTFISH: SharkDesign = {
@@ -125,7 +125,7 @@ function leafFin(ctx: SharkContext, options: {
     color: (_p, v, u) => options.color(v, u),
     skin: (p, v) => {
       const base = ctx.skin(ctx.sOf(p.z));
-      return options.bone ? blendSkins(base, { [options.bone]: 1 }, smoothstep(.1, .5, v)) : base;
+      return options.bone ? blendSkins(base, { [options.bone]: 1 }, smoothstep(.2, .7, v)) : base;
     },
   });
 }
@@ -191,11 +191,11 @@ export function buildBumpheadParrotfish() {
   for (const side of [1, -1]) {
     const s = .285, theta = side * angle(s, -.025);
     const root = ctx.surface(s, theta, 0);
-    const yaw = .62;
+    const yaw = .3;
     leafFin(ctx, {
       root: root.clone().addScaledVector(ctx.normal(s, theta), -.012),
-      axis: new Vector3(side * Math.sin(yaw), -.07, -Math.cos(yaw)).normalize(), up: new Vector3(side * .5, 1, 0).normalize(),
-      length: .19, half: (t) => .078 * Math.sqrt(Math.max(0, 1 - ((t - .38) / (t > .38 ? .62 : .42)) ** 2)),
+      axis: new Vector3(side * Math.sin(yaw), -.07, -Math.cos(yaw)).normalize(), up: new Vector3(side * .2, 1, 0).normalize(),
+      length: .17, half: (t) => .055 * Math.sqrt(Math.max(0, 1 - ((t - .38) / (t > .38 ? .62 : .42)) ** 2)),
       thickness: .007, stations: 8, chordPoints: 7, bone: side > 0 ? 'PectoralL' : 'PectoralR', side,
       color: (t, u) => mix(mix(PECTORAL_BASE, PECTORAL, smoothstep(.05, .5, t)), FIN_EDGE, .8 * Math.max(smoothstep(.82, 1, t), 1 - smoothstep(0, .1, Math.min(u, 1 - u)))),
     });
@@ -224,7 +224,9 @@ export function buildBumpheadParrotfish() {
       const t = j / 8;
       return [.255 + shift + .022 * Math.sin(Math.PI * t) ** .8 - .012 * t, .1 - .21 * t] as const;
     });
-    ctx.ribbon(flank(side, cover(0)), (t) => .0035 * (.4 + .6 * Math.sin(Math.PI * t)), BLUE_RIM, .0012);
+    // Its blue rim is a fine line, mixed halfway into the skin beside it so it does not read as a hard seam.
+    const rim = mix(BLUE_RIM, skin(.27, 1.3, ctx.raw(.27, side * 1.3)), .5);
+    ctx.ribbon(flank(side, cover(0)), (t) => .002 * (.4 + .6 * Math.sin(Math.PI * t)), rim, .0012);
     ctx.ribbon(flank(side, cover(-.012)), (t) => .0016 * (.4 + .6 * Math.sin(Math.PI * t)), SCALE_EDGE, .0009);
 
     // Big scales: the rounded rear margin of each, in rows that stagger from one to the next.
