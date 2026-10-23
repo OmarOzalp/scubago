@@ -82,8 +82,8 @@
   "green-turtle": {
     "status": "stylized-draft",
     "version": 2,
-    "bytes": 93228,
-    "triangles": 1226,
+    "bytes": 119484,
+    "triangles": 2550,
     "source": "Original procedural geometry and rig",
     "bones": 9,
     "clip": "Swim",

@@ -1,171 +1,137 @@
 /**
- * Green sea turtle (Chelonia mydas): a low, heart-shaped carapace built as a
- * flat-shaded mosaic of scutes (vertebral, costal and marginal plates), a pale
- * flat plastron, a small blunt head with pale-edged scales, long swept-back
- * front flippers and small rounded rear flippers. The shell is rigid; the
- * flippers, head and tail carry the rig's bones.
+ * Green sea turtle (Chelonia mydas): a low, broad, heart-shaped carapace of smooth, flat, juxtaposed
+ * scutes (five vertebrals, four pairs of costals, a ring of marginals, none of them serrated) in
+ * marbled olive and brown, each scute streaked outward from its center with amber and dark brown; a
+ * small, blunt, rounded head with one pair of prefrontal scales and cream-edged plates; long,
+ * paddle-like front flippers with one claw each and small rounded rear flippers; a pale plastron.
+ * The shell is rigid; the flippers, head and tail carry the rig's bones.
+ *
+ * Built from the shared hard-shell parts, like the loggerhead and the hawksbill.
  *
  * Model space: head tip at z = +0.5, tail tip at z = -0.5 (one body length).
  */
 import { Vector3 } from 'three';
-import { blendSkins, chainSkin, clamp, eye, fin, hex, MeshBuilder, mix, noise, path, smoothstep, TAU, type RGB, type Skin } from './kit';
+import { clamp, curve, eye, hex, MeshBuilder, mix, smoothstep, type RGB } from './kit';
 import type { BoneSpec } from './export';
+import { buildCarapace, buildFrontFlippers, buildPlastron, buildRearFlippers, buildTail, headLine, headPlate, headSurface, loftHead, type HeadSection, type ScutePaint } from './hard-shell';
 
-const SCUTES = ['#5c5833', '#6d683c', '#524f2c', '#7b7042', '#625c35', '#727043'].map(hex);
-const SEAM = hex('#3d3b25'), PLASTRON = hex('#e2d8aa'), PLASTRON_EDGE = hex('#cdbf8c');
-const SKIN = hex('#5c583a'), SCALE_EDGE = hex('#c9c09a'), SKIN_BELOW = hex('#d6cda2'), BEAK = hex('#48442f');
-const FLIPPER = hex('#4e4a33'), FLIPPER_EDGE = hex('#bcb38a'), FLIPPER_BELOW = hex('#cfc59c'), EYE = hex('#0b0d0b');
+const OLIVES = ['#6c5b2f', '#7a6832', '#5f5028', '#84723a', '#6a5c35', '#76683b'].map(hex);
+const STREAK_DARK = hex('#32281a'), STREAK_AMBER = hex('#b08c3a'), RIM = hex('#8b7b45'), SEAM = hex('#34291a');
+const PLASTRON = hex('#e2d8aa'), PLASTRON_EDGE = hex('#cdbf8c'), PLASTRON_SEAM = hex('#b3a672');
+const SKIN = hex('#65583a'), SKIN_DARK = hex('#4c4128'), SCALE_EDGE = hex('#cdc08a'), SKIN_BELOW = hex('#d9cfa2'), BEAK = hex('#4c4430'), EYE = hex('#0b0d0b');
+const FLIPPER = hex('#5a4e33'), FLIPPER_EDGE = hex('#c9bb86'), FLIPPER_BELOW = hex('#d2c89d'), CLAW = hex('#e8dfb8'), CLAW_TIP = hex('#4a3d2a');
 
-/** Shell planform around its center: radius by angle from straight ahead (+Z toward +X). */
-const CENTER_Z = -.02;
-function rim(a: number) {
-  const ahead = Math.max(0, Math.cos(a)), behind = Math.max(0, -Math.cos(a));
-  // Rounded front with a shallow notch for the neck, widest just ahead of center, tapering behind.
-  return .3 + .03 * ahead ** 1.5 + .1 * behind ** 2.2 - .028 * Math.exp(-((Math.atan2(Math.sin(a), Math.cos(a)) / .32) ** 2));
+const hash = (a: number, b: number) => {
+  const v = Math.sin(a * 12.9898 + b * 78.233) * 43758.5453;
+  return v - Math.floor(v);
+};
+
+/** Marbled olive-brown: each vertex round a scute's edge starts a streak inward, dark brown or amber, so the scute looks sunburst. */
+function paintScute(s: ScutePaint): RGB {
+  const base = OLIVES[Math.floor(hash(s.seed, 5) * OLIVES.length)];
+  if (s.edge === 0) return mix(base, STREAK_AMBER, .16);
+  const r = hash(s.seed + s.i * 1.7, s.i), reach = hash(s.seed * 2.3, s.i + 40), tone = hash(s.seed + 3, s.i * 2.1);
+  const covered = reach > (1 - s.edge) * 1.2;
+  let color = base;
+  if (covered && r > .5) color = mix(base, STREAK_DARK, .35 + .4 * tone);
+  else if (covered && r < .22) color = mix(base, STREAK_AMBER, .45 + .3 * tone);
+  if (s.kind === 'marginal') color = mix(color, RIM, .45 * smoothstep(.9, 1, s.rho));
+  return s.edge === 1 ? mix(color, SEAM, .3) : color;
 }
-// Carapace and plastron meet exactly at the rim, so the shell has no seam from the side.
-const shellTop = (rho: number) => .001 + .118 * (1 - rho * rho) ** .6;
-const shellBottom = (rho: number) => .001 - .054 * (1 - rho ** 2.5) ** .7;
-const shellPoint = (rho: number, a: number, y: (rho: number) => number) =>
-  new Vector3(rho * rim(a) * Math.sin(a), y(rho), CENTER_Z + rho * rim(a) * Math.cos(a));
 
-/** Which scute a point on the carapace belongs to, and that plate's color. */
-function scute(p: Vector3, rho: number): { id: number; color: RGB } {
-  let id: number;
-  if (rho > .86) id = 100 + Math.round((Math.atan2(p.x, p.z - CENTER_Z) / TAU + 1) * 26) % 26; // marginals
-  else if (Math.abs(p.x) < .085) id = Math.floor(clamp((.27 - p.z) / .6, 0, .999) * 5); // vertebrals
-  else id = 10 + (p.x > 0 ? 0 : 4) + Math.floor(clamp((.24 - p.z) / .5, 0, .999) * 4); // costals
-  const base = SCUTES[(id * 7 + 3) % SCUTES.length];
-  // Plates are a touch darker along their outer ring, suggesting the seams between them.
-  return { id, color: rho > .86 ? mix(base, SEAM, .25) : base };
-}
+/** The head's top and bottom profile and width: short, rounded and blunt, with a beak that does not hook. */
+const TOP = curve([[.19, .03], [.24, .044], [.29, .052], [.34, .055], [.39, .05], [.42, .042], [.445, .031], [.462, .019], [.474, .006], [.48, -.008]]);
+const BOTTOM = curve([[.19, -.03], [.24, -.04], [.29, -.044], [.34, -.045], [.39, -.043], [.43, -.039], [.455, -.035], [.47, -.032], [.48, -.032]]);
+const WIDTH = curve([[.19, .036], [.24, .052], [.29, .061], [.34, .064], [.39, .058], [.42, .05], [.445, .039], [.462, .027], [.474, .015], [.48, .007]]);
+const section = (z: number): HeadSection => ({ cy: (TOP(z) + BOTTOM(z)) / 2, hh: (TOP(z) - BOTTOM(z)) / 2, hw: WIDTH(z) });
 
 export function buildGreenTurtle() {
   const mesh = new MeshBuilder();
   const bones: BoneSpec[] = [];
-  const rhos = [0, .22, .42, .6, .75, .87, 1];
-  const angles = Array.from({ length: 22 }, (_, k) => TAU * k / 22);
+  const CENTER = -.02;
 
-  // --- Carapace: flat-shaded plates, each triangle colored by the scute it sits on ---
-  mesh.begin();
-  const plate = (a: Vector3, b: Vector3, c: Vector3, rho: number) => {
-    const centroid = a.clone().add(b).add(c).multiplyScalar(1 / 3);
-    const { id, color } = scute(centroid, rho);
-    const shade = 1 + .09 * noise(id * 3.7 + centroid.x * 20, 5);
-    const tone: RGB = [color[0] * shade, color[1] * shade, color[2] * shade];
-    const n = b.clone().sub(a).cross(c.clone().sub(a)).normalize();
-    if (n.y < 0) n.negate();
-    const ids = [a, b, c].map((p) => mesh.vertex(p, tone, { Root: 1 }, n));
-    mesh.tri(ids[0], ids[1], ids[2]);
-  };
-  for (let r = 0; r < rhos.length - 1; r++) {
-    for (let k = 0; k < angles.length; k++) {
-      const a0 = angles[k], a1 = angles[(k + 1) % angles.length];
-      const mid = (rhos[r] + rhos[r + 1]) / 2;
-      const p00 = shellPoint(rhos[r], a0, shellTop), p01 = shellPoint(rhos[r], a1, shellTop);
-      const p10 = shellPoint(rhos[r + 1], a0, shellTop), p11 = shellPoint(rhos[r + 1], a1, shellTop);
-      if (r === 0) plate(p00, p11, p10, mid);
-      else { plate(p00, p11, p10, mid); plate(p00, p01, p11, mid); }
-    }
-  }
-  mesh.end({ closed: false, normals: false, outward: () => new Vector3(0, 1, 0) });
+  // --- Carapace and plastron: a broad heart, smooth plain scutes, four pairs of costals ---
+  const { plan, rimQs } = buildCarapace(mesh, {
+    width: [[0, 0], [.01, .13], [.05, .27], [.12, .36], [.22, .415], [.32, .435], [.44, .428], [.56, .392], [.68, .332], [.8, .25], [.9, .156], [.97, .07], [1, 0]],
+    front: .29, back: -.42, center: CENTER, ring: .88,
+    dome: { height: .112, power: .6, keel: .004, keelWidth: .06 },
+    marginals: { count: 12, from: .075, to: .93, tooth: () => 0 },
+    waists: [[.07, .05], [.22, .045], [.38, .045], [.54, .043], [.7, .037], [.86, .03]],
+    corners: [[.14, .068], [.3, .072], [.46, .072], [.62, .064], [.77, .05]],
+    seams: [{ corner: 2, reach: .37 }, { corner: 3, reach: .53 }, { corner: 4, reach: .69 }],
+    pillow: .005, lip: 0, skirt: 'none', seam: SEAM,
+    paint: paintScute,
+  });
+  buildPlastron(mesh, plan, rimQs, CENTER, {
+    depth: .054,
+    paint: (_x, _z, edge) => mix(PLASTRON, PLASTRON_EDGE, smoothstep(.55, 1, edge) * .8),
+    seams: { at: [.16, .3, .46, .64, .8], color: PLASTRON_SEAM, half: .0022 },
+  });
 
-  // --- Plastron: the flatter, pale underside, sharing the rim with the carapace ---
-  mesh.begin();
-  const under = rhos.map((rho) => angles.map((a) => {
-    const p = shellPoint(rho, a, shellBottom);
-    return mesh.vertex(p, mix(PLASTRON, PLASTRON_EDGE, smoothstep(.7, 1, rho)), { Root: 1 });
-  }));
-  for (let r = 0; r < rhos.length - 1; r++) {
-    for (let k = 0; k < angles.length; k++) {
-      const k1 = (k + 1) % angles.length;
-      if (r === 0) mesh.tri(under[0][0], under[1][k1], under[1][k]);
-      else mesh.quad(under[r][k], under[r][k1], under[r + 1][k1], under[r + 1][k]);
-    }
+  // --- Head and neck: a small, blunt head, dark above with cream-edged scales ---
+  const zs = [.19, .225, .26, .295, .33, .36, .39, .415, .435, .452, .465, .474];
+  loftHead(mesh, {
+    zs, sides: 12, section,
+    color: (_p, z, theta, k) => {
+      const below = Math.cos(theta) < -.35;
+      if ((k === 4 || k === 8) && z > .38) return BEAK;
+      if (below) return z > .45 ? BEAK : SKIN_BELOW;
+      if (z > .452) return BEAK;
+      // Dark scales edged in cream: about a third of the vertices around a ring are pale, more toward the cheeks.
+      const side = smoothstep(.9, 1.9, Math.min(theta, 2 * Math.PI - theta));
+      const pale = hash(k * 1.3 + 2, Math.round(z * 100)) > .66 ? .5 : 0;
+      return mix(mix(SKIN, SKIN_DARK, .35 * (1 - clamp((z - .3) / .1))), SCALE_EDGE, clamp(.3 * side + pale));
+    },
+    skin: (z) => ({ Root: 1 - smoothstep(.2, .27, z), Head: smoothstep(.2, .27, z) }),
+    snout: { p: new Vector3(0, -.013, .481), color: BEAK },
+    neck: { p: new Vector3(0, .004, .18), color: SKIN },
+  });
+  for (const side of [1, -1]) {
+    const p = headSurface(section, .385, side * 1.05);
+    eye(mesh, p, new Vector3(side, .35, .3), .009, EYE, { Head: 1 }, .6);
   }
-  mesh.end({ closed: false, outward: () => new Vector3(0, -1, 0) });
+  // The mouth's line, from the beak back under the eye.
+  for (const side of [1, -1]) {
+    headLine(mesh, section, ([[.478, 1.95], [.455, 1.99], [.425, 2.04], [.39, 2.1], [.355, 2.2], [.33, 2.33]] as const).map(([z, t]) => [z, t * side] as const), .035, BEAK, { Head: 1 });
+  }
+  // The head's plates: the frontal, one pair of prefrontals between the eyes, and the supraoculars.
+  const PLATE = hex('#4a3d25');
+  headPlate(mesh, section, .335, .378, -.3, .3, PLATE, SCALE_EDGE, { Head: 1 });
+  for (const side of [1, -1]) {
+    headPlate(mesh, section, .385, .44, side * .05, side * .5, PLATE, SCALE_EDGE, { Head: 1 });
+    headPlate(mesh, section, .34, .385, side * .6, side * .98, PLATE, SCALE_EDGE, { Head: 1 });
+  }
 
-  // --- Head and neck: a short, slightly flattened loft ending in a blunt beak ---
-  mesh.begin();
-  const radius = (z: number) => .018 + .043 * Math.sin(Math.PI * clamp((z - .19) / .3)) ** .7;
-  const zs = [.19, .235, .28, .32, .355, .39, .42, .445, .465];
-  const sides = 10;
-  const headSkin = (z: number): Skin => blendSkins({ Root: 1 }, { Head: 1 }, smoothstep(.2, .27, z));
-  const rings = zs.map((z) => Array.from({ length: sides }, (_, k) => {
-    const a = TAU * k / sides;
-    const r = radius(z);
-    const p = new Vector3(Math.sin(a) * r * 1.05, .004 + Math.cos(a) * r * .82 - .006 * clamp((z - .4) / .1), z);
-    const scale = noise(z * 60 + k * 2.3, 3) > .35 ? .45 : 0;
-    const color = Math.cos(a) < -.2 ? SKIN_BELOW : mix(z > .44 ? BEAK : SKIN, SCALE_EDGE, scale);
-    return mesh.vertex(p, color, headSkin(z));
-  }));
-  for (let j = 0; j < zs.length - 1; j++) {
-    for (let k = 0; k < sides; k++) mesh.quad(rings[j][k], rings[j][(k + 1) % sides], rings[j + 1][(k + 1) % sides], rings[j + 1][k]);
-  }
-  const snout = mesh.vertex(new Vector3(0, -.004, .473), BEAK, { Head: 1 });
-  const neck = mesh.vertex(new Vector3(0, .004, .18), SKIN, { Root: 1 });
-  for (let k = 0; k < sides; k++) {
-    mesh.tri(snout, rings[zs.length - 1][k], rings[zs.length - 1][(k + 1) % sides]);
-    mesh.tri(neck, rings[0][(k + 1) % sides], rings[0][k]);
-  }
-  mesh.end();
-  for (const side of [1, -1]) eye(mesh, new Vector3(side * .05, .016, .4), new Vector3(side, .35, .3), .012, EYE, { Head: 1 }, .6);
-
-  // --- Front flippers: long, curved paddles swept back from under the front of the shell ---
-  for (const side of [1, -1] as const) {
-    const s = side;
-    const le = path([[s * .19, -.012, .17], [s * .36, -.02, .165], [s * .52, -.03, .07], [s * .65, -.036, -.09]]);
-    const te = path([[s * .21, -.024, .08], [s * .36, -.03, .065], [s * .5, -.035, -.015], [s * .65, -.036, -.09]]);
-    const [upper, lower] = side > 0 ? ['FrontL1', 'FrontL2'] : ['FrontR1', 'FrontR2'];
-    fin(mesh, {
-      stations: 8,
-      le, te,
-      thickness: (v) => .032 * (1 - .72 * v),
-      side: new Vector3(0, 1, 0),
-      color: (_p, v, u, face) => {
-        if (face < 0) return mix(FLIPPER_BELOW, FLIPPER_EDGE, smoothstep(.8, 1, u) * .5);
-        const scales = noise(v * 26 + u * 7, 9) > .3 ? .55 : 0;
-        return mix(FLIPPER, FLIPPER_EDGE, Math.max(scales, smoothstep(.82, 1, u) * .8));
-      },
-      skin: (_p, v) => blendSkins({ Root: 1 }, chainSkin(v, [0, .45], [upper, lower], 1), smoothstep(.02, .1, v)),
-      chordPoints: 5,
-    });
-    bones.push(
-      { name: upper, parent: 'Root', position: new Vector3(s * .2, -.02, .12) },
-      { name: lower, parent: upper, position: new Vector3(s * .44, -.03, .06) },
-    );
-  }
+  // --- Front flippers: long, broad paddles swept back from under the front of the shell, one claw each ---
+  buildFrontFlippers(mesh, bones, {
+    le: [[.19, -.012, .17], [.36, -.02, .165], [.52, -.03, .07], [.65, -.036, -.09]],
+    te: [[.21, -.024, .04], [.36, -.03, .02], [.5, -.035, -.07], [.65, -.036, -.09]],
+    stations: 9, chordPoints: 6,
+    thickness: (v) => .04 * (1 - .6 * v),
+    color: (v, u, face) => {
+      if (face < 0) return mix(FLIPPER_BELOW, FLIPPER_EDGE, smoothstep(.8, 1, u) * .5);
+      // Big pale-edged scales along the leading edge, a few flecks over the rest.
+      const edge = (1 - smoothstep(0, .2, u)) * (hash(Math.round(v * 11), 3) > .3 ? .8 : .3);
+      const fleck = hash(Math.round(v * 9), Math.round(u * 5)) > .75 ? .28 : 0;
+      return mix(FLIPPER, FLIPPER_EDGE, clamp(Math.max(edge, fleck, smoothstep(.85, 1, u) * .7)));
+    },
+    shoulder: [.2, -.02, .12], elbow: [.44, -.03, .06], elbowAt: .45,
+    claws: { at: [.6], length: .022, radius: .0058, color: CLAW, tip: CLAW_TIP },
+  });
 
   // --- Rear flippers: small rounded paddles either side of the tail ---
-  for (const side of [1, -1] as const) {
-    const s = side;
-    const name = side > 0 ? 'RearL' : 'RearR';
-    fin(mesh, {
-      stations: 4,
-      le: path([[s * .13, -.018, -.31], [s * .23, -.024, -.37], [s * .27, -.027, -.46]]),
-      te: path([[s * .1, -.022, -.37], [s * .18, -.026, -.44], [s * .27, -.027, -.46]]),
-      thickness: (v) => .022 * (1 - .6 * v),
-      side: new Vector3(0, 1, 0),
-      color: (_p, _v, u, face) => (face < 0 ? FLIPPER_BELOW : mix(FLIPPER, FLIPPER_EDGE, smoothstep(.75, 1, u) * .7)),
-      skin: (_p, v) => blendSkins({ Root: 1 }, { [name]: 1 }, smoothstep(.05, .3, v)),
-    });
-    bones.push({ name, parent: 'Root', position: new Vector3(s * .13, -.02, -.34) });
-  }
-
-  // --- A short tail ---
-  mesh.begin();
-  const tailRing = (z: number, r: number) => Array.from({ length: 6 }, (_, k) => {
-    const a = TAU * k / 6;
-    return mesh.vertex(new Vector3(Math.sin(a) * r, -.012 + Math.cos(a) * r * .8, z), SKIN, blendSkins({ Root: 1 }, { Tail: 1 }, smoothstep(.39, .43, -z)));
+  buildRearFlippers(mesh, bones, {
+    le: [[.13, -.018, -.31], [.23, -.024, -.37], [.27, -.027, -.46]],
+    te: [[.1, -.022, -.37], [.18, -.026, -.44], [.27, -.027, -.46]],
+    thickness: (v) => .024 * (1 - .6 * v),
+    color: (u, face) => (face < 0 ? FLIPPER_BELOW : mix(FLIPPER, FLIPPER_EDGE, Math.max(smoothstep(.75, 1, u) * .7, (1 - smoothstep(0, .25, u)) * .4))),
+    root: [.13, -.02, -.34],
   });
-  const tail = [tailRing(-.39, .022), tailRing(-.45, .014)];
-  for (let k = 0; k < 6; k++) mesh.quad(tail[0][k], tail[0][(k + 1) % 6], tail[1][(k + 1) % 6], tail[1][k]);
-  const tip = mesh.vertex(new Vector3(0, -.014, -.5), SKIN, { Tail: 1 });
-  for (let k = 0; k < 6; k++) mesh.tri(tip, tail[1][k], tail[1][(k + 1) % 6]);
-  mesh.end();
+
+  buildTail(mesh, SKIN, -.39, -.45, -.5, .022, -.012);
 
   bones.push(
-    { name: 'Root', parent: null, position: new Vector3(0, 0, CENTER_Z) },
+    { name: 'Root', parent: null, position: new Vector3(0, 0, CENTER) },
     { name: 'Head', parent: 'Root', position: new Vector3(0, .004, .26) },
     { name: 'Tail', parent: 'Root', position: new Vector3(0, -.012, -.4) },
   );
