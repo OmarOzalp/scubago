@@ -64,10 +64,7 @@ function DivesBeforeScreen() {
     <ThemedView style={styles.container}>
       <Stack.Screen options={{ title: 'Dives before ScubaGo' }} />
       <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
-        <ThemedText>
-          Logged dives before you started using ScubaGo? Say how many, and your pages carry your real dive numbers: your hundredth dive is
-          numbered 100, wherever you logged the first 99.
-        </ThemedText>
+        <ThemedText>Say how many dives you logged before ScubaGo, so your pages carry your real numbers.</ThemedText>
         <FormField
           label="Dives logged before ScubaGo"
           value={text}
@@ -76,7 +73,7 @@ function DivesBeforeScreen() {
           inputMode="numeric"
           placeholder="0"
           maxLength={5}
-          hint="Count every dive in your old logbooks. Leave it at 0 if ScubaGo is your first log."
+          hint="Leave it at 0 if ScubaGo is your first log."
         />
         <Paper tone="sand" style={styles.row}>
           <Icon name="logbook" size={20} wash={theme.sun} />

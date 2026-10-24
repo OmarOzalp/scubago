@@ -93,12 +93,9 @@ export default function AddSiteScreen() {
   return (
     <ThemedView style={{ flex: 1 }}>
       <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled" keyboardDismissMode={DISMISS_ON_DRAG} automaticallyAdjustKeyboardInsets>
-        <View style={styles.intro}>
-          <ThemedText type="label">A new page for the chart</ThemedText>
-          <ThemedText type="caption" themeColor="textSecondary">
-            Know a site that’s missing? Add it and it appears on your map right away.
-          </ThemedText>
-        </View>
+        <ThemedText type="caption" themeColor="textSecondary">
+          Missing a site? Add it to your map.
+        </ThemedText>
 
         <View style={styles.field}>
           <FormField
@@ -122,7 +119,7 @@ export default function AddSiteScreen() {
           <View style={styles.where}>
             <Icon name="pin" size={20} wash={theme.coral} />
             <ThemedText type="small" themeColor="textSecondary" style={{ flex: 1 }}>
-              Where it is: in a maps app, hold on the spot, copy its numbers and paste them here.
+              In a maps app, hold a spot and copy its numbers.
             </ThemedText>
           </View>
           <View style={styles.field}>
@@ -184,9 +181,6 @@ const styles = StyleSheet.create({
     width: '100%',
     maxWidth: MaxContentWidth,
     alignSelf: 'center',
-  },
-  intro: {
-    gap: 2,
   },
   card: {
     gap: Spacing.three,
