@@ -117,7 +117,8 @@ test('"Your dives here" lists the diver’s dives at the site and at its hidden 
   ];
   await act(async () => { root = create(<SiteDetailScreen />); });
   expect(text()).toContain('Your dives here');
-  expect(text()).toContain('3 dives');
+  // The count sits at the right of the heading; a screen reader reads it as "3 dives".
+  expect(root.root.findAll((n) => n.props.accessibilityLabel === '3 dives').length).toBeGreaterThan(0);
   const rows = diveRows();
   expect(rows.map((r) => r.props.accessibilityLabel.split(' · ')[0])).toEqual(['No. 7', 'No. 5', 'No. 3']);
   expect(rows[0].props.accessibilityLabel).toMatch(/20 m · 45 min · 2 sightings$/);

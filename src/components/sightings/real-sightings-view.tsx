@@ -1,5 +1,6 @@
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
+import { Disclosure } from '@/components/journal/disclosure';
 import { SectionHeader } from '@/components/journal/screen';
 import { buildModel, creditLine } from '@/components/sightings/format';
 import { openExternalUrl } from '@/components/sightings/open-external';
@@ -27,6 +28,11 @@ interface Props {
   now?: number;
 }
 
+/** What the records near a site are (it sits behind "About these records"): where they come from, how far, and whose they are. */
+export function recordsNearSiteText(radiusKm: number): string {
+  return `Public records near this site: iNaturalist within ${radiusKm} km, OBIS in a ${radiusKm * 2} km square. Not your sightings, and not checked by ScubaGo.`;
+}
+
 /**
  * "Marine life recorded here": what iNaturalist observers and OBIS datasets have recorded near a
  * dive site. It takes its data as props, so every state can be drawn without the network. These are
@@ -47,11 +53,13 @@ export function RealSightingsView({ summary, status, onRefresh, onOpenSpecies, o
       : null;
   return (
     <View style={styles.section}>
-      <SectionHeader eyebrow="Public records" title="Marine life recorded here" />
+      <SectionHeader title="Marine life recorded here" />
       {/* OBIS is searched in a box whose half-side is the radius (geo.ts), so its corners reach further. */}
-      <ThemedText type="caption" themeColor="textSecondary">
-        {`Records from iNaturalist observers within ${model.radiusKm} km of this site, and from OBIS scientific datasets in a ${model.radiusKm * 2} km square around it. Not ScubaGo sightings, and not checked by ScubaGo.`}
-      </ThemedText>
+      <Disclosure label="About these records" hint="Shows where these records come from">
+        <ThemedText type="caption" themeColor="textSecondary">
+          {recordsNearSiteText(model.radiusKm)}
+        </ThemedText>
+      </Disclosure>
 
       {model.kind === 'loading' ? <SightingsPlaceholder /> : null}
       {model.kind === 'unavailable' ? <SightingsUnavailable offline={model.offline} onRetry={onRefresh} /> : null}
