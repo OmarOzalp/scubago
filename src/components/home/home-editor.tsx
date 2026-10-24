@@ -23,15 +23,14 @@ export function HomeEditor({ preferences, saving, error, onSave, onClose }: {
   return <Modal visible animationType={reduceMotion ? 'none' : 'slide'} presentationStyle="pageSheet" onRequestClose={() => { if (!saving) onClose(); }}>
     <ScrollView keyboardShouldPersistTaps="handled" style={{ backgroundColor: theme.background }} contentContainerStyle={[styles.content, { paddingTop: Math.max(insets.top, 28), paddingBottom: insets.bottom + 32 }]}>
       <View style={styles.header}>
+        {/* The sheet is one field, so it is named by its title alone (a screen reader hears what opened it). */}
         <View style={styles.titles}>
-          <ThemedText type="label">Customize your home</ThemedText>
-          <ThemedText type="display" accessibilityRole="header">Make it yours</ThemedText>
+          <ThemedText type="display" accessibilityRole="header" accessibilityLabel="Customize your home. Make it yours">Make it yours</ThemedText>
         </View>
         <Pressable accessibilityRole="button" onPress={onClose} disabled={saving} style={({ pressed }) => [styles.cancel, { opacity: saving ? 0.45 : pressed ? 0.6 : 1 }]}>
           <ThemedText type="smallBold" themeColor="tint" style={styles.cancelText}>Cancel</ThemedText>
         </Pressable>
       </View>
-      <ThemedText type="caption" themeColor="textSecondary" style={styles.lead}>A little corner of the ocean, just for you. Its islands rise with the animals you log.</ThemedText>
 
       <View style={styles.nameField}>
         <FormField label="Home name" value={draft.name} onChangeText={(name) => setDraft((s) => ({ ...s, name }))} maxLength={HOME_NAME_MAX} placeholder="My little island" selectionColor={theme.tint} style={styles.nameInput} />
@@ -57,7 +56,6 @@ const styles = StyleSheet.create({
   titles: { flex: 1, gap: 2 },
   cancel: { minHeight: 44, minWidth: 44, justifyContent: 'center', alignItems: 'flex-end', paddingLeft: Spacing.two },
   cancelText: { fontSize: 15 },
-  lead: { marginTop: -6, marginBottom: 6 },
   nameField: { gap: 6 },
   nameInput: { fontSize: 17 },
   count: { textAlign: 'right' },

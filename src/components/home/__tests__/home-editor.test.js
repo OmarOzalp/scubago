@@ -33,3 +33,15 @@ test('the name field says how far along the name is, and that it stops at the lo
   expect(texts()).not.toContain('31 of 32');
   expect(note().props.accessibilityLiveRegion).toBe('polite');
 });
+
+test('copy budget: the sheet is one field, so it reads in about 15 words, with its title once and no eyebrow or lead under it', async () => {
+  await render('Kai’s Atoll');
+  const shown = texts();
+  const words = shown.join(' ').match(/[\p{L}\p{N}][\p{L}\p{N}'’.,%/-]*/gu)?.length ?? 0;
+  expect(words).toBeLessThanOrEqual(15);
+  expect(shown.filter((t) => t === 'Make it yours')).toHaveLength(1);
+  expect(shown.join('|')).not.toMatch(/Customize your home|little corner of the ocean/);
+  // A screen reader still hears what the sheet is for.
+  const title = root.root.findAll((n) => n.props.accessibilityRole === 'header')[0];
+  expect(title.props.accessibilityLabel).toBe('Customize your home. Make it yours');
+});
