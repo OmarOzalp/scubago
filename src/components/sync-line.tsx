@@ -1,4 +1,3 @@
-import { router } from 'expo-router';
 import { Pressable, StyleSheet, View } from 'react-native';
 
 import { Icon } from '@/components/icon';
@@ -7,7 +6,18 @@ import { useTheme } from '@/hooks/use-theme';
 import { useAppStore } from '@/lib/store';
 import { isConnectionProblem } from '@/lib/verification';
 
-/** Where the diver's change stands: saved here only, on its way, failing, or backed up. */
+/**
+ * Whether the sync line has anything to say. Signed out in a build with a server it says nothing: the
+ * Logbook's banner is the one place that says the log lives only on this phone, so a page that would
+ * only repeat it leaves the line out, and the room it would take.
+ */
+export function useSyncLineShown(): boolean {
+  const user = useAppStore((s) => s.user);
+  const backendEnabled = useAppStore((s) => s.backendEnabled);
+  return !backendEnabled || !!user;
+}
+
+/** Where the diver's change stands: saved on this device, on its way, failing, or backed up. Nothing while signed out (see useSyncLineShown). */
 export function SyncLine({ item }: { item: { synced: boolean; syncError?: string } }) {
   const theme = useTheme();
   const user = useAppStore((s) => s.user);
@@ -24,16 +34,7 @@ export function SyncLine({ item }: { item: { synced: boolean; syncError?: string
       </View>
     );
   }
-  if (!user) {
-    return (
-      <Pressable onPress={() => router.push('/auth')} accessibilityRole="link" style={[styles.syncRow, styles.inlineLink]}>
-        <Icon name="account" size={16} {...quiet} />
-        <ThemedText type="small" themeColor="textSecondary" style={styles.flex}>
-          Saved on this device only. <ThemedText type="small" themeColor="tint">Sign in to back it up ›</ThemedText>
-        </ThemedText>
-      </Pressable>
-    );
-  }
+  if (!user) return null;
   if (item.synced) {
     return (
       <View style={styles.syncRow}>

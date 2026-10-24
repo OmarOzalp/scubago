@@ -5,6 +5,7 @@ import { Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { BuddyVerification } from '@/components/buddy-verification';
 import { Icon, type IconName } from '@/components/icon';
+import { Disclosure } from '@/components/journal/disclosure';
 import { IconButton } from '@/components/journal/icon-button';
 import { Paper, PaperButton } from '@/components/journal/paper';
 import { Screen } from '@/components/journal/screen';
@@ -13,7 +14,7 @@ import { RarityChip } from '@/components/rarity-chip';
 import { formatEntryDate } from '@/components/sighting-row';
 import { SpeciesAvatar } from '@/components/species-avatar';
 import { StatusChip } from '@/components/status-chip';
-import { SyncLine } from '@/components/sync-line';
+import { SyncLine, useSyncLineShown } from '@/components/sync-line';
 import { ThemedText } from '@/components/themed-text';
 import { Radius, Spacing, Type } from '@/constants/theme';
 import { usePhotoUrl } from '@/hooks/use-photo-url';
@@ -23,10 +24,10 @@ import { UNLISTED_ID, speciesForSighting } from '@/lib/catalog';
 import { confirmAction } from '@/lib/confirm';
 import { formatDiveNumber } from '@/lib/dives';
 import { isPrivateSighting, privacySummary, sharesNotes, sharesPhoto } from '@/lib/privacy';
-import { canEditSighting } from '@/lib/sighting-edit';
+import { canEditSighting, localIsoDate } from '@/lib/sighting-edit';
 import { useAppStore, useMyUserId, useSiteById } from '@/lib/store';
 import { displayablePhoto } from '@/lib/sync';
-import type { SightingStatus } from '@/lib/types';
+import type { Sighting, SightingStatus } from '@/lib/types';
 import { STATUS_COLOR, STATUS_EXPLANATION, STATUS_TEXT, statusOf } from '@/lib/verification';
 
 /** The mark beside each verification status. */
@@ -43,6 +44,20 @@ function formatTimestamp(iso: string): string {
   return new Date(iso).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' });
 }
 
+/**
+ * The line at the foot about when the page was written. The diver's own, written on the day they saw it
+ * and never changed, says nothing (the day is the page's title); otherwise: "Logged Oct 5, 2026 · edited
+ * Oct 6, 2026". Another diver's says who logged it.
+ */
+function colophonText(sighting: Pick<Sighting, 'isDemo' | 'sightedOn' | 'createdAt' | 'updatedAt' | 'username'>, mine: boolean): string {
+  if (sighting.isDemo) return 'Example data generated for this build, not a diver’s report.';
+  const edited = sighting.updatedAt ? `edited ${formatTimestamp(sighting.updatedAt)}` : null;
+  if (!mine) return [`Logged by @${sighting.username} in ScubaGo on ${formatTimestamp(sighting.createdAt)}`, edited].filter(Boolean).join(' · ');
+  const later = localIsoDate(new Date(sighting.createdAt)) !== sighting.sightedOn ? `Logged ${formatTimestamp(sighting.createdAt)}` : null;
+  const parts = [later, edited].filter((part): part is string => !!part);
+  return parts.join(' · ').replace(/^./, (c) => c.toUpperCase());
+}
+
 /** One page of the logbook: what was seen, when and where, who can see it, and who has confirmed it. Edit is in the header, in reach from the top of the page. */
 export default function SightingDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -55,6 +70,8 @@ export default function SightingDetailScreen() {
   const myUserId = useMyUserId();
   const deleteSighting = useAppStore((s) => s.deleteSighting);
   const backendEnabled = useAppStore((s) => s.backendEnabled);
+  // Whether the sync line has anything to say (signed out, it says nothing: the Logbook's banner does).
+  const syncShown = useSyncLineShown();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   // A private photo is shown through a short-lived link (only its owner can get one).
@@ -86,6 +103,8 @@ export default function SightingDetailScreen() {
   const entryDate = formatEntryDate(sighting.sightedOn);
   const photoPrivate = mine && backendEnabled && !sharesPhoto(sighting);
   const notesPrivate = mine && backendEnabled && !sharesNotes(sighting);
+  // When it was written down, said only where it adds something: the date above is the day it was seen.
+  const colophon = colophonText(sighting, mine);
 
   const remove = async () => {
     setBusy(true);
@@ -114,7 +133,9 @@ export default function SightingDetailScreen() {
     <Screen>
       <Stack.Screen
         options={{
+          // The title stays for the browser tab; the header shows only the back arrow (and Edit), as the page names itself below.
           title: species.commonName,
+          headerTitle: '',
           headerRight: mine
             ? () => (
               <View style={styles.headerActions}>
@@ -204,10 +225,11 @@ export default function SightingDetailScreen() {
         </View>
       ) : null}
 
-      {/* Dives are private to their diver: only the owner sees which page a sighting is on. */}
-      {mine ? (
-        <Paper padded={false}>
-          {dive ? (
+      {/* One card of three ruled lines: the page, who sees it, and where it stands. What each means waits behind one row below. */}
+      <Paper padded={false}>
+        {/* Dives are private to their diver: only the owner sees which page a sighting is on. */}
+        {mine ? (
+          dive ? (
             <Pressable onPress={() => router.push(`/dive/${dive.id}`)} accessibilityRole="link" accessibilityLabel={`On dive ${dive.number}. Open the page`}>
               {({ pressed }) => (
                 <View style={{ opacity: pressed ? 0.6 : 1 }}>
@@ -225,53 +247,53 @@ export default function SightingDetailScreen() {
                 Not on a page of your log yet.
               </ThemedText>
             </Fact>
-          )}
-          {backendEnabled ? (
-          <Fact icon={isPrivateSighting(sighting) ? 'lock' : 'everyone'} label="Who can see this" ruled>
+          )
+        ) : null}
+        {mine && backendEnabled ? (
+          <Fact icon={isPrivateSighting(sighting) ? 'lock' : 'everyone'} label="Visible to" ruled>
             <ThemedText type="smallBold">{privacySummary(sighting)}</ThemedText>
-            {isPrivateSighting(sighting) && !unlisted ? (
-              <ThemedText type="small" themeColor="textSecondary">
-                Only you can see this sighting. If you ask a buddy to confirm it, they’ll see the species, site and date, never your notes
-                or photo.
-              </ThemedText>
-            ) : null}
           </Fact>
-          ) : null}
-        </Paper>
-      ) : null}
-
-      <Paper style={styles.verification}>
-        <View style={styles.verificationHead}>
-          <Icon name={STATUS_ICON[status]} size={24} color={STATUS_TEXT[scheme][status]} wash={STATUS_COLOR[status]} washOpacity={0.35} />
-          <ThemedText type="label" accessibilityRole="header" style={styles.flex}>
-            Verification
-          </ThemedText>
-          <StatusChip status={status} />
-        </View>
-        <ThemedText type="small" themeColor="textSecondary">
-          {sighting.isDemo ? 'Example data: not a real sighting.' : STATUS_EXPLANATION[status]}
-        </ThemedText>
-        <View style={[styles.evidence, { borderTopColor: theme.rule }]}>
-          <Icon name={sighting.photoUri ? 'camera' : 'image'} size={18} color={theme.textSecondary} wash={theme.textSecondary} washOpacity={0.2} />
-          <ThemedText type="small" style={styles.flex}>
-            <ThemedText type="smallBold">Evidence</ThemedText>
-            {'  '}
-            {sighting.photoUri ? 'Photo attached' : 'No photo'}
-          </ThemedText>
-        </View>
+        ) : null}
+        <Fact
+          icon={STATUS_ICON[status]}
+          label="Status"
+          ruled={mine}
+          iconColor={STATUS_TEXT[scheme][status]}
+          iconWash={STATUS_COLOR[status]}>
+          <View style={styles.statusLine}>
+            <StatusChip status={status} />
+            <ThemedText type="small" themeColor="textSecondary">
+              {sighting.photoUri ? 'Photo attached' : 'No photo'}
+            </ThemedText>
+          </View>
+        </Fact>
       </Paper>
+      <Disclosure label="What does this mean?" hint="Explains who can see this and what the status means">
+        <View style={styles.meaning}>
+          {mine && backendEnabled && isPrivateSighting(sighting) && !unlisted ? (
+            <ThemedText type="small" themeColor="textSecondary">
+              Only you can see this sighting. If you ask a buddy to confirm it, they’ll see the species, site and date, never your notes or
+              photo.
+            </ThemedText>
+          ) : null}
+          <ThemedText type="small" themeColor="textSecondary">
+            {sighting.isDemo ? 'Example data: not a real sighting.' : STATUS_EXPLANATION[status]}
+          </ThemedText>
+        </View>
+      </Disclosure>
 
       {mine && !sighting.isDemo && !unlisted ? <BuddyVerification sighting={sighting} speciesName={species.commonName} /> : null}
 
-      <View style={styles.colophon}>
-        <ThemedText type="caption" themeColor="textSecondary">
-          {sighting.isDemo
-            ? 'Example data generated for this build, not a diver’s report.'
-            : `Logged by ${mine ? 'you' : `@${sighting.username}`} in ScubaGo on ${formatTimestamp(sighting.createdAt)}`}
-          {sighting.updatedAt ? ` · edited ${formatTimestamp(sighting.updatedAt)}` : ''}
-        </ThemedText>
-        {mine ? <SyncLine item={sighting} /> : null}
-      </View>
+      {colophon || (mine && syncShown) ? (
+        <View style={styles.colophon}>
+          {colophon ? (
+            <ThemedText type="caption" themeColor="textSecondary">
+              {colophon}
+            </ThemedText>
+          ) : null}
+          {mine ? <SyncLine item={sighting} /> : null}
+        </View>
+      ) : null}
 
       {/* Set apart below a rule: deleting can't be undone. */}
       {mine ? (
@@ -302,11 +324,33 @@ export default function SightingDetailScreen() {
 }
 
 /** A ruled line of the entry: an icon, a typewriter label, and what goes there. */
-function Fact({ icon, label, ruled = false, children }: { icon: IconName; label: string; ruled?: boolean; children: React.ReactNode }) {
+function Fact({
+  icon,
+  label,
+  ruled = false,
+  iconColor,
+  iconWash,
+  children,
+}: {
+  icon: IconName;
+  label: string;
+  ruled?: boolean;
+  /** The icon in a status colour, with its wash, instead of the quiet grey. */
+  iconColor?: string;
+  iconWash?: string;
+  children: React.ReactNode;
+}) {
   const theme = useTheme();
   return (
     <View style={[styles.fact, ruled && { borderTopWidth: 1, borderTopColor: theme.rule }]}>
-      <Icon name={icon} size={20} color={theme.textSecondary} wash={theme.textSecondary} washOpacity={0.2} style={styles.factIcon} />
+      <Icon
+        name={icon}
+        size={20}
+        color={iconColor ?? theme.textSecondary}
+        wash={iconWash ?? theme.textSecondary}
+        washOpacity={iconWash ? 0.35 : 0.2}
+        style={styles.factIcon}
+      />
       <View style={styles.factBody}>
         <ThemedText type="label">{label}</ThemedText>
         {children}
@@ -418,20 +462,16 @@ const styles = StyleSheet.create({
     flex: 1,
     gap: 3,
   },
-  verification: {
-    gap: 10,
-  },
-  verificationHead: {
+  statusLine: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
     alignItems: 'center',
-    gap: 8,
+    columnGap: 8,
+    rowGap: 2,
   },
-  evidence: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    borderTopWidth: 1,
-    paddingTop: 10,
+  meaning: {
+    gap: 6,
+    paddingBottom: 4,
   },
   colophon: {
     gap: 2,

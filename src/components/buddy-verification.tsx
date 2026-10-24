@@ -108,14 +108,12 @@ export function BuddyVerification({ sighting, speciesName }: { sighting: Sightin
   }, [sighting.id, client, user, ready, status, requestSync]);
 
   if (!client) return null;
+  // Signed out: the one button is still the way in, and a short line says what comes first.
   if (!user) {
-    return <Section title="Ask a buddy">
-      <Pressable onPress={() => router.push('/auth')} accessibilityRole="link" style={styles.link}>
-        <ThemedText type="small" themeColor="textSecondary">
-          Someone on the dive saw it too? <ThemedText type="small" themeColor="tint">Sign in</ThemedText> to ask them to confirm it.
-        </ThemedText>
-      </Pressable>
-    </Section>;
+    return <View style={styles.ask}>
+      <OceanButton title="Ask a buddy to confirm" icon="buddies" variant="secondary" accessibilityHint="Sign in first" onPress={() => router.push('/auth')} />
+      <ThemedText type="small" themeColor="textSecondary" style={styles.centred}>Sign in first.</ThemedText>
+    </View>;
   }
 
   const ask = async (replacing?: CreatedCode) => {
@@ -148,6 +146,31 @@ export function BuddyVerification({ sighting, speciesName }: { sighting: Sightin
   // Edited here (species, site or date) and not synced yet: earlier answers were for the old facts.
   const voided = !sighting.synced && sighting.status !== 'confirmed' && answers.some((a) => a.decision === 'saw_it');
   const code = cached.code;
+
+  const askButton = (
+    <OceanButton
+      title={busy ? 'Creating a code…' : 'Ask a buddy to confirm'}
+      icon="buddies"
+      variant="secondary"
+      disabled={busy || loading}
+      onPress={() => void ask()}
+    />
+  );
+  const problemLine = problem ? (
+    <ThemedText type="small" themeColor={problem.kind === 'offline' ? 'textSecondary' : 'danger'} accessibilityLiveRegion="polite">
+      {problem.message}
+      {problem.kind === 'offline' && cached.checkedAt ? ` Showing what was known on ${dateOf(cached.checkedAt)}.` : ''}
+    </ThemedText>
+  ) : null;
+
+  // Nothing asked yet and nothing answered: just the button, not a card with a heading above it.
+  if (answers.length === 0 && sighting.synced && !code && !confirmed) {
+    return <View style={styles.ask}>
+      {askButton}
+      {loading ? <ActivityIndicator color={theme.tint} /> : null}
+      {problemLine}
+    </View>;
+  }
 
   return <Section title="Ask a buddy" seal={confirmed ? <Seal label="Verified" size={76} animate={stampSeal} /> : null}>
     {answers.length > 0 && !voided ? (
@@ -220,21 +243,11 @@ export function BuddyVerification({ sighting, speciesName }: { sighting: Sightin
         </Pressable>
       </View>
     ) : (
-      <View style={styles.stack}>
-        <ThemedText type="small" themeColor="textSecondary">
-          Someone on the dive saw it too? Ask them to confirm it: they’ll see the species, site and date, and answer for themselves.
-        </ThemedText>
-        <OceanButton title={busy ? 'Creating a code…' : 'Ask a buddy'} icon="buddies" disabled={busy || loading} onPress={() => void ask()} />
-      </View>
+      <View style={styles.stack}>{askButton}</View>
     )}
 
     {loading ? <ActivityIndicator color={theme.tint} /> : null}
-    {problem ? (
-      <ThemedText type="small" themeColor={problem.kind === 'offline' ? 'textSecondary' : 'danger'} accessibilityLiveRegion="polite">
-        {problem.message}
-        {problem.kind === 'offline' && cached.checkedAt ? ` Showing what was known on ${dateOf(cached.checkedAt)}.` : ''}
-      </ThemedText>
-    ) : null}
+    {problemLine}
   </Section>;
 }
 
@@ -254,6 +267,12 @@ function Section({ title, seal, children }: { title: string; seal?: ReactNode; c
 }
 
 const styles = StyleSheet.create({
+  ask: {
+    gap: 6,
+  },
+  centred: {
+    textAlign: 'center',
+  },
   card: {
     gap: 12,
   },
