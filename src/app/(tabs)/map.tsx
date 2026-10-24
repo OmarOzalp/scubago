@@ -223,12 +223,11 @@ export default function ExploreScreen() {
       {/* The page's head: title, the add-site and list buttons, then the search, and under it the filter it has set. */}
       <View style={[styles.column, styles.header, { paddingTop: insets.top + Spacing.four }]}>
         <ScreenHeader
-          eyebrow="Dive sites"
           title="Explore"
           accessory={
             // Adding a site without the long-press, which VoiceOver and the web app can't do; and the list view.
             <View style={styles.tools}>
-              <IconButton icon="addSite" onPress={() => router.push('/add-site')} accessibilityLabel="Add a dive site" />
+              <AddSiteButton onPress={() => router.push('/add-site')} />
               {Platform.OS !== 'web' ? (
                 <IconButton
                   icon={listView ? 'map' : 'list'}
@@ -326,6 +325,25 @@ export default function ExploreScreen() {
   );
 }
 
+/** Adding a site, in words as well as a picture: a bare pin with a plus is not something everyone reads. */
+function AddSiteButton({ onPress }: { onPress: () => void }) {
+  const theme = useTheme();
+  return (
+    <Pressable
+      onPress={onPress}
+      accessibilityRole="button"
+      accessibilityLabel="Add site"
+      accessibilityHint="Adds a dive site to the map"
+      style={({ pressed }) => [
+        styles.addSite,
+        { borderColor: theme.rule, backgroundColor: pressed ? theme.backgroundSelected : theme.backgroundElement },
+      ]}>
+      <Icon name="addSite" size={22} />
+      <Text style={[styles.addSiteText, { color: theme.text }]}>Add site</Text>
+    </Pressable>
+  );
+}
+
 /** The site you tapped: where it is, what's been seen there, and the way to its page or to log here. */
 function SiteCard({
   site,
@@ -381,7 +399,7 @@ function SiteCard({
         </View>
       ) : (
         <ThemedText type="caption" themeColor="textSecondary">
-          No sightings logged here yet — be the first!
+          No sightings here yet.
         </ThemedText>
       )}
 
@@ -423,7 +441,23 @@ const styles = StyleSheet.create({
   },
   tools: {
     flexDirection: 'row',
+    alignItems: 'center',
     gap: Spacing.two,
+  },
+  addSite: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    minHeight: 46,
+    paddingLeft: 12,
+    paddingRight: 16,
+    borderRadius: 23,
+    borderWidth: 1.5,
+  },
+  addSiteText: {
+    fontFamily: Type.bodyHeavy,
+    fontSize: 14,
+    lineHeight: 20,
   },
   closeCircle: {
     width: 32,
