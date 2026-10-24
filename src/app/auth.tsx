@@ -5,6 +5,7 @@ import { ActivityIndicator, Platform, Pressable, StyleSheet, TextInput, View } f
 
 import { FormField } from '@/components/form-field';
 import { Icon, type IconName } from '@/components/icon';
+import { LinkRow } from '@/components/journal/link-row';
 import { Paper } from '@/components/journal/paper';
 import { Screen, ScreenHeader } from '@/components/journal/screen';
 import { Wash } from '@/components/journal/wash';
@@ -28,7 +29,7 @@ import {
   startRecovery,
 } from '@/lib/auth';
 import { confirmAction } from '@/lib/confirm';
-import { useAppStore, usePendingChanges } from '@/lib/store';
+import { useAppStore, useDivesBefore, usePendingChanges } from '@/lib/store';
 import { getSupabase } from '@/lib/supabase';
 
 /**
@@ -66,6 +67,7 @@ export default function AuthScreen() {
           <WashIcon icon="sync" width={120} height={84} size={44} />
           <ThemedText style={styles.centreText}>Sync isn&apos;t configured in this build.</ThemedText>
         </Paper>
+        <AccountRows buddy={false} />
       </Screen>
     );
   }
@@ -141,6 +143,7 @@ function Account({ username }: { username: string }) {
           </View>
         ) : null}
       </Paper>
+      <AccountRows buddy />
       <OceanButton title="Sign out" variant="secondary" icon="signOut" disabled={busy} onPress={signOut} />
       {error ? <ErrorNote message={error} /> : null}
       {busy ? (
@@ -284,7 +287,7 @@ function SignInForm({ url }: { url: string | null }) {
             ? 'Reset your password'
             : 'Sign in to sync your log';
   const intro = {
-    'sign-in': 'Your log backs up to your account and follows you to any device.',
+    'sign-in': 'Back up your log and use it on any device.',
     create: 'Back up your log and see it on any device. Sightings logged on this phone move into your new account.',
     'reset-request': 'We’ll email you a link to choose a new password.',
     'reset-sent': `If there’s an account for ${address}, we’ve emailed it a link. Open the email on this phone and tap the link: ScubaGo opens so you can choose a new password.`,
@@ -412,7 +415,30 @@ function SignInForm({ url }: { url: string | null }) {
           </ThemedText>
         </View>
       ) : null}
+      {!resetting ? <AccountRows buddy /> : null}
     </Screen>
+  );
+}
+
+/**
+ * What belongs with the account but not with the log: how many dives came before ScubaGo (they number the pages), and the code a
+ * buddy gives to confirm a sighting or sign a dive. They are here, signed in or not, because neither needs a sign-in to find.
+ */
+function AccountRows({ buddy }: { buddy: boolean }) {
+  const divesBefore = useDivesBefore();
+  return (
+    <View style={styles.rows}>
+      <LinkRow
+        icon="logbook"
+        title="Dives before ScubaGo"
+        detail={divesBefore > 0 ? `${divesBefore.toLocaleString('en')} logged elsewhere` : undefined}
+        accessibilityHint="Numbers your pages after the dives you logged elsewhere"
+        onPress={() => router.push('/dive/count')}
+      />
+      {buddy ? (
+        <LinkRow icon="verified" title="Buddy code" detail="Confirm a buddy’s sighting or dive" role="link" onPress={() => router.push('/verify')} />
+      ) : null}
+    </View>
   );
 }
 
@@ -451,6 +477,9 @@ function TextButton({ label, onPress }: { label: string; onPress: () => void }) 
 }
 
 const styles = StyleSheet.create({
+  rows: {
+    gap: 12,
+  },
   intro: {
     marginTop: -8,
   },
