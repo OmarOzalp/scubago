@@ -31,6 +31,7 @@ const green: TurtleSpec = {
   front: { root: [33, 16], tip: [86, 52], width: 15, bow: 0.18, claws: 1 },
   hind: { root: [22, 88], tip: [36, 108], width: 11, bow: 0.1 },
   streaks: ['#3A2F1E', '#C2A15A'],
+  seamW: 2.1,
 };
 
 // ── Hawksbill turtle ─────────────────────────────────────────────────────────
@@ -134,7 +135,7 @@ const leatherback: TurtleSpec = {
   shell: [[0, 0], [10, 0.6], [21, 4], [27.5, 13], [29.4, 26], [28.6, 42], [25.4, 58], [19.6, 74], [12, 88], [5, 99], [1.4, 106], [0, 108]],
   ridges: 7,
   head: {
-    outline: [[0, -17.5], [4.6, -16.4], [7.4, -12.4], [8.2, -7.4], [7.6, -2.4], [6.4, 1.5]],
+    outline: [[0, -18.4], [3, -18], [6, -15.4], [7.8, -11], [8.2, -6.6], [7.4, -2.2], [6.4, 1.5]],
     eye: [5.8, -10.4],
     eyeR: 1.15,
   },
@@ -142,9 +143,13 @@ const leatherback: TurtleSpec = {
   hind: { root: [16, 92], tip: [27, 113], width: 12.5, bow: 0.06, scales: false },
   extra: (c) => {
     const spots: Fill[] = [
-      ...scatterIn(c.shell, { r: 0.55, gap: 2.2, paint: 'light', rand: c.rand, tries: 500, o: 0.85 }),
-      ...c.flippers.flatMap((f) => scatterIn(f, { r: 0.7, gap: 1.4, paint: 'light', rand: c.rand, tries: 200, o: 0.85 })),
-      ...scatterIn(c.head, { r: 0.45, gap: 1.2, paint: 'light', rand: c.rand, tries: 80, o: 0.85 }),
+      // Sparse on the shell, clustered on the flippers and head: the white blotches of a real one.
+      ...scatterIn(c.shell, { r: 0.55, gap: 8, paint: 'light', rand: c.rand, tries: 90, o: 0.8 }),
+      ...c.flippers.flatMap((f) => [
+        ...scatterIn(f, { r: 0.8, gap: 2.4, paint: 'light', rand: c.rand, tries: 90, o: 0.85 }),
+        ...scatterIn(f, { r: 0.45, gap: 3, paint: 'light', rand: c.rand, tries: 60, o: 0.8 }),
+      ]),
+      ...scatterIn(c.head, { r: 0.5, gap: 3.2, paint: 'light', rand: c.rand, tries: 40, o: 0.85 }),
     ];
     return { marks: [...spots, { poly: ellipse([0, -9] as Pt, 1.6, 1.3), paint: '#E3A79E' }] };
   },

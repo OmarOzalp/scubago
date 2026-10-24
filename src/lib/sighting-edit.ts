@@ -2,6 +2,9 @@ import { UNLISTED_ID, UNLISTED_NAME_MAX } from '@/lib/catalog';
 import type { PrivacyChoice } from '@/lib/privacy';
 import type { Sighting } from '@/lib/types';
 
+/** The longest notes a sighting keeps: the server holds private notes to this (migration 0008). */
+export const NOTES_MAX = 4000;
+
 /** What the logging flow collects, for a new sighting or an edit. */
 export interface SightingInput {
   speciesId: string;
@@ -113,5 +116,6 @@ export function validateSightingInput(
   if (!known.site(input.siteId)) return 'Choose the dive site.';
   if (!isRealDate(input.sightedOn)) return 'That date isn’t valid.';
   if (input.sightedOn > known.today) return 'A sighting can’t be dated in the future.';
+  if ((input.notes?.trim().length ?? 0) > NOTES_MAX) return `Keep the notes under ${NOTES_MAX} characters.`;
   return null;
 }

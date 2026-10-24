@@ -23,6 +23,9 @@ export const TYPED_NUMBERS = [
 
 export type TypedNumber = (typeof TYPED_NUMBERS)[number];
 
+/** A field of the form that a problem can be about: where its message is shown, and what takes focus. */
+export type DraftField = 'number' | 'siteId' | 'divedOn' | 'timeIn' | TypedNumber;
+
 export type DiveDraft = Record<TypedNumber, string> & {
   number: string;
   siteId: string | null;
@@ -76,23 +79,26 @@ export function draftFromDive(d: DiveFields): DiveDraft {
 }
 
 /**
- * The page's fields from the form, or what to fix first. Only the typing is checked here (a number
- * that isn't one, a time that isn't a time); the store checks the page itself (validateDive).
+ * The page's fields from the form, or what to fix first and the field it is about. Only the typing
+ * is checked here (a number that isn't one, a time that isn't a time); the store checks the page
+ * itself (validateDive), and fieldOfProblem finds the field of what it says.
  */
-export function readDraft(draft: DiveDraft): { fields: DiveFields; problem?: undefined } | { fields?: undefined; problem: string } {
-  if (!draft.siteId) return { problem: 'Choose the dive site.' };
+export function readDraft(
+  draft: DiveDraft,
+): { fields: DiveFields; problem?: undefined; field?: undefined } | { fields?: undefined; problem: string; field: DraftField } {
+  if (!draft.siteId) return { problem: 'Choose the dive site.', field: 'siteId' };
   const number = parseNumber(draft.number);
-  if (number === undefined || Number.isNaN(number)) return { problem: 'Give the dive a number.' };
+  if (number === undefined || Number.isNaN(number)) return { problem: 'Give the dive a number.', field: 'number' };
   const fields: DiveFields = { number, siteId: draft.siteId, divedOn: draft.divedOn };
   if (draft.timeIn.trim()) {
     const time = parseTime(draft.timeIn);
-    if (!time) return { problem: 'Write the time in as hours and minutes, like 09:30.' };
+    if (!time) return { problem: 'Write the time in as hours and minutes, like 09:30.', field: 'timeIn' };
     fields.timeIn = time;
   }
   for (const key of TYPED_NUMBERS) {
     const v = parseNumber(draft[key]);
     if (v === undefined) continue;
-    if (Number.isNaN(v)) return { problem: `${FIELD_NAMES[key]} has to be a number.` };
+    if (Number.isNaN(v)) return { problem: `${FIELD_NAMES[key]} has to be a number.`, field: key };
     fields[key] = v;
   }
   if (draft.rating) fields.rating = draft.rating;
@@ -108,6 +114,22 @@ export function readDraft(draft: DiveDraft): { fields: DiveFields; problem?: und
   if (draft.notes.trim()) fields.notes = draft.notes;
   if (draft.signature) fields.signature = draft.signature;
   return { fields };
+}
+
+/**
+ * The field a message from the store's checks (validateDive) is about, so it can be shown under it
+ * and the diver taken there. Nothing for a message about the page as a whole.
+ */
+export function fieldOfProblem(message: string): DraftField | undefined {
+  for (const key of TYPED_NUMBERS) if (message.startsWith(FIELD_NAMES[key])) return key;
+  if (/dive number/i.test(message)) return 'number';
+  if (/dive site/i.test(message)) return 'siteId';
+  if (/\bdate/i.test(message)) return 'divedOn';
+  if (/time in|hours and minutes/i.test(message)) return 'timeIn';
+  if (/average depth/i.test(message)) return 'avgDepthM';
+  if (/end pressure/i.test(message)) return 'pressureEndBar';
+  if (/oxygen/i.test(message)) return 'o2Percent';
+  return undefined;
 }
 
 /** The quick fields: what most divers write on every page. Everything else is under "More details". */

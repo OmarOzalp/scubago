@@ -21,6 +21,8 @@ export type Habitat = typeof HABITATS[number]['id'];
 export const HOME_SHORE: Habitat = 'island';
 export type HomePreferences = { name: string };
 export const DEFAULT_HOME: HomePreferences = { name: 'My little island' };
+/** The longest name a home can have: the editor stops there and says so, and a saved name is cut to it. */
+export const HOME_NAME_MAX = 32;
 
 export const HOME_STAGES = [
   { at: 0, rank: 'New Explorer', place: 'A little beginning', reward: 'Your own little island' },
@@ -57,7 +59,7 @@ export function parseHomePreferences(raw: string | null): HomePreferences {
   try {
     const value = raw ? JSON.parse(raw) : null;
     // (A shore saved before the archipelago, when the diver picked one, is left behind.)
-    return { name: typeof value?.name === 'string' && value.name.trim() ? value.name.trim().slice(0, 32) : DEFAULT_HOME.name };
+    return { name: typeof value?.name === 'string' && value.name.trim() ? value.name.trim().slice(0, HOME_NAME_MAX) : DEFAULT_HOME.name };
   } catch {
     return { ...DEFAULT_HOME };
   }

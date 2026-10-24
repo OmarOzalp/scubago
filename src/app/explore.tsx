@@ -22,10 +22,11 @@ import type { MarineModel } from '@/lib/swimming';
 /** Ink on the island's water (the scene's own colours, the same in both schemes). */
 const ON_WATER = '#1F4B40';
 /** How to look about, shown when the explorer opens (and, with more than one island, how to get between them). */
+const MEET = 'Tap an animal to meet it';
 const GESTURES = 'Pinch or double-tap to look closer · drag to look around';
 const SAILING = 'Pinch or double-tap to look closer · drag to sail between your islands';
-/** How long the gesture hint stays before it fades (ms). */
-const HINT_MS = 5000;
+/** How long the gesture hint stays before it fades (ms): long enough to read its three lines. */
+const HINT_MS = 7000;
 
 /**
  * The island explorer: the diver's archipelago full screen, every island they have found in one
@@ -150,7 +151,8 @@ export default function ExploreScreen() {
     </GestureDetector>
     <View style={[styles.top, { paddingTop: insets.top + 10 }]} pointerEvents="box-none">
       {button('close', 'Close the explorer', close)}
-      <View style={styles.pill} accessibilityLiveRegion="polite"><Text style={styles.pillText}>EXPLORING · {(shown ? nameOf(shown.key) : 'Your archipelago').toUpperCase()}</Text></View>
+      {/* A long home name is cut short with an ellipsis rather than run on into the buttons either side. */}
+      <View style={styles.pill} accessibilityLiveRegion="polite"><Text numberOfLines={1} style={styles.pillText}>YOUR OCEAN · {(shown ? nameOf(shown.key) : 'Your archipelago').toUpperCase()}</Text></View>
       <View style={styles.spacer} />
     </View>
     {places.length > 1 && <View style={[styles.islands, { top: insets.top + 64 }]} pointerEvents="box-none">
@@ -170,18 +172,18 @@ export default function ExploreScreen() {
       {button('locate', 'Show the whole ocean', () => explorer.showAll())}
     </View>
     <Animated.View style={[styles.hint, { bottom: insets.bottom + 26, opacity: hint }]} pointerEvents="none">
-      <Text style={styles.hintText}>{[places.length > 1 ? SAILING : GESTURES, small].filter(Boolean).join('\n')}</Text>
+      <Text style={styles.hintText}>{[MEET, places.length > 1 ? SAILING : GESTURES, small].filter(Boolean).join('\n')}</Text>
     </Animated.View>
   </GestureHandlerRootView>;
 }
 
 const styles = StyleSheet.create({
   root: { flex: 1 },
-  top: { position: 'absolute', top: 0, left: 0, right: 0, paddingHorizontal: 14, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  top: { position: 'absolute', top: 0, left: 0, right: 0, paddingHorizontal: 14, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8 },
   spacer: { width: 44 },
-  pill: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 14, backgroundColor: 'rgba(255,255,255,0.55)' },
+  pill: { flexShrink: 1, minWidth: 0, paddingHorizontal: 12, paddingVertical: 6, borderRadius: 14, backgroundColor: 'rgba(255,255,255,0.55)' },
   islands: { position: 'absolute', left: 0, right: 0, flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', gap: 8, paddingHorizontal: 14 },
-  island: { minHeight: 36, flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 12, borderRadius: 18, backgroundColor: 'rgba(255,255,255,0.6)', borderWidth: 1, borderColor: 'rgba(31,75,64,0.12)' },
+  island: { minHeight: 44, flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 12, borderRadius: 18, backgroundColor: 'rgba(255,255,255,0.6)', borderWidth: 1, borderColor: 'rgba(31,75,64,0.12)' },
   islandHere: { backgroundColor: 'rgba(255,255,255,0.88)', borderColor: ON_WATER },
   dot: { width: 8, height: 8, borderRadius: 4 },
   islandText: { color: ON_WATER, fontSize: 14, fontFamily: Type.bodySemiBold },

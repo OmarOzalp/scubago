@@ -12,7 +12,7 @@ import { OceanButton } from '@/components/ocean-button';
 import { cardFileName } from '@/components/share/card-spec';
 import { ThemedText } from '@/components/themed-text';
 import { useTheme } from '@/hooks/use-theme';
-import { CATALOG_BY_ID } from '@/lib/catalog';
+import { CATALOG_BY_ID, speciesForSighting } from '@/lib/catalog';
 import { releaseSnapshot } from '@/lib/scene-snapshot';
 import type { Dive, DiveSite, Sighting, Species } from '@/lib/types';
 
@@ -113,6 +113,7 @@ export function ShareDiscoveryButton({
         title="Share your discovery"
         cardLabel={describeDiscovery(data, observedNote)}
         fileName={cardFileName(species.commonName)}
+        content={choice.include ? 'private' : 'shared'}
         note={privateNote(kept, choice.include)}
         controls={kept > 0 && shared ? <PrivateSwitch count={kept} value={choice.include} onChange={choice.setInclude} /> : null}
         api={api}>
@@ -128,38 +129,45 @@ export function ShareDiveButton({
   site,
   sightings,
   api,
+  variant = 'button',
 }: {
   dive: Dive;
   site: Pick<DiveSite, 'name' | 'region' | 'country'> | undefined;
   /** The diver's sightings (the screen's). */
   sightings: readonly Sighting[];
   api?: ShareApi;
+  /** 'header': a round icon button the height of a navigation bar, for the page's header, in place of the paper button. */
+  variant?: 'button' | 'header';
 }) {
   const [open, setOpen] = useState(false);
   const close = useCallback(() => setOpen(false), []);
   const shared = useMemo(() => diveCardData(dive, site, sightings), [dive, site, sightings]);
-  const kept = useMemo(() => privateCount(sightings.filter((s) => s.diveId === dive.id), dive.userId), [sightings, dive.id, dive.userId]);
+  // Only the private sightings the page could show count (not one of a species the catalogue no longer has).
+  const kept = useMemo(
+    () => privateCount(sightings.filter((s) => s.diveId === dive.id && speciesForSighting(s)), dive.userId),
+    [sightings, dive.id, dive.userId],
+  );
   const choice = usePrivateChoice(kept, shared.species.length === 0);
   const withPrivate = useMemo(() => (choice.include ? diveCardData(dive, site, sightings, { includePrivate: true }) : null), [choice.include, dive, site, sightings]);
   const data = withPrivate ?? shared;
+  const show = () => {
+    choice.reset();
+    setOpen(true);
+  };
   return (
     <>
-      <OceanButton
-        title="Share this page"
-        variant="secondary"
-        icon="share"
-        accessibilityHint="Shows a picture of this logbook page to share"
-        onPress={() => {
-          choice.reset();
-          setOpen(true);
-        }}
-      />
+      {variant === 'header' ? (
+        <IconButton icon="share" size={44} accessibilityLabel="Share this page" accessibilityHint="Shows a picture of this logbook page to share" onPress={show} />
+      ) : (
+        <OceanButton title="Share this page" variant="secondary" icon="share" accessibilityHint="Shows a picture of this logbook page to share" onPress={show} />
+      )}
       <SharePreview
         visible={open}
         onClose={close}
         title="Share this dive"
         cardLabel={describeDive(data)}
         fileName={cardFileName('dive', data.number, data.siteName)}
+        content={choice.include ? 'private' : 'shared'}
         note={privateNote(kept, choice.include)}
         controls={kept > 0 ? <PrivateSwitch count={kept} value={choice.include} onChange={choice.setInclude} /> : null}
         api={api}>
@@ -202,22 +210,31 @@ export function ShareArchipelagoButton({
   // The picture taken for this opening of the preview, and whether it is still being taken.
   const [taken, setTaken] = useState<{ uri?: string; framing: boolean }>({ framing: false });
   const attempt = useRef(0);
-  const shown = snapshot ?? taken.uri;
-  // With a snapshot, the card isn't ready to capture until that picture has loaded (or failed to).
-  const [settledFor, setSettledFor] = useState<string | undefined>();
-  const onSettled = useCallback(() => setSettledFor(shown), [shown]);
   // A taken picture is let go when it is replaced, when the preview closes, and on unmount.
   useEffect(() => () => releaseSnapshot(taken.uri), [taken.uri]);
   useEffect(() => () => void attempt.current++, []);
 
   const shared = useMemo(() => archipelagoData(name, sightings, dives, ownerId), [name, sightings, dives, ownerId]);
-  const kept = useMemo(() => privateCount(sightings, ownerId), [sightings, ownerId]);
+  // Only the private sightings the islands could show count: a catalogue species, not an animal outside it.
+  const kept = useMemo(() => privateCount(sightings.filter((s) => CATALOG_BY_ID.has(s.speciesId)), ownerId), [sightings, ownerId]);
   const withPrivate = useMemo(
     () => (kept > 0 ? archipelagoData(name, sightings, dives, ownerId, CATALOG_BY_ID, { includePrivate: true }) : null),
     [kept, name, sightings, dives, ownerId],
   );
   const choice = usePrivateChoice(kept, shared === null);
   const { reset } = choice;
+
+  // Home's scene shows all the diver's animals, private ones too. While those are left off the card
+  // and they add a species to it (and so perhaps an island or a level), a picture of the scene would
+  // show what the card leaves out, so the card draws its illustration instead. Private sightings only
+  // ever add, so the same number of species is the same island.
+  const pictureOff = !choice.include && (withPrivate?.speciesCount ?? 0) > (shared?.speciesCount ?? 0);
+  const shown = pictureOff ? undefined : snapshot ?? taken.uri;
+  // A picture the card won't use doesn't hold Share (it is still taken, for the switch to bring in).
+  const framing = taken.framing && !pictureOff;
+  // With a snapshot, the card isn't ready to capture until that picture has loaded (or failed to).
+  const [settledFor, setSettledFor] = useState<string | undefined>();
+  const onSettled = useCallback(() => setSettledFor(shown), [shown]);
 
   const show = useCallback(() => {
     reset();
@@ -236,6 +253,8 @@ export function ShareArchipelagoButton({
   const close = useCallback(() => {
     attempt.current++;
     setTaken({ framing: false });
+    // The next opening loads its picture afresh, even the same one: it isn't ready until then.
+    setSettledFor(undefined);
     setOpen(false);
   }, []);
 
@@ -250,8 +269,9 @@ export function ShareArchipelagoButton({
         title="Share your archipelago"
         cardLabel={describeArchipelago(data)}
         fileName={cardFileName('archipelago', data.name)}
-        ready={!taken.framing && (!shown || settledFor === shown)}
-        note={taken.framing ? 'Framing your islands…' : privateNote(kept, choice.include)}
+        ready={!framing && (!shown || settledFor === shown)}
+        content={`${choice.include ? 'private' : 'shared'} ${shown ?? 'illustration'}`}
+        note={framing ? 'Framing your islands…' : privateNote(kept, choice.include)}
         controls={kept > 0 && shared ? <PrivateSwitch count={kept} value={choice.include} onChange={choice.setInclude} /> : null}
         api={api}>
         <ArchipelagoCard
@@ -264,7 +284,7 @@ export function ShareArchipelagoButton({
           sitesDived={data.sitesDived}
           rarest={data.rarest}
           snapshot={shown}
-          framing={taken.framing}
+          framing={framing}
           onSettled={onSettled}
         />
       </SharePreview>

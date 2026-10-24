@@ -22,9 +22,12 @@ export interface Species {
   blurb: string;
   /** Optional emoji override; falls back to the category emoji. */
   emoji?: string;
-  /** Hot-linked photo (CC-licensed, from iNaturalist); merged in from species-photos.json. */
+  /** Hot-linked photo from iNaturalist under CC0, CC BY or CC BY-SA; merged in from species-photos.json. */
   photoUrl?: string;
+  /** The photographer's credit, naming the licence ("(c) Name, some rights reserved (CC BY)"). */
   photoAttribution?: string;
+  /** The photo's page on iNaturalist, where its licence is stated. */
+  photoSource?: string;
 }
 
 export type Difficulty = 'beginner' | 'intermediate' | 'advanced' | 'technical';

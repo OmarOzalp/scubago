@@ -23,46 +23,76 @@ export function islandLabel(island: IslandResult): string {
   return `${island.name}, ${island.unlockedOn ? `raised ${longDate(island.unlockedOn)}` : 'your home island'}. ${residents}.`;
 }
 
-/** One island of the archipelago: its picture (under mist while locked), how many residents are found, and who to look for next. */
-export function IslandCard({ island, onOpenSpecies }: { island: IslandResult; onOpenSpecies?: (speciesId: string) => void }) {
+/**
+ * One island of the archipelago: its picture (under mist while locked), how many residents are found,
+ * and who to look for next. A raised island's picture and name open the island itself (`onOpen`); a
+ * locked one has nothing to open yet.
+ */
+export function IslandCard({
+  island,
+  onOpen,
+  onOpenSpecies,
+}: {
+  island: IslandResult;
+  onOpen?: (islandId: IslandResult['id']) => void;
+  onOpenSpecies?: (speciesId: string) => void;
+}) {
   const theme = useTheme();
   const habitat = HABITATS.find((h) => h.id === ISLANDS[island.id])!;
   const raisedBy = island.raisedBy ? CATALOG_BY_ID.get(island.raisedBy)?.commonName : undefined;
+  const open = island.unlocked ? onOpen : undefined;
+  const head = (
+    <>
+      <View style={[styles.art, { backgroundColor: habitat.water }]}>
+        <View style={styles.zoom}>
+          <IslandArt habitat={habitat.id} level={1} />
+        </View>
+        {island.unlocked ? null : (
+          <View style={[StyleSheet.absoluteFill, styles.mist, { backgroundColor: theme.backgroundElement }]}>
+            <View style={[styles.lock, { borderColor: theme.textSecondary, backgroundColor: theme.backgroundElement }]}>
+              <Icon name="lock" size={22} color={theme.text} />
+            </View>
+          </View>
+        )}
+      </View>
+      <View style={styles.info}>
+        <View style={styles.nameRow}>
+          <View aria-hidden style={[styles.dot, { backgroundColor: island.color }]} />
+          <Text style={[styles.name, { color: theme.text }]}>{island.name}</Text>
+          {open ? <Icon name="chevronRight" size={18} color={theme.textSecondary} weight="bold" /> : null}
+        </View>
+        {island.unlocked ? (
+          <Tag
+            label={island.unlockedOn ? `Raised ${stampDate(island.unlockedOn)}` : 'Your home island'}
+            color={theme.turquoise}
+            text={theme.text}
+            small
+          />
+        ) : (
+          <Tag label="Locked" dashed small />
+        )}
+        <ThemedText type="small" themeColor="textSecondary">
+          {island.unlocked ? (raisedBy ? `Rose when you logged ${raisedBy}.` : 'Where every animal not at another island swims.') : (island.requirement ?? '')}
+        </ThemedText>
+      </View>
+    </>
+  );
   const body = (
     <>
-      <View style={styles.top} accessible accessibilityLabel={islandLabel(island)}>
-        <View style={[styles.art, { backgroundColor: habitat.water }]}>
-          <View style={styles.zoom}>
-            <IslandArt habitat={habitat.id} level={1} />
-          </View>
-          {island.unlocked ? null : (
-            <View style={[StyleSheet.absoluteFill, styles.mist, { backgroundColor: theme.backgroundElement }]}>
-              <View style={[styles.lock, { borderColor: theme.textSecondary, backgroundColor: theme.backgroundElement }]}>
-                <Icon name="lock" size={22} color={theme.text} />
-              </View>
-            </View>
-          )}
+      {open ? (
+        <Pressable
+          onPress={() => open(island.id)}
+          accessibilityRole="link"
+          accessibilityLabel={islandLabel(island)}
+          accessibilityHint="Opens the island full screen"
+          style={({ pressed }) => [styles.top, { opacity: pressed ? 0.7 : 1 }]}>
+          {head}
+        </Pressable>
+      ) : (
+        <View style={styles.top} accessible accessibilityLabel={islandLabel(island)}>
+          {head}
         </View>
-        <View style={styles.info}>
-          <View style={styles.nameRow}>
-            <View aria-hidden style={[styles.dot, { backgroundColor: island.color }]} />
-            <Text style={[styles.name, { color: theme.text }]}>{island.name}</Text>
-          </View>
-          {island.unlocked ? (
-            <Tag
-              label={island.unlockedOn ? `Raised ${stampDate(island.unlockedOn)}` : 'Your home island'}
-              color={theme.turquoise}
-              text={theme.text}
-              small
-            />
-          ) : (
-            <Tag label="Locked" dashed small />
-          )}
-          <ThemedText type="small" themeColor="textSecondary">
-            {island.unlocked ? (raisedBy ? `Rose when you logged ${raisedBy}.` : 'Where every animal not at another island swims.') : (island.requirement ?? '')}
-          </ThemedText>
-        </View>
-      </View>
+      )}
       <ThemedText type="caption" themeColor="textSecondary">
         {island.blurb}
       </ThemedText>

@@ -82,8 +82,8 @@
   "green-turtle": {
     "status": "stylized-draft",
     "version": 2,
-    "bytes": 93228,
-    "triangles": 1226,
+    "bytes": 119484,
+    "triangles": 2550,
     "source": "Original procedural geometry and rig",
     "bones": 9,
     "clip": "Swim",
@@ -130,8 +130,8 @@
   "day-octopus": {
     "status": "stylized-draft",
     "version": 2,
-    "bytes": 114564,
-    "triangles": 1820,
+    "bytes": 166656,
+    "triangles": 3328,
     "source": "Original procedural geometry and rig",
     "bones": 34,
     "clip": "Swim",
@@ -146,8 +146,8 @@
   "giant-cuttlefish": {
     "status": "stylized-draft",
     "version": 2,
-    "bytes": 101844,
-    "triangles": 1752,
+    "bytes": 138084,
+    "triangles": 2816,
     "source": "Original procedural geometry and rig",
     "bones": 25,
     "clip": "Swim",
@@ -162,8 +162,8 @@
   "giant-moray": {
     "status": "stylized-draft",
     "version": 2,
-    "bytes": 68488,
-    "triangles": 1320,
+    "bytes": 97108,
+    "triangles": 2152,
     "source": "Original procedural geometry and rig",
     "bones": 11,
     "clip": "Swim",
@@ -258,7 +258,7 @@
   "golden-jellyfish": {
     "status": "stylized-draft",
     "version": 2,
-    "bytes": 118376,
+    "bytes": 118328,
     "triangles": 2400,
     "source": "Original procedural geometry and rig",
     "bones": 19,
@@ -354,8 +354,8 @@
   "harbor-seal": {
     "status": "stylized-draft",
     "version": 2,
-    "bytes": 188992,
-    "triangles": 4162,
+    "bytes": 213000,
+    "triangles": 4216,
     "source": "Original procedural geometry and rig",
     "bones": 13,
     "clip": "Swim",
@@ -370,7 +370,7 @@
   "sea-otter": {
     "status": "stylized-draft",
     "version": 2,
-    "bytes": 133620,
+    "bytes": 133616,
     "triangles": 3262,
     "source": "Original procedural geometry and rig",
     "bones": 13,
@@ -386,7 +386,7 @@
   "garibaldi": {
     "status": "stylized-draft",
     "version": 2,
-    "bytes": 133904,
+    "bytes": 133908,
     "triangles": 3328,
     "source": "Original procedural geometry and rig",
     "bones": 12,
@@ -402,8 +402,8 @@
   "leafy-seadragon": {
     "status": "stylized-draft",
     "version": 2,
-    "bytes": 153380,
-    "triangles": 3768,
+    "bytes": 195076,
+    "triangles": 4576,
     "source": "Original procedural geometry and rig",
     "bones": 12,
     "clip": "Swim",
@@ -690,7 +690,7 @@
   "bumphead-parrotfish": {
     "status": "stylized-draft",
     "version": 2,
-    "bytes": 194148,
+    "bytes": 194152,
     "triangles": 4246,
     "source": "Original procedural geometry and rig",
     "bones": 12,
@@ -722,7 +722,7 @@
   "batfish": {
     "status": "stylized-draft",
     "version": 2,
-    "bytes": 167640,
+    "bytes": 167660,
     "triangles": 4288,
     "source": "Original procedural geometry and rig",
     "bones": 12,
@@ -738,8 +738,8 @@
   "hawksbill-turtle": {
     "status": "stylized-draft",
     "version": 2,
-    "bytes": 138856,
-    "triangles": 2706,
+    "bytes": 127056,
+    "triangles": 2606,
     "source": "Original procedural geometry and rig",
     "bones": 9,
     "clip": "Swim",

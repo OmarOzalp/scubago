@@ -27,7 +27,8 @@ export function Chip({ label, selected, onPress, accessibilityLabel }: { label: 
 
 const styles = StyleSheet.create({
   chip: {
-    minHeight: 40,
+    // 44pt is the least a finger should be asked to hit; the label stays 14pt, so the chip only gains a little padding.
+    minHeight: 44,
     borderRadius: Radius.sm,
     borderWidth: 1.5,
     paddingHorizontal: 14,

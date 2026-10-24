@@ -17,6 +17,15 @@ describe('normalizeSearch', () => {
     expect(normalizeSearch('Grey Reef')).toBe(normalizeSearch('gray reef'));
     expect(normalizeSearch('Harbour Seal')).toBe('harbor seal');
   });
+
+  it('keeps the letters of every script, and makes any punctuation a space', () => {
+    expect(normalizeSearch('رأس محمد')).toBe('رأس محمد');
+    expect(normalizeSearch('大瀬崎、伊豆')).toBe('大瀬崎 伊豆');
+    expect(normalizeSearch('Ναυάγιο «Ζηνοβία»')).toBe('ναυαγιο ζηνοβια');
+    expect(normalizeSearch('Þingvellir')).toBe('þingvellir');
+    expect(normalizeSearch('Ras «Mohammed» – Sinai · Egypt…')).toBe('ras mohammed sinai egypt');
+    expect(normalizeSearch('Wreck No. 4 — “The Point” [HU-16]')).toBe('wreck no 4 the point hu 16');
+  });
 });
 
 describe('editDistance', () => {
@@ -159,6 +168,16 @@ describe('searchSites', () => {
       { id: 'seed-2', name: 'Dahab Lighthouse', region: 'Elsewhere', country: 'Egypt', lat: 0, lng: 0, blurb: '', notableSpecies: [], source: 'seed' },
     ];
     expect(searchSites(sites, 'dahab').map((s) => s.id)).toEqual(['seed-2', 'seed-1', 'osm-node-1', 'osm-node-2']);
+  });
+
+  it('finds a site named in another script, by its name or part of it', () => {
+    const at = (id: string, name: string, region: string): DiveSite => ({ id, name, lat: 0, lng: 0, region, country: 'Egypt', blurb: '', notableSpecies: [], source: 'user' });
+    const sites = [...SITES, at('u-ras', 'رأس محمد', 'سيناء'), at('u-osezaki', '大瀬崎', '伊豆'), at('u-zenobia', 'Ναυάγιο Ζηνοβία', 'Λάρνακα')];
+    expect(searchSites(sites, 'رأس محمد').map((s) => s.id)).toEqual(['u-ras']);
+    expect(searchSites(sites, 'محمد').map((s) => s.id)).toEqual(['u-ras']);
+    expect(searchSites(sites, 'سيناء').map((s) => s.id)).toEqual(['u-ras']);
+    expect(searchSites(sites, '大瀬').map((s) => s.id)).toEqual(['u-osezaki']);
+    expect(searchSites(sites, 'ζηνοβια').map((s) => s.id)).toEqual(['u-zenobia']);
   });
 
   it('returns every site for an empty query, and none for nonsense', () => {

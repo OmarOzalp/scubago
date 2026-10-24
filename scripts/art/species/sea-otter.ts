@@ -20,19 +20,19 @@ const rig = SWIM_RIGS['sea-otter'] as PinnipedRig;
 /** Dark brown fur frosted with paler guard hairs; the head and neck pale, fading into the body behind them. */
 const skin = (s: number, theta: number, p: Vector3): RGB => {
   const t = Math.abs(theta);
-  const frost = smoothstep(.55, .85, noise(p.z * 80 + 5, 3) * .6 + noise(p.x * 90 + p.y * 70, 7) * .4) * .55;
+  const frost = smoothstep(.55, .85, noise(p.z * 80 + 5, 3) * .6 + noise(p.x * 90 + p.y * 70, 7) * .4) * .8;
   const body = mix(mix(BODY, BELLY, smoothstep(1.8, 2.6, t)), FROST, frost);
   const head = mix(HEAD, HEAD_SHADE, smoothstep(1.4, 2.6, t) * .6 + noise(p.z * 60, 2) * .2);
-  return mix(head, body, smoothstep(.12, .22, s + .02 * noise(theta * 4, 1)));
+  return mix(head, body, smoothstep(.08, .34, s + .02 * noise(theta * 4, 1)));
 };
 
 export const SEA_OTTER: SharkDesign = {
   rig, nose: .45, bodyEnd: .9, frontDome: .02,
   // A short, blunt muzzle on a broad, round head, a thick neck, a long body deepest at the chest, the
   // hips narrowing into the tail: short, flat and broad, with a rounded end.
-  width: [[0, .022], [.025, .036], [.055, .048], [.09, .056], [.13, .054], [.18, .058], [.26, .068], [.36, .074], [.46, .071], [.55, .062], [.62, .046], [.68, .039], [.76, .037], [.83, .034], [.87, .027], [.9, .012]],
-  top: [[0, .019], [.025, .031], [.055, .042], [.09, .049], [.13, .047], [.18, .052], [.26, .062], [.36, .066], [.46, .062], [.55, .052], [.62, .032], [.68, .018], [.76, .015], [.83, .013], [.87, .011], [.9, .006]],
-  bottom: [[0, .017], [.025, .026], [.055, .035], [.09, .041], [.13, .043], [.18, .05], [.26, .062], [.36, .068], [.46, .064], [.55, .054], [.62, .034], [.68, .016], [.76, .013], [.83, .012], [.87, .01], [.9, .005]],
+  width: [[0, .0275], [.025, .045], [.055, .06], [.09, .07], [.13, .0675], [.18, .0725], [.26, .085], [.36, .0925], [.46, .0887], [.55, .0775], [.62, .0529], [.68, .039], [.76, .037], [.83, .034], [.87, .03], [.9, .014]],
+  top: [[0, .0238], [.025, .0387], [.055, .0525], [.09, .0612], [.13, .0587], [.18, .065], [.26, .0775], [.36, .0825], [.46, .0775], [.55, .065], [.62, .0368], [.68, .025], [.76, .02], [.83, .02], [.87, .019], [.9, .008]],
+  bottom: [[0, .0213], [.025, .0325], [.055, .0438], [.09, .0513], [.13, .0537], [.18, .0625], [.26, .0775], [.36, .085], [.46, .08], [.55, .0675], [.62, .0391], [.68, .023], [.76, .018], [.83, .018], [.87, .017], [.9, .007]],
   center: [[0, -.009], [.08, -.003], [.15, 0], [.6, 0], [.9, .003]],
   squareTop: [[0, 2], [.55, 2], [.66, 2.6], [.9, 2.6]],
   squareBottom: [[0, 2], [.55, 2], [.66, 2.6], [.9, 2.6]],
@@ -109,9 +109,9 @@ export function buildSeaOtter() {
     const dir = new Vector3(side * .55, .55, -.6).normalize();
     fin(mesh, {
       stations: 3, chordPoints: 4,
-      le: (v) => base.clone().addScaledVector(dir, .013 * v).add(new Vector3(0, 0, .006 * (1 - v))),
-      te: (v) => base.clone().addScaledVector(dir, .013 * v).add(new Vector3(0, 0, -.006 * (1 - v))),
-      thickness: (v) => .005 * (1 - .5 * v),
+      le: (v) => base.clone().addScaledVector(dir, .024 * v).add(new Vector3(0, 0, .009 * (1 - v))),
+      te: (v) => base.clone().addScaledVector(dir, .024 * v).add(new Vector3(0, 0, -.009 * (1 - v))),
+      thickness: (v) => .008 * (1 - .5 * v),
       side: new Vector3(side, 0, 0),
       color: () => EAR,
       skin: () => ({ Head: 1 }),

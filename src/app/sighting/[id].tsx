@@ -1,14 +1,14 @@
 import { Image } from 'expo-image';
 import { Stack, router, useLocalSearchParams } from 'expo-router';
 import { useState } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { BuddyVerification } from '@/components/buddy-verification';
 import { Icon, type IconName } from '@/components/icon';
+import { IconButton } from '@/components/journal/icon-button';
 import { Paper, PaperButton } from '@/components/journal/paper';
 import { Screen } from '@/components/journal/screen';
 import { Wash } from '@/components/journal/wash';
-import { OceanButton } from '@/components/ocean-button';
 import { RarityChip } from '@/components/rarity-chip';
 import { formatEntryDate } from '@/components/sighting-row';
 import { SpeciesAvatar } from '@/components/species-avatar';
@@ -43,7 +43,7 @@ function formatTimestamp(iso: string): string {
   return new Date(iso).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' });
 }
 
-/** One page of the logbook: what was seen, when and where, who can see it, and who has confirmed it. */
+/** One page of the logbook: what was seen, when and where, who can see it, and who has confirmed it. Edit is in the header, in reach from the top of the page. */
 export default function SightingDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const theme = useTheme();
@@ -112,7 +112,18 @@ export default function SightingDetailScreen() {
 
   return (
     <Screen>
-      <Stack.Screen options={{ title: species.commonName }} />
+      <Stack.Screen
+        options={{
+          title: species.commonName,
+          headerRight: mine
+            ? () => (
+              <View style={styles.headerActions}>
+                <IconButton icon="edit" size={44} accessibilityLabel="Edit sighting" onPress={() => !busy && router.push({ pathname: '/log/new', params: { edit: sighting.id } })} style={{ opacity: busy ? 0.4 : 1 }} />
+              </View>
+            )
+            : undefined,
+        }}
+      />
 
       {/* The top of the page, as in a paper logbook: the day, then the site. */}
       <View style={styles.entryHead}>
@@ -262,16 +273,6 @@ export default function SightingDetailScreen() {
         {mine ? <SyncLine item={sighting} /> : null}
       </View>
 
-      {mine ? (
-        <OceanButton
-          title="Edit sighting"
-          variant="secondary"
-          icon="edit"
-          disabled={busy}
-          onPress={() => router.push({ pathname: '/log/new', params: { edit: sighting.id } })}
-        />
-      ) : null}
-
       {/* Set apart below a rule: deleting can't be undone. */}
       {mine ? (
         <View style={[styles.dangerZone, { borderTopColor: theme.rule }]}>
@@ -323,6 +324,10 @@ const styles = StyleSheet.create({
   },
   center: {
     textAlign: 'center',
+  },
+  // The web's header has no margin at its right end (a phone's has its own).
+  headerActions: {
+    paddingRight: Platform.OS === 'web' ? Spacing.three : 0,
   },
   missing: {
     flex: 1,

@@ -46,12 +46,14 @@ test('credits: iNaturalist and its observers, the CC0 / CC BY rule, and OBIS wit
   expect(link('iNaturalist terms of use')).toHaveLength(1);
 });
 
-test('credits: species photographs are described generally and never promised to be open', async () => {
+// What it says is held true by species-photos.test.ts: every photo is CC0, CC BY or CC BY-SA.
+test('credits: species photographs are open to any use with credit, each credited and linked', async () => {
   await act(async () => { root = create(<CreditsScreen />); });
   const text = textOf();
   expect(text).toContain('Species photographs');
+  expect(text).toMatch(/licences that allow any use with credit \(CC0, CC BY or CC BY-SA\)/);
   expect(text).toMatch(/credited to its photographer/);
-  expect(text).toMatch(/licence that photographer gave it/);
+  expect(text).toMatch(/opens the photo on iNaturalist, where its licence is stated/);
 });
 
 test('credits: every link opens a secure page, and each is a labelled link', async () => {

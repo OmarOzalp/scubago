@@ -83,9 +83,13 @@ a "set" of one.
 Visited sites are grouped by top-level region: a site's `regionId` is walked up its `parentId` chain
 to the root. A site with no region that is in a badge region (below) goes on that region's page, so
 the seed Red Sea sites and imported ones share one; any other site goes on its country's.
+A visit logged at a hidden copy of a site (an imported duplicate of a seed, a second mark merged
+away) counts at the listed site it stands for (`canonicalSiteId` in `src/data/sites.ts`), for the
+passport and the site and place badges alike.
 
 Each group has an `id` (`region:great-barrier-reef`, `country:thailand`), a `name`, its `stamps`,
-`knownSites` (the sites in the lookup in that group, visited or not, for "3 of 41") and first and
+`knownSites` (the listed sites in that group, visited or not, for "3 of 41"; a retired site only once
+it has a stamp, so visiting every listed site completes the page) and first and
 last visit days. Groups and the stamps in them are sorted most recently visited first. A stamp
 holds the site, `firstVisitedOn`, `lastVisitedOn`, `visits` (distinct days across dives and
 sightings), `dives` and `speciesIds` (in the order first seen). `siteStamp(siteId, input)` gives
@@ -196,9 +200,13 @@ the log has loaded.
 ### Celebrating a new badge
 
 `useNewBadges({ owner, badges, ready })` (`src/hooks/use-new-badges.ts`) keeps the ids of the badges
-the diver has seen in AsyncStorage, one record per user id (`scubago:badges-seen:v1:<id>`). The first
-time, with no record, it takes what is earned as seen, quietly. It returns `fresh` (earned, not yet
-seen) and `markSeen()`; the record only ever grows.
+the diver has seen in AsyncStorage, one record per user id (`scubago:badges-seen:v1:<id>`). Every
+screen open shares one copy of it (`src/lib/badges-seen.ts`), so a badge celebrated on one is not new
+on another, and a write keeps whatever is stored already. The first time, with no record, it takes
+what is earned as seen, quietly; for a signed-in diver only once a sync has brought their log down
+(the store's `pulledFor`), so on a new phone their history is not celebrated as it arrives. Signing
+in moves the device's record into the account's along with its log (`claimSeenBadges`). It returns `fresh` (earned, not yet seen) and `markSeen()`; the record
+only ever grows.
 
 The log screen (`src/app/log/new.tsx`) calls it when it opens, before anything is saved, so the record
 is that of before the dive. Its saved step then shows `NewBadgesCelebration`: the medal drops in on a

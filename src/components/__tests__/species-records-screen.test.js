@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, jest, test } from '@jest/globa
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { router } from 'expo-router';
 import React, { act } from 'react';
-import { Modal } from 'react-native';
+import { Modal, StyleSheet } from 'react-native';
 import { create } from 'react-test-renderer';
 
 import SpeciesDetailScreen from '@/app/species/[id]';
@@ -31,6 +31,7 @@ let mockSightings = [];
 jest.mock('@/lib/store', () => ({
   useAppStore: (select) => select({ sightings: mockSightings, user: null, deleteSpeciesLog: jest.fn() }),
   useAllSites: () => require('@/data/sites').SITES,
+  useSiteById: () => (id) => require('@/data/sites').SITES_BY_ID.get(id),
   useMyUserId: () => 'local',
 }));
 // Stand-in "real data": only reef-manta has a tier worked out from encounters, and only when a test sets it.
@@ -95,6 +96,12 @@ const render = async () => {
     root = create(<SpeciesDetailScreen />);
   });
 };
+// "How rare?" opens the rarity line, which the page keeps closed to begin with.
+const rarityButton = () => root.root.findAll((n) => typeof n.type !== 'string' && typeof n.props.onPress === 'function' && n.props['aria-expanded'] !== undefined);
+const renderWithRarity = async () => {
+  await render();
+  await act(async () => rarityButton()[0].props.onPress());
+};
 const textOf = () => root.root.findAll((n) => typeof n.type === 'string' && n.children.some((c) => typeof c === 'string')).map((n) => n.children.filter((c) => typeof c === 'string').join('')).join(' | ');
 const press = (label) => root.root.findAll((n) => typeof n.type !== 'string' && typeof n.props.onPress === 'function' && (typeof label === 'string' ? n.props.accessibilityLabel === label : label.test(n.props.accessibilityLabel ?? '')));
 const shareButton = () => root.root.findAll((n) => n.props.accessibilityHint === 'Shows a picture of this discovery to share' && typeof n.props.onPress === 'function');
@@ -106,7 +113,7 @@ const openShare = async () => {
 
 describe('the rarity line', () => {
   test('without real data it says the tier is ScubaGo’s own estimate, with no numbers and no link', async () => {
-    await render();
+    await renderWithRarity();
     const text = textOf();
     expect(text).toContain(OWN_ESTIMATE);
     expect(text).not.toMatch(/recorded near \d+ of \d+ .* dive sites\./);
@@ -119,7 +126,7 @@ describe('the rarity line', () => {
 
   test('with real data it gives the tier and how many dive sites record it, the worldwide counts as a second line, and a link to Data & credits', async () => {
     mockEntry = HAND_WRITTEN_ENTRY;
-    await render();
+    await renderWithRarity();
     const text = textOf();
     expect(text).toContain(`${EVIDENCE}.`);
     expect(text).toContain(`${WORLDWIDE}.`);
@@ -137,7 +144,7 @@ describe('the rarity line', () => {
 
   test('without worldwide counts it still gives the tier and its evidence, on one line', async () => {
     mockEntry = { ...HAND_WRITTEN_ENTRY, worldwide: undefined };
-    await render();
+    await renderWithRarity();
     const text = textOf();
     expect(text).toContain(`${EVIDENCE}.`);
     expect(text).not.toMatch(/worldwide/);
@@ -146,7 +153,7 @@ describe('the rarity line', () => {
 
   test('sits under the names and the rarity chip, before the description', async () => {
     mockEntry = HAND_WRITTEN_ENTRY;
-    await render();
+    await renderWithRarity();
     const text = textOf();
     const species = CATALOG_BY_ID.get('reef-manta');
     expect(text.indexOf(species.scientificName)).toBeGreaterThan(-1);
@@ -157,9 +164,39 @@ describe('the rarity line', () => {
   test('another species with no data still says its tier is an estimate', async () => {
     mockEntry = HAND_WRITTEN_ENTRY;
     mockSpeciesId = 'whale-shark';
-    await render();
+    await renderWithRarity();
     expect(textOf()).toContain(OWN_ESTIMATE);
     expect(textOf()).not.toContain(EVIDENCE);
+  });
+
+  test('is closed to begin with, behind "How rare?", and the chip with its tier stays in view', async () => {
+    mockEntry = HAND_WRITTEN_ENTRY;
+    await render();
+    const text = textOf();
+    expect(text).toContain('How rare?');
+    expect(text).toContain(CATALOG_BY_ID.get('reef-manta').rarity.replace(/^./, (c) => c.toUpperCase()));
+    expect(text).not.toContain(EVIDENCE);
+    expect(text).not.toContain(WORLDWIDE);
+    expect(press(/Data and credits$/)).toHaveLength(0);
+    expect(rarityButton()[0].props['aria-expanded']).toBe(false);
+  });
+
+  test('opens and closes again, and keeps the whole line and its link to Data & credits while open', async () => {
+    mockEntry = HAND_WRITTEN_ENTRY;
+    await render();
+    await act(async () => rarityButton()[0].props.onPress());
+    expect(rarityButton()[0].props['aria-expanded']).toBe(true);
+    expect(textOf()).toContain(`${EVIDENCE}.`);
+    expect(textOf()).toContain(`${WORLDWIDE}.`);
+    expect(textOf()).toContain('Data & credits');
+    await act(async () => rarityButton()[0].props.onPress());
+    expect(textOf()).not.toContain(EVIDENCE);
+  });
+
+  test('is at least 44 points tall to hit', async () => {
+    await render();
+    const style = rarityButton()[0].props.style({ pressed: false });
+    expect(StyleSheet.flatten(style).minHeight).toBeGreaterThanOrEqual(44);
   });
 });
 

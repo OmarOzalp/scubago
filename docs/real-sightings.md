@@ -217,7 +217,8 @@ against WoRMS and iNaturalist's taxonomy.
 - **Not tested live** (above). First run it against one site and read the result before building on it.
 - **Where the counts are cut off.** `species_counts` reads at most 600 species per site, most
   observed first; near a busy coast the many land species can crowd out rarely observed marine ones.
-  A source with more taxa than it read reports `truncated`. A filter to marine groups, or
+  A source with more taxa than it read reports `truncated`. A later page that fails is not that: the
+  pages before it are kept, the source reports an `error`, and it is tried again within the hour. A filter to marine groups, or
   more pages, is the fix once the live responses are seen. OBIS is read in one page.
 - **The recent list** only covers openly licensed observations, so "newest" means newest of those. It
   holds up to 30 observations of the animals the counts found, before the cap of 20 and 3 per animal.
@@ -289,6 +290,8 @@ Per-source flags are respected. A source with `ok: false` is named ("OBIS couldn
 records aren't included") and left out of the credit line. A source with `ok` and an `error` says its
 records are from an earlier day. A `truncated` source says a rarely recorded animal may be missing. If
 iNaturalist answered but no recent observation is openly licensed, the counts stay and a line says so.
+If the recent observations could not be read (`recentFailed` on iNaturalist's status), the line says
+they couldn't be loaded instead.
 
 What is and is not shown:
 

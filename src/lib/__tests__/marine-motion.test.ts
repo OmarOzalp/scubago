@@ -1,4 +1,5 @@
 import { expect, test } from '@jest/globals';
+import { flatSeabed } from '../../test-support/flat-seabed';
 import { shoreDistance, shorePolygons } from '../island-outline';
 import { createMarineMotion, MOVEMENT, WORLD, type MarineMember } from '../marine-motion';
 import { OCEAN } from '../ocean';
@@ -10,6 +11,12 @@ const SIX: MarineModel[] = ['whale-shark', 'great-white-shark', 'tiger-shark', '
 /** Every species with its own model, as the showcase shows them. */
 const SPECIES: MarineModel[] = [...SIX, 'scalloped-hammerhead', 'bottlenose-dolphin'];
 const school = (models: MarineModel[]): MarineMember[] => models.map((model, lane) => ({ model, lane }));
+/**
+ * The bottom for the tests of how a species moves by itself (its speed, turns, distance from the island, breaths): flat and deep,
+ * so the island's shallows, which keep a big body to the deep water, do not bend what is measured. The tests of staying in view and
+ * clear of the island run over the island's own seabed.
+ */
+const flat = { seabed: flatSeabed() };
 const frameEdge = (x: number, z: number, world: World = WORLD) => ((x / world.x) ** 6 + (z / world.z) ** 6) ** (1 / 6);
 
 /** Separation of two footprint ellipses (negative when they overlap), from projected gaps over many axes. */
@@ -79,7 +86,7 @@ test('pause freezes the school and a background frame cannot teleport it', () =>
 
 test('each species moves with its own personality', () => {
   const stats = Object.fromEntries(SPECIES.map((model) => {
-    const motion = createMarineMotion([{ model, lane: 0 }]);
+    const motion = createMarineMotion([{ model, lane: 0 }], 1, flat);
     let speed = 0, bank = 0, turn = 0, surge = 0, low = Infinity, high = -Infinity, tilt = Infinity, radius = Infinity;
     for (let frame = 0; frame < 12000; frame++) {
       motion.step(.05, true);
@@ -131,7 +138,7 @@ test('each species moves with its own personality', () => {
 test('each species keeps its own distance from the island', () => {
   const [main] = shorePolygons(1);
   const offshore = Object.fromEntries(SPECIES.map((model) => {
-    const motion = createMarineMotion([{ model, lane: 0 }]);
+    const motion = createMarineMotion([{ model, lane: 0 }], 1, flat);
     let sum = 0, closest = Infinity;
     for (let frame = 0; frame < 6000; frame++) {
       motion.step(.05, true);
@@ -185,7 +192,7 @@ test('a great white passes a whale shark instead of trailing it', () => {
 
 test('smaller, nimbler animals make most of the room', () => {
   // How far each shifts from where it would like to be, over ten minutes of encounters.
-  const motion = createMarineMotion(school(['whale-shark', 'great-white-shark']));
+  const motion = createMarineMotion(school(['whale-shark', 'great-white-shark']), 1, flat);
   const moved = [0, 0];
   for (let frame = 0; frame < 12000; frame++) {
     motion.step(.05, true);
@@ -194,9 +201,11 @@ test('smaller, nimbler animals make most of the room', () => {
   expect(moved[1]).toBeGreaterThan(moved[0] * 2);
 });
 
+// (over a flat deep bottom: how the two part in depth when they meet, not how far apart the thin water at the edge of the Coral Reef's
+// shelf, where a whale shark has a third of a unit between its keel and its back, lets them be)
 test('the visiting whale shark and manta never collide at the same depth', () => {
   const members = [{ model: 'whale-shark' as const, lane: 0 }, { model: 'reef-manta' as const, lane: 2 }];
-  const motion = createMarineMotion(members);
+  const motion = createMarineMotion(members, 1, flat);
   for (let frame = 0; frame < 12000; frame++) {
     motion.step(.05, true);
     const t = motion.clock();
@@ -246,7 +255,7 @@ test('the dolphin comes up to breathe now and then, just below the surface, and 
   const m = MOVEMENT['bottlenose-dolphin'], top = OCEAN.surfaceLevel - m.breathe!.clearance;
   for (const count of [1, 4]) {
     const members = school(['bottlenose-dolphin', 'whale-shark', 'tiger-shark', 'reef-manta'].slice(0, count) as MarineModel[]);
-    const motion = createMarineMotion(members, 1);
+    const motion = createMarineMotion(members, 1, flat);
     let breaths = 0, up = false, highest = -Infinity, frames = 0, near = 0, climb = 0;
     for (let frame = 0; frame < 12000; frame++) {
       motion.step(.05, true);
@@ -274,7 +283,7 @@ test('the dolphin comes up to breathe now and then, just below the surface, and 
     expect(climb).toBeGreaterThan(.5);
   }
   // Other species never come up to the surface.
-  const whale = createMarineMotion([{ model: 'whale-shark', lane: 0 }]);
+  const whale = createMarineMotion([{ model: 'whale-shark', lane: 0 }], 1, flat);
   for (let frame = 0; frame < 6000; frame++) {
     whale.step(.05, true);
     expect(whale.get(0)!.y + sampleDive(whale.clock(), 0, 1).y).toBeLessThan(-.7);

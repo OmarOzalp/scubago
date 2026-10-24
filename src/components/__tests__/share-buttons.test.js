@@ -5,11 +5,15 @@ import { create } from 'react-test-renderer';
 
 import { ShareArchipelagoButton, ShareDiscoveryButton, ShareDiveButton } from '@/components/share/share-buttons';
 import { CATALOG_BY_ID } from '@/lib/catalog';
+import { captureFrame, HERO_SNAPSHOT } from '@/lib/scene-snapshot';
 import { SITES } from '@/data/sites';
 
 // The theme module imports the web stylesheet, which Jest can't parse.
 jest.mock('@/global.css', () => ({}));
 jest.mock('react-native-safe-area-context', () => ({ useSafeAreaInsets: () => ({ top: 0, bottom: 0, left: 0, right: 0 }) }));
+// A phone's picture files, deleted when let go.
+const mockDelete = jest.fn();
+jest.mock('expo-file-system', () => ({ File: class { constructor(uri) { this.uri = uri; } get exists() { return true; } delete() { mockDelete(this.uri); } } }));
 
 let root;
 beforeEach(() => { global.IS_REACT_ACT_ENVIRONMENT = true; });
@@ -109,6 +113,44 @@ describe('Share this page', () => {
     expect(texts()).toEqual(expect.arrayContaining(['Reef Manta Ray', 'Whale Shark']));
   });
 
+  test('on the web, the picture drawn ahead is drawn again when the private switch is turned off', async () => {
+    jest.useFakeTimers();
+    try {
+      const shark = () => texts().includes('Whale Shark');
+      // What the web's prepareCard draws: the card as it is at that moment.
+      const web = { ...api(), canSaveCard: true, saveCard: jest.fn(async () => ({ status: 'saved' })), prepareCard: jest.fn(async () => ({ blob: {}, shark: shark() })) };
+      const mine = [sighting('a', 'reef-manta', { diveId: 'd1', visibility: 'private' }), sighting('b', 'whale-shark', { diveId: 'd1', visibility: 'private' })];
+      await render(<ShareDiveButton dive={dive} site={site} sightings={mine} api={web} />);
+      await act(async () => byHint('Shows a picture of this logbook page to share').props.onPress());
+      await act(async () => { jest.advanceTimersByTime(500); });
+      expect(web.prepareCard).toHaveBeenCalledTimes(1);
+      await act(async () => root.root.findByType(Switch).props.onValueChange(false));
+      await act(async () => { jest.advanceTimersByTime(500); });
+      expect(web.prepareCard).toHaveBeenCalledTimes(2);
+      await act(async () => pressable('Download this card as a picture').props.onPress());
+      expect(web.saveCard.mock.calls[0][1].prepared).toEqual({ blob: {}, shark: false });
+    } finally {
+      jest.useRealTimers();
+    }
+  });
+
+  test('counts a private animal of the diver’s own naming, which the page shows', async () => {
+    const mine = [sighting('a', 'reef-manta', { diveId: 'd1' }), sighting('b', 'unlisted', { diveId: 'd1', customName: 'Striped nudibranch', visibility: 'private' })];
+    await render(<ShareDiveButton dive={dive} site={site} sightings={mine} api={api()} />);
+    await act(async () => byHint('Shows a picture of this logbook page to share').props.onPress());
+    expect(texts()).toContain('1 private sighting is left off this card.');
+    await act(async () => root.root.findByType(Switch).props.onValueChange(true));
+    expect(texts()).toContain('Striped nudibranch');
+  });
+
+  test('doesn’t count a private sighting of a species the catalogue no longer has, which can never be on the page', async () => {
+    await render(<ShareDiveButton dive={dive} site={site} sightings={[sighting('a', 'retired-species', { diveId: 'd1', visibility: 'private' })]} api={api()} />);
+    await act(async () => byHint('Shows a picture of this logbook page to share').props.onPress());
+    expect(texts().filter((t) => /private/.test(t))).toEqual([]);
+    expect(root.root.findAllByType(Switch)).toHaveLength(0);
+    expect(texts()).toContain('No sightings logged on this page yet.');
+  });
+
   test('is there even when nothing was logged on the dive', async () => {
     await render(<ShareDiveButton dive={dive} site={undefined} sightings={[]} api={api()} />);
     expect(texts()).toContain('Share this page');
@@ -139,6 +181,16 @@ describe('Share your archipelago', () => {
     expect(texts()).toEqual(expect.arrayContaining(['Kai’s Atoll', 'Reef Manta Ray', '1 private sighting is on this card. They stay private in your log; nothing is shared until you tap Share.']));
   });
 
+  test.each([
+    ['an animal of the diver’s own naming', sighting('b', 'unlisted', { customName: 'Striped nudibranch', visibility: 'private' })],
+    ['a species the catalogue no longer has', sighting('b', 'retired-species', { visibility: 'private' })],
+  ])('doesn’t count a private sighting of %s, which the islands have no place for', async (_name, hidden) => {
+    await render(<ShareArchipelagoButton {...props} sightings={[sighting('a', 'reef-manta'), hidden]} api={api()} />);
+    await act(async () => pressable('Share your archipelago').props.onPress());
+    expect(texts().filter((t) => /private/.test(t))).toEqual([]);
+    expect(root.root.findAllByType(Switch)).toHaveLength(0);
+  });
+
   test('waits for the 3D snapshot to load before Share is ready', async () => {
     await render(<ShareArchipelagoButton {...props} sightings={[sighting('a', 'reef-manta')]} snapshot="file:///cache/island.png" api={api()} />);
     await act(async () => pressable('Share your archipelago').props.onPress());
@@ -147,6 +199,18 @@ describe('Share your archipelago', () => {
     expect(texts()).toContain('Getting it ready…');
     await act(async () => root.root.findAllByType(Image)[0].props.onLoad());
     expect(share().props.disabled).toBe(false);
+  });
+
+  test('waits for the same snapshot to load again when the preview is opened again', async () => {
+    await render(<ShareArchipelagoButton {...props} sightings={[sighting('a', 'reef-manta')]} snapshot="file:///cache/island.png" api={api()} />);
+    await act(async () => pressable('Share your archipelago').props.onPress());
+    await act(async () => root.root.findAllByType(Image)[0].props.onLoad());
+    await act(async () => pressable('Close the preview').props.onPress());
+    await act(async () => pressable('Share your archipelago').props.onPress());
+    // A new preview, a new image: not loaded yet, so not ready.
+    expect(pressable('Share this card').props.disabled).toBe(true);
+    await act(async () => root.root.findAllByType(Image)[0].props.onLoad());
+    expect(pressable('Share this card').props.disabled).toBe(false);
   });
 
   describe('with a picture of the live 3D scene', () => {
@@ -158,7 +222,7 @@ describe('Share your archipelago', () => {
     };
     const hero = () => root.root.findAllByType(Image)[0];
     let revoke;
-    beforeEach(() => { revoke = jest.fn(); Object.assign(URL, { revokeObjectURL: revoke }); });
+    beforeEach(() => { revoke = jest.fn(); Object.assign(URL, { revokeObjectURL: revoke }); mockDelete.mockClear(); });
 
     test('frames the islands while the preview is open, then shows the picture on the card and waits for it to load', async () => {
       const pending = deferred();
@@ -251,11 +315,63 @@ describe('Share your archipelago', () => {
       expect(revoke).toHaveBeenCalledWith('blob:http://localhost/gone');
     });
 
-    test('leaves a phone’s picture file alone (the system clears its cache)', async () => {
-      await render(<ShareArchipelagoButton {...props} sightings={sightings} captureSnapshot={async () => 'file:///cache/GLView/a.png'} api={api()} />);
+    test('deletes a phone’s picture file when the preview closes, and leaves a file it didn’t take alone', async () => {
+      // A picture taken the way a phone takes it: expo-gl writes a PNG into the cache's GLView folder.
+      const context = { contextId: 1, drawingBufferWidth: 840, drawingBufferHeight: 780 };
+      const gl = { domElement: {}, render: () => {}, getContext: () => context, getSize: () => {}, getPixelRatio: () => 2, setPixelRatio: () => {}, setSize: () => {} };
+      const phone = (uri) => () => captureFrame({ gl, scene: {}, camera: {} }, HERO_SNAPSHOT, { takeSnapshot: async () => ({ uri, localUri: uri, width: 840, height: 393 }) });
+      await render(<ShareArchipelagoButton {...props} sightings={sightings} captureSnapshot={phone('file:///cache/GLView/a.png')} api={api()} />);
+      await act(async () => pressable('Share your archipelago').props.onPress());
+      expect(hero().props.source.uri).toBe('file:///cache/GLView/a.png');
+      expect(mockDelete).not.toHaveBeenCalled();
+      await act(async () => pressable('Close the preview').props.onPress());
+      expect(mockDelete).toHaveBeenCalledWith('file:///cache/GLView/a.png');
+      expect(revoke).not.toHaveBeenCalled();
+      await act(async () => root.unmount());
+
+      // Not one this app took: left where it is.
+      mockDelete.mockClear();
+      await render(<ShareArchipelagoButton {...props} sightings={sightings} captureSnapshot={async () => 'file:///cache/GLView/b.png'} api={api()} />);
       await act(async () => pressable('Share your archipelago').props.onPress());
       await act(async () => pressable('Close the preview').props.onPress());
-      expect(revoke).not.toHaveBeenCalled();
+      expect(mockDelete).not.toHaveBeenCalled();
+    });
+
+    describe('while private sightings are left off the card', () => {
+      // Home's scene shows every one of the diver's animals, private ones too.
+      const privateShark = [sighting('a', 'reef-manta'), sighting('b', 'whale-shark', { visibility: 'private' })];
+      const toggle = () => root.root.findByType(Switch);
+
+      test('the card draws its illustration when they add an animal to the island, and the picture comes back with them', async () => {
+        const pending = deferred();
+        await render(<ShareArchipelagoButton {...props} sightings={privateShark} captureSnapshot={() => pending.promise} api={api()} />);
+        await act(async () => pressable('Share your archipelago').props.onPress());
+        expect(toggle().props.value).toBe(false);
+        // Not held for a picture the card won't use.
+        expect(texts()).not.toContain('Framing your islands…');
+        expect(pressable('Share this card').props.disabled).toBe(false);
+        await act(async () => pending.resolve('blob:http://localhost/island'));
+        expect(root.root.findAllByType(Image)).toHaveLength(0);
+        await act(async () => toggle().props.onValueChange(true));
+        expect(hero().props.source.uri).toBe('blob:http://localhost/island');
+        await act(async () => toggle().props.onValueChange(false));
+        expect(root.root.findAllByType(Image)).toHaveLength(0);
+      });
+
+      test('a snapshot passed in is left off too', async () => {
+        await render(<ShareArchipelagoButton {...props} sightings={privateShark} snapshot="file:///cache/island.png" api={api()} />);
+        await act(async () => pressable('Share your archipelago').props.onPress());
+        expect(root.root.findAllByType(Image)).toHaveLength(0);
+        expect(pressable('Share this card').props.disabled).toBe(false);
+      });
+
+      test('the picture stays when they add nothing the island shows (another sighting of a species already on the card)', async () => {
+        const mine = [sighting('a', 'reef-manta'), sighting('b', 'reef-manta', { visibility: 'private', sightedOn: '2026-03-13' })];
+        await render(<ShareArchipelagoButton {...props} sightings={mine} captureSnapshot={async () => 'blob:http://localhost/island'} api={api()} />);
+        await act(async () => pressable('Share your archipelago').props.onPress());
+        expect(toggle().props.value).toBe(false);
+        expect(hero().props.source.uri).toBe('blob:http://localhost/island');
+      });
     });
 
     test('a snapshot passed in is used as it is, without taking another', async () => {

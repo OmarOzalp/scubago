@@ -203,6 +203,10 @@ export function validateDive(input: DiveFields, known: { site: (id: string) => b
   for (const [key, max] of Object.entries(TEXT_MAX) as [keyof typeof TEXT_MAX, number][]) {
     if ((input[key]?.length ?? 0) > max) return `Keep it under ${max} characters.`;
   }
+  // The server keeps only path data like signaturePath's, up to SIGNATURE_PATH_MAX.
+  if (input.signature?.svg !== undefined && !isSignaturePath(input.signature.svg)) {
+    return 'This signature can’t be kept. Clear it and sign again.';
+  }
   return null;
 }
 
@@ -253,12 +257,48 @@ export function airConsumption(d: DiveFields): number | undefined {
 /** The signature box strokes are drawn into. */
 export const SIGNATURE_BOX = { width: 300, height: 100 } as const;
 
+/** The longest signature path the server keeps (migration 0009). */
+export const SIGNATURE_PATH_MAX = 20000;
+
 /**
- * Finger strokes as SVG path data in the signature box: each stroke a polyline, points closer than
- * half a unit dropped, coordinates to one decimal. Null when nothing was drawn.
+ * The points of a stroke that keep its shape to within `tolerance` units (Douglas–Peucker): where
+ * the line runs straight, the points between its ends go.
  */
-export function signaturePath(strokes: [number, number][][]): string | null {
-  const parts: string[] = [];
+function simplify(points: [number, number][], tolerance: number): [number, number][] {
+  if (tolerance <= 0 || points.length <= 2) return points;
+  const keep = new Uint8Array(points.length);
+  keep[0] = keep[points.length - 1] = 1;
+  // Spans still to look at, as pairs of indices (no destructuring: this loop runs over every point).
+  const spans: number[] = [0, points.length - 1];
+  while (spans.length) {
+    const last = spans.pop()!;
+    const first = spans.pop()!;
+    const ax = points[first][0];
+    const ay = points[first][1];
+    const dx = points[last][0] - ax;
+    const dy = points[last][1] - ay;
+    const length = Math.hypot(dx, dy);
+    let far = -1;
+    let farthest = tolerance;
+    for (let i = first + 1; i < last; i++) {
+      const px = points[i][0] - ax;
+      const py = points[i][1] - ay;
+      const off = length === 0 ? Math.hypot(px, py) : Math.abs(dx * py - dy * px) / length;
+      if (off > farthest) {
+        farthest = off;
+        far = i;
+      }
+    }
+    if (far < 0) continue;
+    keep[far] = 1;
+    spans.push(first, far, far, last);
+  }
+  return points.filter((_, i) => keep[i]);
+}
+
+/** Finger strokes as polylines in the signature box, points closer than half a unit dropped. */
+function strokeLines(strokes: [number, number][][]): [number, number][][] {
+  const lines: [number, number][][] = [];
   for (const stroke of strokes) {
     const kept: [number, number][] = [];
     for (const [x, y] of stroke) {
@@ -270,14 +310,51 @@ export function signaturePath(strokes: [number, number][][]): string | null {
     if (kept.length === 0) continue;
     // A tap is a dot: a tiny line, so it still shows with round caps.
     if (kept.length === 1) kept.push([kept[0][0] + 0.6, kept[0][1]]);
-    parts.push(kept.map(([x, y], i) => `${i ? 'L' : 'M'}${round(x, 1)},${round(y, 1)}`).join(''));
+    lines.push(kept);
   }
-  return parts.length ? parts.join('') : null;
+  return lines;
+}
+
+/** One polyline as path data, coordinates to one decimal. */
+const drawLine = (line: [number, number][]) => line.map(([x, y], i) => `${i ? 'L' : 'M'}${round(x, 1)},${round(y, 1)}`).join('');
+
+/**
+ * Finger strokes as SVG path data in the signature box, every point kept: what the pad shows while
+ * a finger is still moving (signaturePath, which may smooth it, is too slow to run on every touch).
+ */
+export function strokesPath(strokes: [number, number][][]): string | null {
+  const lines = strokeLines(strokes);
+  return lines.length ? lines.map(drawLine).join('') : null;
+}
+
+/**
+ * Finger strokes as the SVG path data a signature keeps: each stroke a polyline, points closer than
+ * half a unit dropped, coordinates to one decimal. A long signature is smoothed, a little more each
+ * time, until it fits what the server keeps (SIGNATURE_PATH_MAX), so it still draws as signed; only
+ * a scribble of hundreds of strokes then loses its last ones. Null when nothing was drawn.
+ */
+export function signaturePath(strokes: [number, number][][]): string | null {
+  let lines = strokeLines(strokes);
+  if (lines.length === 0) return null;
+  // Each pass smooths what the last one kept, from none up to a tolerance wider than the box, where
+  // every stroke is a straight line. A touch ends up at most twice the last tolerance from the line.
+  let parts = lines.map(drawLine);
+  for (let tolerance = 0.125; parts.join('').length > SIGNATURE_PATH_MAX && tolerance <= 512; tolerance *= 2) {
+    lines = lines.map((line) => simplify(line, tolerance));
+    parts = lines.map(drawLine);
+  }
+  if (parts.join('').length <= SIGNATURE_PATH_MAX) return parts.join('');
+  let path = '';
+  for (const part of parts) {
+    if (path.length + part.length > SIGNATURE_PATH_MAX) break;
+    path += part;
+  }
+  return path;
 }
 
 /** Signature path data the app will draw: only M/L commands and numbers, and not too long. */
 export function isSignaturePath(svg: string | undefined): boolean {
-  return !!svg && svg.length <= 20000 && /^(?:[ML]-?\d+(?:\.\d+)?,-?\d+(?:\.\d+)?)+$/.test(svg);
+  return !!svg && svg.length <= SIGNATURE_PATH_MAX && /^(?:[ML]-?\d+(?:\.\d+)?,-?\d+(?:\.\d+)?)+$/.test(svg);
 }
 
 /** Every signature on a page: the one signed on the diver's phone first, then any sent from a buddy's. */

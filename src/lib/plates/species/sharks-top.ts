@@ -45,12 +45,12 @@ const great: TopSharkSpec = {
   head: {
     front: whole([
       [0.9, -12.7, 1],
-      [0.3, -11.4],
-      [0.2, -9.2],
-      [0.42, -7.4],
-      [0.15, -5.4],
-      [0.05, -2],
-      [0.7, 0],
+      [0.22, -11.4],
+      [0.12, -9.2],
+      [0.18, -7.4],
+      [0.08, -5.4],
+      [0.1, -2],
+      [0.55, 0],
     ]),
     rear: whole([
       [0.9, -12.7, 1],
@@ -67,7 +67,6 @@ const great: TopSharkSpec = {
   pelvic: { at: 47, base: 4, h: 5.2, sweep: 1.4, rear: 1.8, concave: 0.28, round: 0.2 },
   d1: { at: 27, base: 9, h: 10.5, sweep: 0.98, rear: 2.6, concave: 0.26, convex: 0.1, round: 0.3 },
   d2: { at: 60, base: 3.2, h: 3.4, sweep: 0.8, rear: 1.4, concave: 0.28 },
-  anal: { at: 59, base: 3.4, h: 3.2, sweep: 0.8, rear: 1.4, concave: 0.25 },
   caudal: { upper: [100, -10], lower: [86.5, 7], fork: [84.5, 1], notch: 3, trail: 0.06 },
   eyes: [
     [2.4, -12.35],
@@ -98,15 +97,15 @@ const scalloped: TopSharkSpec = {
   head: {
     front: whole([
       [5.8, -13.5],
-      [4.3, -12.9],
-      [3.3, -11.2],
-      [2.7, -9.5],
-      [3.05, -8.5],
-      [2.15, -7.1],
-      [1.3, -5.1],
-      [0.55, -3.1],
-      [0.05, -1.6],
-      [0.95, 0],
+      [4.4, -12.8],
+      [3.2, -11.5],
+      [2.5, -10.3],
+      [3, -8.9],
+      [1.9, -7.4],
+      [2.2, -5.3],
+      [0.9, -3.1],
+      [0.8, -1.6],
+      [1.9, 0],
     ]),
     rear: whole([
       [5.8, -13.5],
@@ -123,7 +122,6 @@ const scalloped: TopSharkSpec = {
   pelvic: { at: 47, base: 4, h: 4.4, sweep: 1, rear: 1.4, concave: 0.03, round: 0.3 },
   d1: { at: 28, base: 9, h: 7.4, sweep: 0.75, rear: 2.2, concave: 0.06, convex: 0.08, round: 0.7 },
   d2: { at: 62, base: 2.4, h: 1.5, sweep: 0.6, rear: 6, rearLift: 0.3 },
-  anal: { at: 60.5, base: 3.4, h: 2.6, sweep: 0.7, rear: 1.4, concave: 0.2 },
   caudal: { upper: [100, -9.6], lower: [86.5, 6.4], fork: [84.5, 1], notch: 3, trail: 0.06 },
   eyes: [
     [6.3, -13.1],

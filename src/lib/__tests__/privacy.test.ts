@@ -1,6 +1,7 @@
 import { describe, expect, it } from '@jest/globals';
 
 import {
+  asSeenBy,
   isLocalPhoto,
   keepsSomethingPrivate,
   privacySummary,
@@ -79,15 +80,36 @@ describe('private details', () => {
   });
 
   it('come back on a pull, and stay private', () => {
-    const pulled = remoteRowToSighting({
+    const row = {
       id: 's-1', user_id: UID, species_id: 'reef-manta', site_id: 'blue-corner', sighted_on: '2026-09-01', notes: null,
-      photo_url: null, created_at: '2026-09-01T00:00:00Z', profiles: { username: 'me' }, visibility: 'public',
-    });
+      photo_url: null, created_at: '2026-09-01T00:00:00Z', profiles: { username: 'me' }, visibility: 'public' as const,
+    };
+    const pulled = remoteRowToSighting(row);
     const restored = withPrivateDetails(pulled, { sighting_id: 's-1', user_id: UID, notes: 'mine', photo_path: `${UID}/s-1-a.jpg` });
     expect(restored).toMatchObject({
       visibility: 'public', notes: 'mine', notesPrivate: true, photoUri: `private:${UID}/s-1-a.jpg`, photoPrivate: true,
     });
-    expect(withPrivateDetails(pulled, undefined)).toMatchObject({ notesPrivate: false, photoPrivate: false });
+    // Notes and a photo on the public row were shared.
+    expect(withPrivateDetails(remoteRowToSighting({ ...row, notes: 'look', photo_url: PUBLIC_URL }), undefined))
+      .toMatchObject({ notesPrivate: false, photoPrivate: false });
+    // Neither kept back nor shared: the pull can't say what the diver chose, so it leaves the choice out.
+    const unsaid = withPrivateDetails(pulled, undefined);
+    expect(unsaid.notesPrivate).toBeUndefined();
+    expect(unsaid.photoPrivate).toBeUndefined();
+  });
+});
+
+describe('what another diver sees on the same device', () => {
+  it('nothing private: not the sighting, not its kept-back notes or photo', () => {
+    const photo = 'file:///kept/a.jpg';
+    expect(asSeenBy(sighting({ visibility: 'private', notes: 'n' }), UID)).toMatchObject({ notes: 'n' });
+    expect(asSeenBy(sighting({ visibility: 'private', notes: 'n' }), 'uid-2')).toBeNull();
+    const kept = asSeenBy(sighting({ visibility: 'public', notes: 'n', notesPrivate: true, photoUri: photo, photoPrivate: true }), 'uid-2');
+    expect(kept).toMatchObject({ speciesId: 'reef-manta', notes: undefined, photoUri: undefined });
+    expect(asSeenBy(sighting({ visibility: 'public', notes: 'n', photoUri: photo, photoPrivate: true }), 'uid-2'))
+      .toMatchObject({ notes: 'n', photoUri: undefined });
+    const shared = sighting({ visibility: 'public', notes: 'n', photoUri: PUBLIC_URL });
+    expect(asSeenBy(shared, 'uid-2')).toBe(shared);
   });
 });
 

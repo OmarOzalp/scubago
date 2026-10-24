@@ -1,6 +1,6 @@
 import { router, useLocalSearchParams } from 'expo-router';
-import { useState } from 'react';
-import { ScrollView, StyleSheet, View } from 'react-native';
+import { useRef, useState } from 'react';
+import { ScrollView, StyleSheet, TextInput, View } from 'react-native';
 
 import { FormField } from '@/components/form-field';
 import { Icon } from '@/components/icon';
@@ -9,10 +9,19 @@ import { OceanButton } from '@/components/ocean-button';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { MaxContentWidth, Spacing } from '@/constants/theme';
+import { DISMISS_ON_DRAG } from '@/hooks/use-keyboard';
 import { useTheme } from '@/hooks/use-theme';
 import { announce } from '@/lib/announce';
+import { describeCoordinates, readCoordinates } from '@/lib/coordinates';
 import { notifySiteAdded } from '@/lib/site-added';
 import { useAppStore } from '@/lib/store';
+
+/** A long-press on the map arrives with its point: shown as one pair, to five places (about a metre). */
+function startingCoordinates(lat?: string, lng?: string): string {
+  const [a, b] = [Number(lat), Number(lng)];
+  if (lat === undefined || lng === undefined || !Number.isFinite(a) || !Number.isFinite(b)) return '';
+  return `${Number(a.toFixed(5))}, ${Number(b.toFixed(5))}`;
+}
 
 export default function AddSiteScreen() {
   /** `then=log`: opened from the log screen, which carries on with the new site. `name` pre-fills a search. */
@@ -24,51 +33,66 @@ export default function AddSiteScreen() {
   const [region, setRegion] = useState('');
   const [country, setCountry] = useState('');
   const [blurb, setBlurb] = useState('');
-  const [lat, setLat] = useState(params.lat ?? '');
-  const [lng, setLng] = useState(params.lng ?? '');
+  // One field, so the pair a maps app copies ("7.81, 98.54") can be pasted whole.
+  const [coordinates, setCoordinates] = useState(() => startingCoordinates(params.lat, params.lng));
   const [saving, setSaving] = useState(false);
+  // What is wrong, under the field it is about (said out loud, not a button greyed out for no stated reason).
+  const [problem, setProblem] = useState<{ field: 'name' | 'coordinates'; message: string } | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const nameField = useRef<TextInput>(null);
+  const coordinatesField = useRef<TextInput>(null);
 
-  const latNum = Number(lat);
-  const lngNum = Number(lng);
-  // Said out loud and on screen, instead of a button that is greyed out for no stated reason.
-  const problem =
-    name.trim().length < 2
-      ? 'Give the site a name.'
-      : lat.trim() === '' || !Number.isFinite(latNum) || Math.abs(latNum) > 90
-        ? 'Enter a latitude between -90 and 90 (e.g. 7.81).'
-        : lng.trim() === '' || !Number.isFinite(lngNum) || Math.abs(lngNum) > 180
-          ? 'Enter a longitude between -180 and 180 (e.g. 98.54).'
-          : null;
-  const [showProblem, setShowProblem] = useState(false);
+  const place = readCoordinates(coordinates);
 
-  const save = async () => {
+  const complain = (field: 'name' | 'coordinates', message: string) => {
+    setProblem({ field, message });
+    announce(message);
+    (field === 'name' ? nameField : coordinatesField).current?.focus();
+  };
+
+  /** `andLog`: carry on to log a dive at the new site. */
+  const save = async (andLog: boolean) => {
     if (saving) return;
-    if (problem) {
-      setShowProblem(true);
-      announce(problem);
+    setError(null);
+    if (name.trim().length < 2) {
+      complain('name', 'Give the site a name.');
+      return;
+    }
+    if (place.problem !== undefined) {
+      complain('coordinates', place.problem);
       return;
     }
     setSaving(true);
-    const site = await addSite({
-      name: name.trim(),
-      lat: latNum,
-      lng: lngNum,
-      region: region.trim() || 'Unknown region',
-      country: country.trim() || 'Unknown',
-      blurb: blurb.trim() || 'Added by the community.',
-    });
-    if (params.then === 'log') {
-      notifySiteAdded(site.id);
+    try {
+      const site = await addSite({
+        name: name.trim(),
+        lat: place.lat,
+        lng: place.lng,
+        region: region.trim() || 'Unknown region',
+        country: country.trim() || 'Unknown',
+        blurb: blurb.trim() || 'Added by the community.',
+      });
+      announce(`${site.name} added`);
+      if (params.then === 'log') {
+        notifySiteAdded(site.id);
+        router.back();
+        return;
+      }
+      if (andLog) {
+        router.dismiss();
+        router.push({ pathname: '/log/new', params: { siteId: site.id } });
+        return;
+      }
       router.back();
-      return;
+    } catch (e: any) {
+      setError(e.message ?? 'Could not add the site');
+      setSaving(false);
     }
-    router.dismiss();
-    router.push({ pathname: '/log/new', params: { siteId: site.id } });
   };
 
   return (
     <ThemedView style={{ flex: 1 }}>
-      <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
+      <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled" keyboardDismissMode={DISMISS_ON_DRAG} automaticallyAdjustKeyboardInsets>
         <View style={styles.intro}>
           <ThemedText type="label">A new page for the chart</ThemedText>
           <ThemedText type="caption" themeColor="textSecondary">
@@ -76,43 +100,77 @@ export default function AddSiteScreen() {
           </ThemedText>
         </View>
 
-        <FormField label="Site name (required)" value={name} onChangeText={setName} placeholder="e.g. Shark Point" />
+        <View style={styles.field}>
+          <FormField
+            ref={nameField}
+            label="Site name (required)"
+            value={name}
+            onChangeText={(text) => {
+              setName(text);
+              if (problem?.field === 'name') setProblem(null);
+            }}
+            placeholder="e.g. Shark Point"
+            style={problem?.field === 'name' ? { borderColor: theme.danger } : undefined}
+          />
+          {problem?.field === 'name' ? (
+            <ThemedText type="small" themeColor="danger" accessibilityLiveRegion="polite">
+              {problem.message}
+            </ThemedText>
+          ) : null}
+        </View>
         <Paper style={styles.card}>
           <View style={styles.where}>
             <Icon name="pin" size={20} wash={theme.coral} />
             <ThemedText type="small" themeColor="textSecondary" style={{ flex: 1 }}>
-              Where it is: long-press the map to fill these in, or copy them from a map app.
+              Where it is: in a maps app, hold on the spot, copy its numbers and paste them here.
             </ThemedText>
           </View>
-          <View style={styles.rowFields}>
-            <View style={{ flex: 1 }}>
-              <FormField label="Latitude (required)" value={lat} onChangeText={setLat} keyboardType="numbers-and-punctuation" placeholder="7.81" />
-            </View>
-            <View style={{ flex: 1 }}>
-              <FormField label="Longitude (required)" value={lng} onChangeText={setLng} keyboardType="numbers-and-punctuation" placeholder="98.54" />
-            </View>
+          <View style={styles.field}>
+            <FormField
+              ref={coordinatesField}
+              label="Coordinates (required)"
+              value={coordinates}
+              onChangeText={(text) => {
+                setCoordinates(text);
+                if (problem?.field === 'coordinates') setProblem(null);
+              }}
+              keyboardType="numbers-and-punctuation"
+              autoCorrect={false}
+              autoCapitalize="none"
+              placeholder="e.g. 7.81, 98.54"
+              // Until what was typed reads as a pair (or says what is wrong), a nudge; then it gives way.
+              hint={place.problem !== undefined && problem?.field !== 'coordinates' ? 'Latitude first, then longitude.' : undefined}
+              style={problem?.field === 'coordinates' ? { borderColor: theme.danger } : undefined}
+            />
+            {problem?.field === 'coordinates' ? (
+              <ThemedText type="small" themeColor="danger" accessibilityLiveRegion="polite">
+                {problem.message}
+              </ThemedText>
+            ) : place.problem === undefined ? (
+              // What was read, said back, so a missing minus sign shows before it is saved.
+              <ThemedText type="small" themeColor="textSecondary" accessibilityLiveRegion="polite">
+                That is {describeCoordinates(place)}.
+              </ThemedText>
+            ) : null}
           </View>
         </Paper>
         <View style={styles.rowFields}>
           <View style={{ flex: 1 }}>
-            <FormField label="Region" value={region} onChangeText={setRegion} placeholder="Phuket" />
+            <FormField label="Region" value={region} onChangeText={setRegion} placeholder="e.g. Phuket" />
           </View>
           <View style={{ flex: 1 }}>
-            <FormField label="Country" value={country} onChangeText={setCountry} placeholder="Thailand" />
+            <FormField label="Country" value={country} onChangeText={setCountry} placeholder="e.g. Thailand" />
           </View>
         </View>
-        <FormField label="Description" value={blurb} onChangeText={setBlurb} multiline placeholder="What makes this site special?" style={styles.multiline} />
-        {showProblem && problem ? (
+        <FormField label="Description" value={blurb} onChangeText={setBlurb} multiline placeholder="e.g. A sloping reef where leopard sharks rest on the sand" style={styles.multiline} />
+        {error ? (
           <ThemedText type="small" themeColor="danger" accessibilityLiveRegion="polite">
-            {problem}
+            {error}
           </ThemedText>
         ) : null}
-        <OceanButton
-          title={saving ? 'Saving…' : params.then === 'log' ? 'Add site' : 'Add site & log a sighting'}
-          icon={saving ? undefined : 'addSite'}
-          onPress={save}
-          disabled={saving}
-        />
+        {/* From the log flow the new site goes straight back to it; from Explore, adding is the point, and logging a dive there is the other choice. */}
+        <OceanButton title={saving ? 'Saving…' : 'Add site'} icon={saving ? undefined : 'addSite'} onPress={() => void save(false)} disabled={saving} />
+        {params.then !== 'log' ? <OceanButton title="Add and log a dive" variant="secondary" onPress={() => void save(true)} disabled={saving} /> : null}
       </ScrollView>
     </ThemedView>
   );
@@ -132,6 +190,9 @@ const styles = StyleSheet.create({
   },
   card: {
     gap: Spacing.three,
+  },
+  field: {
+    gap: 6,
   },
   where: {
     flexDirection: 'row',

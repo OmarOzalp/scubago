@@ -3,7 +3,7 @@ import { describe, expect, it, jest } from '@jest/globals';
 import osmSites from '@/data/osm-sites.json';
 import osmMeta from '@/data/osm-sites.meta.json';
 import { REGIONS, REGIONS_BY_ID } from '@/data/regions';
-import { RETIRED_SITE_IDS, SEED_SITES, SITES, SITES_BY_ID } from '@/data/sites';
+import { canonicalSiteId, OSM_SEED_DUPLICATES, RETIRED_SITE_IDS, SEED_SITES, SITE_ALIASES, SITES, SITES_BY_ID } from '@/data/sites';
 import {
   IMPORT_AREAS,
   IMPORT_REGION_IDS,
@@ -467,6 +467,20 @@ describe('mergeSites', () => {
     expect(merged.sites[0].externalIds).toHaveLength(1);
   });
 
+  it('points each hidden copy at the listed site it stands for, and keeps what it knew of the dive', () => {
+    const wreckCopy = plain('osm-node-6', 'Seed A', 10.002, 10, { diveTypes: ['wreck'] }); // 220 m: the seed's duplicate
+    const kept = plain('osm-node-7', 'Twin Wreck', 30, 30);
+    const secondMark: OsmSiteRecord = { ...plain('osm-node-8', 'Twin Wreck', 30.017, 30, { diveTypes: ['wreck'] }), retired: true, retiredOn: DAY }; // 1.9 km
+    const gone: OsmSiteRecord = { ...plain('osm-node-9', 'Gone', 31, 31), retired: true, retiredOn: DAY };
+    const merged = mergeSites(seeds, [wreckCopy, kept, secondMark, gone]);
+    expect([...merged.aliases]).toEqual([['osm-node-6', 'seed-a'], ['osm-node-8', 'osm-node-7']]);
+    // A site OSM simply stopped listing stands for nothing.
+    expect(merged.aliases.has('osm-node-9')).toBe(false);
+    expect(merged.sites.find((s) => s.id === 'seed-a')?.diveTypes).toEqual(['wreck']);
+    expect(merged.sites.find((s) => s.id === 'osm-node-7')?.diveTypes).toEqual(['wreck']);
+    expect(JSON.stringify(seeds)).toBe(seedCopy);
+  });
+
   it('copes with several hundred sites and keeps every id unique', () => {
     const many = Array.from({ length: 500 }, (_, i) => plain(`osm-node-${1000 + i}`, `Site ${i}`, -15 + (i % 25) * 0.1, 146 + Math.floor(i / 25) * 0.1));
     const merged = mergeSites(seeds, many);
@@ -641,5 +655,30 @@ describe('SITES built from a populated import', () => {
         for (const depth of [site.depthMinM, site.depthMaxM]) if (depth != null) expect(depth).toBeLessThanOrEqual(150);
       }
     });
+  });
+});
+
+describe('hidden site ids in the real data', () => {
+  it('each counts at a listed site of the same place, and every listed id counts at itself', () => {
+    const listed = new Set(SITES.map((s) => s.id));
+    for (const [hidden, kept] of SITE_ALIASES) {
+      expect({ hidden, listedHidden: listed.has(hidden), keptListed: listed.has(kept) }).toEqual({ hidden, listedHidden: false, keptListed: true });
+    }
+    for (const id of listed) expect(canonicalSiteId(id)).toBe(id);
+    expect(canonicalSiteId('osm-node-270802348')).toBe('cod-hole');
+    expect(canonicalSiteId('osm-node-663869852')).toBe('osm-node-663869851');
+  });
+
+  it('lists North Horn on Osprey Reef once: the seed is where OpenStreetMap has it', () => {
+    expect(SITES.filter((s) => /north horn/i.test(s.name)).map((s) => s.id)).toEqual(['north-horn']);
+    expect(OSM_SEED_DUPLICATES).toContainEqual(expect.objectContaining({ importedId: 'osm-node-270802352', seedId: 'north-horn', basis: 'near' }));
+    expect(canonicalSiteId('osm-node-270802352')).toBe('north-horn');
+    expect(SITES_BY_ID.get('north-horn')?.externalIds).toContainEqual({ scheme: 'osm', id: 'node/270802352', relation: 'same_as' });
+  });
+
+  it('the famous wrecks are wrecks, the Kormoran kept after the merge included', () => {
+    for (const id of ['ss-thistlegorm', 'yongala', 'president-coolidge', 'liberty-wreck', 'spiegel-grove', 'osm-node-663869851']) {
+      expect({ id, wreck: SITES_BY_ID.get(id)?.diveTypes?.includes('wreck') }).toEqual({ id, wreck: true });
+    }
   });
 });

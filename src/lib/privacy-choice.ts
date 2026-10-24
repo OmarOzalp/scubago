@@ -44,6 +44,18 @@ function list(items: string[]): string {
   return items.length <= 1 ? items.join('') : `${items.slice(0, -1).join(', ')} and ${items[items.length - 1]}`;
 }
 
+/**
+ * The choice in a few words, for "Visible to: …": "Only me", "Everyone", or "Everyone, but not your
+ * notes" when something stays private. A photo only counts where there can be one.
+ */
+export function privacySummary(value: PrivacySettings, { photo }: { photo: boolean }): string {
+  if (value.visibility === 'private') return 'Only me';
+  const kept: string[] = [];
+  if (value.notesPrivate) kept.push('notes');
+  if (photo && value.photoPrivate) kept.push('photo');
+  return kept.length === 0 ? 'Everyone' : `Everyone, but not your ${list(kept)}`;
+}
+
 /** What the choice means, in one or two plain sentences. */
 export function privacyExplanation(value: PrivacySettings, { photo, count = 1 }: { photo: boolean; count?: number }): string {
   const these = count > 1 ? 'these sightings' : 'this sighting';

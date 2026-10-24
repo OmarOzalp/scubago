@@ -33,6 +33,11 @@ export interface SharePreviewProps {
   fileName?: string;
   /** false while the card is still getting ready (an image loading); Share waits. */
   ready?: boolean;
+  /**
+   * Stands for what the card shows beyond its `cardLabel` (whether private sightings are on it, the
+   * hero picture). When either changes, a picture drawn ahead of the tap is thrown away and drawn again.
+   */
+  content?: string;
   /** A sentence under the card ("1 private sighting is left off"). */
   note?: string;
   /** A choice about what the card shows, under it (whether private sightings go on it). */
@@ -78,7 +83,7 @@ export function SharePreview({ visible, onClose, ...props }: SharePreviewProps) 
 
 const defaultApi: ShareApi = { shareCard: share.shareCard, saveCard: share.saveCard, prepareCard: share.prepareCard, canSaveCard: share.canSaveCard };
 
-function PreviewBody({ onClose, reduced, title, cardLabel, children, fileName, ready = true, note, controls, api = defaultApi }: Omit<SharePreviewProps, 'visible'> & { reduced: boolean }) {
+function PreviewBody({ onClose, reduced, title, cardLabel, children, fileName, ready = true, content, note, controls, api = defaultApi }: Omit<SharePreviewProps, 'visible'> & { reduced: boolean }) {
   const theme = useTheme();
   const scheme = useSchemeName();
   const insets = useSafeAreaInsets();
@@ -98,8 +103,10 @@ function PreviewBody({ onClose, reduced, title, cardLabel, children, fileName, r
     };
   }, []);
 
-  // Where the browser needs it, draw the picture while the diver looks at the card.
+  // Where the browser needs it, draw the picture while the diver looks at the card. When the card
+  // changes, the picture of the old one goes at once (Share draws the card itself until the new one is ready).
   useEffect(() => {
+    prepared.current = null;
     if (!ready) return;
     let cancelled = false;
     const timer = setTimeout(() => {
@@ -111,7 +118,7 @@ function PreviewBody({ onClose, reduced, title, cardLabel, children, fileName, r
       cancelled = true;
       clearTimeout(timer);
     };
-  }, [ready, api]);
+  }, [ready, api, cardLabel, content]);
 
   const onStage = useCallback((e: LayoutChangeEvent) => {
     const { width, height } = e.nativeEvent.layout;

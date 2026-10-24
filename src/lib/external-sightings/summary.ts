@@ -30,6 +30,8 @@ export interface InatData {
   counts: InatSpeciesCount[];
   /** The counts had more taxa than the pages read. */
   truncated: boolean;
+  /** Why a later page of the counts could not be read: they are those of the pages before it. */
+  countsError?: string;
   /** The newest openly licensed observations (empty when none matched, or when they could not be read). */
   observations: InatObservation[];
   /** Why the observations could not be read, when the counts could. */
@@ -177,7 +179,7 @@ function sourceStatus(
   id: SourceId,
   site: SiteQuery,
   fetchedAt: string,
-  result: { ok: boolean; error?: string; truncated?: boolean },
+  result: { ok: boolean; error?: string; truncated?: boolean; recentFailed?: boolean },
 ): SourceStatus {
   const credit = SOURCE_CREDITS[id];
   return {
@@ -189,6 +191,7 @@ function sourceStatus(
     licenceNote: credit.licenceNote,
     url: id === 'inaturalist' ? inatExploreUrl(site) : OBIS_WEBSITE,
     ...(result.truncated ? { truncated: true } : {}),
+    ...(result.recentFailed ? { recentFailed: true } : {}),
   };
 }
 
@@ -226,7 +229,9 @@ export function buildSiteSightings({ site, fetchedAt, inat, obis, previous, matc
         if (entry) entry.lastObservedOn = newer(entry.lastObservedOn, item.observedOn);
       }
     }
-    statuses.push(sourceStatus('inaturalist', site, fetchedAt, { ok: true, error: inat.data.observationsError, truncated: inat.data.truncated }));
+    // Either error makes the answer partial, so it is tried again within the hour (cache.ts).
+    const error = [inat.data.countsError, inat.data.observationsError].filter(Boolean).join(' ');
+    statuses.push(sourceStatus('inaturalist', site, fetchedAt, { ok: true, error, truncated: inat.data.truncated, recentFailed: !!inat.data.observationsError }));
   } else {
     const kept = hadData(previous, 'inaturalist');
     if (previous && kept) {

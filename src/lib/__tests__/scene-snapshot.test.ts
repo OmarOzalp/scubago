@@ -17,6 +17,23 @@ import {
 
 const mockTakeSnapshotAsync = jest.fn();
 jest.mock('expo-gl', () => ({ GLView: { takeSnapshotAsync: (...args: unknown[]) => mockTakeSnapshotAsync(...args) } }));
+// The files on the "phone": which exist, and which were deleted.
+const mockFiles = new Set<string>();
+const mockDelete = jest.fn((uri: string) => void mockFiles.delete(uri));
+jest.mock('expo-file-system', () => ({
+  File: class {
+    uri: string;
+    constructor(path: string) {
+      this.uri = path;
+    }
+    get exists() {
+      return mockFiles.has(this.uri);
+    }
+    delete() {
+      mockDelete(this.uri);
+    }
+  },
+}));
 
 const request = { width: 1736, height: 812 };
 const unregister: (() => void)[] = [];
@@ -30,6 +47,8 @@ afterEach(() => {
   jest.useRealTimers();
   jest.restoreAllMocks();
   mockTakeSnapshotAsync.mockReset();
+  mockFiles.clear();
+  mockDelete.mockClear();
 });
 
 describe('the scene registry', () => {
@@ -124,15 +143,64 @@ describe('the scene registry', () => {
 });
 
 describe('releaseSnapshot', () => {
-  it('revokes a blob: URL and leaves other pictures (files, nothing) alone', () => {
+  /** A picture taken on a phone: expo-gl writes it into the cache's GLView folder. */
+  const takePhonePicture = async (uri: string) => {
+    mockFiles.add(uri);
+    const context = { contextId: 7, drawingBufferWidth: 840, drawingBufferHeight: 780 };
+    const gl = { domElement: {}, render: () => {}, getContext: () => context, getSize: () => {}, getPixelRatio: () => 2, setPixelRatio: () => {}, setSize: () => {} };
+    return captureFrame({ gl, scene: {}, camera: {} }, request, { takeSnapshot: async () => ({ uri, localUri: uri, width: 840, height: 393 }) });
+  };
+
+  it('revokes a blob: URL and leaves other pictures (a file it didn’t write, nothing) alone', () => {
     const revoke = jest.fn();
     Object.assign(URL, { revokeObjectURL: revoke });
+    mockFiles.add('file:///cache/a.png');
+    mockFiles.add('file:///cache/GLView/not-mine.png');
     releaseSnapshot('blob:http://localhost/1');
     releaseSnapshot('file:///cache/a.png');
+    releaseSnapshot('file:///cache/GLView/not-mine.png');
     releaseSnapshot(undefined);
     releaseSnapshot(null);
     expect(revoke).toHaveBeenCalledTimes(1);
     expect(revoke).toHaveBeenCalledWith('blob:http://localhost/1');
+    expect(mockDelete).not.toHaveBeenCalled();
+  });
+
+  it('deletes a phone’s picture file it had expo-gl write, once', async () => {
+    const uri = await takePhonePicture('file:///cache/GLView/mine.png');
+    expect(uri).toBe('file:///cache/GLView/mine.png');
+    expect(mockDelete).not.toHaveBeenCalled();
+    releaseSnapshot(uri);
+    expect(mockDelete).toHaveBeenCalledWith('file:///cache/GLView/mine.png');
+    expect(mockFiles.has('file:///cache/GLView/mine.png')).toBe(false);
+    // Let go again (a second release, or a file of the same name later): it is no longer one of its own.
+    mockFiles.add('file:///cache/GLView/mine.png');
+    releaseSnapshot(uri);
+    expect(mockDelete).toHaveBeenCalledTimes(1);
+  });
+
+  it('deletes a phone’s picture that arrives after the timeout', async () => {
+    jest.useFakeTimers();
+    let finish: (uri: string | null) => void = () => {};
+    register('slow', () => new Promise<string | null>((resolve) => (finish = resolve)));
+    const result = captureScene('slow', request);
+    await jest.advanceTimersByTimeAsync(CAPTURE_TIMEOUT_MS);
+    expect(await result).toBeNull();
+    finish(await takePhonePicture('file:///cache/GLView/late.png'));
+    await jest.advanceTimersByTimeAsync(0);
+    expect(mockDelete).toHaveBeenCalledWith('file:///cache/GLView/late.png');
+  });
+
+  it('leaves a file that is already gone, and never throws', async () => {
+    const gone = await takePhonePicture('file:///cache/GLView/gone.png');
+    mockFiles.clear();
+    releaseSnapshot(gone);
+    expect(mockDelete).not.toHaveBeenCalled();
+    const stuck = await takePhonePicture('file:///cache/GLView/stuck.png');
+    mockDelete.mockImplementationOnce(() => {
+      throw new Error('EACCES');
+    });
+    expect(() => releaseSnapshot(stuck)).not.toThrow();
   });
 
   it('never throws', () => {

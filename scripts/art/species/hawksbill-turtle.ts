@@ -54,11 +54,11 @@ export function buildHawksbillTurtle() {
     width: [[0, 0], [.01, .09], [.045, .2], [.12, .29], [.25, .345], [.38, .36], [.52, .345], [.66, .3], [.79, .23], [.9, .14], [.97, .06], [1, 0]],
     front: .3, back: -.4, center: CENTER, ring: .88,
     dome: { height: .1, power: .55, keel: .012, keelWidth: .05 },
-    marginals: { count: 11, from: .075, to: .93, tooth: (k) => [0, 0, 0, .008, .016, .027, .036, .042, .046, .044, .034][k] },
+    marginals: { count: 11, from: .075, to: .93, tooth: (k) => [0, 0, 0, 0, 0, 0, .004, .008, .012, .012, .009][k] },
     waists: [[.07, .042], [.22, .036], [.38, .036], [.54, .035], [.7, .03], [.86, .026]],
     corners: [[.14, .055], [.3, .058], [.46, .058], [.62, .052], [.77, .042]],
     seams: [{ corner: 2, reach: .37 }, { corner: 3, reach: .53 }, { corner: 4, reach: .69 }],
-    pillow: .005, lip: .005, skirt: 'all', seam: SEAM,
+    pillow: .005, lip: .005, skirt: 'rear', seam: SEAM,
     paint: paintScute,
   });
   buildPlastron(mesh, plan, rimQs, CENTER, {
@@ -106,9 +106,9 @@ export function buildHawksbillTurtle() {
   // --- Front flippers: long, slim paddles swept back, two claws on each ---
   buildFrontFlippers(mesh, bones, {
     le: [[.17, -.012, .15], [.33, -.02, .15], [.48, -.028, .064], [.613, -.034, -.108]],
-    te: [[.19, -.022, .07], [.34, -.03, .05], [.47, -.034, -.03], [.613, -.034, -.108]],
+    te: [[.19, -.022, .04], [.34, -.03, 0], [.47, -.034, -.06], [.613, -.034, -.108]],
     stations: 9, chordPoints: 6,
-    thickness: (v) => .028 * (1 - .72 * v),
+    thickness: (v) => .034 * (1 - .55 * v),
     color: (v, u, face) => {
       if (face < 0) return mix(FLIPPER_BELOW, FLIPPER_EDGE, smoothstep(.8, 1, u) * .5);
       // Dark scales with cream margins: big pale-edged scales along the leading edge, flecks over the rest.

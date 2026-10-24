@@ -3,6 +3,7 @@ import React, { act } from 'react';
 import { create } from 'react-test-renderer';
 import { SiteMap } from '../site-map';
 import { OSM_COPYRIGHT_URL } from '../site-list';
+import { SITES as APP_SITES } from '@/data/sites';
 import { clusterSites } from '@/lib/site-clusters';
 import { seededRandom } from '@/lib/wash';
 
@@ -212,6 +213,30 @@ test('a species filter colours what matches and dims the rest, clusters included
   expect(lit.every((m) => m.props.accessibilityLabel.endsWith(', matches your search'))).toBe(true);
   expect(new Set(lit.map((m) => m.props.pinColor)).size).toBe(1);
   expect(pins.filter((m) => m.props.opacity === 0.3).every((m) => m.props.pinColor !== lit[0].props.pinColor)).toBe(true);
+});
+
+test('sites on one exact spot are drawn round it at the closest zoom, so each pin can be tapped', async () => {
+  // OpenStreetMap puts five Zabargad sites on one point.
+  const zabargad = APP_SITES.filter((s) => s.lat === 23.61863 && s.lng === 36.20377);
+  expect(zabargad).toHaveLength(5);
+  const onSelectSite = jest.fn();
+  await act(async () => { root = create(<SiteMap {...props({ sites: APP_SITES, onSelectSite })} />); });
+  const view = { latitude: 23.61863, longitude: 36.20377, latitudeDelta: 0.008, longitudeDelta: 0.0075 };
+  await settle(view);
+  const pinOf = (site) => singleMarkers().find((m) => m.props.accessibilityLabel.startsWith(`${site.name}, ${site.region}`));
+  const pins = zabargad.map(pinOf);
+  expect(pins.every(Boolean)).toBe(true);
+  // Five places on screen, all close round the spot.
+  expect(new Set(pins.map((m) => `${m.props.coordinate.latitude},${m.props.coordinate.longitude}`)).size).toBe(5);
+  for (const m of pins) {
+    expect(Math.abs(m.props.coordinate.longitude - view.longitude)).toBeLessThan(view.longitudeDelta * 0.15);
+    expect(Math.abs(m.props.coordinate.latitude - view.latitude)).toBeLessThan(view.longitudeDelta * 0.15);
+  }
+  // Each opens its own site.
+  for (const site of zabargad) {
+    await act(async () => pinOf(site).props.onPress());
+    expect(onSelectSite).toHaveBeenLastCalledWith(site.id);
+  }
 });
 
 test('a long press on the map still offers to add a site there', async () => {

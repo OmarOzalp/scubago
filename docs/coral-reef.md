@@ -39,8 +39,9 @@ in the island's own (scaled) frame, from the building blocks it shares with the 
 
 Around any other island the shelf drops away to deep water. Around the Coral Reef it runs on as a
 broad lagoon of pale sand, out to a reef crest that rises almost to the surface, where the swell
-breaks, and only then does the reef's outer slope fall away to the deep (`seabedProfile` with the
-reef's place, `OCEAN.reefCrest` in `src/lib/ocean.ts`). The crest is never a neat ring
+breaks, and only then does the reef's outer slope fall away to the deep, as a steep wall, so that the
+water just outside the crest is deep enough for a whale shark or a manta (`seabedProfile` with the
+reef's place, `OCEAN.reefCrest` in `src/lib/ocean.ts`; the animals' side of it is in docs/marine-navigation.md). The crest is never a neat ring
 (`OCEAN.reefShape`): it wanders in and out, its outer edge is cut into spurs and grooves, and two
 boat passes break it where the lagoon opens to the sea. Its seabed has rings of its own to pick out
 the crest's rise (`createSeabedMesh`).

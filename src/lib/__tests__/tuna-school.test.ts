@@ -1,4 +1,5 @@
 import { afterEach, expect, test } from '@jest/globals';
+import { flatSeabed } from '../../test-support/flat-seabed';
 import { createShoreField, shoreDistance, shorePolygons } from '../island-outline';
 import { createMarineMotion, MOVEMENT, WORLD, type MarineMotion } from '../marine-motion';
 import { apparentShift, worldFor, type World } from '../steering';
@@ -10,8 +11,8 @@ const probability = GREAT_WHITE_HUNT.attackProbability;
 afterEach(() => { GREAT_WHITE_HUNT.attackProbability = probability; });
 
 /** A scene with these animals and the school, stepped at 60 fps for `seconds`; `each` sees every frame. */
-function run(models: MarineModel[], level: number, seconds: number, seed: number, each: (motion: MarineMotion, school: TunaSchool, time: number) => void = () => {}) {
-  const motion = createMarineMotion(models.map((model, lane) => ({ model, lane })), level, { school: true, seed });
+function run(models: MarineModel[], level: number, seconds: number, seed: number, each: (motion: MarineMotion, school: TunaSchool, time: number) => void = () => {}, flat = false) {
+  const motion = createMarineMotion(models.map((model, lane) => ({ model, lane })), level, { school: true, seed, seabed: flat ? flatSeabed(level) : undefined });
   for (let frame = 1; frame <= seconds * 60; frame++) {
     motion.step(1 / 60, true);
     each(motion, motion.school!, frame / 60);
@@ -50,15 +51,16 @@ test('the school holds together, in view, off the island and islets, and below t
     const [main, ...islets] = shorePolygons(level);
     for (const seed of [.2, .7]) {
       let samples = 0, whole = 0, finite = true, edge = 0, shore = Infinity, islet = Infinity, top = -Infinity;
-      run([], level, 150, seed, (_, school, time) => {
+      run([], level, 150, seed, (motion, school, time) => {
         if (Math.round(time * 60) % 60) return;
         const { x, y, z } = school.pose;
         for (let i = 0; i < school.size; i++) {
           finite &&= [x[i], y[i], z[i]].every(Number.isFinite);
           // Judged where the camera shows it, like the large animals.
           const seenZ = z[i] + apparentShift(y[i] + .94);
-          // Inside this level's ocean area, which grows with the island.
-          edge = Math.max(edge, frameEdge(x[i], seenZ, worldFor(level)));
+          // Inside this level's ocean area, which grows with the island, and is wider for the school where the Coral Reef's shelf
+          // leaves the deep water it keeps to only at the edge of the view (shelf-water.ts).
+          edge = Math.max(edge, frameEdge(x[i], seenZ, { x: worldFor(level).x * motion.schoolFactor, z: worldFor(level).z * motion.schoolFactor }));
           shore = Math.min(shore, shoreDistance([main], x[i], seenZ));
           if (islets.length) islet = Math.min(islet, shoreDistance(islets, x[i], seenZ));
           top = Math.max(top, y[i]);
@@ -151,6 +153,8 @@ test('a great white that does not attack only puts the school on alert', () => {
   expect(seen.has('panic')).toBe(false);
 });
 
+// (over a flat bottom, like the tap target's: how a charge goes and how the school regroups after it. Round the Coral Reef the school can only
+// scatter along its ring of deep water, which a dozen seconds do not regroup)
 test('a charge drives through the school, which scatters and regroups, and the shark rests before the next', () => {
   GREAT_WHITE_HUNT.attackProbability = 1;
   const cruise = MOVEMENT['great-white-shark'].cruise;
@@ -175,7 +179,7 @@ test('a charge drives through the school, which scatters and regroups, and the s
     if (current?.end && current.after === undefined && time >= current.end + 12) current.after = together(school);
     // Back to cruising after the charge: the next few seconds after the exit.
     if (exitEnd > 0 && time > exitEnd + 3 && time < exitEnd + 3.1) restSpeed = Math.max(restSpeed, shark.speed);
-  });
+  }, true);
   expect(charges.length).toBeGreaterThanOrEqual(3);
   for (let k = 1; k < charges.length; k++) expect(charges[k].start - charges[k - 1].end).toBeGreaterThanOrEqual(GREAT_WHITE_HUNT.cooldown);
   const done = charges.filter((c) => c.after !== undefined);
@@ -252,6 +256,8 @@ test('the tap target sits on the school, turned along it, from the first frame',
   }
 });
 
+// (over a flat bottom: how the target holds the school's main body, not how the Coral Reef's ring of deep water, which a fleeing school
+// can only scatter along, splits it into two halves)
 test('the tap target follows the school through calm, alert, panic and regrouping, at a comfortable, bounded size', () => {
   GREAT_WHITE_HUNT.attackProbability = 1;
   const [min, max] = TUNA_SCHOOL.hitSize;
@@ -285,7 +291,7 @@ test('the tap target follows the school through calm, alert, panic and regroupin
         scattered++;
         if (share >= .85) kept++;
       }
-    });
+    }, true);
     expect(bounded).toBe(true);
     expect([...moods].sort()).toEqual(['alert', 'calm', 'panic', 'recover']);
     expect(covered / calm).toBeGreaterThan(.95);

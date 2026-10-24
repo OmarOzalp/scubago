@@ -6,7 +6,7 @@ import { Icon } from '@/components/icon';
 import { ThemedText } from '@/components/themed-text';
 import { Radius } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
-import { isSignaturePath, SIGNATURE_BOX, signaturePath } from '@/lib/dives';
+import { isSignaturePath, SIGNATURE_BOX, signaturePath, strokesPath } from '@/lib/dives';
 
 type Point = [number, number];
 
@@ -67,7 +67,7 @@ export function SignaturePad({
     publish([]);
     onChange(null);
   };
-  const d = signaturePath(strokes);
+  const d = strokesPath(strokes);
 
   return (
     <View style={styles.field}>

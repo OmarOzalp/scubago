@@ -17,9 +17,9 @@
  *   picture's top and bottom.) The copy becomes a PNG `blob:` URL (`releaseSnapshot` revokes it).
  * - **iOS and Android.** The scene is drawn once and expo-gl's `GLView.takeSnapshotAsync` reads
  *   the GL framebuffer for the same centred strip (`rect`), into a PNG file in the cache directory
- *   (a `file://` URI). The camera is not touched, so there is no visible jump: the picture is
- *   the card's own framing, not widened. (Widening needs a frame drawn at another zoom, and Expo
- *   GL presents every frame `render` draws: the diver would see it flash.)
+ *   (a `file://` URI; `releaseSnapshot` deletes it). The camera is not touched, so there is no
+ *   visible jump: the picture is the card's own framing, not widened. (Widening needs a frame drawn
+ *   at another zoom, and Expo GL presents every frame `render` draws: the diver would see it flash.)
  *
  * Both are plain functions over the renderer R3F hands out (`gl`, `scene`, `camera`), typed
  * structurally so this file needs no three.js, and everything platform-specific is passed in
@@ -74,14 +74,32 @@ export function hasScene(key: string): boolean {
 const isImageUri = (value: unknown): value is string =>
   typeof value === 'string' && /^(file:\/\/|blob:|data:image\/)/i.test(value);
 
-/** Lets go of a picture's memory once it is no longer shown: a web `blob:` URL is revoked, a file is left to the system's cache clean-up. */
+/**
+ * The picture files this module had expo-gl write (into the cache's GLView folder) and not yet let
+ * go of. Only these are ever deleted: a `file://` picture from anywhere else isn't this module's.
+ */
+const ownFiles = new Set<string>();
+
+/**
+ * Lets go of a picture once it is no longer shown: a web `blob:` URL is revoked, and a phone's
+ * picture file is deleted (a cache clean-up may be days away, and every opening of the preview takes a
+ * new one). Never throws.
+ */
 export function releaseSnapshot(uri: string | null | undefined): void {
-  if (!uri || !/^blob:/i.test(uri)) return;
+  if (!uri) return;
   try {
-    URL.revokeObjectURL(uri);
+    if (/^blob:/i.test(uri)) URL.revokeObjectURL(uri);
+    else if (ownFiles.delete(uri)) deleteFile(uri);
   } catch {
     // Nothing to release.
   }
+}
+
+/** expo-file-system, like expo-gl, is required when a phone first lets go of a picture (never on the web). */
+function deleteFile(uri: string) {
+  const { File } = require('expo-file-system') as typeof import('expo-file-system'); // eslint-disable-line @typescript-eslint/no-require-imports
+  const file = new File(uri);
+  if (file.exists) file.delete();
 }
 
 /**
@@ -271,5 +289,8 @@ async function captureNative({ gl, scene, camera }: FrameTarget, request: Snapsh
   const rect = cropRect(bufferWidth, bufferHeight, request.width / request.height);
   const shot = await deps.takeSnapshot(context, { format: 'png', compress: 1, flip: false, rect });
   const uri = typeof shot.uri === 'string' ? shot.uri : shot.localUri;
-  return typeof uri === 'string' && uri ? uri : null;
+  if (typeof uri !== 'string' || !uri) return null;
+  // Its own file, for `releaseSnapshot` to delete.
+  ownFiles.add(uri);
+  return uri;
 }

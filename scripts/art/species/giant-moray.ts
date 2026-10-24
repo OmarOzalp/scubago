@@ -13,8 +13,8 @@ import { SWIM_RIGS, type MorayRig } from '../../../src/lib/marine-rigs';
 import { blendSkins, chainSkin, clamp, curve, eye, hex, MeshBuilder, mix, noise, smoothstep, TAU, type RGB, type Skin } from './kit';
 import type { BoneSpec } from './export';
 
-const BASE = hex('#565030'), HEAD = hex('#3f3a22'), SPOT = hex('#26220f'), MOTTLE = hex('#8f854a');
-const BELLY = hex('#6f6942'), MOUTH = hex('#4a1b17'), TOOTH = hex('#ece3cc'), EYE = hex('#c8b052'), FIN_EDGE = hex('#34301b');
+const BASE = hex('#7a6540'), HEAD = hex('#574a2c'), SPOT = hex('#2a2210'), MOTTLE = hex('#a8965a'), BLOTCH = hex('#1d170a');
+const BELLY = hex('#8a7c52'), MOUTH = hex('#4a1b17'), TOOTH = hex('#ece3cc'), EYE = hex('#c8b052'), FIN_EDGE = hex('#34301b');
 
 const RIG = SWIM_RIGS['giant-moray'] as MorayRig;
 /** Body position from the snout (0) to the tail tip (1), and back to model z. */
@@ -24,19 +24,27 @@ const GAPE_BACK = .385;
 const gapeY = (z: number) => -.006 - .008 * smoothstep(.5, GAPE_BACK, z);
 
 // Half-height and half-width along the body: a broad head with heavy cheeks, a thick body, a narrow tail.
-const height = curve([[-.5, .005], [-.48, .016], [-.42, .028], [-.32, .04], [-.2, .05], [-.05, .057], [.1, .06], [.25, .06], [.33, .059], [.38, .058], [.42, .05], [.455, .036], [.48, .022], [.5, .008]]);
-const width = curve([[-.5, .003], [-.48, .01], [-.42, .019], [-.32, .03], [-.2, .041], [-.05, .048], [.1, .052], [.25, .052], [.33, .054], [.38, .056], [.42, .05], [.455, .038], [.48, .024], [.5, .008]]);
+const height = curve([[-.5, .005], [-.48, .016], [-.42, .028], [-.32, .04], [-.2, .05], [-.05, .057], [.1, .06], [.25, .06], [.33, .059], [.38, .058], [.42, .05], [.455, .037], [.48, .03], [.5, .018]]);
+const width = curve([[-.5, .003], [-.48, .01], [-.42, .019], [-.32, .03], [-.2, .041], [-.05, .048], [.1, .052], [.25, .052], [.33, .054], [.38, .056], [.42, .05], [.455, .039], [.48, .032], [.5, .018]]);
 
 const mottle = (p: Vector3, scale: number, seed: number) =>
   noise(p.z * scale + 2.3 * noise(p.x * scale * 2, seed + 1) + 3.7 * noise(p.y * scale * 2, seed + 2), seed);
+/** Spot field: bands along the body crossed with bands around it, so the patches come out round, not as stripes. */
+const spots = (p: Vector3, scale: number) => {
+  const around = Math.atan2(p.x, p.y);
+  return .5 * (mottle(p, scale, 5) + noise(around * 4.2 + p.z * scale * .45 + 2.1 * noise(p.z * scale * .7, 9), 21));
+};
 
-/** Leopard spots over olive brown with yellowish mottling between; the head darker, the belly a little lighter. */
+/** Dark leopard spots on a tan-brown ground with yellowish mottling between; a dark blotch on each side at the gill opening. */
 function skin(p: Vector3, below: number): RGB {
   const head = smoothstep(.3, .42, p.z);
-  const spot = smoothstep(.25, .5, mottle(p, 34 + 18 * head, 5));
+  const spot = smoothstep(.1, .24, spots(p, 46 + 20 * head));
   const light = smoothstep(.35, .7, mottle(p, 21, 13));
-  const base = mix(mix(BASE, MOTTLE, light * .55 * (1 - head * .6)), HEAD, head * .7);
-  return mix(mix(base, SPOT, spot * (.85 - .25 * below)), BELLY, below * .45);
+  const base = mix(mix(BASE, MOTTLE, light * .55 * (1 - head * .6)), HEAD, head * .6);
+  const spotted = mix(mix(base, SPOT, spot * (.9 - .25 * below)), BELLY, below * .45);
+  // The gill blotch: a dark oval on each flank at z .30-.36, centred a little below the midline.
+  const blotch = (1 - smoothstep(.45, 1.1, Math.hypot((p.z - .33) / .04, (p.y + .004) / .036))) * smoothstep(.015, .035, Math.abs(p.x));
+  return mix(spotted, BLOTCH, blotch * .95);
 }
 
 export function buildGiantMoray() {
@@ -62,11 +70,11 @@ export function buildGiantMoray() {
 
   // --- Body: a long loft, slightly compressed side to side, the snout and jaws shaped at the front ---
   // Rings closer together at the head and the tail, where the outline turns fastest.
-  const zs = Array.from({ length: 40 }, (_, i) => { const t = i / 39; return -.5 + t - .06 * Math.sin(TAU * t); });
-  // Each ring runs from one side of the gape over the back to the other (7 points), then under the belly
-  // (5 more). Ahead of the corner of the mouth the two lips are separate vertices, the upper on the head
+  const zs = Array.from({ length: 56 }, (_, i) => { const t = i / 55; return -.5 + t - .06 * Math.sin(TAU * t); });
+  // Each ring runs from one side of the gape over the back to the other (9 points), then under the belly
+  // (7 more). Ahead of the corner of the mouth the two lips are separate vertices, the upper on the head
   // and the lower on the jaw, so the mouth opens instead of stretching skin across it.
-  const UPPER = 7, LOWER = 5;
+  const UPPER = 9, LOWER = 7;
   const gapeAngle = (z: number) => Math.acos(clamp(gapeY(Math.min(z, .5)) / height(z), -.9, .9));
   mesh.begin();
   const rings = zs.map((z) => {
@@ -94,8 +102,8 @@ export function buildGiantMoray() {
   }
   // The snout closes to two tips, the upper jaw's and the lower jaw's.
   const last = rings[rings.length - 1], first = rings[0];
-  const upperTip = mesh.vertex(new Vector3(0, gapeY(.5) + .004, .506), HEAD, { Head: 1 });
-  const lowerTip = mesh.vertex(new Vector3(0, gapeY(.5) - .004, .503), HEAD, { Jaw: 1 });
+  const upperTip = mesh.vertex(new Vector3(0, gapeY(.5) + .004, .511), HEAD, { Head: 1 });
+  const lowerTip = mesh.vertex(new Vector3(0, gapeY(.5) - .004, .508), HEAD, { Jaw: 1 });
   for (let k = 0; k < UPPER - 1; k++) mesh.tri(upperTip, last.upper[k + 1], last.upper[k]);
   for (let k = 0; k < LOWER + 1; k++) mesh.tri(lowerTip, last.lower[k + 1], last.lower[k]);
   const tail = mesh.vertex(new Vector3(0, 0, -.505), BASE, along(1));
@@ -141,16 +149,18 @@ export function buildGiantMoray() {
   mesh.end({ closed: false, normals: true, outward: (i) => new Vector3(Math.sign(mesh.point(i).x), 0, 0) });
 
   // --- Eyes: small, set high and forward on the snout ---
-  for (const side of [1, -1]) eye(mesh, new Vector3(side * .029, .022, .448), new Vector3(side, .55, .35), .009, EYE, { Head: 1 }, .55);
+  for (const side of [1, -1]) eye(mesh, new Vector3(side * .029, .022, .448), new Vector3(side, .55, .35), .012, EYE, { Head: 1 }, .55);
 
   // --- Fin fold: a continuous low fin along the back from behind the head, round the tail, and forward beneath to the anal fin ---
   const crest = (z: number) => .004 + .02 * smoothstep(.36, .25, z) * smoothstep(-.52, -.25, z) + .01 * smoothstep(-.3, -.48, z);
   const finZs = Array.from({ length: 26 }, (_, i) => .35 - .85 * i / 25);
   for (const dir of [1, -1]) {
     const start = dir > 0 ? .35 : -.02;
+    // The fold ramps in from nothing over its first stretch, so neither fin starts as a square tab.
+    const ramp = (z: number) => smoothstep(start, start - .08, z);
     mesh.begin();
     const strips = finZs.filter((z) => z <= start).map((z) => {
-      const base = dir * (height(z) - .003), top = base + dir * crest(z);
+      const base = dir * (height(z) - .003), top = base + dir * crest(z) * ramp(z);
       const p0 = new Vector3(.0035, base, z), p1 = new Vector3(0, top, z), p2 = new Vector3(-.0035, base, z);
       const tone = (p: Vector3) => mix(skin(p, 0), FIN_EDGE, .55);
       return [mesh.vertex(p0, skin(p0, 0), weight(p0)), mesh.vertex(p1, tone(p1), weight(p1)), mesh.vertex(p2, skin(p2, 0), weight(p2))];

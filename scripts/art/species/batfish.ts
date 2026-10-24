@@ -14,10 +14,10 @@ import type { BoneSpec } from './export';
 import { sharkContext, type SharkContext, type SharkDesign } from './shark';
 
 // Body: dusky grey-green on the back, silvery on the flank, pale below; a yellowish wash toward the tail.
-const BACK = hex('#8a948f'), FLANK = hex('#dde3df'), BELLY = hex('#f3f6f1'), HEAD = hex('#b0b8b4'), YELLOW = hex('#e0d79c');
+const BACK = hex('#7d8079'), FLANK = hex('#dde3df'), BELLY = hex('#f3f6f1'), HEAD = hex('#b0b8b4'), YELLOW = hex('#e0d79c');
 const BAND = hex('#2a2f2f'), SMUDGE = hex('#262a29'), SCALE = hex('#d3d9d5');
 // Fins: dusky yellow-grey with darker margins; yellow pelvics.
-const FIN = hex('#d3d6c3'), FIN_PALE = hex('#eaece0'), MARGIN = hex('#4a4c45'), PELVIC = hex('#ffcf3a'), PELVIC_TIP = hex('#75622b');
+const FIN = hex('#d3d6c3'), FIN_PALE = hex('#eaece0'), MARGIN = hex('#4a4c45'), PELVIC = hex('#d8c25a'), PELVIC_TIP = hex('#75622b');
 const EYE = hex('#c79f3d'), PUPIL = hex('#05070a'), MOUTH = hex('#2a2a26'), LIP = hex('#b9bbab');
 
 const rig = SWIM_RIGS.batfish as SharkRig;

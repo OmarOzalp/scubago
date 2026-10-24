@@ -11,9 +11,9 @@ import { mirrorY, topShark, type TopSharkSpec } from '../topshark';
 import type { Fill, Line, Part, PlateGeom } from '../types';
 
 const both = (poly: Pt[]): Pt[][] => [poly, mirror(poly)];
-const soft = (poly: Pt[], paint: Fill['paint'], o = 1): Fill[] =>
+const soft = (poly: Pt[], paint: Fill['paint'], o = 1, spread = 1): Fill[] =>
   // A soft-edged patch: the shape, plus slightly smaller and larger copies at lower strength.
-  [1.08, 1, 0.9].map((k, i) => {
+  [1 + 0.08 * spread, 1, 1 - 0.1 * spread].map((k, i) => {
     const cx = poly.reduce((a, p) => a + p[0], 0) / poly.length;
     const cy = poly.reduce((a, p) => a + p[1], 0) / poly.length;
     return { poly: poly.map(([x, y]) => [cx + (x - cx) * k, cy + (y - cy) * k] as Pt), paint, o: o * [0.35, 0.5, 0.75][i], clip: 'trunk' as const };
@@ -95,27 +95,22 @@ const oceanicManta: RaySpec = {
   cephalic: { root: [8.2, 1.4], tip: [6.4, -9.2], width: 3.8 },
   tail: { path: [[0, 45], [0.4, 58], [-2.5, 72], [-8, 86], [-16, 96]], w0: 2.6, w1: 0.25, dorsal: { at: 0.02, len: 4.2, w: 2.3, paint: 'dark' }, knob: 0.1 },
   extra: () => {
-    const tri: Pt[] = [
-      [9.8, 10.4],
-      [33, 12.2],
-      [9.8, 29.5],
-    ];
-    const chevron: Pt[] = spline(
+    // The shoulder patches are soft-edged curved triangles, their pointed tips reaching out along the
+    // front of each wing, with the black T of the head and back between them.
+    const tri: Pt[] = spline(
       [
-        [0, 33.5],
-        [9, 30.5],
-        [19, 29.4],
-        [19.5, 31.2],
-        [9.5, 33],
-        [0, 36.5],
+        [10.2, 10.6],
+        [19, 9.4],
+        [31.5, 11.6, 1],
+        [24, 17.4],
+        [15.5, 24.6],
+        [10.2, 29.2],
+        [9.2, 19.5],
       ],
       true,
     );
     return {
-      marks: [
-        ...both(tri).map((poly) => ({ poly, paint: 'light' as const, clip: 'trunk' as const })),
-        { poly: [...chevron, ...mirror(chevron).reverse()], paint: '#B9BCC0', o: 0.75, clip: 'trunk' },
-      ],
+      marks: both(tri).flatMap((poly) => soft(poly, 'light', 1, 0.45)),
       lines: [{ pts: [[-5.4, 0.25], [5.4, 0.25]], w: 1.6 }],
     };
   },
@@ -133,11 +128,11 @@ const munks: RaySpec = {
     [7.1, 5],
     [9, 7.2],
     [44, 25.2],
-    [50, 31.5, 1],
-    [43.5, 30.6],
-    [34, 30.9],
-    [24, 33.6],
-    [15, 39],
+    [53, 37, 1],
+    [44.5, 33],
+    [34, 31.8],
+    [24, 34],
+    [15, 39.4],
     [8, 45],
     [3, 47.6],
     [0, 48],
@@ -154,25 +149,21 @@ const munks: RaySpec = {
   eye: [7.2, 4.2],
   eyeR: 0.7,
   extra: (c) => {
-    const collar: Pt[] = [
-      [-14, 5.4],
-      [14, 5.4],
-      [14, 10],
-      [-14, 10],
-    ];
+    // A soft dusky brow over the head, well inside the disc (not a hard-edged collar).
+    const brow: Pt[] = ellipse([0, 9], 6.2, 3.2);
     const margin = (side: 1 | -1): Fill => {
       const lead = spline(
         [
           [9 * side, 7.2],
           [44 * side, 25.2],
-          [50 * side, 31.5],
+          [53 * side, 37],
         ],
         false,
       );
       return { poly: [...lead, ...lead.slice().reverse().map(([x, y]) => [x - 1.6 * side, y + 2.4] as Pt)], paint: '#7D8A9E', o: 0.8, clip: 'trunk' };
     };
     void c;
-    return { marks: [{ poly: collar, paint: 'dark', o: 0.7, clip: 'trunk' }, margin(1), margin(-1)] };
+    return { marks: [...soft(brow, 'dark', 0.4), margin(1), margin(-1)] };
   },
 };
 
@@ -208,7 +199,8 @@ const eagle: RaySpec = {
     [2.6, 60],
   ],
   tail: {
-    path: [[0, 55], [2, 74], [13, 91], [36, 100], [60, 96], [79, 82], [88, 60], [90, 38], [86, 16]],
+    // A whip tail trailing off in a gentle S (the plate is turned head-left, so it fills the box).
+    path: [[0, 55], [1.5, 72], [8, 92], [16, 112], [19, 134], [14, 156], [6, 172], [2, 184]],
     w0: 1.9,
     w1: 0.15,
     hold: 0.6,
@@ -416,13 +408,31 @@ const electric: RaySpec = {
       ],
       true,
     );
-    // Seen from above the dorsal fins are slim leaves standing on the tail's midline.
-    const dorsal = (y: number, len: number): Pt[] => spline([[0, y], [1.3, y + len * 0.35], [1.1, y + len * 0.8], [0, y + len, 1], [-0.7, y + len * 0.6], [-0.6, y + len * 0.2]], true);
+    // The dorsal fins stand up from the tail's midline, seen leaning a little to one side: small
+    // triangles with a swept trailing edge, inked, with a few rays so they don't read as holes.
+    const dorsal = (y: number, len: number, lean: number): { poly: Pt[]; lines: Line[] } => {
+      const apex: Pt = [lean, y + len * 0.5];
+      return {
+        poly: spline([[0, y], [lean * 0.55, y + len * 0.12], [apex[0], apex[1], 1], [lean * 0.45, y + len * 0.82], [0, y + len, 1]], true, 0.8),
+        lines: [0.3, 0.6].map((k) => ({ pts: [[0, y + len * (0.1 + k * 0.8)], lerp([0, y + len * (0.1 + k * 0.8)], apex, 0.82)] as Pt[], w: 0.6, taper: 'end' as const })),
+      };
+    };
+    const d1 = dorsal(94, 10, 7.5);
+    const d2 = dorsal(106.5, 8, 6);
     const fins: Part[] = [
       { poly: caudal, paint: 'back', lines: [0.3, 0.5, 0.7].map((k) => ({ pts: [[0, 122], [lerp([-10, 136], [10, 136], k)[0], 138]] as Pt[], w: 0.7, taper: 'end' as const })), edge: 0.85 },
-      { poly: dorsal(95, 8), paint: 'back', lines: [], edge: 0.8 },
-      { poly: dorsal(107, 6.5), paint: 'back', lines: [], edge: 0.8 },
+      { poly: d1.poly, paint: 'back', lines: d1.lines, edge: 1.2 },
+      { poly: d2.poly, paint: 'back', lines: d2.lines, edge: 1.2 },
     ];
+    // The flat pelvic lobes are engraved with a few rays fanning from their roots.
+    const pelvicLines: Line[] = [0, 1].flatMap((sx) =>
+      [
+        [[13, 82.5], [24.4, 80]],
+        [[12, 84], [23.6, 85.4]],
+        [[10, 85.6], [19.4, 90.2]],
+        [[7.5, 86.6], [10.6, 91.4]],
+      ].map(([a, b]) => ({ pts: [lerp(a as Pt, b as Pt, 0), lerp(a as Pt, b as Pt, 1)].map(([x, y]) => [sx ? -x : x, y] as Pt), w: 1.5, taper: 'both' as const })),
+    );
     // Marbling: a net of cream rings and worm-tracks on dark brown.
     const marks: Fill[] = [];
     for (let k = 0; k < 300; k++) {
@@ -440,7 +450,7 @@ const electric: RaySpec = {
       }
     }
     void c;
-    return { near: fins, marks, lines: papillae };
+    return { near: fins, marks, lines: [...papillae, ...pelvicLines] };
   },
 };
 
@@ -476,32 +486,48 @@ const sawfish: TopSharkSpec = {
   ],
   eyeR: 0.45,
   extra: () => {
-    // The saw: broad at the base, slightly tapering, blunt at the tip, toothed all along.
+    // The saw: broad at the base, tapering to under half that width at a pointed tip, with a
+    // tooth every 1.3 units all along it (24 a side).
+    const edge: [number, number][] = [
+      [-7.4, 0],
+      [-6, 0.55],
+      [-2, 1.2],
+      [5, 1.75],
+      [16, 2.3],
+      [27.5, 2.9],
+    ];
+    const halfAt = (x: number) => {
+      for (let i = 1; i < edge.length; i++) if (x <= edge[i][0]) return edge[i - 1][1] + ((x - edge[i - 1][0]) / (edge[i][0] - edge[i - 1][0])) * (edge[i][1] - edge[i - 1][1]);
+      return edge[edge.length - 1][1];
+    };
     const saw: Pt[] = spline(
       [
         [27.5, -2.9],
-        [14, -2.3],
-        [2, -1.75],
-        [0, -1.2],
-        [0, 1.2],
-        [2, 1.75],
-        [14, 2.3],
+        [16, -2.3],
+        [5, -1.75],
+        [-2, -1.2],
+        [-6, -0.55],
+        [-7.4, 0, 1],
+        [-6, 0.55],
+        [-2, 1.2],
+        [5, 1.75],
+        [16, 2.3],
         [27.5, 2.9],
       ],
       true,
     );
     const teeth: Part[] = [];
-    for (let i = 0; i < 19; i++) {
-      const x = 1.2 + i * 1.3;
-      const half = 1.72 + (x / 27) * 0.6;
+    for (let i = 0; i < 24; i++) {
+      const x = -4.9 + i * 1.3;
+      const len = 1.45 * (0.7 + 0.3 * Math.min(1, (x + 6) / 14));
       for (const s of [-1, 1]) {
-        const b: Pt = [x, s * (half - 0.15)];
-        teeth.push({ poly: [add(b, [-0.32, 0]), add(b, [0.18, s * 1.45]), add(b, [0.45, s * 1.2]), add(b, [0.38, 0])], paint: '#EDE6D3', lines: [], edge: 0.55 });
+        const b: Pt = [x, s * (halfAt(x) - 0.15)];
+        teeth.push({ poly: [add(b, [-0.32, 0]), add(b, [0.18, s * len]), add(b, [0.45, s * len * 0.83]), add(b, [0.38, 0])], paint: '#EDE6D3', lines: [], edge: 0.55 });
       }
     }
-    const ridge: Line = { pts: [[1.5, 0], [27, 0]], w: 0.8, taper: 'both' };
+    const ridge: Line = { pts: [[-5, 0], [27, 0]], w: 0.8, taper: 'both' };
     const spiracles: Fill[] = [-1, 1].map((s) => ({ poly: ellipse([33, s * 2.7], 0.8, 0.5), paint: 'dark', o: 0.85 }));
-    return { far: teeth, near: [{ poly: saw, paint: '#9C8C6C', lines: [ridge, { pts: [[2, -1.1], [26, -1.6]], w: 0.55, taper: 'both' }, { pts: [[2, 1.1], [26, 1.6]], w: 0.9, taper: 'both' }], edge: 0.9 }], marks: spiracles };
+    return { far: teeth, near: [{ poly: saw, paint: '#9C8C6C', lines: [ridge, { pts: [[-3, -0.9], [26, -1.6]], w: 0.55, taper: 'both' }, { pts: [[-3, 0.9], [26, 1.6]], w: 0.9, taper: 'both' }], edge: 0.9 }], marks: spiracles };
   },
 };
 
@@ -572,8 +598,8 @@ const R = (spec: RaySpec, palette: PlateDef['palette'], rotate = 0): PlateDef =>
 export const RAYS: Record<string, PlateDef> = {
   'reef-manta': R(reefManta, { back: '#22252A', belly: '#F3F2EE' }),
   'oceanic-manta': R(oceanicManta, { back: '#17181B', belly: '#F4F3EF' }),
-  'munks-devil-ray': R(munks, { back: '#6E5F78', belly: '#F3F1EE', dark: '#2C2533' }),
-  'spotted-eagle-ray': R(eagle, { back: '#25303F', belly: '#F7F5F0' }),
+  'munks-devil-ray': R(munks, { back: '#5C6E88', belly: '#F3F1EE', dark: '#28313F' }),
+  'spotted-eagle-ray': R(eagle, { back: '#25303F', belly: '#F7F5F0' }, -90),
   'marbled-ray': R(marbled, { back: '#858A89', belly: '#ECEAE5', dark: '#1D1E21' }),
   'southern-stingray': R(southern, { back: '#6C5D47', belly: '#F3F0E8', dark: '#2E2A25' }),
   'bluespotted-ribbontail-ray': R(ribbontail, { back: '#B5975A', belly: '#F5F3EE' }, -90),

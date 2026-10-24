@@ -196,4 +196,57 @@ describe('SharePreview', () => {
     await act(async () => button('Share this card').props.onPress());
     expect(api.shareCard.mock.calls[0][1].prepared).toBe(picture);
   });
+
+  describe('when what the card shows changes (the private switch, the hero picture)', () => {
+    const sheet = (api, { content = 'shared', cardLabel = 'c' } = {}) => (
+      <SharePreview visible onClose={() => {}} title="t" cardLabel={cardLabel} fileName="f" api={api} content={content}>
+        <Text>THE CARD</Text>
+      </SharePreview>
+    );
+
+    test.each([
+      ['its content', { content: 'with private' }],
+      ['its description', { cardLabel: 'c, and a whale shark' }],
+    ])('throws away the picture drawn ahead when %s changes, and draws it again', async (_name, change) => {
+      jest.useFakeTimers();
+      const before = { blob: 'before' };
+      const after = { blob: 'after' };
+      const api = makeApi({ canSaveCard: true, prepareCard: jest.fn().mockResolvedValueOnce(before).mockResolvedValueOnce(after) });
+      await act(async () => { root = create(sheet(api)); });
+      await act(async () => { jest.advanceTimersByTime(500); });
+      expect(api.prepareCard).toHaveBeenCalledTimes(1);
+      await act(async () => root.update(sheet(api, change)));
+      // Tapped before the new one is drawn: the service draws the card as it is now, not the old picture.
+      await act(async () => button('Download this card as a picture').props.onPress());
+      expect(api.saveCard.mock.calls[0][1].prepared).toBeNull();
+      await act(async () => { jest.advanceTimersByTime(500); });
+      expect(api.prepareCard).toHaveBeenCalledTimes(2);
+      await act(async () => button('Share this card').props.onPress());
+      expect(api.shareCard.mock.calls[0][1].prepared).toBe(after);
+    });
+
+    test('a picture of the old card that finishes late is dropped', async () => {
+      jest.useFakeTimers();
+      const late = deferred();
+      const after = { blob: 'after' };
+      const api = makeApi({ prepareCard: jest.fn().mockReturnValueOnce(late.promise).mockResolvedValueOnce(after) });
+      await act(async () => { root = create(sheet(api)); });
+      await act(async () => { jest.advanceTimersByTime(500); });
+      await act(async () => root.update(sheet(api, { content: 'with private' })));
+      await act(async () => { jest.advanceTimersByTime(500); });
+      await act(async () => late.resolve({ blob: 'before' }));
+      await act(async () => button('Share this card').props.onPress());
+      expect(api.shareCard.mock.calls[0][1].prepared).toBe(after);
+    });
+
+    test('draws nothing again when nothing changed', async () => {
+      jest.useFakeTimers();
+      const api = makeApi({ prepareCard: jest.fn(async () => ({ blob: 'png' })) });
+      await act(async () => { root = create(sheet(api)); });
+      await act(async () => { jest.advanceTimersByTime(500); });
+      await act(async () => root.update(sheet(api)));
+      await act(async () => { jest.advanceTimersByTime(500); });
+      expect(api.prepareCard).toHaveBeenCalledTimes(1);
+    });
+  });
 });

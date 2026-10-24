@@ -559,7 +559,9 @@ export interface PullScope {
  * - a sighting deleted here but still on the server is queued for deletion again;
  * - a synced row the pull should have returned but didn't was deleted on the server, so it goes;
  * - a pull that says nothing about who can see a sighting (a project without migration 0008, as
- *   far as this session knows) never makes a private one look shared.
+ *   far as this session knows) never makes a private one look shared;
+ * - a pull that can't tell whether the diver keeps a sighting's notes or photo to themselves (it
+ *   has none yet: notesPrivate or photoPrivate undefined) leaves the choice made here.
  */
 export function mergePulledSightings(
   pulled: Sighting[],
@@ -576,6 +578,7 @@ export function mergePulledSightings(
         )).map((row) => [row.id as string, row]),
       );
       const seen = new Set<string>();
+      const flag = (v: boolean | undefined) => (v === undefined ? null : v ? 1 : 0);
       for (const s of pulled) {
         seen.add(s.id);
         const mine = local.get(s.id);
@@ -592,20 +595,21 @@ export function mergePulledSightings(
           `INSERT INTO sightings
              (id, user_id, username, species_id, site_id, sighted_on, notes, photo_uri, is_demo, synced,
               created_at, remote, status, synced_photo_url, custom_name, visibility, notes_private, photo_private, dive_id)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0, 1, ?, 1, ?, ?, ?, ?, ?, ?, ?)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0, 1, ?, 1, ?, ?, ?, ?, COALESCE(?, 0), COALESCE(?, 0), ?)
            ON CONFLICT (id) DO UPDATE SET
              user_id = excluded.user_id, username = excluded.username, species_id = excluded.species_id,
              site_id = excluded.site_id, sighted_on = excluded.sighted_on, notes = excluded.notes,
              photo_uri = excluded.photo_uri, created_at = excluded.created_at, remote = 1,
              custom_name = excluded.custom_name, visibility = COALESCE(excluded.visibility, sightings.visibility),
-             notes_private = excluded.notes_private, photo_private = excluded.photo_private,
+             notes_private = COALESCE(?, sightings.notes_private), photo_private = COALESCE(?, sightings.photo_private),
              status = COALESCE(excluded.status, sightings.status),
              synced_photo_url = excluded.synced_photo_url, sync_error = NULL,
              dive_id = CASE WHEN ? AND excluded.dive_id IS NOT NULL THEN excluded.dive_id ELSE sightings.dive_id END
            WHERE sightings.synced = 1 AND sightings.deleted = 0`,
           s.id, s.userId, s.username, s.speciesId, s.siteId, s.sightedOn, s.notes ?? null,
           s.photoUri ?? null, s.createdAt, s.status ?? null, s.photoUri ?? null, s.customName ?? null,
-          s.visibility ?? null, s.notesPrivate ? 1 : 0, s.photoPrivate ? 1 : 0, s.diveId ?? null, scope.diveIds ? 1 : 0,
+          s.visibility ?? null, flag(s.notesPrivate), flag(s.photoPrivate), s.diveId ?? null,
+          flag(s.notesPrivate), flag(s.photoPrivate), scope.diveIds ? 1 : 0,
         );
         saved += changes;
         // The server has the dive column but not this sighting's page (it was sent before the
@@ -690,6 +694,24 @@ export function deleteLocalUserData(userId: string): Promise<void> {
     await d.runAsync(`DELETE FROM sightings WHERE user_id = ?`, userId);
     await d.runAsync(`DELETE FROM dives WHERE user_id = ?`, userId);
     await d.runAsync(`DELETE FROM meta WHERE key = ?`, `${DIVES_BEFORE}${userId}`);
+  });
+}
+
+/**
+ * When a diver signs out: remove from this device (it may be shared) what of theirs the server
+ * already has. Changes still waiting to sync stay, and so do the synced pages they are on (a sighting
+ * must not lose its page): they would be lost otherwise, and go up when the diver signs back in.
+ */
+export function forgetSyncedUserData(userId: string): Promise<void> {
+  return exclusive(async (d) => {
+    await d.withTransactionAsync(async () => {
+      await d.runAsync(`DELETE FROM sightings WHERE user_id = ? AND synced = 1 AND is_demo = 0`, userId);
+      await d.runAsync(
+        `DELETE FROM dives WHERE user_id = ? AND synced = 1
+           AND id NOT IN (SELECT dive_id FROM sightings WHERE dive_id IS NOT NULL)`,
+        userId,
+      );
+    });
   });
 }
 
@@ -849,6 +871,27 @@ export function getRemoteDiveIds(userId: string): Promise<Set<string>> {
   return exclusive(async (d) => {
     const rows = await d.getAllAsync<{ id: string }>(`SELECT id FROM dives WHERE user_id = ? AND remote = 1 AND deleted = 0`, userId);
     return new Set(rows.map((r) => r.id));
+  });
+}
+
+/** The diver's pages on this device (deleted ones aside). */
+export function getLocalDiveIds(userId: string): Promise<Set<string>> {
+  return exclusive(async (d) => {
+    const rows = await d.getAllAsync<{ id: string }>(`SELECT id FROM dives WHERE user_id = ? AND deleted = 0`, userId);
+    return new Set(rows.map((r) => r.id));
+  });
+}
+
+/**
+ * A sighting's page is gone from this device too (deleted on another phone): it goes on without one,
+ * as the server's copy did when the page was deleted there.
+ */
+export function clearSightingDive(id: string, diveId: string): Promise<void> {
+  return exclusive(async (d) => {
+    await d.runAsync(
+      `UPDATE sightings SET dive_id = NULL WHERE id = ? AND dive_id = ? AND dive_id NOT IN (SELECT id FROM dives WHERE deleted = 0)`,
+      id, diveId,
+    );
   });
 }
 

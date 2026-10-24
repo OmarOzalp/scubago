@@ -2,7 +2,7 @@ import type { Species } from '@/lib/types';
 
 /**
  * Curated species list — animals divers actually recognize, look for, and brag about.
- * Photos are merged in at load time from species-photos.json (see scripts/fetch-species-photos.mjs).
+ * Photos are merged in at load time from species-photos.json (see scripts/fetch-species-photos.ts).
  */
 export const SPECIES: Species[] = [
   // ── Sharks ────────────────────────────────────────────────────────────────

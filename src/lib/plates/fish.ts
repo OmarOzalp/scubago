@@ -163,7 +163,8 @@ export function bonyCaudal(s: Strip, c: BonyCaudalSpec): FinShape & { rays: Line
   }
   // Leading edges of the lobes bulge a little as they leave the stock.
   const lead = (sign: -1 | 1): Ctrl => P(L * 0.42, sign * (hp + (H - hp) * 0.58));
-  const ctrl: Ctrl[] = [top, lead(-1), ...edge, lead(1), bot];
+  // The clavus rises straight from the stock's ends: a leading bulge there would loop out past them.
+  const ctrl: Ctrl[] = type === 'clavus' ? [top, ...edge, bot] : [top, lead(-1), ...edge, lead(1), bot];
   const outline = spline(ctrl, false, 1, 10, { start: norm([1, -(H - hp) / L]), end: norm([-1, -(H - hp) / L]) });
   // The trailing edge: from the upper tip round to the lower one.
   const near = (p: Pt) => outline.reduce((bi, q, i) => (dist(q, p) < dist(outline[bi], p) ? i : bi), 0);
@@ -172,10 +173,13 @@ export function bonyCaudal(s: Strip, c: BonyCaudalSpec): FinShape & { rays: Line
   const i0 = near([first[0], first[1]]);
   const i1 = near([last[0], last[1]]);
   const trailing = resample(outline.slice(i0, i1 + 1), rays);
-  const raysOut: Line[] = trailing.map((t, i) => {
-    const b = lerp(top, bot, 0.08 + (0.84 * i) / (rays - 1));
-    return { pts: [add(b, [-1.2, 0]), lerp(b, t, 0.96)], w: 0.6, taper: 'end' as const };
-  });
+  const raysOut: Line[] = trailing
+    .map((t, i) => {
+      const b = lerp(top, bot, 0.08 + (0.84 * i) / (rays - 1));
+      return { pts: [add(b, [-1.2, 0]), lerp(b, t, 0.96)], w: 0.6, taper: 'end' as const };
+    })
+    // On a rounded clavus the end rays are chords that leave the fin; they stick out as ticks.
+    .filter((_, i) => type !== 'clavus' || (i > 0 && i < rays - 1));
   const poly = [...outline, add(bot, [-3, 0]), add(top, [-3, 0])];
   const apex = outline[near([first[0], first[1]])];
   return { outline, poly, le: outline.slice(0, i0 + 1), te: outline.slice(i0, Math.round((i0 + i1) / 2)).reverse(), apex, rays: raysOut, trailing };
@@ -252,6 +256,10 @@ export interface FishSpec {
   mouth?: [number, number][];
   /** Lips: a thickness, drawn along the mouth line. */
   lips?: number;
+  /** Colour of the lips (default: the body's). */
+  lipPaint?: Paint;
+  /** Weight of the mouth line (default 1.3: big-mouthed fish want a heavier one). */
+  mouthW?: number;
   /** Rows of scales (0 or absent: smooth skin). */
   scales?: number;
   /** Scale columns per row (defaults to match the rows). */
@@ -333,11 +341,12 @@ export function fish(spec: FishSpec): PlateGeom {
   if (pectoral) g.near.push(pectoral);
   if (spec.mouth) {
     const m = spline(spec.mouth.map(([x, f]) => atX(s, x, f)), false);
-    g.lines.push({ pts: m, w: 1.3 });
+    g.lines.push({ pts: m, w: spec.mouthW ?? 1.3 });
     if (spec.lips) {
       const off = spec.lips;
-      g.marks.push({ poly: [...m, ...m.slice().reverse().map(([x, y], i, arr) => [x + off * 0.2, y - off * Math.sin((Math.PI * i) / (arr.length - 1 || 1))] as Pt)], paint: 'back', edge: 0.8 });
-      g.marks.push({ poly: [...m, ...m.slice().reverse().map(([x, y], i, arr) => [x + off * 0.2, y + off * Math.sin((Math.PI * i) / (arr.length - 1 || 1))] as Pt)], paint: 'back', edge: 0.8 });
+      const lip = spec.lipPaint ?? 'back';
+      g.marks.push({ poly: [...m, ...m.slice().reverse().map(([x, y], i, arr) => [x + off * 0.2, y - off * Math.sin((Math.PI * i) / (arr.length - 1 || 1))] as Pt)], paint: lip, edge: 0.8 });
+      g.marks.push({ poly: [...m, ...m.slice().reverse().map(([x, y], i, arr) => [x + off * 0.2, y + off * Math.sin((Math.PI * i) / (arr.length - 1 || 1))] as Pt)], paint: lip, edge: 0.8 });
     }
   }
   const { x: ex, f: ef, r: er, iris = '#C9A54A', ring, pupil } = spec.eye;

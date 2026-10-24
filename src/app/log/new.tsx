@@ -1,12 +1,14 @@
 import * as ImagePicker from 'expo-image-picker';
 import { Image } from 'expo-image';
 import { Stack, router, useLocalSearchParams } from 'expo-router';
-import { useEffect, useMemo, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import Animated, { useAnimatedStyle, useReducedMotion, useSharedValue, withDelay, withTiming } from 'react-native-reanimated';
 
 import { DateField } from '@/components/date-field';
-import { DiveForm } from '@/components/dive/dive-form';
+import { BottomBar } from '@/components/dive/bottom-bar';
+import { DiveForm, Group } from '@/components/dive/dive-form';
+import { HeaderBack } from '@/components/dive/header-back';
 import { Bookplate } from '@/components/dive/marks';
 import { FormField } from '@/components/form-field';
 import { Icon } from '@/components/icon';
@@ -25,20 +27,23 @@ import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { WhenReady } from '@/components/when-ready';
 import { OnFill, Radius, Shadow, Spacing, Type } from '@/constants/theme';
+import { useDiscardGuard, useHardwareBack } from '@/hooks/use-discard-guard';
+import { DISMISS_ON_DRAG, useKeyboard } from '@/hooks/use-keyboard';
 import { useNewBadges } from '@/hooks/use-new-badges';
 import { usePhotoUrl } from '@/hooks/use-photo-url';
 import { useRewards } from '@/hooks/use-rewards';
+import { useScrollTo } from '@/hooks/use-scroll-to';
 import { useSchemeName, useTheme } from '@/hooks/use-theme';
 import { announce } from '@/lib/announce';
 import { CATALOG, CATALOG_BY_ID, UNLISTED_ID, UNLISTED_NAME_MAX, speciesForSighting } from '@/lib/catalog';
-import { carryOver, emptyDraft, readDraft, type DiveDraft } from '@/lib/dive-draft';
+import { carryOver, emptyDraft, fieldOfProblem, readDraft, type DiveDraft, type DraftField } from '@/lib/dive-draft';
 import { formatDiveNumber, milestoneAt, milestoneName, nextDiveNumber, nextMilestone, sortDives } from '@/lib/dives';
 import { recentDiveDate, rememberDiveDate } from '@/lib/last-dive-date';
 import { keepPhoto } from '@/lib/photo-files';
-import { DEFAULT_PRIVACY, lastPrivacyChoice, rememberPrivacyChoice, type PrivacySettings } from '@/lib/privacy-choice';
+import { DEFAULT_PRIVACY, lastPrivacyChoice, privacySummary, rememberPrivacyChoice, type PrivacySettings } from '@/lib/privacy-choice';
 import { CATEGORY_LABEL, CATEGORY_ORDER } from '@/lib/rarity';
 import { artFor } from '@/lib/species-art';
-import { canEditSighting, isMaterialChange, localIsoDate } from '@/lib/sighting-edit';
+import { canEditSighting, isMaterialChange, localIsoDate, NOTES_MAX } from '@/lib/sighting-edit';
 import { onSiteAdded } from '@/lib/site-added';
 import { useAllSites, useAppStore, useMyDives, useMySightings, useMyUserId, useNextDiveNumber, useSiteById } from '@/lib/store';
 import { searchSpecies } from '@/lib/text-search';
@@ -56,8 +61,34 @@ type Result = {
   dive?: { id: string; number: number; written: boolean };
 };
 
-const STEP_NAMES: Record<Step, string> = { site: 'Site', species: 'Species', details: 'Details' };
+const STEP_NAMES: Record<Step, string> = { site: 'Site', species: 'Animals', details: 'Details' };
 const STEP_ORDER: Step[] = ['site', 'species', 'details'];
+const NAME_FIRST = 'Name the animal first';
+
+/** A name cut to fit its step, with room for the other two: "Hin Daeng & Hi…". */
+function shortName(name: string, max = 14): string {
+  const letters = [...name.trim()];
+  return letters.length <= max ? letters.join('') : `${letters.slice(0, max - 1).join('').trimEnd()}…`;
+}
+
+/**
+ * What the diver has put in, as one string, so that "has anything changed since the start?" is a
+ * comparison. The date and who can see it count once they have been chosen: until then they are
+ * filled in for the diver (and the last log's date arrives a moment late).
+ */
+function entrySnapshot(entry: {
+  siteId: string | null;
+  selected: string[];
+  customName: string;
+  notes: string;
+  photoUri?: string;
+  date: string | null;
+  draft: DiveDraft | null;
+  privacy: PrivacySettings | null;
+}): string {
+  // The draft carries the site and date itself, so those are left out of it here.
+  return JSON.stringify({ ...entry, draft: entry.draft && { ...entry.draft, siteId: null, divedOn: '' } });
+}
 
 /**
  * Log a dive: pick the site, tick what you saw (or nothing), then fill in the page (its number,
@@ -128,8 +159,31 @@ function LogSightingScreen() {
   );
   const [privacyTouched, setPrivacyTouched] = useState(false);
   const [saving, setSaving] = useState(false);
+  // A general problem (a photo that wouldn't come, a save that failed), above the save button.
   const [error, setError] = useState<string | null>(null);
+  // What is wrong with a field of the page, shown under it; and how often "Something else" has been
+  // saved without a name (each time takes the diver back to that field).
+  const [problem, setProblem] = useState<{ field: DraftField; message: string } | null>(null);
+  const [nameAsked, setNameAsked] = useState(0);
+  const nameField = useRef<TextInput>(null);
+  const privacyField = useRef<View>(null);
+  const { scrollView, onScroll, scrollTo } = useScrollTo();
+  const keyboard = useKeyboard();
   const [result, setResult] = useState<Result | null>(null);
+
+  // Leaving with something entered asks first; once saved there is nothing to lose.
+  const snapshot = entrySnapshot({
+    siteId,
+    selected,
+    customName,
+    notes,
+    photoUri,
+    date: dateTouched ? date : null,
+    draft: newDive ? draft : null,
+    privacy: editing || privacyTouched ? privacy : null,
+  });
+  const [startSnapshot, setStartSnapshot] = useState(snapshot);
+  const allowLeaving = useDiscardGuard(!result && snapshot !== startSnapshot);
 
   // Logging the rest of a trip: start from the date chosen last time, if that was recent.
   useEffect(() => {
@@ -154,6 +208,12 @@ function LogSightingScreen() {
     };
   }, [editing, privacyTouched]);
 
+  useEffect(() => {
+    if (nameAsked === 0) return;
+    scrollTo(nameField.current);
+    nameField.current?.focus();
+  }, [nameAsked, scrollTo]);
+
   // Back from "Add a dive site" with the new site: carry on to the species.
   useEffect(
     () =>
@@ -168,14 +228,37 @@ function LogSightingScreen() {
   const chosen = selected
     .map((id) => (id === UNLISTED_ID ? speciesForSighting({ speciesId: id, customName }) : CATALOG_BY_ID.get(id)))
     .filter((s): s is Species => !!s);
+  const unlisted = selected.includes(UNLISTED_ID);
 
   const goTo = (next: Step) => {
     setStep(next);
     setError(null);
+    setProblem(null);
     announce(
       `Step ${STEP_ORDER.indexOf(next) + 1} of 3: ${next === 'site' ? 'choose the dive site' : next === 'species' ? 'choose what you saw' : newDive ? 'the dive' : 'notes'}`,
     );
   };
+  // The way back through the steps; null on the first, where Back closes. An edit starts on the
+  // details, so the species and site it can reach from there lead back to them.
+  const previousStep: Step | null = editing
+    ? step === 'details'
+      ? null
+      : 'details'
+    : step === 'details'
+      ? 'species'
+      : step === 'species' && !page
+        ? 'site'
+        : null;
+  const goBack = () => {
+    if (previousStep) goTo(previousStep);
+    else if (router.canGoBack()) router.back();
+    else router.replace('/');
+  };
+  useHardwareBack(() => {
+    if (result || !previousStep) return false;
+    goTo(previousStep);
+    return true;
+  });
   const pickSite = (s: DiveSite) => {
     setSiteId(s.id);
     goTo(selected.length > 0 ? 'details' : 'species');
@@ -229,16 +312,25 @@ function LogSightingScreen() {
     }
   };
 
-  const fail = (message: string) => {
-    setError(message);
+  // A problem with a field of the page goes under it; one with the page as a whole above the button.
+  const complain = (message: string, field?: DraftField) => {
+    if (field && field !== 'siteId' && newDive) setProblem({ field, message });
+    else setError(message);
     announce(message);
   };
 
   const save = async () => {
     if (!siteId || !site || saving) return;
     if (!newDive && chosen.length === 0) return;
+    // Said under the field, with the diver taken there: never a button that is just greyed out.
+    if (unlisted && !customName.trim()) {
+      setNameAsked((n) => n + 1);
+      announce(NAME_FIRST);
+      return;
+    }
     setSaving(true);
     setError(null);
+    setProblem(null);
     // On a page, the sightings take the page's site and date.
     const base = { siteId: page?.siteId ?? siteId, sightedOn: page?.divedOn ?? date, notes: notes.trim() || undefined, ...privacy };
     const picks = selected.map((speciesId) => ({
@@ -254,6 +346,7 @@ function LogSightingScreen() {
         const speciesId = selected[0];
         const { isNewSpecies } = await updateSighting(editing.id, { ...picks[0], photoUri });
         if (!isNewSpecies) {
+          allowLeaving();
           router.back();
           return;
         }
@@ -280,7 +373,7 @@ function LogSightingScreen() {
       } else {
         const read = readDraft({ ...draft, siteId, divedOn: date });
         if (read.problem !== undefined) {
-          fail(read.problem);
+          complain(read.problem, read.field);
           setSaving(false);
           return;
         }
@@ -310,7 +403,8 @@ function LogSightingScreen() {
         ].join(' '),
       );
     } catch (e: any) {
-      fail(e.message ?? 'Could not save');
+      const message: string = e.message ?? 'Could not save';
+      complain(message, fieldOfProblem(message));
     } finally {
       setSaving(false);
     }
@@ -325,7 +419,10 @@ function LogSightingScreen() {
     // The next page: numbered after the one just written, with its gear and buddy.
     const { dives, divesBefore } = useAppStore.getState();
     const mine = dives.filter((d) => d.userId === myUserId);
-    setDraft({ ...emptyDraft({ number: nextDiveNumber(mine, divesBefore[myUserId] ?? 0), siteId: null, divedOn: date }), ...carryOver(sortDives(mine)[0], date).patch });
+    const next = { ...emptyDraft({ number: nextDiveNumber(mine, divesBefore[myUserId] ?? 0), siteId: null, divedOn: date }), ...carryOver(sortDives(mine)[0], date).patch };
+    setDraft(next);
+    // A page begun afresh: nothing entered yet, though the site and date stay as they were.
+    setStartSnapshot(entrySnapshot({ siteId, selected: [], customName: '', notes: '', date: dateTouched ? date : null, draft: next, privacy: privacyTouched ? privacy : null }));
     goTo('site');
   };
 
@@ -358,19 +455,17 @@ function LogSightingScreen() {
     selected.length === 1 &&
     isMaterialChange(editing, { speciesId: selected[0], siteId: page?.siteId ?? siteId, sightedOn: page?.divedOn ?? date, customName });
 
-  const unlisted = selected.includes(UNLISTED_ID);
+  const nameMissing = unlisted && nameAsked > 0 && !customName.trim();
   const takenBy = newDive ? myDives.find((d) => String(d.number) === draft.number) : undefined;
-  const crumbs: { step: Step; label: string; enabled: boolean }[] = [
-    { step: 'site', label: page ? `${formatDiveNumber(page.number)} · ${site?.name ?? ''}` : site ? site.name : 'Site', enabled: !page },
-    {
-      step: 'species',
-      label: chosen.length === 0 ? 'Species' : chosen.length === 1 ? chosen[0].commonName : `${chosen.length} species`,
-      enabled: !!site,
-    },
-    { step: 'details', label: newDive && draft.number ? `No. ${draft.number}` : 'Details', enabled: !!site && (chosen.length > 0 || newDive) },
+  // Each step is named by a fixed short word, or by what was chosen in it (cut short: the three share one line).
+  const crumbs: { step: Step; chosen?: string; enabled: boolean }[] = [
+    { step: 'site', chosen: site?.name, enabled: !page },
+    { step: 'species', chosen: chosen.length === 0 ? undefined : chosen.length === 1 ? chosen[0].commonName : `${chosen.length} animals`, enabled: !!site },
+    { step: 'details', enabled: !!site && (chosen.length > 0 || newDive) },
   ];
 
   const stepIndex = STEP_ORDER.indexOf(step);
+  const showDetails = step === 'details' && !!site && (chosen.length > 0 || newDive);
 
   return (
     <ThemedView style={styles.container}>
@@ -381,49 +476,53 @@ function LogSightingScreen() {
           headerStyle: { backgroundColor: theme.background },
           headerTintColor: theme.text,
           headerTitleStyle: { fontFamily: Type.display, fontSize: 19, color: theme.text },
+          // Back goes back a step, and leaves only from the first.
+          headerLeft: ({ tintColor }) => <HeaderBack onPress={goBack} label={previousStep ? `Back to ${STEP_NAMES[previousStep].toLowerCase()}` : 'Close'} tintColor={tintColor} />,
         }}
       />
-      {/* The three steps, numbered like the pages of a form: done ones ticked, the current one inked in. */}
-      <View style={[styles.steps, { borderBottomColor: theme.rule }]} accessibilityRole="tablist" accessibilityLabel="Steps">
-        {crumbs.map((c, i) => {
-          const current = step === c.step;
-          const done = i < stepIndex && (c.enabled || (c.step === 'site' && !!page));
-          return (
-            <View key={c.step} style={styles.stepWrap}>
-              {i > 0 ? <View style={[styles.stepRule, { backgroundColor: i <= stepIndex ? theme.lagoon : theme.rule }]} /> : null}
-              <Pressable
-                onPress={() => c.enabled && goTo(c.step)}
-                disabled={!c.enabled}
-                accessibilityRole="tab"
-                accessibilityLabel={`Step ${i + 1}, ${STEP_NAMES[c.step]}${c.label !== STEP_NAMES[c.step] ? `: ${c.label}` : ''}`}
-                aria-selected={current}
-                aria-disabled={!c.enabled}
-                style={({ pressed }) => [styles.step, { opacity: pressed ? 0.6 : 1 }]}>
-                <View
-                  style={[
-                    styles.stepDot,
-                    current
-                      ? { backgroundColor: theme.lagoon, borderColor: theme.lagoon }
-                      : done
-                        ? { backgroundColor: theme.backgroundElement, borderColor: theme.lagoon }
-                        : { backgroundColor: theme.backgroundElement, borderColor: theme.rule },
-                  ]}>
-                  {done ? (
-                    <Icon name="check" size={14} color={theme.tint} weight="bold" />
-                  ) : (
-                    <Text style={[styles.stepNumber, { color: current ? OnFill[scheme].lagoon : theme.textSecondary }]}>{i + 1}</Text>
-                  )}
-                </View>
-                <Text
-                  numberOfLines={1}
-                  style={[styles.stepLabel, { color: current ? theme.text : c.enabled || done ? theme.text : theme.textSecondary, fontFamily: current ? Type.bodyHeavy : Type.bodyBold }]}>
-                  {c.label}
-                </Text>
-              </Pressable>
-            </View>
-          );
-        })}
-      </View>
+      {/* The three steps, numbered like the pages of a form: done ones ticked, the current one inked in. Out of the way while typing (it is a sixth of a small phone with the keyboard up), and when editing one sighting, which has no steps to take. */}
+      {!keyboard.open && !editing && (
+        <View style={[styles.steps, { borderBottomColor: theme.rule }]} accessibilityRole="tablist" accessibilityLabel="Steps">
+          {crumbs.map((c, i) => {
+            const current = step === c.step;
+            const done = i < stepIndex && (c.enabled || (c.step === 'site' && !!page));
+            return (
+              <View key={c.step} style={styles.stepWrap}>
+                {i > 0 ? <View style={[styles.stepRule, { backgroundColor: i <= stepIndex ? theme.lagoon : theme.rule }]} /> : null}
+                <Pressable
+                  onPress={() => c.enabled && goTo(c.step)}
+                  disabled={!c.enabled}
+                  accessibilityRole="tab"
+                  accessibilityLabel={`Step ${i + 1}, ${STEP_NAMES[c.step]}${c.chosen ? `: ${c.chosen}` : ''}`}
+                  aria-selected={current}
+                  aria-disabled={!c.enabled}
+                  style={({ pressed }) => [styles.step, { opacity: pressed ? 0.6 : 1 }]}>
+                  <View
+                    style={[
+                      styles.stepDot,
+                      current
+                        ? { backgroundColor: theme.lagoon, borderColor: theme.lagoon }
+                        : done
+                          ? { backgroundColor: theme.backgroundElement, borderColor: theme.lagoon }
+                          : { backgroundColor: theme.backgroundElement, borderColor: theme.rule },
+                    ]}>
+                    {done ? (
+                      <Icon name="check" size={14} color={theme.tint} weight="bold" />
+                    ) : (
+                      <Text style={[styles.stepNumber, { color: current ? OnFill[scheme].lagoon : theme.textSecondary }]}>{i + 1}</Text>
+                    )}
+                  </View>
+                  <Text
+                    numberOfLines={1}
+                    style={[styles.stepLabel, { color: current ? theme.text : c.enabled || done ? theme.text : theme.textSecondary, fontFamily: current ? Type.bodyHeavy : Type.bodyBold }]}>
+                    {c.chosen ? shortName(c.chosen) : STEP_NAMES[c.step]}
+                  </Text>
+                </Pressable>
+              </View>
+            );
+          })}
+        </View>
+      )}
 
       {step === 'site' && (
         <SitePicker sites={sites} recentSiteIds={recentSiteIds(mySightings)} userId={userId} onPick={pickSite} />
@@ -440,15 +539,20 @@ function LogSightingScreen() {
           onDone={() => goTo('details')}
         />
       )}
-      {step === 'details' && site && (chosen.length > 0 || newDive) && (
-        <ScrollView contentContainerStyle={styles.details} keyboardShouldPersistTaps="handled">
+      {showDetails && (
+        <ScrollView
+          ref={scrollView}
+          onScroll={onScroll}
+          scrollEventThrottle={16}
+          contentContainerStyle={styles.details}
+          keyboardShouldPersistTaps="handled"
+          keyboardDismissMode={DISMISS_ON_DRAG}
+          automaticallyAdjustKeyboardInsets>
           <Paper style={styles.sawCard}>
             <View style={styles.sawHeader}>
               <ThemedText type="label">{editing ? 'Logbook entry' : page ? formatDiveNumber(page.number) : 'New logbook entry'}</ThemedText>
               <ThemedText type="heading" accessibilityRole="header">
-                {newDive
-                  ? `${draft.number ? `No. ${draft.number}` : 'A dive'} at ${site.name}`
-                  : `${chosen.length === 1 ? 'What you saw' : `${chosen.length} species`} at ${site.name}`}
+                {newDive ? `${draft.number ? `No. ${draft.number}` : 'A dive'} at ${site.name}` : site.name}
               </ThemedText>
               {page ? (
                 <ThemedText type="small" themeColor="textSecondary">
@@ -493,13 +597,147 @@ function LogSightingScreen() {
                   {chosen.length === 0 ? 'Add what you saw' : 'Add another species'}
                 </ThemedText>
               </Pressable>
-            ) : null}
+            ) : (
+              // An edit has no step bar: the animal, and the site if it isn't a page's, are changed from here.
+              <View style={styles.changes}>
+                <Pressable onPress={() => goTo('species')} accessibilityRole="button" style={styles.textButton}>
+                  <Icon name="edit" size={16} color={theme.tint} weight="bold" />
+                  <ThemedText type="smallBold" themeColor="tint">
+                    Change the animal
+                  </ThemedText>
+                </Pressable>
+                {!page ? (
+                  <Pressable onPress={() => goTo('site')} accessibilityRole="button" style={styles.textButton}>
+                    <Icon name="pin" size={16} color={theme.tint} weight="bold" />
+                    <ThemedText type="smallBold" themeColor="tint">
+                      Change the site
+                    </ThemedText>
+                  </Pressable>
+                ) : null}
+              </View>
+            )}
           </Paper>
+
+          {unlisted ? (
+            <View style={styles.nameField}>
+              <FormField
+                ref={nameField}
+                label="What was it?"
+                // The reason is under the field, so the hint gives way to it.
+                hint={nameMissing ? undefined : 'Not in our catalogue yet. It’s saved in your log but doesn’t count towards your collection.'}
+                placeholder="e.g. Nudibranch I couldn’t identify"
+                value={customName}
+                onChangeText={setCustomName}
+                maxLength={UNLISTED_NAME_MAX}
+                style={nameMissing ? { borderColor: theme.danger } : undefined}
+              />
+              {nameMissing ? (
+                <ThemedText type="small" themeColor="danger" accessibilityLiveRegion="polite">
+                  {NAME_FIRST}
+                </ThemedText>
+              ) : null}
+            </View>
+          ) : null}
+
+          {!newDive && !page ? (
+            <View style={{ gap: 6 }}>
+              <DateField
+                value={date}
+                onChange={(iso) => {
+                  setDate(iso);
+                  setDateTouched(true);
+                }}
+              />
+            </View>
+          ) : null}
+
+          {/* What was seen, together under the animals: notes about them, a photo, who can see it. The dive's own notes stay with the dive. */}
+          {chosen.length > 0 ? (
+            <Group title="What you saw" icon="fieldGuide">
+              <FormField
+                label="Notes about the animals"
+                hint={chosen.length > 1 ? `Added to each of the ${chosen.length} sightings.` : undefined}
+                placeholder="Came up to check us out at the safety stop…"
+                value={notes}
+                onChangeText={setNotes}
+                multiline
+                maxLength={NOTES_MAX}
+                style={styles.notes}
+              />
+
+              {chosen.length === 1 ? (
+                <View style={{ gap: 6 }}>
+                  <ThemedText type="label" accessibilityRole="header">
+                    Photo
+                  </ThemedText>
+                  {photoUri ? (
+                    <>
+                      <Image
+                        source={photoPreview ? { uri: photoPreview } : undefined}
+                        style={[styles.photoPreview, { backgroundColor: theme.backgroundElement, borderColor: theme.cardBorder }]}
+                        contentFit="cover"
+                        accessibilityLabel={`Your photo of the ${chosen[0].commonName}`}
+                      />
+                      <Pressable onPress={() => setPhotoUri(undefined)} accessibilityRole="button" style={styles.textButton}>
+                        <Icon name="trash" size={16} color={theme.textSecondary} />
+                        <ThemedText type="smallBold" themeColor="textSecondary">
+                          Remove photo
+                        </ThemedText>
+                      </Pressable>
+                    </>
+                  ) : (
+                    <>
+                      <ThemedText type="small" themeColor="textSecondary">
+                        Sightings with a photo get a credibility badge.
+                      </ThemedText>
+                      <View style={styles.photoButtons}>
+                        <OceanButton title="Take photo" icon="camera" variant="secondary" onPress={() => pickPhoto('camera')} style={{ flex: 1 }} />
+                        <OceanButton title="Choose photo" icon="image" variant="secondary" onPress={() => pickPhoto('library')} style={{ flex: 1 }} />
+                      </View>
+                    </>
+                  )}
+                </View>
+              ) : chosen.length > 1 ? (
+                <ThemedText type="caption" themeColor="textSecondary">
+                  Photos go with one sighting each: add one afterwards from the sighting in your logbook.
+                </ThemedText>
+              ) : null}
+
+              {/* Without a backend nothing leaves the phone, so there is nobody to keep it from. */}
+              {backendEnabled ? (
+                <View ref={privacyField} collapsable={false}>
+                  <PrivacyFields
+                    value={privacy}
+                    onChange={(next) => {
+                      setPrivacy(next);
+                      setPrivacyTouched(true);
+                    }}
+                    photo={chosen.length === 1}
+                    count={chosen.length}
+                  />
+                </View>
+              ) : null}
+            </Group>
+          ) : null}
+
+          {losesVerification ? (
+            <Paper tone="sand" style={styles.warning}>
+              <Icon name="warning" size={20} wash={theme.sun} />
+              <ThemedText type="small" style={{ flex: 1 }}>
+                Changing the species, site or date removes this sighting’s verification. It can be confirmed again
+                afterwards.
+              </ThemedText>
+            </Paper>
+          ) : null}
 
           {newDive ? (
             <DiveForm
               draft={{ ...draft, siteId, divedOn: date }}
+              problem={problem}
+              onReveal={scrollTo}
               onChange={(patch) => {
+                // Putting the field right is the end of its problem.
+                if (problem && problem.field in patch) setProblem(null);
                 if (patch.divedOn !== undefined) {
                   setDate(patch.divedOn);
                   setDateTouched(true);
@@ -516,99 +754,28 @@ function LogSightingScreen() {
               Dated the same day as your last log.
             </ThemedText>
           ) : null}
-
-          {unlisted ? (
-            <FormField
-              label="What was it?"
-              hint="Not in our catalogue yet. It’s saved in your log but doesn’t count towards your collection."
-              placeholder="e.g. Nudibranch I couldn’t identify"
-              value={customName}
-              onChangeText={setCustomName}
-              maxLength={UNLISTED_NAME_MAX}
-            />
-          ) : null}
-
-          {!newDive && !page ? (
-            <View style={{ gap: 6 }}>
-              <DateField
-                value={date}
-                onChange={(iso) => {
-                  setDate(iso);
-                  setDateTouched(true);
-                }}
-              />
-            </View>
-          ) : null}
-
-          {chosen.length > 0 ? (
-            <FormField
-              label={newDive ? (chosen.length > 1 ? 'Notes on what you saw (optional, added to each)' : 'Notes on what you saw (optional)') : chosen.length > 1 ? 'Notes (optional, added to each sighting)' : 'Notes (optional)'}
-              placeholder="Came up to check us out at the safety stop…"
-              value={notes}
-              onChangeText={setNotes}
-              multiline
-              style={styles.notes}
-            />
-          ) : null}
-
-          {chosen.length === 1 ? (
-            <View style={{ gap: 6 }}>
-              <ThemedText type="label" accessibilityRole="header">
-                Photo (optional)
-              </ThemedText>
-              {photoUri ? (
-                <>
-                  <Image
-                    source={photoPreview ? { uri: photoPreview } : undefined}
-                    style={[styles.photoPreview, { backgroundColor: theme.backgroundElement, borderColor: theme.cardBorder }]}
-                    contentFit="cover"
-                    accessibilityLabel={`Your photo of the ${chosen[0].commonName}`}
-                  />
-                  <Pressable onPress={() => setPhotoUri(undefined)} accessibilityRole="button" style={styles.textButton}>
-                    <Icon name="trash" size={16} color={theme.textSecondary} />
-                    <ThemedText type="smallBold" themeColor="textSecondary">
-                      Remove photo
-                    </ThemedText>
-                  </Pressable>
-                </>
-              ) : (
-                <>
-                  <ThemedText type="small" themeColor="textSecondary">
-                    Sightings with a photo get a credibility badge.
-                  </ThemedText>
-                  <View style={styles.photoButtons}>
-                    <OceanButton title="Take photo" icon="camera" variant="secondary" onPress={() => pickPhoto('camera')} style={{ flex: 1 }} />
-                    <OceanButton title="Choose photo" icon="image" variant="secondary" onPress={() => pickPhoto('library')} style={{ flex: 1 }} />
-                  </View>
-                </>
-              )}
-            </View>
-          ) : chosen.length > 1 ? (
-            <ThemedText type="caption" themeColor="textSecondary">
-              Photos go with one sighting each: add one afterwards from the sighting in your logbook.
-            </ThemedText>
-          ) : null}
-
-          {losesVerification ? (
-            <Paper tone="sand" style={styles.warning}>
-              <Icon name="warning" size={20} wash={theme.sun} />
-              <ThemedText type="small" style={{ flex: 1 }}>
-                Changing the species, site or date removes this sighting’s verification. It can be confirmed again
-                afterwards.
-              </ThemedText>
-            </Paper>
-          ) : null}
-          {/* Without a backend nothing leaves the phone, so there is nobody to keep it from. */}
+        </ScrollView>
+      )}
+      {/* Pinned, like the species step's: the button is never at the end of a long page. */}
+      {showDetails && (
+        <BottomBar keyboardOpen={keyboard.open}>
+          {/* What the last choice was, in plain sight: nothing goes private or public by surprise. */}
           {backendEnabled && chosen.length > 0 ? (
-            <PrivacyFields
-              value={privacy}
-              onChange={(next) => {
-                setPrivacy(next);
-                setPrivacyTouched(true);
+            <Pressable
+              onPress={() => {
+                scrollTo(privacyField.current, 24);
+                announce('Who can see this');
               }}
-              photo={chosen.length === 1}
-              count={chosen.length}
-            />
+              accessibilityRole="button"
+              accessibilityLabel={`Visible to: ${privacySummary(privacy, { photo: chosen.length === 1 })}. Change who can see this`}
+              hitSlop={{ top: 6, bottom: 6 }}
+              style={({ pressed }) => [styles.visibleTo, { opacity: pressed ? 0.6 : 1 }]}>
+              <Text style={[styles.visibleToText, { color: theme.textSecondary }]} numberOfLines={2}>
+                Visible to: <Text style={{ fontFamily: Type.bodyHeavy, color: theme.text }}>{privacySummary(privacy, { photo: chosen.length === 1 })}</Text>
+                {' · '}
+                <Text style={{ fontFamily: Type.bodyHeavy, color: theme.tint }}>change</Text>
+              </Text>
+            </Pressable>
           ) : null}
           {error ? (
             <ThemedText type="small" themeColor="danger" accessibilityLiveRegion="polite">
@@ -622,17 +789,15 @@ function LogSightingScreen() {
                 : editing
                   ? 'Save changes'
                   : newDive
-                    ? `Write entry${draft.number ? ` No. ${draft.number}` : ''}`
-                    : chosen.length > 1
-                      ? `Add ${chosen.length} sightings`
-                      : 'Add it to the page'
+                    ? `Save dive${draft.number ? ` No. ${draft.number}` : ''}`
+                    : `Add to ${formatDiveNumber(page!.number)}`
             }
             variant={editing ? 'primary' : 'log'}
             icon={editing || saving ? undefined : 'stamp'}
             onPress={save}
-            disabled={saving || (unlisted && !customName.trim())}
+            disabled={saving}
           />
-        </ScrollView>
+        </BottomBar>
       )}
     </ThemedView>
   );
@@ -677,7 +842,9 @@ function SpeciesPicker({
   onToggle: (id: string, customName?: string) => void;
   onDone: () => void;
 }) {
-  const theme = useTheme();
+  // The bar with "Next" is at the foot of this view, and the view is lifted clear of the keyboard.
+  const lift = useRef<View>(null);
+  const keyboard = useKeyboard(lift);
   const [query, setQuery] = useState('');
   const [category, setCategory] = useState<Category | null>(null);
   const searching = query.trim().length > 0;
@@ -701,7 +868,7 @@ function SpeciesPicker({
   const count = selected.length;
 
   return (
-    <View style={{ flex: 1 }}>
+    <View ref={lift} collapsable={false} style={{ flex: 1, paddingBottom: keyboard.overlap }}>
       <View style={[styles.picker, styles.pickerTop]}>
         <FormField
           label={multi ? 'What did you see? Tick everything' : 'What did you see?'}
@@ -728,7 +895,7 @@ function SpeciesPicker({
           ))}
         </ScrollView>
       </View>
-      <ScrollView contentContainerStyle={[styles.picker, multi && { paddingBottom: 104 }]} keyboardShouldPersistTaps="handled">
+      <ScrollView contentContainerStyle={styles.picker} keyboardShouldPersistTaps="handled" keyboardDismissMode={DISMISS_ON_DRAG}>
         {likely.length > 0 ? (
           <>
             <ThemedText type="label" accessibilityRole="header" style={styles.groupLabel}>
@@ -766,14 +933,14 @@ function SpeciesPicker({
         />
       </ScrollView>
       {multi ? (
-        <View style={[styles.doneBar, { backgroundColor: theme.background, borderTopColor: theme.rule }]}>
+        <BottomBar keyboardOpen={keyboard.open}>
           <OceanButton
-            title={count === 0 ? (allowNone ? 'Nothing to log · next' : 'Tick what you saw') : `Next · ${count} ${count === 1 ? 'species' : 'species'}`}
+            title={count === 0 ? (allowNone ? 'Skip animals' : 'Tick what you saw') : `Next · ${count} ${count === 1 ? 'species' : 'species'}`}
             variant={count === 0 && allowNone ? 'secondary' : 'primary'}
             onPress={onDone}
             disabled={count === 0 && !allowNone}
           />
-        </View>
+        </BottomBar>
       ) : null}
     </View>
   );
@@ -841,7 +1008,8 @@ const ON_TWILIGHT = { text: '#FFFFFF', soft: '#C9D3FF' };
 
 /**
  * After saving. A new species turns over a field-guide card and stamps it "First record"; an
- * ordinary log gets a "Logged" stamp. Nothing moves under Reduce Motion.
+ * ordinary log gets a "Logged" stamp. Nothing moves under Reduce Motion. Either way the next steps
+ * are one footer pinned under the page, so they are in reach whatever the page above holds.
  */
 function Saved({ result, onLogMore, newBadges, onBadgesSeen }: { result: Result; onLogMore?: () => void; newBadges: BadgeResult[]; onBadgesSeen: (ids: string[]) => void }) {
   const theme = useTheme();
@@ -852,9 +1020,13 @@ function Saved({ result, onLogMore, newBadges, onBadgesSeen }: { result: Result;
   const openPage = dive ? () => (dive.written ? router.replace(`/dive/${dive.id}`) : router.back()) : undefined;
   // Signing from here ends on the page (there's no page behind this screen to go back to).
   const askToSign = dive?.written ? () => router.replace({ pathname: '/dive/sign', params: { id: dive.id, then: 'page' } }) : undefined;
+  // A dive written without animals can have them added now: the same steps, on its page.
+  const addWhatYouSaw = dive?.written && count === 0 ? () => router.replace({ pathname: '/log/new', params: { dive: dive.id } }) : undefined;
   if (newSpecies.length === 0) {
     return (
-      <ThemedView style={styles.centered}>
+      <ThemedView style={styles.container}>
+        {/* The form's own back arrow steps back through its steps; here the navigator's leaves. */}
+        <Stack.Screen options={{ title: 'Logged', headerLeft: undefined }} />
         <ScrollView contentContainerStyle={styles.savedScroll}>
           <Paper raised style={styles.savedCard}>
             <Stamp
@@ -870,12 +1042,13 @@ function Saved({ result, onLogMore, newBadges, onBadgesSeen }: { result: Result;
             <ThemedText style={styles.center} themeColor="textSecondary">
               {dive?.written
                 ? count === 0
-                  ? `Your dive at ${siteName} is written in your logbook.`
+                  ? `Your dive at ${siteName} is written in your logbook, with no animals on it yet.`
                   : `Written in your logbook, with ${count === 1 ? 'one sighting' : `${count} sightings`} at ${siteName}.`
                 : dive
                   ? `${count === 1 ? 'Your sighting is' : `${count} sightings are`} on ${formatDiveNumber(dive.number)}.`
                   : `${count === 1 ? 'Your sighting is' : `${count} sightings are`} in your log, at ${siteName}.`}
             </ThemedText>
+            {addWhatYouSaw ? <OceanButton title="Add what you saw" icon="plus" variant="secondary" onPress={addWhatYouSaw} style={styles.stretch} /> : null}
             {milestone ? <Bookplate at={milestone} siteName={siteName} style={styles.stretch} /> : null}
             {badgeCelebration}
             {ahead && ahead.remaining <= 5 ? (
@@ -883,18 +1056,15 @@ function Saved({ result, onLogMore, newBadges, onBadgesSeen }: { result: Result;
                 {ahead.remaining === 0 ? `Your next dive is your ${milestoneName(ahead.at)}.` : `${countWord(ahead.remaining + 1)} dives to your ${milestoneName(ahead.at)}.`}
               </ThemedText>
             ) : null}
-            {dive?.written ? (
-              <>
-                <OceanButton title="Open the page" icon="logbook" onPress={openPage!} style={styles.stretch} />
-                <OceanButton title="Ask your buddy to sign" icon="signature" variant="secondary" onPress={askToSign!} style={styles.stretch} />
-                {onLogMore ? <OceanButton title="Log another dive" variant="secondary" icon="plus" onPress={onLogMore} style={styles.stretch} /> : null}
-                <OceanButton title="Done" variant="quiet" onPress={() => router.back()} style={styles.stretch} />
-              </>
-            ) : (
-              <OceanButton title={dive ? 'Back to the page' : 'Done'} onPress={() => router.back()} style={styles.stretch} />
-            )}
           </Paper>
         </ScrollView>
+        <SavedFooter
+          primary={<OceanButton title={dive && !dive.written ? 'Back to the page' : 'Done'} onPress={() => router.back()} style={styles.stretch} />}
+          // Sightings added to a page end on the page already: "Back to the page" is the way there.
+          page={dive?.written ? { title: 'Open the page', onPress: openPage! } : undefined}
+          onSign={askToSign}
+          onLogMore={onLogMore}
+        />
       </ThemedView>
     );
   }
@@ -906,6 +1076,7 @@ function Saved({ result, onLogMore, newBadges, onBadgesSeen }: { result: Result;
           headerStyle: { backgroundColor: theme.twilight },
           headerTintColor: ON_TWILIGHT.text,
           headerTitleStyle: { fontFamily: Type.display, fontSize: 19, color: ON_TWILIGHT.text },
+          headerLeft: undefined,
           title: 'Logged',
         }}
       />
@@ -954,12 +1125,56 @@ function Saved({ result, onLogMore, newBadges, onBadgesSeen }: { result: Result;
           {dive?.written ? <Gain mark="No." text={`Entry ${formatDiveNumber(dive.number)} written in your logbook`} /> : null}
           {count > newSpecies.length ? <Gain mark={`${count}`} text={`${count} sightings saved at ${siteName}`} /> : null}
         </View>
-        <OceanButton title="Visit my home" variant="log" icon="home" onPress={() => router.dismissTo('/(tabs)')} style={styles.stretch} />
-        {openPage ? <OceanButton title={dive?.written ? 'Open the page' : 'Back to the page'} variant="secondary" icon="logbook" onPress={openPage} style={styles.stretch} /> : null}
-        {askToSign ? <OceanButton title="Ask your buddy to sign" variant="secondary" icon="signature" onPress={askToSign} style={styles.stretch} /> : null}
-        {onLogMore ? <OceanButton title="Log another dive" variant="secondary" icon="plus" onPress={onLogMore} style={styles.stretch} /> : null}
       </ScrollView>
+      <SavedFooter
+        twilight
+        primary={<OceanButton title="Visit my home" variant="log" icon="home" onPress={() => router.dismissTo('/(tabs)')} style={styles.stretch} />}
+        page={openPage ? { title: dive?.written ? 'Open the page' : 'Back to the page', onPress: openPage } : undefined}
+        onSign={askToSign}
+        onLogMore={onLogMore}
+      />
     </View>
+  );
+}
+
+/**
+ * What to do next, pinned under the saved page: the main way on, then the page itself, then the
+ * quieter ones side by side.
+ */
+function SavedFooter({
+  twilight = false,
+  primary,
+  page,
+  onSign,
+  onLogMore,
+}: {
+  twilight?: boolean;
+  primary: ReactNode;
+  page?: { title: string; onPress: () => void };
+  onSign?: () => void;
+  onLogMore?: () => void;
+}) {
+  return (
+    <BottomBar tone={twilight ? 'twilight' : 'page'} maxWidth={440}>
+      {primary}
+      {page ? <OceanButton title={page.title} variant="secondary" icon="logbook" onPress={page.onPress} style={styles.stretch} /> : null}
+      {onSign || onLogMore ? (
+        <View style={styles.quietRow}>
+          {onSign ? <QuietLink title="Ask your buddy to sign" onPress={onSign} twilight={twilight} /> : null}
+          {onLogMore ? <QuietLink title="Log another dive" onPress={onLogMore} twilight={twilight} /> : null}
+        </View>
+      ) : null}
+    </BottomBar>
+  );
+}
+
+/** A text-only action: lagoon ink on paper, white on the twilight page (where lagoon is too dim to read). */
+function QuietLink({ title, onPress, twilight }: { title: string; onPress: () => void; twilight: boolean }) {
+  const theme = useTheme();
+  return (
+    <Pressable onPress={onPress} accessibilityRole="button" style={({ pressed }) => [styles.quietLink, { opacity: pressed ? 0.6 : 1 }]}>
+      <Text style={[styles.quietText, { color: twilight ? ON_TWILIGHT.text : theme.tint }]}>{title}</Text>
+    </Pressable>
   );
 }
 
@@ -1129,16 +1344,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  doneBar: {
-    position: 'absolute',
-    left: 0,
-    right: 0,
-    bottom: 0,
-    padding: Spacing.three,
-    borderTopWidth: 1,
-  },
-  details: { padding: Spacing.three, gap: Spacing.four, paddingBottom: Spacing.six, width: '100%', maxWidth: 720, alignSelf: 'center' },
+  details: { padding: Spacing.three, gap: Spacing.four, paddingBottom: Spacing.four, width: '100%', maxWidth: 720, alignSelf: 'center' },
   sawCard: { gap: 4, paddingBottom: 8 },
+  nameField: { gap: 6 },
+  visibleTo: { minHeight: 36, justifyContent: 'center' },
+  visibleToText: { fontFamily: Type.bodySemiBold, fontSize: 14, lineHeight: 19 },
   sawHeader: { gap: 2, marginBottom: 8 },
   summary: {
     flexDirection: 'row',
@@ -1148,18 +1358,22 @@ const styles = StyleSheet.create({
   },
   iconButton: { width: 44, height: 44, borderRadius: 22, alignItems: 'center', justifyContent: 'center' },
   textButton: { alignSelf: 'flex-start', minHeight: 44, flexDirection: 'row', alignItems: 'center', gap: 6 },
+  changes: { flexDirection: 'row', flexWrap: 'wrap', columnGap: Spacing.four },
   notes: { minHeight: 104, textAlignVertical: 'top' },
   photoButtons: { flexDirection: 'row', gap: Spacing.two },
   photoPreview: { width: '100%', height: 220, borderRadius: Radius.md, borderWidth: 1 },
   warning: { flexDirection: 'row', alignItems: 'flex-start', gap: 10 },
   centered: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: Spacing.three, padding: Spacing.four },
-  savedScroll: { flexGrow: 1, justifyContent: 'center', alignItems: 'center', width: '100%' },
+  savedScroll: { flexGrow: 1, justifyContent: 'center', alignItems: 'center', width: '100%', padding: Spacing.three },
   savedCard: { width: '100%', maxWidth: 420, alignItems: 'center', gap: Spacing.three, paddingVertical: Spacing.four },
   dateNote: { marginTop: -Spacing.three },
   center: { textAlign: 'center' },
   stretch: { alignSelf: 'stretch' },
+  quietRow: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', columnGap: Spacing.three },
+  quietLink: { flexGrow: 1, flexShrink: 1, flexBasis: 'auto', minHeight: 44, alignItems: 'center', justifyContent: 'center', paddingHorizontal: Spacing.two },
+  quietText: { fontFamily: Type.bodyBold, fontSize: 15, lineHeight: 20, textAlign: 'center' },
   twilight: { flex: 1 },
-  twilightContent: { padding: Spacing.three, paddingTop: Spacing.four, paddingBottom: Spacing.six, gap: 20, alignItems: 'center', width: '100%', maxWidth: 440, alignSelf: 'center' },
+  twilightContent: { padding: Spacing.three, paddingTop: Spacing.four, paddingBottom: Spacing.four, gap: 20, alignItems: 'center', width: '100%', maxWidth: 440, alignSelf: 'center' },
   twilightEyebrow: { fontFamily: Type.label, fontSize: 12, letterSpacing: 1.4, textAlign: 'center' },
   twilightTitle: { fontFamily: Type.display, fontSize: 32, lineHeight: 38, textAlign: 'center' },
   twilightSub: { fontFamily: Type.bodySemiBold, fontSize: 15, lineHeight: 20, textAlign: 'center' },

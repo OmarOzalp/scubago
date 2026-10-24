@@ -4,23 +4,25 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { ExternalLink } from '@/components/external-link';
 import { Icon, type IconName } from '@/components/icon';
+import { LinkRow } from '@/components/journal/link-row';
 import { Paper } from '@/components/journal/paper';
 import { Screen, SectionHeader } from '@/components/journal/screen';
 import { Wash } from '@/components/journal/wash';
 import { OceanButton } from '@/components/ocean-button';
 import { SiteSightingsSection } from '@/components/sightings/site-sightings-section';
-import { SightingRow } from '@/components/sighting-row';
+import { formatDate, SightingRow } from '@/components/sighting-row';
 import { SpeciesCard } from '@/components/species-card';
 import { ThemedText } from '@/components/themed-text';
 import { Radius, Type } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { regionPath } from '@/data/regions';
-import { SITES } from '@/data/sites';
+import { canonicalSiteId, SITES } from '@/data/sites';
 import { CATALOG_BY_ID, speciesForSighting } from '@/lib/catalog';
 import { deriveDex } from '@/lib/dex';
+import { formatDepth, formatDiveNumber, formatMinutes, sortDives } from '@/lib/dives';
 import { siteAddedBy, siteFacts, siteSourceList } from '@/lib/site-details';
-import { useAppStore, useMySightings, useSiteById } from '@/lib/store';
-import type { Species } from '@/lib/types';
+import { useAppStore, useMyDives, useMySightings, useSiteById } from '@/lib/store';
+import type { Dive, Species } from '@/lib/types';
 import { hashSeed } from '@/lib/wash';
 
 /** An icon for each of the facts siteFacts() can give. */
@@ -32,6 +34,8 @@ const FACT_ICON: Record<string, IconName> = {
 };
 
 const GAP = 10;
+/** The diver's own dives here that are listed before "Show all": a site they know well has many. */
+const DIVES_SHOWN = 5;
 
 /** A dive site's page in the journal: its facts ruled off like a log entry, what lives there, and who saw what. */
 /**
@@ -49,19 +53,35 @@ export default function SiteDetailScreen() {
   const sightings = useAppStore((s) => s.sightings);
   const userId = useAppStore((s) => s.user?.id);
   const mySightings = useMySightings();
+  const myDives = useMyDives();
+  const [allDives, setAllDives] = useState(false);
   // The column's width, measured: a phone's to begin with (the static web render has no window).
   const [inner, setInner] = useState(358);
 
-  const site = siteById(id);
+  // A hidden copy's id (an old link, a sighting logged there) opens the listed site it stands for, so
+  // its sightings are on the page and a new one is logged at the listed site.
+  const site = siteById(canonicalSiteId(id));
   const addedBy = site ? siteAddedBy(site, userId) : null;
 
-  const siteSightings = useMemo(
-    () =>
-      sightings
-        .filter((s) => s.siteId === id)
-        .sort((a, b) => b.sightedOn.localeCompare(a.sightedOn)),
-    [sightings, id],
-  );
+  // Sightings logged at a hidden copy of the site count here too.
+  const siteSightings = useMemo(() => {
+    const here = canonicalSiteId(id);
+    return sightings
+      .filter((s) => canonicalSiteId(s.siteId) === here)
+      .sort((a, b) => b.sightedOn.localeCompare(a.sightedOn));
+  }, [sightings, id]);
+
+  // The diver's own dives here, newest first; a dive logged at a hidden copy of the site is one here too.
+  const divesHere = useMemo(() => {
+    const here = canonicalSiteId(id);
+    return sortDives(myDives.filter((d) => canonicalSiteId(d.siteId) === here));
+  }, [myDives, id]);
+  // How many animals each of those dives has on its page, for the line under its date.
+  const sightingsByDive = useMemo(() => {
+    const counts = new Map<string, number>();
+    for (const s of mySightings) if (s.diveId) counts.set(s.diveId, (counts.get(s.diveId) ?? 0) + 1);
+    return counts;
+  }, [mySightings]);
 
   const speciesCount = useMemo(
     () => new Set(siteSightings.map((s) => s.speciesId).filter((id) => CATALOG_BY_ID.has(id))).size,
@@ -158,6 +178,35 @@ export default function SiteDetailScreen() {
           </View>
         </Paper>
 
+        {/* Right under the facts, so it is there on the first screen and not after the lists. */}
+        <OceanButton
+          title="Log a dive here"
+          variant="log"
+          icon="plus"
+          onPress={() => router.push({ pathname: '/log/new', params: { siteId: site.id } })}
+        />
+
+        {divesHere.length > 0 ? (
+          <View style={styles.section}>
+            <SectionHeader title="Your dives here" eyebrow={`${divesHere.length} ${divesHere.length === 1 ? 'dive' : 'dives'}`} />
+            <View style={styles.rows}>
+              {(allDives ? divesHere : divesHere.slice(0, DIVES_SHOWN)).map((dive) => (
+                <LinkRow
+                  key={dive.id}
+                  icon="logbook"
+                  title={`${formatDiveNumber(dive.number)} · ${formatDate(dive.divedOn)}`}
+                  detail={diveFacts(dive, sightingsByDive.get(dive.id) ?? 0)}
+                  role="link"
+                  onPress={() => router.push(`/dive/${dive.id}`)}
+                />
+              ))}
+            </View>
+            {divesHere.length > DIVES_SHOWN && !allDives ? (
+              <OceanButton title={`Show all ${divesHere.length} dives here`} variant="quiet" onPress={() => setAllDives(true)} />
+            ) : null}
+          </View>
+        ) : null}
+
         {notable.length > 0 ? (
           <View style={styles.section}>
             <SectionHeader title="What divers see here" />
@@ -181,13 +230,6 @@ export default function SiteDetailScreen() {
         {/* What public records place here: kept apart from the page's own ScubaGo sightings, and the
             main answer to "what's here?" for a site that has no hand-made species list. */}
         <SiteSightingsSection site={site} />
-
-        <OceanButton
-          title="Log a sighting here"
-          variant="log"
-          icon="plus"
-          onPress={() => router.push({ pathname: '/log/new', params: { siteId: site.id } })}
-        />
 
         <View style={styles.section}>
           <SectionHeader title="Recent sightings" />
@@ -249,6 +291,17 @@ export default function SiteDetailScreen() {
       </Screen>
     </>
   );
+}
+
+/** "28.5 m · 52 min · 3 sightings": what a dive's page holds, for the line under its date (only what is known). */
+function diveFacts(dive: Dive, sightings: number): string {
+  return [
+    dive.maxDepthM !== undefined ? formatDepth(dive.maxDepthM) : null,
+    dive.bottomTimeMin ? formatMinutes(dive.bottomTimeMin) : null,
+    sightings > 0 ? `${sightings} ${sightings === 1 ? 'sighting' : 'sightings'}` : null,
+  ]
+    .filter(Boolean)
+    .join(' · ');
 }
 
 /** One figure in the totals; the row around it is read as one sentence. */

@@ -47,6 +47,7 @@ function parseSource(value: unknown): SourceStatus | null {
     licenceNote: toText(value.licenceNote) ?? credit.licenceNote,
     url: toText(value.url) ?? credit.homepage,
     ...(value.truncated === true ? { truncated: true } : {}),
+    ...(value.recentFailed === true ? { recentFailed: true } : {}),
   };
 }
 

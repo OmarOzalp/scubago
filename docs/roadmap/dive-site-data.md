@@ -21,9 +21,12 @@ Nothing here is a legal conclusion.
   `country`, `blurb`, `notableSpecies` (species ids) and `source` (`seed` | `user`).
 - **In Supabase:** the seed sites are also in `dive_sites` (seeded by `npm run seed:supabase`), with
   a PostGIS `location` generated from lat/lng for spatial queries later.
-- **User-added sites:** anyone signed in can add a site by long-pressing the map. It is saved
-  locally, synced to `dive_sites` with `source = 'user'`, and visible to everyone. There is no edit
-  or moderation yet.
+- **User-added sites:** anyone signed in can add a site by long-pressing the map, or from **Add a
+  dive site** by pasting its coordinates ("7.81, 98.54", as a maps app copies them) into one
+  **Coordinates** field. It is saved locally, synced to `dive_sites` with `source = 'user'`, and
+  visible to everyone. There is no edit or moderation yet.
+  - Later: a **Use my location** button. It needs `expo-location`, which is a new native build, so
+    it was left out of the paste-coordinates change.
 - **Where sites show up:**
   - the Map tab (pins);
   - the "where can I see a…" species search, which uses `notableSpecies` and sightings;

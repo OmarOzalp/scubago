@@ -18,7 +18,7 @@ const sampler = (field, data) => (x, z) => {
 const uniforms = createOceanUniforms('island');
 for (let level = 1; level <= 6; level++) {
   const field = buildDepthField(level);
-  const water = createWaterMesh(uniforms, field), seabed = createSeabedMesh(uniforms, field, level);
+  const water = createWaterMesh(uniforms, field), seabed = createSeabedMesh(uniforms, field);
   for (const mesh of [water, seabed]) {
     const vertices = mesh.geometry.attributes.position.count, triangles = mesh.geometry.index.count / 3;
     assert(vertices < 3000, `level ${level}: ${mesh.name} has ${vertices} vertices`);
@@ -106,13 +106,13 @@ for (const level of [1, 6]) {
   const between = share(vx / 2, vz / 2);
   assert(between[0] > 40 && between[2] > 40, `level ${level}: no blend between the reef's water and the volcano's (${between})`);
   // The world's seabed and water: within 16-bit indices, finite, and the seabed under water offshore of every island.
-  const water = createWaterMesh(uniforms, field, OCEAN, EXPLORER.reach), seabed = createSeabedMesh(uniforms, field, level, EXPLORER.reach);
+  const water = createWaterMesh(uniforms, field, OCEAN, EXPLORER.reach), seabed = createSeabedMesh(uniforms, field, EXPLORER.reach);
   for (const mesh of [water, seabed]) {
     assert(mesh.geometry.attributes.position.count < 65536, `level ${level}: ${mesh.name} has too many vertices for 16-bit indices`);
     for (const value of mesh.geometry.attributes.position.array) assert(Number.isFinite(value));
   }
   // And the widest a wide screen's water ever reaches (waterReach in explorer-view.ts), still within them.
-  const widest = { x: EXPLORER.farthest, z: EXPLORER.reach }, wideWater = createWaterMesh(uniforms, field, OCEAN, widest), wideSeabed = createSeabedMesh(uniforms, field, level, widest);
+  const widest = { x: EXPLORER.farthest, z: EXPLORER.reach }, wideWater = createWaterMesh(uniforms, field, OCEAN, widest), wideSeabed = createSeabedMesh(uniforms, field, widest);
   for (const mesh of [wideWater, wideSeabed]) {
     assert(mesh.geometry.attributes.position.count < 65536, `level ${level}: a wide screen's ${mesh.name} has too many vertices for 16-bit indices (${mesh.geometry.attributes.position.count})`);
   }

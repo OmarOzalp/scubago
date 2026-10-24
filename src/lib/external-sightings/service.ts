@@ -102,6 +102,7 @@ async function readInat(query: SiteQuery, fetchImpl: FetchImpl, signal: AbortSig
     return { ok: false, error: message, offline };
   }
   const data: InatData = { counts: counts.counts, truncated: counts.truncated, observations: [] };
+  if (counts.error !== undefined) data.countsError = `Species counts: ${describeError(counts.error, 'iNaturalist').message}`;
   const taxonIds = matchedTaxonIds(counts.counts, matcher);
   if (taxonIds.length > 0) {
     try {

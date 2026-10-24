@@ -1,6 +1,6 @@
 import { describe, expect, it } from '@jest/globals';
 import { REGIONS_BY_ID } from '@/data/regions';
-import { SITES } from '@/data/sites';
+import { SITE_ALIASES, SITES, SITES_BY_ID } from '@/data/sites';
 import { CATALOG_BY_ID } from '@/lib/catalog';
 import { evaluateBadges, REGION_BADGES, type BadgeResult, type RewardsInput } from '@/lib/rewards';
 import type { Dive, DiveSite, Region, Sighting } from '@/lib/types';
@@ -47,6 +47,18 @@ describe('dive sites visited', () => {
   it('leave out a site the lookup does not know', () => {
     const log = { dives: [dived('s-1', day(1)), dived('gone', day(2), 2), dived('s-2', day(3), 3)] };
     expect(badge(evaluate(sites, log), 'sites-5').progress).toEqual({ have: 2, need: 5 });
+  });
+
+  it('count a hidden copy of a site at the site it stands for', () => {
+    // OpenStreetMap's Cod Hole is hidden as a copy of the seed, and its Yolanda Reef was merged into
+    // Shark & Yolanda Reef; a sighting logged at either before still names it.
+    expect(SITE_ALIASES.get('osm-node-270802348')).toBe('cod-hole');
+    expect(SITE_ALIASES.get('osm-node-278086478')).toBe('shark-yolanda');
+    const log = {
+      dives: [dived('cod-hole', day(1)), dived('osm-node-270802348', day(2), 2), dived('shark-yolanda', day(3), 3)],
+      sightings: [seen('osm-node-278086478', day(4)), seen('osm-node-271182010', day(5))],
+    };
+    expect(badge(evaluate(SITES_BY_ID, log), 'sites-5').progress).toEqual({ have: 2, need: 5 });
   });
 });
 

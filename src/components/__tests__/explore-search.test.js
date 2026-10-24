@@ -3,6 +3,7 @@ import { describe, expect, it } from '@jest/globals';
 import { SEARCH_EXAMPLES, boundsOfSites, buildPlaces, searchExplore, searchPlaces, sectionLimit } from '@/components/explore/search';
 import { SITES } from '@/data/sites';
 import { CATALOG } from '@/lib/catalog';
+import { boundsToRegion } from '@/lib/site-clusters';
 import { normalizeSearch } from '@/lib/text-search';
 
 const places = buildPlaces(SITES);
@@ -129,5 +130,27 @@ describe('boundsOfSites', () => {
     expect(box.east).toBeCloseTo(34.257);
     expect(boundsOfSites(SITES).south).toBeLessThan(box.south);
     expect(boundsOfSites(SITES, new Set(['nothing-here']))).toBeNull();
+  });
+
+  it('goes the short way round a place either side of 180°, and the map frames just that', () => {
+    // Fiji, on both sides of the line (made up here, not the app's data).
+    const fiji = [['rainbow-reef', -16.9, 179.95], ['vuna-reef', -16.95, -179.95], ['beqa', -18.4, 178.1]].map(([id, lat, lng]) => ({
+      id, name: id, lat, lng, region: 'Fiji', country: 'Fiji', blurb: '', notableSpecies: [], source: 'user',
+    }));
+    const box = boundsOfSites(fiji);
+    // West of its east edge: from 178.1°E across the line to 179.95°W.
+    expect(box).toEqual({ south: -18.4, north: -16.9, west: 178.1, east: -179.95 });
+    const region = boundsToRegion(box, { padding: 1.3 });
+    expect(region.longitudeDelta).toBeCloseTo(1.95 * 1.3, 9);
+    expect(region.longitude).toBeCloseTo(179.075, 9);
+    expect(region.latitude).toBeCloseTo(-17.65, 9);
+    // Sites closer the other way round still make the usual box.
+    expect(boundsOfSites(fiji.slice(2).concat([{ ...fiji[0], id: 'gulf-of-guinea', lng: 0.5 }]))).toMatchObject({ west: 0.5, east: 178.1 });
+  });
+
+  it('frames sites all round the world within the world', () => {
+    const region = boundsToRegion(boundsOfSites(SITES), { padding: 1.3 });
+    expect(region.longitudeDelta).toBeLessThanOrEqual(360);
+    expect(region.latitudeDelta).toBeLessThanOrEqual(180);
   });
 });

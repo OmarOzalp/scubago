@@ -4,6 +4,7 @@ import { router } from 'expo-router';
 import React, { act } from 'react';
 import { create } from 'react-test-renderer';
 
+import { agoText, daysSince } from '@/components/sightings/format';
 import { SiteSightingsSection } from '@/components/sightings/site-sightings-section';
 import { INATURALIST_CREDIT, OBIS_CREDIT } from '@/lib/external-sightings/attribution';
 
@@ -101,6 +102,14 @@ test('ready: names the animals with their evidence, labels the records as public
   expect(text).not.toMatch(/-?\d+\.\d{3,}/);
 });
 
+test('says how far the records reach: a circle for iNaturalist, a square for OBIS', async () => {
+  await render({ summary: summary(), status: 'ready' });
+  const text = textOf();
+  // OBIS is asked for a box whose half-side is the radius (geo.ts), so its corners reach further than 3 km.
+  expect(text).toContain('Records from iNaturalist observers within 3 km of this site, and from OBIS scientific datasets in a 6 km square around it.');
+  expect(text).not.toContain('within about');
+});
+
 test('a species row opens that species page', async () => {
   await render({ summary: summary(), status: 'ready' });
   const [row] = press(/^Reef Manta Ray, 212 iNaturalist observations, 38 records in OBIS datasets/);
@@ -123,7 +132,7 @@ test('recent observations: credit, date, "within N km", photo with its credit, a
   expect(text).toContain('Observer 12, CC0 (iNaturalist)');
   const [obscured] = press(/^Green Sea Turtle, observed/);
   expect(obscured.props.accessibilityLabel).not.toMatch(/within/);
-  expect(text.match(/within \d+ km/g)).toHaveLength(1);
+  expect(text.match(/· within \d+ km/g)).toHaveLength(1);
 
   const [first] = press(/^Reef Manta Ray, observed/);
   await act(async () => first.props.onPress());
@@ -249,9 +258,34 @@ test('a source that kept old data says how old, and a cut-off list says it may b
   expect(text).toContain('Updated 6 days ago');
 });
 
+test('"today" and "yesterday" are days on the diver\'s calendar, not 24-hour windows', () => {
+  // Local times, so the test means the same in every time zone.
+  const at = (date, hour) => new Date(2026, 9, date, hour).getTime();
+  const iso = (date, hour) => new Date(at(date, hour)).toISOString();
+  const now = at(22, 9);
+  const said = (date, hour) => agoText(daysSince(iso(date, hour), now));
+  expect(said(22, 1)).toBe('today');
+  expect(said(21, 22)).toBe('yesterday');
+  expect(said(21, 1)).toBe('yesterday');
+  expect(said(20, 10)).toBe('2 days ago');
+  // A clock a little ahead of this phone's is not "in the future".
+  expect(said(22, 11)).toBe('today');
+  expect(daysSince('never', now)).toBeUndefined();
+});
+
 test('open-licence recent observations missing: the counts stay and the gap is explained', async () => {
   await render({ summary: summary({ recent: [] }), status: 'ready' });
   expect(textOf()).toContain('none recent that are openly licensed for ScubaGo to show');
+});
+
+test('recent observations that could not be loaded are not said to be none openly licensed', async () => {
+  const inat = source('inaturalist', ago(0), { error: 'Recent observations: iNaturalist is busy (HTTP 429). Try again later.', recentFailed: true });
+  await render({ summary: summary({ recent: [], sources: [inat, source('obis', ago(0))] }), status: 'ready' });
+  const text = textOf();
+  expect(text).toContain('Recent observations couldn’t be loaded.');
+  expect(text).not.toContain('openly licensed for ScubaGo to show');
+  // The counts that did come are still there.
+  expect(text).toContain('212 iNaturalist observations');
 });
 
 test('records that are not in the catalogue, or whose link is not iNaturalist, are never drawn', async () => {

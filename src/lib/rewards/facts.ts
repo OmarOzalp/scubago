@@ -1,4 +1,5 @@
 import { REGIONS_BY_ID } from '@/data/regions';
+import { canonicalSiteId } from '@/data/sites';
 import { UNLISTED_ID } from '@/lib/catalog';
 import { effectiveRarity } from '@/lib/rewards/effective-rarity';
 import { type Place, placeResolver, REGION_BADGE_IDS, type RegionBadgeId } from '@/lib/rewards/places';
@@ -38,7 +39,7 @@ export interface Facts {
   catalogOrder: ReadonlyMap<string, number>;
   rarityOf: (species: Species) => Rarity;
   placeOf: (siteId: string) => Place | undefined;
-  /** The days each distinct dive site (one the lookup knows) was first visited, by dive or by sighting. */
+  /** The days each distinct dive site (one the lookup knows, a hidden copy counted as its listed site) was first visited, by dive or by sighting. */
   siteDates: string[];
   countryDates: string[];
   regionDates: Record<RegionBadgeId, string[]>;
@@ -71,9 +72,11 @@ export function buildFacts(input: RewardsInput): Facts {
   const seenSites = new Set<string>();
   const seenCountries = new Set<string>();
   for (const visit of visits) {
-    const place = placeOf(visit.siteId);
-    if (!place || seenSites.has(visit.siteId)) continue;
-    seenSites.add(visit.siteId);
+    // A hidden copy of a site (an imported duplicate, a second mark merged away) is the same place.
+    const siteId = canonicalSiteId(visit.siteId);
+    const place = placeOf(siteId);
+    if (!place || seenSites.has(siteId)) continue;
+    seenSites.add(siteId);
     siteDates.push(visit.on);
     const country = place.country?.toLowerCase();
     if (country && !seenCountries.has(country)) {

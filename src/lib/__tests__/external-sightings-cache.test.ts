@@ -173,6 +173,12 @@ describe('entries that cannot be trusted', () => {
     }
   });
 
+  it('keeps the word that the recent observations could not be read', () => {
+    const failed = summary('a', T0, { sources: [status('inaturalist', T0, { error: 'Recent observations: No connection.', recentFailed: true }), status('obis', T0)] });
+    expect(parseSiteSightings(failed)?.sources[0]).toMatchObject({ recentFailed: true });
+    expect(parseSiteSightings(summary('a'))?.sources[0].recentFailed).toBeUndefined();
+  });
+
   it('rebuilds the field-by-field shape and drops what does not check out', () => {
     const parsed = parseSiteSightings({
       ...summary('a'),
@@ -417,6 +423,26 @@ describe('stale-while-revalidate', () => {
     expect(healed.refreshed).toBe(true);
     expect(healed.summary?.sources.map((s) => s.ok)).toEqual([true, true]);
     expect(healed.summary?.species.map((s) => s.speciesId)).toEqual(['green-turtle', 'reef-manta', 'oceanic-manta']);
+  });
+
+  it('a later page of species counts that fails is a partial answer, tried again within the hour', async () => {
+    const { world, fetchImpl } = makeWorld();
+    const page = { total_results: 450, results: Array.from({ length: 200 }, (_, i) => ({ count: 200 - i, taxon: { id: 2000 + i, name: `Taxon ${i}`, rank: 'species' } })) };
+    page.results[199] = { count: 1, taxon: { id: 1001, name: 'Chelonia mydas', rank: 'species' } };
+    const paging: FetchImpl = async (url, init) => {
+      if (!url.includes('/species_counts')) return fetchImpl(url, init);
+      world.calls.push(url);
+      return url.includes('&page=2') ? { ok: false, status: 502, json: async () => ({}) } : ok(page);
+    };
+    const clock = { time: T0 };
+    const result = await makeService(paging, clock).load(SITE);
+    const inat = result.summary?.sources.find((s) => s.id === 'inaturalist');
+    expect(inat).toMatchObject({ ok: true, error: expect.stringMatching(/HTTP 502/) });
+    expect(inat?.truncated).toBeUndefined();
+    expect(result.summary?.species.map((s) => s.speciesId)).toContain('green-turtle');
+    const cached = await readCachedSightings(SITE.id);
+    expect(isStale(cached!, clock.time + 30 * 60 * 1000)).toBe(false);
+    expect(isStale(cached!, clock.time + PARTIAL_RETRY_MS + 1)).toBe(true);
   });
 
   it('keeps one source’s older data when only the other fails to refresh', async () => {

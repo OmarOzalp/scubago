@@ -19,7 +19,8 @@ jest.mock('@/components/external-link', () => ({ ExternalLink: ({ children, ...p
 // The real dive sites: 69 curated and the imported ones.
 jest.mock('@/lib/store', () => {
   const { SITES: all } = require('@/data/sites');
-  return { useAppStore: (select) => select({ sightings: [] }), useAllSites: () => all };
+  const none = [];
+  return { useAppStore: (select) => select({ sightings: [] }), useAllSites: () => all, useMyDives: () => none, useMyUserId: () => 'local', useSiteById: () => () => undefined };
 });
 const mockAnimateToRegion = jest.fn();
 let mockMapRenders = 0;
@@ -170,7 +171,7 @@ test('tapping a site selects it as a tapped pin does: its card opens and the map
   // The search is closed, and the card for the site is up with its way to the page and to logging.
   expect(root.root.findAllByType(TextInput)).toHaveLength(0);
   expect(text()).toContain('SS Thistlegorm');
-  expect(text()).toContain('Log sighting here');
+  expect(text()).toContain('Log a dive here');
   expect(mockAnimateToRegion).toHaveBeenCalledTimes(1);
   const [region] = mockAnimateToRegion.mock.calls[0];
   expect(region.latitude).toBeCloseTo(27.813, 3);
@@ -181,7 +182,7 @@ test('tapping a site selects it as a tapped pin does: its card opens and the map
   expect(router.push).toHaveBeenCalledWith('/site/ss-thistlegorm');
   // Closing the card leaves the map where it is.
   await act(async () => pressable('Close').props.onPress());
-  expect(text()).not.toContain('Log sighting here');
+  expect(text()).not.toContain('Log a dive here');
   expect(mockAnimateToRegion).toHaveBeenCalledTimes(1);
 });
 
@@ -215,13 +216,55 @@ test('a site the filter includes keeps the filter; one it leaves out clears it, 
   await type('manta sandy');
   await press('Manta Sandy, Raja Ampat, Indonesia');
   expect(hasButton(chip)).toBe(true);
-  expect(text()).toContain('Log sighting here');
+  expect(text()).toContain('Log a dive here');
 
   await openSearch();
   await type('thistlegorm');
   await press('SS Thistlegorm, Red Sea, Egypt');
   expect(hasButton(chip)).toBe(false);
   expect(text()).toContain('Details'); // its card is up, though the filter left it out
+});
+
+test('the map and the list forget the site searched for once another site, or an animal, is chosen', async () => {
+  const scrolls = jest.spyOn(FlatList.prototype, 'scrollToIndex').mockImplementation(() => {});
+  const switchView = async (label) => {
+    await press(label);
+    await act(async () => jest.advanceTimersByTime(200));
+  };
+  const siteList = () => root.root.findAll((n) => typeof n.props.onSelectSite === 'function' && 'reveal' in n.props)[0];
+  const scrolledTo = () => scrolls.mock.calls.map(([{ index }]) => root.root.findAll((n) => n.type === FlatList && n.props.data?.length === SITES.length)[0].props.data[index].id);
+  try {
+    await render();
+    await openSearch();
+    await type('thistlegorm');
+    await press('SS Thistlegorm, Red Sea, Egypt');
+    expect(mockAnimateToRegion).toHaveBeenCalledTimes(1);
+    // Its card is open, so the list scrolls to it.
+    await switchView('Show sites as a list');
+    expect(scrolledTo()).toEqual(['ss-thistlegorm']);
+    scrolls.mockClear();
+
+    // Another site, chosen from its row: the map that comes back stays put, and so does the list.
+    await act(async () => siteList().props.onSelectSite('cod-hole'));
+    expect(text()).toContain('Cod Hole');
+    await switchView('Show the map');
+    expect(mockAnimateToRegion).toHaveBeenCalledTimes(1);
+    await switchView('Show sites as a list');
+    expect(scrolledTo()).toEqual([]);
+
+    // A site, then an animal: the same.
+    await openSearch();
+    await type('thistlegorm');
+    await press('SS Thistlegorm, Red Sea, Egypt');
+    await openSearch();
+    await type('manta');
+    await press('Reef Manta Ray. Show where it’s seen');
+    mockAnimateToRegion.mockClear();
+    await switchView('Show the map');
+    expect(mockAnimateToRegion).not.toHaveBeenCalled();
+  } finally {
+    scrolls.mockRestore();
+  }
 });
 
 test('tapping a place shows only its sites and frames them on the map; picking an animal replaces it', async () => {
@@ -262,7 +305,7 @@ test('Return picks the top result: a site, a place or an animal', async () => {
   await openSearch();
   await type('cod hole');
   await submit();
-  expect(text()).toContain('Log sighting here');
+  expect(text()).toContain('Log a dive here');
   expect(hasButton('Details about Cod Hole')).toBe(true);
   expect(root.root.findAllByType(TextInput)).toHaveLength(0);
   await act(async () => pressable('Details about Cod Hole').props.onPress());

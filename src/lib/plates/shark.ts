@@ -204,7 +204,10 @@ export function shark(spec: SharkSpec): PlateGeom {
   if (spec.keel) {
     const k0 = s.top.length - 1;
     g.lines.push({ pts: lineAlong(s, 0.52, (k0 - 14) / k0, 1), w: 1 });
-    g.lines.push({ pts: [at(s, 1, 0.52), lerp(cd.apex, cd.lower.apex, 0.5).map((v, i) => (i ? v : v - 6)) as Pt], w: 0.8, detail: true });
+    // The keel runs on into the base of the tail and fades out before the trailing edge (the fork
+    // of a lunate tail is well forward of the lobe tips, so it must not aim between them).
+    const keelEnd = at(s, 1, 0.52);
+    g.lines.push({ pts: [keelEnd, lerp(keelEnd, spec.caudal.fork, 0.7)], w: 0.8, detail: true, taper: 'end' });
   }
   g.eyes.push({ c: atX(s, spec.eye.x, spec.eye.f), r: spec.eye.r, iris: spec.eye.iris });
   g.heavy.push(s.bot);

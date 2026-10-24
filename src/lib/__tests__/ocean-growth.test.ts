@@ -38,7 +38,7 @@ test('at every level every animal and the tuna school stay in view and clear of 
         expect(shoreDistance([main], seen.x, seen.z)).toBeGreaterThan(MOVEMENT[model].halfWidth * .8);
       }
       const school = motion.school!;
-      expect(frame(school.state.centerX, school.state.centerZ + .4, world).edge).toBeLessThan(1.02);
+      expect(frame(school.state.centerX, school.state.centerZ + .4, { x: world.x * motion.schoolFactor, z: world.z * motion.schoolFactor }).edge).toBeLessThan(1.02);
     }
   }
 });
@@ -47,6 +47,12 @@ test('a new level reshapes the island at once and widens the ocean gradually, wi
   const motion = createMarineMotion(SCENE, 1, { seed: .4, school: true });
   for (let f = 0; f < 20 * 30; f++) motion.step(.05, true);
   const before = new Map(motion.swimmers.map(({ lane }) => [lane, { ...motion.get(lane)! }]));
+  // (an islet the new level raises where a body swims puts it clear of the land at once: nothing is drawn inside an island. That one is
+  // moved, the rest are not: the big bodies keep to the ring just outside the reef, where the higher levels' islets lie.)
+  const land = shorePolygons(6), moved = new Set(motion.swimmers.filter(({ lane, model }) => {
+    const p = before.get(lane)!;
+    return shoreDistance(land, p.x, p.z + .4) < MOVEMENT[model].halfLength * 1.1;
+  }).map(({ lane }) => lane));
   motion.setLevel(6);
   expect(motion.level).toBe(6);
   let width = motion.ocean.world.x;
@@ -59,7 +65,7 @@ test('a new level reshapes the island at once and widens the ocean gradually, wi
     width = motion.ocean.world.x;
     for (const { lane, model } of motion.swimmers) {
       const pose = motion.get(lane)!, last = before.get(lane)!, m = MOVEMENT[model];
-      if (!motion.inspect(lane)!.leap) expect(Math.hypot(pose.x - last.x, pose.z - last.z)).toBeLessThan(m.cruise * 2.3 * .05 + .002);
+      if (!motion.inspect(lane)!.leap && !moved.has(lane)) expect(Math.hypot(pose.x - last.x, pose.z - last.z)).toBeLessThan(m.cruise * 2.3 * .05 + .002);
       before.set(lane, { ...pose });
     }
   }
@@ -76,16 +82,20 @@ test('animals and the tuna school use the extra room at higher levels', () => {
   const offshore = (level: number) => {
     const [main] = shorePolygons(level);
     const motion = createMarineMotion([{ model: 'whale-shark', lane: 0 }, { model: 'green-turtle', lane: 1 }], level, { seed: .3, school: true });
-    let whale = 0, school = 0, n = 0;
+    let whale = 0, n = 0;
+    const school: number[] = [];
     for (let f = 0; f < 20 * 420; f++) {
       motion.step(.05, true);
       if (f % 20) continue;
       const seen = motion.inspect(0)!;
       whale += shoreDistance([main], seen.x, seen.z);
-      school += shoreDistance([main], motion.school!.state.centerX, motion.school!.state.centerZ + .4);
+      school.push(shoreDistance([main], motion.school!.state.centerX, motion.school!.state.centerZ + .4));
       n++;
     }
-    return { whale: whale / n, school: school / n };
+    school.sort((a, b) => a - b);
+    // (the school keeps to the ring of water deep enough for it, which lies the same distance from the shore at every level: it is how far out
+    // it goes that grows with the ocean, not the middle of where it swims)
+    return { whale: whale / n, school: school[Math.floor(school.length * .9)] };
   };
   const low = offshore(1), high = offshore(6);
   expect(high.whale).toBeGreaterThan(low.whale + .1);

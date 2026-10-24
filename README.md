@@ -160,7 +160,7 @@ src/components/     shared UI (species art, map w/ web fallback, …); journal/ 
                     Reef Journal pieces (tab bar, paper, stamp, wash, ledger, …)
 src/lib/            domain logic: db (SQLite), store (zustand), dex, demo data, sync
 src/data/           curated seed data: species, sites, fetched photo map
-scripts/            fetch-species-photos.mjs (iNaturalist photo seeding)
+scripts/            fetch-species-photos.ts (iNaturalist photos under CC0 / CC BY)
 supabase/           SQL migrations for the optional Supabase backend (RLS, PostGIS)
 ```
 
@@ -173,12 +173,14 @@ npx tsc --noEmit
 
 ## Species photos
 
-Reference photos are hot-linked from iNaturalist taxon default photos (mostly
-CC-licensed; attribution stored per species and shown in the app). Regenerate after
-adding species:
+Reference photos are hot-linked from iNaturalist, only under licences that allow any use
+with credit (CC0 or CC BY, else CC BY-SA): the taxon's own curated photo where one is,
+else a well-liked research-grade observation of a live, wild animal. Each species' credit,
+licence and photo page are stored in `src/data/species-photos.json` and shown in the app;
+a few are chosen by hand (`OVERRIDES` in the script). Regenerate after adding species:
 
 ```bash
-node scripts/fetch-species-photos.mjs
+npx tsx scripts/fetch-species-photos.ts
 ```
 
 ## Next steps

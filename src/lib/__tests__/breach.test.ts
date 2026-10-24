@@ -1,4 +1,5 @@
 import { expect, test } from '@jest/globals';
+import { flatSeabed } from '../../test-support/flat-seabed';
 import { breachFlight, breachHeight, DOLPHIN_BREACH } from '../breach';
 import { shorePolygons, shoreDistance } from '../island-outline';
 import { createMarineMotion, MOVEMENT, type MarineMember, type MarineMotion } from '../marine-motion';
@@ -11,10 +12,14 @@ const dolphin = (lane: number, group = 1): MarineMember => ({ model: 'bottlenose
 const CROWD: MarineMember[] = [dolphin(0, 3), { model: 'whale-shark', lane: 1 }, { model: 'tiger-shark', lane: 2 }, { model: 'green-turtle', lane: 3 }, { model: 'reef-manta', lane: 4 }];
 
 type Leap = { lane: number; stages: { stage: string; at: number }[] };
-/** Runs a scene at `fps` for `seconds`, recording each leap's stages as they begin; `each` sees every frame. */
-function watch(members: MarineMember[], level: number, seconds: number, options: { seed?: number; leap?: number; fps?: number } = {},
+/**
+ * Runs a scene at `fps` for `seconds`, recording each leap's stages as they begin; `each` sees every frame. Over the island's own
+ * seabed, or (`flat`) a flat deep one, for the tests of how a leap itself goes, which the island's shallows (where a leap
+ * has no water to plunge into) would otherwise thin out and bend.
+ */
+function watch(members: MarineMember[], level: number, seconds: number, options: { seed?: number; leap?: number; fps?: number; flat?: boolean } = {},
   each: (motion: MarineMotion) => void = () => {}) {
-  const motion = createMarineMotion(members, level, { seed: options.seed ?? .37, leap: options.leap });
+  const motion = createMarineMotion(members, level, { seed: options.seed ?? .37, leap: options.leap, seabed: options.flat ? flatSeabed(level) : undefined });
   const leaps: Leap[] = [], open = new Map<number, Leap>(), fps = options.fps ?? 20;
   for (let frame = 0; frame < seconds * fps; frame++) {
     motion.step(1 / fps, true);
@@ -108,7 +113,7 @@ test('a leap happens only where there is room: off the island, in the clear midd
 });
 
 test('once airborne a leap always completes, and a pod has one leaper at a time with a rest between leaps', () => {
-  const { flown, leaps } = watch([dolphin(0, 3)], 3, 1500, { leap: .5 }, (motion) => {
+  const { flown, leaps } = watch([dolphin(0, 3)], 3, 1500, { leap: .5, flat: true }, (motion) => {
     const leaping = motion.swimmers.filter(({ lane }) => { const s = motion.inspect(lane)!.leap?.stage; return s && s !== 'settle'; });
     expect(leaping.length).toBeLessThanOrEqual(1);
   });
@@ -135,7 +140,7 @@ test('once airborne a leap always completes, and a pod has one leaper at a time 
 
 test('the body pitches up out of the water, is clear of it at the apex, and dives back in nose first', () => {
   let exits = 0, entries = 0, apexes = 0;
-  watch([dolphin(0)], 6, 900, { leap: 1 }, (motion) => {
+  watch([dolphin(0)], 6, 900, { leap: 1, flat: true }, (motion) => {
     const seen = motion.inspect(0)!, pose = motion.get(0)!, y = pose.y + motion.dive(0).y;
     if (!seen.leap || seen.leap.stage === 'settle') {
       expect(pose.air).toBe(0);

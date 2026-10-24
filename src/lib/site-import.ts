@@ -754,6 +754,12 @@ export interface MergedSites {
   retiredIds: Set<string>;
   /** Imported sites that are really a seed. They are not listed again. */
   duplicates: SeedMatch[];
+  /**
+   * A hidden id and the listed site that stands for the same place: a seed's duplicate, and a retired
+   * site with the same name within `SAME_NAME_M` of a listed one (a second mark merged away). Sightings
+   * logged at the hidden id count at the listed site.
+   */
+  aliases: Map<string, string>;
 }
 
 /**
@@ -783,11 +789,47 @@ export function mergeSites(seeds: readonly DiveSite[], imported: readonly OsmSit
     return add.length > 0 ? { ...seed, externalIds: [...(seed.externalIds ?? []), ...add] } : seed;
   });
   const listed = candidates.filter((s) => !duplicateIds.has(s.id));
-  const sites = [...mergedSeeds, ...listed];
+  let sites = [...mergedSeeds, ...listed];
+
+  // Hidden ids and the listed site each stands for.
+  const aliases = new Map<string, string>(duplicates.map((d) => [d.importedId, d.seedId]));
+  for (const r of retired) {
+    if (seedIds.has(r.id)) continue;
+    let best: { id: string; d: number } | null = null;
+    for (const s of sites) {
+      const d = Math.abs(s.lat - r.lat) * 111000 <= SAME_NAME_M ? distanceM(r.lat, r.lng, s.lat, s.lng) : Infinity;
+      if (d <= SAME_NAME_M && sameName(r.name, s.name) && (!best || d < best.d)) best = { id: s.id, d };
+    }
+    if (best) aliases.set(r.id, best.id);
+  }
+  // What a hidden copy knew about the kind of dive stays with the place, credited to where it came
+  // from (the OSM Thistlegorm is tagged a wreck; the seed isn't).
+  const hiddenById = new Map([...candidates, ...retired].map((s) => [s.id, s]));
+  const typesFor = new Map<string, { types: DiveType[]; sources: SiteSource[] }>();
+  for (const [hidden, kept] of aliases) {
+    const copy = hiddenById.get(hidden);
+    if (!copy?.diveTypes?.length) continue;
+    const entry = typesFor.get(kept) ?? { types: [], sources: [] };
+    entry.types.push(...copy.diveTypes);
+    for (const src of copy.sources ?? []) if (src.fields.includes('dive_types')) entry.sources.push({ ...src, fields: ['dive_types'] });
+    typesFor.set(kept, entry);
+  }
+  sites = sites.map((s) => {
+    const entry = typesFor.get(s.id);
+    const add = [...new Set(entry?.types ?? [])].filter((t) => !s.diveTypes?.includes(t));
+    if (!entry || add.length === 0) return s;
+    const sources = [...(s.sources ?? [])];
+    for (const src of entry.sources) {
+      const same = sources.findIndex((x) => x.source === src.source && x.url === src.url);
+      if (same < 0) sources.push(src);
+      else if (!sources[same].fields.includes('dive_types')) sources[same] = { ...sources[same], fields: [...sources[same].fields, 'dive_types'] };
+    }
+    return { ...s, diveTypes: [...(s.diveTypes ?? []), ...add], sources };
+  });
 
   const byId = new Map<string, DiveSite>();
   for (const s of retired) if (!seedIds.has(s.id)) byId.set(s.id, s);
   for (const s of candidates) byId.set(s.id, s);
   for (const s of sites) byId.set(s.id, s);
-  return { sites, byId, retiredIds: new Set(retired.map((s) => s.id)), duplicates };
+  return { sites, byId, retiredIds: new Set(retired.map((s) => s.id)), duplicates, aliases };
 }

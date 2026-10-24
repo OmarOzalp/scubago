@@ -39,11 +39,18 @@ export function RealSightingsView({ summary, status, onRefresh, onOpenSpecies, o
 
   const empty = model.species.length === 0 && model.recent.length === 0;
   const hasInatSpecies = model.species.some((entry) => !!entry.inaturalist);
+  // With no recent observation to show, say why: the request failed, or none of them is openly licensed.
+  const recentGap = model.recentFailed
+    ? 'Recent observations couldn’t be loaded.'
+    : model.inatAnswered && hasInatSpecies
+      ? 'iNaturalist has records here, but none recent that are openly licensed for ScubaGo to show.'
+      : null;
   return (
     <View style={styles.section}>
       <SectionHeader eyebrow="Public records" title="Marine life recorded here" />
+      {/* OBIS is searched in a box whose half-side is the radius (geo.ts), so its corners reach further. */}
       <ThemedText type="caption" themeColor="textSecondary">
-        {`Records within about ${model.radiusKm} km of this site, from iNaturalist observers and OBIS scientific datasets. Not ScubaGo sightings, and not checked by ScubaGo.`}
+        {`Records from iNaturalist observers within ${model.radiusKm} km of this site, and from OBIS scientific datasets in a ${model.radiusKm * 2} km square around it. Not ScubaGo sightings, and not checked by ScubaGo.`}
       </ThemedText>
 
       {model.kind === 'loading' ? <SightingsPlaceholder /> : null}
@@ -74,13 +81,13 @@ export function RealSightingsView({ summary, status, onRefresh, onOpenSpecies, o
               </ThemedText>
               <RecentObservations recent={model.recent} onOpenUrl={onOpenUrl} />
             </View>
-          ) : model.inatAnswered && hasInatSpecies ? (
+          ) : recentGap ? (
             <View style={styles.block}>
               <ThemedText type="label" accessibilityRole="header">
                 Recent observations
               </ThemedText>
               <ThemedText type="small" themeColor="textSecondary">
-                iNaturalist has records here, but none recent that are openly licensed for ScubaGo to show.
+                {recentGap}
               </ThemedText>
             </View>
           ) : null}

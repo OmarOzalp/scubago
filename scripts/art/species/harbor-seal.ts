@@ -8,7 +8,7 @@
  */
 import { Vector3 } from 'three';
 import { SWIM_RIGS, type PinnipedRig } from '../../../src/lib/marine-rigs';
-import { blendSkins, curve, fin, hex, mix, noise, smoothstep, type RGB } from './kit';
+import { blendSkins, curve, fin, hex, mix, noise, smoothstep, TAU, type RGB } from './kit';
 import { sharkContext, type SharkDesign } from './shark';
 
 const BACK = hex('#5f666c'), FLANK = hex('#8e9597'), BELLY = hex('#c4c1b6'), SPOT = hex('#2f3337'), RING = hex('#d2d0c6');
@@ -49,9 +49,9 @@ export function buildHarborSeal() {
   // Short fore flippers low on the flanks behind the head, swept back along the body; dark claws at
   // their tips. The arm (`Fore?1`) carries the inner part, the hand (`Fore?2`) the outer.
   // Short and stubby, held in under the chest and swept back along the belly, not out like a fish's fins.
-  const fore = { rootS: .24, theta: 2.25, span: .06, droop: 1, sweep: 1.45, sink: .012, thickness: .017, wrist: .5 };
-  const foreLe = curve([[-.012, 0], [0, 0], [.03, .006], [.06, .016], [.08, .03], [.085, .042]]);
-  const foreTe = curve([[-.012, .055], [0, .058], [.03, .062], [.06, .06], [.08, .052], [.085, .042]]);
+  const fore = { rootS: .24, theta: 2.25, span: .1, droop: 1, sweep: .5, sink: .012, thickness: .02, wrist: .5 };
+  const foreLe = curve([[-.012, 0], [0, 0], [.04, .008], [.08, .022], [.105, .04], [.112, .056]]);
+  const foreTe = curve([[-.012, .058], [0, .062], [.04, .066], [.08, .064], [.105, .06], [.112, .056]]);
   const foreBones: { arm: Vector3; hand: Vector3 }[] = [];
   for (const left of [true, false]) {
     const side = left ? 1 : -1;
@@ -87,7 +87,7 @@ export function buildHarborSeal() {
     const origin = new Vector3(side * .008, ctx.center(hindRootS), z(hindRootS));
     const back = new Vector3(0, 0, -1).applyAxisAngle(new Vector3(0, 1, 0), -side * splay);
     const out = new Vector3(side * Math.cos(tilt), Math.sin(tilt), 0).applyAxisAngle(new Vector3(0, 1, 0), -side * splay);
-    const outer = curve([[0, .008], [.3, .016], [.6, .03], [.82, .042], [.93, .04], [1, 0]]);
+    const outer = curve([[0, .008], [.3, .014], [.6, .025], [.82, .034], [.93, .032], [1, 0]]);
     const inner = curve([[0, .006], [.3, .008], [.6, .012], [.82, .016], [.93, .014], [1, 0]]);
     const bone = left ? 'HindL' : 'HindR';
     fin(mesh, {
@@ -111,17 +111,30 @@ export function buildHarborSeal() {
     const v = Math.sin(n * 12.9898 + 78.233) * 43758.5453;
     return v - Math.floor(v);
   };
+  // A spot is a five-cornered decal (fewer vertices than ctx.spot's hexagon), so the coat can carry many more of them.
+  const dapple = (s: number, theta: number, r: number, color: RGB, squash: number, lift: number) => {
+    mesh.begin();
+    const gs = ctx.raw(s + .002, theta).sub(ctx.raw(s - .002, theta)).length() / .004;
+    const gt = ctx.raw(s, theta + .01).sub(ctx.raw(s, theta - .01)).length() / .02;
+    const corners = Array.from({ length: 5 }, (_, i) => {
+      const a = TAU * i / 5 + .3;
+      const ps = s + Math.cos(a) * r * squash / gs, pt = theta + Math.sin(a) * r / gt;
+      return mesh.vertex(ctx.surface(ps, pt, lift), color, ctx.skin(ps), ctx.normal(ps, pt));
+    });
+    for (let i = 1; i < 4; i++) mesh.tri(corners[0], corners[i], corners[i + 1]);
+    mesh.end({ closed: false, normals: false, outward: (i) => new Vector3(mesh.normals[i * 3], mesh.normals[i * 3 + 1], mesh.normals[i * 3 + 2]) });
+  };
   const placed: { p: Vector3; r: number }[] = [];
-  for (let n = 0; n < 3000 && placed.length < 96; n++) {
+  for (let n = 0; n < 3000 && placed.length < 220; n++) {
     const s = .09 + .68 * random(n * 3), theta = (random(n * 3 + 1) * 2 - 1) * 2.55, t = Math.abs(theta);
     if (random(n * 3 + 2) < smoothstep(1.7, 2.5, t) * .85) continue;
-    const r = (.0045 + .0055 * random(n * 5 + 7) ** 1.5) * (1 - .3 * smoothstep(.62, .78, s)) * (1 - .3 * (1 - smoothstep(.1, .2, s)));
+    const r = (.003 + .003 * random(n * 5 + 7) ** 1.5) * (1 - .3 * smoothstep(.62, .78, s)) * (1 - .3 * (1 - smoothstep(.1, .2, s)));
     const p = ctx.surface(s, theta, 0);
     if (placed.some((q) => q.p.distanceTo(p) < 1.5 * (q.r + r))) continue;
     placed.push({ p, r });
-    const ringed = placed.length % 6 === 1 && t < 1.9;
-    if (ringed) ctx.spot(s, theta, r * 1.6, mix(RING, FLANK, .45), 1.15, .001);
-    ctx.spot(s, theta, r, mix(SPOT, FLANK, .45 * smoothstep(1.5, 2.4, t)), 1.25, ringed ? .0017 : .001);
+    const ringed = placed.length % 9 === 1 && t < 1.9;
+    if (ringed) dapple(s, theta, r * 1.6, mix(RING, FLANK, .45), 1.15, .001);
+    dapple(s, theta, r, mix(SPOT, FLANK, .45 * smoothstep(1.5, 2.4, t)), 1.25, ringed ? .0017 : .001);
   }
 
   // Big dark eyes, the V of nostrils on top of the muzzle, the mouth's line and beaded whiskers.

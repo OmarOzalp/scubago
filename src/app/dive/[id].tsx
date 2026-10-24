@@ -1,10 +1,11 @@
 import { Stack, router, useLocalSearchParams } from 'expo-router';
 import { useMemo, useState } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { Bookplate, CentreStamp } from '@/components/dive/marks';
 import { SignatureView } from '@/components/dive/signature';
 import { Icon, type IconName } from '@/components/icon';
+import { IconButton } from '@/components/journal/icon-button';
 import { Ledger, type LedgerItem } from '@/components/journal/ledger';
 import { Paper } from '@/components/journal/paper';
 import { Screen, SectionHeader } from '@/components/journal/screen';
@@ -17,7 +18,7 @@ import { ThemedText } from '@/components/themed-text';
 import { Radius, Spacing, Type } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { announce } from '@/lib/announce';
-import { speciesForSighting } from '@/lib/catalog';
+import { speciesForSighting, UNLISTED_ID } from '@/lib/catalog';
 import { confirmAction } from '@/lib/confirm';
 import { SIGNER_ROLE_LABEL } from '@/lib/dive-signature-api';
 import {
@@ -37,8 +38,9 @@ import {
   TANK_MATERIALS,
   timeOut,
 } from '@/lib/dives';
-import { useAllSites, useAppStore, useMyDives, useMyUserId, useSiteById } from '@/lib/store';
-import type { Dive, DiveSignature } from '@/lib/types';
+import { RARITY_LABEL } from '@/lib/rarity';
+import { useAppStore, useMyDives, useMyUserId, useSiteById } from '@/lib/store';
+import type { Dive, DiveSignature, Sighting, Species } from '@/lib/types';
 
 function formatTimestamp(iso: string): string {
   return new Date(iso).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' });
@@ -46,13 +48,13 @@ function formatTimestamp(iso: string): string {
 
 /**
  * A page of the diver's logbook: its number and site, the day and times, what they measured, the
- * conditions and gear, their notes, the animals they saw, and the signatures and stamp on it. The
- * buttons at the foot turn to the page before and after.
+ * conditions and gear, their notes, the animals they saw, and the signatures and stamp on it. Edit
+ * and Share are in the header, where they are in reach from the top of a long page; the buttons at
+ * the foot turn to the page before and after.
  */
 export default function DivePageScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const theme = useTheme();
-  const sites = useAllSites();
   const siteById = useSiteById();
   const myUserId = useMyUserId();
   const dives = useMyDives();
@@ -157,7 +159,17 @@ export default function DivePageScreen() {
 
   return (
     <Screen>
-      <Stack.Screen options={{ title: formatDiveNumber(dive.number) }} />
+      <Stack.Screen
+        options={{
+          title: formatDiveNumber(dive.number),
+          headerRight: () => (
+            <View style={styles.headerActions}>
+              <ShareDiveButton variant="header" dive={dive} site={site} sightings={allSightings} />
+              <IconButton icon="edit" size={HEADER_BUTTON} accessibilityLabel="Edit page" onPress={() => !busy && router.push({ pathname: '/dive/edit', params: { id: dive.id } })} style={{ opacity: busy ? 0.4 : 1 }} />
+            </View>
+          ),
+        }}
+      />
 
       {/* The head of the page: the number in the margin, the site and the day beside it. */}
       <View style={styles.head} accessible accessibilityRole="header" accessibilityLabel={`Dive ${dive.number}, ${siteName}, ${formatEntryDate(dive.divedOn)}${times ? `, ${times}` : ''}`}>
@@ -244,7 +256,7 @@ export default function DivePageScreen() {
       {onPage.map((s) => {
         const species = speciesForSighting(s);
         if (!species) return null;
-        return <SightingRow key={s.id} sighting={s} species={species} site={site} pending={!!user && !s.synced} hideDate onPress={() => router.push(`/sighting/${s.id}`)} />;
+        return <SightingRow key={s.id} sighting={s} species={species} site={site} detail={aboutAnimal(s, species)} pending={!!user && !s.synced} hideDate onPress={() => router.push(`/sighting/${s.id}`)} />;
       })}
       {onPage.length === 0 ? (
         <ThemedText type="small" themeColor="textSecondary">
@@ -289,7 +301,7 @@ export default function DivePageScreen() {
         <OceanButton
           title={signatures.length ? 'Add a signature' : 'Ask your buddy to sign'}
           icon="signature"
-          variant={signatures.length ? 'secondary' : 'primary'}
+          variant="secondary"
           onPress={() => router.push({ pathname: '/dive/sign', params: { id: dive.id } })}
         />
       </Paper>
@@ -302,13 +314,10 @@ export default function DivePageScreen() {
         <SyncLine item={dive} />
       </View>
 
-      <ShareDiveButton dive={dive} site={site} sightings={allSightings} />
-      <OceanButton title="Edit page" variant="secondary" icon="edit" disabled={busy} onPress={() => router.push({ pathname: '/dive/edit', params: { id: dive.id } })} />
-
       {/* Turning the pages: the one before (a lower number) on the left, the next on the right. */}
       <View style={[styles.turn, { borderTopColor: theme.rule }]}>
-        <TurnButton direction="older" dive={turn.older} sites={sites} onPress={() => go(turn.older)} />
-        <TurnButton direction="newer" dive={turn.newer} sites={sites} onPress={() => go(turn.newer)} />
+        <TurnButton direction="older" dive={turn.older} siteName={siteById(turn.older?.siteId)?.name ?? ''} onPress={() => go(turn.older)} />
+        <TurnButton direction="newer" dive={turn.newer} siteName={siteById(turn.newer?.siteId)?.name ?? ''} onPress={() => go(turn.newer)} />
       </View>
 
       <View style={[styles.dangerZone, { borderTopColor: theme.rule }]}>
@@ -336,11 +345,23 @@ export default function DivePageScreen() {
 /** "28" or "28.5". */
 const trim = (n: number) => (Number.isInteger(n) ? String(n) : n.toFixed(1));
 
-function TurnButton({ direction, dive, sites, onPress }: { direction: 'older' | 'newer'; dive?: Dive; sites: { id: string; name: string }[]; onPress: () => void }) {
+/** The width of a round button in the header, the height of a navigation bar. */
+const HEADER_BUTTON = 44;
+
+/**
+ * What a row of "What you saw" says under the animal's name: how rare it is and what was written
+ * about it. (Every row on this page is at the page's site, on its day, so those aren't said again.)
+ * An animal outside the catalogue has no rarity: its notes, or nothing.
+ */
+function aboutAnimal(sighting: Sighting, species: Species): string {
+  const rarity = species.id === UNLISTED_ID ? null : RARITY_LABEL[species.rarity];
+  return [rarity, sighting.notes?.trim()].filter(Boolean).join(' · ');
+}
+
+function TurnButton({ direction, dive, siteName, onPress }: { direction: 'older' | 'newer'; dive?: Dive; siteName: string; onPress: () => void }) {
   const theme = useTheme();
   const older = direction === 'older';
   if (!dive) return <View style={styles.turnButton} />;
-  const siteName = sites.find((s) => s.id === dive.siteId)?.name ?? '';
   return (
     <Pressable
       onPress={onPress}
@@ -364,6 +385,8 @@ function TurnButton({ direction, dive, sites, onPress }: { direction: 'older' | 
 const styles = StyleSheet.create({
   flex: { flex: 1 },
   center: { textAlign: 'center' },
+  // The web's header has no margin at its right end (a phone's has its own).
+  headerActions: { flexDirection: 'row', alignItems: 'center', gap: Spacing.two, paddingRight: Platform.OS === 'web' ? Spacing.three : 0 },
   missing: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: Spacing.two, padding: Spacing.four },
   missingArt: { width: 112, height: 78, alignItems: 'center', justifyContent: 'center', marginBottom: Spacing.one },
   head: { flexDirection: 'row', alignItems: 'center', gap: 14 },

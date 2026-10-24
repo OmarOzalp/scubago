@@ -2,6 +2,7 @@ import { describe, expect, it } from '@jest/globals';
 
 import { CATALOG_BY_ID } from '@/lib/catalog';
 import { createMarineMotion, MOVEMENT, type MarineMember } from '@/lib/marine-motion';
+import { SWIM_LEVEL } from '@/lib/ocean-depth';
 import { frame, viewBounds, WORLD } from '@/lib/steering';
 import { MAX_ANIMATED, pickSwimmers, type MarineModel } from '@/lib/swimming';
 import type { DexEntry } from '@/lib/types';
@@ -9,9 +10,9 @@ import type { DexEntry } from '@/lib/types';
 const ASPECT = 420 / 390;
 const dt = 1 / 60;
 
-/** Whether an animal at (x, apparent z) is wholly out of the camera's view. */
+/** Whether an animal is wholly out of the camera's view, at the height it swims at. */
 function unseen(motion: ReturnType<typeof createMarineMotion>, lane: number) {
-  const pose = motion.get(lane)!, view = viewBounds(-.94, motion.ocean.world.x / WORLD.x, ASPECT);
+  const pose = motion.get(lane)!, view = viewBounds(SWIM_LEVEL + pose.y, motion.ocean.world.x / WORLD.x, ASPECT);
   const r = MOVEMENT[motion.swimmers.find((s) => s.lane === lane)!.model].halfLength, z = pose.z + .4;
   return Math.abs(pose.x) - r > view.x || z + r < view.top || z - r > view.bottom;
 }

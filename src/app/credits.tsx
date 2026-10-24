@@ -95,7 +95,7 @@ export default function CreditsScreen() {
         <SectionHeader eyebrow="Pictures" title="Species photographs" />
         <Paper>
           <ThemedText>
-            The photographs on a species’ page come from iNaturalist. Each one is credited to its photographer, beneath the photo, with the licence that photographer gave it on iNaturalist. Photos inside a site’s recent observations follow the stricter rule above: CC0 or CC BY only, each with its credit.
+            The photographs on a species’ page come from iNaturalist, under licences that allow any use with credit (CC0, CC BY or CC BY-SA). Each one is credited to its photographer beneath the photo, and the credit opens the photo on iNaturalist, where its licence is stated. Photos inside a site’s recent observations follow the stricter rule above: CC0 or CC BY only, each with its credit.
           </ThemedText>
         </Paper>
       </View>

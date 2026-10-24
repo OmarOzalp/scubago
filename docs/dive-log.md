@@ -21,11 +21,20 @@ The code:
 
 ## What the diver sees
 
-- **Log a dive** works as before (site, then species, then details), with two differences:
-  - Animals are optional. **Nothing to log · next** writes a page without any.
-  - The details step is the page itself.
-    - Always shown: the dive number, the time in, the date, the bottom time, the maximum depth and
-      private notes.
+- **Log a dive** goes site, then animals, then details. The steps are named "Site", "Animals" and
+  "Details" (or what was chosen in the first two, cut to about 14 characters), and the bar steps
+  aside while the keyboard is up.
+  - The header's back arrow goes back a step and closes only from the first one. Leaving with
+    something entered (a site, animals, notes, a photo or any field) asks **Discard this entry?**,
+    whether by the arrow, the swipe down, Android's back or the browser's.
+  - Animals are optional. **Skip animals** writes a page without any.
+  - The details step is the page itself, with **Save dive No. N** pinned under it.
+    - Right under the animals comes **What you saw**: notes about the animals, a photo (one species
+      only) and who can see it. A line above the save button says what the last choice was
+      ("Visible to: Only me · change"); tapping it goes to the choice. The choice is remembered for
+      the next log, but never silently.
+    - Then the dive's own fields. Always shown: the dive number, the time in, the date, the bottom
+      time, the maximum depth and private notes.
     - **More details** opens the rest:
       - Conditions: water and air temperature, visibility, average depth, current, surface, entry,
         and the kind of dive (reef, wall, wreck, drift, night, muck, cavern, deep, training).
@@ -33,13 +42,22 @@ The code:
         end pressure; weight; suit. The air consumption is worked out as you type.
       - People: the buddy and the dive centre.
       - A rating out of five stars.
+    - A problem is said under its field, which is outlined, scrolled to and focused (and **More
+      details** opens if the field is in it). **Something else** without a name says "Name the
+      animal first" under **What was it?**, which sits right under the animals; the button is never
+      greyed out.
   - Numbers are typed as divers write them: `28,5`, `9.30 am` and `0930` all work.
   - The page's gear is carried over from the latest page. The buddy and dive centre are carried
     over too when the latest page was within three days (the same trip). The form says what it
     carried over.
-- **The saved screen** stamps the entry ("Entry No. 49") and offers **Open the page**, **Ask your
-  buddy to sign** and **Log another dive**. A milestone dive gets its bookplate, and "Two dives to
-  your fiftieth" appears when a milestone is close.
+  - Adding to a page (**Add to No. N**) and editing a sighting use the same steps. An edit has no
+    step bar: **Change the animal** and **Change the site** (when the sighting isn't on a page) are
+    on its card.
+- **The saved screen** stamps the entry ("Entry No. 49"), under the title "Logged". Its next steps
+  are one footer pinned under the page: **Done** (**Visit my home** after a first record), **Open the
+  page**, then the quieter **Ask your buddy to sign** and **Log another dive**. A dive written without
+  animals offers **Add what you saw**. A milestone dive gets its bookplate, and "Two dives to your
+  fiftieth" appears when a milestone is close.
 - **The page** (`/dive/[id]`) shows:
   - the number, the day, the site, and the time in and out;
   - the main figures (depth, time, water, visibility);
@@ -47,6 +65,8 @@ The code:
   - the signatures and the centre's stamp;
   - how the page stands with syncing.
   - **Add what you saw** puts more animals on the page, at its site and date. **Edit page** changes any field.
+    Back from its site picker closes the picker, not the page, and leaving with changes that aren't
+    saved asks **Discard your changes?**
   - The buttons at the foot turn to the previous and next pages.
   - **Delete page** removes the page and the sightings on it.
 - **Logbook** lists every page, newest first, under the lifetime totals (dives, time underwater,

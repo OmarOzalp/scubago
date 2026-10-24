@@ -251,9 +251,26 @@ const coconut: PlateDef = {
       poly: spline([[18, 30, 1], [10, 22], [8, 12], [14, 4], [24, 2], [32, 6, 1], [27, 18]], true),
       paint: shellPaint,
       lines: [0.3, 0.55, 0.8].map((k) => ({ pts: spline([[18 + k * 2, 30 - k * 3], [10 + k * 5, 20], [12 + k * 6, 9], [22 + k * 2, 3 + k * 3], [32 - k, 6 + k]] as Ctrl[], false), w: 0.6 + k, taper: 'both' as const })),
-      edge: 1,
-      marks: [{ poly: spline([[18, 30, 1], [22, 22], [27, 13], [32, 6, 1], [26, 15], [21, 24]], true), paint: '#3A2616' }],
+      edge: 1.7,
+      marks: [
+        { poly: spline([[18, 30, 1], [22, 22], [27, 13], [32, 6, 1], [26, 15], [21, 24]], true), paint: '#3A2616' },
+        // The three pores of a coconut, on the outer face of the lid.
+        ...([[14.6, 13.4], [19.4, 10.4], [17.2, 17.2]] as Pt[]).flatMap((p) => [
+          { poly: ellipse(p, 1.35, 1.15), paint: '#4A3220' as const, edge: 0.8 },
+          { poly: ellipse(add(p, [-0.3, -0.25]), 0.5), paint: '#1E120A' as const },
+        ]),
+      ],
     };
+    // Husk fibres on the lid, like the bowl's: short rough strokes curving with the shell.
+    for (let k = 0; k < 60; k++) {
+      const fr = rng(600 + k);
+      const x = 9 + fr() * 22;
+      const y = 3 + fr() * 26;
+      if (!inside([x, y], lid.poly)) continue;
+      const len = 1.4 + fr() * 2.2;
+      const tilt = -0.9 + (y - 15) * 0.03 + (fr() - 0.5) * 0.5;
+      lid.lines.push({ pts: [[x - len, y - tilt * len], [x, y + 0.3], [x + len, y + tilt * len]], w: 0.7, o: 0.55, taper: 'both' });
+    }
     const drape = [
       makeArm({ path: [[43, 35], [40, rim(40, 1) - 0.4], [35, 44.4], [29.6, 47], [26.4, 51.6], [28, 55.6], [31.6, 54.8]], w: [2.6, 0.4], suckers: -1 }),
       makeArm({ path: [[56, 35], [60, rim(60, 1) - 0.4], [65.6, 44.4], [71, 47], [74, 51.6], [72.4, 55.6], [68.8, 54.8]], w: [2.6, 0.4], suckers: 1 }),
@@ -299,10 +316,8 @@ const coconut: PlateDef = {
           [[48, 30], 0.3],
         ] as const)
           grow(p as Pt, a, 2.6, 2.3, 2);
-        const wedge: Fill = { poly: [[41.4, 22.4], [46.4, 22.2], [43.4, 28.6]], paint: '#F0E6D0', o: 0.95 };
         return {
           far: [lid, interior],
-          marks: [wedge],
           lines: veins.filter((l) => l.pts.every((p) => inside(p, c.body))),
           arms: darkEdges,
           near: [bowl, ...drape.map((a) => armPart(a, '#E6EEF2', 1.35, 1, darkEdges(a))), { poly: ellipse([49.6, 35.2], 7.6, 2.6), paint: 'back', lines: [], edge: 0 }],
@@ -416,6 +431,18 @@ const giantCuttle: PlateDef = {
 };
 
 // ── Flamboyant cuttlefish ────────────────────────────────────────────────────
+/** An arm cut to 70% of its length, with its tip curling over. */
+const curl = <T extends { path: Ctrl[]; w: [number, number] }>(a: T): T => {
+  const [p0, ...rest] = a.path;
+  const o: Pt = [p0[0], p0[1]];
+  const sc = rest.map((p) => [o[0] + (p[0] - o[0]) * 0.7, o[1] + (p[1] - o[1]) * 0.7] as Pt);
+  const last = sc[sc.length - 1];
+  const prev = sc[sc.length - 2] ?? o;
+  const d: Pt = [last[0] - prev[0], last[1] - prev[1]];
+  const l = Math.hypot(d[0], d[1]) || 1;
+  const hook: Pt = [last[0] + (d[0] / l) * 1.6 + (-d[1] / l) * 1.8, last[1] + (d[1] / l) * 1.6 + (d[0] / l) * 1.8];
+  return { ...a, path: [p0, ...sc, hook], w: [a.w[0] * 0.85, a.w[1]] };
+};
 // Short, broad and squat, walking on its arms over the sand; three pairs of fleshy flaps standing
 // up along the back; blade-like arms tipped pink and red; a yellow fin; dark, white and yellow
 // patchwork.
@@ -439,25 +466,22 @@ const flamboyant: PlateDef = {
         { from: [2, 4], path: [[33, 41], [35, 46], [36, 50.6], [40, 50.6]], w: 2.6, suckers: 1 },
         { from: [1, -2], path: [[23, 20.6], [20, 14], [19.4, 9.6]], w: 2.2, far: true, suckers: -1 },
         { from: [1, 2], path: [[22, 33], [16, 36], [11, 37]], w: 2.2, far: true },
-      ]).map((a) => ({ ...a, paint: 'accent' as const })),
+      ]).map((a) => curl({ ...a, paint: 'accent' as const })),
       extra: (c) => {
         const { s } = c;
-        // The flaps: three pairs of fleshy, wavy-edged lobes standing along the back.
-        const flaps: Part[] = [50, 58, 66].flatMap((x, i) => {
-          const h = 6.6 - i * 0.9;
-          const lobe = (dx: number, k: number, paint: Fill['paint']): Part => {
-            const b = atX(s, x + dx, 0.03);
-            const w = 2.6 * k;
-            const top: Ctrl[] = [add(b, [-w, 1.4]), add(b, [-w * 1.05, -h * 0.5 * k]), add(b, [-w * 0.6, -h * 0.92 * k]), add(b, [-w * 0.1, -h * 0.82 * k]), add(b, [w * 0.35, -h * k]), add(b, [w * 0.85, -h * 0.66 * k]), add(b, [w, 1.4])];
-            const edgeBand: Ctrl[] = [add(b, [-w * 1.02, -h * 0.5 * k]), add(b, [-w * 0.6, -h * 0.92 * k]), add(b, [-w * 0.1, -h * 0.82 * k]), add(b, [w * 0.35, -h * k]), add(b, [w * 0.85, -h * 0.66 * k]), add(b, [w * 0.55, -h * 0.6 * k]), add(b, [-w * 0.1, -h * 0.66 * k]), add(b, [-w * 0.7, -h * 0.5 * k])];
-            return { poly: spline(top, true), paint, lines: [{ pts: [add(b, [0, 0.8]), add(b, [0, -h * 0.7 * k])], w: 0.8, o: 0.55 }], edge: 0.75, marks: [{ poly: spline(edgeBand, true), paint: '#F2C230', o: 0.95 }] };
-          };
-          return [lobe(1.6, 0.78, 'dark'), lobe(0, 1, 'back')];
+        // Papillae: a row of small fleshy points standing up along the back, tipped yellow.
+        const flaps: Part[] = [44.6, 48.4, 52.2, 56, 59.8, 63.6, 67.2, 70.6, 73.8].map((x, i) => {
+          const h = 2.7 + (i % 3 === 1 ? 0.9 : 0) - i * 0.05;
+          const w = 1.25;
+          const b = atX(s, x, 0.02);
+          const body: Ctrl[] = [add(b, [-w, 1.2]), add(b, [-w * 0.85, -h * 0.5]), add(b, [-w * 0.2, -h * 0.9]), [b[0] + 0.1, b[1] - h, 1], add(b, [w * 0.7, -h * 0.55]), add(b, [w, 1.2])];
+          const tip: Ctrl[] = [add(b, [-w * 0.6, -h * 0.62]), add(b, [-w * 0.2, -h * 0.9]), [b[0] + 0.1, b[1] - h, 1], add(b, [w * 0.55, -h * 0.64]), add(b, [0, -h * 0.5])];
+          return { poly: spline(body, true), paint: 'back', lines: [], edge: 0.7, marks: [{ poly: spline(tip, true), paint: '#F2C230', o: 0.95 }] };
         });
         const patches: Fill[] = [
-          { poly: blob(atX(s, 47, 0.52), 4.2, 0.25, c.rand, 9, 1.3, 20), paint: '#F5F0E6', o: 0.92, clip: 'trunk' },
+          { poly: blob(atX(s, 47, 0.52), 2.8, 0.25, c.rand, 9, 1.3, 20), paint: '#F5F0E6', o: 0.9, clip: 'trunk' },
           { poly: shapeIn(s, [[tAtX(s, 50), 0.78], [tAtX(s, 58), 0.66], [tAtX(s, 68), 0.7], [tAtX(s, 75), 0.62], [tAtX(s, 74), 0.92], [tAtX(s, 60), 0.94], [tAtX(s, 51), 0.9]]), paint: '#F2C230', o: 0.9, clip: 'trunk' },
-          { poly: blob(atX(s, 70, 0.34), 3.4, 0.3, c.rand, 9, 1.2, -20), paint: '#F5F0E6', o: 0.88, clip: 'trunk' },
+          { poly: blob(atX(s, 70, 0.4), 2.2, 0.3, c.rand, 9, 1.2, -20), paint: '#F5F0E6', o: 0.85, clip: 'trunk' },
           { poly: blob(atX(s, 35, 0.78), 2.6, 0.25, c.rand, 8, 1.4, 0), paint: '#F2C230', o: 0.85, clip: 'trunk' },
         ];
         // Dark waves rippling across the back.
@@ -577,7 +601,11 @@ function nautilus(): PlateGeom {
   // The shell outline: the outer edge from the opening back round one full turn.
   const N = 160;
   const outer = Array.from({ length: N + 1 }, (_, i) => P(pa - (i / N) * Math.PI * 2));
-  const shell = [...outer, P(pa - Math.PI * 2), P(pa)];
+  // The aperture's lip is a curve bowing forward, not a straight cut.
+  const lipIn = P(pa - Math.PI * 2);
+  const lipOut = P(pa);
+  const lip = spline([[lipIn[0], lipIn[1], 1], [lipIn[0] - 3.4, lipIn[1] + 2.6], [lipIn[0] - 5.2, lipIn[1] + 8.6], [lipIn[0] - 4, lipOut[1] - 6.2], [lipOut[0] - 1.2, lipOut[1] - 1.6], [lipOut[0], lipOut[1], 1]], false);
+  const shell = [...outer, ...lip.slice(1, -1)];
   g.body = shell;
   g.trunk = shell;
   // Growth lines: gently sinuous curves from the inner whorl to the outer edge.
@@ -635,14 +663,14 @@ function nautilus(): PlateGeom {
   const tentacleRoot = add(inner, [-5, 9]);
   const fan: Line[] = [];
   const mass: Pt[] = [];
-  for (let k = 0; k < 36; k++) {
-    const a = Math.PI * (0.72 + (k / 35) * 0.44) + (rand() - 0.5) * 0.05;
-    const len = 15 + rand() * 6 + Math.sin(k * 1.3) * 2;
+  for (let k = 0; k < 14; k++) {
+    const a = Math.PI * (0.74 + (k / 13) * 0.42) + (rand() - 0.5) * 0.05;
+    const len = 8.4 + rand() * 3.2 + Math.sin(k * 1.3) * 1.2;
     const root = add(tentacleRoot, [(rand() - 0.5) * 4, (rand() - 0.5) * 6]);
     const tip = add(root, [Math.cos(a) * len, Math.sin(a) * len]);
     const mid = add(lerp(root, tip, 0.5), [(rand() - 0.5) * 2, 1.2]);
-    fan.push({ pts: spline([root, mid, tip], false), w: 2.2, taper: 'end' });
-    if (k % 4 === 0) mass.push(lerp(root, tip, 0.45));
+    fan.push({ pts: spline([root, mid, tip], false), w: 1.7, taper: 'end' });
+    if (k % 3 === 0) mass.push(lerp(root, tip, 0.45));
   }
   const tentacleMass: Part = { poly: spline([add(tentacleRoot, [1, -4]), ...mass.map((p) => lerp(tentacleRoot, p, 0.7)), add(tentacleRoot, [1, 5])], true), paint: '#C9AE90', lines: fan, edge: 0.5 };
   g.near.push(tentacleMass, hood);

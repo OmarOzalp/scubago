@@ -43,7 +43,8 @@ const greyReef: SharkSpec = variant(requiem, {
     const [a, b] = trailing(c);
     return {
       median: [
-        { fin: 'caudal', marks: [edgeBand(c.caudal.outline, a, b, (t) => 1.4 + 1.6 * Math.sin(Math.PI * Math.min(1, t * 1.2)), 'ink', 1, 0.92)] },
+        // The band thins to nothing at both lobe tips, so it can't hook past the upper one.
+        { fin: 'caudal', marks: [edgeBand(c.caudal.outline, a, b, (t) => 3.4 * Math.sin(Math.PI * Math.min(1, t / 0.9)) ** 0.6, 'ink', 1, 0.92)] },
         { fin: 'd2', marks: [finTip(c.d2!, 0.45, 'ink', 0.85)] },
         { fin: 'anal', marks: [finTip(c.anal!, 0.45, 'ink', 0.85)] },
         { fin: 'pelvic', marks: [finTip(c.pelvic!, 0.55, 'ink', 0.7)] },
@@ -138,11 +139,11 @@ const whitetip: SharkSpec = variant(requiem, {
 // Very short blunt snout and a small eye; heavy, deep body; broad triangular first dorsal over the
 // pectoral insertion; large second dorsal; plain grey.
 const bull: SharkSpec = variant(requiem, {
-  ...bodyShape({ ped: 74, depth: 21.5, at: 29, riseTop: 3, riseBot: 2.5, pedH: 5.8, nose: 0.62 }),
-  blunt: 0.9,
+  ...bodyShape({ ped: 74, depth: 18.5, at: 29, riseTop: 3, riseBot: 2.5, pedH: 5.4, nose: 0.5 }),
+  blunt: 0.7,
   noseTilt: 0.2,
   eye: { x: 5.8, f: 0.34, r: 0.75 },
-  d1: { at: 28, base: 10.5, h: 10, sweep: 0.6, rear: 2.6, round: 0.3, concave: 0.06, convex: 0.05 },
+  d1: { at: 28, base: 10.5, h: 11.5, sweep: 0.6, rear: 2.6, round: 0.3, concave: 0.06, convex: 0.05 },
   d2: { at: 60, base: 4, h: 4, rear: 2.8 },
   anal: { at: 60.5, base: 4, h: 3.8, rear: 2.6 },
   pelvic: { at: 46, base: 4.6, h: 5, rear: 2.4 },
@@ -197,7 +198,7 @@ const oceanic: SharkSpec = variant(requiem, {
   ...bodyShape({ ped: 73.5, depth: 19, at: 32, riseTop: 2.7, riseBot: 2.2, pedH: 5.4, hump: [31, 0.8], nose: 0.52 }),
   blunt: 0.75,
   eye: { x: 6.2, f: 0.35, r: 0.75 },
-  d1: { at: 31.5, base: 10.5, h: 13, sweep: 0.5, rear: 2.6, round: 4.2, concave: 0.02, convex: 0.16 },
+  d1: { at: 30.5, base: 13, h: 12.5, sweep: 0.5, rear: 2.6, round: 3, concave: 0.02, convex: 0.14 },
   d2: { at: 61, base: 3.3, h: 3.4, rear: 2.6 },
   anal: { at: 61.6, base: 3.4, h: 3.4, rear: 2.6 },
   pelvic: { at: 47, base: 4.4, h: 4.6, rear: 2, round: 1 },
@@ -210,17 +211,17 @@ const oceanic: SharkSpec = variant(requiem, {
   ],
   extra: (c) => {
     const mottle = (shape: { poly: Pt[]; le: Pt[]; te: Pt[] }, from: number) => {
-      const tip = finTip(shape, from, 'light', 1);
-      // The white is blotchy: a solid tip with a few pale blotches below it.
-      const flecks = scatterIn(finTip(shape, from - 0.14, 'light').poly, { r: 0.7, gap: 0.4, paint: 'light', rand: c.rand, o: 0.85, tries: 80 });
-      return [tip, ...flecks];
+      // A clean white cap, with a mottled grey band under it.
+      const cap = finTip(shape, from, 'light', 1);
+      const band = scatterIn(finTip(shape, from - 0.26, 'light').poly, { r: 0.8, gap: 0.35, paint: 'dark', rand: c.rand, o: 0.4, tries: 90 });
+      return [...band, cap];
     };
     return {
       median: [
-        { fin: 'd1', marks: mottle(c.d1!, 0.72) },
-        { fin: 'caudal', marks: [...mottle(tipOf(c), 0.8), ...mottle(c.caudal.lower, 0.68)] },
-        { fin: 'pelvic', marks: [finTip(c.pelvic!, 0.66, 'light', 0.9)] },
-        { fin: 'pec', marks: mottle(c.pec, 0.78) },
+        { fin: 'd1', marks: mottle(c.d1!, 0.6) },
+        { fin: 'caudal', marks: [...mottle(tipOf(c), 0.7), ...mottle(c.caudal.lower, 0.6)] },
+        { fin: 'pelvic', marks: [finTip(c.pelvic!, 0.6, 'light', 0.9)] },
+        { fin: 'pec', marks: mottle(c.pec, 0.68) },
       ],
     };
   },
@@ -266,25 +267,44 @@ const tiger: SharkSpec = variant(requiem, {
   extra: (c) => {
     const s = c.s;
     const bars: Fill[] = [];
-    // Strongest over the rear flank and tail stock, fading towards the head.
-    for (let x = 20; x < 70; x += 2.2 + c.rand() * 2.6) {
+    // The bars are dark, wide at the back and tapering to a point down the flank, leaning forward
+    // as they fall; strongest over the rear flank and tail stock, fading towards the head.
+    const streak = (t: number, w: number, f0: number, f1: number, lean: number, o: number): Fill => {
+      const n = 8;
+      const left: Pt[] = [];
+      const right: Pt[] = [];
+      for (let i = 0; i <= n; i++) {
+        const u = i / n;
+        const f = f0 + (f1 - f0) * u;
+        const half = (w / 2) * (1 - 0.82 * u ** 1.4) * (0.85 + 0.3 * c.rand());
+        const tc = t + lean * (f - f0) + 0.004 * Math.sin(u * 5 + t * 90);
+        left.push(at(s, tc - half, f));
+        right.push(at(s, tc + half, f));
+      }
+      return { poly: spline([...left, ...right.reverse()], true), paint: 'pattern', o, clip: 'trunk' };
+    };
+    for (let x = 19; x < 69; x += 2.3 + c.rand() * 2.1) {
       const t = tAtX(s, x);
-      const k = Math.min(1, Math.max(0.2, (x - 16) / 34));
-      // Irregular bars, now and then broken in two.
-      const end = 0.32 + k * 0.22 + c.rand() * 0.1;
-      const lean = (c.rand() - 0.3) * 0.03;
-      const w = 0.009 + c.rand() * 0.011;
-      if (c.rand() < 0.35) {
-        const cut = 0.15 + c.rand() * 0.15;
-        bars.push(bar(s, t, w, 0.02, cut, 'pattern', c.rand, 0.3 + k * 0.6, lean));
-        bars.push(bar(s, t + lean * cut + 0.002, w * 0.9, cut + 0.05, end, 'pattern', c.rand, 0.3 + k * 0.6, lean));
-      } else bars.push(bar(s, t, w, 0.02, end, 'pattern', c.rand, 0.3 + k * 0.6, lean));
+      const k = Math.min(1, Math.max(0.3, (x - 15) / 32));
+      const end = 0.42 + k * 0.24 + c.rand() * 0.06;
+      const lean = -0.016 - c.rand() * 0.02;
+      const w = 0.02 + k * 0.008 + c.rand() * 0.008;
+      const o = 0.82 + 0.14 * k;
+      // Now and then a bar breaks in two.
+      if (c.rand() < 0.3) {
+        const cut = 0.16 + c.rand() * 0.14;
+        bars.push(streak(t, w, 0.02, cut, lean, o));
+        bars.push(streak(t + lean * cut + 0.003, w * 0.85, cut + 0.05, end, lean, o));
+      } else bars.push(streak(t, w, 0.02, end, lean, o));
     }
-    // A few short bars across the upper tail lobe.
+    // Three short tapered bars across the upper tail lobe.
     const lobe = c.caudal;
-    const lobeBars = [0.25, 0.42, 0.58].map((f) => {
-      const p = lerp(lobe.le[Math.floor(lobe.le.length * f)], lobe.te[Math.floor(lobe.te.length * f)], 0.5);
-      return { poly: ellipse(p, 0.7, 2.1, 35), paint: 'pattern' as const, o: 0.8 };
+    const lobeBars = [0.26, 0.42, 0.58, 0.73].map((f, i) => {
+      const j = Math.floor((lobe.le.length - 1) * f);
+      const k = Math.floor((lobe.te.length - 1) * f);
+      const a = lerp(lobe.le[j], lobe.te[k], -0.1);
+      const b = lerp(lobe.le[j], lobe.te[k], 0.9 - i * 0.08);
+      return { poly: swell([a, lerp(a, b, 0.5), b], 1.9 - i * 0.2, 'end'), paint: 'pattern' as const, o: 0.88 };
     });
     return {
       marks: bars,
@@ -567,16 +587,16 @@ const sandTiger: SharkSpec = variant(requiem, {
 // A low, flag-like tail as long as the body; ridges along the back and flanks; even leopard
 // spots; small barbelled mouth on a blunt head; large rounded pectorals.
 const zebra: SharkSpec = variant(requiem, {
-  ...bodyShape({ ped: 48, depth: 13.5, at: 18, riseTop: 2.6, riseBot: 2.4, pedH: 6, up: 0.55, taper: 0.8, nose: 0.81 }),
+  ...bodyShape({ ped: 48, depth: 13.5, at: 18, riseTop: 2.6, riseBot: 2.4, pedH: 4.2, up: 0.55, taper: 0.8, nose: 0.81 }),
   blunt: 1,
   eye: { x: 3.8, f: 0.36, r: 0.45 },
   gills: { n: 5, x: 10.2, step: 1.1, f0: 0.42, f1: 0.66 },
-  d1: { at: 25, base: 8, h: 5, sweep: 0.5, rear: 1.4, round: 1.6, concave: 0.04, convex: 0.12 },
+  d1: { at: 25, base: 8.6, h: 7.5, sweep: 0.5, rear: 1.4, round: 2.6, concave: 0.04, convex: 0.14 },
   d2: { at: 38.5, base: 4.2, h: 2.7, sweep: 0.5, rear: 1, round: 0.8 },
   anal: { at: 41, base: 3.2, h: 2, sweep: 0.5, rear: 0.8, round: 0.6 },
   pelvic: { at: 27, base: 5.4, h: 3.6, sweep: 0.5, rear: 1, round: 1.4 },
   pec: { at: [12.4, 0.72], base: 6, len: 13, angle: 42, width: 0.62, convex: 0.12, concave: 0.0, round: 3.6, rear: 0.05 },
-  caudal: { upper: [100, -4.6], lower: [61, 7.2], fork: [91, 2.6], notch: 3.2, upperBow: 0.02, lowerBow: 0.1, trail: 0.0, lowerTrail: -0.05, lowerRound: 5 },
+  caudal: { upper: [100, -2.6], lower: [66, 5.2], fork: [93.4, -0.1], notch: 0, upperBow: 0.02, lowerBow: 0.1, trail: 0.12, lowerTrail: 0.02, lowerRound: 4 },
   mouth: [
     [1.6, 0.9],
     [2.8, 0.92],
@@ -586,8 +606,8 @@ const zebra: SharkSpec = variant(requiem, {
     const s = c.s;
     const ridges = [0.06, 0.3, 0.56].map((f) => ({ pts: lineAlong(s, f, tAtX(s, 9), 1), w: 0.95 }));
     const barbel = spline([atX(s, 1, 0.8), atX(s, 1.6, 0.98), add(atX(s, 1.8, 1), [0.3, 1.2])], false);
-    const spots = scatter(s, { t0: 0.03, t1: 1, f0: 0.02, f1: 0.8, r: 0.5, gap: 0.85, paint: 'pattern', rand: c.rand, tries: 1600 });
-    const tailSpots = scatterIn(c.caudal.poly, { r: 0.45, gap: 0.8, paint: 'pattern', rand: c.rand, tries: 700 });
+    const spots = scatter(s, { t0: 0.03, t1: 1, f0: 0.02, f1: 0.8, r: 0.7, gap: 1.3, paint: 'pattern', rand: c.rand, tries: 700 });
+    const tailSpots = scatterIn(c.caudal.poly, { r: 0.55, gap: 1.4, paint: 'pattern', rand: c.rand, tries: 500 });
     return {
       marks: spots,
       lines: [...ridges, { pts: barbel, w: 1 }, { pts: [atX(s, 5.4, 0.3), atX(s, 6, 0.32)], w: 1.2 }],
@@ -623,9 +643,10 @@ const nurse: SharkSpec = variant(requiem, {
   belly: 0.8,
   extra: (c) => {
     const s = c.s;
-    const barbel = spline([atX(s, 0.9, 0.86), atX(s, 1.7, 1.0), add(atX(s, 2.2, 1), [0.6, 2])], false);
+    // The pair of nasal barbels hanging from the snout, heavy enough to show at thumbnail size.
+    const barbel = (x: number, dx: number) => spline([atX(s, x, 0.84), atX(s, x + 0.5, 1.0), add(atX(s, x + 0.9, 1), [dx, 3.4])], false);
     return {
-      lines: [{ pts: barbel, w: 1.2 }, { pts: [atX(s, 5.8, 0.22), atX(s, 6.3, 0.24)], w: 1.1 }],
+      lines: [{ pts: barbel(0.9, 0.4), w: 2.6 }, { pts: barbel(1.9, 0.9), w: 2.3 }, { pts: [atX(s, 5.8, 0.22), atX(s, 6.3, 0.24)], w: 1.1 }],
     };
   },
 });
@@ -661,7 +682,7 @@ const PALETTES: Record<string, { spec: SharkSpec; palette: PlateDef['palette'] }
   'galapagos-shark': { spec: galapagos, palette: { back: '#6C6A66', belly: '#F0EFEA' } },
   'oceanic-whitetip': { spec: oceanic, palette: { back: '#7B7466', belly: '#EDE6D2' } },
   'lemon-shark': { spec: lemon, palette: { back: '#A8924F', belly: '#EAE0C2' } },
-  'tiger-shark': { spec: tiger, palette: { back: '#6A6F72', belly: '#EFEDE6', pattern: '#2E3030' } },
+  'tiger-shark': { spec: tiger, palette: { back: '#6A6F72', belly: '#EFEDE6', pattern: '#262828' } },
   'great-white-shark': { spec: greatWhite, palette: { back: '#6E7378', belly: '#F4F2EC' } },
   'shortfin-mako': { spec: mako, palette: { back: '#2E4A7A', belly: '#F6F6F3' } },
   'basking-shark': { spec: basking, palette: { back: '#5D605E', belly: '#C9C6BE', dark: '#3A3C3B' } },

@@ -2,7 +2,7 @@
  * Reef fish, part one: clownfish, Moorish idol, the angelfish, raccoon butterflyfish, stoplight
  * parrotfish, triggerfish and lionfish. Side on, facing left, 1% of total length per unit.
  */
-import { add, ellipse, lerp, mul, norm, perp, type Pt, rng, spline, sub } from '../kit';
+import { add, clipLine, ellipse, lerp, mul, norm, perp, type Pt, rng, spline, sub } from '../kit';
 import { scatter, scatterIn, shapeIn } from '../marks';
 import type { PlateDef } from '../registry';
 import { swell } from '../render';
@@ -63,8 +63,11 @@ const clownfish: FishSpec = {
   lateral: false,
   extra: (c) => {
     const bars = [vband(c, 14, 19.5, -2.4, -0.05, 1.05), vband(c, 42, 49, 3.2, -0.05, 1.05), vband(c, 72.5, 76.5, 0, -0.05, 1.05)];
-    const edges: Line[] = bars.flatMap((b) => [{ pts: b.slice(0, 11), w: 1.6 }, { pts: b.slice(11), w: 1.6 }]);
-    const finMargin = (o: Pt[]) => margin(o, 0.8, 'ink', 0.9);
+    // The inked bar edges are kept inside the body, so they can't overshoot its outline.
+    const edges: Line[] = bars
+      .flatMap((b) => [b.slice(0, 11), b.slice(11)])
+      .flatMap((pts) => clipLine(pts, c.trunk).map((seg) => ({ pts: seg, w: 1.4 })));
+    const finMargin = (o: Pt[]) => margin(o, 0.5, 'ink', 0.9);
     return {
       marks: bars.map((poly) => ({ poly, paint: 'light' as const, clip: 'trunk' as const })),
       lines: edges,
@@ -103,12 +106,12 @@ const idol: FishSpec = {
     const s = c.s;
     // Yellow wash over the top and back of the body.
     const yellow = region(s, tAtX(s, 26), 1, -0.6, (t) => 0.55 - 0.3 * t);
-    const bar1 = vband(c, 13, 27, 1.5);
-    const bar2 = vband(c, 47, 62, 2);
+    const bar1 = vband(c, 13, 27, 3.4);
+    const bar2 = vband(c, 47, 62, 4);
     const saddle = shapeIn(s, [[tAtX(s, 4), -0.05], [tAtX(s, 9), -0.15], [tAtX(s, 11), 0.25], [tAtX(s, 5), 0.35]]);
-    // The filament: from the third dorsal spine, up and back in a long S past the tail.
+    // The pennant: from the third dorsal spine, up and back in an S, a white streamer with an inked edge.
     const base = c.dorsal[0].tips[2];
-    const fil = filament([base, add(base, [12, -12]), add(base, [34, -16]), add(base, [56, -10]), add(base, [78, -8])], 1.6, 'light');
+    const fil = filament([base, add(base, [9, -10]), add(base, [25, -13]), add(base, [40, -10]), add(base, [52, -9])], 4.8, 'light');
     return {
       tint: [{ poly: yellow, paint: '#F6D23A', o: 0.85, clip: 'body' }],
       marks: [
@@ -161,15 +164,21 @@ const emperor: FishSpec = {
     const stripes: Fill[] = [];
     for (let k = 0; k < 13; k++) {
       const f = -0.35 + k * 0.105;
-      stripes.push({ poly: region(s, tAtX(s, 26), 1, (t) => f - 0.55 * t ** 1.6, (t) => f + 0.045 - 0.55 * t ** 1.6), paint: '#F3C623', o: 0.95, clip: 'body' });
+      // Each stripe grows out from behind the head and thins to a point as it runs into the tail.
+      const t0 = tAtX(s, 22);
+      const w = (t: number) => 0.045 * Math.max(0, Math.min(1, (0.99 - t) / 0.13, (t - t0) / 0.07));
+      stripes.push({ poly: region(s, t0, 0.99, (t) => f - 0.55 * t ** 1.6, (t) => f + w(t) - 0.55 * t ** 1.6), paint: '#F3C623', o: 0.95, clip: 'body' });
     }
-    const face = region(s, 0, tAtX(s, 10), -0.1, 1.1);
-    const mask = shapeIn(s, [[tAtX(s, 9), -0.02], [tAtX(s, 14.5), -0.02], [tAtX(s, 15.5), 0.5], [tAtX(s, 14), 0.86], [tAtX(s, 10.5), 0.86], [tAtX(s, 10.5), 0.5]]);
-    const patch = shapeIn(s, [[tAtX(s, 21), 0.95], [tAtX(s, 22), 0.3], [tAtX(s, 26), -0.02], [tAtX(s, 31), 0.1], [tAtX(s, 31), 0.6], [tAtX(s, 28), 1]]);
-    const patchFront: Line = { pts: spline([atX(s, 21, 0.95), atX(s, 22, 0.3), atX(s, 26, -0.02)], false), w: 2.2, o: 1 };
+    // Only the chin and snout are pale, a white-blue below the mask.
+    const face = region(s, 0, tAtX(s, 10.4), 0.5, 1.1);
+    // The mask: a band bowed forward, from over the eye down to the throat.
+    const mask = shapeIn(s, [[tAtX(s, 10.4), 0.1], [tAtX(s, 14.2), 0.06], [tAtX(s, 15.4), 0.4], [tAtX(s, 14.6), 0.78], [tAtX(s, 12.6), 0.94], [tAtX(s, 10.6), 0.8], [tAtX(s, 9.8), 0.45]]);
+    // The shoulder patch is a curved comma over the gill cover, ending mid-body.
+    const patch = shapeIn(s, [[tAtX(s, 22.4), 0.14], [tAtX(s, 25), -0.02], [tAtX(s, 30), 0.03], [tAtX(s, 31.6), 0.3], [tAtX(s, 29.8), 0.58], [tAtX(s, 26.2), 0.72], [tAtX(s, 22.8), 0.62], [tAtX(s, 21.6), 0.34]]);
+    const patchFront: Line = { pts: spline([atX(s, 22.8, 0.62), atX(s, 21.6, 0.34), atX(s, 22.6, 0.12), atX(s, 25, -0.02)], false), w: 2.2, o: 1 };
     const analLines: Line[] = [0.3, 0.55, 0.8].map((k) => ({ pts: c.anal[0].outline.map((p) => lerp(p, lerp(c.anal[0].bases[0], c.anal[0].bases[c.anal[0].bases.length - 1], 0.5), k)), w: 0.9, o: 0.7, taper: 'both' }));
     return {
-      tint: [{ poly: face, paint: '#CFE0EA', o: 0.9, clip: 'trunk' }],
+      tint: [{ poly: face, paint: '#E3EEF5', o: 0.95, clip: 'trunk' }],
       marks: [
         ...stripes,
         { poly: patch, paint: '#0E1426', o: 0.92, clip: 'trunk' },
@@ -209,15 +218,14 @@ const french: FishSpec = {
     const rims = scaleRims(s, 11, 18, tAtX(s, 23), '#E8B92E', 0.95);
     const chin = shapeIn(s, [[tAtX(s, 0.2), 0.55], [tAtX(s, 4), 0.62], [tAtX(s, 8), 0.85], [tAtX(s, 4), 1.02], [tAtX(s, 0.6), 0.85]]);
     const eye = atX(s, 12, 0.33);
-    const fil = filament([c.dorsal[1].tips[c.dorsal[1].tips.length - 2], add(c.dorsal[1].apex, [12, 1]), add(c.dorsal[1].apex, [26, 4])], 1.6, '#F5C531');
+    // The filament leaves the last ray and sweeps back in a short arc.
+    const last = c.dorsal[1].tips[c.dorsal[1].tips.length - 1];
+    const fil = filament([last, add(last, [6, -1.6]), add(last, [14, -1]), add(last, [21, 2.4])], 1.2, '#F5C531');
     const pecBar = shapeIn(s, [[tAtX(s, 25.4), 0.42], [tAtX(s, 27.4), 0.44], [tAtX(s, 28.4), 0.72], [tAtX(s, 26.6), 0.74]]);
     return {
       marks: [...rims, { poly: chin, paint: '#E9E6DA', clip: 'trunk' }, { poly: ring(eye, 1.8, 2.6), paint: '#F2A81D' }],
       near: [fil, { poly: pecBar, paint: '#F2A81D', lines: [], edge: 0.6 }],
-      median: [
-        { part: 'dorsal', index: 1, marks: [margin(c.dorsal[1].outline, 0.9, '#F5C531')] },
-        { part: 'caudal', marks: [margin(c.caudal.trailing, 0.9, '#E8B92E', 0.8)] },
-      ],
+      median: [{ part: 'caudal', marks: [margin(c.caudal.trailing, 0.6, '#E8B92E', 0.8)] }],
     };
   },
 };
@@ -246,19 +254,23 @@ const queen: FishSpec = {
   extra: (c) => {
     const s = c.s;
     const rims = scaleRims(s, 10, 17, tAtX(s, 23), '#E7B33A', 0.85);
-    const face = region(s, 0, tAtX(s, 21), 0.05, 0.9);
-    const crownC = atX(s, 19, 0.04);
+    // The yellow-green face fades into the blue body rather than stopping at a hard edge.
+    const face = [[21, 0.5], [24, 0.2], [28, 0.12]].map(([x, o]) => ({ poly: region(s, 0, tAtX(s, x), 0.05, 0.9), paint: '#D9C23A' as const, o, clip: 'trunk' as const }));
+    const crownC = atX(s, 17, 0.1);
     const crown: Fill[] = [
       { poly: ellipse(crownC, 2.8), paint: '#3FB7F2' },
       { poly: ellipse(crownC, 2.2), paint: '#0B1F4D' },
       ...scatterIn(ellipse(crownC, 1.9), { r: 0.28, gap: 0.3, paint: '#3FB7F2', rand: c.rand, tries: 40 }),
     ];
-    const dTip = c.dorsal[1].apex;
-    const aTip = c.anal[0].apex;
-    const streamers = [filament([dTip, add(dTip, [10, 1.5]), add(dTip, [22, 3])], 1.8, '#3E7FA8'), filament([aTip, add(aTip, [10, -1.5]), add(aTip, [21, -3])], 1.8, '#3E7FA8')];
-    const tips: Fill[] = [add(dTip, [21, 3]), add(aTip, [20, -3])].map((p) => ({ poly: ellipse(p, 1.4, 0.7), paint: '#F08A24' }));
+    // The streamers carry on from the last ray of each fin, along its trailing edge.
+    const dTip = c.dorsal[1].tips[c.dorsal[1].tips.length - 1];
+    const aTip = c.anal[0].tips[c.anal[0].tips.length - 1];
+    const dEnd = add(dTip, [14, -1]);
+    const aEnd = add(aTip, [14, 1]);
+    const streamers = [filament([dTip, add(dTip, [7, -0.9]), dEnd], 1.2, '#3E7FA8'), filament([aTip, add(aTip, [7, 0.9]), aEnd], 1.2, '#3E7FA8')];
+    const tips: Fill[] = [dEnd, aEnd].map((p) => ({ poly: ellipse(p, 1.4, 0.7), paint: '#F08A24' }));
     return {
-      tint: [{ poly: face, paint: '#D9C23A', o: 0.75, clip: 'trunk' }],
+      tint: face,
       marks: [...rims, ...crown, angelSpine(c, '#2D6CC0'), { poly: ellipse(atX(s, 27.6, 0.5), 1.6), paint: '#2D6CC0' }, ...tips],
       near: streamers,
       median: [
@@ -292,7 +304,8 @@ const king: FishSpec = {
   engraving: 'smooth',
   extra: (c) => {
     const s = c.s;
-    const bar = shapeIn(s, [[tAtX(s, 28.5), -0.02], [tAtX(s, 31), -0.02], [tAtX(s, 31.6), 0.35], [tAtX(s, 30.6), 0.6], [tAtX(s, 29), 0.6], [tAtX(s, 28.8), 0.3]]);
+    // The white bar bows back a little and ends over the pectoral base, well short of the dorsal outline.
+    const bar = shapeIn(s, [[tAtX(s, 29), 0.07], [tAtX(s, 30.8), 0.06], [tAtX(s, 32), 0.3], [tAtX(s, 31.2), 0.56], [tAtX(s, 29.9), 0.58], [tAtX(s, 30.3), 0.32]]);
     const spots = scatter(s, { t0: 0.02, t1: tAtX(s, 22), f0: 0.05, f1: 0.8, r: 0.3, gap: 0.9, paint: '#8EC6F0', rand: c.rand, tries: 200, o: 0.9 });
     return {
       marks: [{ poly: bar, paint: 'light', clip: 'trunk' }, ...spots, angelSpine(c, '#8EC6F0'), { poly: ellipse(atX(s, 1.6, 0.62), 1.3, 0.9), paint: '#F5A623' }],
@@ -336,10 +349,11 @@ const raccoon: FishSpec = {
     const crescent = shapeIn(s, [[tAtX(s, 17), 0.82], [tAtX(s, 19), 0.4], [tAtX(s, 25), 0.05], [tAtX(s, 34), -0.25], [tAtX(s, 38), -0.1], [tAtX(s, 30), 0.15], [tAtX(s, 24), 0.5], [tAtX(s, 21.5), 0.86]]);
     const line = region(s, tAtX(s, 50), tAtX(s, 77), -0.12, 0.06);
     const spot = { poly: ellipse(atX(s, 77, 0.24), 2.4, 2.2), paint: 'ink' as const, clip: 'body' as const };
+    // Thirteen fine orange lines run diagonally over the lower flank.
     const stripes: Fill[] = [];
-    for (let k = 0; k < 8; k++) {
-      const x = 28 + k * 5.2;
-      stripes.push({ poly: shapeIn(s, [[tAtX(s, x), 1.02], [tAtX(s, x + 1.2), 1.02], [tAtX(s, x + 10), 0.42], [tAtX(s, x + 8.8), 0.42]]), paint: '#C8642A', o: 0.85, clip: 'trunk' });
+    for (let k = 0; k < 13; k++) {
+      const x = 24 + k * 3.2;
+      stripes.push({ poly: swell([atX(s, x, 1.02), atX(s, x + 5, 0.72), atX(s, x + 9.6, 0.42)], 0.75, 'both'), paint: '#C8642A', o: 0.9, clip: 'trunk' });
     }
     return {
       tint: [{ poly: dusky, paint: '#B98A2A', o: 0.5, clip: 'body' }],
@@ -382,12 +396,14 @@ const stoplight: FishSpec = {
   extra: (c) => {
     const s = c.s;
     const beak = shapeIn(s, [[tAtX(s, 0.1), 0.48], [tAtX(s, 2.4), 0.46], [tAtX(s, 3), 0.62], [tAtX(s, 2.4), 0.78], [tAtX(s, 0.4), 0.74]]);
+    // Orange streaks run from the snout back across the cheek, under the eye rather than over it.
     const bands: Fill[] = [
-      [0, 0.5, 9, -0.05],
-      [1, 0.72, 13, 0.05],
-      [3, 0.92, 19, 0.3],
-    ].map(([x0, f0, x1, f1]) => ({ poly: shapeIn(s, [[tAtX(s, x0), f0], [tAtX(s, x0 + 1.4), f0 + 0.02], [tAtX(s, x1 + 1.2), f1 + 0.04], [tAtX(s, x1), f1]]), paint: '#F0884A', o: 0.9, clip: 'trunk' as const }));
-    const stop = { poly: ellipse(atX(s, 23, 0.22), 2, 1.6), paint: '#FFD319' as const, clip: 'trunk' as const };
+      [1, 0.5, 14.5, 0.6],
+      [1.4, 0.64, 18, 0.76],
+      [2.4, 0.8, 19.6, 0.93],
+    ].map(([x0, f0, x1, f1]) => ({ poly: shapeIn(s, [[tAtX(s, x0), f0], [tAtX(s, x0 + 1.6), f0 + 0.045], [tAtX(s, x1 + 1.2), f1 + 0.07], [tAtX(s, x1), f1]]), paint: '#F0884A', o: 0.62, clip: 'trunk' as const }));
+    // The yellow nape spot sits at the top edge of the gill cover.
+    const stop = { poly: ellipse(atX(s, 20, 0.2), 2, 1.6), paint: '#FFD319' as const, clip: 'trunk' as const };
     const tailSpot = { poly: ellipse(atX(s, 74, 0.28), 2.4, 1.6), paint: '#FFD319' as const, clip: 'trunk' as const };
     const crescent = c.caudal.trailing.map((p) => lerp(p, atX(s, 78, 0.5), 0.18));
     return {
@@ -416,7 +432,8 @@ const triggerBody = (depth: number) => ({
   softBelly: false,
   engraving: 'smooth' as const,
 });
-const trigger1 = { from: 31, to: 37, spines: 3, rays: 0, h: [[0, 14], [0.5, 8], [1, 4]] as [number, number][], notch: 0.55, rake: [20, 30] as [number, number] };
+// The first dorsal: a low-slung triangle of three spines joined by membrane, not a tall serrated horn.
+const trigger1 = { from: 28, to: 42, spines: 3, rays: 0, h: [[0, 9], [0.5, 7], [1, 4]] as [number, number][], notch: 0.2, rake: [20, 30] as [number, number] };
 
 // ── Titan triggerfish ────────────────────────────────────────────────────────
 // A dark moustache band above the mouth; a cross-hatched pattern of dark scales with pale edges;
@@ -441,10 +458,12 @@ const titan: FishSpec = {
         cells.push({ poly: [add(cc, [-0.9, 0]), add(cc, [0, -0.8]), add(cc, [0.9, 0]), add(cc, [0, 0.8])], paint: 'dark', o: 0.85, clip: 'trunk' });
       }
     }
-    const moustache = shapeIn(s, [[tAtX(s, 1.5), 0.55], [tAtX(s, 8), 0.5], [tAtX(s, 15), 0.6], [tAtX(s, 14), 0.74], [tAtX(s, 7), 0.68], [tAtX(s, 1.6), 0.68]]);
+    // The moustache: a thin dark band along the upper lip, with a yellow patch on the lips and cheek.
+    const moustache = shapeIn(s, [[tAtX(s, 1.4), 0.6], [tAtX(s, 7), 0.55], [tAtX(s, 14), 0.56], [tAtX(s, 15), 0.62], [tAtX(s, 7), 0.64], [tAtX(s, 1.8), 0.68]]);
+    const lipPatch = shapeIn(s, [[tAtX(s, 0.8), 0.68], [tAtX(s, 6), 0.65], [tAtX(s, 13.5), 0.68], [tAtX(s, 14.5), 0.82], [tAtX(s, 8), 0.92], [tAtX(s, 2.2), 0.86]]);
     const groove: Line = { pts: spline([atX(s, 13, 0.25), atX(s, 17, 0.22), atX(s, 19, 0.24)], false), w: 0.9 };
     return {
-      marks: [...cells, { poly: moustache, paint: 'ink', o: 0.9, clip: 'trunk' }],
+      marks: [...cells, { poly: lipPatch, paint: '#E9B53C', o: 0.8, clip: 'trunk' }, { poly: moustache, paint: 'ink', o: 0.6, clip: 'trunk' }],
       lines: [groove, { pts: spline([atX(s, 3, 0.62), atX(s, 9, 0.58), atX(s, 14, 0.66)], false), w: 0.8, o: 0.6 }],
       median: [
         { part: 'dorsal', index: 1, marks: [margin(c.dorsal[1].outline, 1.2, 'ink', 0.9)] },
@@ -474,16 +493,19 @@ const clownTrigger: FishSpec = {
       [0.98, [36, 45, 54]],
     ] as [number, number[]][])
       for (const x of xs) spots.push({ poly: ellipse(atX(s, x + (rand() - 0.5) * 1.5, f), 2.6 + rand() * 0.5, 2.4), paint: 'light', clip: 'trunk' });
-    // The yellow net over the back: a saddle of yellow with black spots left in it.
-    const saddle = region(s, tAtX(s, 28), tAtX(s, 72), -0.05, (t) => 0.32 - 0.1 * Math.abs(t - 0.6));
-    const holes = scatter(s, { t0: tAtX(s, 29), t1: tAtX(s, 71), f0: 0.02, f1: 0.26, r: 0.8, gap: 0.5, paint: 'ink', rand, tries: 300 });
+    // The yellow net over the back: a saddle that follows the curve of the back, black spots left in it.
+    const sx = Array.from({ length: 12 }, (_, i) => 27 + (i * 46) / 11);
+    const saddleEdge = (x: number) => 0.32 * Math.sin((Math.PI * (x - 27)) / 46) ** 0.55;
+    const saddlePts = [...sx.map((x) => at(s, tAtX(s, x), -0.07)), ...sx.map((x) => at(s, tAtX(s, x), saddleEdge(x))).reverse()];
+    const saddle = spline(saddlePts, true);
+    const holes = scatterIn(saddle, { r: 0.8, gap: 0.5, paint: 'ink', rand, tries: 500 });
     const snoutBand = shapeIn(s, [[tAtX(s, 10), 0.02], [tAtX(s, 14), 0.0], [tAtX(s, 13), 0.7], [tAtX(s, 9.4), 0.7]]);
     const lips = { poly: ellipse(atX(s, 1.2, 0.72), 1.8, 1.2), paint: '#F59A23' as const, edge: 0.8 };
     const tailBand = region(s, 1, 1, 0, 1);
     void tailBand;
     const band = c.caudal.trailing.map((p) => lerp(atX(s, 80, 0.5), p, 0.5));
     return {
-      marks: [{ poly: saddle, paint: '#E8C93A', clip: 'trunk' }, ...holes, ...spots, { poly: snoutBand, paint: '#EBDD9B', clip: 'trunk' }, lips],
+      marks: [{ poly: saddle, paint: '#E8C93A', clip: 'trunk' }, ...holes.map((h) => ({ ...h, clip: 'trunk' as const })), ...spots, { poly: snoutBand, paint: '#EBDD9B', clip: 'trunk' }, lips],
       median: [{ part: 'caudal', marks: [{ poly: swell(band, 4.4, 'both'), paint: '#EBDD9B' }] }],
     };
   },
@@ -497,14 +519,15 @@ const queenTrigger: FishSpec = {
   ...triggerBody(0.9),
   eye: { x: 22, f: 0.24, r: 1.3, iris: '#C9A54A' },
   dorsal: [
-    { from: 30, to: 35, spines: 3, rays: 0, h: [[0, 10], [1, 4]], notch: 0.5, rake: [20, 30] },
+    { from: 28, to: 42, spines: 3, rays: 0, h: [[0, 9], [0.5, 7], [1, 4]], notch: 0.2, rake: [20, 30] },
     { from: 46, to: 74, rays: 28, h: [[0, 18], [0.15, 12], [0.45, 5], [1, 3.6]], rake: [40, 70] },
   ],
   anal: [{ from: 48, to: 74, rays: 26, h: [[0, 16], [0.15, 10], [0.45, 4.4], [1, 3.2]], rake: [40, 70] }],
   caudal: { type: 'lyre', len: 16, h: 12, fork: 0.35, filament: 18, rays: 14 },
   extra: (c) => {
     const s = c.s;
-    const lower = region(s, 0, 1, (t) => 0.45 - 0.1 * t, 1.05);
+    // The orange-yellow underside fades up into the green back in three steps, not a hard split.
+    const lower = [[0.32, 0.3], [0.39, 0.38], [0.46, 0.55]].map(([f, o]) => ({ poly: region(s, 0, 1, (t) => f - 0.1 * t, 1.05), paint: '#E9A93A' as const, o, clip: 'trunk' as const }));
     const blue = '#2FA8E8' as const;
     const bandA = spline([atX(s, 1, 0.56), atX(s, 10, 0.48), atX(s, 20, 0.4), atX(s, 28, 0.5)], false);
     const bandB = spline([atX(s, 2, 0.76), atX(s, 12, 0.72), atX(s, 22, 0.66), atX(s, 29, 0.66)], false);
@@ -515,11 +538,10 @@ const queenTrigger: FishSpec = {
     });
     const pedBand = region(s, tAtX(s, 74), tAtX(s, 77.5), -0.2, 1.2);
     return {
-      tint: [{ poly: lower, paint: '#E9A93A', o: 0.85, clip: 'trunk' }],
+      tint: lower,
       marks: [
         { poly: swell(bandA, 1.6, 'both'), paint: blue },
         { poly: swell(bandB, 1.6, 'both'), paint: blue },
-        { poly: ring(atX(s, 1, 0.72), 1, 1.8), paint: blue },
         { poly: pedBand, paint: blue, o: 0.9, clip: 'body' },
       ],
       lines: radiating,
@@ -602,7 +624,7 @@ export const REEF_FISH_1: Record<string, PlateDef> = {
   'emperor-angelfish': F(emperor, { back: '#2A4FA0', belly: '#2A4FA0', fin: '#2A4FA0' }, 3),
   'french-angelfish': F(french, { back: '#1F1F26', belly: '#1F1F26', fin: '#22222A' }, 4),
   'queen-angelfish': F(queen, { back: '#2E7FA8', belly: '#3E9E8F', fin: '#2E6FA0' }, 5),
-  'king-angelfish': F(king, { back: '#2B3A55', belly: '#2B3A55', fin: '#2B3A55' }, 6),
+  'king-angelfish': F(king, { back: '#18223D', belly: '#18223D', fin: '#1E2A47' }, 6),
   'raccoon-butterflyfish': F(raccoon, { back: '#F2C12E', belly: '#F2C12E', fin: '#F2C12E' }, 7),
   'stoplight-parrotfish': F(stoplight, { back: '#1F9C78', belly: '#1F9C78', fin: '#2A9A7E' }, 8),
   'titan-triggerfish': F(titan, { back: '#E3CF8A', belly: '#E3CF8A', fin: '#D7B048', dark: '#3D4A2F' }, 9),

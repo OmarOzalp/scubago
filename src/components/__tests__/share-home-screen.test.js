@@ -100,6 +100,17 @@ describe('the picture of the 3D island on the archipelago card', () => {
     expect(cardImage()[0].props.source.uri).toBe('blob:http://localhost/two');
   });
 
+  test('is left off while an animal only a private sighting found is left off the card', async () => {
+    // The scene shows the private clownfish; a card that leaves it off can't use a picture of it.
+    mockSightings = [sighting('a', 'reef-manta'), sighting('b', 'clownfish', { visibility: 'private' })];
+    scene(async () => 'blob:http://localhost/island');
+    await render();
+    await act(async () => shareButton()[0].props.onPress());
+    expect(texts()).toContain('1 private sighting is left off this card.');
+    expect(cardImage()).toHaveLength(0);
+    expect(texts()).toEqual(expect.arrayContaining(['Share your archipelago', 'My rarest finds']));
+  });
+
   test('says it is framing the islands while the scene is read', async () => {
     let finish;
     scene(() => new Promise((resolve) => { finish = resolve; }));

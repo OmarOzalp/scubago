@@ -145,6 +145,32 @@ describeSqlite('private sightings, notes and photos', () => {
     expect(await tablet.get(s.id)).toMatchObject({ visibility: 'public', notes: 'the boat crew\'s spot', notesPrivate: true, photoPrivate: true });
   });
 
+  it('notes and a photo kept to yourself before there are any stay yours after a sync', async () => {
+    const server = newServer();
+    const p = phone(server, 'alice', A);
+    await p.ready();
+    // The log screen's default keeps notes private; this diver keeps the photo too, and adds neither yet.
+    const s = await p.log({ visibility: 'public', notesPrivate: true, photoPrivate: true });
+    await p.sync();
+    expect(await p.get(s.id)).toMatchObject({ synced: true, notesPrivate: true, photoPrivate: true });
+
+    // Later they write the notes and add the photo, the edit screen starting from the sighting's choice.
+    await p.edit(s.id, { notes: 'the secret pinnacle', photoUri: 'file:///kept/later.jpg' });
+    expect((await p.sync()).failed).toBe(0);
+    expect((await seenByOthers(server, s.id)).bob).toMatchObject({ notes: null, photo_url: null });
+    expect(server.details(s.id)).toMatchObject({ notes: 'the secret pinnacle', photo_path: photoObjectPath(A, s.id, 'file:///kept/later.jpg') });
+    expect(server.files.size).toBe(0);
+
+    // Shared from another phone, notes and photo then show on the public row, and this phone follows.
+    const tablet = phone(server, 'alice-tablet', A);
+    await tablet.ready();
+    await tablet.sync();
+    await tablet.edit(s.id, { notesPrivate: false, photoPrivate: false });
+    await tablet.sync();
+    await p.sync();
+    expect(await p.get(s.id)).toMatchObject({ notes: 'the secret pinnacle', notesPrivate: undefined, photoPrivate: undefined });
+  });
+
   it('shared notes and photo go on the public row, as before', async () => {
     const server = newServer();
     const p = phone(server, 'alice', A);

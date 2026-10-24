@@ -11,8 +11,8 @@ import { SWIM_RIGS, type SharkRig } from '../../../src/lib/marine-rigs';
 import { blendSkins, hex, mix, MeshBuilder, noise, path, smoothstep, TAU, type RGB, type Skin } from './kit';
 import { sharkContext, type SharkDesign } from './shark';
 
-const BLACK = hex('#232527'), SOOT = hex('#2f3235'), GREY = hex('#4b4e50'), BELLY = hex('#3c3e40');
-const SALT = hex('#bdb9ae'), RUST = hex('#7c3626'), MOSS = hex('#3d5641');
+const BLACK = hex('#292c2e'), SOOT = hex('#373b3e'), GREY = hex('#55595b'), BELLY = hex('#45484b');
+const SALT = hex('#c6c2b6'), RUST = hex('#8c4030'), MOSS = hex('#4a6850');
 const SPINE = hex('#8f8b80'), EYE = hex('#161211'), LID = hex('#5d5a54'), CLAW = hex('#151515');
 
 const rig = SWIM_RIGS['marine-iguana'] as SharkRig;
@@ -25,12 +25,15 @@ const mottle = (p: Vector3, scale: number, seed: number) =>
 const skin = (s: number, theta: number, p: Vector3): RGB => {
   let c = mix(BLACK, SOOT, .5 + .5 * mottle(p, 70, 1));
   // Rust and moss mottling on the flanks of the body and the base of the tail.
-  const flank = smoothstep(.12, .2, s) * (1 - smoothstep(.46, .62, s)) * smoothstep(.55, 1.05, theta) * (1 - smoothstep(1.9, 2.35, theta));
-  c = mix(c, RUST, flank * smoothstep(.05, .45, mottle(p, 55, 7)) * .85);
-  c = mix(c, MOSS, flank * smoothstep(.1, .5, mottle(p, 48, 11)) * .7);
+  const flank = smoothstep(.1, .17, s) * (1 - smoothstep(.5, .68, s)) * smoothstep(.3, .8, theta) * (1 - smoothstep(1.9, 2.35, theta));
+  c = mix(c, RUST, flank * smoothstep(.05, .45, mottle(p, 72, 7)) * .85);
+  c = mix(c, MOSS, flank * smoothstep(.1, .5, mottle(p, 64, 11)) * .7);
   // Salt crust and pale scales on the top of the head and snout.
-  const crown = (1 - smoothstep(.045, .12, s)) * (1 - smoothstep(.75, 1.35, theta));
-  c = mix(c, SALT, crown * .8 * smoothstep(0, .45, mottle(p, 110, 5)));
+  const crown = (1 - smoothstep(.045, .13, s)) * (1 - smoothstep(.75, 1.45, theta));
+  c = mix(c, SALT, crown * .9 * smoothstep(0, .4, mottle(p, 110, 5)));
+  // A pale crust along the base of the crest, over the nape and down the back.
+  const ridge = smoothstep(.07, .11, s) * (1 - smoothstep(.45, .7, s)) * (1 - smoothstep(.05, .24, theta));
+  c = mix(c, SALT, ridge * .45 * smoothstep(.2, .6, mottle(p, 150, 13)));
   // A greyer belly; faint darker bands down the tail.
   c = mix(c, BELLY, smoothstep(2.2, 2.8, theta) * .6);
   c = mix(c, BLACK, smoothstep(.5, .6, s) * .35 * smoothstep(.2, .8, Math.sin(s * 70)));
@@ -40,8 +43,8 @@ const skin = (s: number, theta: number, p: Vector3): RGB => {
 export const MARINE_IGUANA: SharkDesign = {
   rig, nose: NOSE, bodyEnd: .995, frontDome: .012,
   // A blunt box of a head with heavy jowls, a thick neck, a stout body and a long, tapering tail.
-  width: [[0, .016], [.012, .024], [.028, .031], [.05, .036], [.075, .038], [.1, .033], [.13, .038], [.18, .053], [.26, .062], [.34, .059], [.4, .049], [.45, .035], [.52, .025], [.6, .0185], [.7, .0128], [.8, .0082], [.9, .0045], [.995, .001]],
-  top: [[0, .01], [.012, .018], [.028, .025], [.05, .03], [.075, .032], [.1, .03], [.13, .033], [.18, .039], [.26, .043], [.34, .041], [.4, .037], [.45, .034], [.52, .032], [.6, .028], [.7, .022], [.8, .016], [.9, .009], [.995, .0015]],
+  width: [[0, .016], [.012, .024], [.028, .031], [.05, .036], [.075, .038], [.1, .033], [.13, .038], [.18, .06], [.26, .072], [.34, .07], [.4, .058], [.45, .038], [.52, .025], [.6, .0185], [.7, .0128], [.8, .0082], [.9, .0045], [.995, .001]],
+  top: [[0, .01], [.012, .018], [.028, .025], [.05, .03], [.075, .032], [.1, .03], [.13, .033], [.18, .048], [.26, .053], [.34, .051], [.4, .043], [.45, .036], [.52, .032], [.6, .028], [.7, .022], [.8, .016], [.9, .009], [.995, .0015]],
   bottom: [[0, .008], [.012, .012], [.028, .018], [.05, .024], [.075, .029], [.1, .027], [.13, .028], [.18, .033], [.26, .036], [.34, .034], [.4, .03], [.45, .026], [.52, .023], [.6, .019], [.7, .015], [.8, .011], [.9, .006], [.995, .001]],
   center: [[0, .006], [.06, .006], [.14, .002], [.3, 0], [.995, 0]],
   // Boxy head; a rounded body; a tail flattened side to side.

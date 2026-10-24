@@ -1,4 +1,5 @@
 import { REGIONS_BY_ID } from '@/data/regions';
+import { canonicalSiteId, RETIRED_SITE_IDS } from '@/data/sites';
 import { UNLISTED_ID } from '@/lib/catalog';
 import { bySighting, byDive, type Facts } from '@/lib/rewards/facts';
 import { type Place, placeResolver } from '@/lib/rewards/places';
@@ -28,7 +29,7 @@ export interface PassportGroup {
   name: string;
   /** Visited sites, most recently visited first. */
   stamps: PassportStamp[];
-  /** How many sites in the lookup are in this group, visited or not, to show "3 of 41". */
+  /** How many listed sites are in this group, visited or not (and any other with a stamp), to show "3 of 41". */
   knownSites: number;
   firstVisitedOn: string;
   lastVisitedOn: string;
@@ -40,7 +41,10 @@ interface Tally {
   species: Set<string>;
 }
 
-/** One stamp for each site in `sightings` and `dives` that `placeOf` knows. Both must be oldest first. */
+/**
+ * One stamp for each site in `sightings` and `dives` that `placeOf` knows, a visit logged at a hidden
+ * copy of a site going on the listed site's stamp. Both must be oldest first.
+ */
 function stampsFrom(sightings: readonly Sighting[], dives: readonly Dive[], catalog: ReadonlyMap<string, Species>, placeOf: (siteId: string) => Place | undefined): Map<string, PassportStamp> {
   const tallies = new Map<string, Tally>();
   const tally = (siteId: string) => {
@@ -49,14 +53,16 @@ function stampsFrom(sightings: readonly Sighting[], dives: readonly Dive[], cata
     return t;
   };
   for (const s of sightings) {
-    if (!placeOf(s.siteId)) continue;
-    const t = tally(s.siteId);
+    const siteId = canonicalSiteId(s.siteId);
+    if (!placeOf(siteId)) continue;
+    const t = tally(siteId);
     t.days.add(s.sightedOn);
     if (s.speciesId !== UNLISTED_ID && catalog.has(s.speciesId)) t.species.add(s.speciesId);
   }
   for (const d of dives) {
-    if (!placeOf(d.siteId)) continue;
-    const t = tally(d.siteId);
+    const siteId = canonicalSiteId(d.siteId);
+    if (!placeOf(siteId)) continue;
+    const t = tally(siteId);
     t.days.add(d.divedOn);
     t.dives++;
   }
@@ -88,7 +94,10 @@ export function passportFrom(facts: Facts): PassportGroup[] {
     if (stamp.firstVisitedOn < entry.firstVisitedOn) entry.firstVisitedOn = stamp.firstVisitedOn;
     if (stamp.lastVisitedOn > entry.lastVisitedOn) entry.lastVisitedOn = stamp.lastVisitedOn;
   }
+  // Only listed sites are there to visit: a hidden copy is counted as the site it stands for, and a
+  // retired one only once stamped. Counting them would leave a page that can never be completed.
   for (const siteId of facts.input.sites.keys()) {
+    if (!stamps.has(siteId) && (canonicalSiteId(siteId) !== siteId || RETIRED_SITE_IDS.has(siteId))) continue;
     const group = groups.get(facts.placeOf(siteId)!.group.id);
     if (group) group.knownSites++;
   }
@@ -104,7 +113,8 @@ export function passportFrom(facts: Facts): PassportGroup[] {
  */
 export function siteStamp(siteId: string, input: Pick<RewardsInput, 'sightings' | 'dives' | 'sites' | 'catalog' | 'regions'>): PassportStamp | null {
   const placeOf = placeResolver(input.sites, input.regions ?? REGIONS_BY_ID);
-  const sightings = input.sightings.filter((s) => s.siteId === siteId).sort(bySighting);
-  const dives = input.dives.filter((d) => d.siteId === siteId).sort(byDive);
-  return stampsFrom(sightings, dives, input.catalog, placeOf).get(siteId) ?? null;
+  const at = canonicalSiteId(siteId);
+  const sightings = input.sightings.filter((s) => canonicalSiteId(s.siteId) === at).sort(bySighting);
+  const dives = input.dives.filter((d) => canonicalSiteId(d.siteId) === at).sort(byDive);
+  return stampsFrom(sightings, dives, input.catalog, placeOf).get(at) ?? null;
 }

@@ -1,4 +1,5 @@
 import { expect, test } from '@jest/globals';
+import { flatSeabed } from '../../test-support/flat-seabed';
 import { shoreDistance, shorePolygons } from '../island-outline';
 import { GROUP_BUDGET, GROUP_SIZES, GROUP_STYLES, groupSizes } from '../marine-groups';
 import { createMarineMotion, followerLane, MOVEMENT, type MarineMember } from '../marine-motion';
@@ -35,9 +36,15 @@ test('species that swim together come in small groups, within a budget of extra 
 });
 
 type Run = ReturnType<typeof createMarineMotion>;
+/**
+ * The bottom for the tests of how a group moves by itself (its places, depths and breaths): flat and deep, so the island's shallows,
+ * which keep a big body to the deep water, do not bend what is measured. The test of staying in view and clear of the island
+ * runs over the island's own seabed.
+ */
+const flat = { seabed: flatSeabed() };
 /** A scene stepped at 20 fps for `seconds`; `each` sees every frame. */
-function run(members: MarineMember[], level: number, seconds: number, each: (motion: Run) => void, seed = .37) {
-  const motion = createMarineMotion(members, level, { seed });
+function run(members: MarineMember[], level: number, seconds: number, each: (motion: Run) => void, options: { seed?: number; seabed?: ReturnType<typeof flatSeabed> } = {}) {
+  const motion = createMarineMotion(members, level, { seed: .37, ...options });
   for (let f = 0; f < seconds * 20; f++) { motion.step(.05, true); each(motion); }
   return motion;
 }
@@ -85,7 +92,7 @@ test('a pod swims as one: followers keep close to their leader, turn with it, ne
         const d = Math.hypot(a.x - b.x, a.z - b.z);
         if (d < m.halfWidth * 1.2) clashes++;
       }
-    });
+    }, flat);
     apart.sort((a, b) => a - b);
     const places = GROUP_STYLES[model]!.places, farthest = Math.max(...places.map(([x, z]) => Math.hypot(x, z)));
     expect(apart[Math.floor(apart.length / 2)]).toBeLessThan(farthest + .6);
@@ -110,7 +117,7 @@ test('followers keep their own clearance from the island and islets, and stay in
 });
 
 test('each member has its own depth and breathes on its own, one after another; the third now and then stays under', () => {
-  const motion = createMarineMotion([{ model: 'bottlenose-dolphin', lane: 0, group: 3 }], 3, { seed: .37, leap: 0 });
+  const motion = createMarineMotion([{ model: 'bottlenose-dolphin', lane: 0, group: 3 }], 3, { seed: .37, leap: 0, ...flat });
   const lanes = [0, followerLane(0, 1), followerLane(0, 2)], top = new Map<number, number[]>(), depth = new Map<number, number>();
   const up = new Set<number>();
   for (let f = 0; f < 20 * 900; f++) {
@@ -138,7 +145,7 @@ test('each member has its own depth and breathes on its own, one after another; 
 test('a pod passes other animals as one, and the tuna school sees each member', () => {
   let clashes = 0, frames = 0;
   const members: MarineMember[] = [{ model: 'bottlenose-dolphin', lane: 0, group: 3 }, { model: 'whale-shark', lane: 1 }, { model: 'tiger-shark', lane: 2 }, { model: 'reef-manta', lane: 3 }, { model: 'mola-mola', lane: 4 }];
-  const motion = createMarineMotion(members, 1, { seed: .5, school: true });
+  const motion = createMarineMotion(members, 1, { seed: .5, school: true, ...flat });
   for (let f = 0; f < 20 * 400; f++) {
     motion.step(.05, true);
     for (const { lane, index } of motion.swimmers) {

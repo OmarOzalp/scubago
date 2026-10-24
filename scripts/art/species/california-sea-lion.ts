@@ -11,8 +11,8 @@ import { SWIM_RIGS, type PinnipedRig } from '../../../src/lib/marine-rigs';
 import { blendSkins, curve, fin, hex, mix, noise, smoothstep, type RGB } from './kit';
 import { sharkContext, type SharkDesign } from './shark';
 
-const BACK = hex('#8b5530'), UPPER = hex('#a86b3c'), FLANK = hex('#c48a55'), BELLY = hex('#dcb07a'), MUZZLE = hex('#b98a5c');
-const FLIPPER = hex('#2b221d'), SOLE = hex('#3a2f28'), NOSE = hex('#120f0d'), EYE = hex('#0a0807'), WHISKER = hex('#efe7d3'), EAR = hex('#45342a');
+const BACK = hex('#8b5530'), UPPER = hex('#a86b3c'), FLANK = hex('#cd9560'), BELLY = hex('#ecc994'), MUZZLE = hex('#b98a5c');
+const FLIPPER = hex('#2b221d'), SOLE = hex('#3a2f28'), NOSE = hex('#120f0d'), EYE = hex('#0a0807'), WHISKER = hex('#efe7d3');
 const MOUTH = hex('#2a1f18');
 
 const rig = SWIM_RIGS['california-sea-lion'] as PinnipedRig;
@@ -20,8 +20,8 @@ const rig = SWIM_RIGS['california-sea-lion'] as PinnipedRig;
 const skin = (s: number, theta: number, p: Vector3): RGB => {
   const t = theta + .05 * noise(p.z * 22, 8);
   const back = mix(BACK, UPPER, smoothstep(.4, 1.2, t));
-  const flank = mix(back, FLANK, smoothstep(1.2, 1.8, t));
-  const body = mix(flank, BELLY, smoothstep(1.9, 2.5, t));
+  const flank = mix(back, FLANK, smoothstep(1.0, 1.6, t));
+  const body = mix(flank, BELLY, smoothstep(1.45, 2.1, t));
   // The face and muzzle are paler, the crown stays dark.
   return mix(body, MUZZLE, (1 - smoothstep(.07, .12, s)) * smoothstep(.6, 1.3, t) * .7);
 };
@@ -30,9 +30,9 @@ export const CALIFORNIA_SEA_LION: SharkDesign = {
   rig, nose: .46, bodyEnd: .84, frontDome: .008,
   // Pointed muzzle, a gentle stop up to the rounded crown, a long thick neck swelling into the chest,
   // deepest a little behind the fore flippers, then a long taper to the hips and the short tail.
-  width: [[0, .008], [.02, .02], [.05, .031], [.08, .041], [.11, .049], [.14, .054], [.18, .06], [.24, .072], [.32, .083], [.42, .089], [.52, .084], [.62, .071], [.7, .055], [.76, .04], [.8, .028], [.84, .014]],
-  top: [[0, .008], [.02, .018], [.05, .027], [.08, .041], [.11, .053], [.14, .056], [.18, .057], [.24, .067], [.32, .078], [.42, .082], [.52, .077], [.62, .065], [.7, .05], [.76, .037], [.8, .026], [.84, .013]],
-  bottom: [[0, .007], [.02, .015], [.05, .022], [.08, .03], [.11, .037], [.14, .045], [.18, .055], [.24, .071], [.32, .084], [.42, .086], [.52, .078], [.62, .064], [.7, .048], [.76, .034], [.8, .024], [.84, .012]],
+  width: [[0, .008], [.02, .02], [.05, .032], [.08, .045], [.1, .044], [.125, .039], [.15, .043], [.19, .058], [.24, .083], [.32, .095], [.42, .092], [.52, .084], [.62, .071], [.7, .055], [.76, .04], [.8, .028], [.84, .014]],
+  top: [[0, .008], [.02, .018], [.04, .028], [.065, .047], [.09, .06], [.12, .049], [.15, .045], [.19, .054], [.24, .077], [.32, .09], [.42, .086], [.52, .077], [.62, .065], [.7, .05], [.76, .037], [.8, .026], [.84, .013]],
+  bottom: [[0, .007], [.02, .015], [.05, .022], [.08, .03], [.11, .033], [.14, .038], [.19, .052], [.24, .082], [.32, .097], [.42, .09], [.52, .078], [.62, .064], [.7, .048], [.76, .034], [.8, .024], [.84, .012]],
   center: [[0, -.01], [.05, -.008], [.1, -.002], [.16, 0], [.4, 0], [.84, .004]],
   squareTop: [[0, 2], [.84, 2]],
   squareBottom: [[0, 2], [.3, 2.1], [.84, 2]],
@@ -109,14 +109,14 @@ export function buildCaliforniaSeaLion() {
   // Small, rolled ear flaps behind the eyes, pointing back and a little out.
   for (const side of [1, -1]) {
     const base = ctx.surface(.128, side * .98, -.002);
-    const dir = new Vector3(side * .35, .1, -1).normalize();
+    const dir = new Vector3(side * .55, .32, -1).normalize();
     fin(mesh, {
       stations: 3, chordPoints: 4,
-      le: (v) => base.clone().addScaledVector(dir, .02 * v).add(new Vector3(0, .005 * (1 - v), 0)),
-      te: (v) => base.clone().addScaledVector(dir, .02 * v).add(new Vector3(0, -.004 * (1 - v), 0)),
-      thickness: (v) => .004 * (1 - .6 * v),
+      le: (v) => base.clone().addScaledVector(dir, .04 * v).add(new Vector3(0, .006 * (1 - v), 0)),
+      te: (v) => base.clone().addScaledVector(dir, .04 * v).add(new Vector3(0, -.005 * (1 - v), 0)),
+      thickness: (v) => .007 * (1 - .6 * v),
       side: new Vector3(side, 0, 0),
-      color: () => EAR,
+      color: () => BACK,
       skin: () => ({ Head: 1 }),
     });
   }

@@ -14,7 +14,7 @@ import { blendSkins, chainSkin, hex, mix, MeshBuilder, smoothstep, TAU, type RGB
 import type { BoneSpec } from './export';
 
 const CROWN = hex('#d97a12'), GOLD = hex('#f2a52a'), PALE = hex('#f9cf6a'), INNER = hex('#f7c45a'), CLOVER = hex('#b8621a');
-const ARM = hex('#d99848'), FRILL = hex('#f7dca4'), CLUB = hex('#f6ead0'), COLUMN = hex('#cf9450');
+const ARM = hex('#efb232'), FRILL = hex('#f7dca4'), CLUB = hex('#f6ead0'), COLUMN = hex('#cf9450');
 
 const R = .5, H = .42;
 const AROUND = 36;
@@ -41,7 +41,7 @@ function outerColor(t: number, phi: number): RGBA {
   const clover = (1 - smoothstep(.12, .3, t * (1 - .35 * Math.abs(Math.cos(2 * phi))))) * .45;
   const band = .06 * Math.cos(8 * phi + .4) * smoothstep(.3, .7, t);
   const c = mix(base, CLOVER, clover);
-  return rgba([c[0] * (1 + band), c[1] * (1 + band), c[2] * (1 + band)], .86 - .34 * smoothstep(.25, 1, t) - .08 * (1 - lappet(phi)) * smoothstep(.85, 1, t));
+  return rgba([c[0] * (1 + band), c[1] * (1 + band), c[2] * (1 + band)], .7 - .3 * smoothstep(.25, 1, t) - .08 * (1 - lappet(phi)) * smoothstep(.85, 1, t));
 }
 // Faint: through the bell from above the inside is seen from behind, in shadow.
 const innerColor = (t: number): RGBA => rgba(mix(INNER, PALE, smoothstep(.4, 1, t)), .16 + .1 * smoothstep(.6, 1, t));
@@ -70,7 +70,7 @@ export function buildGoldenJellyfish() {
 
   // Eight thick, frilly oral arms: a three-winged section, its wings crinkled along the arm, angling
   // out and down from the column; then a short pale club.
-  const armPath = (t: number) => ({ r: .045 + .13 * Math.sin(t * Math.PI / 2) ** .9, y: .05 - .36 * t });
+  const armPath = (t: number) => ({ r: .045 + .17 * Math.sin(t * Math.PI / 2) ** .9, y: .05 - .5 * t });
   const armJoints = [0, .12, .5];
   const armBones: { a: Vector3; b: Vector3 }[] = [];
   for (let i = 0; i < JELLY_ARMS; i++) {
@@ -86,7 +86,7 @@ export function buildGoldenJellyfish() {
       const c = at(t);
       const tangent = at(Math.min(1, t + .02)).sub(at(Math.max(0, t - .02))).normalize();
       const side = across.clone(), normal = tangent.clone().cross(side).normalize();
-      const thick = .026 + .036 * Math.sin(Math.PI * Math.min(1, t * 1.15)) ** .6;
+      const thick = .032 + .046 * Math.sin(Math.PI * Math.min(1, t * 1.15)) ** .6;
       rows.push(Array.from({ length: points }, (_, k) => {
         const a = TAU * k / points + .25 * t + i;
         // Three wings (every other point reaches out), each crinkled along the arm.
@@ -95,7 +95,7 @@ export function buildGoldenJellyfish() {
         const radius = (wing ? thick * crinkle : thick * .42) * (t > .97 ? .3 : 1);
         const p = c.clone().addScaledVector(side, Math.cos(a) * radius).addScaledVector(normal, Math.sin(a) * radius);
         const frill = wing ? .55 + .45 * Math.sin(13 * t + 2.1 * k + i) : 0;
-        return mesh.vertex(p, rgba(mix(ARM, FRILL, .25 + .6 * frill), .9), skin(t));
+        return mesh.vertex(p, rgba(mix(ARM, FRILL, .1 + .5 * frill), .92), skin(t));
       }));
     }
     for (let j = 0; j < steps; j++) for (let k = 0; k < points; k++) mesh.quad(rows[j][k], rows[j][(k + 1) % points], rows[j + 1][(k + 1) % points], rows[j + 1][k]);

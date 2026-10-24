@@ -5,6 +5,7 @@ import { create } from 'zustand';
 import { SITES, SITES_BY_ID } from '@/data/sites';
 import { deleteAccount as deleteRemoteAccount } from '@/lib/account';
 import { ensureProfile, getSessionUserId, signOut as authSignOut, usernameForUser } from '@/lib/auth';
+import { claimSeenBadges } from '@/lib/badges-seen';
 import { CATALOG_BY_ID, UNLISTED_ID } from '@/lib/catalog';
 import {
   bindSightingsToDives,
@@ -14,6 +15,7 @@ import {
   deleteLocalUserData,
   deleteSighting as deleteSightingRow,
   deleteSightings as deleteSightingRows,
+  forgetSyncedUserData,
   initDb,
   insertDive,
   insertSighting,
@@ -22,12 +24,13 @@ import {
   setDivesBefore as saveDivesBefore,
   updateDive as updateDiveRows,
   updateSighting as updateSightingRow,
+  type LocalData,
   type PendingDeletion,
 } from '@/lib/db';
 import { isFirstOfSpecies } from '@/lib/dex';
 import { bindPastSightings, cleanDive, nextDiveNumber, validateDive } from '@/lib/dives';
 import { discardKeptPhoto } from '@/lib/photo-files';
-import { isLocalPhoto } from '@/lib/privacy';
+import { asSeenBy, isLocalPhoto } from '@/lib/privacy';
 import { applyEdit, canEditSighting, cleanCustomName, localIsoDate, privacyChoice, validateSightingInput, type SightingInput } from '@/lib/sighting-edit';
 import { getSupabase } from '@/lib/supabase';
 import { errorMessage } from '@/lib/sync';
@@ -79,6 +82,8 @@ interface StoreState {
   syncing: boolean;
   /** Why the last sync couldn't run (usually no connection), or null once one succeeds. */
   syncProblem: string | null;
+  /** The account a sync has brought the log down for since the app opened (its rows are in once `syncing` is false). */
+  pulledFor?: string;
   /**
    * The log couldn't be opened: 'busy' when the web app is open in another tab, otherwise why.
    * Nothing works until it is (init() tries again).
@@ -126,9 +131,25 @@ interface StoreState {
   deleteAccount: () => Promise<void>;
 }
 
+/**
+ * The device's data as `viewerId` may see it. Every screen reads the store, so none ever shows
+ * another diver's private sightings, notes or photos (asSeenBy), or their pages: those are on this
+ * device only if that diver signed out here with changes still to sync.
+ */
+function forViewer<T extends Pick<LocalData, 'sightings' | 'dives'>>(local: T, viewerId: string): T {
+  return {
+    ...local,
+    sightings: local.sightings.flatMap((s) => asSeenBy(s, viewerId) ?? []),
+    dives: local.dives.filter((d) => d.userId === viewerId),
+  };
+}
+
 export const useAppStore = create<StoreState>((set, get) => {
   /** Owner of "my" rows: the signed-in user, or the device before sign-in. */
   const ownerId = () => get().user?.id ?? LOCAL_USER_ID;
+
+  /** Read the database again, as the diver now using the app may see it. */
+  const reload = async () => set(forViewer(await loadAll(), ownerId()));
 
   const checkInput = (input: NewSighting) => {
     const problem = validateSightingInput(input, {
@@ -147,13 +168,15 @@ export const useAppStore = create<StoreState>((set, get) => {
     set({ syncing: true });
     try {
       const result = await syncNow(client, owner.id);
-      set({ syncProblem: null });
+      set({ syncProblem: null, pulledFor: owner.id });
       return { ok: result.failed === 0 };
     } catch (e) {
       set({ syncProblem: errorMessage(e) });
       throw e;
     } finally {
-      set({ syncing: false, ...(await loadAll()) });
+      // Signed out while this ran: what it pulled for them goes too.
+      if (get().user?.id !== owner.id) await forgetSyncedUserData(owner.id).catch(() => undefined);
+      set({ syncing: false, ...forViewer(await loadAll(), ownerId()) });
       // Sightings from an older version of the app on another phone get their pages here.
       if (await bindLoose().catch(() => false)) void scheduler.request();
     }
@@ -169,7 +192,7 @@ export const useAppStore = create<StoreState>((set, get) => {
     const bound = bindPastSightings(owner, sightings, dives.filter((d) => d.userId === owner), divesBefore[owner] ?? 0, new Date().toISOString());
     if (bound.links.length === 0) return false;
     await bindSightingsToDives(bound.dives, bound.links);
-    set(await loadAll());
+    await reload();
     return true;
   };
 
@@ -212,7 +235,7 @@ export const useAppStore = create<StoreState>((set, get) => {
         set({ storageProblem: e instanceof DatabaseBusyError ? 'busy' : errorMessage(e) });
         return;
       }
-      set({ ...local, ready: true, storageProblem: null });
+      set({ ...forViewer(local, ownerId()), ready: true, storageProblem: null });
       // Sightings from before the dive log become past pages (once; new sightings always have a page).
       try {
         await bindLoose();
@@ -440,7 +463,7 @@ export const useAppStore = create<StoreState>((set, get) => {
       const lowest = Math.min(...get().dives.filter((d) => d.userId === owner).map((d) => d.number), Infinity);
       if (lowest + delta < 1) throw new Error('That would number a page below No. 1.');
       await saveDivesBefore(owner, value, delta);
-      set(await loadAll());
+      await reload();
       void get().requestSync();
     },
 
@@ -468,7 +491,8 @@ export const useAppStore = create<StoreState>((set, get) => {
     onSignedIn: async (user) => {
       set({ user });
       await claimLocalSightings(user.id, user.username);
-      set(await loadAll());
+      await claimSeenBadges(LOCAL_USER_ID, user.id);
+      await reload();
       await bindLoose().catch((e) => console.warn('could not bind past sightings into pages', e));
       // Failures stay queued and are retried (sync-scheduler.ts).
       await scheduler.wake();
@@ -476,6 +500,7 @@ export const useAppStore = create<StoreState>((set, get) => {
 
     signOutUser: async () => {
       const client = getSupabase();
+      const owner = get().user;
       if (client) {
         try {
           await authSignOut(client);
@@ -483,7 +508,14 @@ export const useAppStore = create<StoreState>((set, get) => {
           console.warn('sign-out failed remotely; clearing local session anyway', e);
         }
       }
-      set({ user: null, syncProblem: null });
+      const { sightings, dives } = get();
+      set({ user: null, syncProblem: null, ...forViewer({ sightings, dives }, LOCAL_USER_ID) });
+      // The device may be shared: what the server has goes from it. Changes still waiting stay,
+      // out of sight, until the diver signs back in.
+      if (owner) {
+        await forgetSyncedUserData(owner.id).catch((e) => console.warn('could not clear the signed-out log', e));
+      }
+      await reload();
     },
 
     deleteAccount: async () => {
@@ -492,7 +524,7 @@ export const useAppStore = create<StoreState>((set, get) => {
       if (!client || !owner) return;
       await deleteRemoteAccount(client, owner.id);
       await deleteLocalUserData(owner.id);
-      set({ user: null, ...(await loadAll()) });
+      set({ user: null, ...forViewer(await loadAll(), LOCAL_USER_ID) });
     },
   };
 });

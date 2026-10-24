@@ -12,7 +12,8 @@ jest.mock('expo-router', () => ({
   Stack: { Screen: () => null },
   useFocusEffect: (callback) => require('react').useEffect(callback, [callback]),
 }));
-jest.mock('expo-image', () => ({ Image: () => null }));
+// A plain <img> that keeps its props, so a test can say the photo failed to load.
+jest.mock('expo-image', () => ({ Image: (props) => require('react').createElement('img', props) }));
 jest.mock('@/global.css', () => ({}));
 jest.mock('react-native-safe-area-context', () => ({ useSafeAreaInsets: () => ({ top: 0, bottom: 0, left: 0, right: 0 }) }));
 jest.mock('@/lib/confirm', () => ({ confirmAction: jest.fn(async () => true) }));
@@ -22,6 +23,7 @@ let mockSightings = [];
 jest.mock('@/lib/store', () => ({
   useAppStore: (select) => select({ sightings: mockSightings, user: null, deleteSpeciesLog: mockDelete }),
   useAllSites: () => require('@/data/sites').SITES,
+  useSiteById: () => (id) => require('@/data/sites').SITES_BY_ID.get(id),
   useMyUserId: () => 'local',
 }));
 
@@ -65,4 +67,42 @@ test('nothing is deleted when the diver says no, and an animal they have not log
   mockSightings = [sighting('c', 'someone', '2026-04-01')];
   await act(async () => { root = create(<SpeciesDetailScreen />); });
   expect(deleteButton()).toHaveLength(0);
+});
+
+const textOf = () => root.root.findAll((n) => typeof n.type === 'string' && n.children.some((c) => typeof c === 'string')).map((n) => n.children.filter((c) => typeof c === 'string').join('')).join(' | ');
+const photo = () => root.root.findAll((n) => n.type === 'img');
+
+test('an animal not seen yet has "I saw one! Log it" straight after its description, above the photo and the rest', async () => {
+  mockSightings = [];
+  await act(async () => { root = create(<SpeciesDetailScreen />); });
+  const text = textOf();
+  const blurb = text.indexOf('A 3–4 m wing-span acrobat');
+  const log = text.indexOf('I saw one! Log it');
+  expect(blurb).toBeGreaterThan(-1);
+  expect(log).toBeGreaterThan(blurb);
+  // Nothing but the blurb comes between: the photo's credit, the 3D button and the sites all follow it.
+  expect(text.slice(blurb, log).split(' | ')).toHaveLength(2);
+  for (const later of ['iNaturalist ›', 'See reef manta ray in 3D', 'Where it’s been seen']) expect(text.indexOf(later)).toBeGreaterThan(log);
+
+  const [button] = root.root.findAll((n) => typeof n.type !== 'string' && typeof n.props.onPress === 'function' && n.props.title === 'I saw one! Log it');
+  await act(async () => button.props.onPress());
+  expect(router.push).toHaveBeenCalledWith({ pathname: '/log/new', params: { speciesId: 'reef-manta' } });
+});
+
+test('an animal the diver has seen is not asked for again, and can be logged once more lower down', async () => {
+  mockSightings = [sighting('a', 'local', '2026-03-01')];
+  await act(async () => { root = create(<SpeciesDetailScreen />); });
+  expect(textOf()).not.toContain('I saw one! Log it');
+  expect(textOf()).toContain('Log another sighting');
+});
+
+test('a photo that cannot be loaded gives way to a note, not an empty card', async () => {
+  mockSightings = [];
+  await act(async () => { root = create(<SpeciesDetailScreen />); });
+  expect(photo()).toHaveLength(1);
+  expect(textOf()).not.toContain('couldn’t be loaded');
+  await act(async () => photo()[0].props.onError());
+  expect(photo()).toHaveLength(0);
+  expect(textOf()).toContain('The photo couldn’t be loaded.');
+  expect(root.root.findAll((n) => n.props.accessibilityLabel === 'Photo of a Reef Manta Ray: couldn’t be loaded').length).toBeGreaterThan(0);
 });

@@ -4,8 +4,9 @@
  * marginal scutes, a column of vertebrals down the middle, costals either side, each scute engraved
  * with its growth rings. Species differ in outline, scute counts, head, flippers and colouring.
  */
-import { add, along, blob, centroidOf, clamp, type Ctrl, dist, inside, lerp, mul, norm, perp, polyLength, type Pt, resample, rng, slice, spline, sub } from './kit';
+import { add, along, centroidOf, clamp, type Ctrl, dist, inside, lerp, mul, norm, perp, polyLength, type Pt, resample, rng, slice, spline, sub } from './kit';
 import { bilateral, mirror } from './ray';
+import { swell } from './render';
 import { emptyGeom, type Fill, type Line, type Paint, type Part, type PlateGeom } from './types';
 
 export interface FlipperSpec {
@@ -55,6 +56,8 @@ export interface TurtleSpec {
   hind: FlipperSpec;
   /** Sunburst streaks radiating across each scute. */
   streaks?: Paint[];
+  /** Weight of the scute outlines (default 1.5). */
+  seamW?: number;
   /** Pale edges round the head and flipper scales (a tiled look). */
   paleSeams?: boolean;
   extra?: (c: TurtleCtx) => { marks?: Fill[]; lines?: Line[]; near?: Part[]; far?: Part[] };
@@ -197,8 +200,9 @@ export function turtle(spec: TurtleSpec): PlateGeom {
       const front: Pt = [k * 30, 4 + Math.abs(k) * 6];
       const mid: Pt = [k * 34, 45];
       const ridge = spline([front, mid, lerp(mid, tail, 0.6), tail], false).filter((p) => inside(p, shell));
-      g.lines.push({ pts: ridge, w: 1.3 });
-      g.lines.push({ pts: ridge.map(([x, y]) => [x + 0.8, y] as Pt), w: 0.6, o: 0.5, detail: true });
+      // Each ridge is a pale raised line with a fine shadow beside it.
+      g.marks.push({ poly: swell(ridge, 1.5, 'both'), paint: 'light', o: 0.6, clip: 'trunk' });
+      g.lines.push({ pts: ridge.map(([x, y]) => [x + 1, y] as Pt), w: 0.8, o: 0.8, taper: 'both' });
     }
     g.engraving.push(...ringsFor(shell, [0, 46], [0.95, 0.88, 0.8, 0.7]));
   } else {
@@ -289,7 +293,7 @@ export function turtle(spec: TurtleSpec): PlateGeom {
       }
     }
     for (const sc of scutes) {
-      g.lines.push({ pts: [...sc, sc[0]], w: 1.5 });
+      g.lines.push({ pts: [...sc, sc[0]], w: spec.seamW ?? 1.5 });
       g.engraving.push(...growthRings(sc, 3));
       if (spec.overlap) {
         // Each scute's back edge laps over the next: a shadow just behind it.
@@ -309,18 +313,17 @@ export function turtle(spec: TurtleSpec): PlateGeom {
     for (const sc of scutes) {
       const c = centroidOf(sc);
       const ys2 = sc.map((p) => p[1]);
-      const focus: Pt = [c[0], c[1] + (Math.max(...ys2) - c[1]) * 0.45];
-      const n = 9;
+      const focus: Pt = [c[0], c[1] + (Math.max(...ys2) - c[1]) * 0.86];
+      const n = 24;
       for (let k = 0; k < n; k++) {
         const target = along([...sc, sc[0]], (k + rand() * 0.7) / n);
-        const reach = 0.35 + rand() * 0.55;
-        const a = lerp(focus, target, 0.12 + rand() * 0.15);
-        const b = lerp(focus, target, reach);
-        const m = lerp(a, b, 0.5);
+        const reach = 0.7 + rand() * 0.3;
+        const a = lerp(focus, target, 0.03 + rand() * 0.06);
+        const b = lerp(focus, target, Math.min(0.96, reach));
         const len = dist(a, b);
-        const angle = (Math.atan2(b[1] - a[1], b[0] - a[0]) * 180) / Math.PI;
         const paint = spec.streaks[Math.floor(rand() * spec.streaks.length)];
-        g.marks.push({ poly: blob(m, len * 0.16 + 0.3, 0.35, rand, 9, 3.2, angle), paint, o: 0.5, clip: 'trunk' });
+        // A tapered sliver, thick near the middle, pointing out from the focus; it stays inside its scute.
+        if (len > 1.2) g.marks.push({ poly: swell([a, b], Math.min(1.5, 0.45 + len * 0.06), 'both'), paint, o: 0.5, clip: 'trunk' });
       }
     }
   }

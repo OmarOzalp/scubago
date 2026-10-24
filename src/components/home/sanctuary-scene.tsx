@@ -189,6 +189,7 @@ export function SanctuaryScene({ habitat, level, residents, islands, paused = fa
     key: place.key, habitat: place.habitat, x: place.x, z: place.z,
     content: <>
       {models && !loading && <MarineSwimmers models={models} active={active} level={level} tapScale={explorer?.tapScale} shape={shapeFor(place.habitat)}
+        world={places.length > 1 ? { islands: places.map(({ x, z, habitat: shores }) => ({ x, z, habitat: shores })), index: i, reach: explorer?.reach } : undefined}
         residents={preview
           ? (i === 0 ? visitors.map((s) => ({ ...s, id: s.model, onPress: () => onInspect(s.model) })) : [])
           : here.map((s) => ({ ...s, id: s.species.id, onPress: () => router.push(`/species/${s.species.id}`) }))}

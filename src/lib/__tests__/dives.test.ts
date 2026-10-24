@@ -15,6 +15,7 @@ import {
   parseTime,
   pastDiveId,
   signaturePath,
+  strokesPath,
   timeOut,
   validateDive,
 } from '@/lib/dives';
@@ -68,6 +69,9 @@ describe('checking a page', () => {
     expect(validateDive({ ...base, gas: 'air', o2Percent: 32 }, known)).toMatch(/Nitrox/);
     expect(validateDive({ ...base, rating: 3.5 }, known)).toMatch(/whole number/);
     expect(validateDive({ ...base, notes: 'x'.repeat(4001) }, known)).toMatch(/4000/);
+    const signed = (svg: string) => ({ ...base, signature: { name: 'Maya', svg, at: '2026-10-15T12:00:00.000Z' } });
+    expect(validateDive(signed('M1,1L2,2'), known)).toBeNull();
+    expect(validateDive(signed(`M1,1${'L2.5,2.5'.repeat(2500)}`), known)).toMatch(/signature/);
   });
 
   it('tidies what it keeps', () => {
@@ -128,6 +132,36 @@ describe('signatures', () => {
     expect(path).toBe('M10,10L40,30L300,30M50,50L50.6,50');
     expect(isSignaturePath(path!)).toBe(true);
     expect(signaturePath([])).toBeNull();
+    // The pad draws the same while the finger moves.
+    expect(strokesPath([[[10, 10], [10.2, 10.1], [40, 30], [400, 30]], [[50, 50]]])).toBe(path);
+  });
+
+  it('thins a long signature until the server keeps it, and it still draws the same', () => {
+    // Three strokes of a cursive name, a point about every unit, as a 60–120 Hz touch stream gives.
+    const strokes = [0, 1, 2].map((k) =>
+      Array.from({ length: 700 }, (_, i): [number, number] => [10 + (i * 280) / 700, 50 + 35 * Math.sin(i / 6 + k)]));
+    const path = signaturePath(strokes)!;
+    expect(path.length).toBeLessThanOrEqual(20000);
+    expect(isSignaturePath(path)).toBe(true);
+    // Every stroke is there, and no touch is more than half a unit from the line drawn.
+    const drawn = path.split('M').slice(1).map((part) => part.split('L').map((p) => p.split(',').map(Number) as [number, number]));
+    expect(drawn).toHaveLength(3);
+    const off = (p: [number, number], line: [number, number][]) => Math.min(...line.slice(1).map((b, i) => {
+      const a = line[i];
+      const t = Math.max(0, Math.min(1, ((p[0] - a[0]) * (b[0] - a[0]) + (p[1] - a[1]) * (b[1] - a[1])) / ((b[0] - a[0]) ** 2 + (b[1] - a[1]) ** 2 || 1)));
+      return Math.hypot(p[0] - (a[0] + t * (b[0] - a[0])), p[1] - (a[1] + t * (b[1] - a[1])));
+    }));
+    expect(Math.max(...strokes.flatMap((stroke, k) => stroke.map((p) => off(p, drawn[k]))))).toBeLessThanOrEqual(0.5);
+  });
+
+  it('fits any signature, even a minute of scribbling or thousands of taps', () => {
+    const scribble = [Array.from({ length: 7200 }, (_, i): [number, number] => [(i * 7919) % 300, (i * 104729) % 100])];
+    const dots = Array.from({ length: 3000 }, (_, i): [number, number][] => [[(i * 37) % 300, (i * 11) % 100]]);
+    for (const strokes of [scribble, dots]) {
+      const path = signaturePath(strokes)!;
+      expect(path.length).toBeLessThanOrEqual(20000);
+      expect(isSignaturePath(path)).toBe(true);
+    }
   });
 
   it('only accepts path data it drew itself', () => {

@@ -166,7 +166,9 @@ describe('iNaturalist species counts', () => {
     const fetchImpl: FetchImpl = async (url) => (url.endsWith('&page=2') ? failing(503) : ok(first));
     const partial = await fetchInatSpeciesCounts(SITE, { fetchImpl });
     expect(partial.counts).toHaveLength(200);
-    expect(partial.truncated).toBe(true);
+    // A page that failed is a failure to say so, not a sign that iNaturalist has more than ScubaGo reads.
+    expect(partial.truncated).toBe(false);
+    expect(partial.error).toBeInstanceOf(HttpError);
     await expect(fetchInatSpeciesCounts(SITE, { fetchImpl: async () => failing(500) })).rejects.toBeInstanceOf(HttpError);
   });
 

@@ -69,6 +69,7 @@ export type ClusterableSite = Pick<DiveSite, 'id' | 'lat' | 'lng'> & Partial<Pic
 
 export interface SiteBounds {
   south: number;
+  /** East of `east` for a box across the antimeridian (179°E to 179°W). A cluster's never is. */
   west: number;
   north: number;
   east: number;
@@ -128,6 +129,15 @@ function latFromMercatorY(y: number): number {
   return (2 * Math.atan(Math.exp(y)) - Math.PI / 2) / RAD;
 }
 
+/**
+ * How wide a region is, in degrees of longitude. react-native-maps on Android gives the east edge
+ * minus the west, which is negative when the view crosses the antimeridian (177°E to 177°W comes
+ * out as -354, for 6°).
+ */
+function lngWidth(longitudeDelta: number): number {
+  return longitudeDelta < 0 ? longitudeDelta + 360 : longitudeDelta;
+}
+
 /** A usable region: finite numbers, a latitude on the globe, deltas between a hair and the whole world. */
 function sanitize(region: MapRegion): MapRegion {
   const finite = (n: number, fallback: number) => (Number.isFinite(n) ? n : fallback);
@@ -135,7 +145,7 @@ function sanitize(region: MapRegion): MapRegion {
     latitude: clamp(finite(region.latitude, 0), -90, 90),
     longitude: wrapLng(finite(region.longitude, 0)),
     latitudeDelta: clamp(finite(region.latitudeDelta, 180), 1e-7, 180),
-    longitudeDelta: clamp(finite(region.longitudeDelta, 360), 1e-7, 360),
+    longitudeDelta: clamp(lngWidth(finite(region.longitudeDelta, 360)), 1e-7, 360),
   };
 }
 
@@ -370,18 +380,21 @@ export interface ZoomOptions {
 
 /**
  * The region that shows a cluster's bounds with a margin round them (`padding` times their size, at
- * least `MIN_ZOOM_DELTA`), and at most half the region it is zoomed from.
+ * least `MIN_ZOOM_DELTA`, at most the whole world), and at most half the region it is zoomed from.
+ * Bounds across the antimeridian are framed across it.
  */
 export function boundsToRegion(bounds: SiteBounds, { padding = 1.5, minDelta = MIN_ZOOM_DELTA, within }: ZoomOptions = {}): MapRegion {
-  const fit = (span: number, current: number | undefined) => {
-    const wanted = Math.max(span * padding, minDelta);
+  const fit = (span: number, current: number | undefined, world: number) => {
+    const wanted = Math.min(Math.max(span * padding, minDelta), world);
     return current !== undefined && Number.isFinite(current) && current > 0 ? Math.min(wanted, current / 2) : wanted;
   };
+  const across = bounds.west > bounds.east;
+  const width = across ? bounds.east + 360 - bounds.west : bounds.east - bounds.west;
   return {
     latitude: (bounds.south + bounds.north) / 2,
-    longitude: (bounds.west + bounds.east) / 2,
-    latitudeDelta: fit(bounds.north - bounds.south, within?.latitudeDelta),
-    longitudeDelta: fit(bounds.east - bounds.west, within?.longitudeDelta),
+    longitude: across ? wrapLng(bounds.west + width / 2) : (bounds.west + bounds.east) / 2,
+    latitudeDelta: fit(bounds.north - bounds.south, within?.latitudeDelta, 180),
+    longitudeDelta: fit(width, within && lngWidth(within.longitudeDelta), 360),
   };
 }
 
@@ -389,6 +402,45 @@ export function boundsToRegion(bounds: SiteBounds, { padding = 1.5, minDelta = M
 export function cellLatRange(level: number, row: number): { south: number; north: number } {
   const rowHeight = cellWidth(level) * RAD;
   return { south: latFromMercatorY(row * rowHeight), north: latFromMercatorY((row + 1) * rowHeight) };
+}
+
+// ── Sites on one spot ────────────────────────────────────────────────────────
+
+/** How far apart the pins of sites on one spot are drawn, as a share of the view's width: about 30 pt on a phone, a pin's width. */
+export const STACK_SPACING = 0.08;
+
+/**
+ * Where to draw lone sites that share one position exactly, by site id (only those are in the map).
+ * OpenStreetMap puts five Zabargad sites on one point, and pins drawn on top of each other leave
+ * only the top one to tap, however close the map zooms. So they go on a small ring round the point,
+ * in id order clockwise from north, `spacing` of the view's width apart on screen at any zoom (the
+ * ring grows with how many there are). This is for drawing only: everywhere else each site keeps
+ * its own position.
+ */
+export function spreadStackedSites(clusters: readonly SiteCluster[], region: MapRegion, spacing: number = STACK_SPACING): Map<string, { lat: number; lng: number }> {
+  const stacks = new Map<string, SiteCluster[]>();
+  for (const c of clusters) {
+    if (c.count !== 1) continue;
+    const key = `${Math.round(c.lat * 1e6)},${Math.round(c.lng * 1e6)}`;
+    const stack = stacks.get(key);
+    if (stack) stack.push(c);
+    else stacks.set(key, [c]);
+  }
+  const step = sanitize(region).longitudeDelta * spacing;
+  const spread = new Map<string, { lat: number; lng: number }>();
+  for (const stack of stacks.values()) {
+    const n = stack.length;
+    if (n < 2) continue;
+    stack.sort((a, b) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0));
+    // Neighbours on the ring are `step` apart, and none is nearer the point than that.
+    const radius = Math.max(step, step / (2 * Math.sin(Math.PI / n)));
+    stack.forEach((c, i) => {
+      const angle = (2 * Math.PI * i) / n;
+      // A circle on screen: the map stretches north-south by 1/cos(latitude), so a degree of latitude is drawn longer.
+      spread.set(c.id, { lat: c.lat + radius * Math.cos(angle) * Math.cos(c.lat * RAD), lng: wrapLng(c.lng + radius * Math.sin(angle)) });
+    });
+  }
+  return spread;
 }
 
 // ── Imported sites ───────────────────────────────────────────────────────────

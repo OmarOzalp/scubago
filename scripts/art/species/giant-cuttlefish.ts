@@ -13,7 +13,7 @@ import { blendSkins, chainSkin, clamp, hex, MeshBuilder, mix, noise, smoothstep,
 import type { BoneSpec } from './export';
 
 const TAN = hex('#b0875a'), MOTTLE = hex('#6c4c2e'), WARM = hex('#c79a5e'), FLECK = hex('#ead7a6');
-const BELLY = hex('#e7dab9'), FIN = hex('#c6a170'), FIN_EDGE = hex('#f0e4c2'), EYE = hex('#d7c58d'), PUPIL = hex('#17120d');
+const BELLY = hex('#e7dab9'), FIN = hex('#c6a170'), FIN_EDGE = hex('#f0e4c2'), EYE = hex('#c9b479'), PUPIL = hex('#17120d');
 const ARM = hex('#a87e52'), ARM_STRIPE = hex('#dcc49a');
 
 /** The mantle's front edge over the head, and where the head meets the arms. */
@@ -26,11 +26,11 @@ const mottle = (p: Vector3, scale: number, seed: number) =>
 
 /** The dorsal pattern: tan, darker mottles and faint cross-bands, warm patches and pale flecks. */
 function back(p: Vector3): RGB {
-  const band = smoothstep(.55, .95, Math.sin(p.z * 58 + 3 * noise(p.x * 9, 2)));
-  const blotch = smoothstep(.15, .55, mottle(p, 15, 11));
+  const band = smoothstep(.4, .98, Math.sin(p.z * 44 + 3 * noise(p.x * 9, 2)));
+  const blotch = smoothstep(.15, .6, mottle(p, 15, 11));
   const warm = smoothstep(.3, .7, mottle(p, 23, 17));
-  const fleck = smoothstep(.74, .88, mottle(p, 61, 23));
-  return mix(mix(mix(TAN, WARM, warm * .6), MOTTLE, Math.max(blotch * .65, band * .35)), FLECK, fleck * .75);
+  const fleck = smoothstep(.7, .95, mottle(p, 38, 23));
+  return mix(mix(mix(TAN, WARM, warm * .6), MOTTLE, Math.max(blotch * .6, band * .25)), FLECK, fleck * .45);
 }
 
 export function buildGiantCuttlefish() {
@@ -49,8 +49,8 @@ export function buildGiantCuttlefish() {
   };
   // Flattened above and below, the back gently domed.
   const halfHeight = (z: number) => z <= MANTLE_FRONT ? .016 + .5 * cuttlefishHalfWidth(z) : .066 - .01 * smoothstep(MANTLE_FRONT, HEAD_FRONT, z);
-  const zs = [-.5, -.495, -.48, -.455, -.42, -.375, -.32, -.26, -.2, -.14, -.08, -.02, .04, .1, .15, .19, .205, .225, .25, .28, .31];
-  const sides = 16;
+  const zs = [-.5, -.495, -.48, -.455, -.425, -.395, -.365, -.335, -.305, -.275, -.245, -.215, -.185, -.155, -.125, -.095, -.065, -.035, -.005, .025, .055, .085, .115, .145, .17, .19, .205, .225, .25, .28, .31];
+  const sides = 28;
   const skin = (z: number): Skin => blendSkins({ Mantle: 1 }, { Head: 1 }, smoothstep(MANTLE_FRONT - .02, MANTLE_FRONT + .03, z));
   mesh.begin();
   const rings = zs.map((z) => Array.from({ length: sides }, (_, k) => {
@@ -90,7 +90,7 @@ export function buildGiantCuttlefish() {
           .addScaledVector(t1, Math.sin(phi) * Math.cos(a) * r).addScaledVector(t2, Math.sin(phi) * Math.sin(a) * r);
         // A W of dark across the eye: the pupil dips in the middle.
         const along = Math.cos(a), across = Math.sin(a);
-        const pupil = ring <= 2 && Math.abs(across - .35 * Math.cos(2 * Math.acos(clamp(along, -1, 1)))) < .42;
+        const pupil = ring <= 2 && Math.abs(across - .35 * Math.cos(2 * Math.acos(clamp(along, -1, 1)))) < .55;
         return mesh.vertex(p, pupil ? PUPIL : ring === 3 ? mix(EYE, TAN, .55) : EYE, { Head: 1 });
       }));
     }
@@ -111,8 +111,8 @@ export function buildGiantCuttlefish() {
     bones.push({ name: `${name}1`, parent: 'Head', position: base }, { name: `${name}2`, parent: `${name}1`, position: new Vector3(sx * .03, sy * .016, .4) });
     for (const pair of [0, 1]) {
       // Each pair: one arm nearer the midline, one nearer the side.
-      const angle = Math.atan2(sy, sx) + (pair ? .32 : -.32) * sx * sy;
-      const r0 = .05, r1 = .009;
+      const angle = Math.atan2(sy, sx) + (pair ? .5 : -.5) * sx * sy;
+      const r0 = .065, r1 = .02;
       const center = (z: number) => {
         const t = clamp((z - HEAD_FRONT + .015) / (.5 - HEAD_FRONT + .015), 0, 1.1);
         const r = r0 + (r1 - r0) * t ** .8;
