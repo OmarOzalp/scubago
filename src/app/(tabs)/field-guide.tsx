@@ -4,15 +4,11 @@ import { Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native
 
 import { Icon } from '@/components/icon';
 import { Chip } from '@/components/journal/chip';
-import { LinkRow } from '@/components/journal/link-row';
-import { ProgressRing } from '@/components/journal/progress-ring';
-import { Screen, ScreenHeader, SectionHeader } from '@/components/journal/screen';
-import { collectionsLine, summarize } from '@/components/rewards/summary';
+import { Screen, SectionHeader } from '@/components/journal/screen';
 import { Segmented } from '@/components/segmented';
-import { SpeciesCard } from '@/components/species-card';
+import { CARD_GAP, SpeciesCard, useCardGrid } from '@/components/species-card';
 import { ThemedText } from '@/components/themed-text';
 import { Radius, Spacing, Type } from '@/constants/theme';
-import { useRewards } from '@/hooks/use-rewards';
 import { useTheme } from '@/hooks/use-theme';
 import { CATALOG, CATALOG_BY_ID } from '@/lib/catalog';
 import { deriveDex } from '@/lib/dex';
@@ -22,7 +18,6 @@ import { useMySightings } from '@/lib/store';
 import { searchSpecies } from '@/lib/text-search';
 import type { Category, Species } from '@/lib/types';
 
-const GAP = 10;
 /** First seen within this many days: a "New" ribbon. */
 const NEW_DAYS = 7;
 
@@ -36,8 +31,6 @@ const STATUS_OPTIONS: { value: Status; label: string }[] = [
 /** Every species in the catalogue, by group: drawn in colour once seen, in pencil until then. */
 export default function FieldGuideScreen() {
   const mySightings = useMySightings();
-  const rewards = useRewards();
-  const setsLine = useMemo(() => collectionsLine(summarize(rewards)), [rewards]);
   // The column's width, measured: a phone's to begin with (the static web render has no window).
   const [inner, setInner] = useState(358);
   const [filter, setFilter] = useState<Category | 'all'>('all');
@@ -67,9 +60,8 @@ export default function FieldGuideScreen() {
   const listedCount = found ? found.length : sections.reduce((n, g) => n + g.listed.length, 0);
   const narrowed = typed !== '' || filter !== 'all' || status !== 'all';
 
-  // Three cards a row on a phone, more on a wide screen.
-  const columns = Math.max(3, Math.min(6, Math.floor(inner / 150)));
-  const cardWidth = Math.floor((inner - GAP * (columns - 1)) / columns);
+  // Three cards a row on a phone (two at a large text size), more on a wide screen.
+  const { cardWidth } = useCardGrid(inner);
 
   const card = (s: Species) => {
     const entry = dexById.get(s.id);
@@ -87,13 +79,12 @@ export default function FieldGuideScreen() {
 
   return (
     <Screen tab keyboardDismissMode="on-drag">
-      <ScreenHeader
-        eyebrow="Your field guide"
-        title={`${dex.length} of ${CATALOG.length} species`}
-        accessory={<ProgressRing fraction={dex.length / CATALOG.length} accessibilityLabel={`${Math.round((dex.length / CATALOG.length) * 100)} percent of the field guide seen`} />}
-      />
-
-      <LinkRow icon="medal" title="Collections" detail={rewards.ready ? setsLine : undefined} role="link" onPress={() => router.push({ pathname: '/rewards', params: { tab: 'collections' } })} />
+      <View style={styles.head}>
+        <CollectionsLink />
+        <ThemedText type="display" accessibilityRole="header">
+          {`${dex.length} of ${CATALOG.length} species`}
+        </ThemedText>
+      </View>
 
       <View style={styles.controls}>
         <SearchField value={query} onChange={setQuery} />
@@ -104,16 +95,22 @@ export default function FieldGuideScreen() {
           accessibilityLabel="Filter by group"
           style={styles.chipsScroll}
           contentContainerStyle={styles.chips}>
-          <Chip label="All" selected={filter === 'all'} onPress={() => setFilter('all')} />
+          {/* No "All" chip: the toggle above has one. A chip that is on turns off when it is tapped again. */}
           {groups.map(({ cat }) => (
-            <Chip key={cat} label={CATEGORY_LABEL[cat]} selected={filter === cat} onPress={() => setFilter(cat)} />
+            <Chip
+              key={cat}
+              label={CATEGORY_LABEL[cat]}
+              selected={filter === cat}
+              accessibilityHint={filter === cat ? 'Shows every group again' : undefined}
+              onPress={() => setFilter(filter === cat ? 'all' : cat)}
+            />
           ))}
         </ScrollView>
       </View>
 
       {dex.length === 0 && !narrowed ? (
         <ThemedText type="caption" themeColor="textSecondary">
-          Every species starts as a pencil sketch. Log a dive and the ones you meet are painted in.
+          Species you log are painted in.
         </ThemedText>
       ) : null}
 
@@ -145,6 +142,27 @@ export default function FieldGuideScreen() {
         })}
       </View>
     </Screen>
+  );
+}
+
+/**
+ * The way to the collections, where the page's eyebrow used to be: a small link at the top right.
+ * It is 44 points to hit, and its margins give the extra back, so it costs the page one line.
+ */
+function CollectionsLink() {
+  const theme = useTheme();
+  return (
+    <Pressable
+      onPress={() => router.push({ pathname: '/rewards', params: { tab: 'collections' } })}
+      accessibilityRole="link"
+      accessibilityLabel="Collections"
+      accessibilityHint="Opens your collections"
+      style={({ pressed }) => [styles.collections, pressed && { backgroundColor: theme.backgroundSelected }]}>
+      <ThemedText type="smallBold" themeColor="tint">
+        Collections
+      </ThemedText>
+      <Icon name="chevronRight" size={14} color={theme.tint} weight="bold" />
+    </Pressable>
   );
 }
 
@@ -188,6 +206,20 @@ function SearchField({ value, onChange }: { value: string; onChange: (text: stri
 }
 
 const styles = StyleSheet.create({
+  head: {
+    gap: 2,
+  },
+  collections: {
+    alignSelf: 'flex-end',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 2,
+    minHeight: 44,
+    marginVertical: -12,
+    paddingLeft: 12,
+    paddingRight: 4,
+    borderRadius: Radius.sm,
+  },
   // The search, the toggle and the chips belong together, so they sit closer than the page's other blocks.
   controls: {
     gap: 10,
@@ -234,6 +266,6 @@ const styles = StyleSheet.create({
   grid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: GAP,
+    gap: CARD_GAP,
   },
 });

@@ -34,8 +34,9 @@ who turn motion off. These are the rules the screens follow; new screens should 
   jumped between.
 - **Decorative things are hidden**: species avatars next to a name, emoji used as decoration, "›"
   separators (`importantForAccessibility="no"` plus `accessibilityElementsHidden`).
-- **Text is 12pt or larger**, never `allowFontScaling={false}`, and boxes use `minHeight` rather
-  than `height`, so larger text grows the box instead of being clipped.
+- **Text is 12pt or larger** (primary content 14pt or more, species names on cards 15pt, two lines
+  allowed), never `allowFontScaling={false}`, and boxes use `minHeight` rather than `height`, so
+  larger text grows the box instead of being clipped. Courier is for dates, counts and field names only.
 - **Contrast is 4.5:1 or better** for text. Use the theme's `text`, `textSecondary`, `danger` and
   `tint` colours (light and dark variants are in `constants/theme.ts`), and `RARITY_TEXT` /
   `STATUS_TEXT` for coloured chip text. `RARITY_COLOR`, `STATUS_COLOR` and the map pin teal are for
@@ -60,5 +61,8 @@ There is no automated accessibility lint yet. Before shipping a screen:
 
 - try it with VoiceOver (Settings → Accessibility → VoiceOver) and with the largest text size
   (Settings → Accessibility → Display & Text Size → Larger Text);
+- do a 150% text pass: scale the text to 150% and check that the screen's content and its main
+  action are still reachable without hunting (on the web, scale every text node's font size and
+  line height by 1.5 and take a screenshot at 390 by 844);
 - check new colours with a contrast checker against the background they sit on, in light and dark
   mode.
