@@ -165,31 +165,31 @@ fetch them with `useRewards()`.
 
 | Route | Shows | File |
 | --- | --- | --- |
-| `/rewards` | Totals, links to the passport and islands, then **Badges** and **Collections** (`?tab=collections` opens the second) | `src/app/rewards/index.tsx` |
-| `/rewards/[badge]` | One badge in full: a large medal, the day it was earned or the progress and hint, its ladder, and a link to its collection or the passport | `src/app/rewards/[badge].tsx` |
+| `/rewards` | One line each to the passport and islands, then **Badges 18/51** and **Collections 0/16** (the counts are in the tab names; `?tab=collections` opens the second) | `src/app/rewards/index.tsx` |
+| `/rewards/[badge]` | One badge in full: a large medal with the day it was earned on its card (or, not earned yet, a progress card with the hint), its ladder, and a link to its collection or the passport | `src/app/rewards/[badge].tsx` |
 | `/rewards/collections/[id]` | One collection: the ring, then the species found and the ones still to find, each opening its species page | `src/app/rewards/collections/[id].tsx` |
 | `/rewards/passport` | The site passport: a page per region or country, a stamp per site, "3 of 41 sites stamped" | `src/app/rewards/passport.tsx` |
 | `/rewards/islands` | Each island: locked or raised, residents found out of total, the requirement line, and "look for" plates | `src/app/rewards/islands.tsx` |
 
-Entry points: a "Badges & passport" row on the Logbook tab, and "Collections" on the Field guide tab.
+Entry points: a "Badges & passport" row on the Logbook tab, and a "Collections" link beside the Field guide's title.
 Both quote the real counts (`summarize` in `src/components/rewards/summary.ts`) and say nothing until
 the log has loaded.
 
 - **Badges** are medals: a scalloped rim in the tier's metal (bronze, silver, gold, with pips so colour
-  is never the only cue), the emblem on a tinted face, the day earned in typewriter capitals. Firsts
+  is never the only cue), the emblem on a tinted face; the day earned is in the "Latest" strip and on the badge's own page, not under every medal. Firsts
   have a coral rim, places lagoon, collections twilight (an area's collection in the area's colour).
-  A badge not earned yet is a dashed pencil outline with the progress inked over it as an arc, and
-  "3 OF 5" underneath. Ladders are one row with their rungs along a line. `emblem` keys map to a
+  A badge not earned yet is a dashed pencil outline with the progress inked over it as an arc (and
+  "3 of 5" in what a screen reader hears). Ladders are one row with their rungs along a line. `emblem` keys map to a
   Phosphor icon, or for an animal to its species plate (`emblem.tsx`).
-- **Collections** are cards: a progress ring, "3 of 9 found", the hint, and the animals as small plates in
+- **Collections** are cards: a progress ring, "3 of 9" (the hint is in the screen-reader label), and the animals as small plates in
   the collection's own order (`memberIds`), found ones painted and the rest dashed pencil. A completed one
   carries a "Complete" stamp. A big collection shows its first eleven and "+N". The page for one lists
   what is found and what is still to find, each in that order.
 - **The passport** draws a rubber stamp per site (`site-stamp.tsx`): double ruled, angled and inked red
   or lagoon from the site's id, with the name, the day of the first visit and the number of days visited.
   A stamp opens the site's page. Only visited sites are stamped; "of 41" is the engine's `knownSites`.
-- **Islands** reuse `IslandArt` for a 2D picture (under a mist with a lock while locked), with the area's
-  `blurb` under it. Each island has its own drawing (`src/components/home/island-art.tsx`): the Coral
+- **Islands** reuse `IslandArt` for a 2D picture (under a mist with a lock while locked); the area's
+  `blurb` is on its collection page, not on the card. Each island has its own drawing (`src/components/home/island-art.tsx`): the Coral
   Reef a forested cay with a jetty in a turquoise lagoon inside a ring of reef and surf; the Kelp Forest
   a grey headland of cliffs and cypresses with sea stacks, among floating kelp on dark green water; the
   Volcanic Pinnacle a black cone steaming from its crater over cobalt water; the Mangroves & Seagrass a
