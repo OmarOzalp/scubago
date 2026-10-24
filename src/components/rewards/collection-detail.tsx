@@ -6,7 +6,7 @@ import { ProgressRing } from '@/components/journal/progress-ring';
 import { SectionHeader } from '@/components/journal/screen';
 import { Stamp } from '@/components/journal/stamp';
 import { longDate } from '@/components/rewards/format';
-import { SpeciesCard } from '@/components/species-card';
+import { CARD_GAP, SpeciesCard, useCardGrid } from '@/components/species-card';
 import { ThemedText } from '@/components/themed-text';
 import { Type } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
@@ -14,7 +14,6 @@ import { CATALOG_BY_ID } from '@/lib/catalog';
 import type { CollectionKind, CollectionResult } from '@/lib/rewards';
 import type { Species } from '@/lib/types';
 
-const GAP = 10;
 const KIND_LABEL: Record<CollectionKind, string> = { area: 'Habitat', family: 'Family', curated: 'Special set' };
 
 /** One collection in full: where the diver stands, then the animals found and the ones still to find. */
@@ -31,8 +30,7 @@ export function CollectionDetailView({
   const theme = useTheme();
   // The column's width, measured: a phone's to begin with (the static web render has no window).
   const [inner, setInner] = useState(358);
-  const columns = Math.max(3, Math.min(6, Math.floor(inner / 150)));
-  const cardWidth = Math.floor((inner - GAP * (columns - 1)) / columns);
+  const { cardWidth } = useCardGrid(inner);
   const species = (ids: readonly string[]) => ids.map((id) => CATALOG_BY_ID.get(id)).filter((s): s is Species => !!s);
   // Each section keeps the collection's own order (`memberIds`).
   const foundIds = new Set(collection.foundIds);
@@ -55,7 +53,7 @@ export function CollectionDetailView({
           fraction={collection.total > 0 ? collection.found / collection.total : 0}
           size={76}
           color={collection.completed ? theme.sun : undefined}
-          accessibilityLabel={`${collection.found} of ${collection.total} found`}
+          accessibilityLabel={`${collection.found} of ${collection.total} found${collection.hint && !collection.completed ? `, ${collection.hint} to go` : ''}`}
         />
         <View style={styles.standingText}>
           <Text style={[styles.count, { color: theme.text }]}>
@@ -65,11 +63,7 @@ export function CollectionDetailView({
             <ThemedText type="small" themeColor="textSecondary">
               {collection.completedOn ? `Completed ${longDate(collection.completedOn)}.` : 'Completed.'}
             </ThemedText>
-          ) : (
-            <ThemedText type="small" themeColor="textSecondary">
-              {collection.hint ? `${collection.hint[0].toUpperCase()}${collection.hint.slice(1)} to go.` : ''}
-            </ThemedText>
-          )}
+          ) : null}
         </View>
         {collection.completed ? <Stamp lines={['Complete']} color={theme.tint} rotate={-8} animate /> : null}
       </Paper>
@@ -77,7 +71,7 @@ export function CollectionDetailView({
       <View onLayout={(e) => setInner(Math.floor(e.nativeEvent.layout.width))} style={styles.sections}>
         {found.length > 0 ? (
           <View style={styles.section}>
-            <SectionHeader title="Found" eyebrow={`${found.length} of ${collection.total}`} />
+            <SectionHeader title="Found" />
             <View style={styles.grid}>
               {found.map((s) => (
                 <SpeciesCard key={s.id} species={s} width={cardWidth} count={Math.max(1, counts.get(s.id) ?? 1)} onPress={() => onOpenSpecies?.(s.id)} />
@@ -87,10 +81,7 @@ export function CollectionDetailView({
         ) : null}
         {missing.length > 0 ? (
           <View style={styles.section}>
-            <SectionHeader title="Still to find" eyebrow={`${missing.length} to go`} />
-            <ThemedText type="caption" themeColor="textSecondary">
-              The pencil sketches are painted in once you log them.
-            </ThemedText>
+            <SectionHeader title="Still to find" />
             <View style={styles.grid}>
               {missing.map((s) => (
                 <SpeciesCard key={s.id} species={s} width={cardWidth} count={0} onPress={() => onOpenSpecies?.(s.id)} />
@@ -138,6 +129,6 @@ const styles = StyleSheet.create({
   grid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: GAP,
+    gap: CARD_GAP,
   },
 });

@@ -51,7 +51,8 @@ function CollectionScreen() {
   }
   return (
     <>
-      <Stack.Screen options={{ title: collection.title }} />
+      {/* The page has its own large title, so the header is the back arrow alone (the title stays the page's name). */}
+      <Stack.Screen options={{ title: collection.title, headerTitle: '' }} />
       <Screen>
         <CollectionDetailView collection={collection} counts={counts} onOpenSpecies={(speciesId) => router.push(`/species/${speciesId}`)} />
       </Screen>
