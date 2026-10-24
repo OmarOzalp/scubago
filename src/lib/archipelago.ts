@@ -88,8 +88,10 @@ export const isIsland = (id: string): id is IslandId => Object.hasOwn(ISLANDS, i
  * green; and the Shipwreck at the chain's southern end, in gin-clear water over white sand, each a
  * little to one side of the last. Between them lies the bank they stand on (banks.ts).
  * The explorer shows them all together (src/app/explore.tsx); Home's card one at a time.
+ * (Each is a little farther from the next than their swimming areas are deep at the last level, `WORLD` in steering.ts, so
+ * the farther out the view, the farther apart.)
  */
-export const ISLAND_PLACES: Record<IslandId, readonly [number, number]> = { 'coral-reef': [0, 0], 'kelp-forest': [-1.6, -23.2], 'volcanic-pinnacle': [1.8, -11.4], mangroves: [2.4, 12.2], shipwreck: [-.2, 24] };
+export const ISLAND_PLACES: Record<IslandId, readonly [number, number]> = { 'coral-reef': [0, 0], 'kelp-forest': [-1.6, -24.8], 'volcanic-pinnacle': [1.8, -12.4], mangroves: [2.4, 12.4], shipwreck: [-.2, 24.8] };
 
 /** The island a species swims at: its own area's, if that has an island, else Home's. */
 export function islandOf(speciesId: string): IslandId {

@@ -111,7 +111,8 @@ test('fingers moved one at a time (as the web sends them) count as one move: a l
     const explorer = opened(PHONE);
     explorer.zoomAt(89.16 / explorer.view.zoom, 0, 0);
     explorer.touch([{ id: 9, x: 100, y: 100 }], 0);
-    explorer.touch([{ id: 9, x: -64, y: 65.5 }], 16);
+    // (dragged as far up the water as the edge's limit is from the island: farther as the swimming area widens, VIEW_ZOOM)
+    explorer.touch([{ id: 9, x: -64, y: 65.5 - (WORLD.z - 4.3) * 89.16 / k }], 16);
     explorer.touch([], 1000);
     explorer.touch([{ id: 1, x: 109, y: 7.5 }, { id: 2, x: 73.9, y: 65.8 }], 1100);
     return explorer;

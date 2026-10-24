@@ -1,5 +1,6 @@
 import { Box3, Vector3, type Object3D } from 'three';
 import { REEF_SIZE } from '@/lib/reef-life';
+import { VIEW_ZOOM } from '@/lib/steering';
 
 /**
  * World length of each model (the mantas and eagle ray are measured across their wings, the
@@ -20,9 +21,10 @@ export const MARINE_SIZE = {
 
 /**
  * The smallest tap target an animal gets, as a half-size in world units at the first level's zoom:
- * about 14 pt on a phone, so the whole target is at least a comfortable 28 pt across.
+ * about 14 pt on a phone, so the whole target is at least a comfortable 28 pt across (the farther out
+ * the view, VIEW_ZOOM, the more units that is).
  */
-export const MIN_TAP = .42;
+export const MIN_TAP = .42 * VIEW_ZOOM;
 /**
  * A press that moved farther than this between finger down and up (pixels) was a drag across the
  * water (the explorer pans), not a tap on an animal.

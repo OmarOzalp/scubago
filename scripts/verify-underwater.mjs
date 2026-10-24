@@ -13,7 +13,7 @@ import { createSchoolHitArea, SCHOOL_HIT_DEPTH } from '../src/components/home/th
 import { createSchoolMaterial } from '../src/components/home/three/school-material.ts';
 import { createTunaGeometry } from '../src/components/home/three/tuna-geometry.ts';
 import { MARINE_SIZE, MIN_TAP, TAP_SHAPES, tapTarget } from '../src/components/home/three/tap-target.ts';
-import { oceanScale } from '../src/lib/steering.ts';
+import { oceanScale, VIEW_SPAN } from '../src/lib/steering.ts';
 import { createMarineMotion } from '../src/lib/marine-motion.ts';
 import { sampleDive } from '../src/lib/ocean-depth.ts';
 import { buildKelpGeometry, KELP_DETAIL } from '../src/components/home/three/kelp-geometry.ts';
@@ -208,7 +208,7 @@ for (const lite of [false, true]) {
   const width = 390, height = 362, raycaster = new Raycaster();
   const camera = new OrthographicCamera(-width / 2, width / 2, height / 2, -height / 2, .1, 60);
   camera.position.set(0, 12, 6);
-  camera.zoom = Math.min(width, height) / 10.8;
+  camera.zoom = Math.min(width, height) / VIEW_SPAN;
   camera.lookAt(0, -.15, 0);
   camera.updateProjectionMatrix();
   camera.updateMatrixWorld();
@@ -267,7 +267,7 @@ for (const lite of [false, true]) {
     const scale = oceanScale(level);
     const camera = new OrthographicCamera(-width / 2, width / 2, height / 2, -height / 2, .1, 60);
     camera.position.set(0, 12, 6);
-    camera.zoom = Math.min(width, height) / (10.8 * scale);
+    camera.zoom = Math.min(width, height) / (VIEW_SPAN * scale);
     camera.lookAt(0, -.15, 0);
     camera.updateProjectionMatrix();
     camera.updateMatrixWorld();
