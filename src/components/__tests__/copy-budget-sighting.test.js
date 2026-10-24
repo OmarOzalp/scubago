@@ -5,10 +5,10 @@ import { create } from 'react-test-renderer';
 import SightingDetailScreen from '@/app/sighting/[id]';
 import { screenTexts, screenWords, timesShown } from '@/test-support/screen-words';
 
-// A sighting's page: at most 70 words in all (it was 105; the style guide's detail-page budget is 110), with the
+// A sighting's page: at most 55 words in all (it was 105; the style guide allows 110 for a detail page), with the
 // explanations behind one closed row, nothing about "saved on this device" (the Logbook's banner says it), and the
 // day named once, as the page's own title. The signed-out diver is the one who saw the most before.
-const BUDGET = 70;
+const BUDGET = 55;
 
 let mockHeader;
 jest.mock('expo-router', () => ({

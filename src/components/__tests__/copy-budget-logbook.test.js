@@ -5,9 +5,9 @@ import { create } from 'react-test-renderer';
 import LogbookScreen from '@/app/(tabs)/logbook';
 import { headingTexts, screenTexts, screenWords } from '@/test-support/screen-words';
 
-// The Logbook (a tab screen): at most 120 words in all with three pages on it (the style guide's budget for a tab
+// The Logbook (a tab screen): at most 80 words in all with three pages on it (the style guide allows 120 for a tab
 // screen; it was 150 with the same pages), the title once and with no eyebrow over it, and a banner of one line.
-const BUDGET = 120;
+const BUDGET = 80;
 
 jest.mock('@/global.css', () => ({}));
 jest.mock('expo-router', () => ({ router: { push: jest.fn() } }));

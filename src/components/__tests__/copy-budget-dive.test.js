@@ -4,10 +4,10 @@ import { create } from 'react-test-renderer';
 import DivePageScreen from '@/app/dive/[id]';
 import { screenTexts, screenWords } from '@/test-support/screen-words';
 
-// A dive's page: at most 80 words in all (it was 104; about 70 is the target), the explanation of signing behind a
+// A dive's page: at most 75 words in all (it was 104; about 70 is the target), the explanation of signing behind a
 // closed row, and nothing about where the page is saved or when it was written when that is the day of the dive.
 // The page's one title is the number box; the header carries the same number, so it is the page's only title.
-const BUDGET = 80;
+const BUDGET = 75;
 
 let mockHeader;
 jest.mock('expo-router', () => ({

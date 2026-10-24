@@ -7,7 +7,7 @@ import Animated, { useAnimatedStyle, useReducedMotion, useSharedValue, withDelay
 
 import { DateField } from '@/components/date-field';
 import { BottomBar } from '@/components/dive/bottom-bar';
-import { DiveForm, Group } from '@/components/dive/dive-form';
+import { DiveForm } from '@/components/dive/dive-form';
 import { HeaderBack } from '@/components/dive/header-back';
 import { Bookplate } from '@/components/dive/marks';
 import { FormField } from '@/components/form-field';
@@ -467,6 +467,75 @@ function LogSightingScreen() {
   const stepIndex = STEP_ORDER.indexOf(step);
   const showDetails = step === 'details' && !!site && (chosen.length > 0 || newDive);
 
+  // What was seen, together: notes about the animals, a photo, who can see it. The dive's own notes stay with the dive.
+  const animalBlock =
+    chosen.length > 0 ? (
+      <View style={styles.animals}>
+        <FormField
+          label={chosen.length === 1 ? 'Notes on the animal' : chosen.length === 2 ? 'Notes on both animals' : `Notes on all ${chosen.length} animals`}
+          placeholder="Came up to check us out at the safety stop…"
+          value={notes}
+          onChangeText={setNotes}
+          multiline
+          maxLength={NOTES_MAX}
+          style={styles.notes}
+        />
+
+        {chosen.length === 1 ? (
+          <View style={{ gap: 6 }}>
+            <ThemedText type="label" accessibilityRole="header">
+              Photo
+            </ThemedText>
+            {photoUri ? (
+              <>
+                <Image
+                  source={photoPreview ? { uri: photoPreview } : undefined}
+                  style={[styles.photoPreview, { backgroundColor: theme.backgroundElement, borderColor: theme.cardBorder }]}
+                  contentFit="cover"
+                  accessibilityLabel={`Your photo of the ${chosen[0].commonName}`}
+                />
+                <Pressable onPress={() => setPhotoUri(undefined)} accessibilityRole="button" style={styles.textButton}>
+                  <Icon name="trash" size={16} color={theme.textSecondary} />
+                  <ThemedText type="smallBold" themeColor="textSecondary">
+                    Remove photo
+                  </ThemedText>
+                </Pressable>
+              </>
+            ) : (
+              <>
+                <ThemedText type="small" themeColor="textSecondary">
+                  Sightings with a photo get a credibility badge.
+                </ThemedText>
+                <View style={styles.photoButtons}>
+                  <OceanButton title="Take photo" icon="camera" variant="secondary" onPress={() => pickPhoto('camera')} style={{ flex: 1 }} />
+                  <OceanButton title="Choose photo" icon="image" variant="secondary" onPress={() => pickPhoto('library')} style={{ flex: 1 }} />
+                </View>
+              </>
+            )}
+          </View>
+        ) : (
+          <ThemedText type="caption" themeColor="textSecondary">
+            Add photos later, one per sighting.
+          </ThemedText>
+        )}
+
+        {/* Without a backend nothing leaves the phone, so there is nobody to keep it from. */}
+        {backendEnabled ? (
+          <View ref={privacyField} collapsable={false}>
+            <PrivacyFields
+              value={privacy}
+              onChange={(next) => {
+                setPrivacy(next);
+                setPrivacyTouched(true);
+              }}
+              photo={chosen.length === 1}
+              count={chosen.length}
+            />
+          </View>
+        ) : null}
+      </View>
+    ) : null;
+
   return (
     <ThemedView style={styles.container}>
       {/* Set in full: the new-species page turns the header twilight, and "Log more" comes back here. */}
@@ -550,13 +619,14 @@ function LogSightingScreen() {
           automaticallyAdjustKeyboardInsets>
           <Paper style={styles.sawCard}>
             <View style={styles.sawHeader}>
-              <ThemedText type="label">{editing ? 'Logbook entry' : page ? formatDiveNumber(page.number) : 'New logbook entry'}</ThemedText>
+              {/* A new entry needs no eyebrow: the title ("Log a dive") and the step ("Details") already say it. */}
+              {editing || page ? <ThemedText type="label">{editing ? 'Logbook entry' : formatDiveNumber(page!.number)}</ThemedText> : null}
               <ThemedText type="heading" accessibilityRole="header">
                 {newDive ? `${draft.number ? `No. ${draft.number}` : 'A dive'} at ${site.name}` : site.name}
               </ThemedText>
               {page ? (
                 <ThemedText type="small" themeColor="textSecondary">
-                  {formatDate(page.divedOn)} · the site and date are the page’s{editing ? '; change them on the page' : ''}.
+                  {formatDate(page.divedOn)} · the page sets the site and date.
                 </ThemedText>
               ) : null}
             </View>
@@ -565,7 +635,25 @@ function LogSightingScreen() {
                 No animals on this page yet. You can add them now or later.
               </ThemedText>
             ) : null}
-            {chosen.map((s, i) => (
+            {/* Two animals or more are one line of names and an Edit, not a row each: the card was a third of the screen. */}
+            {multi && chosen.length > 1 ? (
+              <View style={styles.names}>
+                <ThemedText type="small" style={styles.flex}>
+                  {chosen.map((s) => s.commonName).join(', ')}
+                </ThemedText>
+                <Pressable
+                  onPress={() => goTo('species')}
+                  accessibilityRole="button"
+                  accessibilityLabel={`Edit the ${chosen.length} animals`}
+                  style={styles.textButton}>
+                  <Icon name="edit" size={16} color={theme.tint} weight="bold" />
+                  <ThemedText type="smallBold" themeColor="tint">
+                    Edit
+                  </ThemedText>
+                </Pressable>
+              </View>
+            ) : null}
+            {(multi && chosen.length > 1 ? [] : chosen).map((s, i) => (
               <View key={s.id} style={[styles.summary, i > 0 && { borderTopWidth: 1, borderTopColor: theme.rule }]}>
                 <SpeciesAvatar species={s} size={48} showRarityRing={s.id !== UNLISTED_ID} />
                 <View style={{ flex: 1, gap: 3 }}>
@@ -590,7 +678,7 @@ function LogSightingScreen() {
                 ) : null}
               </View>
             ))}
-            {multi ? (
+            {multi && chosen.length > 1 ? null : multi ? (
               <Pressable onPress={() => goTo('species')} accessibilityRole="button" style={styles.textButton}>
                 <Icon name="plus" size={16} color={theme.tint} weight="bold" />
                 <ThemedText type="smallBold" themeColor="tint">
@@ -624,7 +712,7 @@ function LogSightingScreen() {
                 ref={nameField}
                 label="What was it?"
                 // The reason is under the field, so the hint gives way to it.
-                hint={nameMissing ? undefined : 'Not in our catalogue yet. It’s saved in your log but doesn’t count towards your collection.'}
+                hint={nameMissing ? undefined : 'Saved in your log. Doesn’t count towards your collection.'}
                 placeholder="e.g. Nudibranch I couldn’t identify"
                 value={customName}
                 onChangeText={setCustomName}
@@ -651,74 +739,8 @@ function LogSightingScreen() {
             </View>
           ) : null}
 
-          {/* What was seen, together under the animals: notes about them, a photo, who can see it. The dive's own notes stay with the dive. */}
-          {chosen.length > 0 ? (
-            <Group title="What you saw" icon="fieldGuide">
-              <FormField
-                label="Notes about the animals"
-                hint={chosen.length > 1 ? `Added to each of the ${chosen.length} sightings.` : undefined}
-                placeholder="Came up to check us out at the safety stop…"
-                value={notes}
-                onChangeText={setNotes}
-                multiline
-                maxLength={NOTES_MAX}
-                style={styles.notes}
-              />
-
-              {chosen.length === 1 ? (
-                <View style={{ gap: 6 }}>
-                  <ThemedText type="label" accessibilityRole="header">
-                    Photo
-                  </ThemedText>
-                  {photoUri ? (
-                    <>
-                      <Image
-                        source={photoPreview ? { uri: photoPreview } : undefined}
-                        style={[styles.photoPreview, { backgroundColor: theme.backgroundElement, borderColor: theme.cardBorder }]}
-                        contentFit="cover"
-                        accessibilityLabel={`Your photo of the ${chosen[0].commonName}`}
-                      />
-                      <Pressable onPress={() => setPhotoUri(undefined)} accessibilityRole="button" style={styles.textButton}>
-                        <Icon name="trash" size={16} color={theme.textSecondary} />
-                        <ThemedText type="smallBold" themeColor="textSecondary">
-                          Remove photo
-                        </ThemedText>
-                      </Pressable>
-                    </>
-                  ) : (
-                    <>
-                      <ThemedText type="small" themeColor="textSecondary">
-                        Sightings with a photo get a credibility badge.
-                      </ThemedText>
-                      <View style={styles.photoButtons}>
-                        <OceanButton title="Take photo" icon="camera" variant="secondary" onPress={() => pickPhoto('camera')} style={{ flex: 1 }} />
-                        <OceanButton title="Choose photo" icon="image" variant="secondary" onPress={() => pickPhoto('library')} style={{ flex: 1 }} />
-                      </View>
-                    </>
-                  )}
-                </View>
-              ) : chosen.length > 1 ? (
-                <ThemedText type="caption" themeColor="textSecondary">
-                  Photos go with one sighting each: add one afterwards from the sighting in your logbook.
-                </ThemedText>
-              ) : null}
-
-              {/* Without a backend nothing leaves the phone, so there is nobody to keep it from. */}
-              {backendEnabled ? (
-                <View ref={privacyField} collapsable={false}>
-                  <PrivacyFields
-                    value={privacy}
-                    onChange={(next) => {
-                      setPrivacy(next);
-                      setPrivacyTouched(true);
-                    }}
-                    photo={chosen.length === 1}
-                    count={chosen.length}
-                  />
-                </View>
-              ) : null}
-            </Group>
-          ) : null}
+          {/* A new page puts the animals' notes, photo and privacy after the dive's own facts, inside the form; an edit has no dive facts, so they follow the card. */}
+          {!newDive ? animalBlock : null}
 
           {losesVerification ? (
             <Paper tone="sand" style={styles.warning}>
@@ -744,9 +766,9 @@ function LogSightingScreen() {
                 }
                 setDraft((d) => ({ ...d, ...patch }));
               }}
-              nextNumber={nextNumber}
               takenBy={takenBy ? { number: takenBy.number, siteName: siteById(takenBy.siteId)?.name } : undefined}
               carried={start.from !== undefined ? { from: start.from, what: start.what } : undefined}
+              afterNotes={animalBlock}
             />
           ) : null}
           {newDive && !dateTouched && date !== localIsoDate(new Date()) ? (
@@ -768,7 +790,6 @@ function LogSightingScreen() {
               }}
               accessibilityRole="button"
               accessibilityLabel={`Visible to: ${privacySummary(privacy, { photo: chosen.length === 1 })}. Change who can see this`}
-              hitSlop={{ top: 6, bottom: 6 }}
               style={({ pressed }) => [styles.visibleTo, { opacity: pressed ? 0.6 : 1 }]}>
               <Text style={[styles.visibleToText, { color: theme.textSecondary }]} numberOfLines={2}>
                 Visible to: <Text style={{ fontFamily: Type.bodyHeavy, color: theme.text }}>{privacySummary(privacy, { photo: chosen.length === 1 })}</Text>
@@ -871,7 +892,7 @@ function SpeciesPicker({
     <View ref={lift} collapsable={false} style={{ flex: 1, paddingBottom: keyboard.overlap }}>
       <View style={[styles.picker, styles.pickerTop]}>
         <FormField
-          label={multi ? 'What did you see? Tick everything' : 'What did you see?'}
+          label="What did you see?"
           value={query}
           onChangeText={setQuery}
           placeholder="Search: manta, nudibranch, turtle…"
@@ -1347,7 +1368,11 @@ const styles = StyleSheet.create({
   details: { padding: Spacing.three, gap: Spacing.four, paddingBottom: Spacing.four, width: '100%', maxWidth: 720, alignSelf: 'center' },
   sawCard: { gap: 4, paddingBottom: 8 },
   nameField: { gap: 6 },
-  visibleTo: { minHeight: 36, justifyContent: 'center' },
+  // A 44 pt strip to tap, the full width of the bar.
+  visibleTo: { minHeight: 44, justifyContent: 'center' },
+  animals: { gap: Spacing.three + 2 },
+  names: { flexDirection: 'row', alignItems: 'center', gap: Spacing.two },
+  flex: { flex: 1 },
   visibleToText: { fontFamily: Type.bodySemiBold, fontSize: 14, lineHeight: 19 },
   sawHeader: { gap: 2, marginBottom: 8 },
   summary: {

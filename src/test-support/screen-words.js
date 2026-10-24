@@ -23,8 +23,12 @@ function flatten(node) {
   return node.children.map(flatten).join('');
 }
 
-/** The separate pieces of text on a screen, in reading order (toJSON() of a react-test-renderer tree). */
-export function screenTexts(json) {
+/**
+ * The separate pieces of text on a screen, in reading order (toJSON() of a react-test-renderer tree).
+ * A text field's example text (its placeholder) is left out unless asked for, as in the audit that set the
+ * budgets: it is not copy the screen explains itself with, and it goes as soon as the diver types.
+ */
+export function screenTexts(json, { placeholders = false } = {}) {
   const out = [];
   const walk = (node) => {
     if (node == null || typeof node === 'string') return;
@@ -37,8 +41,7 @@ export function screenTexts(json) {
       return;
     }
     if (node.type === 'TextInput') {
-      const shown = node.props.value ? node.props.value : node.props.placeholder;
-      if (shown) out.push(String(shown));
+      if (placeholders && !node.props.value && node.props.placeholder) out.push(String(node.props.placeholder));
       return;
     }
     (node.children ?? []).forEach(walk);
@@ -48,8 +51,8 @@ export function screenTexts(json) {
 }
 
 /** Every word the screen shows. */
-export function screenWords(json) {
-  return screenTexts(json).reduce((sum, text) => sum + countWords(text), 0);
+export function screenWords(json, options) {
+  return screenTexts(json, options).reduce((sum, text) => sum + countWords(text), 0);
 }
 
 /** How many times a piece of text is on the screen as a whole text of its own. */

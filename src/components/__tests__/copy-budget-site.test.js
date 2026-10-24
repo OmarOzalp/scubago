@@ -4,10 +4,10 @@ import { create } from 'react-test-renderer';
 import SiteDetailScreen from '@/app/site/[id]';
 import { headingTexts, screenTexts, screenWords } from '@/test-support/screen-words';
 
-// A dive site's page: at most 110 words in all (the style guide's budget for a detail page), its name once as the
+// A dive site's page: at most 100 words in all (the style guide allows 110 for a detail page), its name once as the
 // big title, the public-records explanation behind a row, and no card of zeros, legend note or "@you" on every row
 // for a site the diver knows well or has never visited.
-const BUDGET = 110;
+const BUDGET = 100;
 
 let mockHeader;
 let mockSiteId = 'cod-hole';

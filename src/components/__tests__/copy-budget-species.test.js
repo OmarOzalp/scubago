@@ -5,10 +5,10 @@ import SpeciesDetailScreen from '@/app/species/[id]';
 import { SITES } from '@/data/sites';
 import { headingTexts, screenWords } from '@/test-support/screen-words';
 
-// The species page's copy budget: a detail page says at most 110 words in all (the style guide's budget for a
+// The species page's copy budget: a detail page says at most 100 words in all (the style guide allows 110 for a
 // detail page), and names the animal once, as its own big title. Words behind a closed row ("How rare?", "About
 // these records") are not on the page until it is opened. If a new feature pushes the page over, the test says so.
-const BUDGET = 110;
+const BUDGET = 100;
 
 let mockHeader;
 jest.mock('expo-router', () => ({

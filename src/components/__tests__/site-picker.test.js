@@ -3,7 +3,7 @@ import React, { act } from 'react';
 import { FlatList, TextInput } from 'react-native';
 import { create } from 'react-test-renderer';
 import { router } from 'expo-router';
-import { SitePicker } from '../site-picker';
+import { shortRegion, SitePicker } from '../site-picker';
 import { FormField } from '@/components/form-field';
 import { PaperButton } from '@/components/journal/paper';
 import { OceanButton } from '@/components/ocean-button';
@@ -173,19 +173,48 @@ test('"Add a dive site" carries what was typed', async () => {
   expect(router.push).toHaveBeenCalledWith({ pathname: '/add-site', params: { then: 'log', name: 'New Reef' } });
 });
 
-test('"Can’t find it? Add a dive site" is beside the "Where did you dive?" label, not at the end of the list', async () => {
+test('"Can’t find it? Add a dive site" is right under the search field, 44 points tall, and not at the end of the list', async () => {
   await render();
   expect(root.root.findAllByType(OceanButton)).toHaveLength(0);
-  // It is part of the search field's label line, so it is in view with the search.
+  // It is under the search field, in the same block, so it is in view with the search; the label line no longer holds it.
   const field = root.root.findByType(FormField);
-  expect(field.props.labelAccessory).toBeDefined();
-  expect(field.findAll((n) => n === addSiteLink()).length).toBe(1);
+  expect(field.props.labelAccessory).toBeUndefined();
+  expect(field.findAll((n) => n === addSiteLink()).length).toBe(0);
+  const block = field.parent;
+  expect(block.findAll((n) => n === addSiteLink()).length).toBe(1);
+  // One line of words in a strip at least 44 points tall.
+  const flat = (style) => Object.assign({}, ...[style].flat(Infinity).filter(Boolean));
+  expect(flat(addSiteLink().props.style({ pressed: false })).minHeight).toBeGreaterThanOrEqual(44);
+  expect(text()).toContain('Can’t find it? Add a dive site');
   // And not down in the list's footer, where there are hundreds of rows to scroll past first.
   const footer = root.root.findByType(FlatList).props.ListFooterComponent;
   expect(footer).toBeNull();
   // Still there with a search that finds nothing.
   await type('zzzqx');
   expect(addSiteLink()).toBeDefined();
+});
+
+test('a row says "Red Sea, Egypt", not the whole place, unless another site has the same name; a screen reader hears all of it', async () => {
+  const place = (id, name, region) => ({ id, name, lat: 1, lng: 2, region, country: 'Egypt', blurb: '', notableSpecies: [], source: 'seed' });
+  await render({
+    sites: [
+      place('a', 'Turbo', 'Marsa Alam & the south, Red Sea'),
+      place('b', 'Blue Hole', 'Sinai, Red Sea'),
+      place('c', 'Blue Hole', 'Marsa Alam & the south, Red Sea'),
+      place('d', 'Solo Reef', 'Red Sea'),
+    ],
+  });
+  const shown = text();
+  expect(shown).toContain('Red Sea, Egypt');
+  expect(shown).toContain('Turbo | Red Sea, Egypt');
+  expect(shown).toContain('Solo Reef | Red Sea, Egypt');
+  // The two Blue Holes keep their whole place: it is the difference between them.
+  expect(shown).toContain('Sinai, Red Sea, Egypt');
+  expect(shown).toContain('Marsa Alam & the south, Red Sea, Egypt');
+  expect(shortRegion('Marsa Alam & the south, Red Sea')).toBe('Red Sea');
+  expect(shortRegion('Red Sea')).toBe('Red Sea');
+  // The label has everything.
+  expect(labels()).toContain('Turbo, Marsa Alam & the south, Red Sea, Egypt');
 });
 
 test('the OpenStreetMap credit is under the list only when imported sites are in it', async () => {
