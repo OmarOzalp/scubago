@@ -35,7 +35,7 @@ export function BadgeTile({ badge, isNew = false, onPress, medal = 72 }: { badge
         <BadgeMedal badge={badge} size={medal} />
         {isNew ? <NewBadge style={styles.new} /> : null}
       </View>
-      <Text numberOfLines={2} style={[styles.title, { color: badge.earned ? theme.text : theme.textSecondary }]}>
+      <Text numberOfLines={3} style={[styles.title, { color: badge.earned ? theme.text : theme.textSecondary }]}>
         {badge.title}
       </Text>
     </Pressable>

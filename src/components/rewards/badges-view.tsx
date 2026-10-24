@@ -112,7 +112,7 @@ function Latest({ badges, newIds, onOpenBadge }: { badges: BadgeResult[]; newIds
                 <BadgeMedal badge={badge} size={78} ribbon />
                 {isNew ? <NewBadge style={styles.latestNew} /> : null}
               </View>
-              <Text numberOfLines={2} style={[styles.latestTitle, { color: theme.text }]}>
+              <Text numberOfLines={3} style={[styles.latestTitle, { color: theme.text }]}>
                 {badge.title}
               </Text>
               <Text style={[styles.latestDate, { color: theme.textSecondary }]}>{badge.earnedOn ? stampDate(badge.earnedOn) : ''}</Text>
@@ -135,7 +135,7 @@ function NothingYet({ onLog }: { onLog?: () => void }) {
         No badges yet
       </ThemedText>
       <ThemedText type="small" themeColor="textSecondary" style={styles.center}>
-        The first one is a single sighting away. Log what you saw and it is pinned in here.
+        Log a sighting and your first badge is pinned here.
       </ThemedText>
       {onLog ? <OceanButton title="Log a dive" variant="log" icon="plus" onPress={onLog} style={styles.cta} /> : null}
     </Paper>
