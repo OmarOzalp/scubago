@@ -21,7 +21,7 @@ Nothing replays: each moment is saved as done once it has played.
 | --- | --- |
 | Which moments are owed and their order (pure, tested) | `src/lib/discoveries.ts` |
 | Playing them on My Home: timing, what's saved when | `src/hooks/use-discovery-moments.ts` |
-| A guaranteed place for an arriving species | `pickSwimmers(…, featured)` in `src/lib/swimming.ts` |
+| A guaranteed place for an arriving species | `startLineup` / `syncLineup(…, featured)` in `src/lib/swimming.ts` |
 | The arrival itself (out of sight, swimming in, settling) | `arrive()` in `src/lib/marine-motion.ts` (the reef's: `src/lib/reef-life.ts`) |
 | The tuna school arriving | `hold()` / `release()` in `src/lib/tuna-school.ts` |
 | Growth: things rising or growing in | `src/components/home/three/unlock.tsx`, `islet-material.ts` |
@@ -64,14 +64,15 @@ tracking began, which species have been celebrated, and the last level celebrate
 - **Two new species** arrive one after the other, in the order they were logged.
 - **Tuna** arrive as the whole school, once, however many tuna species are new; the tag follows the
   school.
-- The island's paging (8 animals at a time, rotating every 30 s) holds still while moments play.
+- The island's turns (8 animals at a time, one swimming off and another in about every 40 s) hold still while moments play.
 
 ## Guaranteed on screen, within the budget
 
-An arriving species is given a featured place (`pickSwimmers(residents, page, MAX_ANIMATED,
-featured)`). If it isn't on the page showing, it takes the page's last place, so the island never
-animates more than `MAX_ANIMATED` (8) animals. The featured place lasts for the visit; the next page
-change returns to the usual rotation.
+An arriving species is given a featured place in the island's lineup (`syncLineup(lineup, residents,
+MAX_ANIMATED, featured)`). If it isn't on the island, it comes on and the species longest there swims
+off (as at the end of its turn), so the island never animates more than `MAX_ANIMATED` (8) animals. A
+featured species is never the one to leave while it is featured; the turns then go on as usual
+([marine-navigation.md](marine-navigation.md#taking-turns)).
 
 It waits out of sight from the moment the collection changes: invisible, and ignored by the other
 animals and the school. On its turn, `arrive()` places it just beyond what the camera shows (working

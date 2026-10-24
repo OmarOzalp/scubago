@@ -1,5 +1,5 @@
 import { expect, test } from '@jest/globals';
-import { sampleSwimPath, advanceSwimTime, hasSchool, islandPresence, marineModelFor, pickSwimmers, schoolSpeciesFor, noneSwim, speciesMarineModel, swimmerPages, swimsInSchool, MAX_ANIMATED } from '@/lib/swimming';
+import { sampleSwimPath, advanceSwimTime, ageLineup, hasSchool, islandPresence, lineupSwimmers, marineModelFor, pickSwimmers, schoolSpeciesFor, noneSwim, speciesMarineModel, startLineup, swimmerPages, swimsInSchool, syncLineup, takeTurn, MAX_ANIMATED, TURNS } from '@/lib/swimming';
 import { TUNA_SCHOOL } from '@/lib/tuna-school';
 import type { DexEntry, Species } from '@/lib/types';
 
@@ -61,6 +61,64 @@ test('large collections are bounded and page deterministically, wrapping around'
   expect(pickSwimmers(residents, 1)).toEqual(pickSwimmers(residents, 1));
   expect(swimmerPages([])).toBe(1);
   expect(swimmerPages([entry('t', 'turtle')])).toBe(1);
+});
+
+test('a large collection takes turns one at a time: the longest on the island leaves, the next comes on, round robin, everyone in turn', () => {
+  const residents = Array.from({ length: 13 }, (_, i) => entry(`fish-${i}`, 'fish'));
+  let lineup = startLineup(residents);
+  expect(lineup.shown.map((s) => s.species.id)).toEqual(pickSwimmers(residents).map((s) => s.species.id));
+  const onIsland = new Map(lineup.shown.map((s) => [s.species.id, s.lane]));
+  const turnsOn = new Map<string, number>();
+  for (let turn = 1; turn <= 26; turn++) {
+    const before = lineup;
+    lineup = ageLineup(takeTurn(lineup, residents), TURNS.every);
+    // One leaves (the one longest on the island) and one comes on; nobody else changes, nor their lanes.
+    const left = before.shown.filter((s) => !lineup.shown.includes(s)), came = lineup.shown.filter((s) => !before.shown.includes(s));
+    expect(left).toEqual([before.shown[0]]);
+    expect(came).toHaveLength(1);
+    expect(lineup.shown).toHaveLength(MAX_ANIMATED);
+    for (const s of lineup.shown) if (s !== came[0]) expect(s.lane).toBe(onIsland.get(s.species.id));
+    // The newcomer's lane is no one else's on the island, nor the leaver's while it swims off.
+    expect(lineupSwimmers(lineup).filter((s) => s.lane === came[0].lane)).toHaveLength(1);
+    onIsland.delete(left[0].species.id);
+    onIsland.set(came[0].species.id, came[0].lane);
+    turnsOn.set(came[0].species.id, (turnsOn.get(came[0].species.id) ?? 0) + 1);
+  }
+  // Round robin: in 26 turns, every species of the 13 has come back on twice (no one skipped, no one twice in a row).
+  expect(residents.every((r) => (turnsOn.get(r.species.id) ?? 0) === 2)).toBe(true);
+  // Lanes stay few: those on the island and the one swimming off.
+  expect(Math.max(...lineupSwimmers(lineup).map((s) => s.lane))).toBeLessThanOrEqual(MAX_ANIMATED);
+});
+
+test('turns keep a new discovery on the island, and follow the collection: everyone fits, a deletion, a new species', () => {
+  const residents = Array.from({ length: 10 }, (_, i) => entry(`fish-${i}`, 'fish'));
+  // A small collection fits: no turns.
+  const few = startLineup(residents.slice(0, 5));
+  expect(takeTurn(few, residents.slice(0, 5))).toBe(few);
+  // The featured new species is never the one to leave, though it came last.
+  let lineup = startLineup(residents, MAX_ANIMATED, ['fish-9']);
+  expect(lineup.shown.map((s) => s.species.id)).toContain('fish-9');
+  for (let turn = 0; turn < 12; turn++) {
+    lineup = ageLineup(takeTurn(lineup, residents, ['fish-9']), TURNS.leave);
+    expect(lineup.shown.map((s) => s.species.id)).toContain('fish-9');
+  }
+  // Nothing changed: the same lineup.
+  expect(syncLineup(lineup, residents)).toBe(lineup);
+  // A species deleted is gone at once, and the next in turn takes its place; the others keep their lanes.
+  const gone = lineup.shown[2].species.id, rest = residents.filter((r) => r.species.id !== gone);
+  const synced = syncLineup(lineup, rest);
+  expect(synced.shown.map((s) => s.species.id)).not.toContain(gone);
+  expect(lineupSwimmers(synced).map((s) => s.species.id)).not.toContain(gone);
+  expect(synced.shown).toHaveLength(MAX_ANIMATED);
+  for (const s of lineup.shown) if (s.species.id !== gone) expect(synced.shown.find((t) => t.species.id === s.species.id)?.lane).toBe(s.lane);
+  // A new discovery featured on a full island comes on, the one longest there leaving.
+  const added = [...rest, entry('fish-new', 'fish')], featured = syncLineup(synced, added, MAX_ANIMATED, ['fish-new']);
+  expect(featured.shown.map((s) => s.species.id)).toContain('fish-new');
+  expect(featured.leaving.map((l) => l.swimmer)).toContain(synced.shown[0]);
+  expect(lineupSwimmers(featured).find((s) => s.species.id === synced.shown[0].species.id)?.leaving).toBe(true);
+  // Its lane is held while it swims off, then free again.
+  expect(ageLineup(featured, TURNS.leave - 1).leaving).toHaveLength(1);
+  expect(ageLineup(featured, TURNS.leave).leaving).toHaveLength(0);
 });
 
 test('exact species receive distinct art before family fallbacks', () => {

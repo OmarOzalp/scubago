@@ -142,3 +142,95 @@ describe('a featured place for a new discovery', () => {
     expect(pickSwimmers(residents, 0, MAX_ANIMATED, [onPage0[3].species.id])).toEqual(onPage0);
   });
 });
+
+describe('taking turns on the island', () => {
+  /** A scene of four species (a dolphin pod among them) at the Coral Reef, a while in, the turtle (lane 1) up in the water. */
+  function settled() {
+    const members: MarineMember[] = [{ model: 'tiger-shark', lane: 0 }, { model: 'green-turtle', lane: 1 }, { model: 'bottlenose-dolphin', lane: 2, group: 3 }, { model: 'whale-shark', lane: 3 }];
+    const motion = createMarineMotion(members, 3, { seed: .37 });
+    for (let i = 0; i < 60 * 20 || motion.dive(1).opacity < 1; i++) motion.step(dt, true);
+    return motion;
+  }
+  const modelOf = (motion: ReturnType<typeof createMarineMotion>, lane: number) => motion.swimmers.find((s) => s.lane === lane)!.model;
+
+  it('one swims off out of the view and the next swims in from beyond it; nobody else is moved', () => {
+    const motion = settled(), twin = settled();
+    const others = motion.swimmers.map((s) => s.lane).filter((lane) => lane !== 1);
+    expect(motion.add({ model: 'reef-manta', lane: 4 }, { aspect: ASPECT })).toBe(true);
+    expect(motion.depart(1, { aspect: ASPECT })).toBe(true);
+    expect(motion.departure(1)).not.toBeNull();
+    // The newcomer starts beyond the edge of the view, heading in.
+    expect(unseen(motion, 4)).toBe(true);
+    const start = motion.get(4)!;
+    expect(Math.cos(start.heading - Math.atan2(-start.x, -start.z))).toBeGreaterThan(.7);
+    const radius0 = Math.hypot(motion.get(1)!.x, motion.get(1)!.z);
+    let t = 0, sawIt = false, outward = 0, last = { unseen: false, opacity: 1 };
+    let before = new Map(others.map((lane) => [lane, { ...motion.get(lane)!, opacity: motion.dive(lane).opacity }]));
+    while ((motion.get(1) || motion.arrival(4)!.stage !== 'arrived') && t < 40) {
+      motion.step(dt, true); twin.step(dt, true); t += dt;
+      // Nobody else jumps, in place or in sight: each moves no faster than it swims, and fades in or out only as its dives do.
+      for (const lane of others) {
+        const p = motion.get(lane)!, q = before.get(lane)!, m = MOVEMENT[modelOf(motion, lane)];
+        expect(Math.hypot(p.x - q.x, p.z - q.z)).toBeLessThan(2.2 * m.cruise * dt + 1e-6);
+        expect(Math.abs(motion.dive(lane).opacity - q.opacity)).toBeLessThan(.02);
+        // In the first moments (the newcomer still far off) everyone swims just as they would have without the turn.
+        if (t < .5) expect(Math.hypot(p.x - twin.get(lane)!.x, p.z - twin.get(lane)!.z)).toBeLessThan(.01);
+      }
+      before = new Map(others.map((lane) => [lane, { ...motion.get(lane)!, opacity: motion.dive(lane).opacity }]));
+      if (motion.get(4) && !unseen(motion, 4)) sawIt = true;
+      const leaver = motion.get(1);
+      if (leaver) { outward = Math.max(outward, Math.hypot(leaver.x, leaver.z) - radius0); last = { unseen: unseen(motion, 1), opacity: motion.dive(1).opacity }; }
+    }
+    // The leaver swam out to sea and was out of sight (out of the view, or faded into the deep beyond the frame) before it was gone.
+    expect(motion.get(1)).toBeUndefined();
+    expect(motion.swimmers.map((s) => s.lane)).not.toContain(1);
+    expect(outward).toBeGreaterThan(1);
+    expect(last.unseen || last.opacity < .05).toBe(true);
+    expect(t).toBeLessThan(30);
+    // The newcomer came into view and settled in.
+    expect(sawIt).toBe(true);
+    expect(motion.arrival(4)!.stage).toBe('arrived');
+    expect(motion.swimmers.filter((s) => s.leader === 2)).toHaveLength(3);
+  });
+
+  it('a pod leaves together; one out of sight already, or deleted, is gone at once', () => {
+    const motion = settled();
+    motion.depart(2, { aspect: ASPECT });
+    let t = 0;
+    while (motion.swimmers.some((s) => s.leader === 2) && t < 30) { motion.step(dt, true); t += dt; }
+    expect(motion.swimmers.some((s) => s.leader === 2)).toBe(false);
+    // Waiting out of sight to arrive, it is simply gone.
+    motion.add({ model: 'reef-manta', lane: 5 }, { waiting: true });
+    expect(motion.arrival(5)!.stage).toBe('offstage');
+    expect(motion.depart(5)).toBe(true);
+    expect(motion.get(5)).toBeUndefined();
+    // Deleted: off the island at once.
+    expect(motion.remove(0)).toBe(true);
+    expect(motion.get(0)).toBeUndefined();
+    expect(motion.remove(0)).toBe(false);
+    // A lane already taken is refused.
+    expect(motion.add({ model: 'reef-manta', lane: 3 })).toBe(false);
+  });
+
+  it('a reef animal takes its turn the reef\'s way: it fades out where it is, and the next arrives on the reef', () => {
+    const members: MarineMember[] = [{ model: 'tiger-shark', lane: 0 }, { model: 'giant-moray', lane: 1 }];
+    const motion = createMarineMotion(members, 1, { seed: .2 });
+    for (let i = 0; i < 60 * 5; i++) motion.step(dt, true);
+    const at = { ...motion.get(1)! };
+    expect(motion.depart(1)).toBe(true);
+    for (let i = 0; i < 60 * 1; i++) motion.step(dt, true);
+    expect(motion.dive(1).opacity).toBeLessThan(.7);
+    expect(Math.hypot(motion.get(1)!.x - at.x, motion.get(1)!.z - at.z)).toBeLessThan(.5);
+    for (let i = 0; i < 60 * 3; i++) motion.step(dt, true);
+    expect(motion.get(1)).toBeUndefined();
+    expect(motion.reef!.counts.morays).toBe(0);
+    // An octopus comes on: it edges out by its rock as it fades in.
+    expect(motion.add({ model: 'day-octopus', lane: 2 })).toBe(true);
+    expect(motion.arrival(2)!.stage).toBe('entering');
+    expect(motion.reef!.counts.octopuses).toBe(1);
+    let t = 0;
+    while (motion.arrival(2)!.stage !== 'arrived' && t < 20) { motion.step(dt, true); t += dt; }
+    expect(motion.arrival(2)!.stage).toBe('arrived');
+    expect(motion.dive(2).opacity).toBe(1);
+  });
+});

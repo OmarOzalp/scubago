@@ -2,7 +2,11 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import type { MarineModel } from '@/lib/swimming';
 import { getLoadedMarineModels, loadMarineModels, type MarineModels } from './marine-loader';
 
-/** Only the current visible page is requested; stale completions cannot replace it. */
+/**
+ * The models of the animals in the scene (and of one about to join it), requested together; stale completions cannot replace
+ * them. While a changed request loads, the models already loaded stay (the scene keeps its animals; a newcomer joins once its
+ * model is there).
+ */
 export function useMarineModels(requested: readonly MarineModel[]) {
   const key = [...new Set(requested)].sort().join(',');
   const [attempt, setAttempt] = useState(0);
@@ -23,5 +27,7 @@ export function useMarineModels(requested: readonly MarineModel[]) {
       });
     return () => { current = false; };
   }, [request]);
-  return { models: state.request === request ? state.models : getLoadedMarineModels(requested), failed: state.request === request && state.failed, retry };
+  const kept = state.models && Object.keys(state.models).length > 0 ? state.models : null;
+  const current = state.request === request ? state.models : getLoadedMarineModels(requested) ?? kept;
+  return { models: current, failed: state.request === request && state.failed, retry };
 }

@@ -476,6 +476,18 @@ export type ArrivalStage = 'offstage' | 'entering' | 'arrived';
 type Arrival = { stage: ArrivalStage; since: number; homeX: number; homeZ: number; aspect: number };
 const OFFSTAGE_DIVE = { depth: 1, surfacing: false, y: SWIM_LEVEL, opacity: 0, visible: false };
 const ENTERING_DIVE = { depth: 0, surfacing: false, y: SWIM_LEVEL, opacity: 1, visible: true };
+/**
+ * One of the island's animals leaving it (`depart()`: another takes its turn on the island, swimmers.ts): it swims out to sea past
+ * the edge of the view, fading into the deep as it goes beyond the frame (a wider canvas, the explorer's, sees farther), and is gone
+ * once out of sight. `aspect` is the canvas's (width / height), for where the edge of the view is.
+ */
+type Departure = { since: number; aspect: number; gone: boolean };
+/** How far past the frame (its edge measure, 1 at the frame) a leaving animal has faded into the deep, from not at all to wholly. */
+const DEPART_FADE = [1.1, 1.4] as const;
+/** A departure that takes longer than this (s) dives away where it is, over `DEPART_SINK` seconds. */
+const DEPART_LIMIT = 24, DEPART_SINK = 3;
+/** How quickly (1/s) the dive cycle's crowding follows the number of species on the island as they come and go. */
+const CROWD_EASE = 1 / 20;
 
 /** The surge's direction (see Movement.sway and kelp.ts). */
 const SWAY_FLOW = { x: Math.cos(KELP.current), z: Math.sin(KELP.current) };
@@ -612,6 +624,8 @@ type Group = {
   blocked: boolean;
   /** Arriving as a new discovery (null for the rest), and how far its dive clock is shifted after arriving (s). */
   arrival: Arrival | null; diveShift: number;
+  /** Leaving the island (null for the rest). */
+  departure: Departure | null;
 };
 
 type Animal = {
@@ -727,9 +741,14 @@ export function createMarineMotion(everyMember: readonly MarineMember[], level =
   const onReef = (m: MarineMember) => (MOVEMENT[m.model].habitat ?? 'open-water') !== 'open-water' && isReefModel(m.model);
   const members = everyMember.filter((m) => !onReef(m));
   const reefMembers = everyMember.flatMap((m) => (onReef(m) && isReefModel(m.model) ? [{ model: m.model, lane: m.lane }] : []));
-  const reef = reefMembers.length ? createReefLife(reefMembers, level, { seed, arriving: options.arriving, shape, bottom: () => underReef }) : null;
-  /** Species on the island: dives are staggered among them (see ocean-depth.ts); group members count once. */
-  const population = members.length;
+  // (made when the first of them joins the island, if none is there to begin with)
+  const reefLife = (start: typeof reefMembers, at: number) => createReefLife(start, at, { seed, arriving: options.arriving, shape, bottom: () => underReef });
+  let reef = reefMembers.length ? reefLife(reefMembers, level) : null, reefVersion = reef?.version ?? 0;
+  /**
+   * Species on the island: dives are staggered among them (see ocean-depth.ts); group members count once. As species come and go
+   * (`add()`, `depart()`) it eases to their number, so no animal's dive jumps.
+   */
+  let population = members.length;
   // The ocean area animals keep to and their extra roaming room: this level's, easing to a new level's after setLevel().
   const ocean = { world: worldFor(level), roam: roamFor(level) };
   let goal = { world: worldFor(level), roam: roamFor(level) };
@@ -859,7 +878,11 @@ export function createMarineMotion(everyMember: readonly MarineMember[], level =
   /** The last few splashes (a leap's exit and re-entry), oldest overwritten first: where, when (s) and how strong (0..1). */
   const splashes = Array.from({ length: 8 }, () => ({ x: 0, z: 0, time: -Infinity, strength: 0 }));
   let splashHead = 0;
-  const animals: Animal[] = members.map((member, index) => {
+  /**
+   * A species' own animal (its group's leader, followers apart: `makeFollowers`), starting round the island from the angle `first` (rad)
+   * in the middle of the species' roaming band, heading along the coast; or, `arriving`, waiting out of sight to swim in to there.
+   */
+  function makeLeader(member: MarineMember, first: number, arriving: boolean): Animal {
     const base = MOVEMENT[member.model], style = GROUP_STYLES[member.model] ?? null;
     const count = style ? clamp(Math.round(member.group ?? 1), 1, 1 + style.places.length) : 1;
     const m = count > 1 ? spread(base, style!, count - 1) : base;
@@ -867,8 +890,6 @@ export function createMarineMotion(everyMember: readonly MarineMember[], level =
     const world = { x: ocean.world.x * factor, z: ocean.world.z * factor };
     const shift = apparentShift(m.depth);
     const direction = variation(member.lane, 0) < .68 ? 1 : -1;
-    // Start spread around the island in the middle of the species' roaming band, heading along the coast.
-    const first = index * TAU / Math.max(1, members.length) + .3;
     const target = m.islandClearance + (m.roam[0] + m.roam[1]) / 2;
     const allowance = Math.max(0, m.islandClearance - m.halfWidth - ISLET_MARGIN);
     // Out from the island to the first water it fits in with the room it likes, or where there is most room if never that much
@@ -900,7 +921,7 @@ export function createMarineMotion(everyMember: readonly MarineMember[], level =
     const y = -.02 + m.depth + Math.sin(member.lane * 1.7) * m.bob;
     const group: Group = {
       style: count > 1 ? style : null, size: count, members: [], lastLeap: -Infinity, nextSwap: Infinity, swaps: 0, traded: -Infinity, blocked: false,
-      arrival: options.arriving?.includes(member.lane) ? { stage: 'offstage', since: 0, homeX: x, homeZ: z, aspect: 1 } : null, diveShift: 0,
+      arrival: arriving ? { stage: 'offstage', since: 0, homeX: x, homeZ: z, aspect: 1 } : null, diveShift: 0, departure: null,
     };
     const animal: Animal = {
       model: member.model, lane: member.lane, group, m, base, x, z, y, heading, speed: m.cruise, turn: 0, bank: m.tilt, climb: 0, shift, allowance,
@@ -919,13 +940,12 @@ export function createMarineMotion(everyMember: readonly MarineMember[], level =
     animal.y = animal.level = animal.previous.y = animal.pose.y = swimHeight(animal, Math.sin(member.lane * 1.7) * m.bob, true);
     animal.shift = apparentShift(animal.y);
     group.members.push(animal);
-    if (group.style) group.nextSwap = group.style.swapEvery ? group.style.swapEvery * (.5 + variation(member.lane + 17, 0)) : Infinity;
+    if (group.style) group.nextSwap = time + (group.style.swapEvery ? group.style.swapEvery * (.5 + variation(member.lane + 17, 0)) : Infinity);
     return animal;
-  });
-  /** Followers: each group's other members, starting in their places behind the leader. */
-  const followers: Animal[] = [];
-  for (const head of animals) {
-    const style = head.group.style;
+  }
+  /** A group's other members (none for a lone animal), starting in their places behind its leader. */
+  function makeFollowers(head: Animal): Animal[] {
+    const style = head.group.style, made: Animal[] = [];
     for (let index = 1; style && index < head.group.size; index++) {
       const m = head.base, [across, behind] = style.places[index - 1], hull = head.hull, { field: steering, free, wall } = waterFor(m.islandClearance, m.roam[0], m.tilt, hull, head.margin, head.stance);
       const hx = Math.sin(head.heading), hz = Math.cos(head.heading), allowance = Math.max(0, m.islandClearance - m.halfWidth - ISLET_MARGIN);
@@ -948,23 +968,41 @@ export function createMarineMotion(everyMember: readonly MarineMember[], level =
       follower.y = follower.level = follower.previous.y = follower.pose.y = swimHeight(follower, style.depthSpread * (index % 2 ? -1 : 1), true);
       follower.shift = apparentShift(follower.y);
       head.group.members.push(follower);
-      followers.push(follower);
+      made.push(follower);
     }
+    return made;
   }
-  /** Everyone drawn: the species' animals, then the followers. */
-  const everyone = [...animals, ...followers];
-  const groups = animals.map((a) => a.group);
-  const swimmers: MarineSwimmer[] = everyone.map((a) => ({ model: a.model, lane: a.lane, leader: a.group.members[0].lane, index: a.index }));
-  if (reef) swimmers.push(...reef.swimmers);
+  const animals: Animal[] = members.map((member, index) => makeLeader(member, index * TAU / Math.max(1, members.length) + .3, !!options.arriving?.includes(member.lane)));
+  const followers: Animal[] = animals.flatMap(makeFollowers);
+  /** Everyone drawn: the species' animals, then the followers; their groups; and the scene's list of them (the reef's animals too). */
+  const everyone: Animal[] = [], groups: Group[] = [], swimmers: MarineSwimmer[] = [];
   /** What the reef animals see of the open water's animals (refreshed in place every step), when there are any. */
-  const visitors: ReefVisitor[] = reef ? everyone.map(() => ({ x: 0, z: 0, hx: 0, hz: 1, threat: 0, size: 0, width: 0, presence: 0 })) : [];
+  const visitors: ReefVisitor[] = [];
   /** What the school sees of the animals (every one of them, as itself), refreshed in place every step. */
-  const neighbors: SchoolNeighbor[] = everyone.map((a) => ({
-    model: a.model, x: a.x, y: a.y, z: a.z, heading: a.heading, speed: a.speed, halfLength: a.base.halfLength, halfWidth: a.base.halfWidth, presence: 1, charging: false,
-  }));
-  const byLane = new Map(everyone.map((animal) => [animal.lane, animal]));
-  /** For each pair in an encounter, which side the first of the two keeps (+1 outside), decided once for the whole encounter. */
+  const neighbors: SchoolNeighbor[] = [];
+  const byLane = new Map<number, Animal>();
+  /** How many times who is on the island has changed (an animal added, gone or removed): the scene redraws its list then. */
+  let version = 0;
+  /** Everyone as they are now (after an animal came or went), in the lists above. */
+  function roster() {
+    everyone.length = 0; everyone.push(...animals, ...followers);
+    groups.length = 0; groups.push(...animals.map((a) => a.group));
+    swimmers.length = 0; swimmers.push(...everyone.map((a) => ({ model: a.model, lane: a.lane, leader: a.group.members[0].lane, index: a.index })));
+    if (reef) swimmers.push(...reef.swimmers);
+    visitors.length = 0;
+    if (reef) visitors.push(...everyone.map(() => ({ x: 0, z: 0, hx: 0, hz: 1, threat: 0, size: 0, width: 0, presence: 0 })));
+    neighbors.length = 0;
+    neighbors.push(...everyone.map((a) => ({
+      model: a.model, x: a.x, y: a.y, z: a.z, heading: a.heading, speed: a.speed, halfLength: a.base.halfLength, halfWidth: a.base.halfWidth, presence: 1, charging: false,
+    })));
+    byLane.clear();
+    for (const a of everyone) byLane.set(a.lane, a);
+    version++;
+  }
+  roster();
+  /** For each pair in an encounter (by their lanes), which side the first of the two (the lower lane) keeps (+1 outside), decided once for the whole encounter. */
   const encounters = new Map<number, number>();
+  const pairKey = (i: number, j: number) => { const p = animals[i].lane, q = animals[j].lane; return p < q ? p * 4096 + q : q * 4096 + p; };
   /**
    * Its dive (see ocean-depth.ts): a group dives together on its leader's cycle, each member a little
    * after the one before. An arriving group waits out of sight, then stays up in the water until it
@@ -974,7 +1012,13 @@ export function createMarineMotion(everyMember: readonly MarineMember[], level =
     const g = a.group, stage = g.arrival?.stage;
     if (stage === 'offstage') return OFFSTAGE_DIVE;
     if (stage === 'entering') return ENTERING_DIVE;
-    return sampleDive(at - a.delay - g.diveShift, g.members[0].lane, population);
+    const dive = sampleDive(at - a.delay - g.diveShift, g.members[0].lane, population), D = g.departure;
+    if (!D) return dive;
+    // Leaving: it fades into the deep as it goes on past the frame (or, taking too long about it, where it is).
+    const fade = Math.max(smoothstep(DEPART_FADE[0], DEPART_FADE[1], frame(a.x, a.z + a.shift, ocean.world).edge),
+      smoothstep(DEPART_LIMIT, DEPART_LIMIT + DEPART_SINK, D.since + at - time));
+    if (fade <= dive.depth) return dive;
+    return { depth: fade, surfacing: false, y: SWIM_LEVEL - fade * DIVE_DEPTH, opacity: 1 - smoothstep(0, 1, fade), visible: fade < .995 };
   };
   /**
    * How far it sinks on a dive now (units below its height): its dive's depth, but never past what the
@@ -984,8 +1028,14 @@ export function createMarineMotion(everyMember: readonly MarineMember[], level =
     const dive = diveOf(a, at);
     return dive === OFFSTAGE_DIVE || dive === ENTERING_DIVE ? 0 : Math.min(dive.depth * DIVE_DEPTH, a.room);
   };
-  /** Swimming as usual: not waiting to arrive or on its way in. */
-  const settled = (a: Animal) => !a.group.arrival || a.group.arrival.stage === 'arrived';
+  /**
+   * The shore an animal steers by: its own field (the island's, with the water too shallow for it and, where its water is cut off, the
+   * edge of its ocean counted as shore), or, leaving the island for the open sea where that edge would turn it back, the island's alone
+   * (a body whose water is cut off lives out beyond the shallows already).
+   */
+  const steeringField = (a: Animal) => (a.group.departure && a.cut ? field : a.field);
+  /** Swimming as usual: not waiting to arrive or on its way in, nor leaving. */
+  const settled = (a: Animal) => (!a.group.arrival || a.group.arrival.stage === 'arrived') && !a.group.departure;
   /**
    * How much an animal counts for the others: 1 near the surface, fading to 0 while it is deep
    * below them on a dive, and back to 1 a few seconds before it returns.
@@ -1042,11 +1092,13 @@ export function createMarineMotion(everyMember: readonly MarineMember[], level =
     const breath = breathing(a);
     return breath > 0 ? a.level + (SURFACE - a.m.breathe!.clearance - a.level) * breath : a.level;
   }
-  for (const a of everyone) {
-    a.sunk = sink(a, 0);
+  /** Where its dive and breaths start, for an animal joining the scene now. */
+  function startDive(a: Animal) {
+    a.sunk = sink(a, time);
     a.worldY = a.y + SWIM_LEVEL - a.sunk;
     if (a.m.breathe) a.cycle = breathCycle(a).index;
   }
+  for (const a of everyone) startDive(a);
 
   /** Leave a splash on the water where a leap breaks the surface. */
   function splash(x: number, z: number, strength: number) {
@@ -1362,7 +1414,7 @@ export function createMarineMotion(everyMember: readonly MarineMember[], level =
     for (const a of animals) if (a.hunt && settled(a)) stalk(a, a.hunt);
     const snapshot = animals.map((a) => {
       const m = a.m, hx = Math.sin(a.heading), hz = Math.cos(a.heading), x = a.x, z = a.z + a.shift, r2 = x * x + z * z || 1;
-      const shore = a.field.island(x, z, a.allowance);
+      const shore = steeringField(a).island(x, z, a.allowance);
       // The farthest out it may go here: just inside the frame (a group's leader keeps its whole group inside).
       const edge = frame(x, z, a.world).edge, outward = frame(x + shore.nx * .5, z + shore.nz * .5, a.world).edge;
       const low = m.islandClearance + .2, spread = m.halfWidth - a.base.halfWidth;
@@ -1397,7 +1449,7 @@ export function createMarineMotion(everyMember: readonly MarineMember[], level =
      * each is now) takes the outside, and the pair keeps that until the encounter is over.
      */
     const side = (i: number, j: number) => {
-      const key = Math.min(i, j) * 64 + Math.max(i, j), [first, second] = i < j ? [i, j] : [j, i];
+      const key = pairKey(i, j), [first, second] = animals[i].lane < animals[j].lane ? [i, j] : [j, i];
       let kept = encounters.get(key);
       if (kept === undefined) {
         const ahead = .65 * (snapshot[first].band - snapshot[second].band) + .35 * (snapshot[first].shore.distance - snapshot[second].shore.distance);
@@ -1430,8 +1482,8 @@ export function createMarineMotion(everyMember: readonly MarineMember[], level =
         if (weight <= 0) continue;
         // Keep to their sides (see side()), sharing the move by heft about the heft-weighted middle of where
         // each would like to be, then fit both lanes between the island and the frame if possible.
-        const out = side(i, j), key = Math.min(i, j) * 64 + Math.max(i, j);
-        if (!encounters.has(key)) encounters.set(key, i < j ? out : -out);
+        const out = side(i, j), key = pairKey(i, j);
+        if (!encounters.has(key)) encounters.set(key, a.lane < animals[j].lane ? out : -out);
         ongoing.add(key);
         const mine = o.presence * o.heft / (o.presence * o.heft + self.presence * self.heft);
         const middle = self.band * (1 - mine) + o.band * mine;
@@ -1508,6 +1560,9 @@ export function createMarineMotion(everyMember: readonly MarineMember[], level =
       if (arrival?.stage === 'entering') {
         const dx = arrival.homeX - a.x, dz = arrival.homeZ - a.z, d = Math.hypot(dx, dz) || 1e-6;
         rx = dx / d * 1.3; rz = dz / d * 1.3;
+      } else if (a.group.departure) {
+        // Leaving: out to sea, away from the island, swinging out from its way round it, on past the edge of the view.
+        rx = tx * .45 + here.nx * 1.3; rz = tz * .45 + here.nz * 1.3;
       } else if (a.hunt?.phase === 'charge') {
         const h = a.hunt, dx = h.aimX - a.x, dz = h.aimZ - a.z, d = Math.hypot(dx, dz) || 1e-6;
         rx = h.committed ? Math.sin(h.line) * 1.6 : dx / d * 1.6; rz = h.committed ? Math.cos(h.line) * 1.6 : dz / d * 1.6;
@@ -1525,7 +1580,7 @@ export function createMarineMotion(everyMember: readonly MarineMember[], level =
       const reach = m.halfLength * .5 + a.speed * (1.5 + .8 / m.turnRate);
       let threat = 0, nx = 0, nz = 0;
       for (const part of [.35, .7, 1]) {
-        const sample = a.field.island(px + hx * reach * part, pz + hz * reach * part, a.allowance);
+        const sample = steeringField(a).island(px + hx * reach * part, pz + hz * reach * part, a.allowance);
         const closing = (here.distance - sample.distance) * a.speed / (reach * part);
         if (closing <= 1e-3) continue;
         const urgency = smoothstep(4 + 1 / m.turnRate, 1 + .3 / m.turnRate, (here.distance - m.islandClearance) / closing);
@@ -1592,8 +1647,8 @@ export function createMarineMotion(everyMember: readonly MarineMember[], level =
       if (avoidLength > 1.8) { ax *= 1.8 / avoidLength; az *= 1.8 / avoidLength; }
       a.brake = clamp(brake * m.avoidance, 0, 1);
 
-      // On its way in from outside the view, the frame doesn't turn it back.
-      const inward = arrival?.stage === 'entering' ? 0 : 1;
+      // On its way in from outside the view, or out past it, the frame doesn't turn it back.
+      const inward = arrival?.stage === 'entering' || a.group.departure ? 0 : 1;
       const wx = rx + ix + ax + bx * inward, wz = rz + iz + az + bz * inward;
       // How far to turn. A half turn (a reversal, or anything close to one) keeps to the side with more
       // room while the new course is still nearly behind, so an animal never hesitates between left and
@@ -1654,6 +1709,9 @@ export function createMarineMotion(everyMember: readonly MarineMember[], level =
         const view = viewBounds(SWIM_LEVEL + a.y, ocean.world.x / WORLD.x, A.aspect), r = m.halfLength, z = a.z + a.shift;
         const unseen = Math.abs(a.x) - r > view.x || z + r < view.top || z - r > view.bottom;
         target *= (1 + ((ARRIVAL_PACE[a.model] ?? 1) - 1) * near) * (unseen ? UNSEEN_PACE : 1);
+      } else if (a.group.departure) {
+        // Leaving: its entrance's pace, and quicker once nothing of it is seen.
+        target *= (ARRIVAL_PACE[a.model] ?? 1) * (outOfView(a, a.group.departure.aspect) ? UNSEEN_PACE : 1);
       }
       // A pause (Movement.pause): it slows to hang in the water, then dashes off.
       const pause = pausing(a);
@@ -1691,7 +1749,8 @@ export function createMarineMotion(everyMember: readonly MarineMember[], level =
   function follow(a: Animal) {
     const head = a.group.members[0], style = a.group.style!, m = a.m, place = a.place!;
     if (a.group.arrival?.stage === 'offstage') { remember(a); return; }
-    const entering = a.group.arrival?.stage === 'entering';
+    // On its way in, or out with its group, the frame doesn't hold it.
+    const entering = a.group.arrival?.stage === 'entering' || !!a.group.departure;
     considerLeap(a);
     if (a.leap) progressLeap(a);
     remember(a);
@@ -1752,8 +1811,8 @@ export function createMarineMotion(everyMember: readonly MarineMember[], level =
     const pushed = Math.hypot(ax, az);
     if (pushed > .75) { ax *= .75 / pushed; az *= .75 / pushed; }
     // Island and islets, looking a little ahead, and the frame.
-    const here = a.field.island(a.x, a.z + a.shift, a.allowance), look = m.halfLength * .5 + a.speed * 1.5;
-    const ahead = a.field.island(a.x + hx * look, a.z + a.shift + hz * look, a.allowance);
+    const shores = steeringField(a), here = shores.island(a.x, a.z + a.shift, a.allowance), look = m.halfLength * .5 + a.speed * 1.5;
+    const ahead = shores.island(a.x + hx * look, a.z + a.shift + hz * look, a.allowance);
     let ix = 0, iz = 0;
     if (ahead.distance < m.islandClearance + .2) { const push = (m.islandClearance + .2 - ahead.distance) * 3; ix += ahead.nx * push; iz += ahead.nz * push; }
     if (here.distance < m.islandClearance + .05) { const push = (m.islandClearance + .05 - here.distance) * 8; ix += here.nx * push; iz += here.nz * push; }
@@ -1890,8 +1949,43 @@ export function createMarineMotion(everyMember: readonly MarineMember[], level =
     if ((inside && Math.hypot(A.homeX - head.x, A.homeZ - head.z) < 1.2) || A.since > ARRIVAL_LIMIT) settle(g);
   }
 
-  /** Ease the ocean area and roaming room toward the level's (see setLevel). */
+  /** Whether nothing of an animal is in the camera's view (`aspect`: the canvas's width / height), at the height it swims at. */
+  function outOfView(a: Animal, aspect: number) {
+    const view = viewBounds(SWIM_LEVEL + a.y, ocean.world.x / WORLD.x, aspect), r = Math.max(a.m.halfLength, a.m.halfWidth), z = a.z + a.shift;
+    return Math.abs(a.x) - r > view.x || z + r < view.top || z - r > view.bottom;
+  }
+  /** A leaving group is gone once nothing of it is to be seen: all of it out of the view or faded into the deep (or after DEPART_LIMIT and its sinking). */
+  function progressDeparture(g: Group) {
+    const D = g.departure;
+    if (!D) return;
+    D.since += STEP;
+    if (g.members.every((a) => outOfView(a, D.aspect) || !diveOf(a, time).visible) || D.since > DEPART_LIMIT + DEPART_SINK) D.gone = true;
+  }
+  /** Take a group off the island (the lists are made again by `roster()`), with any pass it was in. */
+  function drop(g: Group) {
+    const gone = new Set(g.members), lanes = new Set(g.members.map((a) => a.lane));
+    for (const list of [animals, followers]) for (let i = list.length - 1; i >= 0; i--) if (gone.has(list[i])) list.splice(i, 1);
+    for (const key of [...encounters.keys()]) if (lanes.has(Math.floor(key / 4096)) || lanes.has(key % 4096)) encounters.delete(key);
+  }
+  /** The angle round the island (rad, about its middle, as the camera shows it) farthest from every animal there: where a newcomer joins. */
+  function freeAngle() {
+    const taken = animals.filter((a) => !a.group.departure).map((a) => Math.atan2(a.z + a.shift, a.x));
+    if (!taken.length) return .3;
+    let best = .3, room = -1;
+    for (let k = 0; k < 72; k++) {
+      const angle = k * TAU / 72;
+      let near = Infinity;
+      for (const t of taken) near = Math.min(near, Math.abs(wrap(angle - t)));
+      if (near > room) { room = near; best = angle; }
+    }
+    return best;
+  }
+
+  /** Ease the ocean area and roaming room toward the level's (see setLevel), and the dive cycle's crowding toward the species there now. */
   function grow() {
+    let species = 0;
+    for (const a of animals) if (!a.group.departure) species++;
+    population += (species - population) * ease(CROWD_EASE, STEP);
     const k = ease(OCEAN_GROWTH.ease, STEP), w = ocean.world;
     w.x += (goal.world.x - w.x) * k; w.z += (goal.world.z - w.z) * k;
     ocean.roam += (goal.roam - ocean.roam) * k;
@@ -1981,6 +2075,39 @@ export function createMarineMotion(everyMember: readonly MarineMember[], level =
     }
   }
 
+  /**
+   * Bring in a species that is waiting out of sight (created with `arriving`, or added waiting). It starts just beyond
+   * what the camera shows (`aspect`, the canvas's width / height), straight out from the island past
+   * its place, heading in, and swims to its place in its own way (ARRIVAL_PACE, its movement and
+   * rig), its group with it. `instant` (reduced motion, or the scene paused) puts it straight there.
+   * Returns false if it wasn't waiting.
+   */
+  function arrive(lane: number, how: { aspect?: number; instant?: boolean } = {}) {
+    if (!byLane.has(lane) && reef?.get(lane)) return reef.arrive(lane, how);
+    const g = byLane.get(lane)?.group, A = g?.arrival;
+    if (!g || !A || A.stage !== 'offstage') return false;
+    const head = g.members[0];
+    if (how.instant) {
+      place(g, A.homeX, A.homeZ, head.heading);
+      settle(g);
+      return true;
+    }
+    A.aspect = how.aspect ?? 1;
+    const view = viewBounds(SWIM_LEVEL + head.y, ocean.world.x / WORLD.x, A.aspect);
+    const ax = A.homeX, az = A.homeZ + head.shift, r = Math.hypot(ax, az) || 1, ux = ax / r, uz = az / r;
+    // The leader's footprint takes in its group's places.
+    const reach = Math.max(head.m.halfLength, head.m.halfWidth) + ARRIVAL_MARGIN;
+    let t = r;
+    for (; t < r + 20; t += .1) {
+      const x = ux * t, z = uz * t;
+      if (Math.abs(x) - reach > view.x || z + reach < view.top || z - reach > view.bottom) break;
+    }
+    const x = ux * t, z = uz * t - head.shift;
+    place(g, x, z, Math.atan2(A.homeX - x, A.homeZ - z));
+    A.stage = 'entering'; A.since = 0;
+    return true;
+  }
+
   return {
     /** Every animal to draw: each species' own, then its group's followers. */
     swimmers,
@@ -1997,7 +2124,7 @@ export function createMarineMotion(everyMember: readonly MarineMember[], level =
       return reef?.get(lane) ? reef.dive(lane) : sampleDive(at, lane, population);
     },
     /** The reef's animals and their rocks (null when there are none). */
-    reef,
+    get reef() { return reef; },
     /**
      * Steering state for tuning overlays: the species' movement, its apparent position (and the shift
      * toward the viewer it was judged with), desired heading, target distance offshore and each
@@ -2018,38 +2145,61 @@ export function createMarineMotion(everyMember: readonly MarineMember[], level =
     },
     /** A hunter's stalking of the school (null for other species, or without a school). */
     hunt(lane: number): Readonly<Hunt> | null { return byLane.get(lane)?.hunt ?? null; },
+    /** Bring in a species waiting out of sight (see the function). */
+    arrive,
     /**
-     * Bring in a species that is waiting out of sight (created with `arriving`). It starts just beyond
-     * what the camera shows (`aspect`, the canvas's width / height), straight out from the island past
-     * its place, heading in, and swims to its place in its own way (ARRIVAL_PACE, its movement and
-     * rig), its group with it. `instant` (reduced motion, or the scene paused) puts it straight there.
-     * Returns false if it wasn't waiting.
+     * A species joining the island (another's turn ends: `depart()`): it arrives from the open sea as a new discovery does (`arrive()`),
+     * in its own way, its group with it, to a place round the island away from the others, and joins its way round. `waiting`, it waits
+     * out of sight until `arrive()` brings it in. Nobody else is moved. False if its lane is taken.
      */
-    arrive(lane: number, how: { aspect?: number; instant?: boolean } = {}) {
-      if (!byLane.has(lane) && reef?.get(lane)) return reef.arrive(lane, how);
-      const g = byLane.get(lane)?.group, A = g?.arrival;
-      if (!g || !A || A.stage !== 'offstage') return false;
-      const head = g.members[0];
-      if (how.instant) {
-        place(g, A.homeX, A.homeZ, head.heading);
-        settle(g);
+    add(member: MarineMember, how: { aspect?: number; instant?: boolean; waiting?: boolean } = {}) {
+      if (byLane.has(member.lane) || reef?.get(member.lane)) return false;
+      if (onReef(member) && isReefModel(member.model)) {
+        // A reef animal arrives the reef's way, in the next free place of its kind.
+        reef ??= reefLife([], current);
+        reef.add({ model: member.model, lane: member.lane }, how);
+        reefVersion = reef.version;
+        roster();
         return true;
       }
-      A.aspect = how.aspect ?? 1;
-      const view = viewBounds(SWIM_LEVEL + head.y, ocean.world.x / WORLD.x, A.aspect);
-      const ax = A.homeX, az = A.homeZ + head.shift, r = Math.hypot(ax, az) || 1, ux = ax / r, uz = az / r;
-      // The leader's footprint takes in its group's places.
-      const reach = Math.max(head.m.halfLength, head.m.halfWidth) + ARRIVAL_MARGIN;
-      let t = r;
-      for (; t < r + 20; t += .1) {
-        const x = ux * t, z = uz * t;
-        if (Math.abs(x) - reach > view.x || z + reach < view.top || z - reach > view.bottom) break;
-      }
-      const x = ux * t, z = uz * t - head.shift;
-      place(g, x, z, Math.atan2(A.homeX - x, A.homeZ - z));
-      A.stage = 'entering'; A.since = 0;
+      const head = makeLeader(member, freeAngle(), true), joining = makeFollowers(head);
+      animals.push(head); followers.push(...joining);
+      for (const a of head.group.members) startDive(a);
+      roster();
+      if (!how.waiting) arrive(member.lane, how);
       return true;
     },
+    /**
+     * A species' turn on the island ends: it swims out to sea past the edge of the view (`aspect`, the canvas's width / height), its
+     * group with it, fading into the deep beyond the frame, and is gone once out of sight. One out of sight already (waiting to arrive,
+     * or deep on a dive), or `instant`, is gone at once. The others carry on as they were. False if it is not on the island or already leaving.
+     */
+    depart(lane: number, how: { aspect?: number; instant?: boolean } = {}) {
+      const head = byLane.get(lane), g = head?.group;
+      if (!head && reef?.get(lane)) return reef.depart(lane, how);
+      if (!head || !g || head.index !== 0 || g.departure) return false;
+      if (how.instant || g.arrival?.stage === 'offstage' || g.members.every((a) => presence(a) < .01)) { drop(g); roster(); return true; }
+      if (g.arrival && g.arrival.stage !== 'arrived') settle(g);
+      if (head.hunt) { head.hunt.phase = 'normal'; head.hunt.since = 0; }
+      g.departure = { since: 0, aspect: how.aspect ?? 1, gone: false };
+      return true;
+    },
+    /** Take a species off the island at once (its last sighting deleted), its group with it. */
+    remove(lane: number) {
+      const head = byLane.get(lane);
+      if (!head && reef?.remove(lane)) { reefVersion = reef.version; roster(); return true; }
+      if (!head || head.index !== 0) return false;
+      drop(head.group);
+      roster();
+      return true;
+    },
+    /** A leaving species (null for one that isn't): seconds since it began to leave. */
+    departure(lane: number): Readonly<{ since: number }> | null {
+      const D = byLane.get(lane)?.group.departure;
+      return D ? { since: D.since } : null;
+    },
+    /** Counts the changes to who is on the island (`swimmers`): an animal joining, leaving or removed. */
+    get version() { return version; },
     /**
      * The tuna school as a new discovery: it waits out of sight beyond the side of the view it is on
      * (call this only while the scene isn't shown), then swims back in once released.
@@ -2116,7 +2266,13 @@ export function createMarineMotion(everyMember: readonly MarineMember[], level =
         for (const f of followers) follow(f);
         for (const g of groups) trade(g);
         for (const g of groups) progressArrival(g);
-        if (reef) { refreshVisitors(); reef.step(STEP, visitors); }
+        for (const g of groups) progressDeparture(g);
+        if (groups.some((g) => g.departure?.gone)) { for (const g of groups) if (g.departure?.gone) drop(g); roster(); }
+        if (reef) {
+          refreshVisitors(); reef.step(STEP, visitors);
+          // (a reef animal that has left is gone from its list)
+          if (reef.version !== reefVersion) { reefVersion = reef.version; roster(); }
+        }
         if (school && (schoolTick ^= 1) === 0) { refreshNeighbors(); school.step(SCHOOL_STEP, neighbors); }
       }
       publish();

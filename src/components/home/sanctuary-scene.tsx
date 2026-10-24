@@ -15,14 +15,18 @@ import { MarineSwimmers, type Arrivals } from './three/marine-swimmers';
 import { SanctuaryEnvironment, type SceneIsland } from './three/sanctuary-environment';
 import { TapAnywhere } from './three/tap-anywhere';
 import { useMarineModels } from './three/use-marine-models';
+import type { MarineModels } from './three/marine-loader';
 import { useSceneActive, useSceneVisible } from '@/hooks/use-scene-active';
 import type { WaterReach } from '@/lib/explorer-view';
 import type { Habitat } from '@/lib/home';
 import { shapeFor } from '@/lib/island-outline';
 import { captureFrame, registerSceneCapture } from '@/lib/scene-snapshot';
 import { MACRO_SPECIES, macroResidents, type MacroSpecies } from '@/lib/macro-life';
-import { clamp, oceanScale } from '@/lib/steering';
-import { hasSchool, MAX_ANIMATED, pickSwimmers, SCHOOL_SPECIES, schoolSpeciesFor, swimmerPages, swimsInSchool, type MarineModel } from '@/lib/swimming';
+import { clamp, oceanScale, variation } from '@/lib/steering';
+import {
+  ageLineup, hasSchool, lineupSwimmers, MAX_ANIMATED, SCHOOL_SPECIES, schoolSpeciesFor, startLineup, swimsInSchool, syncLineup, takeTurn, TURNS,
+  type Lineup, type MarineModel,
+} from '@/lib/swimming';
 import type { DexEntry } from '@/lib/types';
 
 /**
@@ -58,13 +62,65 @@ export type SceneMoments = Pick<Arrivals, 'waiting' | 'now' | 'onArrived'> & {
   /** A level-up banner over the island, and a note along its bottom. */
   banner: { level: number; reward: string; visible: boolean } | null;
   note: string | null;
-  /** Moments are playing: the island's animals don't change page meanwhile. */
+  /** Moments are playing: the island's animals don't take turns meanwhile. */
   busy: boolean;
 };
 
 const SCHOOLED = SCHOOL_SPECIES.filter(swimsInSchool);
+const NONE: readonly string[] = [];
 /** Where the tag sits over its animal (px): centered above it, kept inside the card. */
 const TAG = { above: 46, margin: 8, height: 24 };
+
+/** How long (s, of the scene on show) until island `index`'s next turn (`turns` taken so far): about TURNS.every, jittered, the first of each island at its own time. */
+const turnAfter = (index: number, turns: number) => TURNS.every * (turns === 0 ? .45 + .5 * variation(index + 11, 0) : 1 - TURNS.jitter + 2 * TURNS.jitter * variation(index + 3, turns));
+
+/**
+ * Each island's lineup (see Lineup in swimming.ts): who is on it now, kept in step with the collection and the featured new species
+ * (`featured`, at the first island). While `run` (the scene on show, no discovery moment playing), one species at a time takes its
+ * turn on the island, each island on its own clock; a turn waits until the newcomer's model is loaded (`ready`), and the new featured
+ * species is never the one to leave.
+ */
+function useLineups(places: readonly ScenePlace[], featured: readonly string[], run: boolean, ready: (model: MarineModel) => boolean) {
+  const [kept, setKept] = useState<ReadonlyMap<string, Lineup>>(() => new Map());
+  // In step with the collection (the same lineup when nothing changed, so this settles at once).
+  const now = places.map((place, i) => {
+    const was = kept.get(place.key), keep = i === 0 ? featured : NONE;
+    return was ? syncLineup(was, place.residents, MAX_ANIMATED, keep) : startLineup(place.residents, MAX_ANIMATED, keep);
+  });
+  if (places.some((place, i) => kept.get(place.key) !== now[i])) setKept(new Map(places.map((place, i) => [place.key, now[i]])));
+  // The timer reads the latest of everything (and keeps each island's clock: seconds on show since its last turn, and when the next is due).
+  const latest = useRef({ places, featured, ready, kept });
+  useEffect(() => { latest.current = { places, featured, ready, kept }; });
+  const clocks = useRef(new Map<string, { shown: number; due: number }>());
+  useEffect(() => {
+    if (!run) return;
+    const timer = setInterval(() => {
+      const { places: islands, featured: keep, ready: loaded, kept: lineups } = latest.current;
+      let changed = false;
+      const next = new Map(lineups);
+      islands.forEach((place, i) => {
+        const was = lineups.get(place.key);
+        if (!was) return;
+        const clock = clocks.current.get(place.key) ?? { shown: 0, due: turnAfter(i, 0) };
+        clocks.current.set(place.key, clock);
+        clock.shown += 1;
+        let lineup = ageLineup(was, 1);
+        if (clock.shown >= clock.due) {
+          const turn = takeTurn(lineup, place.residents, i === 0 ? keep : NONE);
+          // The newcomer comes once its model is ready (it is asked for ahead of its turn); until then the turn waits.
+          if (turn !== lineup && loaded(turn.shown[turn.shown.length - 1].model)) {
+            lineup = turn;
+            clock.shown = 0; clock.due = turnAfter(i, turn.turns);
+          }
+        }
+        if (lineup !== was) { next.set(place.key, lineup); changed = true; }
+      });
+      if (changed) { latest.current.kept = next; setKept(next); }
+    }, 1000);
+    return () => clearInterval(timer);
+  }, [run]);
+  return now;
+}
 
 /**
  * The island explorer (src/app/explore.tsx) draws the archipelago full screen: its own camera
@@ -114,29 +170,32 @@ export function SanctuaryScene({ habitat, level, residents, islands, paused = fa
 }) {
   const active = useSceneActive(paused);
   const visible = useSceneVisible();
-  const [page, setPage] = useState(0);
   const places = islands ?? [{ key: habitat, habitat, x: 0, z: 0, residents }];
-  const pages = Math.max(...places.map((place) => swimmerPages(place.residents)));
   const preview = SHOWCASE;
   const visitors = SHOWCASE_SWIMMERS;
-  // Each island's animals. Logged tuna are shown by the school rather than as a swimmer of their own; a tap on it
-  // opens their species. A new discovery arriving has a place of its own, whatever the page. No tuna unless one is
-  // logged (the showcase shows every animal, the school included, at the first island).
+  const busy = !!moments?.busy;
+  // Each island's animals: who is on it now and who is leaving at the end of a turn (useLineups). Logged tuna are shown by
+  // the school rather than as a swimmer of their own; a tap on it opens their species. A new discovery arriving has a place
+  // of its own. No tuna unless one is logged (the showcase shows every animal, the school included, at the first island).
+  const [models, setModels] = useState<MarineModels | null>(null);
+  const turns = useLineups(places, moments?.featured ?? NONE, active && !busy && !loading && !!models, (model) => !!models?.[model]);
   const lineups = places.map((place, i) => ({
     place,
-    swimmers: pickSwimmers(place.residents, page, MAX_ANIMATED, i === 0 ? moments?.featured : undefined),
+    swimmers: lineupSwimmers(turns[i]),
     schoolSpecies: schoolSpeciesFor(place.residents),
     school: preview ? i === 0 : hasSchool(place.residents),
   }));
   const swimmers = lineups.flatMap((lineup) => lineup.swimmers);
+  const onIsland = swimmers.filter((s) => !s.leaving).length;
   const school = lineups.some((lineup) => lineup.school);
-  const { models, failed, retry } = useMarineModels(loading ? [] : (preview ? visitors : swimmers).map((s) => s.model));
-  const busy = !!moments?.busy;
-  useEffect(() => {
-    if (!active || pages <= 1 || busy) return;
-    const timer = setInterval(() => setPage((p) => (p + 1) % pages), 30000);
-    return () => clearInterval(timer);
-  }, [active, pages, busy]);
+  // The models of everyone in the scene, and of whoever comes on at each island's next turn (loaded ahead of it).
+  const upNext = preview ? [] : turns.flatMap((lineup, i) => {
+    const turn = takeTurn(lineup, places[i].residents, i === 0 ? moments?.featured ?? NONE : NONE);
+    return turn === lineup ? [] : [turn.shown[turn.shown.length - 1].model];
+  });
+  const loaded = useMarineModels(loading ? [] : [...(preview ? visitors : swimmers).map((s) => s.model), ...upNext]), { failed, retry } = loaded;
+  // (the turns, above, need to know which are loaded)
+  if (loaded.models !== models) setModels(loaded.models);
 
   // The "New" tag: the canvas reports its animal's place on screen every frame.
   const [tag] = useState(() => ({ x: new Animated.Value(-1000), y: new Animated.Value(-1000), inView: new Animated.Value(0) }));
@@ -183,7 +242,7 @@ export function SanctuaryScene({ habitat, level, residents, islands, paused = fa
     ? `${where} with ${SHOWCASE_SWIMMERS.length} visiting species (showcase)${tuna}`
     : everyone === 0
       ? `${where}, its ocean still empty`
-      : `${where}, home to ${everyone} discovered species, ${swimmers.length} swimming${tuna}`) + explore;
+      : `${where}, home to ${everyone} discovered species, ${onIsland} swimming${tuna}`) + explore;
   // Each island's animals (and small life, in the explorer) live at its place in the ocean.
   const sceneIslands: SceneIsland[] = lineups.map(({ place, swimmers: here, schoolSpecies, school: schooling }, i) => ({
     key: place.key, habitat: place.habitat, x: place.x, z: place.z,
