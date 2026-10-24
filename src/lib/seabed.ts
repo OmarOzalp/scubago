@@ -105,9 +105,10 @@ export const SURFACE_Y = OCEAN.surfaceLevel;
 
 /**
  * Where the animals can be, past which a baked grid is only edge: the ocean at the last level is the
- * widest, and an animal's body reaches a little past its center (units).
+ * widest, and an animal's body reaches a little past its center (units). (No farther than the water and its seabed are drawn,
+ * OCEAN.waterExtent: past that there is no seabed to bake.)
  */
-const REACH = { x: worldFor(6).x + 1.4, z: worldFor(6).z + 1.4 };
+const REACH = { x: Math.min(worldFor(6).x + 1.4, OCEAN.waterExtent - .1), z: Math.min(worldFor(6).z + 1.4, OCEAN.waterExtent - .1) };
 /** Grid spacing (units): fine enough for the Coral Reef's crest, whose wall climbs about .4 in .16. */
 const STEP = .1;
 const COLUMNS = Math.ceil(2 * REACH.x / STEP) + 1, ROWS = Math.ceil(2 * REACH.z / STEP) + 1;
@@ -145,11 +146,9 @@ export type Seabed = {
   /**
    * How far (units) a point is from the places `blocked` says no (negative inside them): the lagoon and
    * crest, the shelf, a sandbar or the wreck, for a body too big to be there. Looked up on a grid of its
-   * own (a quarter unit: it only steers), found once for each `key`. With `opening` (units), the water
-   * that is not blocked is opened by a disc of that radius first: a strip of it narrower than twice that is
-   * closed, so the water ends in a blunt end that wide and not in a thread (steering has no way out of a thread).
+   * own (a quarter unit: it only steers), found once for each `key`.
    */
-  distanceTo(key: string, blocked: (x: number, z: number) => boolean, opening?: number): Shallows;
+  distanceTo(key: string, blocked: (x: number, z: number) => boolean): Shallows;
   /** The deepest the bottom goes anywhere on the grid (world y): the most water any animal can have under it. */
   deepest: number;
   /** The level it was made for. */
@@ -332,7 +331,7 @@ export function createSeabed(level: number, shape: IslandShape = 'reef', among?:
       if (!exact) { const drawn = createSeabedField(level, islands).lattice(where?.reach); exact = drawnLookup(drawn.positions, drawn.indices, home); }
       return exact(x, z);
     },
-    distanceTo(name, blocked, opening = 0) {
+    distanceTo(name, blocked) {
       let found = sampled.get(name);
       if (!found) {
         // The places blocked and the places not, each cell's distance to the other kind, on a grid of its own.
@@ -345,17 +344,6 @@ export function createSeabed(level: number, shape: IslandShape = 'reef', among?:
             no[n] = is ? 1 : 0; yes[n] = is ? 0 : 1;
             if (!is) free++;
           }
-        }
-        if (opening > 0) {
-          // The open water opened by a disc: what a disc of that radius fits in, widened again by it.
-          const reach = opening / step, toBlocked = distanceToMask(no, columns, rows), core = new Uint8Array(columns * rows);
-          for (let n = 0; n < core.length; n++) core[n] = !no[n] && toBlocked[n] - .5 > reach ? 1 : 0;
-          const toCore = distanceToMask(core, columns, rows);
-          let kept = 0;
-          const opened = new Uint8Array(no);
-          for (let n = 0; n < opened.length; n++) { if (!no[n] && toCore[n] - .5 > reach) opened[n] = 1; if (!opened[n]) kept++; }
-          // (water so thin that none of it is left stays as it was)
-          if (kept) { for (let n = 0; n < opened.length; n++) { no[n] = opened[n]; yes[n] = opened[n] ? 0 : 1; } free = kept; }
         }
         // Nowhere it can be at all (a body bigger than any water there is): nowhere is blocked, and it only keeps to the land's rules.
         if (!free) {

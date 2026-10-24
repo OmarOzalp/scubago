@@ -13,5 +13,5 @@ export function flatSeabed(level = 1, shape: IslandShape = 'reef'): Seabed {
   // (as deep as an island's shelf drops to, not the Coral Reef's wall: the open ocean the species' character tests were written for)
   const real = createSeabed(level, shape), floor = OCEAN.seabed.shelfFloor - OCEAN.seabed.floorDrop, at = () => floor;
   // (the fields of what is blocked are found for this bottom, apart from the real one's under the same names)
-  return { level, deepest: floor, floor: at, solid: at, ground: at, exact: at, distanceTo: (name, blocked, opening) => real.distanceTo(`flat|${name}`, blocked, opening) };
+  return { level, deepest: floor, floor: at, solid: at, ground: at, exact: at, distanceTo: (name, blocked) => real.distanceTo(`flat|${name}`, blocked) };
 }

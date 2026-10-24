@@ -85,9 +85,9 @@ come close to the frame), the school slims into a stream along the middle and le
   `src/lib/steering.ts`): the outer edge of that band moves out by up to 0.5 units at level 6.
 - **Depth.** The school rises and sinks by up to 0.22 (`depthRange`), over 43 s and 101 s.
 - **Pace.** It speeds up and slows over 31 s.
-- **Reversals.** Every 85 s or so (`reverseEvery`) the school makes a broad U-turn out to sea, when
-  it is calm, compact and has room. It also reverses when the way ahead is closed (a threat, or
-  water too narrow even for a stream) instead of looping.
+- **Its way round.** It keeps going round the island the same way, as the large animals do, and
+  only turns back when the way ahead is closed (a threat, or water too narrow even for a stream),
+  with a broad U-turn out to sea.
 - **Island.** It keeps off the island and islets like the large animals do: predictive steering
   from three points along its course, judged where the camera shows it. Each fish also has its own
   safety net that starts turning it away early and never lets it into the beach. Fish may come
@@ -109,6 +109,10 @@ come close to the frame), the school slims into a stream along the middle and le
   sets the school's alert level (0 to 1).
 - **Per fish.** Each fish then checks only those near animals. There is no scan of the whole world,
   no physics, no raycasts and no pathfinding.
+- **A lane of its own.** A large animal that is no threat, going round alongside the school, makes
+  the lead take a lane of its own beside it (inside or outside, whichever side the school is on, the
+  other if there is no room there), so the two do not swim on round together with the animal in the
+  middle of the school.
 
 The school has four moods, with hysteresis so a mood never flickers:
 

@@ -143,7 +143,8 @@ test('a great white that does not attack only puts the school on alert', () => {
   GREAT_WHITE_HUNT.attackProbability = 0;
   const seen = new Set<string>();
   let charges = 0;
-  const motion = run(['great-white-shark'], 1, 400, .3, (m, school) => {
+  // (each going round its own way, the shark meets the school less often than when they both turned about every minute or two)
+  const motion = run(['great-white-shark'], 1, 600, .3, (m, school) => {
     seen.add(school.state.mood);
     if (m.hunt(0)!.phase === 'charge') charges++;
   });

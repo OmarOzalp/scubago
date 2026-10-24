@@ -19,18 +19,34 @@ poses, so a 20 fps simulator and a 60 fps phone move animals identically. Each
 step, every animal blends a few influences into one desired direction, and all
 of them decide from the same snapshot:
 
-- **Roaming (the base path).** An animal follows the coastline's shape at its own
-  distance offshore. That distance drifts slowly within the species' band
-  (`islandClearance + roam`, over `roamPeriod`), so animals explore, cross paths
-  and appear from different sides. Now and then an animal reverses its circling
-  direction (`reverseEvery`). It turns around only where the U-turn fits, and
-  never while it is passing another animal.
+- **Going round (the base path).** Every animal circles the whole island, all the
+  way round and on round again, in a lane of its own: its own distance offshore,
+  following the coast's shape there (the shore-distance field's line it is on), never
+  turning back. Some go round one way and some the other (`direction`, by lane: about
+  two in three one way). Its lane is a share of the way across its
+  species' range (`islandClearance + roam`, the outer end farther out as the ocean
+  grows), so reef fish swim close in, the sharks farther out and the biggest animals
+  farthest out of all. An island's species, lanes 0, 1, 2 and on, are spread across
+  their ranges by the golden ratio (the first in the middle, the next two near either
+  end, each new one between those already there), and each drifts gently in and out
+  of its lane (`LANE.drift` of the range over `roamPeriod`). Where the water is
+  narrower than the range (the frame, or a lagoon), the lanes squeeze into what there
+  is, each keeping its share. It eases into its lane briskly going out and gently
+  coming in, so it never overshoots or steers so steeply that it would not go on round;
+  whatever else it makes room for, at least a quarter of its course is onward round the
+  island (`ONWARD`), and a little of it round the island's middle (`ONWARD_ROUND`), so a
+  bay between an islet's shelf and the island's is cut across rather than doubled back
+  out of.
 - **Lanes (animal avoidance).** When two animals will come alongside within about
-  14 s and there isn't room for both, they move into lanes a body-width apart,
+  14 s and there isn't room for both (mostly two going round opposite ways, meeting
+  head on), they move into lanes a body-width apart,
   measured in distance offshore. They do it gradually, well before they meet, and
   drift back afterward. Passing side by side replaces slowing down behind or
-  swerving at the last moment. Each pair keeps its sides for the whole encounter.
-  The one heading farther out takes the outside. The move is shared by
+  swerving at the last moment. Each pair keeps its sides for the whole encounter:
+  the sides that move the heavier of the two less (so a turtle in a lane close in,
+  with no room to go farther in, passes a whale shark on the outside), or, where
+  that is the same either way or one of them leads a group (its followers trail a
+  big move across), the one heading farther out takes the outside. The move is shared by
   *heft* (footprint area ÷ turn rate), so smaller, nimbler animals make most of
   the room: a great white does about 80% of the moving around a whale shark, and a
   whale shark barely moves for a turtle.
@@ -53,7 +69,9 @@ of them decide from the same snapshot:
   wet-sand fringe, animals may pass them a little closer: their footprint plus 0.25.
 - **The frame.** A rounded rectangle matching the view (`WORLD` at the first level,
   wider at higher ones: see [A growing ocean](#a-growing-ocean)). Near it, animals
-  turn to run along the edge rather than straight back.
+  turn to run along the edge the way they go round, rather than straight back; at the
+  edge, where the coast's line it would follow runs on out of the view, an animal
+  follows the frame's edge round instead.
 - **What the camera sees.** The camera looks down at an angle, so an animal a
   meter below the beach appears about 0.4 units closer to the viewer than it
   is. The island and the frame are judged at that apparent position, which is
@@ -155,7 +173,7 @@ room its band asks for (with no part of its body on the dry sand), or where ther
 no farther than the water does (a lagoon narrower than the band puts it in the middle of the lagoon). A body taller than the deepest water there is (the sunfish, on its side) fits where the water is deepest and no
 more, with whatever of it stands out of the water standing out.
 
-**The biggest animals and the Coral Reef's shelf** (`src/lib/shelf-water.ts`). The Coral Reef's crest comes almost to the
+**The biggest animals and the Coral Reef's shelf.** The Coral Reef's crest comes almost to the
 edge of the frame, and a whale shark, a manta or a leatherback needs a unit of deep water beyond the slope outside it for its
 wingtips (the hulls' `wing` and `width`). So the reef's outer slope, which ran down gently to a floor out past the frame, falls away as a steep wall just past
 the coral (`OCEAN.reefCrest`: `wall`, shelf reach 1.96 to 2.16, to a floor `drop`, .6, deeper than any other island's, in
@@ -165,31 +183,30 @@ field the water is drawn from and the animals swim over (`seabed-lattice.ts` has
 reef's measure of distance, so each is at one height round the island), so what a body avoids is what is drawn. (The seabed is
 drawn without depth testing, so its triangles are drawn farthest from the camera first, `farthestFirst` in ocean-mesh.ts: a wall
 that steep hides the floor beyond the crest, and drawn the other way round that floor would be painted over the crest; and what
-the depth map, which is read from above, makes of a wall, is made deeper blue the deeper it really is, so that it reads as water.) What is left is a ring of deep water round the island that is narrow at the edge of the frame; for the
-widest bodies it is cut off in a few directions (the south, where the camera's tilt puts an animal nearer the viewer than the
-map, and the cardinal points). `shelfWater` deals with it:
+the depth map, which is read from above, makes of a wall, is made deeper blue the deeper it really is, so that it reads as water.) With the
+view zoomed out a tenth (`VIEW_ZOOM`, [A growing ocean](#a-growing-ocean)), what is left is a ring of deep water round the island,
+inside the frame, all the way round for every body at the first four levels (narrowest, .16 units to spare, for the humpback, the
+leatherback, the sunfish and the oceanic manta in the south at level 1), which each of them goes round in like any other animal:
 
-- the ocean such a body keeps to is a little wider than the usual (`factor`, at most 1.15: the most the frame's bounds allow)
-  until the water it fits in is a ring all the way round the island (with all but a tenth of the directions open);
-- the edge of that ocean is shore to the body, and the water it keeps to is *opened* (`Seabed.distanceTo`'s `opening`, `OPENING`,
-  .4 units; the school's is half its ring's width): a strip of it narrower than twice that is closed, so where the ring is cut off the
-  water ends in a blunt end that wide and not in a thread, which steering has no way out of, and a neck of it too narrow for the body's
-  wingtips and tail (it would be lifted over the slope in it, and shown higher up the picture, at the edge of the frame out of it) is a dead
-  end like any other, which it turns about before;
 - the places too shallow for it are held to exactly (`leaveShallows`: a step that takes it into them is taken back, so that it moves
   no faster than it swims: heading into the edge of its water it is turned aside, heading along it, it slides), and every body is
-  held to the frame's bounds the same way (1.13 of the usual frame, or 1.09 of its own ocean; a pod's follower, which swings a little wide of its leader, 1.11);
-- where the ring is still cut off, it turns about before it comes to the dead end (`DEAD_END_LOOK`, `DEAD_END_REST`)
-  and goes round the other way, rather than be caught there; and a body that has not moved .6 units in 5 s (two big bodies
-  meeting in a pass too narrow for both, or one held at the edge of its water) swings round almost where it is (at its usual pace and turn rate), for up to 14 s, and goes
-  the other way (`STALL`; not while it rests at the surface, leaps or charges).
+  held to the frame's bounds the same way (1.13 of the usual frame, or 1.09 of its own ocean, `factor` times the usual where its
+  water asks for more room, `src/lib/shelf-water.ts`, at most 1.15; a pod's follower, which swings a little wide of its leader, 1.11);
+- the water it keeps to is the places too shallow for it *opened* by `SPECK` (.25 units): a thin streak of them (where the coast's
+  direction turns between two of the field's cells, a body heading along it swings its tail over a slope at one and not the next) is no
+  shore, so what the steering follows is the water's shape, not its specks;
+- held at the frame's bound with no water it fits in short of it (`HOLD_GIVE`: within .02 of its bound), it is no longer turned out of
+  the shallows: it goes on round along the frame, riding over them, rather than leave the view or turn back, and keeps level while it
+  has no room under it (`LEVEL_ROOM`: tipped, a long body's nose would stand out of the water).
 
-Only a body whose water is cut off is touched, and only on an island whose shelf cuts it off: the tuna school asks for less
-(`SCHOOL_SHELF`, a pass a unit wide in an ocean 1.1 times the usual, and its fish are kept out of water too shallow for them),
-the other islands' animals, the reef's small sharks and every bottom-dweller swim as they always did. At the Coral Reef every
-large animal is in view (inside the camera's picture, on a square canvas) all the time, at every level, and the biggest are
-within the frame's usual bounds (`npm run verify:swim` reports the share out of view and in water too shallow for the body, per
-animal).
+At the last two levels the islets' shelves leave the widest bodies no such ring: the reef's wall belongs to the main island, and
+where an islet's shelf is nearer the slope is the usual gentler one, to a floor about .6 shallower, so between the islets' reefs and
+the frame there is water deep enough for the whale shark, the great white and the tiger shark, but not for the humpback's or the
+reef manta's fins (two units and more across) all the way round: going round, they ride over the islets' shelves for part of each
+lap, their backs at the surface (no wider frame helps: at the southwest islet the shelf reaches out past 1.3 of it). The tuna school
+asks for less (`SCHOOL_SHELF`, a pass a unit wide in an ocean 1.1 times the usual, and its fish are kept out of water too shallow for
+them). At the Coral Reef every large animal is in view (inside the camera's picture, on a phone's canvas) all the time, at every level
+(`npm run verify:swim` reports the share out of view and in water too shallow for the body, per animal).
 
 **The bottom, as the grid has it and as it is drawn.** The baked grid (`Seabed.floor`, `solid`, `ground`) holds the highest the
 drawing is within a tenth of a unit of each point, so what is read between its points is never lower than the drawing: a body
@@ -252,8 +269,6 @@ member has its own tail phase and depth (`depthSpread`).
   as a change of depth is slow.
 - **Along the shore.** A place that would put a follower inside its island clearance
   moves out to the clearance, and the group then swings its places to the open side.
-  When the leader turns around (a reversal), its group turns with it and their places
-  swing to its other side, where the U-turn leaves them.
 - **Breathing.** Members breathe one after another, `stagger` seconds apart (2.4 s for
   dolphins), and a third member now and then stays under for a breath (`skip`).
 - **Dives.** The group dives on its leader's cycle, each member 0.8 s after the one
@@ -338,8 +353,14 @@ room. Animals keep their size; only the space and the view grow.
 | Level | 1 | 2 | 3 | 4 | 5 | 6 |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: |
 | Ocean and view scale | 1 | 1.03 | 1.07 | 1.11 | 1.16 | 1.2 |
-| Frame (half-sizes) | 4.9 × 4.3 | 5.05 × 4.43 | 5.24 × 4.6 | 5.44 × 4.77 | 5.68 × 4.99 | 5.88 × 5.16 |
+| Frame (half-sizes) | 5.39 × 4.73 | 5.55 × 4.87 | 5.77 × 5.06 | 5.98 × 5.25 | 6.25 × 5.49 | 6.47 × 5.68 |
 | Extra roaming room (units) | 0 | 0.08 | 0.18 | 0.28 | 0.4 | 0.5 |
+
+**The zoom.** Every level's view is a tenth wider than it was (`VIEW_ZOOM`, 1.1, in `src/lib/steering.ts`), uniformly, on every
+island: the island sits a tenth smaller on screen, and the frame (`WORLD`), the camera's span (`VIEW_SPAN`, which `SceneCamera`,
+`viewHeight` and `viewBounds` use), the slender animals' least tap target (`MIN_TAP`), how far the explorer's water reaches
+(`EXPLORER.reach`) and the gaps between the explorer's islands (`ISLAND_PLACES`) all come from it, so the camera and the animals'
+frame always agree. It is what gives the biggest bodies a ring of deep water all the way round the Coral Reef (above).
 
 - **What grows.** The frame animals keep to (`worldFor(level)`), the outer edge of every
   species' roaming band and of the tuna school's (`roamFor(level)`), where leaps may
@@ -362,6 +383,25 @@ it waits out of sight, invisible and ignored by the others. The tuna school can 
 (`holdSchool()`), and the reef's animals arrive on the reef instead ([Arriving](#arriving)). The
 whole sequence, with the level-up banner and islets rising, is in
 [discovery-moments.md](discovery-moments.md).
+
+### Taking turns
+
+An island animates at most `MAX_ANIMATED` (8) of its species. With more in the collection they take turns, one at a time, and
+nobody else is moved or restarted: the scene keeps one simulation for its whole life (`src/components/home/three/marine-swimmers.tsx`;
+a level change still goes through `setLevel`).
+
+- **When.** About every 40 s of the scene on show (`TURNS` in `src/lib/swimming.ts`: `every` 40, each turn up to a quarter longer
+  or shorter, each island on its own clock, so they never change together), never while a discovery moment plays (`moments.busy`),
+  never while the scene is not on show, and not until the newcomer's model has loaded (it is fetched ahead).
+- **Who.** The species longest on the island leaves (never a new discovery being shown), and the next in the collection that is not
+  on the island comes on (round robin, so everyone gets a turn). A species leaving keeps its lane for `leave` (30) seconds.
+- **Leaving** (`depart()` in `src/lib/marine-motion.ts`). It swims out to sea, away from the island and on from its way round,
+  past the edge of the view, its group with it, fading out past 1.1 of the frame (`DEPART_FADE`), and is gone once out of sight
+  (or at once if it is down on a dive); it is passed over by the others as it goes. The reef's own animals fade out where they are
+  (`reef-life.ts`, `LEAVE_FADE`).
+- **Coming on** (`add()`). It arrives from the open sea as a new discovery does (`arrive()`), at the freest place round the island,
+  in its own way and with its group, and joins its lane. A reef animal arrives on the reef in its own way. The dives' staggering
+  eases to the new number of species, so no animal's dive jumps.
 
 ## Reef habitats
 
@@ -645,7 +685,8 @@ start above their bands.
 | More banking | raise `bank` (roll per rad/s of turn) and `bankMax` | The manta uses 1.9 / 0.38 |
 | Less banking | lower `bankMax` | 0.07–0.09 reads as nearly level (sunfish, whale shark) |
 | More depth separation | raise the 0.16 / −0.1 lift in `steer()` | Keep it small, so depth stays a last resort |
-| More frequent direction changes | lower `reverseEvery` | 0 means never (the whale shark) |
+| Lanes nearer the middle of each range, or spread wider | `LANE.least` / `LANE.most` (shares of the range), `LANE.drift` | `LANE.edge` is how near the frame a lane may run (0.92 of it) |
+| Turns more or less often | `TURNS.every` (s), `TURNS.jitter` | Keep `TURNS.leave` longer than a leaver takes to swim out of view (8–25 s) |
 | Curvier, wandering paths | raise `weave` (0.15–0.35 rad) or lower `weavePeriod` | Above about 0.4 an animal starts to look lost |
 | More or fewer breaths | change `breathe.every` (s between breaths) | Breaths that would meet a dive are skipped |
 | A higher or lower breath | change `breathe.clearance` (its middle below the calm surface) | Below about 0.15 the dolphin's back breaks the surface; above 0.3 its fin stays under |
@@ -694,6 +735,12 @@ Navigation adds no draw calls or triangles. The tuna school adds about 26 µs pe
 with 2 animals (42 µs with 6), and one instanced draw call. See
 `island-performance.md`.
 
+Going round the island costs no more than the old wandering did: measured in Node over the four scenes of eight species
+(groups at their largest) at the Coral Reef's first level, interleaved with the version before and the best of eight runs, the
+scene with the tuna school takes 175 µs a step against 214 before, and the four together 639 µs against 652 (one group-heavy
+scene a little more, 153 against 134: its followers meet more of the others as everyone circles). Taking turns costs nothing
+while nobody is leaving; a leaver is checked against the view each step until it is gone.
+
 The reef's simulation costs about 2–3 µs per step for an octopus or a cuttlefish and 1 µs for a
 moray (Node), plus the open water's animals as visitors; its rocks are found once per level and
 count. Each reef animal is one skinned draw call (1,320–1,820 triangles), and the rocks are one
@@ -733,6 +780,9 @@ The tests cover:
 
 - staying in view and clear of the island and islets, for 1–8 animals at levels 1
   and 6;
+- going round: on the Coral Reef at levels 1 and 6 and on two other islands, every animal
+  completes a lap within four minutes, going round at no less than half its cruising pace,
+  never back against its way round for more than two seconds, some one way and some the other;
 - turn-rate and roll limits;
 - pause and background frames;
 - each species' personality and distance offshore;
@@ -752,6 +802,10 @@ The tests cover:
 - the growing ocean (`ocean-growth.test.ts`): the scale at every level, animals and the
   school in view and off the island at all six levels, a level change easing without
   moving anyone, and animals using the extra room.
+- turns (`swimming.test.ts`, `marine-arrival.test.ts`): round robin over everyone, a featured
+  species kept, no other animal moved by a turn (positions continuous across it), the leaver
+  swimming out past the edge of the view and gone, the newcomer coming in from beyond it, pods
+  and the reef's animals taking turns too.
 
 - the reef (`reef-life.test.ts`): the open water's animals and the school moving exactly as
   they would without reef animals; each reef animal keeping to its habitat at levels 1 and 6
@@ -784,15 +838,14 @@ touching the open water's programs.
 - At level 6, a whale shark rounding the southwest islet can swing briefly toward
   the bottom haze, because there is little room between that islet and the view's
   corner.
-- The ring of water deep enough for the biggest bodies round the Coral Reef is narrower than a whale shark is long, and cut off
-  at its south side: such a body goes round the island the long way and turns about, almost where it is, at the two ends of
-  the ring (the water is closed in a blunt end there, `Seabed.distanceTo`'s `opening`). The largest bodies are longer than the ring is
-  wide there, so a turn about at a dead end swings an end of it over the crest: the body rises to clear it (it never
-  clips) and for a few seconds rides with part of it out of the water. Measured over two minutes at levels 1 and 6, eight large
-  animals together (the lanes of the scene rotated three ways): about 3% of samples have the body's middle at or above the
-  surface (the whale shark, the humpback and the leatherback most, about 6% each; the sperm whale, which also rests at the
-  surface by design, 2.5%, the sunfish 1.7%, the rest under 1%), and about 4% of ten-second windows find a body stalled
-  (moved less than .6 units: the whale shark and the sperm whale 8%, the sunfish 6%, the tiger shark 5%).
+- At the Coral Reef's last two levels the islets' shelves reach out to the frame, and the widest bodies (the humpback, the reef
+  manta) have no water deep enough for their fins between them and the edge of the view: going round, they ride over the shelves
+  there, backs at the surface, for part of each lap (in the coarse sweep at level 6, about three quarters of the time for the
+  humpback and a third for the reef manta; the leatherback about 6%; the whale shark, the great white and the tiger shark never).
+  Giving the islets the reef's outer wall would fix it, but the seabed's mesh is drawn in rings round the main island, which do
+  not follow an islet's wall: drawn so, it shows fins.
+- The slowest swimmers (the goliath grouper, the lionfish) take more than four minutes over a lap, and the leafy seadragon hardly
+  goes anywhere.
 - In crowded scenes an animal may make a small (4–8°) corrective S-curve every
   half minute or so while lanes settle.
 - Leaps need a stretch of open water in the clear part of the view, so they stay rare.
@@ -805,8 +858,8 @@ touching the open water's programs.
   has come into the path. Raise `chance` for more, or set `EXPO_PUBLIC_DOLPHIN_LEAPS=1`
   to review them.
 - A follower swims behind its leader's turn, so while the leader turns its heading lags
-  a little, as a real pod's does; right after a reversal or a leap, the group takes a few
-  seconds to settle back into its places.
+  a little, as a real pod's does; right after a leap, the group takes a few seconds to
+  settle back into its places.
 - The reef's animals hold their own places, so an open-water animal may pass over a resting
   octopus or a moray's den (drawn above them), and the octopus's arms may reach under its own
   rock while it rests. The moray's den cut is judged along its body as if it were straight, which
