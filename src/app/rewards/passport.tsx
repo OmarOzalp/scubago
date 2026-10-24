@@ -1,8 +1,8 @@
 import { router } from 'expo-router';
+import { StyleSheet, View } from 'react-native';
 
-import { Ledger } from '@/components/journal/ledger';
+import { Disclosure } from '@/components/journal/disclosure';
 import { Screen, ScreenHeader } from '@/components/journal/screen';
-import { plural } from '@/components/rewards/format';
 import { PassportView } from '@/components/rewards/passport-view';
 import { ThemedText } from '@/components/themed-text';
 import { WhenReady } from '@/components/when-ready';
@@ -19,24 +19,26 @@ export default function PassportRoute() {
 
 function PassportScreen() {
   const { passport } = useRewards();
-  const stamps = passport.reduce((n, g) => n + g.stamps.length, 0);
-  const dives = passport.reduce((n, g) => n + g.stamps.reduce((m, s) => m + s.dives, 0), 0);
   return (
     <Screen>
-      <ScreenHeader eyebrow="Your dive passport" title="Site passport" />
+      <ScreenHeader title="Site passport" />
       {passport.length > 0 ? (
-        <>
-          <ThemedText themeColor="textSecondary">One stamp for every dive site you have logged a dive or a sighting at, on the page of the place it belongs to.</ThemedText>
-          <Ledger
-            items={[
-              { value: String(stamps), label: stamps === 1 ? 'Site' : 'Sites', accessibilityLabel: plural(stamps, 'site stamped') },
-              { value: String(passport.length), label: passport.length === 1 ? 'Place' : 'Places', accessibilityLabel: plural(passport.length, 'place') },
-              { value: String(dives), label: dives === 1 ? 'Dive' : 'Dives', accessibilityLabel: `${plural(dives, 'dive')} at stamped sites` },
-            ]}
-          />
-        </>
+        <View style={styles.about}>
+          <Disclosure label="About the passport" hint="Shows what earns a stamp">
+            <ThemedText type="small" themeColor="textSecondary">
+              A site gets a stamp when you log a dive or a sighting there. It sits on the page of its place and shows the day of your first visit.
+            </ThemedText>
+          </Disclosure>
+        </View>
       ) : null}
       <PassportView groups={passport} onOpenSite={(id) => router.push(`/site/${id}`)} onLog={() => router.push('/log/new')} />
     </Screen>
   );
 }
+
+const styles = StyleSheet.create({
+  // The row is 44 points to hit; its margins take back the room it does not draw in.
+  about: {
+    marginVertical: -8,
+  },
+});

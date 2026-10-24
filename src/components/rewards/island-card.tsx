@@ -41,6 +41,8 @@ export function IslandCard({
   const habitat = HABITATS.find((h) => h.id === ISLANDS[island.id])!;
   const raisedBy = island.raisedBy ? CATALOG_BY_ID.get(island.raisedBy)?.commonName : undefined;
   const open = island.unlocked ? onOpen : undefined;
+  // One line under the tag: what raised it, or what will. Home's island needs none ("Your home island" is its tag).
+  const line = island.unlocked ? (raisedBy ? `Rose with your ${raisedBy}.` : null) : (island.requirement ?? null);
   const head = (
     <>
       <View style={[styles.art, { backgroundColor: habitat.water }]}>
@@ -71,9 +73,11 @@ export function IslandCard({
         ) : (
           <Tag label="Locked" dashed small />
         )}
-        <ThemedText type="small" themeColor="textSecondary">
-          {island.unlocked ? (raisedBy ? `Rose when you logged ${raisedBy}.` : 'Where every animal not at another island swims.') : (island.requirement ?? '')}
-        </ThemedText>
+        {line ? (
+          <ThemedText type="small" themeColor="textSecondary">
+            {line}
+          </ThemedText>
+        ) : null}
       </View>
     </>
   );
@@ -93,9 +97,6 @@ export function IslandCard({
           {head}
         </View>
       )}
-      <ThemedText type="caption" themeColor="textSecondary">
-        {island.blurb}
-      </ThemedText>
       <View style={styles.residents}>
         <Text style={[styles.count, { color: theme.text }]}>
           {island.residentsFound}
@@ -230,14 +231,14 @@ const styles = StyleSheet.create({
     borderStyle: 'dashed',
     borderRadius: Radius.md,
     paddingVertical: 8,
-    paddingHorizontal: 4,
+    paddingHorizontal: 2,
     minHeight: 44,
   },
   targetName: {
     fontFamily: Type.bodyHeavy,
-    fontSize: 13,
-    lineHeight: 16,
+    fontSize: 14,
+    lineHeight: 18,
     textAlign: 'center',
-    minHeight: 32,
+    minHeight: 36,
   },
 });
