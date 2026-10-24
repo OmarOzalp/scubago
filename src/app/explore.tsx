@@ -8,6 +8,7 @@ import { SanctuaryScene } from '@/components/home/sanctuary-scene';
 import { ExplorerCamera } from '@/components/home/three/explorer-camera';
 import { WATER } from '@/components/home/three/sanctuary-environment';
 import { tapScaleAt } from '@/components/home/three/tap-target';
+import { useTip } from '@/components/home/use-tip';
 import { Icon, type IconName } from '@/components/icon';
 import { Type } from '@/constants/theme';
 import { useHomePreferences } from '@/hooks/use-home-preferences';
@@ -21,11 +22,12 @@ import type { MarineModel } from '@/lib/swimming';
 
 /** Ink on the island's water (the scene's own colours, the same in both schemes). */
 const ON_WATER = '#1F4B40';
-/** How to look about, shown when the explorer opens (and, with more than one island, how to get between them). */
-const MEET = 'Tap an animal to meet it';
-const GESTURES = 'Pinch or double-tap to look closer · drag to look around';
-const SAILING = 'Pinch or double-tap to look closer · drag to sail between your islands';
-/** How long the gesture hint stays before it fades (ms): long enough to read its three lines. */
+/** How to look about, shown when the explorer opens: the first three times, then never (the islands' own buttons say how to sail between them). */
+const MEET = 'Tap an animal to meet it.';
+const LOOK = 'Pinch to zoom, drag to look around.';
+const HINT_KEY = 'scubago.explorerHintShown.v1';
+const HINT_TIMES = 3;
+/** How long the hint stays before it fades (ms): long enough to read its two lines. */
 const HINT_MS = 7000;
 
 /**
@@ -123,7 +125,8 @@ export default function ExploreScreen() {
     return () => node.removeEventListener('wheel', wheel);
   }, [explorer]);
 
-  // The hint fades once it has been read (or simply goes, with reduced motion).
+  // The hint fades once it has been read (or simply goes, with reduced motion), and is there only the first few times the explorer opens.
+  const tip = useTip(HINT_KEY, { times: HINT_TIMES });
   const [hint] = useState(() => new Animated.Value(1));
   useEffect(() => {
     const timer = setTimeout(() => Animated.timing(hint, { toValue: 0, duration: reduced ? 0 : 600, useNativeDriver: Platform.OS !== 'web' }).start(), HINT_MS);
@@ -132,7 +135,7 @@ export default function ExploreScreen() {
 
   // The reef's small life shows only up close: say it is there to find.
   const hiding = places.reduce((sum, place) => sum + macroResidents(place.residents).length, 0);
-  const small = hiding === 0 ? '' : hiding === 1 ? 'A small creature lives on the reef: zoom in close to find it' : `${hiding} small creatures live on the reef: zoom in close to find them`;
+  const small = hiding === 0 ? '' : hiding === 1 ? 'A small creature lives on the reef. Zoom in to find it.' : `${hiding} small creatures live on the reef. Zoom in to find them.`;
   const close = () => (router.canGoBack() ? router.back() : router.replace('/'));
   const inspect = (model: MarineModel) => router.push({ pathname: '/inspect', params: { model, preview: '1' } });
   const button = (icon: IconName, label: string, onPress: () => void) => (
@@ -151,8 +154,8 @@ export default function ExploreScreen() {
     </GestureDetector>
     <View style={[styles.top, { paddingTop: insets.top + 10 }]} pointerEvents="box-none">
       {button('close', 'Close the explorer', close)}
-      {/* A long home name is cut short with an ellipsis rather than run on into the buttons either side. */}
-      <View style={styles.pill} accessibilityLiveRegion="polite"><Text numberOfLines={1} style={styles.pillText}>YOUR OCEAN · {(shown ? nameOf(shown.key) : 'Your archipelago').toUpperCase()}</Text></View>
+      {/* The island in view, by its name alone (a screen reader hears whose ocean it is). A very long name is cut short with an ellipsis rather than run on into the buttons either side. */}
+      <View style={styles.pill} accessible accessibilityLabel={`Your ocean, ${shown ? nameOf(shown.key) : 'your archipelago'}`} accessibilityLiveRegion="polite"><Text numberOfLines={1} style={styles.pillText}>{shown ? nameOf(shown.key) : 'Your archipelago'}</Text></View>
       <View style={styles.spacer} />
     </View>
     {places.length > 1 && <View style={[styles.islands, { top: insets.top + 64 }]} pointerEvents="box-none">
@@ -171,9 +174,9 @@ export default function ExploreScreen() {
       {button('minus', 'Zoom out', () => explorer.zoomBy(1 / EXPLORER.step))}
       {button('locate', 'Show the whole ocean', () => explorer.showAll())}
     </View>
-    <Animated.View style={[styles.hint, { bottom: insets.bottom + 26, opacity: hint }]} pointerEvents="none">
-      <Text style={styles.hintText}>{[MEET, places.length > 1 ? SAILING : GESTURES, small].filter(Boolean).join('\n')}</Text>
-    </Animated.View>
+    {tip.show && <Animated.View style={[styles.hint, { bottom: insets.bottom + 26, opacity: hint }]} pointerEvents="none">
+      <Text style={styles.hintText}>{[MEET, small || LOOK].join('\n')}</Text>
+    </Animated.View>}
   </GestureHandlerRootView>;
 }
 
@@ -187,7 +190,7 @@ const styles = StyleSheet.create({
   islandHere: { backgroundColor: 'rgba(255,255,255,0.88)', borderColor: ON_WATER },
   dot: { width: 8, height: 8, borderRadius: 4 },
   islandText: { color: ON_WATER, fontSize: 14, fontFamily: Type.bodySemiBold },
-  pillText: { color: ON_WATER, letterSpacing: 1.4, fontSize: 12, fontFamily: Type.label },
+  pillText: { color: ON_WATER, fontSize: 17, lineHeight: 24, fontFamily: Type.display },
   controls: { position: 'absolute', right: 0, bottom: 0, gap: 10 },
   button: { width: 44, height: 44, borderRadius: 22, backgroundColor: 'rgba(255,255,255,0.7)', borderWidth: 1, borderColor: 'rgba(31,75,64,0.18)', alignItems: 'center', justifyContent: 'center' },
   hint: { position: 'absolute', left: 16, right: 76, alignItems: 'center' },
