@@ -12,13 +12,12 @@ import { Paper } from '@/components/journal/paper';
 import { Screen, ScreenHeader, SectionHeader } from '@/components/journal/screen';
 import { Wash } from '@/components/journal/wash';
 import { OceanButton } from '@/components/ocean-button';
-import { badgesLine, summarize } from '@/components/rewards/summary';
+import { summarize } from '@/components/rewards/summary';
 import { ThemedText } from '@/components/themed-text';
 import { Type } from '@/constants/theme';
 import { useRewards } from '@/hooks/use-rewards';
 import { useTheme } from '@/hooks/use-theme';
-import { CATALOG, CATALOG_BY_ID, speciesForSighting } from '@/lib/catalog';
-import { deriveDex } from '@/lib/dex';
+import { speciesForSighting } from '@/lib/catalog';
 import { formatDepth, formatMinutes, logTotals, sortDives } from '@/lib/dives';
 import { useAppStore, useDivesBefore, useMyDives, useMySightings, usePendingChanges, useSiteById } from '@/lib/store';
 import type { Species } from '@/lib/types';
@@ -26,7 +25,10 @@ import type { Species } from '@/lib/types';
 /** "4 h 57 min" is too wide for a quarter of the ledger: "4h 57m" fits on one line. */
 const shortTime = (min: number) => formatMinutes(min).replace(' h ', 'h ').replace(' min', 'm');
 
-/** The diver's own log: lifetime totals, then every page, newest first, and the less-used ways in below them. */
+/**
+ * The diver's own log: three lifetime totals, the way to the badges, then every page, newest first. The
+ * setup rows (dives before ScubaGo, the buddy code) are on the account page: they are not part of the log.
+ */
 export default function LogbookScreen() {
   const user = useAppStore((s) => s.user);
   const backendEnabled = useAppStore((s) => s.backendEnabled);
@@ -42,9 +44,12 @@ export default function LogbookScreen() {
   const divesBefore = useDivesBefore();
   const backup = useBackupRowDismissed();
   const rewards = useRewards();
-  const rewardsLine = useMemo(() => badgesLine(summarize(rewards)), [rewards]);
+  // "18 of 51 badges": a count to scan, not a description.
+  const rewardsLine = useMemo(() => {
+    const { earned, badges } = summarize(rewards);
+    return `${earned} of ${badges} badges`;
+  }, [rewards]);
 
-  const dex = useMemo(() => deriveDex(mySightings, CATALOG_BY_ID), [mySightings]);
   const totals = useMemo(() => logTotals(dives), [dives]);
   const pages = useMemo(() => sortDives(dives), [dives]);
   // The animals on each page, in the order they were logged.
@@ -62,16 +67,15 @@ export default function LogbookScreen() {
   return (
     <Screen tab>
       <ScreenHeader
-        eyebrow={backendEnabled && user ? `@${user.username}` : 'Your logbook'}
         title="Logbook"
+        // Always there: the account page also holds "Dives before ScubaGo" (and the buddy code), which are no
+        // longer rows of the log, so every diver must be able to reach it, with or without a server to sign in to.
         accessory={
-          backendEnabled ? (
-            <IconButton
-              icon="account"
-              onPress={() => router.push('/auth')}
-              accessibilityLabel={user ? `Account, signed in as ${user.username}` : 'Sign in or create an account'}
-            />
-          ) : null
+          <IconButton
+            icon="account"
+            onPress={() => router.push('/auth')}
+            accessibilityLabel={user ? `Account, signed in as ${user.username}` : backendEnabled ? 'Sign in or create an account' : 'Account'}
+          />
         }
       />
 
@@ -107,13 +111,24 @@ export default function LogbookScreen() {
           { value: lifetime.toLocaleString('en'), label: lifetime === 1 ? 'Dive' : 'Dives', accessibilityLabel: `${lifetime} dives in your lifetime log` },
           { value: totals.bottomMinutes ? shortTime(totals.bottomMinutes) : '–', label: 'Time', accessibilityLabel: totals.bottomMinutes ? `${formatMinutes(totals.bottomMinutes)} underwater in ScubaGo` : 'No bottom time yet' },
           { value: totals.deepest ? formatDepth(totals.deepest.depth) : '–', label: 'Deepest', accessibilityLabel: totals.deepest ? `Deepest dive ${formatDepth(totals.deepest.depth)}` : 'No depth yet' },
-          { value: String(dex.length), label: `of ${CATALOG.length} species`, accessibilityLabel: `${dex.length} of ${CATALOG.length} species seen` },
         ]}
       />
 
-      <LinkRow icon="medal" title="Badges & collections" detail={rewards.ready ? rewardsLine : undefined} role="link" onPress={() => router.push('/rewards')} />
+      {/* Nothing to show until there is a first dive: badges and stamps start with it. */}
+      {pages.length > 0 ? (
+        <LinkRow icon="medal" title="Badges & collections" detail={rewards.ready ? rewardsLine : undefined} role="link" onPress={() => router.push('/rewards')} />
+      ) : null}
 
-      <SectionHeader title="Pages" eyebrow={dives.length ? `${dives.length} in ScubaGo` : undefined} />
+      <SectionHeader
+        title="Pages"
+        accessory={
+          dives.length ? (
+            <ThemedText type="label" accessibilityLabel={`${dives.length} ${dives.length === 1 ? 'page' : 'pages'} in ScubaGo`}>
+              {dives.length}
+            </ThemedText>
+          ) : undefined
+        }
+      />
 
       {pages.length === 0 ? (
         <EmptyState />
@@ -130,24 +145,6 @@ export default function LogbookScreen() {
         ))
       )}
 
-      {/* Rarely needed, so below the dives rather than between them and the totals. */}
-      <View style={styles.more}>
-        <LinkRow
-          icon="logbook"
-          title="Dives before ScubaGo"
-          detail={divesBefore > 0 ? `${divesBefore.toLocaleString('en')} logged elsewhere; your pages are numbered after them` : 'Logged dives elsewhere? Number your pages from there'}
-          onPress={() => router.push('/dive/count')}
-        />
-        {backendEnabled ? (
-          <LinkRow
-            icon="verified"
-            title="Buddy code"
-            detail="Confirm a buddy’s sighting or sign their dive"
-            role="link"
-            onPress={() => router.push('/verify')}
-          />
-        ) : null}
-      </View>
     </Screen>
   );
 }
@@ -164,7 +161,7 @@ function EmptyState() {
         Your first page is blank
       </ThemedText>
       <ThemedText type="small" themeColor="textSecondary" style={{ textAlign: 'center' }}>
-        Log a dive and what you saw, and it is written in here, ready for the next one.
+        Log a dive and what you saw to write it here.
       </ThemedText>
       <OceanButton title="Log a dive" variant="log" icon="plus" onPress={() => router.push('/log/new')} style={{ alignSelf: 'stretch' }} />
     </Paper>
@@ -177,10 +174,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
-  },
-  more: {
-    gap: 12,
-    marginTop: 6,
   },
   empty: {
     alignItems: 'center',
