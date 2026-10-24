@@ -1,8 +1,8 @@
 import { router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
+import { StyleSheet, View } from 'react-native';
 
 import { LinkRow } from '@/components/journal/link-row';
-import { Ledger } from '@/components/journal/ledger';
 import { Screen, ScreenHeader } from '@/components/journal/screen';
 import { Segmented } from '@/components/segmented';
 import { WhenReady } from '@/components/when-ready';
@@ -41,35 +41,26 @@ function RewardsScreen() {
 
   return (
     <Screen>
-      <ScreenHeader eyebrow="Your rewards" title="Badges & collections" />
-      <Ledger
-        items={[
-          { value: String(earned), unit: ` / ${badges.length}`, label: 'Badges', accessibilityLabel: `${earned} of ${badges.length} badges earned` },
-          { value: String(complete), unit: ` / ${collections.length}`, label: 'Collections', accessibilityLabel: `${complete} of ${collections.length} collections complete` },
-          { value: String(raised), unit: ` / ${islands.length}`, label: 'Islands', accessibilityLabel: `${raised} of ${islands.length} islands raised` },
-        ]}
-      />
-      <LinkRow
-        icon="stamp"
-        title="Site passport"
-        detail={stamps > 0 ? `${plural(stamps, 'site')} stamped in ${plural(passport.length, 'place')}` : 'A stamp for every site you dive'}
-        role="link"
-        onPress={() => router.push('/rewards/passport')}
-      />
-      <LinkRow
-        icon="island"
-        title="Islands"
-        detail={`${raised} of ${islands.length} raised from the animals you have found`}
-        role="link"
-        onPress={() => router.push('/rewards/islands')}
-      />
+      <ScreenHeader title="Badges & collections" />
+      <View style={styles.links}>
+        <LinkRow
+          compact
+          icon="stamp"
+          title="Site passport"
+          detail={stamps > 0 ? plural(stamps, 'stamp') : 'No stamps yet'}
+          role="link"
+          onPress={() => router.push('/rewards/passport')}
+        />
+        <LinkRow compact icon="island" title="Islands" detail={`${raised} of ${islands.length} raised`} role="link" onPress={() => router.push('/rewards/islands')} />
+      </View>
+      {/* The counts are in the tab names, so the page has no row of figures above them. */}
       <Segmented
         accessibilityLabel="Show"
         value={tab}
         onChange={setTab}
         options={[
-          { value: 'badges', label: 'Badges' },
-          { value: 'collections', label: 'Collections' },
+          { value: 'badges', label: `Badges ${earned}/${badges.length}`, accessibilityLabel: `Badges, ${earned} of ${badges.length} earned` },
+          { value: 'collections', label: `Collections ${complete}/${collections.length}`, accessibilityLabel: `Collections, ${complete} of ${collections.length} complete` },
         ]}
       />
       {tab === 'badges' ? (
@@ -85,3 +76,10 @@ function RewardsScreen() {
     </Screen>
   );
 }
+
+const styles = StyleSheet.create({
+  // The two ways into other pages sit together, closer than the page's other blocks.
+  links: {
+    gap: 8,
+  },
+});

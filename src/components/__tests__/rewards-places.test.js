@@ -140,7 +140,9 @@ test('a collection card shows how many are found and what is left, and its anima
   expect(sharks.found).toBe(3);
   expect(collectionLabel(sharks)).toBe(`Sharks, 3 of ${sharks.total} found. ${sharks.hint}`);
   expect(labelsOf(root)).toContain(collectionLabel(sharks));
-  expect(textOf(root)).toContain(`of ${sharks.total} found`);
+  // The ring and the plates say the rest: the card says "3 of 20", and what is left is in the words a screen reader reads.
+  expect(textOf(root)).toContain(`3 of ${sharks.total}`);
+  expect(textOf(root)).not.toContain('found');
   await act(async () => root.root.find((n) => n.props.accessibilityLabel === collectionLabel(sharks) && typeof n.props.onPress === 'function').props.onPress());
   expect(onPress).toHaveBeenCalled();
 });

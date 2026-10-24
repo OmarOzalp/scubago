@@ -6,7 +6,7 @@ import { Paper } from '@/components/journal/paper';
 import { SectionHeader } from '@/components/journal/screen';
 import { NewBadge } from '@/components/journal/stamp';
 import { BadgeLadder } from '@/components/rewards/badge-ladder';
-import { countEarned, itemsOfKind, KIND_NOTE, KIND_ORDER, KIND_TITLE, latestEarned, type BadgeItem } from '@/components/rewards/badge-groups';
+import { countEarned, itemsOfKind, KIND_ORDER, KIND_TITLE, latestEarned, type BadgeItem } from '@/components/rewards/badge-groups';
 import { BadgeMedal } from '@/components/rewards/badge-medal';
 import { BadgePage, BadgeTile, badgeLabel } from '@/components/rewards/badge-tile';
 import { stampDate } from '@/components/rewards/format';
@@ -35,12 +35,17 @@ export function BadgesView({ badges, newIds, onOpenBadge, onLog }: Props) {
         const items = itemsOfKind(badges, kind);
         if (items.length === 0) return null;
         const ofKind = badges.filter((b) => b.kind === kind);
+        const earned = countEarned(ofKind);
         return (
           <View key={kind} style={styles.kind}>
-            <SectionHeader title={KIND_TITLE[kind]} eyebrow={`${countEarned(ofKind)} of ${ofKind.length} earned`} />
-            <ThemedText type="caption" themeColor="textSecondary">
-              {KIND_NOTE[kind]}
-            </ThemedText>
+            <SectionHeader
+              title={KIND_TITLE[kind]}
+              accessory={
+                <ThemedText type="label" accessibilityLabel={`${earned} of ${ofKind.length} earned`}>
+                  {earned} / {ofKind.length}
+                </ThemedText>
+              }
+            />
             <BadgePage>
               <Blocks items={items} newIds={newIds} onOpenBadge={onOpenBadge} />
             </BadgePage>
@@ -174,10 +179,10 @@ const styles = StyleSheet.create({
   },
   latestTitle: {
     fontFamily: Type.bodyHeavy,
-    fontSize: 13,
-    lineHeight: 16,
+    fontSize: 14,
+    lineHeight: 18,
     textAlign: 'center',
-    minHeight: 32,
+    minHeight: 36,
   },
   latestDate: {
     fontFamily: Type.label,

@@ -4,7 +4,7 @@ import { create } from 'react-test-renderer';
 import { BadgeDetailView, collectionIdOfBadge } from '@/components/rewards/badge-detail';
 import { countEarned, itemsOfKind, ladderOf, latestEarned } from '@/components/rewards/badge-groups';
 import { ladderNote } from '@/components/rewards/badge-ladder';
-import { badgeCaption, badgeLabel } from '@/components/rewards/badge-tile';
+import { badgeLabel } from '@/components/rewards/badge-tile';
 import { BadgesView } from '@/components/rewards/badges-view';
 import { longDate, stampDate } from '@/components/rewards/format';
 import { BadgeMedal } from '@/components/rewards/badge-medal';
@@ -64,9 +64,6 @@ test('a badge says what it is, its tier, and when it was earned or how far there
   expect(badgeLabel(badge('species-10'))).toMatch(/^Ten species, bronze, not earned yet, 5 of 10\. 5 more species$/);
   expect(badgeLabel(badge('first-turtle'), true)).toBe('First turtle, earned 2 April 2026, new');
   expect(badgeLabel(badge('first-sea-mammal') ?? badge('first-mammal'))).toMatch(/^First sea mammal, not earned yet\. Log your first marine mammal\.$/);
-  expect(badgeCaption(badge('first-shark'))).toBe('12 MAR 2026');
-  expect(badgeCaption(badge('species-10'))).toBe('5 OF 10');
-  expect(badgeCaption(badge('first-mammal'))).toBe('NOT YET');
 });
 
 test('badges are gathered by kind, with each ladder as one item at its first rung', () => {

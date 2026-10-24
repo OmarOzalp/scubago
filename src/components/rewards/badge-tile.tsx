@@ -4,7 +4,7 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { Paper } from '@/components/journal/paper';
 import { NewBadge } from '@/components/journal/stamp';
 import { BadgeMedal } from '@/components/rewards/badge-medal';
-import { longDate, stampDate, TIER_LABEL } from '@/components/rewards/format';
+import { longDate, TIER_LABEL } from '@/components/rewards/format';
 import { Type } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import type { BadgeResult } from '@/lib/rewards';
@@ -17,14 +17,10 @@ export function badgeLabel(badge: BadgeResult, isNew = false): string {
   return `${badge.title}${tier}, not earned yet${need > 1 ? `, ${have} of ${need}` : ''}${badge.hint ? `. ${badge.hint}` : ''}`;
 }
 
-/** The short line under a medal: the day it was earned, or how far along it is. */
-export function badgeCaption(badge: BadgeResult): string {
-  if (badge.earned) return badge.earnedOn ? stampDate(badge.earnedOn) : 'EARNED';
-  const { have, need } = badge.progress;
-  return need > 1 ? `${have} OF ${need}` : 'NOT YET';
-}
-
-/** A badge on an album page: its medal, its name, and when it was earned or how far along it is. */
+/**
+ * A badge on an album page: its medal and its name. Earned or not shows in the medal (colour or pencil)
+ * and in the words a screen reader reads; the date waits on the badge's own page.
+ */
 export function BadgeTile({ badge, isNew = false, onPress, medal = 72 }: { badge: BadgeResult; isNew?: boolean; onPress?: () => void; medal?: number }) {
   const theme = useTheme();
   return (
@@ -42,7 +38,6 @@ export function BadgeTile({ badge, isNew = false, onPress, medal = 72 }: { badge
       <Text numberOfLines={2} style={[styles.title, { color: badge.earned ? theme.text : theme.textSecondary }]}>
         {badge.title}
       </Text>
-      <Text style={[styles.caption, { color: theme.textSecondary }]}>{badgeCaption(badge)}</Text>
     </Pressable>
   );
 }
@@ -61,17 +56,10 @@ const styles = StyleSheet.create({
   },
   title: {
     fontFamily: Type.bodyHeavy,
-    fontSize: 13,
-    lineHeight: 16,
+    fontSize: 14,
+    lineHeight: 18,
     textAlign: 'center',
-    minHeight: 32,
-  },
-  caption: {
-    fontFamily: Type.label,
-    fontSize: 12,
-    lineHeight: 15,
-    letterSpacing: 1,
-    textAlign: 'center',
+    minHeight: 36,
   },
   new: {
     position: 'absolute',

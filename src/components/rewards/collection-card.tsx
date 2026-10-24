@@ -74,9 +74,9 @@ export function CollectionCard({ collection, onPress }: { collection: Collection
           {completed ? (
             <Text style={[styles.label, { color: theme.textSecondary }]}>COMPLETE{collection.completedOn ? ` · ${stampDate(collection.completedOn)}` : ''}</Text>
           ) : (
+            // The ring and the plates under it say the rest; the hint is in what a screen reader says.
             <Text style={[styles.sub, { color: theme.textSecondary }]}>
-              <Text style={{ fontFamily: Type.bodyHeavy, color: theme.text }}>{found}</Text> of {total} found
-              {collection.hint ? ` · ${collection.hint}` : ''}
+              <Text style={{ fontFamily: Type.bodyHeavy, color: theme.text }}>{found}</Text> of {total}
             </Text>
           )}
         </View>

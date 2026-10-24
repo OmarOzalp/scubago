@@ -5,7 +5,8 @@ import { Radius, Type } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 
 interface Props<T extends string> {
-  options: { value: T; label: string }[];
+  /** `accessibilityLabel` is read instead of the label when the label is short for what it says ("Badges 18/51"). */
+  options: { value: T; label: string; accessibilityLabel?: string }[];
   value: T;
   onChange: (value: T) => void;
   /** What the choice is about, read before the options (e.g. "Account"). */
@@ -29,6 +30,7 @@ export function Segmented<T extends string>({ options, value, onChange, accessib
             key={opt.value}
             onPress={() => onChange(opt.value)}
             accessibilityRole={choice ? 'radio' : 'tab'}
+            accessibilityLabel={opt.accessibilityLabel}
             aria-checked={choice ? selected : undefined}
             aria-selected={choice ? undefined : selected}
             style={[

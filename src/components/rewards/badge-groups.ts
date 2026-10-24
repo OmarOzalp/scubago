@@ -12,14 +12,6 @@ export const KIND_TITLE: Record<BadgeKind, string> = {
   collection: 'Collections',
 };
 
-/** The line under a kind's title: what its badges are for. */
-export const KIND_NOTE: Record<BadgeKind, string> = {
-  first: 'The first time for everything',
-  milestone: 'Species and dives, rung by rung',
-  place: 'Sites, countries and famous reefs',
-  collection: 'Finish a set to earn its badge',
-};
-
 /**
  * The badges of one kind, in the engine's order, with each ladder gathered into a single item at
  * the place its first rung appears.
