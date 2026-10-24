@@ -83,16 +83,19 @@ export default function RootLayout() {
         <Stack.Screen name="dive/edit" options={{ presentation: 'modal', title: 'Edit page' }} />
         <Stack.Screen name="dive/sign" options={{ presentation: 'modal', title: 'Sign the page' }} />
         <Stack.Screen name="dive/count" options={{ presentation: 'modal', title: 'Dives before ScubaGo' }} />
+        {/* A page with a display title of its own shows only the back arrow (and its action icons) in the header: the
+            same name twice, 19 px over 34 px, was the one thing every one of them said double. The page still sets its
+            `title` (the window title and the screen's name for a screen reader); `headerTitle: ''` keeps it out of the bar. */}
         <Stack.Screen name="dive/[id]" options={{ title: '' }} />
-        <Stack.Screen name="site/[id]" options={{ title: '' }} />
-        <Stack.Screen name="species/[id]" options={{ title: '' }} />
-        <Stack.Screen name="sighting/[id]" options={{ title: '' }} />
+        <Stack.Screen name="site/[id]" options={{ title: '', headerTitle: '' }} />
+        <Stack.Screen name="species/[id]" options={{ title: '', headerTitle: '' }} />
+        <Stack.Screen name="sighting/[id]" options={{ title: '', headerTitle: '' }} />
         <Stack.Screen name="credits" options={{ title: 'Data & credits', headerTitle: '' }} />
         <Stack.Screen name="rewards/index" options={{ title: '' }} />
         <Stack.Screen name="rewards/passport" options={{ title: '' }} />
         <Stack.Screen name="rewards/islands" options={{ title: '' }} />
-        <Stack.Screen name="rewards/[badge]" options={{ title: '' }} />
-        <Stack.Screen name="rewards/collections/[id]" options={{ title: '' }} />
+        <Stack.Screen name="rewards/[badge]" options={{ title: '', headerTitle: '' }} />
+        <Stack.Screen name="rewards/collections/[id]" options={{ title: '', headerTitle: '' }} />
       </Stack>
       <StorageProblem />
     </ThemeProvider>
