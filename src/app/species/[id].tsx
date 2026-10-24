@@ -4,6 +4,7 @@ import { useMemo, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { Icon } from '@/components/icon';
+import { Disclosure } from '@/components/journal/disclosure';
 import { Ledger } from '@/components/journal/ledger';
 import { Paper, PaperButton } from '@/components/journal/paper';
 import { Screen, SectionHeader } from '@/components/journal/screen';
@@ -11,6 +12,7 @@ import { Wash } from '@/components/journal/wash';
 import { OceanButton } from '@/components/ocean-button';
 import { RarityChip } from '@/components/rarity-chip';
 import { ShareDiscoveryButton } from '@/components/share/share-buttons';
+import { shortPhotoCredit } from '@/components/sightings/format';
 import { openExternalUrl } from '@/components/sightings/open-external';
 import { RaritySource } from '@/components/sightings/rarity-source';
 import { SpeciesRecordsSection } from '@/components/sightings/species-records';
@@ -57,8 +59,6 @@ export default function SpeciesDetailScreen() {
   const deleteSpeciesLog = useAppStore((s) => s.deleteSpeciesLog);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  // "How rare?" starts closed: the counts behind the tier are a paragraph, and most visits want the Log button first.
-  const [rarityOpen, setRarityOpen] = useState(false);
   // The plate's inner width, measured: a phone's to begin with (the static web render has no window).
   const [plateWidth, setPlateWidth] = useState(320);
 
@@ -149,7 +149,8 @@ export default function SpeciesDetailScreen() {
 
   return (
     <Screen>
-      <Stack.Screen options={{ title: species.commonName }} />
+      {/* The title stays for the browser tab; the header shows only the back arrow, as the page names itself below. */}
+      <Stack.Screen options={{ title: species.commonName, headerTitle: '' }} />
 
       {/* The plate: painted once the diver has seen one, a pencil sketch until then. */}
       <Paper raised padded={false} style={styles.plateCard}>
@@ -198,79 +199,30 @@ export default function SpeciesDetailScreen() {
           <ThemedText type="caption" themeColor="textSecondary" style={styles.center}>
             {species.scientificName}
           </ThemedText>
+          {/* The tag and the row that opens where it comes from, side by side. All of it is still here, with the link to Data & credits. */}
           <View style={styles.tags}>
-            {/* In a box of its own: the tag pins itself to the top of whatever row it is in. */}
-            <View>
-              <RarityChip rarity={species.rarity} />
-            </View>
-            <Pressable
-              onPress={() => setRarityOpen((open) => !open)}
-              accessibilityRole="button"
-              aria-expanded={rarityOpen}
-              accessibilityHint={rarityOpen ? 'Hides where the rarity comes from' : 'Shows where the rarity comes from'}
-              style={({ pressed }) => [styles.howRare, pressed && { backgroundColor: theme.backgroundSelected }]}>
-              <ThemedText type="smallBold" themeColor="tint">
-                How rare?
-              </ThemedText>
-              <Icon name="chevronDown" size={14} color={theme.tint} weight="bold" style={rarityOpen ? styles.flip : undefined} />
-            </Pressable>
+            <Disclosure
+              align="center"
+              label="How rare?"
+              hint="Shows where the rarity comes from"
+              lead={
+                // In a box of its own: the tag pins itself to the top of whatever row it is in.
+                <View>
+                  <RarityChip rarity={species.rarity} />
+                </View>
+              }>
+              <View style={styles.raritySource}>
+                <RaritySource entry={rarityEntry} onOpenCredits={() => router.push('/credits')} />
+              </View>
+            </Disclosure>
           </View>
-          {/* All of it is still here, with the link to Data & credits: it only waits to be asked for. */}
-          {rarityOpen ? (
-            <View style={styles.raritySource}>
-              <RaritySource entry={rarityEntry} onOpenCredits={() => router.push('/credits')} />
-            </View>
-          ) : null}
         </View>
       </Paper>
 
       <ThemedText>{species.blurb}</ThemedText>
 
-      {/* Straight after the blurb for an animal not seen yet, so it is on the first screen and not under the photo. */}
-      {!seen ? (
-        <OceanButton
-          title="I saw one! Log it"
-          variant="log"
-          icon="plus"
-          onPress={() =>
-            router.push({ pathname: '/log/new', params: { speciesId: species.id } })
-          }
-        />
-      ) : null}
-
-      {species.photoUrl ? (
-        <View style={styles.photoBlock}>
-          {/* Mounted like a print pasted into the guide. */}
-          <Paper padded={false} style={styles.print}>
-            <PhotoPrint species={species} uri={species.photoUrl} />
-          </Paper>
-          {species.photoAttribution && species.photoSource ? (
-            // The credit opens the photo's page, where its licence is stated (as CC BY asks).
-            <Pressable
-              onPress={() => void openExternalUrl(species.photoSource!)}
-              accessibilityRole="link"
-              accessibilityLabel={`Photo ${species.photoAttribution}`}
-              accessibilityHint="Opens the photo on iNaturalist"
-              hitSlop={8}>
-              <ThemedText type="caption" themeColor="textSecondary" style={styles.credit}>
-                {species.photoAttribution} · iNaturalist ›
-              </ThemedText>
-            </Pressable>
-          ) : species.photoAttribution ? (
-            <ThemedText type="caption" themeColor="textSecondary" style={styles.credit}>
-              {species.photoAttribution} · iNaturalist
-            </ThemedText>
-          ) : null}
-        </View>
-      ) : null}
-
-      {speciesMarineModel(species.id) && <OceanButton
-        title={`See ${species.commonName.toLowerCase()} in 3D`}
-        variant="secondary"
-        icon="eye"
-        onPress={() => router.push({ pathname: '/inspect', params: { species: species.id } })}
-      />}
-
+      {/* What the page is for comes first: the diver's own record and the way to add to it, or for an animal
+          not seen yet the button to log it. The photo and the 3D view come after, so they never push it down. */}
       {seen ? (
         <>
           <SectionHeader title="In your log" />
@@ -294,37 +246,76 @@ export default function SpeciesDetailScreen() {
                 species={species}
                 site={siteById(s.siteId)}
                 pending={!!user && !s.synced}
+                quiet
                 onPress={() => router.push(`/sighting/${s.id}`)}
               />
             ))}
           </View>
-          <ShareDiscoveryButton species={species} sightings={sightings} sites={sightingSites} ownerId={myUserId} observedNote={observedNote} />
           <OceanButton
             title="Log another sighting"
-            variant="secondary"
+            variant="log"
             icon="plus"
             onPress={() =>
               router.push({ pathname: '/log/new', params: { speciesId: species.id } })
             }
           />
+          <ShareDiscoveryButton species={species} sightings={sightings} sites={sightingSites} ownerId={myUserId} observedNote={observedNote} />
         </>
+      ) : (
+        <OceanButton
+          title="I saw one! Log it"
+          variant="log"
+          icon="plus"
+          onPress={() =>
+            router.push({ pathname: '/log/new', params: { speciesId: species.id } })
+          }
+        />
+      )}
+
+      {species.photoUrl ? (
+        <View style={styles.photoBlock}>
+          {/* Mounted like a print pasted into the guide. */}
+          <Paper padded={false} style={styles.print}>
+            <PhotoPrint species={species} uri={species.photoUrl} />
+          </Paper>
+          {species.photoAttribution && species.photoSource ? (
+            // The credit opens the photo's page, where its licence is stated (as CC BY asks).
+            <Pressable
+              onPress={() => void openExternalUrl(species.photoSource!)}
+              accessibilityRole="link"
+              accessibilityLabel={`Photo ${species.photoAttribution}`}
+              accessibilityHint="Opens the photo on iNaturalist"
+              style={styles.creditLink}>
+              <ThemedText type="caption" themeColor="textSecondary" style={styles.credit}>
+                Photo: {shortPhotoCredit(species.photoAttribution)} · iNaturalist ›
+              </ThemedText>
+            </Pressable>
+          ) : species.photoAttribution ? (
+            <ThemedText type="caption" themeColor="textSecondary" style={styles.credit}>
+              Photo: {shortPhotoCredit(species.photoAttribution)} · iNaturalist
+            </ThemedText>
+          ) : null}
+        </View>
       ) : null}
 
-      <SectionHeader title="Where it’s been seen" />
-      {seenAt.length === 0 ? (
-        <View style={[styles.empty, { borderColor: theme.rule }]}>
-          <Icon name="binoculars" size={26} color={theme.textSecondary} />
-          <ThemedText type="caption" themeColor="textSecondary" style={styles.center}>
-            No logged sightings yet — it’s out there somewhere.
-          </ThemedText>
-        </View>
-      ) : (
-        <View style={styles.sites}>
-          {seenAt.map(({ site, count, last }) => (
-            <SiteCard key={site.id} site={site} count={count} last={last} />
-          ))}
-        </View>
-      )}
+      {speciesMarineModel(species.id) && <OceanButton
+        title={`See ${species.commonName.toLowerCase()} in 3D`}
+        variant="secondary"
+        icon="eye"
+        onPress={() => router.push({ pathname: '/inspect', params: { species: species.id } })}
+      />}
+
+      {/* Only where it says something new: for an animal the diver has seen, one site is the sighting row above. */}
+      {seenAt.length >= (seen ? 2 : 1) ? (
+        <>
+          <SectionHeader title="Where it’s been seen" />
+          <View style={styles.sites}>
+            {seenAt.map(({ site, count, last }) => (
+              <SiteCard key={site.id} site={site} count={count} last={last} />
+            ))}
+          </View>
+        </>
+      ) : null}
 
       {/* Public records saved on this phone: kept apart from the diver's own sightings above, and read from the cache only. */}
       <SpeciesRecordsSection species={species} sites={sites} />
@@ -348,9 +339,6 @@ export default function SpeciesDetailScreen() {
               Delete my {species.commonName} log
             </ThemedText>
           </Pressable>
-          <ThemedText type="caption" themeColor="textSecondary" style={styles.center}>
-            {mine.length === 1 ? 'Your sighting goes' : `All ${mine.length} of your sightings go`}, and it leaves your island.
-          </ThemedText>
           {error ? (
             <ThemedText type="small" themeColor="danger" accessibilityLiveRegion="polite" style={styles.center}>
               {error}
@@ -496,22 +484,9 @@ const styles = StyleSheet.create({
     gap: 4,
   },
   tags: {
-    flexDirection: 'row',
+    alignSelf: 'stretch',
     alignItems: 'center',
-    justifyContent: 'center',
-    gap: 4,
     marginTop: 2,
-  },
-  howRare: {
-    minHeight: 44,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    paddingHorizontal: 8,
-    borderRadius: Radius.sm,
-  },
-  flip: {
-    transform: [{ rotate: '180deg' }],
   },
   raritySource: {
     alignItems: 'center',
@@ -532,18 +507,15 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     gap: 6,
   },
+  // The credit is a link: a 44 pt strip to tap, not just its line of text.
+  creditLink: {
+    minHeight: 44,
+    justifyContent: 'center',
+  },
   credit: {
     fontSize: 13,
     lineHeight: 18,
     paddingHorizontal: 4,
-  },
-  empty: {
-    borderWidth: 1.5,
-    borderStyle: 'dashed',
-    borderRadius: Radius.lg,
-    padding: 20,
-    alignItems: 'center',
-    gap: 8,
   },
   sites: {
     gap: 10,

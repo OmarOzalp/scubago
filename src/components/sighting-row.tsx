@@ -21,11 +21,13 @@ interface Props {
   hideDate?: boolean;
   /** Said under the name in place of the site and date, for a list whose rows share both (a dive's page). Empty says nothing. */
   detail?: string;
+  /** Every row on the page is the diver's own, so "Only you" says nothing: it stays in the screen-reader label only. */
+  quiet?: boolean;
   onPress?: () => void;
 }
 
 /** One entry in a log: the species' plate, its name, where and when. */
-export function SightingRow({ sighting, species, site, showUsername = false, pending = false, hideDate = false, detail, onPress }: Props) {
+export function SightingRow({ sighting, species, site, showUsername = false, pending = false, hideDate = false, detail, quiet = false, onPress }: Props) {
   const theme = useTheme();
   const scheme = useSchemeName();
   const showStatus = !!sighting.status && sighting.status !== 'unverified' && !pending;
@@ -74,11 +76,11 @@ export function SightingRow({ sighting, species, site, showUsername = false, pen
             {where}
           </Text>
         ) : null}
-        {sighting.isDemo || hidden || showStatus || pending ? (
+        {sighting.isDemo || (hidden && !quiet) || showStatus || pending ? (
           <View style={styles.tags}>
             {/* Demo community data (local-only builds): never passed off as another diver's report. */}
             {sighting.isDemo ? <Tag label="Example" small accessibilityLabel="Example data, not a real sighting" /> : null}
-            {hidden ? <Tag label="Only you" small /> : null}
+            {hidden && !quiet ? <Tag label="Only you" small /> : null}
             {/* Unverified is the usual case, so only the others are named here. */}
             {showStatus ? <StatusChip status={sighting.status!} small /> : null}
             {pending ? <Tag label={sighting.syncError ? 'Not synced' : 'Waiting to sync'} dashed small /> : null}

@@ -230,3 +230,14 @@ export function creditLine(credited: SourceId[]): string {
   const ids: SourceId[] = credited.length > 0 ? credited : ['inaturalist', 'obis'];
   return ids.map((id) => SOURCE_CREDITS[id].attribution).join(' · ');
 }
+
+/**
+ * A photo's credit in few words: "Daniel Benák (CC BY)" from iNaturalist's "(c) Daniel Benák, some
+ * rights reserved (CC BY), uploaded by Daniel Benák". The photographer and the licence are what the
+ * licence asks to be named; who uploaded it is on the photo's page, one tap away. A credit in any
+ * other shape is left exactly as written.
+ */
+export function shortPhotoCredit(attribution: string): string {
+  const match = /^\(c\)\s*([\s\S]+?),\s*some rights reserved\s*\(([^)]+)\)/.exec(attribution);
+  return match ? `${match[1].replace(/\s+/g, ' ').trim()} (${match[2].trim()})` : attribution;
+}

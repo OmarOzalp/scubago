@@ -235,9 +235,13 @@ describe('"Recorded near dive sites" on the page', () => {
     await render();
     const text = textOf();
     expect(text).toContain('Recorded near dive sites');
-    expect(text).toContain('Not your sightings, and not checked by ScubaGo');
-    expect(text).toContain('Open a dive site’s page to see what’s been recorded there.');
+    expect(text).toContain('Open a dive site to see records.');
     expect(text).not.toContain('Data & credits');
+    // What the records are waits behind a row.
+    expect(text).toContain('About these records');
+    expect(text).not.toContain('Not your sightings');
+    await act(async () => press('About these records')[0].props.onPress());
+    expect(textOf()).toContain('Not your sightings, and not checked by ScubaGo');
   });
 
   test('lists the saved sites that record this animal, and opens one', async () => {
@@ -257,7 +261,8 @@ describe('"Recorded near dive sites" on the page', () => {
   });
 
   test('comes after the diver’s own sightings of it, and keeps them apart', async () => {
-    mockSightings = [sighting('a')];
+    // Seen at two sites, so "Where it’s been seen" has something the sightings above do not already say.
+    mockSightings = [sighting('a'), sighting('b', { siteId: SITES[2].id })];
     await writeCachedSightings(summaryFor(SITES[1].id, [{ speciesId: 'reef-manta', inaturalist: { observations: 3 } }]));
     await render();
     const text = textOf();

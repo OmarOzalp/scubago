@@ -16,6 +16,7 @@ export function Disclosure({
   hint,
   defaultOpen = false,
   align = 'start',
+  lead,
 }: {
   /** Up to three words, as a question or "About …". */
   label: string;
@@ -24,22 +25,35 @@ export function Disclosure({
   hint?: string;
   defaultOpen?: boolean;
   align?: 'start' | 'center';
+  /** Sits before the label on the same line (the rarity tag beside "How rare?"); what opens goes below both. */
+  lead?: ReactNode;
 }) {
   const theme = useTheme();
   const [open, setOpen] = useState(defaultOpen);
+  const toggle = (
+    <Pressable
+      onPress={() => setOpen((o) => !o)}
+      accessibilityRole="button"
+      accessibilityLabel={label}
+      aria-expanded={open}
+      accessibilityHint={hint}
+      style={({ pressed }) => [styles.toggle, pressed && { backgroundColor: theme.backgroundSelected }]}>
+      <ThemedText type="smallBold" themeColor="tint">
+        {label}
+      </ThemedText>
+      <Icon name="chevronDown" size={14} color={theme.tint} weight="bold" style={open ? styles.flip : undefined} />
+    </Pressable>
+  );
   return (
     <View style={[styles.box, align === 'center' && styles.center]}>
-      <Pressable
-        onPress={() => setOpen((o) => !o)}
-        accessibilityRole="button"
-        aria-expanded={open}
-        accessibilityHint={hint}
-        style={({ pressed }) => [styles.toggle, pressed && { backgroundColor: theme.backgroundSelected }]}>
-        <ThemedText type="smallBold" themeColor="tint">
-          {label}
-        </ThemedText>
-        <Icon name="chevronDown" size={14} color={theme.tint} weight="bold" style={open ? styles.flip : undefined} />
-      </Pressable>
+      {lead ? (
+        <View style={styles.head}>
+          {lead}
+          {toggle}
+        </View>
+      ) : (
+        toggle
+      )}
       {open ? <View style={styles.body}>{children}</View> : null}
     </View>
   );
@@ -51,6 +65,11 @@ const styles = StyleSheet.create({
   },
   center: {
     alignItems: 'center',
+  },
+  head: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
   },
   toggle: {
     minHeight: 44,
