@@ -198,7 +198,7 @@ const SiteRow = memo(function SiteRow({
 
 const styles = StyleSheet.create({
   picker: { flex: 1 },
-  search: { paddingHorizontal: Spacing.three, paddingBottom: Spacing.one },
+  search: { paddingHorizontal: Spacing.three, paddingTop: Spacing.three, paddingBottom: Spacing.one },
   content: { paddingHorizontal: Spacing.three, paddingBottom: Spacing.three },
   separator: { height: Spacing.two + 2 },
   footer: { marginTop: Spacing.three + 2 },

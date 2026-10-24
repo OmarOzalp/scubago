@@ -66,10 +66,11 @@ const styles = StyleSheet.create({
   center: {
     alignItems: 'center',
   },
+  // The toggle pulls 8 back over its own padding, so this gap is what shows between the lead and the label.
   head: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
+    gap: 12,
   },
   toggle: {
     minHeight: 44,
