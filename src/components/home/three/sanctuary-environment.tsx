@@ -80,8 +80,10 @@ function IslandWorld({ habitat, level, active, growIn, reach, islands, children 
  * habitat's island alone in the middle, with `children` living there; given, `children` go in the
  * ocean itself.
  */
-export function SanctuaryEnvironment({ habitat, level, active, inspect = false, growIn = false, reach, islands, children }: {
+export function SanctuaryEnvironment({ habitat, level, active, inspect = false, growIn = false, reach, islands, ready = true, children }: {
   habitat: Habitat; level: number; active: boolean; inspect?: boolean;
+  /** The ocean can be built (its seabed's bake is loaded, or there is none to wait for: seabed-assets.ts); until then, only the water's colour. */
+  ready?: boolean;
   /** A new level's additions rise or grow in (see Growth), rather than simply being there. */
   growIn?: boolean;
   /** How far the water reaches from every island's middle (units): farther than the card's in the island explorer, which fills a whole screen with it (waterReach). */
@@ -92,7 +94,7 @@ export function SanctuaryEnvironment({ habitat, level, active, inspect = false, 
     <color attach="background" args={[WATER[habitat]]} />
     <hemisphereLight args={['#F4F7EC', '#5E8F91', 1.15]} />
     <directionalLight position={OCEAN.sun} intensity={1.7} />
-    {inspect ? children : islands
+    {inspect ? children : !ready ? null : islands
       ? <IslandWorld habitat={habitat} level={level} active={active} growIn={growIn} reach={reach} islands={islands}>{children}</IslandWorld>
       : <IslandWorld habitat={habitat} level={level} active={active} growIn={growIn} reach={reach} islands={alone.map((island) => ({ ...island, content: children }))} />}
   </>;

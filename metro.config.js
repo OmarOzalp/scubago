@@ -3,8 +3,9 @@ const { getDefaultConfig } = require('expo/metro-config');
 
 const config = getDefaultConfig(__dirname);
 // Expo SQLite's web worker loads a WASM asset and uses SharedArrayBuffer; the 3D
-// sanctuary bundles rigged marine models as .glb.
-config.resolver.assetExts.push('wasm', 'glb');
+// sanctuary bundles rigged marine models as .glb, and its seabed built ahead of time as
+// .bin (assets/baked/seabed, scripts/bake-seabed.ts).
+config.resolver.assetExts.push('wasm', 'glb', 'bin');
 config.server.enhanceMiddleware = (middleware) => (req, res, next) => {
   res.setHeader('Cross-Origin-Embedder-Policy', 'credentialless');
   res.setHeader('Cross-Origin-Opener-Policy', 'same-origin');

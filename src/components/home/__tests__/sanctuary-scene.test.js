@@ -4,6 +4,9 @@ import { create } from 'react-test-renderer';
 import { router } from 'expo-router';
 import { SanctuaryScene } from '../sanctuary-scene';
 import { useMarineModels } from '../three/use-marine-models';
+import { registerSeabedBake } from '@/lib/seabed-bake';
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 
 jest.mock('../three/scene-canvas', () => ({ SceneCanvas: ({ children }) => <>{children}</> }));
 jest.mock('../three/use-marine-models', () => ({ useMarineModels: jest.fn() }));
@@ -29,10 +32,10 @@ jest.mock('../three/kelp-movers', () => ({ KELP_MOVERS: 12, KelpMoversContext: r
 jest.mock('../three/macro-life', () => ({ MacroLife: ({ species, onPress, onFocus }) => <macro data-species={species} onPress={onPress} onFocus={onFocus} /> }));
 jest.mock('../island-scene', () => ({ IslandScene: () => <fallback /> }));
 jest.mock('expo-router', () => ({ router: { push: jest.fn() } }));
-
-// The first scene here with animals builds its island's seabed for real (the animals' floor is read off
-// the drawn mesh): about a tenth of a second in Node, several seconds under Jest's transform.
-jest.setTimeout(20000);
+// No asset files under Jest: the seabed built ahead of time for Home's island at the first level is read from disk
+// instead (the scenes here with animals swim over it for real: worked out under Jest's transform, it takes seconds).
+jest.mock('../three/seabed-files', () => ({ SEABED_FILES: {} }));
+registerSeabedBake(readFileSync(join(process.cwd(), 'assets/baked/seabed/reef-1.bin')));
 
 let root;
 beforeEach(() => { global.IS_REACT_ACT_ENVIRONMENT = true; });

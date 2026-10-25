@@ -336,3 +336,28 @@ over every triangle corner, in the bind pose, under the procedural rig and throu
 the largest difference is 0.0005 model units (a hundredth of a pixel on Home), normals within 0.4°,
 colours within 0.2 of a step; renders of all 51 in their pose and mid-swim differ only in a few
 anti-aliased edge pixels. `npm run verify:marine` reports the same as before.
+
+### The seabed built ahead of time
+
+Showing an island the first time used to work out its seabed: the lattice the seabed is drawn from and
+the animals swim over (seabed-lattice.ts), the depth map's texels, the water's shoaling and the animals'
+grid of the bottom. The Coral Reef's lattice was also worked out twice (once for the drawn seabed, once
+for the animals: their caches had different keys). Now the two share one, and `scripts/bake-seabed.ts`
+writes what each island alone at each level works out (and Home's island alone in the explorer, at a
+phone's reach) to `assets/baked/seabed/*.bin` (6.4 MB in all; one file, 160 to 310 KB, is loaded for the
+island on show). Once loaded (`seabed-assets.ts`), a scene uses it instead: the very same numbers. The
+`seabed-bake-*.test.ts` tests compare every file with the computation, so a bake left stale by a change
+to the seabed fails them: run `npx tsx scripts/bake-seabed.ts` again. Without a bake (several islands in
+the explorer, another reach), everything is worked out as before.
+
+Building a scene, in the app's order (depth map, seabed mesh, water, the animals' seabed, the swimming's
+start with three animals), in Node: the interpreter (`--jitless`) is the closer to Hermes.
+
+| | Before | After |
+| --- | ---: | ---: |
+| Coral Reef, level 1, interpreter | 8.4 s | 0.9 s |
+| Coral Reef, level 6, interpreter | 11.7 s | 1.15 s |
+| Kelp Forest, level 1, interpreter | 1.86 s | 0.62 s |
+| Coral Reef, level 1, JIT | 582 ms | 239 ms |
+
+What is left is mostly the swimming's own start (its shore fields and the distance fields for each body).
