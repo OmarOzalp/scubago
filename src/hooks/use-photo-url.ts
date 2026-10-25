@@ -24,7 +24,9 @@ export function usePhotoUrl(uri: string | undefined): string | undefined {
       .createSignedUrl(path, SIGNED_URL_SECONDS)
       .then(({ data }) => {
         if (live && data) setSigned({ path, url: data.signedUrl });
-      });
+      })
+      // Offline or signed out: no link, and the photo's place says so (never an unhandled rejection).
+      .catch(() => undefined);
     return () => {
       live = false;
     };

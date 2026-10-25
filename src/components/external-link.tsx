@@ -14,10 +14,15 @@ export function ExternalLink({ href, ...rest }: Props) {
         if (process.env.EXPO_OS !== 'web') {
           // Prevent the default behavior of linking to the default browser on native.
           event.preventDefault();
-          // Open the link in an in-app browser.
-          await openBrowserAsync(href, {
-            presentationStyle: WebBrowserPresentationStyle.AUTOMATIC,
-          });
+          // Open the link in an in-app browser. A second tap while one is opening (iOS allows one at a
+          // time) or no browser at all is nothing to tell the diver: never an unhandled rejection.
+          try {
+            await openBrowserAsync(href, {
+              presentationStyle: WebBrowserPresentationStyle.AUTOMATIC,
+            });
+          } catch {
+            // The page didn't open; the link is still there to tap again.
+          }
         }
       }}
     />

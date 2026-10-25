@@ -78,9 +78,16 @@ function ScreenErrorProbe() {
 }
 
 describe('the root layout', () => {
-  test('gives every screen the calm error card, and catches the app failing as a whole', () => {
+  test('gives every screen the calm error card, catches the app failing as a whole, and keeps three.js’s Clock notice off the screen', () => {
+    const { LogBox } = require('react-native');
+    const ignore = jest.spyOn(LogBox, 'ignoreLogs');
     const layout = require('@/app/_layout');
     expect(layout.unstable_settings.screenErrorBoundary).toBe(ScreenError);
     expect(typeof layout.ErrorBoundary).toBe('function');
+    // In Expo Go this was a yellow warning bar every time a 3D scene opened.
+    const patterns = ignore.mock.calls.flatMap(([list]) => list);
+    expect(patterns.some((p) => p.test('THREE.Clock: This module has been deprecated. Please use THREE.Timer instead.'))).toBe(true);
+    // Only that one: other warnings still show.
+    expect(patterns.some((p) => p.test('Each child in a list should have a unique "key" prop.'))).toBe(false);
   });
 });

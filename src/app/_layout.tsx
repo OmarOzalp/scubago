@@ -10,7 +10,7 @@ import { useFonts } from 'expo-font';
 import { DarkTheme, DefaultTheme, Stack, ThemeProvider, type ErrorBoundaryProps } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { useEffect } from 'react';
-import { Platform } from 'react-native';
+import { LogBox, Platform } from 'react-native';
 
 import { AnimatedSplashOverlay } from '@/components/animated-icon';
 import { AppError, ScreenError } from '@/components/error-screen';
@@ -19,7 +19,16 @@ import { Colors, Type } from '@/constants/theme';
 import { useSchemeName } from '@/hooks/use-theme';
 import { useAppStore } from '@/lib/store';
 
-SplashScreen.preventAutoHideAsync();
+// Nothing to do if the splash can't be held (it then hides by itself): never an unhandled rejection at start-up.
+SplashScreen.preventAutoHideAsync().catch(() => undefined);
+
+/**
+ * The 3D scenes' renderer (@react-three/fiber) makes a THREE.Clock for every scene, and three.js warns that
+ * Clock is deprecated each time: in Expo Go that was a yellow warning bar over the tab bar whenever Home,
+ * the explorer or a closer look opened. It is the library's to change, not something the diver can act on.
+ */
+const IGNORED_WARNINGS = [/THREE\.Clock: This module has been deprecated/];
+LogBox.ignoreLogs(IGNORED_WARNINGS);
 
 /**
  * A screen that fails while drawing shows a calm "This page hit a snag" card with Try again, inside the
