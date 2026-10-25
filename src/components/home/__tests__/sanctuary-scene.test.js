@@ -30,6 +30,10 @@ jest.mock('../three/macro-life', () => ({ MacroLife: ({ species, onPress, onFocu
 jest.mock('../island-scene', () => ({ IslandScene: () => <fallback /> }));
 jest.mock('expo-router', () => ({ router: { push: jest.fn() } }));
 
+// The first scene here with animals builds its island's seabed for real (the animals' floor is read off
+// the drawn mesh): about a tenth of a second in Node, several seconds under Jest's transform.
+jest.setTimeout(20000);
+
 let root;
 beforeEach(() => { global.IS_REACT_ACT_ENVIRONMENT = true; });
 afterEach(async () => { if (root) await act(async () => root.unmount()); root = null; });

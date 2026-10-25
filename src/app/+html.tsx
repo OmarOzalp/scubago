@@ -1,4 +1,4 @@
-import { ScrollViewStyleReset } from 'expo-router/html';
+import { ScrollViewStyleReset, useServerDocumentContext } from 'expo-router/html';
 import type { PropsWithChildren } from 'react';
 
 // The HTML shell for the web build (`npx expo export --platform web`). Besides
@@ -6,10 +6,14 @@ import type { PropsWithChildren } from 'react';
 // browser as a home-screen web app: a full-screen launch, the app icon, and
 // `viewport-fit=cover` so the tab bar clears the iPhone home indicator. The
 // icons and manifest live in `public/`. See docs/ios-distribution.md.
+//
+// The app's scripts and styles come in through `headNodes` and `bodyNodes`: a
+// page without them is the pre-rendered HTML alone, which never starts.
 
 export default function Root({ children }: PropsWithChildren) {
+  const { htmlAttributes, bodyAttributes, headNodes, bodyNodes } = useServerDocumentContext();
   return (
-    <html lang="en">
+    <html lang="en" {...htmlAttributes}>
       <head>
         <meta charSet="utf-8" />
         <meta httpEquiv="X-UA-Compatible" content="IE=edge" />
@@ -30,8 +34,12 @@ export default function Root({ children }: PropsWithChildren) {
 
         <ScrollViewStyleReset />
         <style dangerouslySetInnerHTML={{ __html: responsiveBackground }} />
+        {headNodes}
       </head>
-      <body>{children}</body>
+      <body {...bodyAttributes}>
+        {children}
+        {bodyNodes}
+      </body>
     </html>
   );
 }

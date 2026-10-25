@@ -2,7 +2,7 @@ import * as ImagePicker from 'expo-image-picker';
 import { Image } from 'expo-image';
 import { Stack, router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, Text, View, type TextInputInstance, type ViewInstance } from 'react-native';
 import Animated, { useAnimatedStyle, useReducedMotion, useSharedValue, withDelay, withTiming } from 'react-native-reanimated';
 
 import { DateField } from '@/components/date-field';
@@ -165,8 +165,8 @@ function LogSightingScreen() {
   // saved without a name (each time takes the diver back to that field).
   const [problem, setProblem] = useState<{ field: DraftField; message: string } | null>(null);
   const [nameAsked, setNameAsked] = useState(0);
-  const nameField = useRef<TextInput>(null);
-  const privacyField = useRef<View>(null);
+  const nameField = useRef<TextInputInstance>(null);
+  const privacyField = useRef<ViewInstance>(null);
   const { scrollView, onScroll, scrollTo } = useScrollTo();
   const keyboard = useKeyboard();
   const [result, setResult] = useState<Result | null>(null);
@@ -864,7 +864,7 @@ function SpeciesPicker({
   onDone: () => void;
 }) {
   // The bar with "Next" is at the foot of this view, and the view is lifted clear of the keyboard.
-  const lift = useRef<View>(null);
+  const lift = useRef<ViewInstance>(null);
   const keyboard = useKeyboard(lift);
   const [query, setQuery] = useState('');
   const [category, setCategory] = useState<Category | null>(null);

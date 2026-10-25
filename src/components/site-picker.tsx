@@ -132,14 +132,14 @@ export function SitePicker({
             <ThemedText type="caption" themeColor="textSecondary" accessibilityLiveRegion="polite">
               No site matches “{typed.trim()}”.
             </ThemedText>
-          ) : null
+          ) : undefined
         }
         ListFooterComponent={
           credit ? (
             <View style={styles.footer}>
               <OsmCredit />
             </View>
-          ) : null
+          ) : undefined
         }
       />
     </View>

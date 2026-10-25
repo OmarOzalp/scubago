@@ -8,8 +8,9 @@ Built with Expo (React Native + TypeScript). Design spec:
 
 ## Run it
 
-This is Expo SDK 57. The App Store's Expo Go runs SDK 57 projects. On iOS you must be signed in to
-the same Expo account in the terminal (`npx expo login`) and in the Expo Go app.
+This is Expo SDK 58 (React Native 0.88, React 19.3), so it needs the SDK 58 version of Expo Go and
+Node 22.13 or newer. On iOS you must be signed in to the same Expo account in the terminal
+(`npx expo login`, which now opens the browser) and in the Expo Go app.
 
 ```bash
 npm install

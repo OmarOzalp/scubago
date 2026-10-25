@@ -53,7 +53,7 @@ afterEach(() => {
 
 describe('the scene registry', () => {
   it('asks the registered scene for its picture, with the size wanted', async () => {
-    const capture = jest.fn(async () => 'file:///cache/GLView/a.png');
+    const capture = jest.fn(async (_wanted: typeof request) => 'file:///cache/GLView/a.png');
     register('home', capture);
     expect(hasScene('home')).toBe(true);
     expect(await captureScene('home', request)).toBe('file:///cache/GLView/a.png');
@@ -258,7 +258,7 @@ describe('on iOS and Android', () => {
     expect(await captureFrame(target, request, deps)).toBe('file:///cache/GLView/abc.png');
     // The frame is drawn right before it is read, so the buffer holds a whole picture.
     expect(calls).toEqual(['render', 'snapshot']);
-    expect(deps.takeSnapshot).toHaveBeenCalledWith(context, {
+    expect(deps.takeSnapshot).toHaveBeenCalledWith(expect.objectContaining(context), {
       format: 'png',
       compress: 1,
       flip: false,
@@ -345,7 +345,7 @@ describe('on the web', () => {
       width: 0,
       height: 0,
       getContext: jest.fn(() => ({ drawImage: (...args: unknown[]) => void drawn.push(args) })),
-      toBlob: jest.fn((callback: (blob: Blob | null) => void) => callback({ size: 1234 } as Blob)),
+      toBlob: jest.fn((callback: (blob: Blob | null) => void, _type?: string) => callback({ size: 1234 } as Blob)),
     };
     const deps: WebDeps = {
       makeCanvas: jest.fn((width: number, height: number) => {
@@ -376,7 +376,7 @@ describe('on the web', () => {
     expect(state).toEqual({ width: 332, height: 308, ratio: 1.25 });
     expect(camera.zoom).toBe(31);
     expect(copy.width).toBe(0);
-    expect(deps.createObjectURL).toHaveBeenCalledWith({ size: 1234 });
+    expect(deps.createObjectURL).toHaveBeenCalledWith(expect.objectContaining({ size: 1234 }));
   });
 
   it('asks the encoder for a PNG', async () => {

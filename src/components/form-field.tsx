@@ -1,5 +1,5 @@
 import { forwardRef, useState, type ReactNode } from 'react';
-import { StyleSheet, TextInput, View, type TextInputProps } from 'react-native';
+import { StyleSheet, TextInput, View, type TextInputInstance, type TextInputProps } from 'react-native';
 
 import { ThemedText } from '@/components/themed-text';
 import { Radius, Spacing, Type } from '@/constants/theme';
@@ -18,7 +18,7 @@ type Props = TextInputProps & {
  * A labelled text field: a typewriter label over a paper box that takes a lagoon edge while you type.
  * The label is visible and is the field's accessible name.
  */
-export const FormField = forwardRef<TextInput, Props>(function FormField({ label, hint, labelAccessory, style, onFocus, onBlur, ...input }, ref) {
+export const FormField = forwardRef<TextInputInstance, Props>(function FormField({ label, hint, labelAccessory, style, onFocus, onBlur, ...input }, ref) {
   const theme = useTheme();
   const [focused, setFocused] = useState(false);
   return (

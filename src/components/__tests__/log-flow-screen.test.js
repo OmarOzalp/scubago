@@ -13,6 +13,7 @@ import { countWords, screenTexts, screenWords } from '@/test-support/screen-word
 let mockParams = {};
 let mockOptions = null;
 let mockGuard = null;
+const mockDisable = jest.fn();
 let mockNavigation = null;
 let mockState = null;
 const mockScrollTo = jest.fn();
@@ -25,7 +26,8 @@ jest.mock('expo-router', () => ({
   Stack: { Screen: ({ options }) => { mockOptions = { ...mockOptions, ...options }; return null; } },
 }));
 jest.mock('expo-router/react-navigation', () => ({
-  usePreventRemove: (preventRemove, callback) => { mockGuard = { preventRemove, callback }; },
+  // As in expo-router: the hook hands back the way to lift the block, and `repeat` lifts it and sends the action again.
+  usePreventRemove: (preventRemove, callback) => { mockGuard = { preventRemove, callback }; return mockDisable; },
 }));
 jest.mock('@/global.css', () => ({}));
 jest.mock('@/components/external-link', () => ({ ExternalLink: () => null }));
@@ -174,14 +176,17 @@ describe('leaving Log a dive with something entered', () => {
     expect(mockGuard.preventRemove).toBe(true);
 
     const action = { type: 'POP' };
+    const repeat = () => mockNavigation.dispatch(action);
     confirmAction.mockResolvedValueOnce(false);
-    await act(async () => { mockGuard.callback({ data: { action } }); });
+    await act(async () => { mockGuard.callback({ data: { action }, repeat }); });
     expect(confirmAction).toHaveBeenCalledWith(expect.objectContaining({ title: 'Discard this entry?', destructive: true }));
     expect(mockNavigation.dispatch).not.toHaveBeenCalled();
+    expect(mockGuard.preventRemove).toBe(true);
 
     confirmAction.mockResolvedValueOnce(true);
-    await act(async () => { mockGuard.callback({ data: { action } }); });
+    await act(async () => { mockGuard.callback({ data: { action }, repeat }); });
     expect(mockNavigation.dispatch).toHaveBeenCalledWith(action);
+    expect(mockGuard.preventRemove).toBe(false);
   });
 
   test('asks for a typed dive field, too', async () => {
@@ -211,11 +216,11 @@ describe('leaving Log a dive with something entered', () => {
     expect(mockGuard.preventRemove).toBe(true);
     await press(byTitle('Save changes'));
     expect(router.back).toHaveBeenCalledTimes(1);
-    // The close that follows is stopped by the navigator once, then let through without a question.
-    const action = { type: 'POP' };
-    await act(async () => { mockGuard.callback({ data: { action } }); });
+    // The block is lifted before the close, so the navigator lets it through without the question.
+    expect(mockDisable).toHaveBeenCalledTimes(1);
+    expect(mockDisable.mock.invocationCallOrder[0]).toBeLessThan(router.back.mock.invocationCallOrder[0]);
+    expect(mockGuard.preventRemove).toBe(false);
     expect(confirmAction).not.toHaveBeenCalled();
-    expect(mockNavigation.dispatch).toHaveBeenCalledWith(action);
   });
 });
 

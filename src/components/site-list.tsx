@@ -193,7 +193,7 @@ export const SiteList = memo(function SiteList({
           No dive sites to show for this species yet.
         </ThemedText>
       }
-      ListFooterComponent={credit ? <OsmCredit style={styles.footerCredit} /> : null}
+      ListFooterComponent={credit ? <OsmCredit style={styles.footerCredit} /> : undefined}
     />
   );
 });

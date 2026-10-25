@@ -22,7 +22,7 @@ const LOG_AFTER = 'map';
  * The paper tab bar: four tabs with the coral "Log dive" button raised in the middle. The current
  * tab's icon sits on a watercolour wash.
  */
-export function JournalTabBar({ state, descriptors, navigation, insets }: BottomTabBarProps) {
+export function JournalTabBar({ state, descriptors, emitter, navigateToTab, insets }: BottomTabBarProps) {
   const theme = useTheme();
   return (
     <View
@@ -37,10 +37,10 @@ export function JournalTabBar({ state, descriptors, navigation, insets }: Bottom
           const focused = state.index === index;
           const label = options.title ?? route.name;
           const onPress = () => {
-            const event = navigation.emit({ type: 'tabPress', target: route.key, canPreventDefault: true });
-            if (!focused && !event.defaultPrevented) navigation.navigate(route.name, route.params);
+            const event = emitter.emit({ type: 'tabPress', target: route.key, canPreventDefault: true });
+            if (!focused && !event.defaultPrevented) navigateToTab(route.key);
           };
-          const onLongPress = () => navigation.emit({ type: 'tabLongPress', target: route.key });
+          const onLongPress = () => emitter.emit({ type: 'tabLongPress', target: route.key });
           return [
             <Tab
               key={route.key}

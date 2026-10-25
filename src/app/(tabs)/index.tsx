@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, Text, View, type ScrollViewInstance } from 'react-native';
 import { router } from 'expo-router';
 import { HomeEditor } from '@/components/home/home-editor';
 import { useTip } from '@/components/home/use-tip';
@@ -232,7 +232,7 @@ type Pill = { id: IslandId; name: string; color: string; count: number };
  * middle, as a new discovery arrives at its island without the diver touching a pill.
  */
 function IslandPills({ pills, chosen, onChoose, including }: { pills: Pill[]; chosen: IslandId; onChoose: (id: IslandId) => void; including: string }) {
-  const scroll = useRef<ScrollView>(null);
+  const scroll = useRef<ScrollViewInstance>(null);
   const spots = useRef(new Map<IslandId, { x: number; width: number }>());
   const [width, setWidth] = useState(0);
   useEffect(() => {

@@ -1,6 +1,5 @@
-import { useNavigation } from 'expo-router';
 import { usePreventRemove } from 'expo-router/react-navigation';
-import { useCallback, useEffect, useRef } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { BackHandler, Platform } from 'react-native';
 
 import { confirmAction } from '@/lib/confirm';
@@ -17,20 +16,22 @@ export function useDiscardGuard(
   dirty: boolean,
   { title = 'Discard this entry?', message = 'What you’ve entered won’t be saved.' }: { title?: string; message?: string } = {},
 ): () => void {
-  const navigation = useNavigation();
-  const leaving = useRef(false);
-  usePreventRemove(dirty, ({ data }) => {
+  // Once the screen is on its way out (saved, or the diver chose Discard) it stops asking. The
+  // navigator keeps a close blocked until the block is lifted, so it is lifted before the close.
+  const [released, setReleased] = useState(false);
+  const disablePrevention = usePreventRemove(dirty && !released, ({ repeat }) => {
     void (async () => {
-      if (leaving.current || (await confirmAction({ title, message, confirmLabel: 'Discard', destructive: true }))) {
-        leaving.current = true;
+      if (await confirmAction({ title, message, confirmLabel: 'Discard', destructive: true })) {
+        setReleased(true);
         // The same action, which now goes through: it has already been asked about this screen.
-        navigation.dispatch(data.action);
+        repeat();
       }
     })();
   });
   return useCallback(() => {
-    leaving.current = true;
-  }, []);
+    setReleased(true);
+    disablePrevention();
+  }, [disablePrevention]);
 }
 
 /**

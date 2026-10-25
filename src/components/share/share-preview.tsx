@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
-import { AccessibilityInfo, ActivityIndicator, Modal, StyleSheet, View, useWindowDimensions, type LayoutChangeEvent } from 'react-native';
+import { AccessibilityInfo, ActivityIndicator, Modal, StyleSheet, View, useWindowDimensions, type LayoutChangeEvent, type ViewInstance } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { OceanButton } from '@/components/ocean-button';
@@ -88,7 +88,7 @@ function PreviewBody({ onClose, reduced, title, cardLabel, children, fileName, r
   const scheme = useSchemeName();
   const insets = useSafeAreaInsets();
   const dims = useWindowDimensions();
-  const cardRef = useRef<View>(null);
+  const cardRef = useRef<ViewInstance>(null);
   const prepared = useRef<unknown>(null);
   const alive = useRef(true);
   const [busy, setBusy] = useState(false);
