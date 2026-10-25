@@ -1,5 +1,5 @@
 import { memo, useCallback, useEffect, useMemo, useRef } from 'react';
-import { FlatList, StyleSheet, Text, View, type ListRenderItemInfo, type StyleProp, type ViewStyle } from 'react-native';
+import { FlatList, Pressable, StyleSheet, Text, View, type ListRenderItemInfo, type StyleProp, type ViewStyle } from 'react-native';
 
 import { ExternalLink } from '@/components/external-link';
 import { Icon } from '@/components/icon';
@@ -21,7 +21,9 @@ export const OSM_CREDIT = `Dive sites ${OSM_ATTRIBUTION}`;
 /**
  * The credit OpenStreetMap's licence asks for wherever its sites are shown: a small link to the
  * copyright page. On the map it is a little label that sits at the top, clear of the map provider's
- * own logo and legal link at the bottom; under a list it is a plain line.
+ * own logo and legal link at the bottom; under a list it is a plain line. The words stay small and
+ * exactly as the licence has them; under a list the padding round them makes the link 44 points to hit
+ * (the chip on the map is a 28 point box of its own, as small as the map provider's).
  */
 export function OsmCredit({ onMap = false, style }: { onMap?: boolean; style?: StyleProp<ViewStyle> }) {
   const theme = useTheme();
@@ -38,11 +40,21 @@ export function OsmCredit({ onMap = false, style }: { onMap?: boolean; style?: S
         rel="noopener noreferrer"
         accessibilityLabel={`${OSM_CREDIT}. Opens OpenStreetMap’s copyright page`}
         maxFontSizeMultiplier={1.3}
-        style={[styles.creditText, { color: onMap ? theme.tint : theme.textSecondary }]}>
+        style={[styles.creditText, !onMap && styles.creditTextInList, { color: onMap ? theme.tint : theme.textSecondary }]}>
         {OSM_CREDIT}
       </ExternalLink>
     </View>
   );
+}
+
+/**
+ * Where a site is, in the list: "Red Sea, Egypt", the broad region and the country. A site's own
+ * sub-region ("Sinai", "Marsa Alam & the south") only shows when two sites share a name (`full`), as
+ * the one thing that tells them apart.
+ */
+export function siteWhere(region: string, country: string, full = false): string {
+  const broad = full ? region : (region.split(', ').pop() ?? region);
+  return broad === country ? country : `${broad}, ${country}`;
 }
 
 /**
@@ -58,6 +70,7 @@ export const SiteList = memo(function SiteList({
   highlightedSiteIds,
   onSelectSite,
   note,
+  onDismissNote,
   topInset = 0,
   reveal = null,
   selectedSiteId = null,
@@ -66,6 +79,8 @@ export const SiteList = memo(function SiteList({
   highlightedSiteIds: Set<string> | null;
   onSelectSite: (siteId: string) => void;
   note?: string;
+  /** With a `note`: the way to close it for good. */
+  onDismissNote?: () => void;
   topInset?: number;
   /**
    * Scroll to this site (or to the top, for a null `siteId`) when a new one is given: where the map
@@ -82,6 +97,13 @@ export const SiteList = memo(function SiteList({
     [sites, highlightedSiteIds],
   );
   const credit = useMemo(() => hasImportedSites(sites), [sites]);
+  // Names more than one site has: those rows keep their full region, which is what tells them apart.
+  const sharedNames = useMemo(() => {
+    const seen = new Set<string>();
+    const shared = new Set<string>();
+    for (const site of sites) (seen.has(site.name) ? shared : seen).add(site.name);
+    return shared;
+  }, [sites]);
 
   // Rows differ in height, so a row that hasn't been drawn yet has no known place: `onScrollToIndexFailed`
   // jumps to where the average row height puts it, and then asks again once rows there exist.
@@ -116,9 +138,17 @@ export const SiteList = memo(function SiteList({
 
   const renderItem = useCallback(
     ({ item }: ListRenderItemInfo<DiveSite>) => (
-      <SiteRow id={item.id} name={item.name} region={item.region} country={item.country} selected={item.id === selectedSiteId} onSelect={onSelectSite} />
+      <SiteRow
+        id={item.id}
+        name={item.name}
+        region={item.region}
+        country={item.country}
+        full={sharedNames.has(item.name)}
+        selected={item.id === selectedSiteId}
+        onSelect={onSelectSite}
+      />
     ),
-    [onSelectSite, selectedSiteId],
+    [onSelectSite, selectedSiteId, sharedNames],
   );
 
   return (
@@ -142,6 +172,15 @@ export const SiteList = memo(function SiteList({
               <ThemedText type="small" style={{ flex: 1 }}>
                 {note}
               </ThemedText>
+              {onDismissNote ? (
+                <Pressable
+                  onPress={onDismissNote}
+                  accessibilityRole="button"
+                  accessibilityLabel="Close this note"
+                  style={({ pressed }) => [styles.noteClose, pressed && { backgroundColor: theme.backgroundSelected }]}>
+                  <Icon name="close" size={16} color={theme.textSecondary} weight="bold" />
+                </Pressable>
+              ) : null}
             </Paper>
           ) : null}
           <ThemedText type="label">
@@ -171,6 +210,7 @@ const SiteRow = memo(function SiteRow({
   name,
   region,
   country,
+  full,
   selected,
   onSelect,
 }: {
@@ -178,6 +218,8 @@ const SiteRow = memo(function SiteRow({
   name: string;
   region: string;
   country: string;
+  /** Another site has this name: show the whole region. */
+  full: boolean;
   selected: boolean;
   onSelect: (siteId: string) => void;
 }) {
@@ -199,7 +241,7 @@ const SiteRow = memo(function SiteRow({
           {name}
         </Text>
         <Text numberOfLines={1} style={[styles.where, { color: theme.textSecondary }]}>
-          {region}, {country}
+          {siteWhere(region, country, full)}
         </Text>
       </View>
       <Icon name="chevronRight" size={18} color={theme.textSecondary} weight="bold" />
@@ -229,8 +271,17 @@ const styles = StyleSheet.create({
   note: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 10,
-    paddingVertical: 12,
+    gap: 8,
+    paddingVertical: 4,
+    paddingLeft: 12,
+    paddingRight: 4,
+  },
+  noteClose: {
+    width: 44,
+    height: 44,
+    borderRadius: Radius.sm,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   empty: {
     textAlign: 'center',
@@ -256,6 +307,11 @@ const styles = StyleSheet.create({
     fontSize: 11,
     lineHeight: 15,
     textDecorationLine: 'underline',
+  },
+  // Padding is part of a link's hit area: 15 + 2 x 15 is 45 tall under a list.
+  creditTextInList: {
+    paddingVertical: 15,
+    paddingHorizontal: 8,
   },
   row: {
     flexDirection: 'row',

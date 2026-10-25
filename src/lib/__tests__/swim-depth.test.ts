@@ -45,7 +45,8 @@ test('animals swim at the depth they live at: bottom-dwellers near the bottom, b
 });
 
 test('on the Coral Reef the biggest animals swim in view, in water deep enough for them', () => {
-  // (the reef's outer slope is a steep wall and the ocean a little wider for them: shelf-water.ts)
+  // (the reef's outer slope is a steep wall, round the islets' reefs too at the last levels, the deep water beyond it a ring round the island
+  // that each of them goes round in, and the ocean a little wider for them: shelf-water.ts)
   for (const level of [1, 6]) {
     const { surveys, failures } = sweep('reef', level, 40, BIGGEST);
     expect(failures).toEqual([]);
@@ -53,9 +54,8 @@ test('on the Coral Reef the biggest animals swim in view, in water deep enough f
       const s = surveys[model];
       expect(s).toBeDefined();
       expect(s.unseen / s.settled).toBeLessThan(.05);
-      // (the sunfish is taller than the water there is, and always rides with some of it out: marine-bodies.ts)
-      // (the widest bodies are held at the edge of a ring that pinches at the frame's corners: some seconds of a short run, 4-5% over minutes)
-      if (model !== 'mola-mola') expect(s.stranded / s.settled).toBeLessThan(.2);
+      // (the sunfish, on its side, lies with its keel toward the open sea, and the deep floor past the wall is deep enough for it)
+      expect(s.stranded / s.settled).toBeLessThan(.2);
     }
   }
 });

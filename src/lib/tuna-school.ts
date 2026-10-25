@@ -26,8 +26,6 @@ export const TUNA_SCHOOL = {
   roam: [1.35, 2.2] as const, fishClearance: .5,
   /** The school's usual depth (world height) and how far it wanders up and down (units). */
   depth: -.96, depthRange: .22,
-  /** Average seconds between broad turns that reverse the school's way round the island. */
-  reverseEvery: 85,
   /** A threat this close to the school's center puts it on alert (units). */
   alertRadius: 3.4,
   /** A charging shark sends fish this close to its path into flight (units). */
@@ -163,6 +161,8 @@ const LOOKS = [.35, .7, 1];
 const LEVEL = -.94;
 /** Islets are small sandbars: fish may pass them this much closer than the main island (units). */
 const ISLET_ALLOWANCE = .45;
+/** The farthest out (a share of its frame) the lead ever goes, where the camera shows it: see advanceLead. */
+const LEAD_HOLD = .97;
 /** A tuna's body (see marine-bodies.ts), and the room the fish keep between its lowest point and the bottom (units). */
 export const TUNA_HULL: Hull = { keel: .09, wing: .05, nose: .04, tail: .08, crest: .1, width: .1, length: .3 };
 export const TUNA_MARGIN = .04;
@@ -296,7 +296,7 @@ export function createTunaSchool(initialField: ShoreField, options: {
   // The lead, starting in the middle of its roaming band on the far side of the island.
   const lead = {
     x: 0, z: 0, y: T.depth, heading: 0, speed: T.cruiseSpeed, turn: 0, want: 0,
-    direction: variation(seed, 9) < .5 ? 1 : -1, halfTurn: 0, nextReverse: T.reverseEvery * (.6 + .8 * variation(seed, 10)), reversals: 0,
+    direction: variation(seed, 9) < .5 ? 1 : -1, halfTurn: 0,
     /** How wide the school may spread here (1 full width), narrowing into a stream where the water between the shore and the frame is tight. */
     squeeze: 1,
     /** Its distance offshore (units), and how often it has moved to the front of its school's largest group. */
@@ -546,7 +546,20 @@ export function createTunaSchool(initialField: ShoreField, options: {
     const halfWidth = T.shape[1] * lead.squeeze, low = coast + halfWidth, high = Math.max(low, limit - halfWidth);
     // Roam: along the coast at a distance that drifts slowly, with a gentle wander so the path never repeats.
     const band = .5 + .5 * (.7 * Math.sin(time * TAU / 71 + seed * 3.1) + .3 * Math.sin(time * TAU / 29 + seed * 1.3));
-    const target = clamp(T.roam[0] + (T.roam[1] + ocean.roam - T.roam[0]) * band, low, high);
+    let target = clamp(T.roam[0] + (T.roam[1] + ocean.roam - T.roam[0]) * band, low, high);
+    // A large animal going round with it (any but a threat, which it flees): the school takes a lane of its own beside it, inside or
+    // outside, whichever it is on already (the other where there is no room on that side), rather than swim on round with it in its middle.
+    for (let m = 0; m < near.length; m++) {
+      const a = animals[near[m]];
+      if (SCHOOL_REACTIONS[a.model].threat) continue;
+      const weight = a.presence * smoothstep(a.halfLength + T.shape[0] + 1.5, a.halfLength + T.shape[0] * .5, norm(a.x - state.centerX, a.z - state.centerZ));
+      if (weight <= 0) continue;
+      const theirs = field.island(a.x, a.z + shift, ISLET_ALLOWANCE).distance, gap = a.halfWidth + halfWidth + .3;
+      if (Math.abs(target - theirs) >= gap) continue;
+      let side = here.distance >= theirs ? 1 : -1;
+      if (theirs + side * gap > high || theirs + side * gap < low) side = -side;
+      target += (clamp(theirs + side * gap, low, high) - target) * weight;
+    }
     const radial = clamp((target - here.distance) * 1.1, -.6, .9);
     const wander = .32 * Math.sin(time * TAU / 23 + seed) + .2 * Math.sin(time * TAU / 57 + seed * 2.7);
     const tx = -here.nz * lead.direction, tz = here.nx * lead.direction;
@@ -570,14 +583,16 @@ export function createTunaSchool(initialField: ShoreField, options: {
     }
     const normal = norm(nx, nz) || 1;
     nx /= normal; nz /= normal;
-    const slide = clamp((nx * hz - nz * hx) * 4, -1, 1);
+    // (sliding along the coast the way it goes round the island, so a bend never turns it back)
+    const slide = clamp((nx * tz - nz * tx) * 4, -1, 1);
     wx += (nx * 1.2 - nz * slide) * threat * 2.2; wz += (nz * 1.2 + nx * slide) * threat * 2.2;
     if (here.distance < inner) { const push = (inner - here.distance) * 6; wx += here.nx * push; wz += here.nz * push; }
     // Frame: keep the whole school in view.
     const edgeAhead = frameAt(px + hx * reach, pz + hz * reach, frameA, ocean.world), edgeHere = frameAt(px, pz, frameB, ocean.world);
     const skirtWeight = arrival.entering ? 0 : smoothstep(.86, .98, edgeAhead.edge) * 1.8;
     const back = arrival.entering ? 0 : smoothstep(.9, 1, edgeHere.edge) * 2 + Math.max(0, edgeHere.edge - 1) * 10;
-    const skirt = Math.sign(edgeAhead.nx * hz - edgeAhead.nz * hx) || 1;
+    // (along it the way it goes round the island: the frame's inward normal is against the shore field's)
+    const skirt = -lead.direction;
     wx += edgeAhead.nx * (skirtWeight * .8 + back) - edgeAhead.nz * skirt * skirtWeight;
     wz += edgeAhead.nz * (skirtWeight * .8 + back) + edgeAhead.nx * skirt * skirtWeight;
     // Threats: turn the whole school away, more firmly the closer and more dangerous they are. A
@@ -599,12 +614,12 @@ export function createTunaSchool(initialField: ShoreField, options: {
       const sideways = (Math.abs(lat) > .1 ? Math.sign(lat) : lead.direction) * smoothstep(-1, .5, (dx * ahx + dz * ahz) / d);
       wx += (dx / d * .6 + ahz * sideways) * weight; wz += (dz / d * .6 - ahx * sideways) * weight;
     }
-    // How far to turn; a half turn keeps to its side (out to sea) until it is done. One forced on the
-    // school (by a threat, or water too narrow ahead) also reverses its way round, so it never loops.
+    // How far to turn; a half turn keeps to its side (out to sea) until it is done. One forced on the school (by a threat, or water too
+    // narrow ahead) also reverses its way round; otherwise it goes round the island the way it goes, always.
     let change = wrapAngle(Math.atan2(wx, wz) - lead.heading);
     if (!lead.halfTurn && Math.abs(change) > 2.5) {
       lead.halfTurn = Math.sign(here.nx * hz - here.nz * hx) || 1;
-      if (wx * tx + wz * tz < 0) { lead.direction *= -1; lead.nextReverse = Math.max(lead.nextReverse, time + T.reverseEvery * .5); }
+      if (wx * tx + wz * tz < 0) lead.direction *= -1;
     }
     if (lead.halfTurn && Math.sign(change) !== lead.halfTurn && Math.abs(change) > 1.8) change += lead.halfTurn * TAU;
     if (Math.abs(change) < 1.2) lead.halfTurn = 0;
@@ -626,6 +641,13 @@ export function createTunaSchool(initialField: ShoreField, options: {
     lead.speed += (target - lead.speed) * ease(1.2, dt);
     lead.x += Math.sin(lead.heading) * lead.speed * dt;
     lead.z += Math.cos(lead.heading) * lead.speed * dt;
+    // However it turns (fleeing a threat at the edge of the view, or squeezed round an islet's shelf), it never goes on out past the
+    // frame: what of its step took it past LEAD_HOLD is taken back, so it slides along the edge.
+    const seen = frameAt(lead.x, lead.z + apparentShift(lead.y - LEVEL), frameB, ocean.world);
+    if (seen.edge > LEAD_HOLD) {
+      const push = Math.min((seen.edge - LEAD_HOLD) * Math.min(ocean.world.x, ocean.world.z), lead.speed * dt);
+      lead.x += seen.nx * push; lead.z += seen.nz * push;
+    }
     // Depth: slow rises and descents, over the bottom wherever it lies.
     const band = .5 + .5 * (.65 * Math.sin(time * TAU / 43 + seed * 5.3) + .35 * Math.sin(time * TAU / 101 + seed));
     if (seabed) lead.y += (levelFor(band) - lead.y) * ease(1.1, dt);
@@ -638,16 +660,6 @@ export function createTunaSchool(initialField: ShoreField, options: {
       const hx = Math.sin(lead.heading), hz = Math.cos(lead.heading);
       trailX[trailHead] = lead.x - hx * sinceTrail; trailZ[trailHead] = lead.z - hz * sinceTrail;
       trailHX[trailHead] = hx; trailHZ[trailHead] = hz;
-    }
-    // Now and then a broad turn the other way round the island, where there is room for it.
-    if (time >= lead.nextReverse) {
-      const shift = apparentShift(lead.y - LEVEL), shore = field.island(lead.x, lead.z + shift, ISLET_ALLOWANCE);
-      // The U-turn swings out to sea: room for it and the school's width, short of the frame.
-      if (state.mood === 'calm' && state.spread < 1.1 && shore.distance > T.roam[0] && frameAt(lead.x + shore.nx * 1.7, lead.z + shift + shore.nz * 1.7, frameA, ocean.world).edge < .97) {
-        lead.direction *= -1;
-        lead.reversals++;
-        lead.nextReverse = time + T.reverseEvery * (.6 + .8 * variation(seed + 5, lead.reversals));
-      } else lead.nextReverse = time + 5;
     }
   }
 
@@ -854,7 +866,10 @@ export function createTunaSchool(initialField: ShoreField, options: {
         const inside = keepOut(x[i], z[i]) - KEEP_OUT_EDGE;
         if (inside < 0) {
           keepOut.sample(x[i], z[i], away);
-          const push = Math.min(-inside, KEEP_OUT_PUSH * dt), px = away.nx * push, pz = away.nz * push;
+          const push = Math.min(-inside, KEEP_OUT_PUSH * dt);
+          let px = away.nx * push, pz = away.nz * push;
+          // (but never out of view for it: at the edge of the frame, what of the push would take it on out goes along the edge instead)
+          if (edge.edge > .98) { const out = -(px * edge.nx + pz * edge.nz); if (out > 0) { px += out * edge.nx; pz += out * edge.nz; } }
           // (a fish pushed back while it swims its fastest is not faster than a fish can be: the push gives way, not the swimming)
           const most = T.panicSpeed * 1.06 * 1.03 * dt, a = px * px + pz * pz, b = 2 * (mx * px + mz * pz), c = mx * mx + mz * mz - most * most;
           const share = c >= 0 ? 0 : a + b + c <= 0 ? 1 : (-b + Math.sqrt(b * b - 4 * a * c)) / (2 * a);

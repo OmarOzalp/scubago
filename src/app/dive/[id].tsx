@@ -5,6 +5,7 @@ import { Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 import { Bookplate, CentreStamp } from '@/components/dive/marks';
 import { SignatureView } from '@/components/dive/signature';
 import { Icon, type IconName } from '@/components/icon';
+import { Disclosure } from '@/components/journal/disclosure';
 import { IconButton } from '@/components/journal/icon-button';
 import { Ledger, type LedgerItem } from '@/components/journal/ledger';
 import { Paper } from '@/components/journal/paper';
@@ -13,7 +14,7 @@ import { Wash } from '@/components/journal/wash';
 import { OceanButton } from '@/components/ocean-button';
 import { ShareDiveButton } from '@/components/share/share-buttons';
 import { formatEntryDate, SightingRow } from '@/components/sighting-row';
-import { SyncLine } from '@/components/sync-line';
+import { SyncLine, useSyncLineShown } from '@/components/sync-line';
 import { ThemedText } from '@/components/themed-text';
 import { Radius, Spacing, Type } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
@@ -39,6 +40,7 @@ import {
   timeOut,
 } from '@/lib/dives';
 import { RARITY_LABEL } from '@/lib/rarity';
+import { localIsoDate } from '@/lib/sighting-edit';
 import { useAppStore, useMyDives, useMyUserId, useSiteById } from '@/lib/store';
 import type { Dive, DiveSignature, Sighting, Species } from '@/lib/types';
 
@@ -61,6 +63,8 @@ export default function DivePageScreen() {
   const dive = dives.find((d) => d.id === id);
   const allSightings = useAppStore((s) => s.sightings);
   const user = useAppStore((s) => s.user);
+  // Whether the sync line has anything to say (signed out, it says nothing: the Logbook's banner does).
+  const syncShown = useSyncLineShown();
   const deleteDive = useAppStore((s) => s.deleteDive);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -90,6 +94,14 @@ export default function DivePageScreen() {
 
   const site = siteById(dive.siteId);
   const siteName = site?.name ?? 'Unknown site';
+  // When it was written, said only where it adds something: a page written on the day of the dive and never edited says nothing.
+  const colophon = [
+    !dive.fromSightings && localIsoDate(new Date(dive.createdAt)) !== dive.divedOn ? `Written ${formatTimestamp(dive.createdAt)}` : null,
+    dive.updatedAt ? `edited ${formatTimestamp(dive.updatedAt)}` : null,
+  ]
+    .filter((part): part is string => !!part)
+    .join(' · ')
+    .replace(/^./, (c) => c.toUpperCase());
   const milestone = milestoneAt(dive.number);
   const out = timeOut(dive);
   const times = dive.timeIn ? `${dive.timeIn}${out ? `–${out}` : ''}` : null;
@@ -207,9 +219,7 @@ export default function DivePageScreen() {
         <Paper tone="sand" style={styles.row}>
           <Icon name="notes" size={20} wash={theme.sun} />
           <ThemedText type="small" style={styles.flex}>
-            {dive.fromSightings
-              ? 'This page was made from sightings you logged before the dive log. Add the depth, time and anything else you remember.'
-              : 'No depth or time on this page yet.'}
+            {dive.fromSightings ? 'Made from earlier sightings. Add the depth and time.' : 'No depth or time on this page yet.'}
           </ThemedText>
         </Paper>
       )}
@@ -256,7 +266,7 @@ export default function DivePageScreen() {
       {onPage.map((s) => {
         const species = speciesForSighting(s);
         if (!species) return null;
-        return <SightingRow key={s.id} sighting={s} species={species} site={site} detail={aboutAnimal(s, species)} pending={!!user && !s.synced} hideDate onPress={() => router.push(`/sighting/${s.id}`)} />;
+        return <SightingRow key={s.id} sighting={s} species={species} site={site} detail={aboutAnimal(s, species)} pending={!!user && !s.synced} hideDate quiet onPress={() => router.push(`/sighting/${s.id}`)} />;
       })}
       {onPage.length === 0 ? (
         <ThemedText type="small" themeColor="textSecondary">
@@ -270,7 +280,7 @@ export default function DivePageScreen() {
       <Paper style={styles.signed}>
         {signatures.length === 0 && !dive.centreName ? (
           <ThemedText type="small" themeColor="textSecondary">
-            Not signed yet. Your buddy or guide can sign on your phone, or from theirs with a code.
+            No signatures yet.
           </ThemedText>
         ) : null}
         {signatures.map((s, i) => (
@@ -286,17 +296,10 @@ export default function DivePageScreen() {
           </View>
         ))}
         {dive.centreName ? (
+          // The stamp says "not verified" on its face and in its label.
           <View style={styles.stampRow}>
             <CentreStamp name={dive.centreName} divedOn={dive.divedOn} number={dive.number} />
-            <ThemedText type="caption" themeColor="textSecondary" style={styles.flex}>
-              Drawn from the centre’s name you wrote. Not checked with the centre.
-            </ThemedText>
           </View>
-        ) : null}
-        {signatures.length > 0 ? (
-          <ThemedText type="caption" themeColor="textSecondary">
-            A signature is what the signer wrote; ScubaGo doesn’t check certifications.
-          </ThemedText>
         ) : null}
         <OceanButton
           title={signatures.length ? 'Add a signature' : 'Ask your buddy to sign'}
@@ -304,15 +307,23 @@ export default function DivePageScreen() {
           variant="secondary"
           onPress={() => router.push({ pathname: '/dive/sign', params: { id: dive.id } })}
         />
+        <Disclosure label="About signatures" hint="Explains how signing works and what is checked">
+          <ThemedText type="caption" themeColor="textSecondary">
+            Sign on your phone, or let a buddy sign from theirs with a code. Signatures are what the signer wrote; ScubaGo doesn’t check certifications or centres.
+          </ThemedText>
+        </Disclosure>
       </Paper>
 
-      <View style={styles.colophon}>
-        <ThemedText type="caption" themeColor="textSecondary">
-          {dive.fromSightings ? `Made from sightings logged before the dive log, on ${formatTimestamp(dive.createdAt)}` : `Written in ScubaGo on ${formatTimestamp(dive.createdAt)}`}
-          {dive.updatedAt ? ` · edited ${formatTimestamp(dive.updatedAt)}` : ''}
-        </ThemedText>
-        <SyncLine item={dive} />
-      </View>
+      {colophon || syncShown ? (
+        <View style={styles.colophon}>
+          {colophon ? (
+            <ThemedText type="caption" themeColor="textSecondary">
+              {colophon}
+            </ThemedText>
+          ) : null}
+          <SyncLine item={dive} />
+        </View>
+      ) : null}
 
       {/* Turning the pages: the one before (a lower number) on the left, the next on the right. */}
       <View style={[styles.turn, { borderTopColor: theme.rule }]}>

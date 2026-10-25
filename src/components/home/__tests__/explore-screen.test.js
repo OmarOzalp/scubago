@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, expect, jest, test } from '@jest/globals';
 import React, { act } from 'react';
 import { create } from 'react-test-renderer';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { router } from 'expo-router';
 import ExploreScreen from '@/app/explore';
 import { zoomRange } from '@/lib/explorer-view';
@@ -35,7 +36,7 @@ jest.mock('@/lib/store', () => ({
 }));
 
 let root;
-beforeEach(() => { global.IS_REACT_ACT_ENVIRONMENT = true; jest.useFakeTimers(); mockSightings = []; });
+beforeEach(async () => { global.IS_REACT_ACT_ENVIRONMENT = true; jest.useFakeTimers(); mockSightings = []; await AsyncStorage.clear(); });
 afterEach(async () => { if (root) await act(async () => root.unmount()); root = null; jest.useRealTimers(); });
 
 test('the explorer draws the island full screen with its own camera, and its buttons zoom, show the whole ocean and close it', async () => {
@@ -66,7 +67,7 @@ test('the explorer draws the island full screen with its own camera, and its but
   press('Close the explorer');
   expect(router.back).toHaveBeenCalled();
   // The hint is there to start with (it says to tap an animal, too), and fades.
-  expect(root.root.findAll((node) => node.props.children === 'Tap an animal to meet it\nPinch or double-tap to look closer · drag to look around').length).toBeGreaterThan(0);
+  expect(root.root.findAll((node) => node.props.children === 'Tap an animal to meet it.\nPinch to zoom, drag to look around.').length).toBeGreaterThan(0);
 });
 
 test('no tap gesture on the screen: one would count two quick pinches as a double tap and zoom in', async () => {
@@ -80,7 +81,7 @@ test('with small life on the reef, the hint says it is there to find up close', 
   await act(async () => { root = create(<ExploreScreen />); });
   const hint = root.root.findAll((node) => typeof node.props.children === 'string' && node.props.children.includes('small creatures'));
   expect(hint.length).toBeGreaterThan(0);
-  expect(hint[0].props.children).toContain('2 small creatures live on the reef: zoom in close to find them');
+  expect(hint[0].props.children).toBe('Tap an animal to meet it.\n2 small creatures live on the reef. Zoom in to find them.');
 });
 
 // The sightings of two islands' animals: Home's reef and the Kelp Forest.
@@ -91,18 +92,20 @@ const twoIslands = () => {
 const { StyleSheet } = require('react-native');
 const styleOf = (node) => StyleSheet.flatten(node.props.style);
 
-test('the title pill names the ocean and the island, and a long home name is cut short rather than run into the buttons', async () => {
+test('the title pill is the island’s name alone, and a long home name is cut short rather than run into the buttons', async () => {
   await act(async () => { root = create(<ExploreScreen />); });
-  const label = root.root.findAll((node) => typeof node.props.children?.[0] === 'string' && node.props.children[0].startsWith('YOUR OCEAN · '));
+  const label = root.root.findAll((node) => node.props.numberOfLines === 1 && node.props.children === 'Home');
   expect(label.length).toBeGreaterThan(0);
-  expect(label[0].props.children.join('')).toBe('YOUR OCEAN · HOME');
   expect(label[0].props.numberOfLines).toBe(1);
-  // The pill itself shrinks to what the buttons leave it.
+  // Nothing in front of it, and it is not drawn in capitals: the old line read “YOUR OCEAN · MY LITTLE ISL…”.
+  expect(root.root.findAll((node) => typeof node.props.children === 'string' && /YOUR OCEAN/i.test(node.props.children))).toHaveLength(0);
+  // The pill itself shrinks to what the buttons leave it, and a screen reader still hears whose ocean it is.
   const pill = root.root.findAll((node) => node.props.accessibilityLiveRegion === 'polite')[0];
   expect(styleOf(pill).flexShrink).toBe(1);
+  expect(pill.props.accessibilityLabel).toBe('Your ocean, Home');
 });
 
-test('with several islands, a chip for each is at least 44 points tall, and the hint says how to sail between them', async () => {
+test('with several islands, a chip for each is at least 44 points tall; the hint does not repeat what the chips show', async () => {
   twoIslands();
   await act(async () => { root = create(<ExploreScreen />); });
   // (The host views, whose style is the one drawn.)
@@ -110,5 +113,31 @@ test('with several islands, a chip for each is at least 44 points tall, and the 
   expect(chips.length).toBeGreaterThan(1);
   for (const chip of chips) expect(styleOf(chip).minHeight).toBeGreaterThanOrEqual(44);
   const hint = root.root.findAll((node) => typeof node.props.children === 'string' && node.props.children.startsWith('Tap an animal to meet it'));
-  expect(hint[0].props.children).toBe('Tap an animal to meet it\nPinch or double-tap to look closer · drag to sail between your islands');
+  expect(hint[0].props.children).toBe('Tap an animal to meet it.\nPinch to zoom, drag to look around.');
+});
+
+const hintShown = () => root.root.findAll((node) => typeof node.props.children === 'string' && node.props.children.startsWith('Tap an animal to meet it')).length > 0;
+const open = async () => { await act(async () => { root = create(<ExploreScreen />); }); };
+const leave = async () => { await act(async () => root.unmount()); root = null; };
+
+test('the hint is there the first three times the explorer opens, and never after', async () => {
+  for (let visit = 1; visit <= 3; visit++) {
+    await open();
+    expect(hintShown()).toBe(true);
+    await leave();
+  }
+  expect(await AsyncStorage.getItem('scubago.explorerHintShown.v1')).toBe('3');
+  await open();
+  expect(hintShown()).toBe(false);
+  // Everything else is still there.
+  expect(root.root.findAll((node) => node.props.accessibilityLabel === 'Zoom in').length).toBeGreaterThan(0);
+});
+
+test('copy budget: the hint reads in at most 13 words, and the overlay says nothing else but the island’s name', async () => {
+  await open();
+  const words = (text) => text.match(/[\p{L}\p{N}][\p{L}\p{N}'’.,%/-]*/gu)?.length ?? 0;
+  const hint = root.root.findAll((node) => typeof node.props.children === 'string' && node.props.children.startsWith('Tap an animal to meet it'))[0];
+  expect(words(hint.props.children)).toBeLessThanOrEqual(13);
+  const all = root.root.findAll((node) => node.type === 'Text' && typeof node.props.children === 'string').map((node) => node.props.children);
+  expect(all).toEqual(['Home', hint.props.children]);
 });

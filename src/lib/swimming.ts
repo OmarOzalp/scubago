@@ -116,6 +116,117 @@ export function pickSwimmers(residents: DexEntry[], page = 0, limit = MAX_ANIMAT
   return chosen.map((r, lane) => ({ species: r.species, model: marineModelFor(r.species)!, lane }));
 }
 
+/**
+ * Taking turns. An island shows at most `MAX_ANIMATED` of its species at once; with more, they take turns one at a time: every
+ * `every` seconds of the scene on show (each turn longer or shorter by up to `jitter` of that, each island at its own times) the
+ * species longest on the island swims off out of the view and the next in the collection (round robin) swims in from the open sea.
+ * A leaving species stays in the lineup for `leave` seconds, its lane held, while it swims off (the motion takes it off once out of
+ * sight); then its lane is free again.
+ */
+export const TURNS = { every: 40, jitter: .25, leave: 30 };
+/** One of the island's species on show: `leaving` while it swims off at the end of its turn. */
+export type Turn = Swimmer & { leaving?: boolean };
+/** Who is on an island and in what order they came, who is leaving, and where the round robin is. */
+export type Lineup = {
+  /** On the island, the first to come first (the next to leave, unless kept). */
+  shown: Swimmer[];
+  /** Leaving at the end of their turn, and how long (s) until their lane is free. */
+  leaving: { swimmer: Swimmer; left: number }[];
+  /** The species last brought on by the round robin, as its place among those that swim (the next is the first after it not on the island). */
+  cursor: number;
+  /** Turns taken so far. */
+  turns: number;
+};
+
+/** The first lane (0 up) no swimmer in `taken` has. */
+function freeLane(taken: readonly Swimmer[]) {
+  let lane = 0;
+  while (taken.some((s) => s.lane === lane)) lane++;
+  return lane;
+}
+/** The swimmer for a species joining the island in a free lane. */
+function joining(entry: DexEntry, taken: readonly Swimmer[]): Swimmer {
+  return { species: entry.species, model: marineModelFor(entry.species)!, lane: freeLane(taken) };
+}
+/** Whom the round robin brings on next: the first species after the cursor that is neither on the island nor leaving (null if none). */
+function nextUp(lineup: Lineup, eligible: DexEntry[]) {
+  const busy = new Set([...lineup.shown, ...lineup.leaving.map((l) => l.swimmer)].map((s) => s.species.id));
+  for (let k = 1; k <= eligible.length; k++) {
+    const index = (lineup.cursor + k) % eligible.length;
+    if (!busy.has(eligible[index].species.id)) return { entry: eligible[index], index };
+  }
+  return null;
+}
+
+/** An island's lineup as a visit begins: the first of its species in collection order (a featured new one among them, see pickSwimmers). */
+export function startLineup(residents: DexEntry[], limit = MAX_ANIMATED, featured: readonly string[] = []): Lineup {
+  const eligible = swimming(residents);
+  return { shown: pickSwimmers(residents, 0, limit, featured), leaving: [], cursor: Math.min(limit, eligible.length) - 1, turns: 0 };
+}
+
+/**
+ * The lineup after the collection (or the featured new species) changed: a species no longer logged is gone at once; a featured one
+ * not on the island comes on, the one longest there leaving if the island is full; free places fill in round robin. Who stays keeps
+ * their lane. Unchanged (the same object) if nothing changed.
+ */
+export function syncLineup(lineup: Lineup, residents: DexEntry[], limit = MAX_ANIMATED, featured: readonly string[] = []): Lineup {
+  const eligible = swimming(residents), byId = new Map(eligible.map((r) => [r.species.id, r]));
+  const current = (s: Swimmer): Swimmer | null => {
+    const entry = byId.get(s.species.id);
+    return entry ? (entry.species === s.species ? s : { ...s, species: entry.species }) : null;
+  };
+  const shown = lineup.shown.map(current).filter((s): s is Swimmer => s !== null);
+  const leaving = lineup.leaving.flatMap((l) => { const s = current(l.swimmer); return s ? [s === l.swimmer ? l : { ...l, swimmer: s }] : []; });
+  let next: Lineup = { ...lineup, shown, leaving };
+  for (const id of featured) {
+    const entry = byId.get(id);
+    if (!entry || next.shown.some((s) => s.species.id === id)) continue;
+    // (a featured species leaving comes straight back: its lane is still its own)
+    const back = next.leaving.find((l) => l.swimmer.species.id === id);
+    const out = next.shown.length >= limit ? next.shown.find((s) => !featured.includes(s.species.id)) : undefined;
+    if (next.shown.length >= limit && !out) continue;
+    const taken = [...next.shown, ...next.leaving.map((l) => l.swimmer)];
+    next = {
+      ...next,
+      shown: [...next.shown.filter((s) => s !== out), back?.swimmer ?? joining(entry, taken)],
+      leaving: [...next.leaving.filter((l) => l !== back), ...(out ? [{ swimmer: out, left: TURNS.leave }] : [])],
+    };
+  }
+  while (next.shown.length < Math.min(limit, eligible.length)) {
+    const up = nextUp(next, eligible);
+    if (!up) break;
+    next = { ...next, shown: [...next.shown, joining(up.entry, [...next.shown, ...next.leaving.map((l) => l.swimmer)])], cursor: up.index };
+  }
+  const same = next.shown.length === lineup.shown.length && next.shown.every((s, i) => s === lineup.shown[i])
+    && next.leaving.length === lineup.leaving.length && next.leaving.every((l, i) => l === lineup.leaving[i]);
+  return same ? lineup : next;
+}
+
+/**
+ * One turn: the species longest on the island (not one of `keep`, a new discovery being shown) leaves, and the next in round robin comes
+ * on in a free lane. Unchanged (the same object) when there is nobody to bring on (everyone fits) or nobody may leave.
+ */
+export function takeTurn(lineup: Lineup, residents: DexEntry[], keep: readonly string[] = []): Lineup {
+  const eligible = swimming(residents), up = nextUp(lineup, eligible);
+  const out = lineup.shown.find((s) => !keep.includes(s.species.id));
+  if (!up || !out) return lineup;
+  const leaving = [...lineup.leaving, { swimmer: out, left: TURNS.leave }];
+  const shown = lineup.shown.filter((s) => s !== out);
+  return { shown: [...shown, joining(up.entry, [...shown, ...leaving.map((l) => l.swimmer)])], leaving, cursor: up.index, turns: lineup.turns + 1 };
+}
+
+/** `seconds` of the scene on show: leaving species whose time is up free their lanes. Unchanged (the same object) if none. */
+export function ageLineup(lineup: Lineup, seconds: number): Lineup {
+  if (!lineup.leaving.length) return lineup;
+  const leaving = lineup.leaving.map((l) => ({ ...l, left: l.left - seconds })).filter((l) => l.left > 0);
+  return { ...lineup, leaving };
+}
+
+/** The island's species to put in the scene: those on it, then those leaving. */
+export function lineupSwimmers(lineup: Lineup): Turn[] {
+  return [...lineup.shown, ...lineup.leaving.map((l) => ({ ...l.swimmer, leaving: true }))];
+}
+
 /** How a species shows up on the island: as its own animal, in the tuna school, or not at all. */
 export function islandPresence(species: Pick<Species, 'id' | 'category'>): 'animal' | 'school' | null {
   if (swimsInSchool(species.id)) return 'school';

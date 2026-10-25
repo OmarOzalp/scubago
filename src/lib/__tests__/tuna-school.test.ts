@@ -82,7 +82,8 @@ test('tuna turn, speed up and roll within what a tuna can do, even when fleeing'
   GREAT_WHITE_HUNT.attackProbability = 1;
   const last = { x: new Float32Array(TUNA_SCHOOL.size), z: new Float32Array(TUNA_SCHOOL.size), heading: new Float32Array(TUNA_SCHOOL.size) };
   let speed = 0, turn = 0, pitch = 0, roll = 0, panicked = false;
-  run(['great-white-shark', 'whale-shark'], 1, 150, .4, (_, school, time) => {
+  // (a seed whose great white meets the school early in the run, and charges it)
+  run(['great-white-shark', 'whale-shark'], 1, 150, .5, (_, school, time) => {
     const p = school.pose;
     panicked ||= school.state.mood === 'panic';
     for (let i = 0; i < school.size; i++) {
@@ -143,7 +144,8 @@ test('a great white that does not attack only puts the school on alert', () => {
   GREAT_WHITE_HUNT.attackProbability = 0;
   const seen = new Set<string>();
   let charges = 0;
-  const motion = run(['great-white-shark'], 1, 400, .3, (m, school) => {
+  // (each going round its own way, the shark meets the school less often than when they both turned about every minute or two)
+  const motion = run(['great-white-shark'], 1, 600, .3, (m, school) => {
     seen.add(school.state.mood);
     if (m.hunt(0)!.phase === 'charge') charges++;
   });

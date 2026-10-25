@@ -73,6 +73,17 @@ export function SitePicker({
   }, [recentKey, byId, searching, listed]);
 
   const credit = useMemo(() => hasImportedSites(sites), [sites]);
+  // Names more than one site has ("Blue Hole"): those rows keep the whole place, as it is what tells them apart.
+  const sharedNames = useMemo(() => {
+    const seen = new Set<string>();
+    const shared = new Set<string>();
+    for (const site of sites) {
+      const key = site.name.toLowerCase();
+      if (seen.has(key)) shared.add(key);
+      seen.add(key);
+    }
+    return shared;
+  }, [sites]);
 
   const renderItem = useCallback(
     ({ item }: ListRenderItemInfo<Row>) =>
@@ -81,9 +92,9 @@ export function SitePicker({
           {item.title}
         </ThemedText>
       ) : (
-        <SiteRow site={item.site} userId={userId} recent={item.recent} onPick={handlePick} />
+        <SiteRow site={item.site} userId={userId} recent={item.recent} sharedName={sharedNames.has(item.site.name.toLowerCase())} onPick={handlePick} />
       ),
-    [userId, handlePick],
+    [userId, handlePick, sharedNames],
   );
 
   return (
@@ -91,26 +102,20 @@ export function SitePicker({
       <View style={styles.search}>
         <FormField
           label="Where did you dive?"
-          // Where the diver is looking when the site isn't there, not at the end of a list of hundreds.
-          labelAccessory={
-            <Pressable
-              onPress={() => router.push({ pathname: '/add-site', params: { then: 'log', name: query.trim() } })}
-              accessibilityRole="button"
-              accessibilityLabel="Can’t find it? Add a dive site"
-              hitSlop={{ top: 4, bottom: 4, left: 8, right: 4 }}
-              style={({ pressed }) => [styles.addSite, { opacity: pressed ? 0.6 : 1 }]}>
-              {/* Two lines, so it fits beside the label on a phone. */}
-              <Text numberOfLines={2} style={[styles.addSiteText, { color: theme.tint }]}>
-                {'Can’t find it?\nAdd a dive site'}
-              </Text>
-            </Pressable>
-          }
           value={query}
           onChangeText={setQuery}
           placeholder="Search sites, regions, countries…"
           autoCorrect={false}
           returnKeyType="search"
         />
+        {/* Right under the search, where the diver is looking when the site isn't there, not at the end of a list of hundreds. */}
+        <Pressable
+          onPress={() => router.push({ pathname: '/add-site', params: { then: 'log', name: query.trim() } })}
+          accessibilityRole="button"
+          accessibilityLabel="Can’t find it? Add a dive site"
+          style={({ pressed }) => [styles.addSite, { opacity: pressed ? 0.6 : 1 }]}>
+          <Text style={[styles.addSiteText, { color: theme.tint }]}>Can’t find it? Add a dive site</Text>
+        </Pressable>
       </View>
       <FlatList
         data={rows}
@@ -143,6 +148,12 @@ export function SitePicker({
 
 const rowKey = (row: Row) => row.key;
 
+/** "Marsa Alam & the south, Red Sea" is "Red Sea" here: the last part is the sea or area people know. */
+export function shortRegion(region: string): string {
+  const parts = region.split(',').map((part) => part.trim()).filter(Boolean);
+  return parts.length > 1 ? parts[parts.length - 1] : region;
+}
+
 function Separator() {
   return <View style={styles.separator} />;
 }
@@ -152,18 +163,23 @@ const SiteRow = memo(function SiteRow({
   site,
   userId,
   recent,
+  sharedName,
   onPick,
 }: {
   site: DiveSite;
   userId: string | undefined;
   recent: boolean;
+  /** Another site has this name: show the whole place. */
+  sharedName: boolean;
   onPick: (site: DiveSite) => void;
 }) {
   const theme = useTheme();
   const addedBy = siteAddedBy(site, userId);
-  const where = `${site.region}, ${site.country}${addedBy ? ` · added by ${addedBy}` : ''}`;
+  const suffix = addedBy ? ` · added by ${addedBy}` : '';
+  // The row says "Red Sea, Egypt"; "Marsa Alam & the south, Red Sea, Egypt" is still what a screen reader hears.
+  const where = `${sharedName ? site.region : shortRegion(site.region)}, ${site.country}${suffix}`;
   return (
-    <PaperButton onPress={() => onPick(site)} accessibilityLabel={`${site.name}, ${where}`} style={styles.row}>
+    <PaperButton onPress={() => onPick(site)} accessibilityLabel={`${site.name}, ${site.region}, ${site.country}${suffix}`} style={styles.row}>
       <View style={[styles.rowIcon, { backgroundColor: recent ? `${theme.wash}66` : theme.backgroundSelected }]}>
         <Icon name={recent ? 'clock' : 'pin'} size={20} />
       </View>
@@ -182,12 +198,13 @@ const SiteRow = memo(function SiteRow({
 
 const styles = StyleSheet.create({
   picker: { flex: 1 },
-  search: { paddingHorizontal: Spacing.three, paddingBottom: Spacing.two + 2 },
+  search: { paddingHorizontal: Spacing.three, paddingTop: Spacing.three, paddingBottom: Spacing.one },
   content: { paddingHorizontal: Spacing.three, paddingBottom: Spacing.three },
   separator: { height: Spacing.two + 2 },
   footer: { marginTop: Spacing.three + 2 },
-  addSite: { flexShrink: 1, minHeight: 36, justifyContent: 'center' },
-  addSiteText: { fontFamily: Type.bodyBold, fontSize: 13, lineHeight: 18, textAlign: 'right' },
+  // A 44 pt strip to tap: the words are one line, the hit area is the whole strip.
+  addSite: { alignSelf: 'flex-start', minHeight: 44, justifyContent: 'center' },
+  addSiteText: { fontFamily: Type.bodyBold, fontSize: 14, lineHeight: 19 },
   groupLabel: { marginTop: Spacing.two },
   row: {
     flexDirection: 'row',

@@ -167,8 +167,7 @@ export default function VerifyScreen() {
       <View style={styles.intro}>
         <Emblem icon="verified" />
         <ThemedText type="small" themeColor="textSecondary" style={styles.center}>
-          A buddy sent you a code? Enter it to confirm something they saw, or to sign their dive. You’ll see what
-          it’s for before you answer.
+          Enter the code your buddy sent. You’ll see what it’s for before you answer.
         </ThemedText>
       </View>
 
@@ -307,7 +306,7 @@ export default function VerifyScreen() {
                   })}
                 </View>
                 <ThemedText type="caption" themeColor="textSecondary">
-                  ScubaGo doesn’t check this yet: it’s shown as what you said, not as a certification.
+                  Shown as what you said. ScubaGo doesn’t check it.
                 </ThemedText>
               </View>
               <View style={styles.stack}>

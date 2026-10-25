@@ -1,8 +1,9 @@
 import { afterEach, beforeEach, expect, jest, test } from '@jest/globals';
 import React, { act } from 'react';
-import { FlatList } from 'react-native';
+import { FlatList, StyleSheet } from 'react-native';
 import { create } from 'react-test-renderer';
-import { SiteList } from '../site-list';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { SiteList, siteWhere } from '../site-list';
 import { SiteMap } from '../site-map.web';
 import { PaperButton } from '@/components/journal/paper';
 
@@ -18,7 +19,7 @@ const generateSites = (count, prefix) =>
   }));
 
 let root;
-beforeEach(() => { global.IS_REACT_ACT_ENVIRONMENT = true; });
+beforeEach(async () => { global.IS_REACT_ACT_ENVIRONMENT = true; await AsyncStorage.clear(); });
 afterEach(async () => { if (root) await act(async () => root.unmount()); root = null; });
 
 const rows = () => root.root.findAllByType(PaperButton);
@@ -50,11 +51,49 @@ test('a species filter shows only the sites where it is seen, and a row opens it
   expect(text()).toContain('No dive sites to show for this species yet.');
 });
 
-test('on the web the map is this list, with its note', async () => {
+test('on the web the map is this list, with a short note that closes for good', async () => {
   const sites = generateSites(40, 'gen-');
-  await act(async () => { root = create(<SiteMap sites={sites} highlightedSiteIds={null} onSelectSite={() => {}} onLongPress={() => {}} />); });
-  expect(text()).toContain('The dive map is available in the iOS and Android apps');
+  const render = async () => { await act(async () => { root = create(<SiteMap sites={sites} highlightedSiteIds={null} onSelectSite={() => {}} onLongPress={() => {}} />); }); };
+  await render();
+  expect(text()).toContain('The map is in the iOS and Android apps.');
   expect(rows().length).toBeGreaterThan(5);
+  const close = root.root.findAll((n) => n.props.accessibilityLabel === 'Close this note' && typeof n.props.onPress === 'function')[0];
+  expect(StyleSheet.flatten(close.props.style({ pressed: false })).height).toBeGreaterThanOrEqual(44);
+  await act(async () => close.props.onPress());
+  expect(text()).not.toContain('iOS and Android');
+  // Never again: a page that opens later finds it closed.
+  await act(async () => root.unmount());
+  await render();
+  expect(text()).not.toContain('iOS and Android');
+  expect(rows().length).toBeGreaterThan(5);
+});
+
+test('a row says the broad region and the country, and the whole region only where two sites share a name', async () => {
+  expect(siteWhere('Marsa Alam & the south, Red Sea', 'Egypt')).toBe('Red Sea, Egypt');
+  expect(siteWhere('Marsa Alam & the south, Red Sea', 'Egypt', true)).toBe('Marsa Alam & the south, Red Sea, Egypt');
+  expect(siteWhere('Andaman Sea', 'Thailand')).toBe('Andaman Sea, Thailand');
+  expect(siteWhere('Egypt', 'Egypt')).toBe('Egypt');
+  const site = (id, name, region, country) => ({ id, name, region, country, lat: 0, lng: 0, blurb: '', notableSpecies: [], source: 'seed' });
+  const sites = [
+    site('a', 'Abu Dabab', 'Marsa Alam & the south, Red Sea', 'Egypt'),
+    site('b', 'Cod Hole', 'Cairns/Cooktown, Great Barrier Reef', 'Australia'),
+    site('c', 'Cod Hole', 'Sinai, Red Sea', 'Egypt'),
+  ];
+  await act(async () => { root = create(<SiteList sites={sites} highlightedSiteIds={null} onSelectSite={() => {}} />); });
+  const shown = text();
+  expect(shown).toContain('Abu Dabab | Red Sea, Egypt');
+  expect(shown).toContain('Cod Hole | Cairns/Cooktown, Great Barrier Reef, Australia');
+  expect(shown).toContain('Cod Hole | Sinai, Red Sea, Egypt');
+  // A screen reader always hears the whole of it.
+  expect(rows().map((r) => r.props.accessibilityLabel)[0]).toBe('Abu Dabab, Marsa Alam & the south, Red Sea, Egypt');
+});
+
+test('the OpenStreetMap credit is a link 44 points tall under the list, with its wording as the licence has it', async () => {
+  await act(async () => { root = create(<SiteList sites={generateSites(30, 'osm-way-')} highlightedSiteIds={null} onSelectSite={() => {}} />); });
+  const link = root.root.findAllByType('extlink')[0];
+  const box = StyleSheet.flatten(link.props.style);
+  expect(box.lineHeight + 2 * box.paddingVertical).toBeGreaterThanOrEqual(44);
+  expect(link.props.children).toBe('Dive sites © OpenStreetMap contributors');
 });
 
 test('the OpenStreetMap credit sits under the list, as a link, only when imported sites are in it', async () => {

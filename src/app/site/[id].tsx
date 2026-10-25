@@ -111,13 +111,19 @@ export default function SiteDetailScreen() {
   const sources = siteSourceList(site);
   const notable = site.notableSpecies.map((speciesId) => CATALOG_BY_ID.get(speciesId)).filter((s): s is Species => !!s);
   const hasNotes = facts.length > 0 || !!site.conditions;
+  // Totals of nothing are not shown: a site nobody has logged at has no use for a card of zeros.
+  const hasTotals = siteSightings.length > 0;
+  // Every sighting here is the diver's own: "@you" and "Only you" on each row would say nothing.
+  const mineIds = new Set(mySightings.map((s) => s.id));
+  const allMine = siteSightings.every((s) => mineIds.has(s.id));
   // Three plates a row on a phone, more on a wide screen.
   const columns = Math.max(3, Math.min(6, Math.floor(inner / 150)));
   const cardWidth = Math.floor((inner - GAP * (columns - 1)) / columns);
 
   return (
     <>
-      <Stack.Screen options={{ title: site.name }} />
+      {/* The title stays for the browser tab; the header shows only the back arrow, as the page names itself below. */}
+      <Stack.Screen options={{ title: site.name, headerTitle: '' }} />
       <Screen>
         {/* The page's head: a typewriter eyebrow, the site's name and where it is, and its own watercolour. */}
         <View style={styles.head}>
@@ -143,6 +149,7 @@ export default function SiteDetailScreen() {
         <ThemedText>{site.blurb}</ThemedText>
 
         {/* The log entry: what's known about the site, one ruled line each, with the totals at the foot. */}
+        {hasNotes || hasTotals ? (
         <Paper style={styles.entry}>
           {/* Only facts with a source are ever filled in (src/data/__tests__/integrity.test.ts). */}
           {facts.map((fact, index) => (
@@ -170,13 +177,16 @@ export default function SiteDetailScreen() {
             </View>
           ) : null}
           {/* A double rule above the totals, as at the foot of a logbook page. */}
-          {hasNotes ? <View style={[styles.doubleRule, { borderColor: theme.rule }]} /> : null}
-          <View style={styles.totals} accessible accessibilityLabel={`${siteSightings.length} sightings, ${speciesCount} species`}>
-            <Total value={siteSightings.length} label={siteSightings.length === 1 ? 'Sighting' : 'Sightings'} />
-            <View style={[styles.totalRule, { backgroundColor: theme.rule }]} />
-            <Total value={speciesCount} label="Species" />
-          </View>
+          {hasNotes && hasTotals ? <View style={[styles.doubleRule, { borderColor: theme.rule }]} /> : null}
+          {hasTotals ? (
+            <View style={styles.totals} accessible accessibilityLabel={`${siteSightings.length} sightings, ${speciesCount} species`}>
+              <Total value={siteSightings.length} label={siteSightings.length === 1 ? 'Sighting' : 'Sightings'} />
+              <View style={[styles.totalRule, { backgroundColor: theme.rule }]} />
+              <Total value={speciesCount} label="Species" />
+            </View>
+          ) : null}
         </Paper>
+        ) : null}
 
         {/* Right under the facts, so it is there on the first screen and not after the lists. */}
         <OceanButton
@@ -188,7 +198,14 @@ export default function SiteDetailScreen() {
 
         {divesHere.length > 0 ? (
           <View style={styles.section}>
-            <SectionHeader title="Your dives here" eyebrow={`${divesHere.length} ${divesHere.length === 1 ? 'dive' : 'dives'}`} />
+            <SectionHeader
+              title="Your dives here"
+              accessory={
+                <ThemedText type="label" accessibilityLabel={`${divesHere.length} ${divesHere.length === 1 ? 'dive' : 'dives'}`}>
+                  {divesHere.length}
+                </ThemedText>
+              }
+            />
             <View style={styles.rows}>
               {(allDives ? divesHere : divesHere.slice(0, DIVES_SHOWN)).map((dive) => (
                 <LinkRow
@@ -210,9 +227,6 @@ export default function SiteDetailScreen() {
         {notable.length > 0 ? (
           <View style={styles.section}>
             <SectionHeader title="What divers see here" />
-            <ThemedText type="caption" themeColor="textSecondary">
-              Painted in once you’ve logged them; the pencil sketches are still to find.
-            </ThemedText>
             <View style={styles.grid} onLayout={(e) => setInner(Math.floor(e.nativeEvent.layout.width))}>
               {notable.map((species) => (
                 <SpeciesCard
@@ -231,16 +245,10 @@ export default function SiteDetailScreen() {
             main answer to "what's here?" for a site that has no hand-made species list. */}
         <SiteSightingsSection site={site} />
 
-        <View style={styles.section}>
-          <SectionHeader title="Recent sightings" />
-          {siteSightings.length === 0 ? (
-            <View style={[styles.empty, { borderColor: theme.rule }]}>
-              <Icon name="binoculars" size={30} />
-              <ThemedText type="caption" themeColor="textSecondary" style={{ textAlign: 'center' }}>
-                None yet — be the first to log one.
-              </ThemedText>
-            </View>
-          ) : (
+        {/* Nothing logged here yet: no empty box, the button above is the next step. */}
+        {siteSightings.length > 0 ? (
+          <View style={styles.section}>
+            <SectionHeader title="Recent sightings" />
             <View style={styles.rows}>
               {siteSightings.slice(0, 30).map((s) => {
                 const species = speciesForSighting(s);
@@ -250,14 +258,15 @@ export default function SiteDetailScreen() {
                     key={s.id}
                     sighting={s}
                     species={species}
-                    showUsername
+                    showUsername={!allMine}
+                    quiet={allMine}
                     onPress={() => router.push(`/sighting/${s.id}`)}
                   />
                 );
               })}
             </View>
-          )}
-        </View>
+          </View>
+        ) : null}
 
         {sources.length > 0 ? (
           <View style={[styles.sources, { borderTopColor: theme.rule }]}>
@@ -422,14 +431,6 @@ const styles = StyleSheet.create({
     gap: GAP,
   },
   rows: {
-    gap: 8,
-  },
-  empty: {
-    borderWidth: 1.5,
-    borderStyle: 'dashed',
-    borderRadius: Radius.lg,
-    padding: 20,
-    alignItems: 'center',
     gap: 8,
   },
   sources: {

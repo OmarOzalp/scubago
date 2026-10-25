@@ -98,7 +98,7 @@ project's settings with those dev defaults.
   log your first sighting. Animation pauses
   when the tab is unfocused, the app is backgrounded, reduced motion is on, or you tap
   Pause. If 3D rendering is unavailable the illustrated SVG island takes over.
-- **First launch** — three short intro cards (log, collect, grow your island), once per install.
+- **First launch** — one short intro card ("Log what you see", and that it works without a signal), once per install; the first-run Home asks for one dive and teaches the rest.
 - **Explore tab** — ~65 famous dive sites worldwide; search "where can I see a…" to
   highlight sites where a species has been spotted; tap a pin for the site card;
   "Add a site" (or long-press the map) to add a missing one; a List view for screen readers.

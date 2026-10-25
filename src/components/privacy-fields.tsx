@@ -1,5 +1,6 @@
 import { StyleSheet, View } from 'react-native';
 
+import { Disclosure } from '@/components/journal/disclosure';
 import { Segmented } from '@/components/segmented';
 import { ThemedText } from '@/components/themed-text';
 import { Spacing } from '@/constants/theme';
@@ -67,9 +68,12 @@ export function PrivacyFields({
           ) : null}
         </>
       ) : null}
-      <ThemedText type="caption" themeColor="textSecondary" accessibilityLiveRegion="polite">
-        {privacyExplanation(value, { photo, count })}
-      </ThemedText>
+      {/* What the choice means waits behind a row: the "Visible to" line above Save already says what it is. */}
+      <Disclosure label="What does this mean?" hint="Explains what other divers can see">
+        <ThemedText type="caption" themeColor="textSecondary">
+          {privacyExplanation(value, { photo, count })}
+        </ThemedText>
+      </Disclosure>
     </View>
   );
 }
@@ -86,7 +90,7 @@ function Choice({ label, children }: { label: string; children: React.ReactNode 
 }
 
 const styles = StyleSheet.create({
-  section: { gap: Spacing.two + 2 },
+  section: { gap: Spacing.two },
   choice: { flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: Spacing.two },
   label: { minWidth: 72 },
   control: { flex: 1, minWidth: 200 },

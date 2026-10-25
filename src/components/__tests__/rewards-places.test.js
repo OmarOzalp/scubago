@@ -67,8 +67,11 @@ test('the passport has a page for each place, a stamp for each site visited, and
   // The place visited most recently is the first page.
   expect(rewards.passport.map((g) => g.name)).toEqual(['Great Barrier Reef', 'Indonesia', 'Red Sea']);
   for (const name of ['Great Barrier Reef', 'Red Sea', 'Indonesia']) expect(text).toContain(name);
-  expect(text).toContain('PASSPORT · PAGE 1');
-  expect(text).toContain('PASSPORT · PAGE 3');
+  // A page is its place, its progress and its stamps: no page-number line, no dates of its own, no footer that repeats on every page.
+  expect(text).not.toContain('PASSPORT');
+  expect(text).not.toMatch(/FIRST \d|LATEST \d/);
+  expect(text).not.toContain('still to stamp');
+  expect(text).not.toContain('Each stamp shows');
   const yongala = rewards.passport[0].stamps.find((s) => s.siteId === 'yongala');
   expect(yongala.visits).toBe(2);
   expect(labelsOf(root)).toContain('SS Yongala. First visited 2 April 2026, 2 visits.');
@@ -98,11 +101,12 @@ test('a blank passport says so and offers to log a dive; a page with every site 
   const onLog = jest.fn();
   await act(async () => { root = create(<PassportView groups={empty.passport} onLog={onLog} />); });
   expect(textOf(root)).toContain('Your passport is blank');
+  expect(textOf(root)).toContain('Each dive site you log gets a stamp here.');
   await act(async () => root.root.find((n) => n.props.accessibilityRole === 'button' && typeof n.props.onPress === 'function').props.onPress());
   expect(onLog).toHaveBeenCalled();
   await act(async () => root.unmount());
   const full = { ...rewards.passport[0], knownSites: rewards.passport[0].stamps.length };
-  await act(async () => { root = create(<PassportPage group={full} page={1} />); });
+  await act(async () => { root = create(<PassportPage group={full} />); });
   expect(textOf(root)).toContain('Every site here is stamped.');
 });
 
@@ -140,7 +144,9 @@ test('a collection card shows how many are found and what is left, and its anima
   expect(sharks.found).toBe(3);
   expect(collectionLabel(sharks)).toBe(`Sharks, 3 of ${sharks.total} found. ${sharks.hint}`);
   expect(labelsOf(root)).toContain(collectionLabel(sharks));
-  expect(textOf(root)).toContain(`of ${sharks.total} found`);
+  // The ring and the plates say the rest: the card says "3 of 20", and what is left is in the words a screen reader reads.
+  expect(textOf(root)).toContain(`3 of ${sharks.total}`);
+  expect(textOf(root)).not.toContain('found');
   await act(async () => root.root.find((n) => n.props.accessibilityLabel === collectionLabel(sharks) && typeof n.props.onPress === 'function').props.onPress());
   expect(onPress).toHaveBeenCalled();
 });

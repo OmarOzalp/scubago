@@ -45,7 +45,8 @@ function BadgeScreen() {
   }
   return (
     <>
-      <Stack.Screen options={{ title: badge.title }} />
+      {/* The medal's card has the title in large type, so the header is the back arrow alone (the title stays the page's name). */}
+      <Stack.Screen options={{ title: badge.title, headerTitle: '' }} />
       <Screen>
         <BadgeDetailView
           badge={badge}

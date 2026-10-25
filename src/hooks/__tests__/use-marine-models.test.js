@@ -63,7 +63,8 @@ test('A to B to A restores cached A and ignores pending B', async () => {
     .mockResolvedValueOnce(cachedA);
   await act(async () => { root = create(<Harness requested={['whale-shark']} />); });
   await act(async () => root.update(<Harness requested={['reef-manta']} />));
-  expect(current.models).toBeNull();
+  // (while B loads, what is loaded stays: the scene keeps its animals as one comes on in a turn, its model asked for ahead)
+  expect(current.models).toBe(cachedA);
   await act(async () => root.update(<Harness requested={['whale-shark']} />));
   expect(current.models).toBe(cachedA);
   await act(async () => finishB({ 'reef-manta': {} }));

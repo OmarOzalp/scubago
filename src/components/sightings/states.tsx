@@ -53,12 +53,13 @@ export function SightingsUnavailable({ offline, onRetry }: { offline: boolean; o
   const theme = useTheme();
   return (
     <View style={[styles.box, { borderColor: theme.rule }]} accessibilityLiveRegion="polite">
-      <Icon name="waves" size={30} />
-      <ThemedText type="caption" themeColor="textSecondary" style={styles.center}>
-        Couldn’t reach the public records right now.
-      </ThemedText>
-      <ThemedText type="small" themeColor="textSecondary" style={styles.center}>
-        {offline ? 'You seem to be offline. They’ll show here once you’re connected.' : 'Check your connection and try again in a moment.'}
+      {/* What the short line leaves out is in its label, so a screen reader still hears the reason. */}
+      <ThemedText
+        type="caption"
+        themeColor="textSecondary"
+        style={styles.center}
+        accessibilityLabel={`Couldn’t reach the public records right now. ${offline ? 'You seem to be offline: they’ll show here once you’re connected.' : 'Check your connection and try again in a moment.'}`}>
+        Couldn’t reach records.
       </ThemedText>
       <OceanButton title="Try again" variant="secondary" icon="sync" onPress={onRetry} style={styles.retryCentred} />
     </View>

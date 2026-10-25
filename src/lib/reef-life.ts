@@ -266,6 +266,8 @@ type Dweller = {
   first: Dweller | null;
   /** Arriving as a new discovery: fading in (0 to 1). */
   arrival: Arrival | null; fade: number;
+  /** Its place in its kind's list of dens, rocks, anemones or reef edges (reefRocks); and, leaving the island, seconds since it began to (null otherwise). */
+  slot: number; leaving: number | null;
   /** Choices made so far (each roll is indexed by this). */
   rolls: number;
   pose: MarinePose;
@@ -289,6 +291,7 @@ export function createReefLife(members: readonly { model: ReefModel; lane: numbe
   let field: ShoreField = createShoreField(level, shape);
   let time = 0;
   const count = (kind: Kind) => members.filter((m) => REEF_SPECIES[m.model] === kind).length;
+  // (the places taken at the start are the first of each kind, in order: see join())
   let layout = reefRocks(level, count('moray'), count('octopus'), count('clownfish'), shape);
   /** Every rock (each moray's dens, each octopus's rock, each clownfish pair's anemone). */
   let rocks = layout.dens.flat().concat(layout.rocks, layout.anemones);
@@ -327,39 +330,81 @@ export function createReefLife(members: readonly { model: ReefModel; lane: numbe
     return { x: ux * lo, z: uz * lo };
   }
 
-  let rockIndex = 0, denIndex = 0, reefIndex = 0, anemoneIndex = 0;
   const dwellers: Dweller[] = [];
   const dweller = (model: ReefModel, lane: number, arriving: boolean): Dweller => ({
     kind: REEF_SPECIES[model], model, lane, x: 0, z: 0, y: 0, heading: 0, speed: 0, turn: 0, climb: 0, bank: 0, pitch: 0,
     previous: { x: 0, z: 0, y: 0, heading: 0, bank: 0, pitch: 0 }, state: 'rest', since: 0, length: 0,
     tx: 0, tz: 0, ty: 0, aim: 0, legs: 0, jetSpeed: 0, den: 0, nextJet: 0, alarm: 0, calm: -Infinity,
     lift: 0, rest: 0, jet: 0, ground: 1, tone: [1, 1, 1], hide: [0, 0],
-    angle: 0, rock: null, dens: [], first: null, arrival: arriving ? { stage: 'offstage', since: 0 } : null, fade: 1, rolls: 0,
+    angle: 0, rock: null, dens: [], first: null, arrival: arriving ? { stage: 'offstage', since: 0 } : null, fade: 1, rolls: 0, slot: 0, leaving: null,
     pose: { x: 0, y: 0, z: 0, heading: 0, bank: 0, effort: 1, pace: 0, turn: 0, speed: 0, climb: 0, pitch: 0, air: 0, rest: 0, jet: 0, ground: 1, tone: [1, 1, 1], hide: [0, 0] },
   });
-  for (const member of members) {
-    const kind = REEF_SPECIES[member.model], arriving = !!options.arriving?.includes(member.lane);
-    const d = dweller(member.model, member.lane, arriving);
-    if (kind === 'octopus') { d.rock = layout.rocks[rockIndex++]; d.angle = Math.atan2(d.rock.z, d.rock.x); }
-    else if (kind === 'moray') { d.dens = layout.dens[denIndex++]; d.angle = Math.atan2(d.dens[0].z, d.dens[0].x); }
-    else if (kind === 'clownfish') { d.rock = layout.anemones[anemoneIndex++]; d.angle = Math.atan2(d.rock.z, d.rock.x); }
-    else d.angle = CUTTLEFISH_REEFS[reefIndex++ % CUTTLEFISH_REEFS.length] * Math.PI / 180;
-    dwellers.push(d);
+  /** Its den, rock, anemone or stretch of reef edge, by its place in its kind's list (a clownfish's mate shares the first's). */
+  function home(d: Dweller) {
+    if (d.kind === 'octopus') { d.rock = layout.rocks[d.slot]; d.angle = Math.atan2(d.rock.z, d.rock.x); }
+    else if (d.kind === 'moray') { d.dens = layout.dens[d.slot]; d.angle = Math.atan2(d.dens[0].z, d.dens[0].x); }
+    else if (d.kind === 'clownfish') { d.rock = d.first ? d.first.rock : layout.anemones[d.slot]; d.angle = Math.atan2(d.rock!.z, d.rock!.x); }
+    else d.angle = CUTTLEFISH_REEFS[d.slot % CUTTLEFISH_REEFS.length] * Math.PI / 180;
+  }
+  /** The first place of its kind no animal on the island has: where a newcomer of that kind lives. */
+  const freeSlot = (kind: Kind) => { let k = 0; while (dwellers.some((o) => o.kind === kind && !o.first && o.slot === k)) k++; return k; };
+  /** How many places of each kind the rocks are laid out for: up to the last one taken (a place left by an animal that has gone stays). */
+  function counts() {
+    const n = { moray: 0, octopus: 0, clownfish: 0, cuttlefish: 0 };
+    for (const d of dwellers) if (!d.first) n[d.kind] = Math.max(n[d.kind], d.slot + 1);
+    return n;
+  }
+  /** The rocks for the places taken now (each place is where it always is, however many there are), and everyone at its own. */
+  function layOut() {
+    const n = counts();
+    layout = reefRocks(current, n.moray, n.octopus, n.clownfish, shape);
+    rocks = layout.dens.flat().concat(layout.rocks, layout.anemones);
+    for (const d of dwellers) home(d);
+  }
+  /** A species of the reef's (and a clownfish's mate) in the next free place of its kind. */
+  function join(model: ReefModel, lane: number, arriving: boolean): Dweller[] {
+    const kind = REEF_SPECIES[model], d = dweller(model, lane, arriving);
+    d.slot = freeSlot(kind);
+    const made = [d];
     // Clownfish live in pairs: the second has a follower's lane, and the first's anemone.
     if (kind === 'clownfish') {
-      const mate = dweller(member.model, followerLane(member.lane, 1), arriving);
-      mate.rock = d.rock; mate.angle = d.angle; mate.first = d;
-      dwellers.push(mate);
+      const mate = dweller(model, followerLane(lane, 1), arriving);
+      mate.first = d;
+      made.push(mate);
     }
+    dwellers.push(...made);
+    return made;
   }
-  for (const d of dwellers) {
+  for (const member of members) join(member.model, member.lane, !!options.arriving?.includes(member.lane));
+  for (const d of dwellers) home(d);
+  /** It begins in its place, settled (or, arriving, out of sight there). */
+  function begin(d: Dweller) {
     settleIn(d);
     if (d.arrival) d.fade = 0;
     remember(d);
     publishOne(d, 1);
   }
-  const byLane = new Map(dwellers.map((d) => [d.lane, d]));
-  const swimmers = dwellers.map((d) => ({ model: d.model as MarineModel, lane: d.lane, leader: d.first?.lane ?? d.lane, index: d.first ? 1 : 0 }));
+  for (const d of dwellers) begin(d);
+  const byLane = new Map<number, Dweller>();
+  const swimmers: { model: MarineModel; lane: number; leader: number; index: number }[] = [];
+  /** How many times who is on the reef has changed (an animal joining or gone). */
+  let version = 0;
+  function roster() {
+    byLane.clear();
+    for (const d of dwellers) byLane.set(d.lane, d);
+    swimmers.length = 0;
+    swimmers.push(...dwellers.map((d) => ({ model: d.model as MarineModel, lane: d.lane, leader: d.first?.lane ?? d.lane, index: d.first ? 1 : 0 })));
+    version++;
+  }
+  roster();
+  /** Take an animal (and a clownfish's mate) off the reef. */
+  function drop(d: Dweller) {
+    for (let i = dwellers.length - 1; i >= 0; i--) if (dwellers[i] === d || dwellers[i].first === d) dwellers.splice(i, 1);
+    layOut();
+    roster();
+  }
+  /** Seconds a leaving reef animal takes to fade out where it is (a moray into its den). */
+  const LEAVE_FADE = 2.2;
 
   /** Place an animal in its usual spot, settled: the octopus resting by its rock, the moray in its den, the cuttlefish hovering. */
   function settleIn(d: Dweller) {
@@ -983,8 +1028,45 @@ export function createReefLife(members: readonly { model: ReefModel; lane: numbe
         else if (d.kind === 'clownfish') stepClownfish(d, visitors, dt);
         else stepMoray(d, visitors, dt);
         progressArrival(d, dt);
+        if (d.leaving !== null) {
+          // Leaving: it fades out where it is, a moray drawing back into its den as it does.
+          d.leaving += dt;
+          d.fade = Math.max(0, d.fade - dt / LEAVE_FADE);
+          if (d.kind === 'moray') { d.alarm = 1; d.calm = time; }
+        }
       }
+      const gone = dwellers.find((d) => !d.first && d.leaving !== null && d.fade <= 0);
+      if (gone) drop(gone);
     },
+    /** A species of the reef's joining it (another's turn on the island ends): it arrives the reef's way (arrive()), unless `waiting`. */
+    add(member: { model: ReefModel; lane: number }, how: { instant?: boolean; waiting?: boolean } = {}) {
+      if (byLane.has(member.lane)) return false;
+      const made = join(member.model, member.lane, true);
+      layOut();
+      for (const d of made) begin(d);
+      roster();
+      if (!how.waiting) this.arrive(member.lane, how);
+      return true;
+    },
+    /** A species' turn on the reef ends: it fades out where it is (a moray drawing back into its den), and is gone (`instant`: at once). */
+    depart(lane: number, how: { instant?: boolean } = {}) {
+      const d = byLane.get(lane);
+      if (!d || d.first || d.leaving !== null) return false;
+      if (how.instant || d.arrival?.stage === 'offstage') { drop(d); return true; }
+      for (const o of dwellers) if (o === d || o.first === d) o.leaving = 0;
+      return true;
+    },
+    /** Take a species off the reef at once (its last sighting deleted). */
+    remove(lane: number) {
+      const d = byLane.get(lane);
+      if (!d || d.first) return false;
+      drop(d);
+      return true;
+    },
+    /** How many dens (pairs, one per moray), octopus rocks and anemones the scene draws: up to the last place taken. */
+    get counts() { const n = counts(); return { morays: n.moray, octopuses: n.octopus, anemones: n.clownfish }; },
+    /** Counts the changes to who is on the reef (`swimmers`). */
+    get version() { return version; },
     /** Poses `t` of the way from the last step to this one. */
     publish(t: number) { for (const d of dwellers) publishOne(d, t); },
     /** A new level: the island grows a little, and the rocks (and everyone with them) move out with it. */
@@ -992,14 +1074,9 @@ export function createReefLife(members: readonly { model: ReefModel; lane: numbe
       if (next === current) return;
       const ratio = islandScale(next) / scale;
       current = next; scale = islandScale(next); field = createShoreField(next, shape);
-      layout = reefRocks(next, count('moray'), count('octopus'), count('clownfish'), shape);
-      rocks = layout.dens.flat().concat(layout.rocks, layout.anemones);
+      layOut();
       props = seabedProps(next, shape).map(([x, z]) => ({ x, z }));
-      let rockIndex = 0, denIndex = 0, anemoneIndex = 0;
       for (const d of dwellers) {
-        if (d.kind === 'octopus') d.rock = layout.rocks[rockIndex++];
-        if (d.kind === 'moray') d.dens = layout.dens[denIndex++];
-        if (d.kind === 'clownfish') d.rock = d.first ? d.first.rock : layout.anemones[anemoneIndex++];
         d.x *= ratio; d.z *= ratio; d.tx *= ratio; d.tz *= ratio;
         if (d.kind === 'moray' && (d.state === 'den' || d.state === 'retreat' || d.state === 'return' || d.state === 'inside')) inDen(d, d.hide[0]);
         if (d.kind === 'octopus' && d.state === 'rest') { d.x = d.rock!.spotX; d.z = d.rock!.spotZ; }

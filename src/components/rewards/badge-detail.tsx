@@ -57,18 +57,17 @@ export function BadgeDetailView({
         <ThemedText themeColor="textSecondary" style={styles.center}>
           {badge.description}
         </ThemedText>
-      </Paper>
-
-      <Paper style={styles.status}>
+        {/* The day it was earned is one line on the medal's own card, not a card of its own. */}
         {badge.earned ? (
           <View style={styles.earned}>
-            <Icon name="verified" size={26} color={theme.tint} wash={theme.turquoise} />
-            <View style={styles.flex}>
-              <ThemedText type="label">Earned</ThemedText>
-              <Text style={[styles.date, { color: theme.text }]}>{badge.earnedOn ? longDate(badge.earnedOn) : 'In your logbook'}</Text>
-            </View>
+            <Icon name="verified" size={22} color={theme.tint} wash={theme.turquoise} />
+            <Text style={[styles.earnedOn, { color: theme.text }]}>{badge.earnedOn ? `Earned ${longDate(badge.earnedOn)}` : 'Earned'}</Text>
           </View>
-        ) : (
+        ) : null}
+      </Paper>
+
+      {badge.earned ? null : (
+        <Paper style={styles.status}>
           <View style={styles.flex}>
             <ThemedText type="label">Not earned yet</ThemedText>
             {need > 1 ? (
@@ -81,8 +80,8 @@ export function BadgeDetailView({
             ) : null}
             {badge.hint ? <ThemedText type="small">{badge.hint}</ThemedText> : null}
           </View>
-        )}
-      </Paper>
+        </Paper>
+      )}
 
       {rungs && rungs.length > 1 && badge.ladder ? (
         <Paper>
@@ -91,10 +90,10 @@ export function BadgeDetailView({
       ) : null}
 
       {collectionId && onOpenCollection ? (
-        <LinkRow icon="fieldGuide" title="See the collection" detail="Every animal in the set, found and still to find" onPress={() => onOpenCollection(collectionId)} />
+        <LinkRow icon="fieldGuide" title="See the collection" onPress={() => onOpenCollection(collectionId)} />
       ) : null}
       {badge.kind === 'place' && onOpenPassport ? (
-        <LinkRow icon="stamp" title="Open your passport" detail="A stamp for every site you have dived" onPress={onOpenPassport} />
+        <LinkRow icon="stamp" title="Open your passport" onPress={onOpenPassport} />
       ) : null}
       {!badge.earned && badge.kind !== 'collection' && onLog ? <OceanButton title="Log a dive" variant="log" icon="plus" onPress={onLog} /> : null}
     </View>
@@ -126,7 +125,13 @@ const styles = StyleSheet.create({
   earned: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
+    gap: 8,
+    marginTop: 2,
+  },
+  earnedOn: {
+    fontFamily: Type.bodyHeavy,
+    fontSize: 16,
+    lineHeight: 22,
   },
   flex: {
     flex: 1,

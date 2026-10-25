@@ -1,4 +1,4 @@
-import { oceanScale, WORLD } from './steering';
+import { oceanScale, VIEW_ZOOM, WORLD } from './steering';
 
 /**
  * The island explorer's camera (src/app/explore.tsx): the island camera's angle (SCENE_CAMERA in
@@ -24,10 +24,11 @@ export const EXPLORER = {
   depthStretch: Math.hypot(12.15, 6) / 12.15,
   /**
    * How far the explorer's water reaches from the island's middle (units, each way): far enough that
-   * zoomed all the way out, a tall phone at the island's last level sees water to every edge. The
-   * Home card's water stops at OCEAN.waterExtent, which its view never reaches past.
+   * zoomed all the way out, a tall phone at the island's last level sees water to every edge (the farther
+   * out the view, VIEW_ZOOM, the farther). The Home card's water stops at OCEAN.waterExtent, which its
+   * view never reaches past.
    */
-  reach: 18,
+  reach: Math.ceil(18 * VIEW_ZOOM),
   /**
    * On a screen too wide (or tall) for that, all the way out over several islands, the water reaches
    * as far as the view does then, and this much more (×) for a pinch to stretch on past it; but never

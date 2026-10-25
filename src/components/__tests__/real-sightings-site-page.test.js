@@ -59,9 +59,9 @@ test('a site with no species list: real records are the "what is here", and the 
   expect(text).toContain('Marine life recorded here');
   expect(text).toContain('12 iNaturalist observations');
   expect(text).toContain('3 records in OBIS datasets');
-  // The page's own ScubaGo sightings stay a separate, labelled section.
-  expect(text).toContain('Recent sightings');
-  expect(text).toContain('None yet — be the first to log one.');
+  // The page's own ScubaGo sightings are a separate section, and with none logged here there is no section and no empty box.
+  expect(text).not.toContain('Recent sightings');
+  expect(text).not.toContain('None yet');
 });
 
 test('a site with no species list reads well while the records load, and when they cannot be reached', async () => {
@@ -73,7 +73,7 @@ test('a site with no species list reads well while the records load, and when th
 
   mockHook = { summary: null, status: 'offline', refresh: () => {} };
   await render();
-  expect(textOf()).toContain('Couldn’t reach the public records right now.');
+  expect(textOf()).toContain('Couldn’t reach records.');
   expect(textOf()).toContain('Log a dive here');
 });
 
@@ -86,7 +86,8 @@ test('a curated site shows both its hand-made list and the public records, each 
     expect(SITES.find((s) => s.id === 'yongala').notableSpecies.length).toBeGreaterThan(0);
     expect(text.indexOf('What divers see here')).toBeGreaterThan(-1);
     expect(text.indexOf('Marine life recorded here')).toBeGreaterThan(text.indexOf('What divers see here'));
-    expect(text.indexOf('Recent sightings')).toBeGreaterThan(text.indexOf('Marine life recorded here'));
+    // Nothing is logged here by anyone, so there is no "Recent sightings" section at all.
+    expect(text).not.toContain('Recent sightings');
   } finally {
     mockSiteId = 'osm-test-wreck';
   }

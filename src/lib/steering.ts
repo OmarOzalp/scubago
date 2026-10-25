@@ -7,11 +7,20 @@
 export const TAU = Math.PI * 2;
 
 /**
+ * How far out the view is (one number for the camera and everything that keeps to what it shows): 1.1 shows a tenth more water
+ * round every island than the first design did, the island a tenth smaller on screen, so that the deep water outside the Coral
+ * Reef's crest is a ring wide enough for the biggest animals all the way round. The camera's span (`VIEW_SPAN`), the frame animals
+ * keep to (`WORLD`), and so the explorer's swimming areas and the islands' places, all scale with it.
+ */
+export const VIEW_ZOOM = 1.1;
+/** The water the camera shows across the canvas's shorter side at the first level (units): the ocean's scale times this at the others (scene-camera.tsx). */
+export const VIEW_SPAN = 10.8 * VIEW_ZOOM;
+/**
  * The ocean area animals keep to, as the camera sees it: a rounded rectangle (half-sizes in
  * units) that keeps a whale shark's fins inside the frame and centers out of most of the top and
  * bottom haze. This is the first level's; the ocean grows with the island (OCEAN_GROWTH).
  */
-export const WORLD = { x: 4.9, z: 4.3 };
+export const WORLD = { x: 4.9 * VIEW_ZOOM, z: 4.3 * VIEW_ZOOM };
 export type World = { x: number; z: number };
 
 /**
@@ -49,16 +58,16 @@ export const apparentShift = (depth: number) => .4 - .5 * depth;
  * edge. The camera looks down at (0, -.15, 0) from (0, 12, 6), so height lifts a point up the view
  * and +z brings it down; the edges fade into haze from about .58 (OCEAN.edgeFade).
  */
-export const viewHeight = (y: number, z: number, scale = 1) => (.4428 * (y + .15) - .8966 * z) / (5.4 * scale);
+export const viewHeight = (y: number, z: number, scale = 1) => (.4428 * (y + .15) - .8966 * z) / (VIEW_SPAN / 2 * scale);
 
 /**
  * What the camera shows at world height `y`, as world (x, z): x within ±`x`, z from `top` (far, up the
- * view) to `bottom` (near). The camera fits the ocean's 10.8 × scale units across the canvas's
+ * view) to `bottom` (near). The camera fits the ocean's VIEW_SPAN × scale units across the canvas's
  * shorter side (scene-camera.tsx), so a wider canvas (`aspect` = width / height) shows more water at
  * the sides. Where an arriving animal starts, out of sight.
  */
 export function viewBounds(y: number, scale = 1, aspect = 1) {
-  const half = 5.4 * scale, halfHeight = half * Math.max(1, 1 / aspect);
+  const half = VIEW_SPAN / 2 * scale, halfHeight = half * Math.max(1, 1 / aspect);
   const lift = .4428 * (y + .15);
   return { x: half * Math.max(1, aspect), top: (lift - halfHeight) / .8966, bottom: (lift + halfHeight) / .8966 };
 }

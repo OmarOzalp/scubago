@@ -4,7 +4,6 @@ import type { Group } from 'three';
 import type { IslandShape } from '@/lib/island-outline';
 import { GROUP_BUDGET, groupSizes } from '@/lib/marine-groups';
 import { createMarineMotion, MOVEMENT, type MarineMember, type MarineMotion } from '@/lib/marine-motion';
-import { isReefModel, REEF_SPECIES } from '@/lib/reef-life';
 import type { OceanIsland } from '@/lib/seabed';
 import type { WaterExtent } from '@/lib/seabed-lattice';
 import { oceanScale, worldFor } from '@/lib/steering';
@@ -32,7 +31,8 @@ const SEED = Math.random();
 /** For reviewing leaps: EXPO_PUBLIC_DOLPHIN_LEAPS=1 (restart Metro with --clear) makes every breath with room for one a leap. */
 const LEAP = process.env.EXPO_PUBLIC_DOLPHIN_LEAPS === '1' ? 1 : undefined;
 
-type Resident = MarineMember & { id: string; onPress: () => void };
+/** One of the island's species: on it, or `leaving` at the end of its turn (sanctuary-scene.tsx, Lineup in swimming.ts). */
+type Resident = MarineMember & { id: string; onPress: () => void; leaving?: boolean };
 
 /**
  * Where the "New" tag goes, called every frame for the overlay outside the canvas (sanctuary-scene.tsx):
@@ -80,33 +80,58 @@ export function MarineSwimmers({ residents, models, active, level = 1, school = 
   const size = useThree((state) => state.size), invalidate = useThree((state) => state.invalidate);
   const aspect = size.width / Math.max(1, size.height);
   // Group members come from a budget of their own, smaller where the GPU is emulated.
-  const sizes = groupSizes(residents, lite ? GROUP_BUDGET.lite : GROUP_BUDGET.full, SEED);
-  const signature = JSON.stringify(residents.map(({ model, lane, id }, i) => ({ model, lane, group: sizes[i], speciesId: id })));
-  const members = useMemo<MarineMember[]>(() => JSON.parse(signature), [signature]);
-  // Who waits out of sight is read only when a simulation starts (a new set of animals), so a change to
-  // it never restarts one.
+  const budget = lite ? GROUP_BUDGET.lite : GROUP_BUDGET.full;
+  // Who waits out of sight is read when an animal joins (and when a simulation starts), so a change to it never restarts one.
   const waiting = arrivals?.waiting ?? [];
   const schoolPending = waiting.some((id) => schoolSpecies.includes(id));
   const holdable = schoolPending && !arrivals?.visible && !arrivals?.instant;
   // The islands are read only when a simulation starts, like who is waiting: the same islands in the same places keep it.
   const places = world ? JSON.stringify({ islands: world.islands, index: world.index }) : '';
+  /** What the simulation has of each species: its lane, model and group size, and whether it was sent off at the end of its turn. */
+  type Joined = { lane: number; model: MarineMember['model']; group: number; leaving: boolean };
   const start = () => {
-    const arriving = residents.filter((r) => waiting.includes(r.id)).map((r) => r.lane);
+    // Those on the island now whose models are loaded (the rest join as theirs arrive), each in a group sized within the budget.
+    const present = residents.filter((r) => !r.leaving && models[r.model]);
+    const sizes = groupSizes(present, budget, SEED);
+    const joined = new Map<string, Joined>(present.map((r, i) => [r.id, { lane: r.lane, model: r.model, group: sizes[i], leaving: false }]));
+    const members = present.map((r, i): MarineMember => ({ model: r.model, lane: r.lane, group: sizes[i], speciesId: r.id }));
+    const arriving = present.filter((r) => waiting.includes(r.id)).map((r) => r.lane);
     const motion = createMarineMotion(members, level, { school, seed: SEED, leap: LEAP, arriving, shape, world });
     // A new tuna brings the whole school in, from out of sight (only ever before the scene is shown).
     if (holdable) motion.holdSchool(aspect);
-    return motion;
+    return { motion, joined };
   };
-  // One simulation per set of animals (a school of tuna swims with them, src/lib/tuna-school.ts). A new
-  // level reshapes the island and widens the ocean around the same animals rather than starting over.
-  // The school joining (a tuna logged) or leaving (its last sighting deleted) starts one too, and so does
-  // another island (Home's card shows one island at a time).
-  const [simulation, setSimulation] = useState(() => ({ members, school, shape, places, motion: start() }));
-  let motion = simulation.motion;
-  if (simulation.members !== members || simulation.school !== school || simulation.shape !== shape || simulation.places !== places) {
-    motion = start();
-    setSimulation({ members, school, shape, places, motion });
+  // One simulation for the scene's life (a school of tuna swims with them, src/lib/tuna-school.ts). Species come and go
+  // in it one at a time, the others carrying on as they were: one whose turn ends swims off out of the view, the next
+  // swims in from the open sea, a new discovery arrives, a deleted one is gone. A new level reshapes the island and widens
+  // the ocean around the same animals rather than starting over. The school joining (a tuna logged) or leaving (its last
+  // sighting deleted) starts one again, and so does another island (Home's card shows one island at a time).
+  const [simulation, setSimulation] = useState(() => ({ school, shape, places, ...start() }));
+  let { motion, joined } = simulation;
+  if (simulation.school !== school || simulation.shape !== shape || simulation.places !== places) {
+    ({ motion, joined } = start());
+    setSimulation({ school, shape, places, motion, joined });
   }
+  // Bring the simulation in step with who is on the island (applying the same changes twice changes nothing).
+  const wanted = new Map(residents.filter((r) => models[r.model]).map((r) => [r.id, r]));
+  for (const [id, had] of [...joined]) {
+    const now = wanted.get(id);
+    // Gone from the collection (or, rarely, back from leaving, or in another lane): off the island at once.
+    if (!now || now.lane !== had.lane || now.model !== had.model || (had.leaving && !now.leaving)) { motion.remove(had.lane); joined.delete(id); }
+    else if (now.leaving && !had.leaving) { motion.depart(had.lane, { aspect, instant: !!arrivals?.instant || !active }); had.leaving = true; }
+  }
+  for (const [id, r] of wanted) {
+    if (joined.has(id) || r.leaving) continue;
+    // Its group's size within what the budget has left; it swims in from the open sea (or waits for its turn to arrive as a new
+    // discovery). As the scene begins, or with the scene still, it is simply there.
+    const used = [...joined.values()].reduce((sum, j) => sum + j.group - 1, 0);
+    const group = groupSizes([{ id, model: r.model }], Math.max(0, budget - used), SEED)[0];
+    motion.add({ model: r.model, lane: r.lane, group, speciesId: id }, { aspect, waiting: waiting.includes(id), instant: !!arrivals?.instant || !active || motion.clock() < 1 });
+    joined.set(id, { lane: r.lane, model: r.model, group, leaving: false });
+  }
+  // An animal that has swum off is taken out of the scene's list.
+  const [, redraw] = useState(0);
+  const roster = useRef(motion.version);
   useEffect(() => { motion.setLevel(level); }, [motion, level]);
   // How far the explorer's water reaches changes with its window, never the animals.
   const reach = JSON.stringify(world?.reach ?? null);
@@ -154,6 +179,7 @@ export function MarineSwimmers({ residents, models, active, level = 1, school = 
       inView.current = onScreen(camera, middle, area.x + 2, area.z + 2);
     }
     if (inView.current) motion.step(delta, active);
+    if (motion.version !== roster.current) { roster.current = motion.version; redraw(motion.version); }
   }, -1);
   // In a kelp forest, tell the kelp where the animals are so it makes way for them (the nearest in sight first slots).
   const movers = useContext(KelpMoversContext);
@@ -190,15 +216,14 @@ export function MarineSwimmers({ residents, models, active, level = 1, school = 
   });
   const byLane = new Map(residents.map((resident) => [resident.lane, resident]));
   const taps = tapScale ?? oceanScale(level);
-  // The reef's rocks: two dens for each moray, a rock for each octopus; an anemone for each pair of clownfish.
-  const reef = motion.swimmers.map((s) => (isReefModel(s.model) && s.index === 0 ? REEF_SPECIES[s.model] : null));
-  const morays = reef.filter((kind) => kind === 'moray').length, octopuses = reef.filter((kind) => kind === 'octopus').length;
-  const anemones = reef.filter((kind) => kind === 'clownfish').length;
+  // The reef's rocks: two dens for each moray, a rock for each octopus; an anemone for each pair of clownfish (for each place
+  // taken: one left by an animal whose turn has ended stays while another of its kind lives on the reef).
+  const { morays, octopuses, anemones } = motion.reef?.counts ?? { morays: 0, octopuses: 0, anemones: 0 };
   return <>
     <group ref={origin} />
     {motion.swimmers.map((swimmer) => {
       const resident = byLane.get(swimmer.leader);
-      return resident && <AnimatedMarine key={`${resident.id}:${swimmer.index}`}
+      return resident && models[swimmer.model] && <AnimatedMarine key={`${resident.id}:${swimmer.index}`}
         model={swimmer.model} lane={swimmer.lane} gltf={models[swimmer.model]!}
         active={active} population={residents.length} motion={motion} onPress={resident.onPress} tapScale={taps} />;
     })}

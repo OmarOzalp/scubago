@@ -4,7 +4,7 @@ import { ProgressBar } from '@/components/journal/progress-bar';
 import { Paper } from '@/components/journal/paper';
 import { Wash } from '@/components/journal/wash';
 import { OceanButton } from '@/components/ocean-button';
-import { plural, stampDate } from '@/components/rewards/format';
+import { plural } from '@/components/rewards/format';
 import { SiteStamp } from '@/components/rewards/site-stamp';
 import { ThemedText } from '@/components/themed-text';
 import { Type } from '@/constants/theme';
@@ -19,29 +19,26 @@ export function sitesLine(group: Pick<PassportGroup, 'stamps' | 'knownSites'>): 
   return `${visited.toLocaleString('en')} of ${plural(known, 'site')}`;
 }
 
-/** One page of the passport: a region (or country), its progress, and a stamp for every site visited. */
+/**
+ * One page of the passport: a region (or country), its progress, and a stamp for every site visited.
+ * Each stamp has its own date, so the page keeps no dates or "still to stamp" footer of its own.
+ */
 export function PassportPage({
   group,
-  page,
   onOpenSite,
   animateFirst = false,
 }: {
   group: PassportGroup;
-  page: number;
   onOpenSite?: (siteId: string) => void;
   animateFirst?: boolean;
 }) {
   const theme = useTheme();
   const visited = group.stamps.length;
   const known = Math.max(group.knownSites, visited);
-  const left = known - visited;
   return (
     <Paper tone="sand" padded={false} raised style={styles.page}>
       <Wash width={190} height={110} color={theme.wash} seed={hashSeed(group.id)} opacity={0.55} style={styles.wash} />
       <View style={[styles.frame, { borderColor: theme.rule }]}>
-        <View style={styles.top}>
-          <Text style={[styles.label, { color: theme.textSecondary }]}>PASSPORT · PAGE {page}</Text>
-        </View>
         <ThemedText type="display" accessibilityRole="header" style={styles.name}>
           {group.name}
         </ThemedText>
@@ -51,10 +48,6 @@ export function PassportPage({
           </Text>
           <ProgressBar fraction={known > 0 ? visited / known : 0} max={known} now={visited} accessibilityLabel={`${sitesLine(group)} stamped`} />
         </View>
-        <View style={styles.dates}>
-          <Text style={[styles.label, { color: theme.textSecondary }]}>FIRST {stampDate(group.firstVisitedOn)}</Text>
-          <Text style={[styles.label, { color: theme.textSecondary }]}>LATEST {stampDate(group.lastVisitedOn)}</Text>
-        </View>
         <View style={styles.stamps}>
           {group.stamps.map((stamp, index) => (
             <View key={stamp.siteId} style={styles.cell}>
@@ -62,15 +55,12 @@ export function PassportPage({
             </View>
           ))}
         </View>
-        {left > 0 ? (
-          <ThemedText type="caption" themeColor="textSecondary" style={styles.foot}>
-            {plural(left, 'site')} here still to stamp. Each stamp shows the day of your first visit.
-          </ThemedText>
-        ) : (
+        {/* Said once: a full page is a moment worth a line. The count of what is left is in the progress line above. */}
+        {known > 0 && visited >= known ? (
           <ThemedText type="caption" themeColor="textSecondary" style={styles.foot}>
             Every site here is stamped.
           </ThemedText>
-        )}
+        ) : null}
       </View>
     </Paper>
   );
@@ -95,7 +85,7 @@ export function PassportView({ groups, onOpenSite, onLog }: { groups: readonly P
           Your passport is blank
         </ThemedText>
         <ThemedText type="small" themeColor="textSecondary" style={styles.center}>
-          Every dive site you log a dive or a sighting at is stamped here, with the day you first visited.
+          Each dive site you log gets a stamp here.
         </ThemedText>
         {onLog ? <OceanButton title="Log a dive" variant="log" icon="plus" onPress={onLog} style={styles.cta} /> : null}
       </Paper>
@@ -104,7 +94,7 @@ export function PassportView({ groups, onOpenSite, onLog }: { groups: readonly P
   return (
     <View style={styles.pages}>
       {groups.map((group, index) => (
-        <PassportPage key={group.id} group={group} page={index + 1} onOpenSite={onOpenSite} animateFirst={index === 0} />
+        <PassportPage key={group.id} group={group} onOpenSite={onOpenSite} animateFirst={index === 0} />
       ))}
     </View>
   );
@@ -132,16 +122,6 @@ const styles = StyleSheet.create({
     paddingBottom: 14,
     gap: 8,
   },
-  top: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-  },
-  label: {
-    fontFamily: Type.label,
-    fontSize: 12,
-    lineHeight: 16,
-    letterSpacing: 1.3,
-  },
   name: {
     fontSize: 30,
     lineHeight: 36,
@@ -153,12 +133,6 @@ const styles = StyleSheet.create({
     fontFamily: Type.bodyHeavy,
     fontSize: 16,
     lineHeight: 21,
-  },
-  dates: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    justifyContent: 'space-between',
-    columnGap: 12,
   },
   stamps: {
     flexDirection: 'row',

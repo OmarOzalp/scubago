@@ -3,6 +3,7 @@ import { useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { Icon } from '@/components/icon';
+import { Disclosure } from '@/components/journal/disclosure';
 import { Paper } from '@/components/journal/paper';
 import { SectionHeader } from '@/components/journal/screen';
 import { creditLine, inatCountText, isIsoDate } from '@/components/sightings/format';
@@ -78,35 +79,41 @@ interface Props {
  * ScubaGo has not checked them, and the section says so before it shows anything.
  */
 export function SpeciesRecords({ status, sites, checked, speciesName, onOpenSite, onOpenCredits, shown = SITES_SHOWN }: Props) {
-  const radius = commonRadius(sites);
+  const radius = status === 'ready' ? commonRadius(sites) : undefined;
   return (
     <View style={styles.section}>
-      <SectionHeader eyebrow="Public records" title="Recorded near dive sites" />
-      <ThemedText type="caption" themeColor="textSecondary">
-        {`Records of ${speciesName} by iNaturalist observers and OBIS datasets, saved on this phone for the dive sites you’ve already opened. Opening more site pages adds more. Not your sightings, and not checked by ScubaGo.`}
-      </ThemedText>
+      <SectionHeader title="Recorded near dive sites" />
+      {/* The explanation waits behind a row: what these are, where they are kept, and that they are not the diver's own. */}
+      <Disclosure label="About these records" hint="Shows where these records come from">
+        <ThemedText type="caption" themeColor="textSecondary">
+          {recordsExplainer(speciesName, radius, status === 'empty' && checked > 0)}
+        </ThemedText>
+      </Disclosure>
 
       {status === 'loading' ? <RecordsPlaceholder /> : null}
       {status === 'error' ? <RecordsError /> : null}
-      {status === 'empty' ? <RecordsEmpty checked={checked} speciesName={speciesName} /> : null}
+      {status === 'empty' ? <RecordsEmpty checked={checked} /> : null}
       {status === 'ready' ? (
         <>
-          <View style={styles.listHead}>
-            <ThemedText type="label" accessibilityRole="header">
-              {recordedNearText(sites.length, checked)}
-            </ThemedText>
-            {radius !== undefined ? (
-              <ThemedText type="small" themeColor="textSecondary">
-                {`Counts are iNaturalist records within ${kmText(radius)} km of each site, and OBIS records in a ${kmText(radius * 2)} km square around it.`}
-              </ThemedText>
-            ) : null}
-          </View>
+          <ThemedText type="label" accessibilityRole="header">
+            {recordedNearText(sites.length, checked)}
+          </ThemedText>
           <SiteRecordList sites={sites} onOpenSite={onOpenSite} shown={shown} showRadius={radius === undefined} />
           <CreditFooter sources={creditedSources(sites)} onOpenCredits={onOpenCredits} />
         </>
       ) : null}
     </View>
   );
+}
+
+/**
+ * What the records are, in under 40 words (it sits behind "About these records"). With one radius for
+ * every site it also says what the counts cover; with none found it says that is not a claim.
+ */
+export function recordsExplainer(speciesName: string, radiusKm?: number, noneFound = false): string {
+  const base = `Public records of ${speciesName} from iNaturalist and OBIS, for sites you’ve opened. Saved on this phone. Not your sightings, and not checked by ScubaGo.`;
+  if (radiusKm !== undefined) return `${base} Counts cover ${kmText(radiusKm)} km around each site (OBIS: a ${kmText(radiusKm * 2)} km square).`;
+  return noneFound ? `${base} Not finding one doesn’t mean it isn’t there.` : base;
 }
 
 /** The connected section for a species page: reads the cache (never the network) and links to the site and credits pages. */
@@ -248,39 +255,21 @@ function RecordsError() {
   const theme = useTheme();
   return (
     <View style={[styles.box, { borderColor: theme.rule }]} accessibilityLiveRegion="polite">
-      <Icon name="waves" size={30} />
-      <ThemedText type="caption" themeColor="textSecondary" style={styles.center}>
-        Couldn’t read the public records saved on this phone just now.
+      <ThemedText type="caption" themeColor="textSecondary" style={styles.center} accessibilityLabel="Couldn’t read the public records saved on this phone just now.">
+        Couldn’t read the saved records.
       </ThemedText>
     </View>
   );
 }
 
 /** Nothing saved yet, or nothing saved that mentions this animal. Either way: not a claim that it isn't there. */
-function RecordsEmpty({ checked, speciesName }: { checked: number; speciesName: string }) {
+function RecordsEmpty({ checked }: { checked: number }) {
   const theme = useTheme();
   return (
     <View style={[styles.box, { borderColor: theme.rule }]}>
-      <Icon name="binoculars" size={30} />
-      {checked === 0 ? (
-        <>
-          <ThemedText type="caption" themeColor="textSecondary" style={styles.center}>
-            Open a dive site’s page to see what’s been recorded there.
-          </ThemedText>
-          <ThemedText type="small" themeColor="textSecondary" style={styles.center}>
-            {`Records of ${speciesName} show up here when a site you open has them.`}
-          </ThemedText>
-        </>
-      ) : (
-        <>
-          <ThemedText type="caption" themeColor="textSecondary" style={styles.center}>
-            {`No public records of ${speciesName} at the ${checked === 1 ? '1 dive site' : `${checked} dive sites`} you’ve opened.`}
-          </ThemedText>
-          <ThemedText type="small" themeColor="textSecondary" style={styles.center}>
-            Not finding one here doesn’t mean it isn’t there. Open more dive sites to look further.
-          </ThemedText>
-        </>
-      )}
+      <ThemedText type="caption" themeColor="textSecondary" style={styles.center}>
+        {checked === 0 ? 'Open a dive site to see records.' : `No records at the ${checked === 1 ? '1 site' : `${checked} sites`} you’ve opened.`}
+      </ThemedText>
     </View>
   );
 }
@@ -323,9 +312,6 @@ const styles = StyleSheet.create({
     fontFamily: Type.bodySemiBold,
     fontSize: 14,
     lineHeight: 19,
-  },
-  listHead: {
-    gap: 2,
   },
   meta: {
     fontFamily: Type.body,
@@ -386,10 +372,9 @@ const styles = StyleSheet.create({
     borderWidth: 1.5,
     borderStyle: 'dashed',
     borderRadius: Radius.lg,
-    paddingVertical: 20,
+    paddingVertical: 14,
     paddingHorizontal: 14,
     alignItems: 'center',
-    gap: 8,
   },
   center: {
     textAlign: 'center',

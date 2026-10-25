@@ -4,7 +4,7 @@ import { router } from 'expo-router';
 import React, { act, useEffect } from 'react';
 import { create } from 'react-test-renderer';
 
-import { evidencePhrases, recordedNearText, SITES_SHOWN, SpeciesRecords, SpeciesRecordsSection } from '@/components/sightings/species-records';
+import { evidencePhrases, recordedNearText, recordsExplainer, SITES_SHOWN, SpeciesRecords, SpeciesRecordsSection } from '@/components/sightings/species-records';
 import { joinSiteRecords, recordsFromSummaries, useSpeciesRecords } from '@/hooks/use-species-records';
 import { INATURALIST_CREDIT, OBIS_CREDIT } from '@/lib/external-sightings/attribution';
 import { CACHE_INDEX_KEY, listCachedSiteIds, writeCachedSightings } from '@/lib/external-sightings/cache';
@@ -84,6 +84,9 @@ const pressables = () => root.root.findAll((n) => typeof n.type !== 'string' && 
 const press = (label) => pressables().filter((n) => (typeof label === 'string' ? labelOf(n) === label : label.test(labelOf(n))));
 const headings = () => root.root.findAll((n) => n.props.accessibilityRole === 'header' && typeof n.type !== 'string').map((n) => textOfNode(n));
 const textOfNode = (node) => node.findAll((c) => typeof c.type === 'string' && c.children.some((x) => typeof x === 'string')).map((c) => c.children.filter((x) => typeof x === 'string').join('')).join('');
+
+/** Opens "About these records", where what the records are is kept. */
+const openAbout = async () => act(async () => press('About these records')[0].props.onPress());
 
 const noop = () => {};
 const view = (props) =>
@@ -372,16 +375,30 @@ describe('SpeciesRecords, ready', () => {
     row('sands', 'Test Sands', { observations: undefined, records: 1 }),
   ];
 
-  test('says what these are before it shows any, and names the sources', async () => {
+  test('says what these are behind “About these records”, and names the sources', async () => {
     await render({ sites, checked: 5 });
+    // Closed to begin with: the heading and the row show, the explanation waits.
+    expect(textOf()).toContain('Recorded near dive sites');
+    expect(textOf()).toContain('About these records');
+    expect(textOf()).not.toContain('Not your sightings');
+    expect(press('About these records')[0].props['aria-expanded']).toBe(false);
+    await openAbout();
     const text = textOf();
-    expect(text).toContain('Public records');
-    expect(text).toContain('Recorded near dive sites');
-    expect(text).toContain('saved on this phone');
-    expect(text).toContain('dive sites you’ve already opened');
-    expect(text).toContain('Opening more site pages adds more');
+    expect(press('About these records')[0].props['aria-expanded']).toBe(true);
+    expect(text).toContain('Public records of Reef Manta Ray from iNaturalist and OBIS');
+    expect(text).toContain('for sites you’ve opened');
+    expect(text).toContain('Saved on this phone');
     expect(text).toContain('Not your sightings, and not checked by ScubaGo');
-    expect(text).toContain('Records of Reef Manta Ray');
+    // The page no longer says "Public records" as a heading of its own.
+    expect(text).not.toMatch(/^Public records \|/);
+  });
+
+  test('the explanation is under 40 words, with or without the radius', () => {
+    const words = (text) => text.split(/\s+/).length;
+    expect(words(recordsExplainer('Reef Manta Ray'))).toBeLessThanOrEqual(40);
+    expect(words(recordsExplainer('Reef Manta Ray', 0.5))).toBeLessThanOrEqual(40);
+    expect(words(recordsExplainer('Scalloped Hammerhead', 3, false))).toBeLessThanOrEqual(40);
+    expect(words(recordsExplainer('Scalloped Hammerhead', undefined, true))).toBeLessThanOrEqual(40);
   });
 
   test('shows each site with its place, evidence per source, search radius and newest date', async () => {
@@ -406,14 +423,16 @@ describe('SpeciesRecords, ready', () => {
 
   test('says the search radius once when every site used the same one, and on each row when they differ', async () => {
     await render({ sites: [row('a', 'Site A'), row('b', 'Site B')], checked: 2 });
-    expect(textOf()).toContain('Counts are iNaturalist records within 3 km of each site, and OBIS records in a 6 km square around it.');
+    await openAbout();
+    expect(textOf()).toContain('Counts cover 3 km around each site (OBIS: a 6 km square).');
     expect(textOf()).not.toMatch(/\| Within \d/);
     await act(async () => root.unmount());
     root = null;
 
     await render({ sites: [row('a', 'Site A'), row('b', 'Site B', { radiusKm: 5 }), row('c', 'Site C', { radiusKm: 0.5 })], checked: 3 });
+    await openAbout();
     const text = textOf();
-    expect(text).not.toContain('Counts are iNaturalist records within');
+    expect(text).not.toContain('Counts cover');
     expect(text).toContain('| Within 3 km (OBIS: 6 km square) |');
     expect(text).toContain('| Within 5 km (OBIS: 10 km square) |');
     expect(text).toContain('| Within 0.5 km (OBIS: 1 km square) |');
@@ -502,33 +521,37 @@ describe('SpeciesRecords, no records to show', () => {
   test('nothing saved yet: invites opening a dive site, and credits and counts nothing', async () => {
     await render({ status: 'empty', sites: [], checked: 0 });
     const text = textOf();
-    expect(text).toContain('Open a dive site’s page to see what’s been recorded there.');
+    expect(text).toContain('Open a dive site to see records.');
     expect(text).toContain('Recorded near dive sites');
-    expect(text).toContain('Not your sightings, and not checked by ScubaGo');
     expect(text).not.toContain('Data & credits');
     expect(text).not.toMatch(/Recorded near (all|the|\d)/);
     expect(text).not.toMatch(/iNaturalist observation/);
-    expect(pressables()).toHaveLength(0);
+    // The only control is the row that opens the explanation.
+    expect(pressables().map(labelOf)).toEqual(['About these records']);
+    await openAbout();
+    expect(textOf()).toContain('Not your sightings, and not checked by ScubaGo');
   });
 
   test('sites were opened but none records it: says so without claiming it is not there', async () => {
     await render({ status: 'empty', sites: [], checked: 3 });
-    const text = textOf();
-    expect(text).toContain('No public records of Reef Manta Ray at the 3 dive sites you’ve opened.');
-    expect(text).toContain('Not finding one here doesn’t mean it isn’t there.');
-    expect(text).not.toContain('Open a dive site’s page');
+    expect(textOf()).toContain('No records at the 3 sites you’ve opened.');
+    expect(textOf()).not.toContain('Open a dive site to see records.');
+    // The line makes no claim; what it leaves out is in the explanation.
+    await openAbout();
+    expect(textOf()).toContain('Not finding one doesn’t mean it isn’t there.');
     await act(async () => root.unmount());
     root = null;
     await render({ status: 'empty', sites: [], checked: 1 });
-    expect(textOf()).toContain('at the 1 dive site you’ve opened.');
+    expect(textOf()).toContain('No records at the 1 site you’ve opened.');
   });
 
   test('the saved records could not be read: says so, shows no list and no credit', async () => {
     await render({ status: 'error', sites: [], checked: 0 });
     const text = textOf();
-    expect(text).toContain('Couldn’t read the public records saved on this phone just now.');
+    expect(text).toContain('Couldn’t read the saved records.');
+    expect(root.root.findAll((n) => n.props.accessibilityLabel === 'Couldn’t read the public records saved on this phone just now.').length).toBeGreaterThan(0);
     expect(text).not.toContain('Data & credits');
-    expect(text).not.toContain('Open a dive site’s page');
+    expect(text).not.toContain('Open a dive site to see records.');
   });
 
   test('loading: a quiet busy placeholder, and nothing counted', async () => {
@@ -575,6 +598,6 @@ describe('SpeciesRecordsSection (the connected one)', () => {
     await act(async () => {
       root = create(<SpeciesRecordsSection species={species} sites={KNOWN_SITES} />);
     });
-    expect(textOf()).toContain('Open a dive site’s page to see what’s been recorded there.');
+    expect(textOf()).toContain('Open a dive site to see records.');
   });
 });

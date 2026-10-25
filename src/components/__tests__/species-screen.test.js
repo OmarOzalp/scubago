@@ -6,10 +6,12 @@ import SpeciesDetailScreen from '@/app/species/[id]';
 import { confirmAction } from '@/lib/confirm';
 import { SITES } from '@/data/sites';
 
+let mockHeader;
 jest.mock('expo-router', () => ({
   router: { back: jest.fn(), push: jest.fn(), canGoBack: () => true },
   useLocalSearchParams: () => ({ id: 'reef-manta' }),
-  Stack: { Screen: () => null },
+  // The header options the page sets, so a test can say what the header shows.
+  Stack: { Screen: ({ options }) => { mockHeader = options; return null; } },
   useFocusEffect: (callback) => require('react').useEffect(callback, [callback]),
 }));
 // A plain <img> that keeps its props, so a test can say the photo failed to load.
@@ -82,18 +84,78 @@ test('an animal not seen yet has "I saw one! Log it" straight after its descript
   expect(log).toBeGreaterThan(blurb);
   // Nothing but the blurb comes between: the photo's credit, the 3D button and the sites all follow it.
   expect(text.slice(blurb, log).split(' | ')).toHaveLength(2);
-  for (const later of ['iNaturalist ›', 'See reef manta ray in 3D', 'Where it’s been seen']) expect(text.indexOf(later)).toBeGreaterThan(log);
+  for (const later of ['iNaturalist ›', 'See reef manta ray in 3D']) expect(text.indexOf(later)).toBeGreaterThan(log);
+  // With no sighting of it anywhere there is nothing to say under "Where it’s been seen", so the heading is not there.
+  expect(text).not.toContain('Where it’s been seen');
 
   const [button] = root.root.findAll((n) => typeof n.type !== 'string' && typeof n.props.onPress === 'function' && n.props.title === 'I saw one! Log it');
   await act(async () => button.props.onPress());
   expect(router.push).toHaveBeenCalledWith({ pathname: '/log/new', params: { speciesId: 'reef-manta' } });
 });
 
-test('an animal the diver has seen is not asked for again, and can be logged once more lower down', async () => {
+test('an animal the diver has seen is not asked for again: their own record comes first, with the way to log another straight under it', async () => {
   mockSightings = [sighting('a', 'local', '2026-03-01')];
   await act(async () => { root = create(<SpeciesDetailScreen />); });
-  expect(textOf()).not.toContain('I saw one! Log it');
-  expect(textOf()).toContain('Log another sighting');
+  const text = textOf();
+  expect(text).not.toContain('I saw one! Log it');
+  // The record, then "Log another sighting", then the share button, then the photo's credit and the 3D link.
+  const order = ['A 3–4 m wing-span acrobat', 'In your log', 'Log another sighting', 'Share this discovery', 'iNaturalist ›', 'See reef manta ray in 3D'].map((s) => text.indexOf(s));
+  expect(order.every((i) => i > -1)).toBe(true);
+  expect([...order].sort((a, b) => a - b)).toEqual(order);
+
+  // It is the filled (coral) button of the page, and logs this animal.
+  const [button] = root.root.findAll((n) => typeof n.type !== 'string' && typeof n.props.onPress === 'function' && n.props.title === 'Log another sighting');
+  expect(button.props.variant).toBe('log');
+  await act(async () => button.props.onPress());
+  expect(router.push).toHaveBeenCalledWith({ pathname: '/log/new', params: { speciesId: 'reef-manta' } });
+});
+
+test('the diver’s own sighting rows do not say "Only you": it is the same on every row', async () => {
+  mockSightings = [{ ...sighting('a', 'local', '2026-03-01'), visibility: 'private' }];
+  await act(async () => { root = create(<SpeciesDetailScreen />); });
+  expect(textOf()).not.toContain('Only you');
+  // The screen reader still hears it.
+  expect(root.root.findAll((n) => /only you can see it/.test(n.props.accessibilityLabel ?? '')).length).toBeGreaterThan(0);
+});
+
+test('"Where it’s been seen" shows for two sites or more, and not when it only repeats the one sighting above', async () => {
+  mockSightings = [sighting('a', 'local', '2026-03-01')];
+  await act(async () => { root = create(<SpeciesDetailScreen />); });
+  expect(textOf()).not.toContain('Where it’s been seen');
+  await act(async () => root.unmount());
+
+  mockSightings = [sighting('a', 'local', '2026-03-01'), { ...sighting('b', 'local', '2026-03-02'), siteId: SITES[3].id }];
+  await act(async () => { root = create(<SpeciesDetailScreen />); });
+  expect(textOf()).toContain('Where it’s been seen');
+});
+
+test('the photo credit is short, keeps the photographer and the licence, and still reads in full to a screen reader', async () => {
+  mockSightings = [];
+  await act(async () => { root = create(<SpeciesDetailScreen />); });
+  const credit = textOf().split(' | ').find((t) => t.includes('iNaturalist ›'));
+  expect(credit).toMatch(/^Photo: .+ \(CC [A-Z0-9 -]+\) · iNaturalist ›$/);
+  expect(credit).not.toMatch(/some rights reserved|uploaded by/);
+  const link = root.root.findAll((n) => n.props.accessibilityRole === 'link' && /^Photo \(c\)|^Photo no rights/.test(n.props.accessibilityLabel ?? ''));
+  expect(link.length).toBeGreaterThan(0);
+});
+
+test('the header shows only the back arrow: the page’s own title is the big one below', async () => {
+  mockSightings = [];
+  await act(async () => { root = create(<SpeciesDetailScreen />); });
+  expect(mockHeader.headerTitle).toBe('');
+  // The title is kept for the browser tab.
+  expect(mockHeader.title).toBe('Reef Manta Ray');
+  expect(textOf().split(' | ').filter((t) => t === 'Reef Manta Ray')).toHaveLength(1);
+});
+
+test('"How rare?" is the shared disclosure: closed to begin with, and it opens where the rarity comes from', async () => {
+  mockSightings = [];
+  await act(async () => { root = create(<SpeciesDetailScreen />); });
+  const [toggle] = root.root.findAll((n) => n.props.accessibilityLabel === 'How rare?' && typeof n.props.onPress === 'function');
+  expect(toggle.props['aria-expanded']).toBe(false);
+  expect(textOf()).not.toContain('estimate');
+  await act(async () => toggle.props.onPress());
+  expect(textOf()).toMatch(/Rarity is ScubaGo’s own estimate|recorded near/i);
 });
 
 test('a photo that cannot be loaded gives way to a note, not an empty card', async () => {

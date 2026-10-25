@@ -1,6 +1,6 @@
 import { expect, test } from '@jest/globals';
 import { flatSeabed } from '../../test-support/flat-seabed';
-import { shoreDistance, shorePolygons } from '../island-outline';
+import { shoreDistance, shorePolygons, type IslandShape } from '../island-outline';
 import { createMarineMotion, MOVEMENT, WORLD, type MarineMember } from '../marine-motion';
 import { OCEAN } from '../ocean';
 import { sampleDive } from '../ocean-depth';
@@ -87,14 +87,16 @@ test('pause freezes the school and a background frame cannot teleport it', () =>
 test('each species moves with its own personality', () => {
   const stats = Object.fromEntries(SPECIES.map((model) => {
     const motion = createMarineMotion([{ model, lane: 0 }], 1, flat);
+    // (a resting tilt is to the side that puts the keel toward the open sea, the way it goes round)
+    const side = motion.inspect(0)!.direction;
     let speed = 0, bank = 0, turn = 0, surge = 0, low = Infinity, high = -Infinity, tilt = Infinity, radius = Infinity;
     for (let frame = 0; frame < 12000; frame++) {
       motion.step(.05, true);
       if (frame < 200) continue;
       const p = motion.get(0)!;
       speed += p.speed / 11800;
-      bank = Math.max(bank, Math.abs(p.bank - MOVEMENT[model].tilt));
-      tilt = Math.min(tilt, p.bank);
+      bank = Math.max(bank, Math.abs(p.bank - MOVEMENT[model].tilt * side));
+      tilt = Math.min(tilt, p.bank * side);
       turn = Math.max(turn, Math.abs(p.turn));
       // The tightest turning circle it swims (radius, units).
       if (Math.abs(p.turn) > .05) radius = Math.min(radius, p.speed / Math.abs(p.turn));
@@ -119,7 +121,8 @@ test('each species moves with its own personality', () => {
   // and surges; the hammerhead turns in tighter circles than any other shark; the dolphin is the most agile.
   expect(Math.max(whale.turn, mola.turn)).toBeLessThan(Math.min(manta.turn, tiger.turn, white.turn, turtle.turn, hammer.turn, dolphin.turn));
   expect(white.turn).toBeGreaterThan(Math.max(whale.turn, manta.turn, tiger.turn, mola.turn, turtle.turn));
-  expect(hammer.radius).toBeLessThan(Math.min(white.radius, tiger.radius, whale.radius) * .85);
+  // (going round the island, nobody makes a U-turn: its tightest circles are its meanders and the coast's bends)
+  expect(hammer.radius).toBeLessThan(Math.min(white.radius, tiger.radius, whale.radius));
   expect(dolphin.turn).toBeGreaterThan(Math.max(...SIX.map((model) => stats[model].turn), hammer.turn));
   expect(white.surge).toBeGreaterThan(1.25);
   expect(whale.surge).toBeLessThan(1.15);
@@ -288,4 +291,50 @@ test('the dolphin comes up to breathe now and then, just below the surface, and 
     whale.step(.05, true);
     expect(whale.get(0)!.y + sampleDive(whale.clock(), 0, 1).y).toBeLessThan(-.7);
   }
+});
+
+test('every animal goes round the whole island, its own way round: a lap in good time, never turning back for more than a moment', () => {
+  // Scenes on the Coral Reef (its first level, and its last with the islets) and on two other islands, over each one's own seabed.
+  const scenes: [IslandShape, number, MarineModel[]][] = [
+    ['reef', 1, ['whale-shark', 'great-white-shark', 'reef-manta', 'green-turtle', 'tiger-shark', 'bottlenose-dolphin']],
+    ['reef', 6, ['whale-shark', 'humpback-whale', 'reef-manta', 'leatherback-turtle', 'oceanic-whitetip', 'scalloped-hammerhead']],
+    ['kelp', 3, ['orca', 'harbor-seal', 'great-white-shark', 'humpback-whale']],
+    ['volcanic', 4, ['thresher-shark', 'galapagos-shark', 'giant-trevally', 'scalloped-hammerhead']],
+  ];
+  const ways = new Set<number>();
+  for (const [shape, level, models] of scenes) {
+    const motion = createMarineMotion(school(models), level, { shape, seed: .41 });
+    const track = models.map(() => ({ total: 0, last: NaN, window: 0, run: 0, longest: 0, lap: Infinity, radius: 0 }));
+    const seconds = 240;
+    for (let frame = 1; frame <= seconds * 20; frame++) {
+      motion.step(.05, true);
+      models.forEach((model, lane) => {
+        const seen = motion.inspect(lane)!, t = track[lane], angle = Math.atan2(seen.z, seen.x);
+        if (!Number.isNaN(t.last)) {
+          const turned = Math.atan2(Math.sin(angle - t.last), Math.cos(angle - t.last));
+          t.total += turned; t.window += turned;
+        }
+        t.last = angle;
+        t.radius += Math.hypot(seen.x, seen.z) / (seconds * 20);
+        if (t.lap === Infinity && Math.abs(t.total) >= 2 * Math.PI) t.lap = frame / 20;
+        if (frame % 20) return;
+        // Each second: did it go back against its way round (a hair aside)?
+        const back = t.window * Math.sign(t.total) < -.005;
+        t.run = back ? t.run + 1 : 0;
+        t.longest = Math.max(t.longest, t.run);
+        t.window = 0;
+      });
+    }
+    models.forEach((model, lane) => {
+      const t = track[lane];
+      // Round the whole island: a full lap within the time, going round on average at no less than half its cruising pace.
+      expect(t.lap).toBeLessThan(seconds);
+      expect(Math.abs(t.total) * t.radius / seconds).toBeGreaterThan(MOVEMENT[model].cruise * .5);
+      // Its own way round, never back the way it came for more than a moment (passing another, its lane swings it a little).
+      expect(t.longest).toBeLessThanOrEqual(2);
+      ways.add(Math.sign(t.total));
+    });
+  }
+  // Some go round one way, some the other.
+  expect(ways).toEqual(new Set([1, -1]));
 });

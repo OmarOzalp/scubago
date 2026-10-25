@@ -187,12 +187,12 @@ export function tooShallow(seabed: Seabed, coast: ShoreField, hull: Hull, margin
   const deepest = lowestMiddle({ floor: () => seabed.deepest }, hull, margin, 0, 0, 0, 0, tilt) + DEEP_SLACK;
   const top = Math.max(OCEAN.surfaceLevel - hullTop(hull, 0, tilt) * (1 - poke), deepest);
   if (tilt) {
-    // A body lying on its side has one fin out to each side by turns: the seven places differ going either way round.
+    // A body lying on its side lies with its keel toward the open sea, whichever way round it goes (marine-motion.ts, `tiltOf`): heading along the
+    // coast with the shore on its right, tilted by `tilt`, or the mirror of that going the other way, over the same seven places.
     const solid = { floor: seabed.solid }, cos = Math.cos(tilt), below = Math.max(hull.keel * cos, -hull.crest * cos);
     return (x: number, z: number) => {
       const shore = coast.island(x, z), along = Math.atan2(-shore.nz, shore.nx);
-      return lowestMiddle(solid, hull, margin, x, z, along, 0, tilt) > top || lowestMiddle(solid, hull, margin, x, z, along + Math.PI, 0, tilt) > top
-        || seabed.floor(x, z) + below + margin > top;
+      return lowestMiddle(solid, hull, margin, x, z, along, 0, tilt) > top || seabed.floor(x, z) + below + margin > top;
     };
   }
   // Level, going either way round it is over the same seven places (its middle, nose and tail, halfway out each side, and

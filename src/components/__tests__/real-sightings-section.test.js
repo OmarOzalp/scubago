@@ -5,6 +5,7 @@ import React, { act } from 'react';
 import { create } from 'react-test-renderer';
 
 import { agoText, daysSince } from '@/components/sightings/format';
+import { recordsNearSiteText } from '@/components/sightings/real-sightings-view';
 import { SiteSightingsSection } from '@/components/sightings/site-sightings-section';
 import { INATURALIST_CREDIT, OBIS_CREDIT } from '@/lib/external-sightings/attribution';
 
@@ -86,7 +87,11 @@ test('ready: names the animals with their evidence, labels the records as public
   const text = textOf();
 
   expect(text).toContain('Marine life recorded here');
-  expect(text).toMatch(/Not ScubaGo sightings, and not checked by ScubaGo/);
+  // What the records are waits behind a row.
+  expect(text).toContain('About these records');
+  expect(text).not.toMatch(/not checked by ScubaGo/);
+  await act(async () => press('About these records')[0].props.onPress());
+  expect(textOf()).toMatch(/Not your sightings, and not checked by ScubaGo/);
   expect(text).toContain('Reef Manta Ray');
   expect(text).toContain('212 iNaturalist observations');
   expect(text).toContain('38 records in OBIS datasets');
@@ -104,10 +109,13 @@ test('ready: names the animals with their evidence, labels the records as public
 
 test('says how far the records reach: a circle for iNaturalist, a square for OBIS', async () => {
   await render({ summary: summary(), status: 'ready' });
+  await act(async () => press('About these records')[0].props.onPress());
   const text = textOf();
   // OBIS is asked for a box whose half-side is the radius (geo.ts), so its corners reach further than 3 km.
-  expect(text).toContain('Records from iNaturalist observers within 3 km of this site, and from OBIS scientific datasets in a 6 km square around it.');
+  expect(text).toContain('iNaturalist within 3 km, OBIS in a 6 km square.');
   expect(text).not.toContain('within about');
+  // Short enough to sit behind a row: under 40 words.
+  expect(recordsNearSiteText(3).split(/\s+/).length).toBeLessThanOrEqual(40);
 });
 
 test('a species row opens that species page', async () => {
@@ -208,8 +216,9 @@ test('offline with nothing saved: a friendly line, no records, and a way to try 
   const refresh = jest.fn();
   await render({ summary: null, status: 'offline', refresh });
   const text = textOf();
-  expect(text).toContain('Couldn’t reach the public records right now.');
-  expect(text).toContain('You seem to be offline.');
+  expect(text).toContain('Couldn’t reach records.');
+  // The reason is not lost: a screen reader still hears it with the line.
+  expect(root.root.findAll((n) => /You seem to be offline/.test(n.props.accessibilityLabel ?? '')).length).toBeGreaterThan(0);
   expect(text).not.toContain('Reef Manta Ray');
   // Nothing is on show, so nothing is credited or counted.
   expect(text).not.toContain(INATURALIST_CREDIT.attribution);

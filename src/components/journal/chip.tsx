@@ -4,7 +4,19 @@ import { Radius, Type } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 
 /** A filter you can switch on and off: ink when on, paper when off. */
-export function Chip({ label, selected, onPress, accessibilityLabel }: { label: string; selected: boolean; onPress: () => void; accessibilityLabel?: string }) {
+export function Chip({
+  label,
+  selected,
+  onPress,
+  accessibilityLabel,
+  accessibilityHint,
+}: {
+  label: string;
+  selected: boolean;
+  onPress: () => void;
+  accessibilityLabel?: string;
+  accessibilityHint?: string;
+}) {
   const theme = useTheme();
   return (
     <Pressable
@@ -12,6 +24,7 @@ export function Chip({ label, selected, onPress, accessibilityLabel }: { label: 
       accessibilityRole="button"
       aria-selected={selected}
       accessibilityLabel={accessibilityLabel}
+      accessibilityHint={accessibilityHint}
       style={({ pressed }) => [
         styles.chip,
         {

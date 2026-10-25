@@ -3,7 +3,7 @@ import { islandOf, residentsOf } from '../archipelago';
 import { islandScale, SEABED_PROPS } from '../island-outline';
 import { groupSizes, GROUP_STYLES } from '../marine-groups';
 import { MOVEMENT } from '../marine-motion';
-import { OCEAN, reefCrestAt, seabedProfile } from '../ocean';
+import { OCEAN, reefCrestAt, reefShape, seabedProfile, wallMeasure } from '../ocean';
 import { CORAL, coralHeads, jettyBoat } from '../reef-coast';
 import { REEF_ANEMONE, reefRocks } from '../reef-life';
 import { marineModelFor } from '../swimming';
@@ -38,6 +38,28 @@ test('round the Coral Reef the shelf runs on as a lagoon to a crest just under t
   expect(seabedProfile(4, OCEAN, open).depth).toBeGreaterThan(2);
   // Through a pass, the lagoon's floor runs on out over where the crest would be.
   expect(seabedProfile((top + edge) / 2, OCEAN, pass).floor).toBeLessThan(OCEAN.surfaceLevel - .35);
+});
+
+test('round an islet\'s reef the wall falls from right at the crest\'s outer edge, more steeply, and turns into the main island\'s where the reefs meet', () => {
+  const { wall, isletWall } = OCEAN.reefCrest, deep = OCEAN.seabed.shelfFloor - OCEAN.seabed.floorDrop - OCEAN.reefCrest.drop;
+  // The main island's wall is where the reef's measure is `wall`; an islet's where it is `isletWall`; in between, in between, and nowhere a jump.
+  expect(wallMeasure(1.5)).toBeCloseTo(1.5, 9);
+  expect(wallMeasure(isletWall[0], 1)).toBeCloseTo(wall[0], 9);
+  expect(wallMeasure(isletWall[1], 1)).toBeCloseTo(wall[1], 9);
+  for (let d = 1.6; d < 2.4; d += .05) {
+    for (let islet = 0; islet < 1; islet += .1) {
+      // (from where an islet's wall begins out, the more an islet's it is, the farther down its wall a place is)
+      if (d >= isletWall[0]) expect(wallMeasure(d, islet + .1)).toBeGreaterThanOrEqual(wallMeasure(d, islet) - 1e-9);
+      expect(Math.abs(wallMeasure(d, islet + .1) - wallMeasure(d, islet))).toBeLessThan(.12);
+    }
+  }
+  // The crest and its shoulder as they were (the coral's outer edge is at `edge` of the measure, the shelf's reach less how far the crest wanders);
+  // just past the islet's wall, the deep floor, where the main island's is only beginning to fall.
+  const { shift } = reefShape(open.x, open.z);
+  for (let reach = .5; reach <= OCEAN.reefCrest.edge + shift; reach += .05) expect(seabedProfile(reach, OCEAN, { ...open, islet: 1 })).toEqual(seabedProfile(reach, OCEAN, open));
+  const past = isletWall[1] + .02 + shift;
+  expect(seabedProfile(past, OCEAN, { ...open, islet: 1 }).floor).toBeCloseTo(deep, 5);
+  expect(seabedProfile(past, OCEAN, open).floor).toBeGreaterThan(deep + .3);
 });
 
 test('the crest is coral, its seaward edge breaking into surf; none in the lagoon, in a pass or out at sea', () => {
