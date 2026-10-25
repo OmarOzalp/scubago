@@ -1,7 +1,7 @@
 import * as Linking from 'expo-linking';
 import { router } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
-import { ActivityIndicator, Platform, Pressable, StyleSheet, TextInput, View } from 'react-native';
+import { ActivityIndicator, Platform, Pressable, StyleSheet, View, type TextInputInstance } from 'react-native';
 
 import { FormField } from '@/components/form-field';
 import { Icon, type IconName } from '@/components/icon';
@@ -175,9 +175,9 @@ function SignInForm({ url }: { url: string | null }) {
   const [error, setError] = useState<string | null>(null);
   const [recoveredId, setRecoveredId] = useState<string | null>(null);
   const [linkErrorDismissed, setLinkErrorDismissed] = useState(false);
-  const passwordRef = useRef<TextInput>(null);
-  const confirmRef = useRef<TextInput>(null);
-  const codeRef = useRef<TextInput>(null);
+  const passwordRef = useRef<TextInputInstance>(null);
+  const confirmRef = useRef<TextInputInstance>(null);
+  const codeRef = useRef<TextInputInstance>(null);
 
   // Back from a reset link: it carries a session that lets the diver choose a new password.
   const linkRecovery = recoveryFromUrl(url);

@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react';
-import { Pressable, StyleSheet, TextInput, View, type KeyboardTypeOptions } from 'react-native';
+import { Pressable, StyleSheet, View, type KeyboardTypeOptions, type TextInputInstance, type ViewInstance } from 'react-native';
 
 import { DateField } from '@/components/date-field';
 import { ChoiceChips } from '@/components/dive/choice-chips';
@@ -69,14 +69,14 @@ export function DiveForm({
   carried?: { from: number; what: string[] };
   initiallyOpen?: boolean;
   problem?: { field: DraftField; message: string } | null;
-  onReveal?: (field: View | TextInput) => void;
+  onReveal?: (field: ViewInstance | TextInputInstance) => void;
   /** Goes between the dive's own fields and "More details": the screen's notes on the animals, photo and privacy. */
   afterNotes?: ReactNode;
 }) {
   const theme = useTheme();
   const [open, setOpen] = useState(initiallyOpen);
   // The fields' views, to take the diver to the one with a problem.
-  const fields = useRef<Partial<Record<DraftField, View | TextInput | null>>>({});
+  const fields = useRef<Partial<Record<DraftField, ViewInstance | TextInputInstance | null>>>({});
   const invalid = (key: DraftField) => (problem?.field === key ? { borderColor: theme.danger } : undefined);
   const problemAt = (...keys: DraftField[]) =>
     problem && keys.includes(problem.field) ? (

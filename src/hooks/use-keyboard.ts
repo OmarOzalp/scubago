@@ -1,5 +1,5 @@
 import { useEffect, useState, type RefObject } from 'react';
-import { Dimensions, Keyboard, Platform, type View } from 'react-native';
+import { Dimensions, Keyboard, Platform, type ViewInstance } from 'react-native';
 
 /**
  * `keyboardDismissMode` for a form's ScrollView: dragging it puts the keyboard away. Not on the web,
@@ -17,7 +17,7 @@ export const DISMISS_ON_DRAG = Platform.OS === 'web' ? undefined : ('on-drag' as
  *
  * Keyboard events come on iOS and Android only: elsewhere (the web) nothing changes.
  */
-export function useKeyboard(container?: RefObject<View | null>): { open: boolean; overlap: number } {
+export function useKeyboard(container?: RefObject<ViewInstance | null>): { open: boolean; overlap: number } {
   const [state, setState] = useState({ open: false, overlap: 0 });
   useEffect(() => {
     const ios = Platform.OS === 'ios';

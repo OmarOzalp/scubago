@@ -188,7 +188,7 @@ test('"Can’t find it? Add a dive site" is right under the search field, 44 poi
   expect(text()).toContain('Can’t find it? Add a dive site');
   // And not down in the list's footer, where there are hundreds of rows to scroll past first.
   const footer = root.root.findByType(FlatList).props.ListFooterComponent;
-  expect(footer).toBeNull();
+  expect(footer).toBeUndefined();
   // Still there with a search that finds nothing.
   await type('zzzqx');
   expect(addSiteLink()).toBeDefined();

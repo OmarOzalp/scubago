@@ -1,5 +1,5 @@
 import { useCallback, useRef } from 'react';
-import type { NativeScrollEvent, NativeSyntheticEvent, ScrollView } from 'react-native';
+import type { NativeScrollEvent, NativeSyntheticEvent, ScrollViewInstance } from 'react-native';
 
 /** Anything on screen that can say where it is (a View, a TextInput). */
 type Measurable = { measureInWindow: (callback: (x: number, y: number, width: number, height: number) => void) => void };
@@ -12,7 +12,7 @@ type Measurable = { measureInWindow: (callback: (x: number, y: number, width: nu
  * field doesn't have to know how deep in the page it sits. `above` leaves room for its label.
  */
 export function useScrollTo() {
-  const scrollView = useRef<ScrollView>(null);
+  const scrollView = useRef<ScrollViewInstance>(null);
   const offset = useRef(0);
   const onScroll = useCallback((event: NativeSyntheticEvent<NativeScrollEvent>) => {
     offset.current = event.nativeEvent.contentOffset.y;

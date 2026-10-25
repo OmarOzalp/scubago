@@ -1,6 +1,6 @@
 import { router, useLocalSearchParams } from 'expo-router';
 import { useRef, useState } from 'react';
-import { ScrollView, StyleSheet, TextInput, View } from 'react-native';
+import { ScrollView, StyleSheet, View, type TextInputInstance } from 'react-native';
 
 import { FormField } from '@/components/form-field';
 import { Icon } from '@/components/icon';
@@ -39,8 +39,8 @@ export default function AddSiteScreen() {
   // What is wrong, under the field it is about (said out loud, not a button greyed out for no stated reason).
   const [problem, setProblem] = useState<{ field: 'name' | 'coordinates'; message: string } | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const nameField = useRef<TextInput>(null);
-  const coordinatesField = useRef<TextInput>(null);
+  const nameField = useRef<TextInputInstance>(null);
+  const coordinatesField = useRef<TextInputInstance>(null);
 
   const place = readCoordinates(coordinates);
 

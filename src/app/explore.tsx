@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Animated, Platform, Pressable, StyleSheet, Text, View, type LayoutChangeEvent } from 'react-native';
+import { Animated, Platform, Pressable, StyleSheet, Text, View, type LayoutChangeEvent, type ViewInstance } from 'react-native';
 import { Gesture, GestureDetector, GestureHandlerRootView, type GestureTouchEvent } from 'react-native-gesture-handler';
 import { useReducedMotion } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -111,7 +111,7 @@ export default function ExploreScreen() {
   }, [explorer]);
 
   // The web: the mouse wheel (and a trackpad's pinch, which arrives as a wheel with ctrl held) zooms about the pointer.
-  const surface = useRef<View>(null);
+  const surface = useRef<ViewInstance>(null);
   useEffect(() => {
     if (Platform.OS !== 'web') return;
     const node = surface.current as unknown as HTMLElement | null;
