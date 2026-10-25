@@ -19,7 +19,20 @@ let mockUser = null;
 let mockDives = [];
 let mockSightings = [];
 jest.mock('@/lib/store', () => ({
-  useAppStore: (select) => select({ user: mockUser, sightings: mockSightings, backendEnabled: true, syncing: false, syncProblem: null, requestSync: jest.fn(), deleteDive: jest.fn() }),
+  useAppStore: (select) =>
+    select({
+      user: mockUser,
+      sightings: mockSightings,
+      backendEnabled: true,
+      syncing: false,
+      syncProblem: null,
+      requestSync: jest.fn(),
+      // As the store does: the page and its sightings go in one update.
+      deleteDive: async (id) => {
+        mockDives = mockDives.filter((d) => d.id !== id);
+        mockSightings = mockSightings.filter((s) => s.diveId !== id);
+      },
+    }),
   useMySightings: () => mockSightings,
   useMyDives: () => mockDives,
   useMyUserId: () => 'local',
@@ -39,6 +52,8 @@ beforeEach(() => {
   mockDives = [dive(1), dive(2), dive(3, { siteId: 'cod-hole' })];
   mockSightings = [sighting('a', 'reef-manta', 'd3'), sighting('b', 'whale-shark', 'd3')];
   router.push.mockClear();
+  router.back.mockClear();
+  router.replace.mockClear();
   announce.mockClear();
 });
 afterEach(async () => { if (root) await act(async () => root.unmount()); root = null; });
@@ -211,6 +226,29 @@ describe('the book', () => {
     await rerender();
     expect(count()).toBe('3 of 3');
     expect(counter().props.accessibilityValue.text).toMatch(/Cod Hole/);
+  });
+
+  test('deleting the open page leaves the book on its neighbour, without leaving the Logbook', async () => {
+    const deleteOpenPage = async () => {
+      const del = openLeaf().findAll((n) => n.props.accessibilityRole === 'button' && typeof n.props.onPress === 'function' && n.findAll((c) => c.children?.[0] === 'Delete page').length > 0)[0];
+      await act(async () => del.props.onPress());
+      await rerender();
+    };
+    await render();
+    // The newest page: the one before it is open now.
+    await deleteOpenPage();
+    expect(count()).toBe('2 of 2');
+    expect(counter().props.accessibilityValue.text).toMatch(/^Page 2 of 2, Shark & Yolanda Reef/);
+    // A page in the middle: the page after it takes its place.
+    mockDives = [...mockDives, dive(3, { siteId: 'cod-hole' })];
+    await rerender();
+    await press('Previous page');
+    expect(count()).toBe('2 of 3');
+    await deleteOpenPage();
+    expect(count()).toBe('2 of 2');
+    expect(counter().props.accessibilityValue.text).toMatch(/Cod Hole/);
+    expect(router.back).not.toHaveBeenCalled();
+    expect(router.replace).not.toHaveBeenCalled();
   });
 
   test('the open page is the dive’s own page: Share and Edit at its head, what you saw, signatures and Delete', async () => {

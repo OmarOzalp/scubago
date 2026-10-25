@@ -1,5 +1,5 @@
 import { Stack, router, useLocalSearchParams } from 'expo-router';
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 
 import { DivePage } from '@/components/dive/dive-page';
@@ -10,6 +10,7 @@ import { ThemedText } from '@/components/themed-text';
 import { Radius, Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { formatDiveNumber, neighbours } from '@/lib/dives';
+import { leave } from '@/lib/leave';
 import { useMyDives, useSiteById } from '@/lib/store';
 import type { Dive } from '@/lib/types';
 
@@ -23,8 +24,13 @@ export default function DivePageScreen() {
   const theme = useTheme();
   const siteById = useSiteById();
   const dives = useMyDives();
-  const dive = dives.find((d) => d.id === id);
-  const turn = useMemo(() => (dive ? neighbours(dives, dive.id) : {}), [dives, dive]);
+  const live = dives.find((d) => d.id === id);
+  const liveTurn = useMemo(() => (live ? neighbours(dives, live.id) : {}), [dives, live]);
+  // Deleted from this screen: it goes on showing the page while it closes, rather than "This page isn't in your
+  // log" sliding away (the store has dropped the page before the navigator has taken the screen down).
+  const [leaving, setLeaving] = useState<{ dive: Dive; turn: typeof liveTurn } | null>(null);
+  const dive = live ?? leaving?.dive;
+  const turn = live ? liveTurn : (leaving?.turn ?? {});
 
   if (!dive) {
     return (
@@ -49,7 +55,9 @@ export default function DivePageScreen() {
     <Screen>
       <DivePage
         dive={dive}
-        onDeleted={() => router.back()}
+        onDeleting={(deleting) => setLeaving(deleting && live ? { dive: live, turn: liveTurn } : null)}
+        // Back where the diver came from; opened straight from a link (or a reload on the web), to the Logbook.
+        onDeleted={() => leave('/logbook')}
         footer={
           // Turning the pages: the one before (a lower number) on the left, the next on the right.
           <View style={[styles.turn, { borderTopColor: theme.rule }]}>

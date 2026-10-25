@@ -60,6 +60,7 @@ export function DivePage({
   pageLabel,
   turn,
   footer,
+  onDeleting,
   onDeleted,
 }: {
   dive: Dive;
@@ -70,7 +71,9 @@ export function DivePage({
   turn?: { previous?: () => void; next?: () => void };
   /** Under the colophon, above Delete page (the screen's previous and next buttons). */
   footer?: ReactNode;
-  /** After the page is deleted (the screen goes back; the book stays open). */
+  /** A delete has begun (true) or failed (false): the screen keeps the page in view while it closes. */
+  onDeleting?: (deleting: boolean) => void;
+  /** After the page is deleted (the screen closes; the book stays open). */
   onDeleted?: () => void;
 }) {
   const theme = useTheme();
@@ -83,10 +86,14 @@ export function DivePage({
   const deleteDive = useAppStore((s) => s.deleteDive);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const onPage = useMemo(
+  const live = useMemo(
     () => allSightings.filter((s) => s.diveId === dive.id && s.userId === myUserId).sort((a, b) => a.createdAt.localeCompare(b.createdAt)),
     [allSightings, dive.id, myUserId],
   );
+  // While the page is deleted it goes on showing its animals (the store drops them with the page before the
+  // screen has closed), rather than "Nothing logged on this dive yet" on its way out.
+  const [kept, setKept] = useState<Sighting[] | null>(null);
+  const onPage = kept ?? live;
 
   const site = siteById(dive.siteId);
   const siteName = site?.name ?? 'Unknown site';
@@ -153,11 +160,15 @@ export function DivePage({
     if (!ok) return;
     setBusy(true);
     setError(null);
+    setKept(live);
+    onDeleting?.(true);
     try {
       await deleteDive(dive.id);
       onDeleted?.();
     } catch (e: any) {
       const message = e.message ?? 'Could not delete this page';
+      setKept(null);
+      onDeleting?.(false);
       setError(message);
       announce(message);
       setBusy(false);
