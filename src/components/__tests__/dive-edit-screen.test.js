@@ -8,6 +8,7 @@ import { router } from 'expo-router';
 
 let mockOptions = null;
 let mockGuard = null;
+const mockDisable = jest.fn();
 let mockNavigation = null;
 let mockState = null;
 
@@ -18,7 +19,8 @@ jest.mock('expo-router', () => ({
   Stack: { Screen: ({ options }) => { mockOptions = { ...mockOptions, ...options }; return null; } },
 }));
 jest.mock('expo-router/react-navigation', () => ({
-  usePreventRemove: (preventRemove, callback) => { mockGuard = { preventRemove, callback }; },
+  // As in expo-router: the hook hands back the way to lift the block, and `repeat` lifts it and sends the action again.
+  usePreventRemove: (preventRemove, callback) => { mockGuard = { preventRemove, callback }; return mockDisable; },
 }));
 jest.mock('@/global.css', () => ({}));
 jest.mock('@/components/external-link', () => ({ ExternalLink: () => null }));
@@ -104,13 +106,16 @@ describe('leaving the edit page', () => {
     expect(mockGuard.preventRemove).toBe(true);
 
     const action = { type: 'POP' };
+    const repeat = () => mockNavigation.dispatch(action);
     confirmAction.mockResolvedValueOnce(false);
-    await act(async () => { mockGuard.callback({ data: { action } }); });
+    await act(async () => { mockGuard.callback({ data: { action }, repeat }); });
     expect(confirmAction).toHaveBeenCalledWith(expect.objectContaining({ title: 'Discard your changes?', destructive: true }));
     expect(mockNavigation.dispatch).not.toHaveBeenCalled();
+    expect(mockGuard.preventRemove).toBe(true);
     confirmAction.mockResolvedValueOnce(true);
-    await act(async () => { mockGuard.callback({ data: { action } }); });
+    await act(async () => { mockGuard.callback({ data: { action }, repeat }); });
     expect(mockNavigation.dispatch).toHaveBeenCalledWith(action);
+    expect(mockGuard.preventRemove).toBe(false);
   });
 
   test('a change put back as it was is no change', async () => {
@@ -136,10 +141,11 @@ describe('leaving the edit page', () => {
     await press(byTitle('Save changes'));
     expect(mockState.updateDive).toHaveBeenCalledWith('d-26', expect.objectContaining({ maxDepthM: 31 }));
     expect(router.back).toHaveBeenCalledTimes(1);
-    const action = { type: 'POP' };
-    await act(async () => { mockGuard.callback({ data: { action } }); });
+    // The block is lifted before the close, so the navigator lets it through without the question.
+    expect(mockDisable).toHaveBeenCalledTimes(1);
+    expect(mockDisable.mock.invocationCallOrder[0]).toBeLessThan(router.back.mock.invocationCallOrder[0]);
+    expect(mockGuard.preventRemove).toBe(false);
     expect(confirmAction).not.toHaveBeenCalled();
-    expect(mockNavigation.dispatch).toHaveBeenCalledWith(action);
   });
 });
 

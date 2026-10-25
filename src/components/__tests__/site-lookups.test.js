@@ -18,7 +18,7 @@ jest.mock('expo-router', () => ({
   useFocusEffect: (callback) => require('react').useEffect(callback, [callback]),
 }));
 // The edit screen guards unsaved edits; nothing here leaves it.
-jest.mock('expo-router/react-navigation', () => ({ usePreventRemove: () => {} }));
+jest.mock('expo-router/react-navigation', () => ({ usePreventRemove: () => () => {} }));
 jest.mock('expo-image', () => ({ Image: () => null }));
 jest.mock('react-native-safe-area-context', () => ({ useSafeAreaInsets: () => ({ top: 0, bottom: 0, left: 0, right: 0 }) }));
 jest.mock('react-native-reanimated', () => ({ __esModule: true, useReducedMotion: () => true, default: { View: require('react-native').View } }));
