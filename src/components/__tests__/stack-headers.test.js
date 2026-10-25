@@ -14,7 +14,7 @@ jest.mock('@expo-google-fonts/fraunces/500Medium', () => ({ Fraunces_500Medium: 
 jest.mock('@expo-google-fonts/fraunces/500Medium_Italic', () => ({ Fraunces_500Medium_Italic: 1 }));
 jest.mock('@expo-google-fonts/fraunces/600SemiBold', () => ({ Fraunces_600SemiBold: 1 }));
 jest.mock('expo-font', () => ({ useFonts: () => [true, null] }));
-jest.mock('expo-splash-screen', () => ({ preventAutoHideAsync: jest.fn(), hideAsync: jest.fn() }));
+jest.mock('expo-splash-screen', () => ({ preventAutoHideAsync: jest.fn(async () => undefined), hideAsync: jest.fn(async () => undefined) }));
 jest.mock('@/components/animated-icon', () => ({ AnimatedSplashOverlay: () => null }));
 jest.mock('@/components/storage-problem', () => ({ StorageProblem: () => null }));
 jest.mock('@/lib/store', () => ({ useAppStore: (select) => select({ init: () => {} }) }));
