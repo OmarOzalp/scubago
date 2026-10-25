@@ -1,6 +1,6 @@
 import { expect, test } from '@jest/globals';
 import { ISLAND_PLACES, ISLANDS, type IslandId } from '../archipelago';
-import { createShoreField, shapeFor, type IslandShape } from '../island-outline';
+import { createShoreField, islandScale, islets, shapeFor, type IslandShape } from '../island-outline';
 import { OCEAN } from '../ocean';
 import { avoidShallows, createSeabed, createSeabedField, HABITATS, type OceanIsland } from '../seabed';
 import { coralHeads } from '../reef-coast';
@@ -52,6 +52,33 @@ test('the bottom the animals swim over is the seabed the water draws, triangle f
       expect(median).toBeLessThan(.08);
       if (shape !== 'reef') expect(over).toBeLessThan(.4);
       expect(overReach).toBeLessThan(.05);
+    }
+  }
+});
+
+test('at the Coral Reef\'s last levels the wall runs on round the islets\' reefs, and the seabed\'s rings follow it there too', () => {
+  const deep = OCEAN.seabed.shelfFloor - OCEAN.seabed.floorDrop - OCEAN.reefCrest.drop;
+  for (const level of [1, 3, 5, 6]) {
+    // Each ring of the mesh is at one height round the island, give or take the crest's and the passes' own: neighbours along it never
+    // differ by a drop down the wall (a ring that runs across the wall rather than along it is drawn as fins).
+    const { positions } = createSeabedField(level, [{ x: 0, z: 0, habitat: 'island' }]).lattice(), rays = 96, rings = positions.length / 3 / rays;
+    expect(Number.isInteger(rings)).toBe(true);
+    let largest = 0;
+    for (let k = 0; k < rings; k++) {
+      for (let r = 0; r < rays; r++) {
+        const a = (r * rings + k) * 3, b = (((r + 1) % rays) * rings + k) * 3;
+        largest = Math.max(largest, Math.abs(positions[a + 1] - positions[b + 1]));
+      }
+    }
+    expect(largest).toBeLessThan(.5);
+  }
+  for (const level of [5, 6]) {
+    const seabed = createSeabed(level, 'reef'), scale = islandScale(level);
+    for (const { position: [px, pz] } of islets(level, 'reef')) {
+      // Out from the island's middle past each islet: its lagoon and crest as they were, a little under the surface, then the wall's deep floor, as past the main island's.
+      const cx = px * scale, cz = pz * scale, r = Math.hypot(cx, cz), ux = cx / r, uz = cz / r;
+      for (const d of [1.2, 1.6, 2]) expect(seabed.ground(cx + ux * d, cz + uz * d)).toBeGreaterThan(-.7);
+      for (const d of [3.2, 3.6]) expect(seabed.ground(cx + ux * d, cz + uz * d)).toBeLessThan(deep + .06);
     }
   }
 });

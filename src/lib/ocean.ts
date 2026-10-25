@@ -118,8 +118,14 @@ export const OCEAN = {
    * coral's colors (a mottle of these, linear sRGB after conversion). Just past the coral the outer slope
    * falls away as a steep wall (`wall`: from and to, shelf reach) to a floor `drop` deeper than any other
    * island's, so that water deep enough for the biggest animals starts inside the picture, not past its edge.
+   * Round the islets' reefs (levels 5 and 6), which reach out toward the edge of the picture, it falls from
+   * right at the crest's outer edge, more steeply (`isletWall`), so that the deep water goes on round them
+   * there too; where an islet's reef meets the main island's, the one wall turns into the other (`wallMeasure`).
    */
-  reefCrest: { rise: 1.32, top: 1.48, edge: 1.8, foot: 2.75, wall: [1.96, 2.16] as readonly [number, number], drop: .6, height: -.212, coral: ['#9A7A55', '#7D6A5E', '#8A8C5C', '#BBA57E', '#B98272'] },
+  reefCrest: {
+    rise: 1.32, top: 1.48, edge: 1.8, foot: 2.75, wall: [1.96, 2.16] as readonly [number, number], isletWall: [1.84, 1.96] as readonly [number, number], drop: .6, height: -.212,
+    coral: ['#9A7A55', '#7D6A5E', '#8A8C5C', '#BBA57E', '#B98272'],
+  },
   /**
    * The crest is never a neat ring: it wanders in and out (shelf reach), its outer edge is cut into
    * spurs and grooves, and boat passes break it (the angles about the island's middle, radians, and
@@ -214,10 +220,12 @@ export function seabedPatch(x: number, z: number, distance: number) {
  * Seabed against distance from the nearest shoreline (negative = inland).
  * `floor` is where the seabed mesh sits; `depth` is the water depth that drives
  * color. Depth keeps growing smoothly past the reef edge, so the turquoise halo
- * fades gradually into open water instead of stopping at a ring.
+ * fades gradually into open water instead of stopping at a ring. `unwalled` is
+ * the floor as it would be without the Coral Reef's outer wall (the floor itself
+ * anywhere else).
  */
-export function seabedProfile(distance: number, config: OceanConfig = OCEAN, reef?: { x: number; z: number; main?: number }) {
-  if (reef && distance > 0) return reefProfile(distance, reef.x, reef.z, config, reef.main);
+export function seabedProfile(distance: number, config: OceanConfig = OCEAN, reef?: { x: number; z: number; islet?: number }) {
+  if (reef && distance > 0) return reefProfile(distance, reef.x, reef.z, config, reef.islet);
   const { shelfWidth, shelfFloor, reefEdge, openDistance, openDepth, floorDrop } = config.seabed;
   // The beach rises gently inland and slopes down to the shelf offshore.
   const beach = distance < 0 ? -.125 - distance * .1 : lerp(-.125, shelfFloor, smoothstep(0, shelfWidth, distance));
@@ -225,16 +233,29 @@ export function seabedProfile(distance: number, config: OceanConfig = OCEAN, ree
   // Signed water depth over the beach: negative where the sand rises above the surface.
   const shore = config.surfaceLevel - beach;
   const depth = distance <= 0 ? 0 : Math.max(0, shore) + (openDepth - (config.surfaceLevel - shelfFloor)) * smoothstep(reefEdge, openDistance, distance) ** .8;
-  return { floor, depth, wet: shore < 0 ? shore : depth };
+  return { floor, depth, wet: shore < 0 ? shore : depth, unwalled: floor };
+}
+
+/**
+ * The Coral Reef's measure of how far out a point is (`d`: its shelf reach less how far the crest wanders there) as the wall's own: the wall
+ * runs from `wall[0]` to `wall[1]` of it, round the main island's reef where `d` is that, round an islet's where `d` is `isletWall` (`islet`
+ * 1: an islet's shore is nearer, by enough), and in between where the two reefs meet (`islet` between). Past the wall it goes on as `d` does,
+ * as many times faster: the reef's rings past the crest (seabed-lattice.ts) are at fixed values of it, so the wall is drawn at one height
+ * round the main island and the islets alike.
+ */
+export function wallMeasure(d: number, islet = 0, config: OceanConfig = OCEAN) {
+  const [from, to] = config.reefCrest.wall, [isletFrom, isletTo] = config.reefCrest.isletWall;
+  const start = lerp(from, isletFrom, islet), end = lerp(to, isletTo, islet);
+  return from + (d - start) * (to - from) / (end - start);
 }
 
 /**
  * The Coral Reef's seabed offshore (`reefCrest`): the same beach and shelf as any island's, but where
  * a shelf would drop away, a lagoon of pale sand runs on at the shelf's depth to the reef crest, which
  * rises almost to the surface, then the reef's outer slope falls to the deep floor and the water goes
- * on deepening into the open ocean as any island's does.
+ * on deepening into the open ocean as any island's does. `islet` says how much its wall is an islet's (`wallMeasure`).
  */
-function reefProfile(distance: number, x: number, z: number, config: OceanConfig, main?: number) {
+function reefProfile(distance: number, x: number, z: number, config: OceanConfig, islet = 0) {
   const { shelfWidth, shelfFloor, reefEdge, openDistance, openDepth, floorDrop } = config.seabed;
   const { rise, top, edge, foot, height, wall, drop } = config.reefCrest;
   const { shift, groove, open } = reefShape(x, z, config);
@@ -242,12 +263,12 @@ function reefProfile(distance: number, x: number, z: number, config: OceanConfig
   const d = distance - shift, outer = smoothstep(edge + groove, foot, d);
   // Where a pass breaks the crest, the lagoon's floor runs on out to the reef's outer slope; past the coral, it falls away as a wall to the deep floor.
   const slope = lerp(beach, height, smoothstep(rise, top, d) * (1 - outer) * (1 - open)) - floorDrop * outer;
-  // (the wall belongs to the reef round the main island: where an islet's shelf is nearer than its, over a few tenths of a unit, the slope is the usual one)
-  const floor = lerp(slope, shelfFloor - floorDrop - drop, smoothstep(wall[0], wall[1], d) * (main === undefined ? 1 : 1 - smoothstep(0, .3, main - distance)));
+  // (`distance` is from the nearest shore, the main island's or an islet's: the wall runs round the islets' reefs too, and becomes the main island's where the two meet)
+  const floor = lerp(slope, shelfFloor - floorDrop - drop, smoothstep(wall[0], wall[1], wallMeasure(d, islet, config)));
   // Past the crest the water deepens toward the open ocean's depth, never shallower than over the floor.
   const over = Math.max(0, config.surfaceLevel - floor), deep = config.surfaceLevel - (shelfFloor - floorDrop);
   const depth = over + Math.max(0, openDepth - deep) * smoothstep(edge, edge + openDistance - reefEdge, d) ** .8;
-  return { floor, depth, wet: depth };
+  return { floor, depth, wet: depth, unwalled: slope };
 }
 
 /** How far the crest wanders out here (reach), how far its outer edge is cut back by a groove, and how open a pass leaves it (0 to 1), at (x, z) in the island's frame. */
