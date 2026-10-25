@@ -39,6 +39,7 @@ import { CATALOG, CATALOG_BY_ID, UNLISTED_ID, UNLISTED_NAME_MAX, speciesForSight
 import { carryOver, emptyDraft, fieldOfProblem, readDraft, type DiveDraft, type DraftField } from '@/lib/dive-draft';
 import { formatDiveNumber, milestoneAt, milestoneName, nextDiveNumber, nextMilestone, sortDives } from '@/lib/dives';
 import { recentDiveDate, rememberDiveDate } from '@/lib/last-dive-date';
+import { leave } from '@/lib/leave';
 import { keepPhoto } from '@/lib/photo-files';
 import { DEFAULT_PRIVACY, lastPrivacyChoice, privacySummary, rememberPrivacyChoice, type PrivacySettings } from '@/lib/privacy-choice';
 import { CATEGORY_LABEL, CATEGORY_ORDER } from '@/lib/rarity';
@@ -105,7 +106,8 @@ export default function LogSightingScreenRoute() {
 }
 
 function LogSightingScreen() {
-  const params = useLocalSearchParams<{ siteId?: string; speciesId?: string; edit?: string; dive?: string }>();
+  // `then=page`: the page isn't underneath (this replaced its saved screen), so finishing opens it.
+  const params = useLocalSearchParams<{ siteId?: string; speciesId?: string; edit?: string; dive?: string; then?: string }>();
   const theme = useTheme();
   const scheme = useSchemeName();
   const sites = useAllSites();
@@ -251,8 +253,7 @@ function LogSightingScreen() {
         : null;
   const goBack = () => {
     if (previousStep) goTo(previousStep);
-    else if (router.canGoBack()) router.back();
-    else router.replace('/');
+    else leave('/');
   };
   useHardwareBack(() => {
     if (result || !previousStep) return false;
@@ -347,7 +348,7 @@ function LogSightingScreen() {
         const { isNewSpecies } = await updateSighting(editing.id, { ...picks[0], photoUri });
         if (!isNewSpecies) {
           allowLeaving();
-          router.back();
+          leave(`/sighting/${editing.id}`);
           return;
         }
         const others = mySightings.filter((s) => s.id !== editing.id);
@@ -427,7 +428,7 @@ function LogSightingScreen() {
   };
 
   if (result) {
-    return <Saved result={result} onLogMore={newDive ? logMore : undefined} newBadges={newBadges} onBadgesSeen={markBadgesSeen} />;
+    return <Saved result={result} onLogMore={newDive ? logMore : undefined} newBadges={newBadges} onBadgesSeen={markBadgesSeen} endOnPage={params.then === 'page'} />;
   }
 
   if (params.edit && (!editing || !canEditSighting(editing, myUserId))) {
@@ -1032,17 +1033,32 @@ const ON_TWILIGHT = { text: '#FFFFFF', soft: '#C9D3FF' };
  * ordinary log gets a "Logged" stamp. Nothing moves under Reduce Motion. Either way the next steps
  * are one footer pinned under the page, so they are in reach whatever the page above holds.
  */
-function Saved({ result, onLogMore, newBadges, onBadgesSeen }: { result: Result; onLogMore?: () => void; newBadges: BadgeResult[]; onBadgesSeen: (ids: string[]) => void }) {
+function Saved({
+  result,
+  onLogMore,
+  newBadges,
+  onBadgesSeen,
+  endOnPage = false,
+}: {
+  result: Result;
+  onLogMore?: () => void;
+  newBadges: BadgeResult[];
+  onBadgesSeen: (ids: string[]) => void;
+  /** The page isn't underneath this screen (it replaced the page's saved screen): going to the page opens it. */
+  endOnPage?: boolean;
+}) {
   const theme = useTheme();
   const { newSpecies, count, siteName, dive } = result;
   const milestone = dive?.written ? milestoneAt(dive.number) : null;
   const ahead = dive?.written && !milestone ? nextMilestone(dive.number + 1) : null;
   const badgeCelebration = <NewBadgesCelebration fresh={newBadges} onSeen={onBadgesSeen} onOpenAll={() => router.replace('/rewards')} />;
-  const openPage = dive ? () => (dive.written ? router.replace(`/dive/${dive.id}`) : router.back()) : undefined;
+  // The page is underneath when sightings were added from it, and then it is gone back to; a page just written, or one
+  // whose saved screen this replaced ("Add what you saw"), is opened in this screen's place.
+  const openPage = dive ? () => (dive.written || endOnPage ? router.replace(`/dive/${dive.id}`) : leave(`/dive/${dive.id}`)) : undefined;
   // Signing from here ends on the page (there's no page behind this screen to go back to).
   const askToSign = dive?.written ? () => router.replace({ pathname: '/dive/sign', params: { id: dive.id, then: 'page' } }) : undefined;
   // A dive written without animals can have them added now: the same steps, on its page.
-  const addWhatYouSaw = dive?.written && count === 0 ? () => router.replace({ pathname: '/log/new', params: { dive: dive.id } }) : undefined;
+  const addWhatYouSaw = dive?.written && count === 0 ? () => router.replace({ pathname: '/log/new', params: { dive: dive.id, then: 'page' } }) : undefined;
   if (newSpecies.length === 0) {
     return (
       <ThemedView style={styles.container}>
@@ -1080,7 +1096,7 @@ function Saved({ result, onLogMore, newBadges, onBadgesSeen }: { result: Result;
           </Paper>
         </ScrollView>
         <SavedFooter
-          primary={<OceanButton title={dive && !dive.written ? 'Back to the page' : 'Done'} onPress={() => router.back()} style={styles.stretch} />}
+          primary={<OceanButton title={dive && !dive.written ? 'Back to the page' : 'Done'} onPress={dive && !dive.written ? openPage! : () => leave('/')} style={styles.stretch} />}
           // Sightings added to a page end on the page already: "Back to the page" is the way there.
           page={dive?.written ? { title: 'Open the page', onPress: openPage! } : undefined}
           onSign={askToSign}

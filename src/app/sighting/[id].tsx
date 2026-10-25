@@ -23,6 +23,7 @@ import { announce } from '@/lib/announce';
 import { UNLISTED_ID, speciesForSighting } from '@/lib/catalog';
 import { confirmAction } from '@/lib/confirm';
 import { formatDiveNumber } from '@/lib/dives';
+import { leave } from '@/lib/leave';
 import { isPrivateSighting, privacySummary, sharesNotes, sharesPhoto } from '@/lib/privacy';
 import { canEditSighting, localIsoDate } from '@/lib/sighting-edit';
 import { useAppStore, useMyUserId, useSiteById } from '@/lib/store';
@@ -111,7 +112,8 @@ export default function SightingDetailScreen() {
     setError(null);
     try {
       await deleteSighting(sighting.id);
-      router.back();
+      // Back where the diver came from; opened straight from a link, to its page (or the logbook).
+      leave(sighting.diveId ? `/dive/${sighting.diveId}` : '/logbook');
     } catch (e: any) {
       const message = e.message ?? 'Could not delete this sighting';
       setError(message);

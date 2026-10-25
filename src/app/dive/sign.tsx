@@ -21,6 +21,7 @@ import { announce } from '@/lib/announce';
 import { confirmAction } from '@/lib/confirm';
 import { askBuddyToSign, signShareMessage, SIGNER_ROLE_LABEL, SIGNER_ROLES, withdrawSignCode, type SignerRole } from '@/lib/dive-signature-api';
 import { formatDepth, formatDiveNumber, formatMinutes } from '@/lib/dives';
+import { leave } from '@/lib/leave';
 import { useAppStore, useMyDives, useSiteById } from '@/lib/store';
 import { getSupabase } from '@/lib/supabase';
 import { isConnectionProblem } from '@/lib/verification';
@@ -49,7 +50,7 @@ function SignDiveScreen() {
   const theme = useTheme();
   const siteById = useSiteById();
   const dive = useMyDives().find((d) => d.id === id);
-  const toPage = () => (then === 'page' ? router.replace(`/dive/${id}`) : router.back());
+  const toPage = () => (then === 'page' ? router.replace(`/dive/${id}`) : leave(`/dive/${id}`));
   const signDive = useAppStore((s) => s.signDive);
   const [way, setWay] = useState<Way>('here');
   const [name, setName] = useState(dive?.buddyName ?? '');

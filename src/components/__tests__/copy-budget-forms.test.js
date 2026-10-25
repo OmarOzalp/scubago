@@ -12,7 +12,7 @@ const FORM_BUDGET = 40;
 const HELPER_MAX = 12;
 
 jest.mock('expo-router', () => ({
-  router: { back: jest.fn(), dismiss: jest.fn(), push: jest.fn(), replace: jest.fn() },
+  router: { back: jest.fn(), dismiss: jest.fn(), push: jest.fn(), replace: jest.fn(), canGoBack: jest.fn(() => true), canDismiss: jest.fn(() => true) },
   useLocalSearchParams: () => ({}),
   Stack: { Screen: () => null },
 }));

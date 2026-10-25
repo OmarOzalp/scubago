@@ -13,6 +13,7 @@ import { DISMISS_ON_DRAG } from '@/hooks/use-keyboard';
 import { useTheme } from '@/hooks/use-theme';
 import { announce } from '@/lib/announce';
 import { describeCoordinates, readCoordinates } from '@/lib/coordinates';
+import { leave } from '@/lib/leave';
 import { notifySiteAdded } from '@/lib/site-added';
 import { useAppStore } from '@/lib/store';
 
@@ -75,15 +76,18 @@ export default function AddSiteScreen() {
       announce(`${site.name} added`);
       if (params.then === 'log') {
         notifySiteAdded(site.id);
-        router.back();
+        // Opened straight from a link, there is no log screen underneath to carry on: open one at the new site.
+        leave({ pathname: '/log/new', params: { siteId: site.id } });
         return;
       }
       if (andLog) {
-        router.dismiss();
-        router.push({ pathname: '/log/new', params: { siteId: site.id } });
+        if (router.canDismiss()) {
+          router.dismiss();
+          router.push({ pathname: '/log/new', params: { siteId: site.id } });
+        } else router.replace({ pathname: '/log/new', params: { siteId: site.id } });
         return;
       }
-      router.back();
+      leave('/map');
     } catch (e: any) {
       setError(e.message ?? 'Could not add the site');
       setSaving(false);
