@@ -1,7 +1,7 @@
 import { Asset } from 'expo-asset';
 import { File } from 'expo-file-system';
 import { Platform } from 'react-native';
-import { Mesh, MeshLambertMaterial, MeshStandardMaterial } from 'three';
+import { Mesh, MeshLambertMaterial, MeshStandardMaterial, SkinnedMesh } from 'three';
 import { GLTFLoader, type GLTF } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import type { MarineModel } from '@/lib/swimming';
 
@@ -72,8 +72,24 @@ async function readModel(module: number): Promise<ArrayBuffer> {
   return new File(uri).arrayBuffer();
 }
 
+/**
+ * GLTFLoader renormalizes every skinned vertex's weights as it builds a mesh (for files that store them badly),
+ * and without a JIT (Hermes) that pass is most of a model's parse. These models store them as bytes summing to
+ * exactly 255 (scripts/art/slim-marine.mjs; marine-assets.test.ts checks every one), which it leaves exactly as
+ * they are, so it is skipped while they parse.
+ */
+const renormalize = SkinnedMesh.prototype.normalizeSkinWeights;
+const asStored = () => {};
+let parsing = 0;
+function parseAsStored(buffer: ArrayBuffer): Promise<GLTF> {
+  if (parsing++ === 0) SkinnedMesh.prototype.normalizeSkinWeights = asStored;
+  return new GLTFLoader().parseAsync(buffer, '').finally(() => {
+    if (--parsing === 0) SkinnedMesh.prototype.normalizeSkinWeights = renormalize;
+  });
+}
+
 function parseModel(buffer: ArrayBuffer): Promise<GLTF> {
-  return new GLTFLoader().parseAsync(buffer, '').then((gltf) => {
+  return parseAsStored(buffer).then((gltf) => {
     // These texture-free assets only need diffuse shading. Convert once per
     // cached asset so every skeleton clone shares the same lightweight material.
     const materials = new Map<MeshStandardMaterial, MeshLambertMaterial>();

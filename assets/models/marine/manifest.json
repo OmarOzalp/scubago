@@ -6,7 +6,7 @@
       30
     ],
     "fps": 24,
-    "bytes": 104888,
+    "bytes": 62700,
     "vertices": 1302
   },
   "manta": {
@@ -16,7 +16,7 @@
       101
     ],
     "fps": 24,
-    "bytes": 129328,
+    "bytes": 84520,
     "vertices": 1440
   },
   "reef-fish": {
@@ -26,7 +26,7 @@
       31
     ],
     "fps": 24,
-    "bytes": 96412,
+    "bytes": 56920,
     "vertices": 1136
   }
 }

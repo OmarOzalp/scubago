@@ -177,7 +177,10 @@ bottlenose dolphin is the most playful: medium-fast with short bursts, the most
 agile, swimming highest with the most rise and fall, and coming up now and then
 until its dorsal fin breaks the surface (see `docs/marine-navigation.md`).
 
-Rebuild: `npm run build:species` (or `-- --only=tiger-shark`). Verify exports:
+Rebuild: `npm run build:species` (or `-- --only=tiger-shark`), then slim what it wrote with
+`node scripts/art/slim-marine.mjs` (or `--only=tiger-shark`): quantized with KHR_mesh_quantization and
+about 40% smaller, with no visible change (see `docs/island-performance.md`). The GLB bytes in the
+tables here are as built; `assets/models/marine/species-manifest.json` has the shipped sizes. Verify exports:
 `npm run verify:marine` (rig bones, procedural deformation, loop continuity,
 bounds, budgets; for the reef animals also their jet, fin fold, den rest and breathing
 mouth) and `npm run verify:underwater`. The studio previews in

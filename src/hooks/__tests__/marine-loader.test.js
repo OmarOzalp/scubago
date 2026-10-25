@@ -5,7 +5,8 @@ jest.mock('three', () => {
   class MeshLambertMaterial { constructor(values) { Object.assign(this, values); } }
   class Mesh { constructor(geometry, material) { this.material = material; } }
   class Group { children = []; add(mesh) { this.children.push(mesh); } traverse(visit) { this.children.forEach(visit); } }
-  return { MeshStandardMaterial, MeshLambertMaterial, Mesh, Group, BufferGeometry: class {}, DoubleSide: 2 };
+  class SkinnedMesh extends Mesh { normalizeSkinWeights() { this.renormalized = true; } }
+  return { MeshStandardMaterial, MeshLambertMaterial, Mesh, SkinnedMesh, Group, BufferGeometry: class {}, DoubleSide: 2 };
 });
 jest.mock('expo-asset', () => ({ Asset: { loadAsync: jest.fn() } }));
 jest.mock('expo-file-system', () => ({ File: jest.fn() }));
@@ -128,4 +129,32 @@ test('Lambert conversion retains vertex markings and transparent double-sided fi
   expect(mesh.material.side).toBe(THREE.DoubleSide);
   expect(mesh.material.alphaTest).toBe(.1);
   expect(mesh.material.depthWrite).toBe(false);
+});
+
+test('while models parse, the loader keeps their skin weights as stored, and renormalizes again after', async () => {
+  const renormalize = THREE.SkinnedMesh.prototype.normalizeSkinWeights;
+  const built = [];
+  let finish;
+  // As GLTFLoader does: each skinned mesh it builds is renormalized.
+  parse.mockImplementation(() => new Promise((resolve) => {
+    const mesh = new THREE.SkinnedMesh(new THREE.BufferGeometry(), new THREE.MeshStandardMaterial({}));
+    mesh.normalizeSkinWeights();
+    built.push(mesh);
+    const scene = new THREE.Group();
+    scene.add(mesh);
+    if (!finish) finish = () => resolve({ scene, animations: [] });
+    else resolve({ scene, animations: [] });
+  }));
+  const slow = loader.loadMarineModels(['whale-shark']);
+  // Another parse begins and ends while the first is still under way: still skipped for the first.
+  await loader.loadMarineModels(['tiger-shark']);
+  expect(THREE.SkinnedMesh.prototype.normalizeSkinWeights).not.toBe(renormalize);
+  finish();
+  await slow;
+  expect(built.map((mesh) => !!mesh.renormalized)).toEqual([false, false]);
+  expect(THREE.SkinnedMesh.prototype.normalizeSkinWeights).toBe(renormalize);
+  // A failed parse puts it back too.
+  parse.mockRejectedValueOnce(new Error('bad file'));
+  await expect(loader.loadMarineModels(['reef-manta'])).rejects.toThrow('bad file');
+  expect(THREE.SkinnedMesh.prototype.normalizeSkinWeights).toBe(renormalize);
 });

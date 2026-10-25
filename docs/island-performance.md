@@ -25,12 +25,13 @@ are retained. Re-export without studio renders using:
 ```sh
 blender --background --factory-startup --python scripts/art/prepare-marine.py -- --export-only
 python3 scripts/art/refine-reef-fish.py
+node scripts/art/slim-marine.mjs --only=shark,manta,reef-fish
 npm run verify:marine
 ```
 
 `refine-reef-fish.py` post-processes the exported reef-fish GLB (body 1.35x wider, eyes
 smaller and set into the head) without touching bones or animation; run it after every
-Blender export, since the export rewrites the file.
+Blender export, since the export rewrites the file. Slim the three last (see Instant start below).
 
 The verifier checks actual vertex deformation, loop seams, normalization,
 independent skeletons, and budgets of 5,000 triangles / 220,000 bytes per rig.
@@ -307,3 +308,31 @@ trigonometry dominated the first version, and each now runs once per step or onl
 
 Set `TUNA_SCHOOL.size` in `src/lib/tuna-school.ts` lower to lighten the scene further, or to 0 to
 leave the school out. Physical-device timing is still unmeasured.
+
+## Instant start (October 2026)
+
+The animals are on screen as soon as they can be, and Home's ocean is never rebuilt.
+
+### Slimmer models
+
+Every marine GLB is slimmed by `scripts/art/slim-marine.mjs` (run it after `npm run build:species`
+or a Blender export): gltf-transform's dedup, prune (every node kept, so the rigs find their bones),
+weld, resample (animation keys within 1e-5 of a straight line) and quantize (KHR_mesh_quantization,
+read natively by three's GLTFLoader: positions 16-bit, normals 8-bit, vertex colours 16-bit, skin
+weights bytes summing to exactly 255). No Draco or meshopt: their decoders need WebAssembly, which
+Hermes lacks.
+
+| | Before | After |
+| --- | ---: | ---: |
+| All 51 models | 7.97 MB | 4.71 MB |
+| Parse, all 51, interpreter (`node --jitless`, the closest to Hermes), warm | 128 ms | 38 ms |
+| Parse, all 51, interpreter, cold (first parse of each) | 184 ms | 61 ms |
+| Parse, all 51, JIT (Node), warm | 31 ms | 34 ms |
+
+Most of a parse without a JIT was GLTFLoader renormalizing every skinned vertex's weights. Weights
+stored as bytes summing to 255 come through that pass unchanged, so `marine-loader.ts` skips it
+while a model parses (`marine-assets.test.ts` checks every shipped vertex). The bodies are the same:
+over every triangle corner, in the bind pose, under the procedural rig and through the Swim clip,
+the largest difference is 0.0005 model units (a hundredth of a pixel on Home), normals within 0.4°,
+colours within 0.2 of a step; renders of all 51 in their pose and mid-swim differ only in a few
+anti-aliased edge pixels. `npm run verify:marine` reports the same as before.

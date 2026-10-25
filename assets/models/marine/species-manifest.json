@@ -2,7 +2,7 @@
   "whale-shark": {
     "status": "stylized-draft",
     "version": 2,
-    "bytes": 212504,
+    "bytes": 122092,
     "triangles": 3986,
     "source": "Original procedural geometry and rig",
     "bones": 12,
@@ -18,7 +18,7 @@
   "tiger-shark": {
     "status": "stylized-draft",
     "version": 2,
-    "bytes": 184088,
+    "bytes": 108032,
     "triangles": 4084,
     "source": "Original procedural geometry and rig",
     "bones": 12,
@@ -34,7 +34,7 @@
   "reef-manta": {
     "status": "stylized-draft",
     "version": 2,
-    "bytes": 136800,
+    "bytes": 82628,
     "triangles": 3096,
     "source": "Original procedural geometry and rig",
     "bones": 17,
@@ -50,7 +50,7 @@
   "great-white-shark": {
     "status": "stylized-draft",
     "version": 2,
-    "bytes": 146876,
+    "bytes": 87860,
     "triangles": 3580,
     "source": "Original procedural geometry and rig",
     "bones": 12,
@@ -66,7 +66,7 @@
   "mola-mola": {
     "status": "stylized-draft",
     "version": 2,
-    "bytes": 79480,
+    "bytes": 48676,
     "triangles": 1832,
     "source": "Original procedural geometry and rig",
     "bones": 10,
@@ -82,7 +82,7 @@
   "green-turtle": {
     "status": "stylized-draft",
     "version": 2,
-    "bytes": 119484,
+    "bytes": 69880,
     "triangles": 2550,
     "source": "Original procedural geometry and rig",
     "bones": 9,
@@ -98,7 +98,7 @@
   "scalloped-hammerhead": {
     "status": "stylized-draft",
     "version": 2,
-    "bytes": 163936,
+    "bytes": 98436,
     "triangles": 4108,
     "source": "Original procedural geometry and rig",
     "bones": 12,
@@ -114,7 +114,7 @@
   "bottlenose-dolphin": {
     "status": "stylized-draft",
     "version": 2,
-    "bytes": 144372,
+    "bytes": 86048,
     "triangles": 3682,
     "source": "Original procedural geometry and rig",
     "bones": 11,
@@ -130,7 +130,7 @@
   "day-octopus": {
     "status": "stylized-draft",
     "version": 2,
-    "bytes": 166656,
+    "bytes": 101400,
     "triangles": 3328,
     "source": "Original procedural geometry and rig",
     "bones": 34,
@@ -146,7 +146,7 @@
   "giant-cuttlefish": {
     "status": "stylized-draft",
     "version": 2,
-    "bytes": 138084,
+    "bytes": 82228,
     "triangles": 2816,
     "source": "Original procedural geometry and rig",
     "bones": 25,
@@ -162,7 +162,7 @@
   "giant-moray": {
     "status": "stylized-draft",
     "version": 2,
-    "bytes": 97108,
+    "bytes": 58084,
     "triangles": 2152,
     "source": "Original procedural geometry and rig",
     "bones": 11,
@@ -178,7 +178,7 @@
   "great-barracuda": {
     "status": "stylized-draft",
     "version": 2,
-    "bytes": 188396,
+    "bytes": 111080,
     "triangles": 4336,
     "source": "Original procedural geometry and rig",
     "bones": 12,
@@ -194,7 +194,7 @@
   "sailfish": {
     "status": "stylized-draft",
     "version": 2,
-    "bytes": 216852,
+    "bytes": 126880,
     "triangles": 4836,
     "source": "Original procedural geometry and rig",
     "bones": 12,
@@ -210,7 +210,7 @@
   "clownfish": {
     "status": "stylized-draft",
     "version": 2,
-    "bytes": 165024,
+    "bytes": 97940,
     "triangles": 3900,
     "source": "Original procedural geometry and rig",
     "bones": 12,
@@ -226,7 +226,7 @@
   "spotted-eagle-ray": {
     "status": "stylized-draft",
     "version": 2,
-    "bytes": 177780,
+    "bytes": 103904,
     "triangles": 3612,
     "source": "Original procedural geometry and rig",
     "bones": 17,
@@ -242,7 +242,7 @@
   "california-sea-lion": {
     "status": "stylized-draft",
     "version": 2,
-    "bytes": 139692,
+    "bytes": 84188,
     "triangles": 3432,
     "source": "Original procedural geometry and rig",
     "bones": 13,
@@ -258,7 +258,7 @@
   "golden-jellyfish": {
     "status": "stylized-draft",
     "version": 2,
-    "bytes": 118328,
+    "bytes": 67672,
     "triangles": 2400,
     "source": "Original procedural geometry and rig",
     "bones": 19,
@@ -274,7 +274,7 @@
   "humpback-whale": {
     "status": "stylized-draft",
     "version": 2,
-    "bytes": 195272,
+    "bytes": 115076,
     "triangles": 4850,
     "source": "Original procedural geometry and rig",
     "bones": 11,
@@ -290,7 +290,7 @@
   "sperm-whale": {
     "status": "stylized-draft",
     "version": 2,
-    "bytes": 186672,
+    "bytes": 111240,
     "triangles": 4800,
     "source": "Original procedural geometry and rig",
     "bones": 11,
@@ -306,7 +306,7 @@
   "oceanic-whitetip": {
     "status": "stylized-draft",
     "version": 2,
-    "bytes": 152812,
+    "bytes": 91236,
     "triangles": 3768,
     "source": "Original procedural geometry and rig",
     "bones": 12,
@@ -322,7 +322,7 @@
   "leatherback-turtle": {
     "status": "stylized-draft",
     "version": 2,
-    "bytes": 130644,
+    "bytes": 75880,
     "triangles": 2680,
     "source": "Original procedural geometry and rig",
     "bones": 9,
@@ -338,7 +338,7 @@
   "oceanic-manta": {
     "status": "stylized-draft",
     "version": 2,
-    "bytes": 157280,
+    "bytes": 94388,
     "triangles": 3608,
     "source": "Original procedural geometry and rig",
     "bones": 17,
@@ -354,7 +354,7 @@
   "harbor-seal": {
     "status": "stylized-draft",
     "version": 2,
-    "bytes": 213000,
+    "bytes": 121876,
     "triangles": 4216,
     "source": "Original procedural geometry and rig",
     "bones": 13,
@@ -370,7 +370,7 @@
   "sea-otter": {
     "status": "stylized-draft",
     "version": 2,
-    "bytes": 133616,
+    "bytes": 79208,
     "triangles": 3262,
     "source": "Original procedural geometry and rig",
     "bones": 13,
@@ -386,7 +386,7 @@
   "garibaldi": {
     "status": "stylized-draft",
     "version": 2,
-    "bytes": 133908,
+    "bytes": 80708,
     "triangles": 3328,
     "source": "Original procedural geometry and rig",
     "bones": 12,
@@ -402,7 +402,7 @@
   "leafy-seadragon": {
     "status": "stylized-draft",
     "version": 2,
-    "bytes": 195076,
+    "bytes": 115212,
     "triangles": 4576,
     "source": "Original procedural geometry and rig",
     "bones": 12,
@@ -418,7 +418,7 @@
   "orca": {
     "status": "stylized-draft",
     "version": 2,
-    "bytes": 165928,
+    "bytes": 99220,
     "triangles": 4314,
     "source": "Original procedural geometry and rig",
     "bones": 11,
@@ -434,7 +434,7 @@
   "galapagos-shark": {
     "status": "stylized-draft",
     "version": 2,
-    "bytes": 167356,
+    "bytes": 100224,
     "triangles": 4196,
     "source": "Original procedural geometry and rig",
     "bones": 12,
@@ -450,7 +450,7 @@
   "thresher-shark": {
     "status": "stylized-draft",
     "version": 2,
-    "bytes": 187040,
+    "bytes": 111816,
     "triangles": 4780,
     "source": "Original procedural geometry and rig",
     "bones": 12,
@@ -466,7 +466,7 @@
   "giant-trevally": {
     "status": "stylized-draft",
     "version": 2,
-    "bytes": 182668,
+    "bytes": 107444,
     "triangles": 4144,
     "source": "Original procedural geometry and rig",
     "bones": 12,
@@ -482,7 +482,7 @@
   "king-angelfish": {
     "status": "stylized-draft",
     "version": 2,
-    "bytes": 191292,
+    "bytes": 112476,
     "triangles": 4388,
     "source": "Original procedural geometry and rig",
     "bones": 12,
@@ -498,7 +498,7 @@
   "marine-iguana": {
     "status": "stylized-draft",
     "version": 2,
-    "bytes": 180152,
+    "bytes": 106916,
     "triangles": 4400,
     "source": "Original procedural geometry and rig",
     "bones": 12,
@@ -514,7 +514,7 @@
   "dugong": {
     "status": "stylized-draft",
     "version": 2,
-    "bytes": 202936,
+    "bytes": 119080,
     "triangles": 4762,
     "source": "Original procedural geometry and rig",
     "bones": 11,
@@ -530,7 +530,7 @@
   "sawfish": {
     "status": "stylized-draft",
     "version": 2,
-    "bytes": 185720,
+    "bytes": 110104,
     "triangles": 4444,
     "source": "Original procedural geometry and rig",
     "bones": 12,
@@ -546,7 +546,7 @@
   "lemon-shark": {
     "status": "stylized-draft",
     "version": 2,
-    "bytes": 189436,
+    "bytes": 113020,
     "triangles": 4772,
     "source": "Original procedural geometry and rig",
     "bones": 12,
@@ -562,7 +562,7 @@
   "southern-stingray": {
     "status": "stylized-draft",
     "version": 2,
-    "bytes": 177512,
+    "bytes": 105404,
     "triangles": 4220,
     "source": "Original procedural geometry and rig",
     "bones": 17,
@@ -578,7 +578,7 @@
   "tarpon": {
     "status": "stylized-draft",
     "version": 2,
-    "bytes": 211844,
+    "bytes": 121940,
     "triangles": 4080,
     "source": "Original procedural geometry and rig",
     "bones": 12,
@@ -594,7 +594,7 @@
   "napoleon-wrasse": {
     "status": "stylized-draft",
     "version": 2,
-    "bytes": 203308,
+    "bytes": 118252,
     "triangles": 4324,
     "source": "Original procedural geometry and rig",
     "bones": 12,
@@ -610,7 +610,7 @@
   "grey-reef-shark": {
     "status": "stylized-draft",
     "version": 2,
-    "bytes": 160144,
+    "bytes": 95792,
     "triangles": 3924,
     "source": "Original procedural geometry and rig",
     "bones": 12,
@@ -626,7 +626,7 @@
   "blacktip-reef-shark": {
     "status": "stylized-draft",
     "version": 2,
-    "bytes": 159968,
+    "bytes": 95744,
     "triangles": 3924,
     "source": "Original procedural geometry and rig",
     "bones": 12,
@@ -642,7 +642,7 @@
   "whitetip-reef-shark": {
     "status": "stylized-draft",
     "version": 2,
-    "bytes": 157408,
+    "bytes": 93732,
     "triangles": 3768,
     "source": "Original procedural geometry and rig",
     "bones": 12,
@@ -658,7 +658,7 @@
   "lionfish": {
     "status": "stylized-draft",
     "version": 2,
-    "bytes": 202248,
+    "bytes": 110876,
     "triangles": 3421,
     "source": "Original procedural geometry and rig",
     "bones": 12,
@@ -674,7 +674,7 @@
   "sand-tiger-shark": {
     "status": "stylized-draft",
     "version": 2,
-    "bytes": 184956,
+    "bytes": 109416,
     "triangles": 4346,
     "source": "Original procedural geometry and rig",
     "bones": 12,
@@ -690,7 +690,7 @@
   "bumphead-parrotfish": {
     "status": "stylized-draft",
     "version": 2,
-    "bytes": 194152,
+    "bytes": 114000,
     "triangles": 4246,
     "source": "Original procedural geometry and rig",
     "bones": 12,
@@ -706,7 +706,7 @@
   "goliath-grouper": {
     "status": "stylized-draft",
     "version": 2,
-    "bytes": 205804,
+    "bytes": 120668,
     "triangles": 4464,
     "source": "Original procedural geometry and rig",
     "bones": 12,
@@ -722,7 +722,7 @@
   "batfish": {
     "status": "stylized-draft",
     "version": 2,
-    "bytes": 167660,
+    "bytes": 100704,
     "triangles": 4288,
     "source": "Original procedural geometry and rig",
     "bones": 12,
@@ -738,7 +738,7 @@
   "hawksbill-turtle": {
     "status": "stylized-draft",
     "version": 2,
-    "bytes": 127056,
+    "bytes": 73460,
     "triangles": 2606,
     "source": "Original procedural geometry and rig",
     "bones": 9,
@@ -754,7 +754,7 @@
   "loggerhead-turtle": {
     "status": "stylized-draft",
     "version": 2,
-    "bytes": 126944,
+    "bytes": 74524,
     "triangles": 2714,
     "source": "Original procedural geometry and rig",
     "bones": 9,
