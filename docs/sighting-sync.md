@@ -26,7 +26,7 @@ How a diver's changes reach the server, including offline. The code is in `src/l
 - Only the diver who logged a sighting sees Edit and Delete. The store refuses anyone else, and
   so does the server (row-level security, `supabase/checks/rls-isolation.sql`).
 - While signed in, changes that haven't synced show as **Waiting to sync** (on the row and the
-  page), with a count and a **Sync now** link at the top of the logbook. A failure shows why, and it's
+  page), with a count and a **Sync now** link on the Logbook's cover. A failure shows why, and it's
   retried automatically.
 
 ## Rules

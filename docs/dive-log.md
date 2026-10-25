@@ -13,7 +13,8 @@ The code:
 - `src/lib/dive-signature-api.ts`: signing from a buddy's phone.
 - The screens:
   - `src/app/log/new.tsx`: writing a page.
-  - `src/app/dive/[id].tsx`: the page itself.
+  - `src/app/(tabs)/logbook.tsx`: the Logbook, a book of the pages (`src/components/logbook/`).
+  - `src/app/dive/[id].tsx`: a page on its own, for links (the page is `src/components/dive/dive-page.tsx`).
   - `src/app/dive/edit.tsx`: editing a page.
   - `src/app/dive/sign.tsx`: signing.
   - `src/app/dive/count.tsx`: dives before ScubaGo.
@@ -58,7 +59,8 @@ The code:
   page**, then the quieter **Ask your buddy to sign** and **Log another dive**. A dive written without
   animals offers **Add what you saw**. A milestone dive gets its bookplate, and "Two dives to your
   fiftieth" appears when a milestone is close.
-- **The page** (`/dive/[id]`) shows:
+- **The page** (`src/components/dive/dive-page.tsx`, a leaf of the Logbook's book and the screen
+  `/dive/[id]` that links from elsewhere open) shows:
   - the number, the day, the site, and the time in and out;
   - the main figures (depth, time, water, visibility);
   - every other field that was filled in, the notes, and the animals (each one opens its sighting);
@@ -67,11 +69,25 @@ The code:
   - **Add what you saw** puts more animals on the page, at its site and date. **Edit page** changes any field.
     Back from its site picker closes the picker, not the page, and leaving with changes that aren't
     saved asks **Discard your changes?**
-  - The buttons at the foot turn to the previous and next pages.
-  - **Delete page** removes the page and the sightings on it.
-- **Logbook** lists every page, newest first, under the lifetime totals (dives, time underwater,
-  deepest, species). **Begin entry No. N** starts the next page, and **Dives before ScubaGo** sets
-  the starting count.
+  - In the book, Share and Edit stand at the head of the page; on `/dive/[id]` they are in the
+    header, and buttons at the foot turn to the previous and next pages.
+  - **Delete page** removes the page and the sightings on it (the book stays open, at the page
+    now in its place; `/dive/[id]` goes back).
+- **Logbook** is a book (`src/components/logbook/`): the cover, then one page per dive, oldest
+  first, opening at the newest (the last page).
+  - A swipe right turns back to older pages and the cover; a swipe left, on to newer ones. A page
+    longer than the screen scrolls inside its sheet. The arrows beside the page count ("6 of 6")
+    turn a page too, which is how a mouse turns them on the web.
+  - **Contents** lists the cover and every page in the order they are turned (number, site, date,
+    the animals' paintings, marks for a signature, a stamp and a milestone). A tap turns there.
+  - Coming back after logging a dive shows the new page. A page synced in, renumbered or deleted
+    leaves the book open where it was.
+  - The cover holds the lifetime totals (dives, time underwater, deepest), **Badges &
+    collections**, the account button, and the backup and sync rows. An empty log is the cover
+    and a blank first page with **Log a dive**.
+  - Only the open page and the ones beside it are drawn, so a long log opens as fast as a short
+    one. Each leaf has its own slot one page wide (a scroll-snap point on the web).
+  - **Dives before ScubaGo** (which sets the starting count) is on the account page.
 - **Home** shows the next number above the log button ("No. 49 · 2 dives to your fiftieth", then **Begin entry No. 49**).
 - **A sighting's page** links to the dive it's on (the diver's own sightings only, since dives are
   private).
@@ -105,7 +121,8 @@ The code:
   holds one signature made on the diver's phone; removing it lets someone else sign.
 - **From their phone.** The diver makes a code for a synced page (`DXXXX-XXXXX`, valid 7 days, up
   to 3 signers) and shares it.
-  - The buddy, signed in, enters it under Logbook → **Buddy code**.
+  - The buddy, signed in, enters it under **Buddy code** on the account page (the account button
+    on the Logbook's cover).
   - They see the page's number, site, date, time, depth and the diver's username, then sign.
   - The server checks that the page hasn't changed since they looked. A changed page shows its new
     facts, to sign again.
@@ -170,6 +187,9 @@ functions.
 - `dive-signature-api.test.ts`: the signing calls.
 - `dive-store.test.ts`: the store's actions on real SQLite, and old sightings becoming pages.
 - `dive-sync.test.ts`: offline and across phones, against a fake server with the migration's rules.
+- `src/components/__tests__/logbook-book.test.js`, `logbook-screen.test.js`, `logbook-cover.test.js`
+  and `copy-budget-logbook.test.js`: the book's order, where it opens, turning, the contents,
+  what a screen reader hears, the cover, and the word budgets.
 
 ## Not yet
 

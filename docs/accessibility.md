@@ -49,6 +49,20 @@ who turn motion off. These are the rules the screens follow; new screens should 
 - **Anything done by a gesture has a button too**: adding a site is a button as well as a long
   press, and the map has a List view.
 
+## The Logbook's book
+
+- Each turn is announced once it settles: "Page 6 of 6, Cod Hole, 21 October" (or "Cover"). The
+  web has no announcement call, so there it is said through a polite live region.
+- The page count above the book is one adjustable control (swipe up for the next page, down for
+  the one before), and the head of each page has **Next page** and **Previous page** actions.
+  The arrows either side of the count are buttons too.
+- Only the open page is there for a screen reader; the pages beside it, drawn for a swipe, are
+  hidden.
+- **Contents** is the quickest way through the book: every page is one row whose label says its
+  place, site, day, animals and marks, and the open page is marked selected.
+- Under Reduce Motion an arrow turns the page at once, without the slide (a contents row always
+  turns at once).
+
 ## The 3D island
 
 The scene is one labelled image whose description gives the level and how many species live there.
