@@ -366,9 +366,11 @@ What is left is mostly the swimming's own start (its shore fields and the distan
 
 - **One by one.** `useMarineModels` hands the scene each model as soon as it is loaded; it no longer waits
   for the whole set. The ocean and the school swim on meanwhile, and each animal joins as its own model
-  arrives. On show, a newcomer swims in from beyond the view (`motion.add`, as at the end of a turn);
-  while Home's picture still covers the scene (below), with the scene still or paused, it is simply there.
-  One model failing still shows the illustrated island with its "Try again".
+  arrives: one already on the island whose model has only now loaded comes into view where it is, rising
+  out of the deep blue head first over 1.6 s (`AnimatedMarine`'s `emerge`, the dive's own emergence); a
+  newcomer at the end of another's turn still swims in from the open sea. While Home's picture still covers
+  the scene (below), or with the scene still or paused, it is simply there. One model failing still shows
+  the illustrated island with its "Try again".
 - **At launch.** What Home's card showed last is kept on the device (`home-start.ts`: its island, level and
   animals' models). The root layout calls `startHome()` (one import, one call in `src/app/_layout.tsx`):
   it reads that record and starts loading those models and that island's seabed bake straight away, during

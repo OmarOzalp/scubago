@@ -48,10 +48,15 @@ const CLOSE_UP: Partial<Record<MarineModel, Partial<SwimDrive>>> = {
   garibaldi: { effort: .3 }, 'leafy-seadragon': { effort: .3 }, 'king-angelfish': { effort: .3 },
 };
 
-export function AnimatedMarine({ model, gltf, lane, active, inspect = false, population = 1, motion, onPress, tapScale = 1 }: {
+/** How long an animal takes to emerge from the deep where it is (s), when it comes on show late (its model just loaded). */
+const EMERGE_SECONDS = 1.6;
+
+export function AnimatedMarine({ model, gltf, lane, active, inspect = false, population = 1, motion, onPress, tapScale = 1, emerge = false }: {
   model: MarineModel; gltf: GLTF; lane: number; active: boolean; inspect?: boolean; population?: number; motion?: MarineMotion; onPress?: () => void;
   /** How much farther the camera has pulled back (the ocean's scale), so tap targets keep their size on screen. */
   tapScale?: number;
+  /** Come into view emerging from the deep, head first, where it is (it joined a scene already on show): never popping in. */
+  emerge?: boolean;
 }) {
   // The island's water (absent in the close-up), so the animal tints and refracts with the same waves.
   const ocean = useContext(OceanContext);
@@ -85,6 +90,8 @@ export function AnimatedMarine({ model, gltf, lane, active, inspect = false, pop
   const camera = useThree((state) => state.camera);
   // Whether it is on screen: off it, its skeleton rests and it isn't drawn (the swimming goes on, so it is where it should be when it comes back).
   const seen = useRef(true);
+  // (emerging: how far through, 0 to 1, as the scene's time goes on; decided as it mounts)
+  const emerging = useRef({ on: emerge, time: 0 });
 
   useEffect(() => {
     if (swimRig) return;
@@ -135,7 +142,12 @@ export function AnimatedMarine({ model, gltf, lane, active, inspect = false, pop
       group.current.visible = dive.visible && seen.current;
       if (group.current.visible) markOnce('scubago:first-animal');
       group.current.position.set(pose.x, y, pose.z);
-      underwater?.setDepth(dive.depth, dive.surfacing);
+      // Emerging, it rises out of the deep blue head first, as from a dive (and its own dive takes over once deeper than that).
+      const rise = emerging.current;
+      if (rise.on) rise.time += dt;
+      const deep = rise.on ? 1 - Math.min(1, rise.time / EMERGE_SECONDS) : 0;
+      if (rise.on && deep <= 0) rise.on = false;
+      underwater?.setDepth(Math.max(dive.depth, deep), deep > dive.depth || dive.surfacing);
       // Reef animals: a color state, and how much of it is out of sight in its den.
       if (swimming?.tone && swimming.hide) {
         underwater?.setTone(swimming.tone[0], swimming.tone[1], swimming.tone[2]);

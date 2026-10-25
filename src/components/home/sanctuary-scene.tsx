@@ -216,14 +216,14 @@ export function SanctuaryScene({ habitat, level, residents, islands, paused = fa
   // The ocean is built once its seabed, built ahead of time, is loaded (at launch, for the island Home shows), or at once when there is none to wait for.
   const geometry = JSON.stringify(places.map(({ x, z, habitat: shores }) => ({ x, z, habitat: shores })));
   const oceanIslands = useMemo(() => JSON.parse(geometry) as { x: number; z: number; habitat: Habitat }[], [geometry]);
-  // (while Home's kept picture covers the card and the collection is still being read, the level isn't known: nothing
-  // is built that no one would see, and it is built at the level read)
+  // Home's card (`home`: its own island, which the card opens on and which is kept for the next launch; not another chosen
+  // from the pills) opens on its last picture until the live scene has drawn itself with its animals (instant-picture.tsx).
+  // While that picture covers it and the collection is still being read, the level isn't known: nothing is built that no
+  // one would see, and it is built at the level read.
   const card = !explorer && !preview, home = card && habitat === HOME_SHORE;
   const kept = useHomeScene();
   const covered = home && loading && kept?.picture?.habitat === habitat;
   const seabedReady = useSeabedReady(level, oceanIslands, explorer?.reach, !covered);
-  // Home's card opens on its last picture until the live scene has drawn itself with its animals (instant-picture.tsx).
-  // Only Home's own island, which the card opens on, is kept for the next launch (another chosen from the pills is not).
   const everyoneIn = shownModels.every((model) => !!models?.[model]);
   const picture = useInstantPicture({ enabled: home, level, habitat, loading, armed: seabedReady && !loading && (failed || everyoneIn) });
   // What Home shows is kept for the next launch: its island, level and animals' models (home-start.ts)...

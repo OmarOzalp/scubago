@@ -20,7 +20,7 @@ jest.mock('@react-three/fiber', () => ({
   useFrame: jest.fn(),
   useThree: (select) => select({ size: { width: 420, height: 390 }, invalidate: () => {}, camera: {} }),
 }));
-jest.mock('../three/animated-marine', () => ({ AnimatedMarine: ({ model, onPress, lane, motion }) => <swimmer model={model} onPress={onPress} lane={lane} motion={motion} /> }));
+jest.mock('../three/animated-marine', () => ({ AnimatedMarine: ({ model, onPress, lane, motion, emerge }) => <swimmer model={model} onPress={onPress} lane={lane} motion={motion} emerge={emerge} /> }));
 // What Home's card showed last (home-start.ts): nothing kept, unless a test keeps something.
 let mockKept = null;
 jest.mock('../home-start', () => ({ ...jest.requireActual('../home-start'), useHomeScene: () => mockKept, rememberHomeScene: jest.fn(), rememberHomePicture: jest.fn() }));
@@ -197,7 +197,7 @@ test('on the Home card, a tap anywhere no animal takes opens the island full scr
   expect(root.root.findAll((node) => node.type === 'mesh' && typeof node.props.onClick === 'function')).toHaveLength(0);
 });
 
-test('each animal joins as soon as its own model is loaded, swimming in from the open sea; the scene never waits for the slowest', async () => {
+test('each animal joins as soon as its own model is loaded, emerging from the deep where it is; the scene never waits for the slowest', async () => {
   const residents = [logged('great-white-shark', 'shark'), logged('reef-manta', 'ray')];
   useMarineModels.mockReturnValue({ models: null, failed: false, retry: jest.fn() });
   await act(async () => { root = create(<SanctuaryScene {...props} residents={residents} />); });
@@ -211,8 +211,12 @@ test('each animal joins as soon as its own model is loaded, swimming in from the
   await act(async () => root.update(<SanctuaryScene {...props} residents={residents} />));
   const swimmers = root.root.findAllByType('swimmer');
   expect(swimmers.map((s) => s.props.model).sort()).toEqual(['great-white-shark', 'reef-manta']);
-  // Each came on show with the scene, so each swims in from beyond the view rather than appearing in place.
-  for (const swimmer of swimmers) expect(swimmer.props.motion.arrival(swimmer.props.lane)?.stage).toBe('entering');
+  // The scene was on show: each comes into view at its place on the island, rising out of the deep blue (never popping in,
+  // nor taking the long way in from beyond the view, as a newcomer at the end of another's turn does).
+  for (const swimmer of swimmers) {
+    expect(swimmer.props.motion.arrival(swimmer.props.lane)?.stage ?? 'arrived').toBe('arrived');
+    expect(swimmer.props.emerge).toBe(true);
+  }
 });
 
 const PICTURE = 'file:///documents/home-island-1.png';
@@ -233,7 +237,10 @@ test('Home opens on its kept picture until the live scene has drawn itself with 
     expect(picture()).toHaveLength(1);
     const watch = root.root.find((node) => typeof node.type === 'function' && node.type.name === 'FrameWatch');
     expect(watch.props.watching).toBe(true);
-    for (const swimmer of root.root.findAllByType('swimmer')) expect(swimmer.props.motion.arrival(swimmer.props.lane)?.stage ?? 'arrived').toBe('arrived');
+    for (const swimmer of root.root.findAllByType('swimmer')) {
+      expect(swimmer.props.motion.arrival(swimmer.props.lane)?.stage ?? 'arrived').toBe('arrived');
+      expect(swimmer.props.emerge).toBe(false);
+    }
     // Its first frame with them drawn: the picture fades out, and is gone.
     await act(async () => watch.props.onDrawn());
     await act(async () => { jest.advanceTimersByTime(1000); });
