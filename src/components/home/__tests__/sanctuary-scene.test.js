@@ -20,7 +20,7 @@ jest.mock('@react-three/fiber', () => ({
   useFrame: jest.fn(),
   useThree: (select) => select({ size: { width: 420, height: 390 }, invalidate: () => {}, camera: {} }),
 }));
-jest.mock('../three/animated-marine', () => ({ AnimatedMarine: ({ model, onPress, lane, motion, emerge }) => <swimmer model={model} onPress={onPress} lane={lane} motion={motion} emerge={emerge} /> }));
+jest.mock('../three/animated-marine', () => ({ AnimatedMarine: ({ model, onPress, lane, motion, emerge }) => <swimmer {...{ model, onPress, lane, motion, emerge }} /> }));
 // What Home's card showed last (home-start.ts): nothing kept, unless a test keeps something.
 let mockKept = null;
 jest.mock('../home-start', () => ({ ...jest.requireActual('../home-start'), useHomeScene: () => mockKept, rememberHomeScene: jest.fn(), rememberHomePicture: jest.fn() }));
