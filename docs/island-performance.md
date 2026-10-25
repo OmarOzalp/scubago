@@ -385,3 +385,35 @@ What is left is mostly the swimming's own start (its shore fields and the distan
   is true. Under the picture nothing is built that no one would see.
 - **Timing marks.** `performance.mark('scubago:scene-frame' | 'scubago:picture' | 'scubago:first-animal')`
   (`scene-marks.ts`), once each per launch, for measuring.
+
+### Measured on the web
+
+Time from opening the app to each mark, in Chromium with software WebGL (SwiftShader), a phone-sized
+window and a collection at level 3 on Home's island with seven animals; before and after builds run in
+turn. "Second launch" reopens the app after a first visit has kept the record and picture.
+
+| | Before | After |
+| --- | ---: | ---: |
+| First launch: first animal on screen | 3.05 s | 2.93 s |
+| Second launch: Home's island on screen (the scene's first frame / the picture) | 1.66 s | 0.99 s |
+| Second launch: first live animal | 3.06 s | 2.16 s |
+| CPU slowed 4x, first launch: first animal | 7.4–7.5 s | 6.7–6.8 s |
+| CPU slowed 4x, second launch: first live animal | 5.6–6.1 s | 3.5–3.7 s |
+| CPU slowed 4x, second launch: the picture | — | 1.4 s |
+
+Medians of three runs (two at 4x, both shown). The web's JIT already parses models and works out a
+single island quickly, so the first launch gains little there; the larger gains are on Hermes, which has
+no JIT (see the interpreter rows above). At 4x one second launch had no picture: the first visit was
+closed before all its animals had arrived, so none was taken.
+
+Home's ocean is never rebuilt: with Home's island paused, going to the Field guide and the Logbook tabs
+and opening and closing the explorer leaves it paused, its animals exactly where they were (the same
+picture to the pixel, before and after this work).
+
+### Limits
+
+- The explorer with several islands in reach still works out its seabed (about 1.2 s with a JIT, much
+  longer on an interpreter); only Home's island alone is baked for it.
+- With Reduce Motion the island is still, and a still island is not photographed (as for Share), so the
+  card takes no new picture; one kept earlier is still shown and replaced at once.
+- Physical-device timing is still unmeasured.
