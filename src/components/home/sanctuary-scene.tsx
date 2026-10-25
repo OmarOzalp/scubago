@@ -1,12 +1,13 @@
 import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
 import { Animated, Platform, StyleSheet, View } from 'react-native';
-import { useThree } from '@react-three/fiber';
+import { useFrame, useThree } from '@react-three/fiber';
 import { SceneCanvas as Canvas } from './three/scene-canvas';
 import { useSceneQuality } from './three/scene-quality';
 import { SceneBoundary, SceneUnavailable } from './scene-boundary';
 import { SceneCamera } from './three/scene-camera';
 import { IslandPerfBadge } from './island-perf-badge';
 import { IslandPerfProbe, ScenePerformance } from './three/scene-performance';
+import { markOnce } from './three/scene-marks';
 import { router } from 'expo-router';
 import { DiscoveryNote, LevelUpBanner, NewTag } from './discovery-overlays';
 import { IslandScene } from './island-scene';
@@ -157,6 +158,12 @@ function SnapshotRegistrar({ ready }: { ready: boolean }) {
   return null;
 }
 
+/** Marks the scene's first drawn frame (scene-marks.ts). */
+function FirstFrame() {
+  useFrame(() => markOnce('scubago:scene-frame'));
+  return null;
+}
+
 export function SanctuaryScene({ habitat, level, residents, islands, paused = false, loading = false, onInspect, onOpen, moments, explorer }: {
   habitat: Habitat; level: number; residents: DexEntry[]; paused?: boolean; loading?: boolean; onInspect: (model: MarineModel) => void;
   /**
@@ -271,6 +278,7 @@ export function SanctuaryScene({ habitat, level, residents, islands, paused = fa
         {onOpen && !explorer && <TapAnywhere onTap={onOpen} />}
         {/* The Share button's picture of the card (not the explorer's). A paused island can still be photographed; one that is still for Reduce Motion is not. */}
         {!explorer && <SnapshotRegistrar ready={visible && !loading && (active || paused)} />}
+        <FirstFrame />
         {__DEV__ && <ScenePerformance ready={!!models && !loading} active={active} />}
         {ISLAND_PERF && <IslandPerfProbe />}
         {/* The animals swim inside their island's water, which tints and refracts them. */}

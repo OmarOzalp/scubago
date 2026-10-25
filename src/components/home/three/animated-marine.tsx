@@ -6,6 +6,7 @@ import { useSceneQuality } from './scene-quality';
 import { FLOOR_BIAS, prepareUnderwater, type ReefLook } from './underwater-material';
 import { attachSwimRig, swimDrive } from './swim-rig-driver';
 import { MARINE_SIZE, TAP_SHAPES, TAP_SLOP, tapTarget } from './tap-target';
+import { markOnce } from './scene-marks';
 import { onScreen } from './view-cull';
 import { MOVEMENT, type MarineMotion } from '@/lib/marine-motion';
 import { SWIM_RIGS, type SwimDrive, type SwimRigModel } from '@/lib/marine-rigs';
@@ -132,6 +133,7 @@ export function AnimatedMarine({ model, gltf, lane, active, inspect = false, pop
       }
       v.y = y;
       group.current.visible = dive.visible && seen.current;
+      if (group.current.visible) markOnce('scubago:first-animal');
       group.current.position.set(pose.x, y, pose.z);
       underwater?.setDepth(dive.depth, dive.surfacing);
       // Reef animals: a color state, and how much of it is out of sight in its den.
