@@ -267,6 +267,22 @@ test('copy budget: besides the species, the page says at most 100 words (a tab s
   expect(chromeTexts().filter((t) => t === '0 of 120 species')).toHaveLength(1);
 });
 
+// The bug: covered by a species page, the guide (hidden by the web) measured 0 wide and drew all 120 cards
+// narrower than nothing: "<svg> attribute width: A negative value is not valid (-5.46)", 120 times.
+test('covered by another screen (measured 0 wide), the guide keeps its cards as they were; a real width still counts', async () => {
+  const widthOfACard = () => StyleSheet.flatten(cards()[0].props.style).width;
+  await render();
+  const grid = root.root.findAll((n) => n.type === 'View' && typeof n.props.onLayout === 'function')[0];
+  const layout = (width) => act(async () => grid.props.onLayout({ nativeEvent: { layout: { x: 0, y: 0, width, height: 900 } } }));
+  const before = widthOfACard();
+  await layout(0);
+  expect(widthOfACard()).toBe(before);
+  await layout(5);
+  expect(widthOfACard()).toBeGreaterThanOrEqual(0);
+  await layout(600);
+  expect(widthOfACard()).toBe(Math.floor((600 - 10 * 3) / 4));
+});
+
 test('three cards a row at the normal text size and two at 150%, so a name at that size has room', async () => {
   const widthOfACard = () => StyleSheet.flatten(cards()[0].props.style).width;
   const window = Dimensions.get('window');

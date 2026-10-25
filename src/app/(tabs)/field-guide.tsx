@@ -6,7 +6,7 @@ import { Icon } from '@/components/icon';
 import { Chip } from '@/components/journal/chip';
 import { Screen, SectionHeader } from '@/components/journal/screen';
 import { Segmented } from '@/components/segmented';
-import { CARD_GAP, SpeciesCard, useCardGrid } from '@/components/species-card';
+import { CARD_GAP, onGridLayout, SpeciesCard, useCardGrid } from '@/components/species-card';
 import { ThemedText } from '@/components/themed-text';
 import { Radius, Spacing, Type } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
@@ -121,7 +121,7 @@ export default function FieldGuideScreen() {
         </ThemedText>
       ) : null}
 
-      <View style={styles.sections} onLayout={(e) => setInner(Math.floor(e.nativeEvent.layout.width))}>
+      <View style={styles.sections} onLayout={onGridLayout(setInner)}>
         {found ? <View style={styles.grid}>{found.map(card)}</View> : null}
         {sections.map(({ cat, species, listed }) => {
           // The count is of the whole group, not of what the filters leave of it.
