@@ -10,7 +10,6 @@ import { clearFailures, surveyScene, swimScenes, type Survey } from '../../test-
  */
 const ISLANDS: [IslandShape, number][] = [['reef', 1], ['kelp', 3], ['volcanic', 6], ['mangrove', 2], ['wreck', 4]];
 const BIGGEST: MarineModel[] = ['whale-shark', 'reef-manta', 'humpback-whale', 'leatherback-turtle', 'tiger-shark', 'great-white-shark', 'mola-mola'];
-const WIDEST: MarineModel[] = ['humpback-whale', 'reef-manta'];
 
 /** Surveys of the scenes (all of them, or those with one of `only`) on one island at one level: the school with the first scene. */
 function sweep(shape: IslandShape, level: number, seconds: number, only?: readonly MarineModel[]) {
@@ -46,8 +45,8 @@ test('animals swim at the depth they live at: bottom-dwellers near the bottom, b
 });
 
 test('on the Coral Reef the biggest animals swim in view, in water deep enough for them', () => {
-  // (the reef's outer slope is a steep wall, the deep water beyond it a ring round the island that each of them goes round in, and the ocean
-  // a little wider for them: shelf-water.ts)
+  // (the reef's outer slope is a steep wall, round the islets' reefs too at the last levels, the deep water beyond it a ring round the island
+  // that each of them goes round in, and the ocean a little wider for them: shelf-water.ts)
   for (const level of [1, 6]) {
     const { surveys, failures } = sweep('reef', level, 40, BIGGEST);
     expect(failures).toEqual([]);
@@ -55,11 +54,8 @@ test('on the Coral Reef the biggest animals swim in view, in water deep enough f
       const s = surveys[model];
       expect(s).toBeDefined();
       expect(s.unseen / s.settled).toBeLessThan(.05);
-      // (the sunfish is taller than the water there is, and always rides with some of it out: marine-bodies.ts)
-      // (at the last level the reef's wall gives way to the islets' gentler shelves, and between them and the edge of the view there is no
-      // water as deep as the widest bodies need, the humpback's and the reef manta's fins spanning two units and more: going round the whole
-      // island, as every animal does, they ride over the shelves there for part of each lap, their backs at the surface)
-      if (model !== 'mola-mola' && !(level === 6 && WIDEST.includes(model))) expect(s.stranded / s.settled).toBeLessThan(.2);
+      // (the sunfish, on its side, lies with its keel toward the open sea, and the deep floor past the wall is deep enough for it)
+      expect(s.stranded / s.settled).toBeLessThan(.2);
     }
   }
 });

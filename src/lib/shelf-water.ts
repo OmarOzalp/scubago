@@ -15,8 +15,12 @@ import { frame, TAU, type World } from './steering';
  * (`SCHOOL_SHELF`), the other islands' animals, the reef's small sharks and every bottom-dweller swim in the usual ocean.
  */
 
-/** The widest ocean a body may be given (a factor of the usual), the share of directions that may stay cut off, and the narrowest stretch of water (units) along a direction that is not. */
-const REACH = 1.15, CUT = .1, RING = .4;
+/**
+ * The widest ocean a body may be given (a factor of the usual), the share of directions that may stay cut off (a twentieth: at the top levels the
+ * deep water round the islets' reefs is narrow in a few directions only, and a body kept to the usual ocean there would be held off it by the
+ * frame), and the narrowest stretch of water (units) along a direction that is not.
+ */
+const REACH = 1.15, CUT = .05, RING = .4;
 /** Where the edge of the ocean is for a body's middle, a little in from where the frame is (a share of the ocean). */
 const HOLD = .02;
 
@@ -27,9 +31,11 @@ const RAYS = 72;
  * What a body asks of the water round the island where it is more than a big animal's: the tuna school, a body 2.6 units long and 1.2
  * wide that must hold together to be a school, needs a pass round the island a unit wide; in an ocean no wider than the view is at
  * the sides (1.1 times the usual: a wider one puts the school out of view for a fifth of the time at the top level, and a narrower
- * pass strings it out round the island). It may be cut off in a quarter of the directions.
+ * pass strings it out round the island). It may be cut off in a seventh of the directions (at the top level, where the deep water
+ * round the islets' reefs is narrow at the edge of the view in a few directions only, more would leave it the usual ocean, in which
+ * it cannot get round the southwest islet's reef).
  */
-export const SCHOOL_SHELF = { ring: 1, reach: 1.1, cut: .25 };
+export const SCHOOL_SHELF = { ring: 1, reach: 1.1, cut: .15 };
 
 export type ShelfInput = {
   /** The ocean the animals keep to at this level. */
@@ -63,7 +69,7 @@ function cutDirections(world: World, shallow: ShelfInput['shallow'], width: numb
 
 /**
  * The ocean a body keeps to at an island: the smallest (no wider than the reach) in which the water it fits in is a ring round the
- * island, with all but a tenth of the directions open.
+ * island, with all but a twentieth of the directions open.
  */
 export function shelfWater({ world, shallow, fit }: ShelfInput): ShelfWater {
   const ring = fit?.ring ?? RING, reach = fit?.reach ?? REACH, allowed = RAYS * (fit?.cut ?? CUT);

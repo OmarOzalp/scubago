@@ -140,10 +140,27 @@ export function shorePolygons(level: number, divisions = 24, shape: IslandShape 
   return [toWorld(1, [0, 0]), ...islets(level, shape).map((islet) => toWorld(islet.scale, islet.position))];
 }
 
+/** Each shoreline's middle and the farthest its points are from it (its bounding circle), found once. */
+const circles = new WeakMap<Float32Array, { x: number; z: number; r: number }>();
+function circleOf(poly: Float32Array) {
+  let circle = circles.get(poly);
+  if (!circle) {
+    let x = 0, z = 0, r = 0;
+    for (let k = 0; k < poly.length; k += 2) { x += poly[k]; z += poly[k + 1]; }
+    x /= poly.length / 2; z /= poly.length / 2;
+    for (let k = 0; k < poly.length; k += 2) r = Math.max(r, Math.hypot(poly[k] - x, poly[k + 1] - z));
+    circle = { x, z, r };
+    circles.set(poly, circle);
+  }
+  return circle;
+}
+
 /** Signed distance from (x, z) to the nearest shoreline: negative on land, positive over water. */
 export function shoreDistance(polygons: Float32Array[], x: number, z: number) {
   let best = Infinity;
   for (const poly of polygons) {
+    // (a shoreline whose bounding circle is farther than the nearest yet cannot be nearer, even with the point inside it: its distance is never less than the circle's)
+    if (best < Infinity) { const circle = circleOf(poly); if (Math.hypot(x - circle.x, z - circle.z) - circle.r > best) continue; }
     let nearest = Infinity, inside = false;
     const n = poly.length / 2;
     for (let i = 0, j = n - 1; i < n; j = i++) {
@@ -184,7 +201,9 @@ export function createShoreField(level: number, shape: IslandShape = 'reef'): Sh
   if (cached) return cached;
   // A coarser outline and grid than the renderer's are plenty for steering, and quick to build on a phone.
   const [main, ...islands] = shorePolygons(level, 12, shape);
-  const extent = 6.5, cells = 72, step = 2 * extent / cells;
+  // (out past the frame's bound at the last level, where the biggest bodies go round the islets' reefs: 1.13 of an ocean 6.5 across from the middle;
+  // the cells are 13/72 of a unit wherever it reaches, so the field is the same where it was before)
+  const step = 13 / 72, cells = 94, extent = cells * step / 2;
   // Beyond `reach` of a polygon its exact distance no longer matters (the islets only blend in nearby).
   const grid = (polygons: Float32Array[], reach = Infinity) => {
     const values = new Float32Array((cells + 1) * (cells + 1));
@@ -211,14 +230,15 @@ export function createShoreField(level: number, shape: IslandShape = 'reef'): Sh
   };
   const island = grid([main]), islets = islands.length ? grid(islands, 4) : null;
   const h = step * .75;
+  // (asked many times a step: no function made per question)
+  const distance = islets ? (px: number, pz: number, allowance: number) => smoothMin(island(px, pz), islets(px, pz) + allowance, 1.5) : (px: number, pz: number) => island(px, pz);
   const field: ShoreField = {
     island(x, z, allowance = 0) {
-      const distance = islets ? (px: number, pz: number) => smoothMin(island(px, pz), islets(px, pz) + allowance, 1.5) : island;
-      const nx = distance(x + h, z) - distance(x - h, z), nz = distance(x, z + h) - distance(x, z - h);
+      const nx = distance(x + h, z, allowance) - distance(x - h, z, allowance), nz = distance(x, z + h, allowance) - distance(x, z - h, allowance);
       const length = Math.hypot(nx, nz);
       // On the rare flat spot, point away from the island's center.
-      if (length < 1e-9) { const r = Math.hypot(x, z) || 1; return { distance: distance(x, z), nx: x / r, nz: z / r }; }
-      return { distance: distance(x, z), nx: nx / length, nz: nz / length };
+      if (length < 1e-9) { const r = Math.hypot(x, z) || 1; return { distance: distance(x, z, allowance), nx: x / r, nz: z / r }; }
+      return { distance: distance(x, z, allowance), nx: nx / length, nz: nz / length };
     },
     shore: (x, z) => (islets ? Math.min(island(x, z), islets(x, z)) : island(x, z)),
   };

@@ -110,7 +110,9 @@ build, hold and settle without overshoot or jitter. A big course change ahead
 slows the animal by up to 30%, which tightens the turn. A half turn keeps to the
 side with more room (checked one turning circle out), and switches only if that
 side becomes blocked. Roll follows the turn rate (`bank`, capped at `bankMax`,
-eased at `bankEase`), around any resting `tilt` (the sunfish swims on its side).
+eased at `bankEase`), around any resting `tilt` (the sunfish swims on its side, its keel toward the open sea whichever way round
+it goes, `tiltOf`). With no room left under it (`LEVEL_ROOM`) it keeps level as it turns: banked, a wide body's lower wingtip would
+touch the bottom.
 
 ## Depth
 
@@ -178,9 +180,15 @@ edge of the frame, and a whale shark, a manta or a leatherback needs a unit of d
 wingtips (the hulls' `wing` and `width`). So the reef's outer slope, which ran down gently to a floor out past the frame, falls away as a steep wall just past
 the coral (`OCEAN.reefCrest`: `wall`, shelf reach 1.96 to 2.16, to a floor `drop`, .6, deeper than any other island's, in
 `src/lib/ocean.ts`; the island, the beach, the lagoon, the crest and its shoulder are as they were): the water just outside
-the crest is deep enough for the biggest bodies from about the edge of the frame, not past it. The wall is in the one depth
+the crest is deep enough for the biggest bodies from about the edge of the frame, not past it. At the last two levels it runs on
+round the islets' reefs, which reach out toward the edge of the picture: from right at their crest's outer edge, more steeply
+(`isletWall`, 1.84 to 1.96 of an islet's own measure), turning into the main island's wall where the two reefs meet
+(`wallMeasure`, `Near.islet`: over half a unit of how much nearer the islet's shore is), so there is no seam. The wall is in the one depth
 field the water is drawn from and the animals swim over (`seabed-lattice.ts` has rings of its own on it, at fixed values of the
-reef's measure of distance, so each is at one height round the island), so what a body avoids is what is drawn. (The seabed is
+reef's measure of distance, so each is at one height round the island; from the wall out, they are at fixed values of the wall's
+own measure, found along each ray where it last reaches their value, so they run round the islets' reefs as the wall does, and
+the main island's rings that reach out over an islet's lagoon and crest are kept as they were inside the wall, the wall's top on
+the straight run from them as before, so those are drawn just as they were), so what a body avoids is what is drawn. (The seabed is
 drawn without depth testing, so its triangles are drawn farthest from the camera first, `farthestFirst` in ocean-mesh.ts: a wall
 that steep hides the floor beyond the crest, and drawn the other way round that floor would be painted over the crest; and what
 the depth map, which is read from above, makes of a wall, is made deeper blue the deeper it really is, so that it reads as water.) With the
@@ -197,13 +205,22 @@ leatherback, the sunfish and the oceanic manta in the south at level 1), which e
   shore, so what the steering follows is the water's shape, not its specks;
 - held at the frame's bound with no water it fits in short of it (`HOLD_GIVE`: within .02 of its bound), it is no longer turned out of
   the shallows: it goes on round along the frame, riding over them, rather than leave the view or turn back, and keeps level while it
-  has no room under it (`LEVEL_ROOM`: tipped, a long body's nose would stand out of the water).
+  has no room under it (`LEVEL_ROOM`: tipped, a long body's nose would stand out of the water, banked, a wingtip would touch the bottom);
+- the places too shallow for it are judged under its body at whatever depth it is (`own`): a water's fields are judged for a body at
+  the usual depth, seen `SHALLOWS_SHIFT` (.4) nearer the viewer than the bottom under it, and one swimming nearer the surface is seen
+  less far from it, so it would otherwise keep a third of a unit too near the shallows on the far side of the island;
+- an open-water animal riding with more of its back out of the water than is natural heads out to sea as hard as it can
+  (`RIDING_OUT`), the frame's bound still holding it: its water's field is a quarter-unit grid, and where that water is a strip along the
+  edge of the view its edge can be a little inside the place where the body clears the bottom;
+- its ocean is widened (`factor`) until all but a twentieth of the directions round the island have a stretch of its water in them
+  (`CUT`), so that where the deep water round an islet's reef is narrow, in a few directions only, the frame does not hold it off it.
 
-At the last two levels the islets' shelves leave the widest bodies no such ring: the reef's wall belongs to the main island, and
-where an islet's shelf is nearer the slope is the usual gentler one, to a floor about .6 shallower, so between the islets' reefs and
-the frame there is water deep enough for the whale shark, the great white and the tiger shark, but not for the humpback's or the
-reef manta's fins (two units and more across) all the way round: going round, they ride over the islets' shelves for part of each
-lap, their backs at the surface (no wider frame helps: at the southwest islet the shelf reaches out past 1.3 of it). The tuna school
+The steering's shore field (`createShoreField`) reaches out past the frame's bound at the last level (8.5 units each way, on cells
+13/72 of a unit, as before): it stopped at 6.5, and out past that, where the biggest bodies go round the islets' reefs at levels
+5 and 6, its direction was wrong, and with it the side a body's fins were judged on. At the last two levels the deep water round
+the islets' reefs is narrowest at the bottom of the view below the southwest islet, where the frame comes within a little more than
+a span of two units of its wall: there the humpback and the leatherback ride over the top of the wall for a few seconds of each lap
+(in the sweep at level 6, under 5% of the time for each of the widest bodies; at level 5 about none). The tuna school
 asks for less (`SCHOOL_SHELF`, a pass a unit wide in an ocean 1.1 times the usual, and its fish are kept out of water too shallow for
 them). At the Coral Reef every large animal is in view (inside the camera's picture, on a phone's canvas) all the time, at every level
 (`npm run verify:swim` reports the share out of view and in water too shallow for the body, per animal).
@@ -838,12 +855,9 @@ touching the open water's programs.
 - At level 6, a whale shark rounding the southwest islet can swing briefly toward
   the bottom haze, because there is little room between that islet and the view's
   corner.
-- At the Coral Reef's last two levels the islets' shelves reach out to the frame, and the widest bodies (the humpback, the reef
-  manta) have no water deep enough for their fins between them and the edge of the view: going round, they ride over the shelves
-  there, backs at the surface, for part of each lap (in the coarse sweep at level 6, about three quarters of the time for the
-  humpback and a third for the reef manta; the leatherback about 6%; the whale shark, the great white and the tiger shark never).
-  Giving the islets the reef's outer wall would fix it, but the seabed's mesh is drawn in rings round the main island, which do
-  not follow an islet's wall: drawn so, it shows fins.
+- At the Coral Reef's last level the frame comes within a little more than a span of two units of the southwest islet's wall at
+  the bottom of the view: the humpback and the leatherback ride over the top of the wall there for a few seconds of each lap
+  (under 5% of the time in the sweep).
 - The slowest swimmers (the goliath grouper, the lionfish) take more than four minutes over a lap, and the leafy seadragon hardly
   goes anywhere.
 - In crowded scenes an animal may make a small (4–8°) corrective S-curve every

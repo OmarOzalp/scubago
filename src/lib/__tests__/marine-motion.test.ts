@@ -87,14 +87,16 @@ test('pause freezes the school and a background frame cannot teleport it', () =>
 test('each species moves with its own personality', () => {
   const stats = Object.fromEntries(SPECIES.map((model) => {
     const motion = createMarineMotion([{ model, lane: 0 }], 1, flat);
+    // (a resting tilt is to the side that puts the keel toward the open sea, the way it goes round)
+    const side = motion.inspect(0)!.direction;
     let speed = 0, bank = 0, turn = 0, surge = 0, low = Infinity, high = -Infinity, tilt = Infinity, radius = Infinity;
     for (let frame = 0; frame < 12000; frame++) {
       motion.step(.05, true);
       if (frame < 200) continue;
       const p = motion.get(0)!;
       speed += p.speed / 11800;
-      bank = Math.max(bank, Math.abs(p.bank - MOVEMENT[model].tilt));
-      tilt = Math.min(tilt, p.bank);
+      bank = Math.max(bank, Math.abs(p.bank - MOVEMENT[model].tilt * side));
+      tilt = Math.min(tilt, p.bank * side);
       turn = Math.max(turn, Math.abs(p.turn));
       // The tightest turning circle it swims (radius, units).
       if (Math.abs(p.turn) > .05) radius = Math.min(radius, p.speed / Math.abs(p.turn));

@@ -82,7 +82,8 @@ test('tuna turn, speed up and roll within what a tuna can do, even when fleeing'
   GREAT_WHITE_HUNT.attackProbability = 1;
   const last = { x: new Float32Array(TUNA_SCHOOL.size), z: new Float32Array(TUNA_SCHOOL.size), heading: new Float32Array(TUNA_SCHOOL.size) };
   let speed = 0, turn = 0, pitch = 0, roll = 0, panicked = false;
-  run(['great-white-shark', 'whale-shark'], 1, 150, .4, (_, school, time) => {
+  // (a seed whose great white meets the school early in the run, and charges it)
+  run(['great-white-shark', 'whale-shark'], 1, 150, .5, (_, school, time) => {
     const p = school.pose;
     panicked ||= school.state.mood === 'panic';
     for (let i = 0; i < school.size; i++) {
