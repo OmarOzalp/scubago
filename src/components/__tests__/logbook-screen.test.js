@@ -16,6 +16,7 @@ jest.mock('@/hooks/use-rewards', () => ({ useRewards: () => ({ ready: true, badg
 jest.mock('@/lib/announce', () => ({ announce: jest.fn() }));
 jest.mock('@/lib/confirm', () => ({ confirmAction: jest.fn(async () => true) }));
 let mockUser = null;
+let mockReady = true;
 let mockDives = [];
 let mockSightings = [];
 jest.mock('@/lib/store', () => ({
@@ -23,6 +24,7 @@ jest.mock('@/lib/store', () => ({
     select({
       user: mockUser,
       sightings: mockSightings,
+      ready: mockReady,
       backendEnabled: true,
       syncing: false,
       syncProblem: null,
@@ -49,6 +51,7 @@ let root;
 beforeEach(() => {
   global.IS_REACT_ACT_ENVIRONMENT = true;
   mockUser = null;
+  mockReady = true;
   mockDives = [dive(1), dive(2), dive(3, { siteId: 'cod-hole' })];
   mockSightings = [sighting('a', 'reef-manta', 'd3'), sighting('b', 'whale-shark', 'd3')];
   router.push.mockClear();
@@ -280,6 +283,22 @@ describe('the book', () => {
       const arrow = StyleSheet.flatten(host((p) => p.accessibilityLabel === label && p.accessibilityRole === 'button').props.style);
       expect(Math.min(arrow.width, arrow.height)).toBeGreaterThanOrEqual(44);
     }
+  });
+});
+
+describe('while the log loads', () => {
+  test('no page is drawn, so an empty log’s blank page never flashes before the newest page', async () => {
+    mockReady = false;
+    mockDives = [];
+    await render();
+    expect(texts()).not.toContain('Your first page is blank');
+    expect(root.root.findAll((n) => n.props.horizontal && n.props.pagingEnabled)).toHaveLength(0);
+    // The log arrives: the book opens at its newest page.
+    mockReady = true;
+    mockDives = [dive(1), dive(2), dive(3, { siteId: 'cod-hole' })];
+    await rerender();
+    expect(count()).toBe('3 of 3');
+    expect(texts()).not.toContain('Your first page is blank');
   });
 });
 

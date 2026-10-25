@@ -11,7 +11,7 @@ import { Radius, Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { formatDiveNumber, neighbours } from '@/lib/dives';
 import { leave } from '@/lib/leave';
-import { useMyDives, useSiteById } from '@/lib/store';
+import { useAppStore, useMyDives, useSiteById } from '@/lib/store';
 import type { Dive } from '@/lib/types';
 
 /**
@@ -24,6 +24,7 @@ export default function DivePageScreen() {
   const theme = useTheme();
   const siteById = useSiteById();
   const dives = useMyDives();
+  const ready = useAppStore((s) => s.ready);
   const live = dives.find((d) => d.id === id);
   const liveTurn = useMemo(() => (live ? neighbours(dives, live.id) : {}), [dives, live]);
   // Deleted from this screen: it goes on showing the page while it closes, rather than "This page isn't in your
@@ -32,6 +33,8 @@ export default function DivePageScreen() {
   const dive = live ?? leaving?.dive;
   const turn = live ? liveTurn : (leaving?.turn ?? {});
 
+  // Until the log has loaded, a page not found yet may still be there: say nothing rather than that it isn't.
+  if (!dive && !ready) return <View style={[styles.flex, { backgroundColor: theme.background }]} />;
   if (!dive) {
     return (
       <View style={[styles.missing, { backgroundColor: theme.background }]}>

@@ -47,12 +47,15 @@ const SHEET_PAGES = 2;
  */
 export function Book({
   leaves,
+  loading = false,
   cover,
   siteName,
   speciesByDive,
   pending,
 }: {
   leaves: Leaf[];
+  /** The log is still loading: no page is drawn yet (an empty log's blank page would flash before a full one). */
+  loading?: boolean;
   /** What the cover holds (the Logbook's totals and links). */
   cover: ReactNode;
   siteName: (siteId: string) => string;
@@ -67,7 +70,8 @@ export function Book({
   // On the web the page is first drawn ahead of time, with no window to measure, and the browser keeps what was
   // drawn then; so there the pages wait for their measured room (a frame), rather than draw at a width of 0.
   const [size, setSize] = useState<{ width: number; height: number } | null>(null);
-  const box = size ?? (Platform.OS === 'web' ? null : { width: window.width, height: Math.max(320, window.height - insets.top - 200) });
+  const measuredBox = size ?? (Platform.OS === 'web' ? null : { width: window.width, height: Math.max(320, window.height - insets.top - 200) });
+  const box = loading ? null : measuredBox;
   const width = box?.width ?? 0;
   const height = box?.height ?? 0;
   const scroll = useRef<ScrollViewInstance>(null);
@@ -177,15 +181,19 @@ export function Book({
 
   return (
     <View style={[styles.desk, { backgroundColor: DESK[scheme], paddingTop: insets.top + Spacing.two }]}>
-      <BookBar
-        count={pageCount(leaf)}
-        where={where}
-        canBack={current > 0}
-        canOn={current < last}
-        onBack={() => turnTo(current - 1, true)}
-        onOn={() => turnTo(current + 1, true)}
-        onContents={hasPages ? () => setContentsOpen(true) : undefined}
-      />
+      {loading ? (
+        <View style={styles.barRoom} />
+      ) : (
+        <BookBar
+          count={pageCount(leaf)}
+          where={where}
+          canBack={current > 0}
+          canOn={current < last}
+          onBack={() => turnTo(current - 1, true)}
+          onOn={() => turnTo(current + 1, true)}
+          onContents={hasPages ? () => setContentsOpen(true) : undefined}
+        />
+      )}
       <View style={styles.pages} onLayout={onLayout}>
         {box ? (
           <ScrollView
@@ -298,6 +306,8 @@ const styles = StyleSheet.create({
   flex: { flex: 1 },
   desk: { flex: 1 },
   pages: { flex: 1 },
+  // The bar's height while the log loads, so the pages don't move down when it comes.
+  barRoom: { height: 44 + Spacing.two },
   leaf: {
     flex: 1,
     width: '100%',

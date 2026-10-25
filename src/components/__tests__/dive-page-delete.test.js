@@ -20,10 +20,12 @@ jest.mock('@/lib/confirm', () => ({ confirmAction: jest.fn(async () => true) }))
 let mockDives = [];
 let mockSightings = [];
 let mockFail = false;
+let mockReady = true;
 jest.mock('@/lib/store', () => ({
   useAppStore: (select) =>
     select({
       sightings: mockSightings,
+      ready: mockReady,
       user: null,
       backendEnabled: false,
       // As the store does: the page and its sightings go in one update.
@@ -47,6 +49,7 @@ beforeEach(() => {
   global.IS_REACT_ACT_ENVIRONMENT = true;
   mockCanGoBack = true;
   mockFail = false;
+  mockReady = true;
   mockDives = [dive({ id: 'd0', number: 11, divedOn: '2026-03-11' }), dive()];
   mockSightings = [sighting('a', 'reef-manta')];
   router.back.mockClear();
@@ -101,5 +104,17 @@ describe('deleting a page from its own screen', () => {
     mockDives = [];
     await render();
     expect(texts()).toContain('This page isn’t in your log.');
+  });
+
+  test('says nothing while the log is still loading (a cold start, or a reload on the web), then shows the page', async () => {
+    mockReady = false;
+    const all = mockDives;
+    mockDives = [];
+    await render();
+    expect(texts().join(' ')).not.toMatch(/isn’t in your log/);
+    mockReady = true;
+    mockDives = all;
+    await act(async () => root.update(<DivePageScreen />));
+    expect(texts()).toContain('Shark & Yolanda Reef');
   });
 });

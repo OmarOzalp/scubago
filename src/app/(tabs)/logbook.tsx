@@ -14,6 +14,7 @@ import type { Dive, Species } from '@/lib/types';
  */
 export default function LogbookScreen() {
   const user = useAppStore((s) => s.user);
+  const ready = useAppStore((s) => s.ready);
   const dives = useMyDives();
   const mySightings = useMySightings();
   // Any site a page names, a hidden or retired one too (the list of sites on offer has only those listed).
@@ -32,5 +33,5 @@ export default function LogbookScreen() {
   const siteName = useCallback((siteId: string) => siteById(siteId)?.name ?? 'Unknown site', [siteById]);
   const pending = useCallback((d: Dive) => !!user && !d.synced, [user]);
 
-  return <Book leaves={leaves} cover={<Cover dives={dives} />} siteName={siteName} speciesByDive={speciesByDive} pending={pending} />;
+  return <Book leaves={leaves} loading={!ready} cover={<Cover dives={dives} />} siteName={siteName} speciesByDive={speciesByDive} pending={pending} />;
 }
