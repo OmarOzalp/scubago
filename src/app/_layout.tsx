@@ -14,6 +14,7 @@ import { LogBox, Platform } from 'react-native';
 
 import { AnimatedSplashOverlay } from '@/components/animated-icon';
 import { AppError, ScreenError } from '@/components/error-screen';
+import { startHome } from '@/components/home/home-start';
 import { StorageProblem } from '@/components/storage-problem';
 import { Colors, Type } from '@/constants/theme';
 import { useSchemeName } from '@/hooks/use-theme';
@@ -21,6 +22,7 @@ import { useAppStore } from '@/lib/store';
 
 // Nothing to do if the splash can't be held (it then hides by itself): never an unhandled rejection at start-up.
 SplashScreen.preventAutoHideAsync().catch(() => undefined);
+startHome();
 
 /**
  * The 3D scenes' renderer (@react-three/fiber) makes a THREE.Clock for every scene, and three.js warns that

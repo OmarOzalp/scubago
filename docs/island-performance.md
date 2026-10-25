@@ -361,3 +361,25 @@ start with three animals), in Node: the interpreter (`--jitless`) is the closer 
 | Coral Reef, level 1, JIT | 582 ms | 239 ms |
 
 What is left is mostly the swimming's own start (its shore fields and the distance fields for each body).
+
+### Animals as they are ready, from launch
+
+- **One by one.** `useMarineModels` hands the scene each model as soon as it is loaded; it no longer waits
+  for the whole set. The ocean and the school swim on meanwhile, and each animal joins as its own model
+  arrives. On show, a newcomer swims in from beyond the view (`motion.add`, as at the end of a turn);
+  while Home's picture still covers the scene (below), with the scene still or paused, it is simply there.
+  One model failing still shows the illustrated island with its "Try again".
+- **At launch.** What Home's card showed last is kept on the device (`home-start.ts`: its island, level and
+  animals' models). The root layout calls `startHome()` (one import, one call in `src/app/_layout.tsx`):
+  it reads that record and starts loading those models and that island's seabed bake straight away, during
+  the splash, while the collection is still being read. Nothing waits for it. Once Home is on show, the
+  next level's bake and Home's island in the explorer load ahead.
+- **The picture.** About three seconds after Home's own island is on show with all its animals, the card
+  takes its picture (scene-snapshot.ts's capture) and keeps it: on a phone a PNG in the app's documents,
+  on the web a small JPEG in storage. At the next launch the card shows it at once, until the live scene
+  has drawn itself with its animals, then cross-fades (`instant-picture.tsx`; at once with Reduce Motion;
+  in any case after 4 s). Only a picture of the same island is shown; while the collection is still being
+  read it is taken to be the level the picture was kept at, and once it is known the live scene shows what
+  is true. Under the picture nothing is built that no one would see.
+- **Timing marks.** `performance.mark('scubago:scene-frame' | 'scubago:picture' | 'scubago:first-animal')`
+  (`scene-marks.ts`), once each per launch, for measuring.

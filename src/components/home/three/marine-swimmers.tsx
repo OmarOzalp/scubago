@@ -62,8 +62,10 @@ const scratch = { x: 0, y: 0 };
  * The animals and the tuna school. A species that swims in a group (marine-groups.ts) is drawn as
  * several animals, all opening its one page; `onSchoolPress` makes the school one tap target too.
  */
-export function MarineSwimmers({ residents, models, active, level = 1, school = false, onSchoolPress, schoolSpecies = [], arrivals, tapScale, shape = 'reef', world }: {
+export function MarineSwimmers({ residents, models, active, level = 1, school = false, onSchoolPress, schoolSpecies = [], arrivals, tapScale, shape = 'reef', world, unseen = false }: {
   residents: Resident[]; models: MarineModels; active: boolean; level?: number; onSchoolPress?: () => void;
+  /** The scene isn't on show yet (Home's picture of it still covers it): an animal joining is simply there, rather than swimming in. */
+  unseen?: boolean;
   /** The island they swim around (its own outline and size). */
   shape?: IslandShape;
   /** With several islands in the ocean (the explorer): all of them and which this is, for the bank between them that shapes the seabed under the animals. */
@@ -123,10 +125,10 @@ export function MarineSwimmers({ residents, models, active, level = 1, school = 
   for (const [id, r] of wanted) {
     if (joined.has(id) || r.leaving) continue;
     // Its group's size within what the budget has left; it swims in from the open sea (or waits for its turn to arrive as a new
-    // discovery). As the scene begins, or with the scene still, it is simply there.
+    // discovery), each as soon as its model is loaded. Before the scene is on show, or with the scene still, it is simply there.
     const used = [...joined.values()].reduce((sum, j) => sum + j.group - 1, 0);
     const group = groupSizes([{ id, model: r.model }], Math.max(0, budget - used), SEED)[0];
-    motion.add({ model: r.model, lane: r.lane, group, speciesId: id }, { aspect, waiting: waiting.includes(id), instant: !!arrivals?.instant || !active || motion.clock() < 1 });
+    motion.add({ model: r.model, lane: r.lane, group, speciesId: id }, { aspect, waiting: waiting.includes(id), instant: !!arrivals?.instant || !active || unseen });
     joined.set(id, { lane: r.lane, model: r.model, group, leaving: false });
   }
   // An animal that has swum off is taken out of the scene's list.

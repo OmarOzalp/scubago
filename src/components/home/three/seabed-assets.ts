@@ -36,9 +36,10 @@ export function loadSeabedBake(level: number, islands: readonly OceanIsland[], r
 /**
  * Whether a scene can build these islands' ocean now: their bake is in use, or there is none to wait for (none at all,
  * or it failed). Only new islands (another island on Home's card, another reach) wait for theirs; a new level never
- * takes the ocean away: it builds at once, from a bake loaded ahead (preloadSeabedBakes) or worked out.
+ * takes the ocean away: it builds at once, from a bake loaded ahead (preloadSeabedBakes) or worked out. Not `wanted`
+ * yet (nothing would see it), nothing is loaded and it isn't ready.
  */
-export function useSeabedReady(level: number, islands: readonly OceanIsland[], reach?: WaterExtent) {
+export function useSeabedReady(level: number, islands: readonly OceanIsland[], reach?: WaterExtent, wanted = true) {
   const name = seabedBakeName(level, islands, reach), key = seabedBakeKey(level, islands, reach);
   // (the islands as placed and the reach, without the level)
   const where = key.slice(key.indexOf('|') + 1);
@@ -48,14 +49,14 @@ export function useSeabedReady(level: number, islands: readonly OceanIsland[], r
   if (!waiting && readyFor !== where) setReadyFor(where);
   const ready = readyFor === where || !waiting;
   useEffect(() => {
-    if (ready) return;
+    if (ready || !wanted) return;
     let current = true;
     loadSeabedBake(level, islands, reach).then(() => { if (current) setReadyFor(where); });
     return () => { current = false; };
     // (the islands and reach by their key)
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [ready, where]);
-  return ready;
+  }, [ready, where, wanted]);
+  return ready && wanted;
 }
 
 /** The lone island Home's card shows for a habitat (as sanctuary-scene.tsx places it). */
