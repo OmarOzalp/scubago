@@ -279,7 +279,58 @@ describe('the saved page', () => {
     await writeDive();
     expect(titles()).toEqual(['Add what you saw', 'Done', 'Open the page', 'Ask your buddy to sign', 'Log another dive']);
     await press(byTitle('Add what you saw'));
-    expect(router.replace).toHaveBeenCalledWith({ pathname: '/log/new', params: { dive: 'd-28' } });
+    // It replaces this screen, so the page is not underneath the next one: it says so.
+    expect(router.replace).toHaveBeenCalledWith({ pathname: '/log/new', params: { dive: 'd-28', then: 'page' } });
+  });
+
+  describe('animals added to a page already written', () => {
+    const page = { id: 'd-27', userId: 'local', number: 27, siteId: SITE.id, divedOn: '2026-10-20', synced: false, createdAt: '2026-10-20T10:00:00.000Z' };
+    const addToPage = async () => {
+      mockState.dives = [page];
+      mockState.addSightings = jest.fn(async () => ({ sightings: [], newSpeciesIds: [] }));
+      await render();
+      await tickFirstSpecies();
+      await press(byTitle('Next · 1 species'));
+      await press(byTitle('Add to No. 27'));
+    };
+
+    test('from the page: "Back to the page" goes back to it', async () => {
+      mockParams = { dive: 'd-27' };
+      await addToPage();
+      await press(byTitle('Back to the page'));
+      expect(router.back).toHaveBeenCalledTimes(1);
+      expect(router.replace).not.toHaveBeenCalled();
+    });
+
+    // The bug: after "Add what you saw" there is no page underneath, and Back went to Home instead.
+    test('after "Add what you saw" (the page is not underneath): "Back to the page" opens it', async () => {
+      mockParams = { dive: 'd-27', then: 'page' };
+      await addToPage();
+      await press(byTitle('Back to the page'));
+      expect(router.back).not.toHaveBeenCalled();
+      expect(router.replace).toHaveBeenCalledWith('/dive/d-27');
+    });
+
+    test('opened straight from a link: "Back to the page" opens it too', async () => {
+      mockParams = { dive: 'd-27' };
+      router.canGoBack.mockReturnValue(false);
+      try {
+        await addToPage();
+        await press(byTitle('Back to the page'));
+        expect(router.back).not.toHaveBeenCalled();
+        expect(router.replace).toHaveBeenCalledWith('/dive/d-27');
+      } finally {
+        router.canGoBack.mockReturnValue(true);
+      }
+    });
+  });
+
+  test('"Done" with nothing underneath (a reload on the saved screen) goes Home rather than nowhere', async () => {
+    await writeDive({ animals: true });
+    router.canGoBack.mockReturnValueOnce(false);
+    await press(byTitle('Done'));
+    expect(router.back).not.toHaveBeenCalled();
+    expect(router.replace).toHaveBeenCalledWith('/');
   });
 
   test('a dive with animals does not', async () => {

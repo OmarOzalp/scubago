@@ -348,7 +348,7 @@ What's in the repo for this:
 
 1. Open the Netlify address in **Safari** (on Android, Chrome).
 2. Tap **Share → Add to Home Screen**. On Android: **⋮ → Add to Home screen** or **Install app**.
-3. Open ScubaGo from the new icon. Go to **Logbook → Sign in or create an account** (the account button at the top) and sign in with your usual account.
+3. Open ScubaGo from the new icon. Go to **Logbook**, swipe right to its cover (or open **Contents → Cover**), tap **Sign in or create an account** (the account button at the top of the cover) and sign in with your usual account.
 
 Signing in matters. The home-screen app keeps its own storage, separate from Safari tabs and from
 Expo Go. Your sightings reach it, and are backed up, through the account sync.

@@ -13,6 +13,7 @@ import { Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { announce } from '@/lib/announce';
 import { formatDiveNumber, parseNumber } from '@/lib/dives';
+import { leave } from '@/lib/leave';
 import { useAppStore, useDivesBefore, useMyDives } from '@/lib/store';
 
 /**
@@ -51,7 +52,7 @@ function DivesBeforeScreen() {
     setError(null);
     try {
       await setDivesBefore(value);
-      router.back();
+      leave('/auth');
     } catch (e: any) {
       const message = e.message ?? 'Could not save';
       setError(message);

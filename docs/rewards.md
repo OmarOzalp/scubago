@@ -171,7 +171,7 @@ fetch them with `useRewards()`.
 | `/rewards/passport` | The site passport: a page per region or country, a stamp per site, "3 of 41 sites stamped" | `src/app/rewards/passport.tsx` |
 | `/rewards/islands` | Each island: locked or raised, residents found out of total, the requirement line, and "look for" plates | `src/app/rewards/islands.tsx` |
 
-Entry points: a "Badges & passport" row on the Logbook tab, and a "Collections" link beside the Field guide's title.
+Entry points: a "Badges & collections" row on the Logbook's cover, and a "Collections" link beside the Field guide's title.
 Both quote the real counts (`summarize` in `src/components/rewards/summary.ts`) and say nothing until
 the log has loaded.
 

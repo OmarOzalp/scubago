@@ -186,6 +186,24 @@ describeSqlite('the dive log in the app', () => {
     expect([on('s-1'), on('s-2'), on('s-3')]).toEqual([pages[0].id, pages[0].id, pages[1].id]);
   });
 
+  // One page in an odd shape (a hand-edited or half-written row) blocked the whole log behind "Your log
+  // couldn't be opened (Invalid time value)": the app now opens, and only the odd values are left out.
+  it('a page whose stored values are unreadable does not stop the log opening', async () => {
+    const { db } = await openApp();
+    sqliteHooks.last.exec(`
+      INSERT INTO dives (id, user_id, number, site_id, dived_on, max_depth_m, kinds, signature_name, signed_at, remote_signatures, created_at)
+      VALUES ('d-odd', 'local', 3, '${reef}', '2026-03-01', 'deep', '{not json', 'Maya', 'yesterday-ish', '[{oops', '2026-03-01T09:00:00.000Z');
+    `);
+    // What opening the app reads (initDb and every reload read the log the same way).
+    const local = await db.loadAll();
+    const odd = local.dives.find((d) => d.id === 'd-odd');
+    expect(odd).toMatchObject({ number: 3, siteId: reef, divedOn: '2026-03-01' });
+    expect(odd?.signature).toBeUndefined();
+    expect(odd?.maxDepthM).toBeUndefined();
+    expect(odd?.kinds).toBeUndefined();
+    expect(odd?.remoteSignatures).toBeUndefined();
+  });
+
   it('signed in, a sighting from an older app on another phone gets its page after a sync', async () => {
     const server = new FakeServer();
     server.tables.profiles.push({ user_id: A, username: 'alice' });

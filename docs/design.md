@@ -91,3 +91,9 @@ Five tabs drawn by the app on every platform: Home, Explore, the raised coral **
 Logbook and Field guide (`src/components/journal/tab-bar.tsx`). Tab screens use
 `<Screen tab>`, which leaves room for the safe area at the top and the raised button at the
 bottom.
+
+The Logbook is the exception: a book of flat paper sheets on a darker desk (`DESK` in
+`src/components/logbook/sheet.tsx`), each with a soft shadow and the edges of the pages under it
+showing at the side where there are more (no page curl). The cover is bound in twilight blue, with
+a bookplate-style label and the totals and links as paper cards on it. A quiet bar above the book
+holds **Contents** and the page count between two arrows.

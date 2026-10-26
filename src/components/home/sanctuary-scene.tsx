@@ -1,12 +1,13 @@
-import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { Animated, Platform, StyleSheet, View } from 'react-native';
-import { useThree } from '@react-three/fiber';
+import { useFrame, useThree } from '@react-three/fiber';
 import { SceneCanvas as Canvas } from './three/scene-canvas';
 import { useSceneQuality } from './three/scene-quality';
 import { SceneBoundary, SceneUnavailable } from './scene-boundary';
 import { SceneCamera } from './three/scene-camera';
 import { IslandPerfBadge } from './island-perf-badge';
 import { IslandPerfProbe, ScenePerformance } from './three/scene-performance';
+import { markOnce } from './three/scene-marks';
 import { router } from 'expo-router';
 import { DiscoveryNote, LevelUpBanner, NewTag } from './discovery-overlays';
 import { IslandScene } from './island-scene';
@@ -15,12 +16,16 @@ import { MarineSwimmers, type Arrivals } from './three/marine-swimmers';
 import { SanctuaryEnvironment, type SceneIsland } from './three/sanctuary-environment';
 import { TapAnywhere } from './three/tap-anywhere';
 import { useMarineModels } from './three/use-marine-models';
+import { preloadSeabedBakes, useSeabedReady } from './three/seabed-assets';
+import { EXPLORER_REACH } from '@/lib/seabed-bake';
 import type { MarineModels } from './three/marine-loader';
 import { useSceneActive, useSceneVisible } from '@/hooks/use-scene-active';
 import type { WaterReach } from '@/lib/explorer-view';
-import type { Habitat } from '@/lib/home';
+import { HOME_SHORE, type Habitat } from '@/lib/home';
 import { shapeFor } from '@/lib/island-outline';
-import { captureFrame, registerSceneCapture } from '@/lib/scene-snapshot';
+import { captureFrame, captureScene, registerSceneCapture, releaseSnapshot } from '@/lib/scene-snapshot';
+import { rememberHomePicture, rememberHomeScene, useHomeScene } from './home-start';
+import { FrameWatch, InstantPicture, useInstantPicture } from './instant-picture';
 import { MACRO_SPECIES, macroResidents, type MacroSpecies } from '@/lib/macro-life';
 import { clamp, oceanScale, variation } from '@/lib/steering';
 import {
@@ -68,6 +73,10 @@ export type SceneMoments = Pick<Arrivals, 'waiting' | 'now' | 'onArrived'> & {
 
 const SCHOOLED = SCHOOL_SPECIES.filter(swimsInSchool);
 const NONE: readonly string[] = [];
+/** No animal's model loaded yet: the scene swims on, and each joins as its own arrives. */
+const NO_MODELS: MarineModels = {};
+/** How long the card's scene is on show with all its animals before its picture is kept for the next launch (ms). */
+const PICTURE_AFTER_MS = 3000;
 /** Where the tag sits over its animal (px): centered above it, kept inside the card. */
 const TAG = { above: 46, margin: 8, height: 24 };
 
@@ -157,6 +166,12 @@ function SnapshotRegistrar({ ready }: { ready: boolean }) {
   return null;
 }
 
+/** Marks the scene's first drawn frame (scene-marks.ts). */
+function FirstFrame() {
+  useFrame(() => markOnce('scubago:scene-frame'));
+  return null;
+}
+
 export function SanctuaryScene({ habitat, level, residents, islands, paused = false, loading = false, onInspect, onOpen, moments, explorer }: {
   habitat: Habitat; level: number; residents: DexEntry[]; paused?: boolean; loading?: boolean; onInspect: (model: MarineModel) => void;
   /**
@@ -193,9 +208,51 @@ export function SanctuaryScene({ habitat, level, residents, islands, paused = fa
     const turn = takeTurn(lineup, places[i].residents, i === 0 ? moments?.featured ?? NONE : NONE);
     return turn === lineup ? [] : [turn.shown[turn.shown.length - 1].model];
   });
-  const loaded = useMarineModels(loading ? [] : [...(preview ? visitors : swimmers).map((s) => s.model), ...upNext]), { failed, retry } = loaded;
+  const shownModels = (preview ? visitors : swimmers.filter((s) => !s.leaving)).map((s) => s.model);
+  const requested = loading ? [] : [...shownModels, ...upNext];
+  const loaded = useMarineModels(requested), { failed, retry } = loaded;
   // (the turns, above, need to know which are loaded)
   if (loaded.models !== models) setModels(loaded.models);
+  // The ocean is built once its seabed, built ahead of time, is loaded (at launch, for the island Home shows), or at once when there is none to wait for.
+  const geometry = JSON.stringify(places.map(({ x, z, habitat: shores }) => ({ x, z, habitat: shores })));
+  const oceanIslands = useMemo(() => JSON.parse(geometry) as { x: number; z: number; habitat: Habitat }[], [geometry]);
+  // Home's card (`home`: its own island, which the card opens on and which is kept for the next launch; not another chosen
+  // from the pills) opens on its last picture until the live scene has drawn itself with its animals (instant-picture.tsx).
+  // While that picture covers it and the collection is still being read, the level isn't known: nothing is built that no
+  // one would see, and it is built at the level read.
+  const card = !explorer && !preview, home = card && habitat === HOME_SHORE;
+  const kept = useHomeScene();
+  const covered = home && loading && kept?.picture?.habitat === habitat;
+  const seabedReady = useSeabedReady(level, oceanIslands, explorer?.reach, !covered);
+  const everyoneIn = shownModels.every((model) => !!models?.[model]);
+  const picture = useInstantPicture({ enabled: home, level, habitat, loading, armed: seabedReady && !loading && (failed || everyoneIn) });
+  // What Home shows is kept for the next launch: its island, level and animals' models (home-start.ts)...
+  const requestedKey = [...new Set(requested)].sort().join(',');
+  useEffect(() => {
+    if (home && !loading) rememberHomeScene(level, habitat, requestedKey ? requestedKey.split(',') as MarineModel[] : []);
+  }, [home, loading, level, habitat, requestedKey]);
+  // Once it is on show, what it may need next loads ahead: the island's seabed at the next level, and in the explorer.
+  useEffect(() => {
+    if (card && picture.live && !loading) void preloadSeabedBakes(level, [habitat], EXPLORER_REACH);
+  }, [card, picture.live, loading, level, habitat]);
+  // ...and a picture of it, a few seconds after it is on show with all its animals (once for each island and level while the card is up).
+  const pictured = useRef(new Set<string>());
+  // (the canvas's size, for the picture's)
+  const size = useRef({ width: 0, height: 0 });
+  const scene = `${level}|${habitat}`;
+  useEffect(() => {
+    if (!home || !picture.live || !everyoneIn || loading || !active || pictured.current.has(scene)) return;
+    const timer = setTimeout(() => {
+      const { width, height } = size.current;
+      if (width < 1 || height < 1) return;
+      pictured.current.add(scene);
+      void captureScene('home', { width: Math.round(width * 2), height: Math.round(height * 2) }).then(async (uri) => {
+        if (!uri) return;
+        try { await rememberHomePicture(uri, level, habitat); } finally { releaseSnapshot(uri); }
+      });
+    }, PICTURE_AFTER_MS);
+    return () => clearTimeout(timer);
+  }, [home, picture.live, everyoneIn, loading, active, scene, level, habitat]);
 
   // The "New" tag: the canvas reports its animal's place on screen every frame.
   const [tag] = useState(() => ({ x: new Animated.Value(-1000), y: new Animated.Value(-1000), inView: new Animated.Value(0) }));
@@ -228,6 +285,7 @@ export function SanctuaryScene({ habitat, level, residents, islands, paused = fa
   const onLayout = (event: { nativeEvent: { layout: { width: number; height: number } } }) => {
     layout.current.width = event.nativeEvent.layout.width;
     layout.current.height = event.nativeEvent.layout.height;
+    size.current = { width: event.nativeEvent.layout.width, height: event.nativeEvent.layout.height };
   };
 
   const tuna = school ? ', and a school of tuna' : '';
@@ -247,7 +305,7 @@ export function SanctuaryScene({ habitat, level, residents, islands, paused = fa
   const sceneIslands: SceneIsland[] = lineups.map(({ place, swimmers: here, schoolSpecies, school: schooling }, i) => ({
     key: place.key, habitat: place.habitat, x: place.x, z: place.z,
     content: <>
-      {models && !loading && <MarineSwimmers models={models} active={active} level={level} tapScale={explorer?.tapScale} shape={shapeFor(place.habitat)}
+      {!loading && <MarineSwimmers models={models ?? NO_MODELS} active={active} unseen={picture.unseen} level={level} tapScale={explorer?.tapScale} shape={shapeFor(place.habitat)}
         world={places.length > 1 ? { islands: places.map(({ x, z, habitat: shores }) => ({ x, z, habitat: shores })), index: i, reach: explorer?.reach } : undefined}
         residents={preview
           ? (i === 0 ? visitors.map((s) => ({ ...s, id: s.model, onPress: () => onInspect(s.model) })) : [])
@@ -263,7 +321,7 @@ export function SanctuaryScene({ habitat, level, residents, islands, paused = fa
   return <View style={frame} onLayout={onLayout}>
     <SceneBoundary fallback={fallback}>
       <View style={styles.canvas} accessible accessibilityRole="image" accessibilityLabel={description}>
-      <Canvas orthographic flat {...(Platform.OS === 'web' ? { dpr: 1.25 } : {})} frameloop={active && !!models && !loading ? 'always' : 'demand'} camera={SCENE_CAMERA}
+      <Canvas orthographic flat {...(Platform.OS === 'web' ? { dpr: 1.25 } : {})} frameloop={active && !loading ? 'always' : 'demand'} camera={SCENE_CAMERA}
         gl={{ antialias: Platform.OS === 'web' }}
         onCreated={({ camera }) => camera.lookAt(0, -.15, 0)} style={styles.canvas}>
         {/* The view pulls back as the island levels up and its ocean widens. */}
@@ -271,15 +329,18 @@ export function SanctuaryScene({ habitat, level, residents, islands, paused = fa
         {onOpen && !explorer && <TapAnywhere onTap={onOpen} />}
         {/* The Share button's picture of the card (not the explorer's). A paused island can still be photographed; one that is still for Reduce Motion is not. */}
         {!explorer && <SnapshotRegistrar ready={visible && !loading && (active || paused)} />}
+        <FirstFrame />
+        <FrameWatch watching={picture.watching} onDrawn={picture.onDrawn} />
         {__DEV__ && <ScenePerformance ready={!!models && !loading} active={active} />}
         {ISLAND_PERF && <IslandPerfProbe />}
         {/* The animals swim inside their island's water, which tints and refracts them. */}
-        <SanctuaryEnvironment habitat={habitat} level={level} active={active} growIn={active && !loading} reach={explorer?.reach} islands={sceneIslands}>
+        <SanctuaryEnvironment habitat={habitat} level={level} active={active} growIn={active && !loading} reach={explorer?.reach} islands={sceneIslands} ready={seabedReady}>
           {explorer?.camera}
         </SanctuaryEnvironment>
       </Canvas>
       </View>
     </SceneBoundary>
+    {picture.picture && <InstantPicture uri={picture.picture} opacity={picture.opacity} onError={picture.onError} />}
     {!!label && <NewTag label={label} x={tag.x} y={tag.y} inView={tag.inView} visible={!!moments?.tag && !preview}
       onWidth={(width) => { layout.current.tag = width; }} />}
     {moments?.banner && <LevelUpBanner {...moments.banner} still={!active} />}

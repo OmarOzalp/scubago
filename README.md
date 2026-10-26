@@ -103,9 +103,11 @@ project's settings with those dev defaults.
 - **Explore tab** — ~65 famous dive sites worldwide; search "where can I see a…" to
   highlight sites where a species has been spotted; tap a pin for the site card;
   "Add a site" (or long-press the map) to add a missing one; a List view for screen readers.
-- **Logbook tab** — your lifetime totals and every page of your dive log, newest first, with
-  **Begin entry No. N** and **Dives before ScubaGo** (so pages carry your real dive numbers).
-  Signed out, a card says how much of the log lives only on this phone and offers to back it up.
+- **Logbook tab** — your dive log as a book you swipe through: it opens at the newest page (one
+  dive per page, as on paper), swipe right for older pages and the cover, and **Contents** lists
+  every page. The cover holds your lifetime totals, **Badges & collections** and the account
+  button; signed out, a card there says how much of the log lives only on this phone and offers
+  to back it up.
 - **Field guide tab** — all 120 curated species by group, with rarity tiers (common →
   legendary): painted in watercolour once you've seen them, a pencil sketch until then.
 - **Log flow** — site → species → the page for a whole dive at once: tick every species you saw

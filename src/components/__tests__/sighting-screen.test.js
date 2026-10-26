@@ -6,7 +6,7 @@ import SightingDetailScreen from '@/app/sighting/[id]';
 
 // The header's buttons are drawn by the navigator; here the screen's own options are drawn in its place.
 jest.mock('expo-router', () => ({
-  router: { back: jest.fn(), push: jest.fn(), replace: jest.fn() },
+  router: { back: jest.fn(), push: jest.fn(), replace: jest.fn(), canGoBack: jest.fn(() => true), canDismiss: jest.fn(() => true) },
   useLocalSearchParams: () => ({ id: 's1' }),
   Stack: { Screen: ({ options }) => { mockHeader = options; return options?.headerRight ? options.headerRight() : null; } },
 }));
@@ -21,8 +21,9 @@ jest.mock('@/components/sync-line', () => ({ SyncLine: () => null, useSyncLineSh
 let mockHeader;
 let mockSighting;
 let mockBackend = false;
+let mockDelete = jest.fn();
 jest.mock('@/lib/store', () => ({
-  useAppStore: (select) => select({ sightings: [mockSighting], dives: [], backendEnabled: mockBackend, deleteSighting: jest.fn() }),
+  useAppStore: (select) => select({ sightings: mockSighting ? [mockSighting] : [], dives: [], backendEnabled: mockBackend, deleteSighting: (...args) => mockDelete(...args) }),
   useMyUserId: () => 'local',
   useSiteById: () => (id) => require('@/data/sites').SITES_BY_ID.get(id),
 }));
@@ -57,6 +58,26 @@ describe('the sighting page’s actions', () => {
   test('deleting stays in its own zone at the foot', async () => {
     await render();
     expect(texts()).toContain('Delete sighting');
+  });
+
+  // The bug: the store drops the sighting before the navigator takes the page down, so the page said
+  // "This sighting isn't here any more" while it slid away.
+  test('deleted from here, the page goes on showing the sighting while it closes', async () => {
+    mockDelete = jest.fn(async () => { mockSighting = undefined; });
+    await render();
+    const del = root.root.findAll((n) => typeof n.props.onPress === 'function' && n.findAll((c) => c.children?.[0] === 'Delete sighting').length > 0).at(-1);
+    await act(async () => del.props.onPress());
+    await act(async () => root.update(<SightingDetailScreen />));
+    expect(mockDelete).toHaveBeenCalledWith('s1');
+    expect(router.back).toHaveBeenCalled();
+    expect(texts()).not.toContain('This sighting isn’t here any more.');
+    expect(texts()).toContain('Reef Manta Ray');
+  });
+
+  test('a sighting that is gone (opened from an old link) says so', async () => {
+    mockSighting = undefined;
+    await render();
+    expect(texts()).toContain('This sighting isn’t here any more.');
   });
 });
 

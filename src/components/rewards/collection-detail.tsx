@@ -6,7 +6,7 @@ import { ProgressRing } from '@/components/journal/progress-ring';
 import { SectionHeader } from '@/components/journal/screen';
 import { Stamp } from '@/components/journal/stamp';
 import { longDate } from '@/components/rewards/format';
-import { CARD_GAP, SpeciesCard, useCardGrid } from '@/components/species-card';
+import { CARD_GAP, onGridLayout, SpeciesCard, useCardGrid } from '@/components/species-card';
 import { ThemedText } from '@/components/themed-text';
 import { Type } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
@@ -68,7 +68,7 @@ export function CollectionDetailView({
         {collection.completed ? <Stamp lines={['Complete']} color={theme.tint} rotate={-8} animate /> : null}
       </Paper>
 
-      <View onLayout={(e) => setInner(Math.floor(e.nativeEvent.layout.width))} style={styles.sections}>
+      <View onLayout={onGridLayout(setInner)} style={styles.sections}>
         {found.length > 0 ? (
           <View style={styles.section}>
             <SectionHeader title="Found" />

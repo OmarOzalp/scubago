@@ -1,4 +1,4 @@
-import { StyleSheet, Text, useWindowDimensions, View } from 'react-native';
+import { StyleSheet, Text, useWindowDimensions, View, type LayoutChangeEvent } from 'react-native';
 
 import { PaperButton } from '@/components/journal/paper';
 import { NewBadge } from '@/components/journal/stamp';
@@ -19,7 +19,25 @@ export const CARD_GAP = 10;
 export function useCardGrid(inner: number): { columns: number; cardWidth: number } {
   const { fontScale } = useWindowDimensions();
   const columns = Math.max(fontScale >= 1.3 ? 2 : 3, Math.min(6, Math.floor(inner / 150)));
-  return { columns, cardWidth: Math.floor((inner - CARD_GAP * (columns - 1)) / columns) };
+  return { columns, cardWidth: cardWidthFor(inner, columns) };
+}
+
+/** The width of each of `columns` cards across `inner` points: never less than nothing, however narrow. */
+export function cardWidthFor(inner: number, columns: number): number {
+  return Math.max(0, Math.floor((inner - CARD_GAP * (columns - 1)) / columns));
+}
+
+/**
+ * An `onLayout` that hands on the width a grid of cards has. A screen covered by another (the web hides
+ * it, and it then measures 0 wide) keeps the width it had: at 0 every card of the field guide was drawn
+ * narrower than nothing, 120 "<svg> attribute width: A negative value is not valid (-5.46)" errors, and
+ * all of them redrawn for a screen nobody could see.
+ */
+export function onGridLayout(setInner: (width: number) => void): (event: LayoutChangeEvent) => void {
+  return (event) => {
+    const width = Math.floor(event.nativeEvent.layout.width);
+    if (width > 0) setInner(width);
+  };
 }
 
 interface Props {

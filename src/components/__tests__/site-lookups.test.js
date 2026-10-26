@@ -77,12 +77,16 @@ test('the ids are hidden, but still a site', () => {
   expect(RETIRED_SITE_IDS.has(KORMORAN)).toBe(true);
 });
 
-test('the logbook names the site of a page logged at a hidden id', async () => {
+test('the logbook names the site of a page logged at a hidden id, on the page and in its contents', async () => {
   mockDives = [dive('d1', 1, SHARK_REEF), dive('d2', 2, KORMORAN)];
   await act(async () => { root = create(<LogbookScreen />); });
-  const rows = labels().filter((l) => l.startsWith('Dive '));
-  expect(rows.some((l) => l.startsWith('Dive 1, Shark Reef'))).toBe(true);
-  expect(rows.some((l) => l.startsWith('Dive 2, Kormoran'))).toBe(true);
+  // The book opens at the newest page.
+  expect(labels().some((l) => l.startsWith('Page 2 of 2, Dive 2, Kormoran'))).toBe(true);
+  const contents = root.root.findAll((n) => n.props.accessibilityHint === 'Lists every page' && typeof n.props.onPress === 'function')[0];
+  await act(async () => contents.props.onPress());
+  const rows = labels().filter((l) => l.startsWith('Page '));
+  expect(rows.some((l) => l.startsWith('Page 1 of 2, Shark Reef'))).toBe(true);
+  expect(rows.some((l) => l.startsWith('Page 2 of 2, Kormoran'))).toBe(true);
   expect(texts()).not.toContain('Unknown site');
 });
 

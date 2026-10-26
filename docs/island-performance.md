@@ -25,12 +25,13 @@ are retained. Re-export without studio renders using:
 ```sh
 blender --background --factory-startup --python scripts/art/prepare-marine.py -- --export-only
 python3 scripts/art/refine-reef-fish.py
+node scripts/art/slim-marine.mjs --only=shark,manta,reef-fish
 npm run verify:marine
 ```
 
 `refine-reef-fish.py` post-processes the exported reef-fish GLB (body 1.35x wider, eyes
 smaller and set into the head) without touching bones or animation; run it after every
-Blender export, since the export rewrites the file.
+Blender export, since the export rewrites the file. Slim the three last (see Instant start below).
 
 The verifier checks actual vertex deformation, loop seams, normalization,
 independent skeletons, and budgets of 5,000 triangles / 220,000 bytes per rig.
@@ -307,3 +308,112 @@ trigonometry dominated the first version, and each now runs once per step or onl
 
 Set `TUNA_SCHOOL.size` in `src/lib/tuna-school.ts` lower to lighten the scene further, or to 0 to
 leave the school out. Physical-device timing is still unmeasured.
+
+## Instant start (October 2026)
+
+The animals are on screen as soon as they can be, and Home's ocean is never rebuilt.
+
+### Slimmer models
+
+Every marine GLB is slimmed by `scripts/art/slim-marine.mjs` (run it after `npm run build:species`
+or a Blender export): gltf-transform's dedup, prune (every node kept, so the rigs find their bones),
+weld, resample (animation keys within 1e-5 of a straight line) and quantize (KHR_mesh_quantization,
+read natively by three's GLTFLoader: positions 16-bit, normals 8-bit, vertex colours 16-bit, skin
+weights bytes summing to exactly 255). No Draco or meshopt: their decoders need WebAssembly, which
+Hermes lacks.
+
+| | Before | After |
+| --- | ---: | ---: |
+| All 51 models | 7.97 MB | 4.71 MB |
+| Parse, all 51, interpreter (`node --jitless`, the closest to Hermes), warm | 128 ms | 38 ms |
+| Parse, all 51, interpreter, cold (first parse of each) | 184 ms | 61 ms |
+| Parse, all 51, JIT (Node), warm | 31 ms | 34 ms |
+
+Most of a parse without a JIT was GLTFLoader renormalizing every skinned vertex's weights. Weights
+stored as bytes summing to 255 come through that pass unchanged, so `marine-loader.ts` skips it
+while a model parses (`marine-assets.test.ts` checks every shipped vertex). The bodies are the same:
+over every triangle corner, in the bind pose, under the procedural rig and through the Swim clip,
+the largest difference is 0.0005 model units (a hundredth of a pixel on Home), normals within 0.4°,
+colours within 0.2 of a step; renders of all 51 in their pose and mid-swim differ only in a few
+anti-aliased edge pixels. `npm run verify:marine` reports the same as before.
+
+### The seabed built ahead of time
+
+Showing an island the first time used to work out its seabed: the lattice the seabed is drawn from and
+the animals swim over (seabed-lattice.ts), the depth map's texels, the water's shoaling and the animals'
+grid of the bottom. The Coral Reef's lattice was also worked out twice (once for the drawn seabed, once
+for the animals: their caches had different keys). Now the two share one, and `scripts/bake-seabed.ts`
+writes what each island alone at each level works out (and Home's island alone in the explorer, at a
+phone's reach) to `assets/baked/seabed/*.bin` (6.4 MB in all; one file, 160 to 310 KB, is loaded for the
+island on show). Once loaded (`seabed-assets.ts`), a scene uses it instead: the very same numbers. The
+`seabed-bake-*.test.ts` tests compare every file with the computation, so a bake left stale by a change
+to the seabed fails them: run `npx tsx scripts/bake-seabed.ts` again. Without a bake (several islands in
+the explorer, another reach), everything is worked out as before.
+
+Building a scene, in the app's order (depth map, seabed mesh, water, the animals' seabed, the swimming's
+start with three animals), in Node: the interpreter (`--jitless`) is the closer to Hermes.
+
+| | Before | After |
+| --- | ---: | ---: |
+| Coral Reef, level 1, interpreter | 8.4 s | 0.9 s |
+| Coral Reef, level 6, interpreter | 11.7 s | 1.15 s |
+| Kelp Forest, level 1, interpreter | 1.86 s | 0.62 s |
+| Coral Reef, level 1, JIT | 582 ms | 239 ms |
+
+What is left is mostly the swimming's own start (its shore fields and the distance fields for each body).
+
+### Animals as they are ready, from launch
+
+- **One by one.** `useMarineModels` hands the scene each model as soon as it is loaded; it no longer waits
+  for the whole set. The ocean and the school swim on meanwhile, and each animal joins as its own model
+  arrives: one already on the island whose model has only now loaded comes into view where it is, rising
+  out of the deep blue head first over 1.6 s (`AnimatedMarine`'s `emerge`, the dive's own emergence); a
+  newcomer at the end of another's turn still swims in from the open sea. While Home's picture still covers
+  the scene (below), or with the scene still or paused, it is simply there. One model failing still shows
+  the illustrated island with its "Try again".
+- **At launch.** What Home's card showed last is kept on the device (`home-start.ts`: its island, level and
+  animals' models). The root layout calls `startHome()` (one import, one call in `src/app/_layout.tsx`):
+  it reads that record and starts loading those models and that island's seabed bake straight away, during
+  the splash, while the collection is still being read. Nothing waits for it. Once Home is on show, the
+  next level's bake and Home's island in the explorer load ahead.
+- **The picture.** About three seconds after Home's own island is on show with all its animals, the card
+  takes its picture (scene-snapshot.ts's capture) and keeps it: on a phone a PNG in the app's documents,
+  on the web a small JPEG in storage. At the next launch the card shows it at once, until the live scene
+  has drawn itself with its animals, then cross-fades (`instant-picture.tsx`; at once with Reduce Motion;
+  in any case after 4 s). Only a picture of the same island is shown; while the collection is still being
+  read it is taken to be the level the picture was kept at, and once it is known the live scene shows what
+  is true. Under the picture nothing is built that no one would see.
+- **Timing marks.** `performance.mark('scubago:scene-frame' | 'scubago:picture' | 'scubago:first-animal')`
+  (`scene-marks.ts`), once each per launch, for measuring.
+
+### Measured on the web
+
+Time from opening the app to each mark, in Chromium with software WebGL (SwiftShader), a phone-sized
+window and a collection at level 3 on Home's island with seven animals; before and after builds run in
+turn. "Second launch" reopens the app after a first visit has kept the record and picture.
+
+| | Before | After |
+| --- | ---: | ---: |
+| First launch: first animal on screen | 3.05 s | 2.93 s |
+| Second launch: Home's island on screen (the scene's first frame / the picture) | 1.66 s | 0.99 s |
+| Second launch: first live animal | 3.06 s | 2.16 s |
+| CPU slowed 4x, first launch: first animal | 7.4–7.5 s | 6.7–6.8 s |
+| CPU slowed 4x, second launch: first live animal | 5.6–6.1 s | 3.5–3.7 s |
+| CPU slowed 4x, second launch: the picture | — | 1.4 s |
+
+Medians of three runs (two at 4x, both shown). The web's JIT already parses models and works out a
+single island quickly, so the first launch gains little there; the larger gains are on Hermes, which has
+no JIT (see the interpreter rows above). At 4x one second launch had no picture: the first visit was
+closed before all its animals had arrived, so none was taken.
+
+Home's ocean is never rebuilt: with Home's island paused, going to the Field guide and the Logbook tabs
+and opening and closing the explorer leaves it paused, its animals exactly where they were (the same
+picture to the pixel, before and after this work).
+
+### Limits
+
+- The explorer with several islands in reach still works out its seabed (about 1.2 s with a JIT, much
+  longer on an interpreter); only Home's island alone is baked for it.
+- With Reduce Motion the island is still, and a still island is not photographed (as for Share), so the
+  card takes no new picture; one kept earlier is still shown and replaced at once.
+- Physical-device timing is still unmeasured.

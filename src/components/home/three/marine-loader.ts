@@ -1,9 +1,7 @@
-import { Asset } from 'expo-asset';
-import { File } from 'expo-file-system';
-import { Platform } from 'react-native';
-import { Mesh, MeshLambertMaterial, MeshStandardMaterial } from 'three';
+import { Mesh, MeshLambertMaterial, MeshStandardMaterial, SkinnedMesh } from 'three';
 import { GLTFLoader, type GLTF } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import type { MarineModel } from '@/lib/swimming';
+import { readAssetBytes } from './asset-bytes';
 
 const modules: Record<MarineModel, number> = {
   'whale-shark': require('@/assets/models/marine/whale-shark.glb'),
@@ -61,19 +59,24 @@ const modules: Record<MarineModel, number> = {
 
 export type MarineModels = Partial<Record<MarineModel, GLTF>>;
 
-async function readModel(module: number): Promise<ArrayBuffer> {
-  const [asset] = await Asset.loadAsync(module);
-  const uri = asset.localUri ?? asset.uri;
-  if (Platform.OS === 'web') {
-    const response = await fetch(uri);
-    if (!response.ok) throw new Error(`Marine asset request failed (${response.status})`);
-    return response.arrayBuffer();
-  }
-  return new File(uri).arrayBuffer();
+/**
+ * GLTFLoader renormalizes every skinned vertex's weights as it builds a mesh (for files that store them badly),
+ * and without a JIT (Hermes) that pass is most of a model's parse. These models store them as bytes summing to
+ * exactly 255 (scripts/art/slim-marine.mjs; marine-assets.test.ts checks every one), which it leaves exactly as
+ * they are, so it is skipped while they parse.
+ */
+const renormalize = SkinnedMesh.prototype.normalizeSkinWeights;
+const asStored = () => {};
+let parsing = 0;
+function parseAsStored(buffer: ArrayBuffer): Promise<GLTF> {
+  if (parsing++ === 0) SkinnedMesh.prototype.normalizeSkinWeights = asStored;
+  return new GLTFLoader().parseAsync(buffer, '').finally(() => {
+    if (--parsing === 0) SkinnedMesh.prototype.normalizeSkinWeights = renormalize;
+  });
 }
 
 function parseModel(buffer: ArrayBuffer): Promise<GLTF> {
-  return new GLTFLoader().parseAsync(buffer, '').then((gltf) => {
+  return parseAsStored(buffer).then((gltf) => {
     // These texture-free assets only need diffuse shading. Convert once per
     // cached asset so every skeleton clone shares the same lightweight material.
     const materials = new Map<MeshStandardMaterial, MeshLambertMaterial>();
@@ -99,13 +102,18 @@ function parseModel(buffer: ArrayBuffer): Promise<GLTF> {
 const pending = new Map<MarineModel, Promise<GLTF>>();
 const loaded: MarineModels = {};
 
-/** Return a snapshot only when all requested rigs are ready. */
+/** Whether a name is one of the marine models (a list kept from an earlier launch may name one no longer here). */
+export const isMarineModel = (name: string): name is MarineModel => Object.hasOwn(modules, name);
+
+/** Those of the requested rigs already loaded (each as soon as it is: the scene doesn't wait for the slowest); null while none of them is. */
 export function getLoadedMarineModels(requested: readonly MarineModel[]): MarineModels | null {
-  if (requested.some((model) => !loaded[model])) return null;
-  return Object.fromEntries(requested.map((model) => [model, loaded[model]]));
+  const ready = requested.filter((model) => loaded[model]);
+  if (requested.length > 0 && ready.length === 0) return null;
+  return Object.fromEntries(ready.map((model) => [model, loaded[model]]));
 }
 
-function loadMarineModel(model: MarineModel): Promise<GLTF> {
+/** Load one rig (once: a loaded or loading one is shared), within a time limit. */
+export function loadMarineModel(model: MarineModel): Promise<GLTF> {
   if (loaded[model]) return Promise.resolve(loaded[model]!);
   const existing = pending.get(model);
   if (existing) return existing;
@@ -115,7 +123,7 @@ function loadMarineModel(model: MarineModel): Promise<GLTF> {
   });
   // Only the winning attempt writes the cache. A timed-out read may finish later,
   // but cannot overwrite a successful retry or remove its in-flight entry.
-  const request = Promise.race([readModel(modules[model]).then(parseModel), timeout])
+  const request = Promise.race([readAssetBytes(modules[model]).then(parseModel), timeout])
     .then((gltf) => { loaded[model] = gltf; return gltf; })
     .finally(() => {
       clearTimeout(timer);

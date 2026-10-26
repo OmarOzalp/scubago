@@ -1,9 +1,24 @@
 import React, { act, useEffect } from 'react';
 import { create } from 'react-test-renderer';
 import { useMarineModels } from '@/components/home/three/use-marine-models';
-import { getLoadedMarineModels, loadMarineModels } from '@/components/home/three/marine-loader';
+import { getLoadedMarineModels, loadMarineModel } from '@/components/home/three/marine-loader';
 
-jest.mock('@/components/home/three/marine-loader', () => ({ loadMarineModels: jest.fn(), getLoadedMarineModels: jest.fn(() => null) }));
+// The loader's cache, as the real one keeps it: a model is there once its load has finished.
+let mockLoaded = {};
+jest.mock('@/components/home/three/marine-loader', () => ({
+  loadMarineModel: jest.fn(),
+  getLoadedMarineModels: jest.fn((requested) => {
+    const ready = requested.filter((model) => mockLoaded[model]);
+    if (requested.length > 0 && ready.length === 0) return null;
+    return Object.fromEntries(ready.map((model) => [model, mockLoaded[model]]));
+  }),
+}));
+/** A load the test finishes (or fails) by hand. */
+function pending() {
+  let resolve, reject;
+  const promise = new Promise((res, rej) => { resolve = res; reject = rej; });
+  return { promise, resolve, reject };
+}
 let current;
 let root;
 function Harness({ requested = ['shark'] }) {
@@ -11,69 +26,68 @@ function Harness({ requested = ['shark'] }) {
   useEffect(() => { current = result; });
   return null;
 }
-beforeEach(() => { global.IS_REACT_ACT_ENVIRONMENT = true; });
+beforeEach(() => { global.IS_REACT_ACT_ENVIRONMENT = true; mockLoaded = {}; });
 afterEach(async () => {
   if (root) await act(async () => root.unmount());
   root = null;
   jest.restoreAllMocks();
-  loadMarineModels.mockReset();
-  getLoadedMarineModels.mockReturnValue(null);
+  loadMarineModel.mockReset();
+  getLoadedMarineModels.mockClear();
 });
 
-test('revisiting a scene uses already loaded rigs on its first render', async () => {
-  const models = { shark: {}, manta: {}, 'reef-fish': {} };
-  getLoadedMarineModels.mockReturnValue(models);
-  loadMarineModels.mockReturnValue(new Promise(() => {}));
-  await act(async () => { root = create(<Harness />); });
-  expect(current.models).toBe(models);
+test('revisiting a scene uses already loaded rigs on its first render, and asks for none again', async () => {
+  mockLoaded = { shark: { name: 'shark' }, manta: { name: 'manta' } };
+  await act(async () => { root = create(<Harness requested={['shark', 'manta']} />); });
+  expect(current.models).toEqual({ shark: mockLoaded.shark, manta: mockLoaded.manta });
   expect(current.failed).toBe(false);
+  expect(loadMarineModel).not.toHaveBeenCalled();
+});
+
+test('each animal’s model is there as soon as it is loaded: the scene doesn’t wait for the slowest', async () => {
+  const loads = { shark: pending(), manta: pending() };
+  loadMarineModel.mockImplementation((model) => loads[model].promise);
+  await act(async () => { root = create(<Harness requested={['shark', 'manta']} />); });
+  expect(current.models).toBeNull();
+  await act(async () => { mockLoaded.manta = { name: 'manta' }; loads.manta.resolve(mockLoaded.manta); });
+  expect(current.models).toEqual({ manta: mockLoaded.manta });
+  const first = current.models;
+  await act(async () => { mockLoaded.shark = { name: 'shark' }; loads.shark.resolve(mockLoaded.shark); });
+  expect(current.models).toEqual({ manta: mockLoaded.manta, shark: mockLoaded.shark });
+  // The same models, the same object (the scene compares it).
+  const both = current.models;
+  await act(async () => root.update(<Harness requested={['manta', 'shark']} />));
+  expect(current.models).toBe(both);
+  expect(first).not.toBe(both);
 });
 
 test('a failed load can be retried without leaving the screen', async () => {
   jest.spyOn(console, 'warn').mockImplementation(() => {});
-  const models = { shark: {}, manta: {}, 'reef-fish': {} };
-  loadMarineModels.mockRejectedValueOnce(new Error('offline')).mockResolvedValueOnce(models);
+  loadMarineModel.mockRejectedValueOnce(new Error('offline')).mockImplementationOnce(async (model) => { mockLoaded[model] = { name: model }; return mockLoaded[model]; });
   await act(async () => { root = create(<Harness />); });
   expect(current.failed).toBe(true);
   expect(current.models).toBeNull();
   await act(async () => current.retry());
   expect(current.failed).toBe(false);
-  expect(current.models).toBe(models);
+  expect(current.models).toEqual({ shark: mockLoaded.shark });
 });
 
-
-test('switching requests hides previous rigs and ignores late responses', async () => {
-  let finishOld;
-  const oldLoad = new Promise((resolve) => { finishOld = resolve; });
-  const latest = { 'reef-manta': {} };
-  loadMarineModels.mockReturnValueOnce(oldLoad).mockResolvedValueOnce(latest);
-  await act(async () => { root = create(<Harness requested={['whale-shark']} />); });
-  await act(async () => root.update(<Harness requested={['reef-manta']} />));
-  expect(current.models).toBe(latest);
-  await act(async () => finishOld({ 'whale-shark': {} }));
-  expect(current.models).toBe(latest);
+test('a change of animals keeps those loaded and adds the newcomer once its model is in; a late load for animals gone does no harm', async () => {
+  const whale = pending(), manta = pending();
+  loadMarineModel.mockImplementation((model) => (model === 'whale-shark' ? whale.promise : manta.promise));
+  mockLoaded = { shark: { name: 'shark' } };
+  await act(async () => { root = create(<Harness requested={['shark', 'whale-shark']} />); });
+  expect(current.models).toEqual({ shark: mockLoaded.shark });
+  await act(async () => root.update(<Harness requested={['shark', 'reef-manta']} />));
+  expect(current.models).toEqual({ shark: mockLoaded.shark });
+  await act(async () => { mockLoaded['whale-shark'] = { name: 'whale' }; whale.resolve(mockLoaded['whale-shark']); });
+  expect(current.models).toEqual({ shark: mockLoaded.shark });
+  await act(async () => { mockLoaded['reef-manta'] = { name: 'manta' }; manta.resolve(mockLoaded['reef-manta']); });
+  expect(current.models).toEqual({ shark: mockLoaded.shark, 'reef-manta': mockLoaded['reef-manta'] });
 });
 
-test('A to B to A restores cached A and ignores pending B', async () => {
-  const cachedA = { 'whale-shark': {} };
-  let finishB;
-  getLoadedMarineModels.mockImplementation((requested) => requested.includes('whale-shark') ? cachedA : null);
-  loadMarineModels.mockResolvedValueOnce(cachedA)
-    .mockImplementationOnce(() => new Promise((resolve) => { finishB = resolve; }))
-    .mockResolvedValueOnce(cachedA);
-  await act(async () => { root = create(<Harness requested={['whale-shark']} />); });
-  await act(async () => root.update(<Harness requested={['reef-manta']} />));
-  // (while B loads, what is loaded stays: the scene keeps its animals as one comes on in a turn, its model asked for ahead)
-  expect(current.models).toBe(cachedA);
-  await act(async () => root.update(<Harness requested={['whale-shark']} />));
-  expect(current.models).toBe(cachedA);
-  await act(async () => finishB({ 'reef-manta': {} }));
-  expect(current.models).toBe(cachedA);
-});
-
-test('returning to failed A starts fresh without showing its previous failure', async () => {
+test('returning to a failed selection starts fresh without showing its previous failure', async () => {
   jest.spyOn(console, 'warn').mockImplementation(() => {});
-  loadMarineModels.mockRejectedValueOnce(new Error('offline')).mockImplementation(() => new Promise(() => {}));
+  loadMarineModel.mockRejectedValueOnce(new Error('offline')).mockImplementation(() => new Promise(() => {}));
   await act(async () => { root = create(<Harness requested={['whale-shark']} />); });
   expect(current.failed).toBe(true);
   await act(async () => root.update(<Harness requested={['reef-manta']} />));
@@ -82,13 +96,8 @@ test('returning to failed A starts fresh without showing its previous failure', 
   expect(current.failed).toBe(false);
 });
 
-test('returning to a failed selection starts a fresh loading state', async () => {
-  jest.spyOn(console, 'warn').mockImplementation(() => {});
-  loadMarineModels.mockRejectedValueOnce(new Error('offline')).mockReturnValue(new Promise(() => {}));
-  await act(async () => { root = create(<Harness requested={['whale-shark']} />); });
-  expect(current.failed).toBe(true);
-  await act(async () => root.update(<Harness requested={['reef-manta']} />));
-  await act(async () => root.update(<Harness requested={['whale-shark']} />));
+test('nothing asked for is nothing to wait for', async () => {
+  await act(async () => { root = create(<Harness requested={[]} />); });
+  expect(current.models).toEqual({});
   expect(current.failed).toBe(false);
-  expect(current.models).toBeNull();
 });

@@ -10,7 +10,7 @@ let mockParams = {};
 let mockAddSite = null;
 
 jest.mock('expo-router', () => ({
-  router: { back: jest.fn(), dismiss: jest.fn(), push: jest.fn(), replace: jest.fn() },
+  router: { back: jest.fn(), dismiss: jest.fn(), push: jest.fn(), replace: jest.fn(), canGoBack: jest.fn(() => true), canDismiss: jest.fn(() => true) },
   useLocalSearchParams: () => mockParams,
 }));
 jest.mock('@/global.css', () => ({}));
@@ -122,6 +122,36 @@ describe('the buttons', () => {
     await press('Add site');
     expect(notifySiteAdded).toHaveBeenCalledWith('user-1');
     expect(router.back).toHaveBeenCalledTimes(1);
+  });
+
+  // Opened straight from a link, or the web page reloaded on it: nothing underneath to go back to.
+  test('with nothing underneath, adding a site still leaves the screen: to Explore, or on to the log', async () => {
+    router.canGoBack.mockReturnValue(false);
+    router.canDismiss.mockReturnValue(false);
+    try {
+      await render();
+      await fill();
+      await press('Add site');
+      expect(router.back).not.toHaveBeenCalled();
+      expect(router.replace).toHaveBeenLastCalledWith('/map');
+
+      await act(async () => root.unmount());
+      await render();
+      await fill();
+      await press('Add and log a dive');
+      expect(router.dismiss).not.toHaveBeenCalled();
+      expect(router.replace).toHaveBeenLastCalledWith({ pathname: '/log/new', params: { siteId: 'user-1' } });
+
+      await act(async () => root.unmount());
+      mockParams = { then: 'log', name: 'Shark Point' };
+      await render();
+      await typeInto('Coordinates (required)', '7.81, 98.54');
+      await press('Add site');
+      expect(router.replace).toHaveBeenLastCalledWith({ pathname: '/log/new', params: { siteId: 'user-1' } });
+    } finally {
+      router.canGoBack.mockReturnValue(true);
+      router.canDismiss.mockReturnValue(true);
+    }
   });
 
   test('a site that could not be saved says so, and can be tried again', async () => {

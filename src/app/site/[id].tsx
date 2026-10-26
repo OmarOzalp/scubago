@@ -11,7 +11,7 @@ import { Wash } from '@/components/journal/wash';
 import { OceanButton } from '@/components/ocean-button';
 import { SiteSightingsSection } from '@/components/sightings/site-sightings-section';
 import { formatDate, SightingRow } from '@/components/sighting-row';
-import { SpeciesCard } from '@/components/species-card';
+import { cardWidthFor, onGridLayout, SpeciesCard } from '@/components/species-card';
 import { ThemedText } from '@/components/themed-text';
 import { Radius, Type } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
@@ -118,7 +118,7 @@ export default function SiteDetailScreen() {
   const allMine = siteSightings.every((s) => mineIds.has(s.id));
   // Three plates a row on a phone, more on a wide screen.
   const columns = Math.max(3, Math.min(6, Math.floor(inner / 150)));
-  const cardWidth = Math.floor((inner - GAP * (columns - 1)) / columns);
+  const cardWidth = cardWidthFor(inner, columns);
 
   return (
     <>
@@ -227,7 +227,7 @@ export default function SiteDetailScreen() {
         {notable.length > 0 ? (
           <View style={styles.section}>
             <SectionHeader title="What divers see here" />
-            <View style={styles.grid} onLayout={(e) => setInner(Math.floor(e.nativeEvent.layout.width))}>
+            <View style={styles.grid} onLayout={onGridLayout(setInner)}>
               {notable.map((species) => (
                 <SpeciesCard
                   key={species.id}

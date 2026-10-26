@@ -82,8 +82,10 @@ export function columnsToDive(row: Record<string, any>): DiveFields & Pick<Dive,
     } else out[key] = String(v);
   }
   const fields = out as unknown as DiveFields & Pick<Dive, 'fromSightings'>;
-  if (row.signature_name && row.signed_at) {
-    const signature: DiveSignature = { name: String(row.signature_name), at: new Date(row.signed_at).toISOString() };
+  // A signing time that can't be read leaves the signature out (it used to throw, and one such page kept the whole log shut).
+  const signedAt = row.signed_at ? new Date(row.signed_at) : null;
+  if (row.signature_name && signedAt && !Number.isNaN(signedAt.getTime())) {
+    const signature: DiveSignature = { name: String(row.signature_name), at: signedAt.toISOString() };
     if (row.signature_svg) signature.svg = String(row.signature_svg);
     if (ROLES.has(row.signature_role)) signature.role = row.signature_role;
     fields.signature = signature;

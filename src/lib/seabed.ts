@@ -4,6 +4,7 @@ import { islandScale, seabedProps, shapeFor, shoreDistance, shorePolygons, type 
 import { OCEAN, reefShape, seabedProfile, shelfStretch, wallMeasure, type OceanConfig } from './ocean';
 import { coralHeads } from './reef-coast';
 import { REEF_ANEMONE, REEF_ROCK, reefRocks } from './reef-life';
+import { bakedGrid, bakedLattice } from './seabed-bake';
 import { seabedLattice, type Lattice, type WaterExtent } from './seabed-lattice';
 import { smoothstep, worldFor } from './steering';
 import { alongWreck, WRECK } from './wreck';
@@ -103,9 +104,15 @@ export function createSeabedField(level: number, islands: readonly OceanIsland[]
   const field: SeabedField = {
     shores, reefs, nearest, profileAt, bank,
     lattice(reach?: WaterExtent) {
-      const reaching = JSON.stringify(reach ?? null);
+      // (no reach is the usual one: the drawn seabed and the animals' share one lattice)
+      const reaching = JSON.stringify(reach ?? OCEAN.waterExtent);
       let made = lattices.get(reaching);
-      if (!made) { made = seabedLattice({ islands, shores: shores.map((polygons) => polygons[0]), bank, profile: (x, z) => profileAt(x, z), crest, wall }, level, reach); lattices.set(reaching, made); }
+      if (!made) {
+        // Built ahead of time (seabed-bake.ts) for the usual ocean, where there is a bake: the very same lattice.
+        made = (config === OCEAN ? bakedLattice(level, islands, reach) : undefined)
+          ?? seabedLattice({ islands, shores: shores.map((polygons) => polygons[0]), bank, profile: (x, z) => profileAt(x, z), crest, wall }, level, reach);
+        lattices.set(reaching, made);
+      }
       return made;
     },
   };
@@ -247,21 +254,11 @@ export const HABITATS: Record<IslandShape, Habitat> = { reef: 'island', kelp: 'k
 const LAND = OCEAN.surfaceLevel + .5;
 
 /**
- * The seabed around one island, baked once per island, level and neighbours (the explorer's bank): the very
- * triangles the water's seabed is drawn from (seabed-lattice.ts: the shelf, the Coral Reef's lagoon and crest,
- * the bank between the islands), set down on a grid, with the coral heads, rocks and the wreck standing on them.
- * Heights are world y, in the island's own frame. `among.reach` is how far the explorer's water reaches.
+ * The bare seabed on the animals' grid, from the lattice's triangles (`home`: the island's place among them): each sampled
+ * in the order they are drawn (a later one over an earlier) at twice the grid's fineness, then each grid point the highest
+ * the drawing is within a cell of it.
  */
-export function createSeabed(level: number, shape: IslandShape = 'reef', among?: { islands: readonly OceanIsland[]; index: number; reach?: WaterExtent }): Seabed {
-  const where = among && among.islands.length > 1 ? among : undefined;
-  const key = `${shape}:${level}:${where ? `${where.index}:${where.islands.map((i) => `${i.x},${i.z},${i.habitat}`).join(';')}:${JSON.stringify(where.reach ?? null)}` : ''}`, cached = seabeds.get(key);
-  if (cached) {
-    // (most recently used last)
-    seabeds.delete(key); seabeds.set(key, cached);
-    return cached;
-  }
-  const reef = shape === 'reef', islands = where ? where.islands : [{ x: 0, z: 0, habitat: HABITATS[shape] }], home = islands[where ? where.index : 0];
-  const { positions, indices } = createSeabedField(level, islands).lattice(where?.reach);
+function bareGrid({ positions, indices }: Lattice, home: { x: number; z: number }) {
   // Each triangle, in the order they are drawn (a later one over an earlier), sampled at twice the grid's fineness.
   const fineColumns = 2 * COLUMNS - 1, fineRows = 2 * ROWS - 1, half = STEP / 2, fine = new Float32Array(fineColumns * fineRows).fill(LAND);
   for (let t = 0; t < indices.length; t += 3) {
@@ -291,7 +288,34 @@ export function createSeabed(level: number, shape: IslandShape = 'reef', among?:
       floors[j * COLUMNS + i] = top;
     }
   }
-  const bare = Float32Array.from(floors);
+  return floors;
+}
+
+/** A lone island's bare grid, always worked out (never a bake's): what scripts/bake-seabed.ts bakes and the tests compare it with. */
+export function bareSeabedGrid(level: number, shape: IslandShape) {
+  const island = { x: 0, z: 0, habitat: HABITATS[shape] };
+  return bareGrid(createSeabedField(level, [island]).lattice(), island);
+}
+
+/**
+ * The seabed around one island, baked once per island, level and neighbours (the explorer's bank): the very
+ * triangles the water's seabed is drawn from (seabed-lattice.ts: the shelf, the Coral Reef's lagoon and crest,
+ * the bank between the islands), set down on a grid, with the coral heads, rocks and the wreck standing on them.
+ * Heights are world y, in the island's own frame. `among.reach` is how far the explorer's water reaches.
+ */
+export function createSeabed(level: number, shape: IslandShape = 'reef', among?: { islands: readonly OceanIsland[]; index: number; reach?: WaterExtent }): Seabed {
+  const where = among && among.islands.length > 1 ? among : undefined;
+  const key = `${shape}:${level}:${where ? `${where.index}:${where.islands.map((i) => `${i.x},${i.z},${i.habitat}`).join(';')}:${JSON.stringify(where.reach ?? null)}` : ''}`, cached = seabeds.get(key);
+  if (cached) {
+    // (most recently used last)
+    seabeds.delete(key); seabeds.set(key, cached);
+    return cached;
+  }
+  const reef = shape === 'reef', islands = where ? where.islands : [{ x: 0, z: 0, habitat: HABITATS[shape] }], home = islands[where ? where.index : 0];
+  // The bare grid, built ahead of time where there is a bake (seabed-bake.ts: the very same numbers), or from the lattice.
+  const baked = where ? undefined : bakedGrid(level, islands);
+  const floors = baked ? Float32Array.from(baked) : bareGrid(createSeabedField(level, islands).lattice(where?.reach), home);
+  const bare = baked ?? Float32Array.from(floors);
   let deepest = Infinity;
   for (let i = 0; i < floors.length; i++) if (floors[i] < deepest) deepest = floors[i];
   // Things standing on the bottom: each is stamped in as a dome (a capsule for the wreck) of its own height over the floor.

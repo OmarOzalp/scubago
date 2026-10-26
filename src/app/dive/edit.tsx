@@ -20,6 +20,7 @@ import { useTheme } from '@/hooks/use-theme';
 import { announce } from '@/lib/announce';
 import { draftFromDive, fieldOfProblem, hasMoreDetails, readDraft, type DiveDraft, type DraftField } from '@/lib/dive-draft';
 import { formatDiveNumber, signaturesOf, sortDives } from '@/lib/dives';
+import { leave } from '@/lib/leave';
 import { onSiteAdded } from '@/lib/site-added';
 import { useAllSites, useAppStore, useMyDives, useMyUserId, useSiteById } from '@/lib/store';
 import { statusOf } from '@/lib/verification';
@@ -138,7 +139,7 @@ function EditDiveScreen() {
     try {
       await updateDive(dive.id, read.fields);
       allowLeaving();
-      router.back();
+      leave(`/dive/${dive.id}`);
     } catch (e: any) {
       const message: string = e.message ?? 'Could not save the page';
       complain(message, fieldOfProblem(message));

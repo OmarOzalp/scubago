@@ -4,6 +4,9 @@ import { create } from 'react-test-renderer';
 import { router } from 'expo-router';
 import { SanctuaryScene } from '../sanctuary-scene';
 import { useMarineModels } from '../three/use-marine-models';
+import { registerSeabedBake } from '@/lib/seabed-bake';
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 
 jest.mock('../three/scene-canvas', () => ({ SceneCanvas: ({ children }) => <>{children}</> }));
 jest.mock('../three/use-marine-models', () => ({ useMarineModels: jest.fn() }));
@@ -17,7 +20,10 @@ jest.mock('@react-three/fiber', () => ({
   useFrame: jest.fn(),
   useThree: (select) => select({ size: { width: 420, height: 390 }, invalidate: () => {}, camera: {} }),
 }));
-jest.mock('../three/animated-marine', () => ({ AnimatedMarine: ({ model, onPress }) => <swimmer model={model} onPress={onPress} /> }));
+jest.mock('../three/animated-marine', () => ({ AnimatedMarine: ({ model, onPress, lane, motion, emerge }) => <swimmer {...{ model, onPress, lane, motion, emerge }} /> }));
+// What Home's card showed last (home-start.ts): nothing kept, unless a test keeps something.
+let mockKept = null;
+jest.mock('../home-start', () => ({ ...jest.requireActual('../home-start'), useHomeScene: () => mockKept, rememberHomeScene: jest.fn(), rememberHomePicture: jest.fn() }));
 jest.mock('../three/tuna-school-mesh', () => ({ TunaSchoolMesh: ({ onPress }) => <school onPress={onPress} /> }));
 jest.mock('../three/marine-splashes', () => ({ MarineSplashes: () => null }));
 jest.mock('../three/reef-rocks', () => ({ ReefRocks: ({ morays, octopuses }) => <rocks morays={morays} octopuses={octopuses} /> }));
@@ -29,13 +35,13 @@ jest.mock('../three/kelp-movers', () => ({ KELP_MOVERS: 12, KelpMoversContext: r
 jest.mock('../three/macro-life', () => ({ MacroLife: ({ species, onPress, onFocus }) => <macro data-species={species} onPress={onPress} onFocus={onFocus} /> }));
 jest.mock('../island-scene', () => ({ IslandScene: () => <fallback /> }));
 jest.mock('expo-router', () => ({ router: { push: jest.fn() } }));
-
-// The first scene here with animals builds its island's seabed for real (the animals' floor is read off
-// the drawn mesh): about a tenth of a second in Node, several seconds under Jest's transform.
-jest.setTimeout(20000);
+// No asset files under Jest: the seabed built ahead of time for Home's island at the first level is read from disk
+// instead (the scenes here with animals swim over it for real: worked out under Jest's transform, it takes seconds).
+jest.mock('../three/seabed-files', () => ({ SEABED_FILES: {} }));
+for (const bake of ['reef-1', 'kelp-1']) registerSeabedBake(readFileSync(join(process.cwd(), `assets/baked/seabed/${bake}.bin`)));
 
 let root;
-beforeEach(() => { global.IS_REACT_ACT_ENVIRONMENT = true; });
+beforeEach(() => { global.IS_REACT_ACT_ENVIRONMENT = true; mockKept = null; });
 afterEach(async () => { if (root) await act(async () => root.unmount()); root = null; });
 const props = { habitat: 'island', level: 1, residents: [], onInspect: jest.fn() };
 
@@ -189,4 +195,82 @@ test('on the Home card, a tap anywhere no animal takes opens the island full scr
   const explorer = { camera: null, tapScale: 1, zoom: () => 40, focus: jest.fn() };
   await act(async () => root.update(<SanctuaryScene {...props} residents={residents} onOpen={onOpen} explorer={explorer} />));
   expect(root.root.findAll((node) => node.type === 'mesh' && typeof node.props.onClick === 'function')).toHaveLength(0);
+});
+
+test('each animal joins as soon as its own model is loaded, emerging from the deep where it is; the scene never waits for the slowest', async () => {
+  const residents = [logged('great-white-shark', 'shark'), logged('reef-manta', 'ray')];
+  useMarineModels.mockReturnValue({ models: null, failed: false, retry: jest.fn() });
+  await act(async () => { root = create(<SanctuaryScene {...props} residents={residents} />); });
+  // The ocean is there, with no animal yet.
+  expect(root.root.findAllByType('environment')).toHaveLength(1);
+  expect(root.root.findAllByType('swimmer')).toHaveLength(0);
+  useMarineModels.mockReturnValue({ models: { 'reef-manta': {} }, failed: false, retry: jest.fn() });
+  await act(async () => root.update(<SanctuaryScene {...props} residents={residents} />));
+  expect(root.root.findAllByType('swimmer').map((s) => s.props.model)).toEqual(['reef-manta']);
+  useMarineModels.mockReturnValue({ models: { 'reef-manta': {}, 'great-white-shark': {} }, failed: false, retry: jest.fn() });
+  await act(async () => root.update(<SanctuaryScene {...props} residents={residents} />));
+  const swimmers = root.root.findAllByType('swimmer');
+  expect(swimmers.map((s) => s.props.model).sort()).toEqual(['great-white-shark', 'reef-manta']);
+  // The scene was on show: each comes into view at its place on the island, rising out of the deep blue (never popping in,
+  // nor taking the long way in from beyond the view, as a newcomer at the end of another's turn does).
+  for (const swimmer of swimmers) {
+    expect(swimmer.props.motion.arrival(swimmer.props.lane)?.stage ?? 'arrived').toBe('arrived');
+    expect(swimmer.props.emerge).toBe(true);
+  }
+});
+
+const PICTURE = 'file:///documents/home-island-1.png';
+const picture = () => root.root.findAll((node) => node.props.source?.uri === PICTURE && typeof node.type === 'string');
+test('Home opens on its kept picture until the live scene has drawn itself with its animals, then cross-fades to it', async () => {
+  jest.useFakeTimers();
+  try {
+    mockKept = { level: 1, habitat: 'island', models: ['reef-fish'], picture: { uri: PICTURE, level: 1, habitat: 'island' } };
+    const residents = [logged('clown-triggerfish', 'fish'), logged('blue-tang', 'fish')];
+    // Still reading the collection (level unknown: the picture's is taken), models not in yet.
+    useMarineModels.mockReturnValue({ models: null, failed: false, retry: jest.fn() });
+    await act(async () => { root = create(<SanctuaryScene {...props} level={2} loading residents={[]} />); });
+    expect(picture()).toHaveLength(1);
+    expect(picture()[0].props.pointerEvents).toBe('none');
+    // The collection read and the models in: an animal joining now is simply there (it is behind the picture).
+    useMarineModels.mockReturnValue({ models: { 'reef-fish': {} }, failed: false, retry: jest.fn() });
+    await act(async () => root.update(<SanctuaryScene {...props} level={1} residents={residents} />));
+    expect(picture()).toHaveLength(1);
+    const watch = root.root.find((node) => typeof node.type === 'function' && node.type.name === 'FrameWatch');
+    expect(watch.props.watching).toBe(true);
+    for (const swimmer of root.root.findAllByType('swimmer')) {
+      expect(swimmer.props.motion.arrival(swimmer.props.lane)?.stage ?? 'arrived').toBe('arrived');
+      expect(swimmer.props.emerge).toBe(false);
+    }
+    // Its first frame with them drawn: the picture fades out, and is gone.
+    await act(async () => watch.props.onDrawn());
+    await act(async () => { jest.advanceTimersByTime(1000); });
+    expect(picture()).toHaveLength(0);
+  } finally {
+    jest.useRealTimers();
+  }
+});
+test('a kept picture of another level, another island or the explorer is not shown: the live scene at once', async () => {
+  mockKept = { level: 2, habitat: 'island', models: [], picture: { uri: PICTURE, level: 2, habitat: 'island' } };
+  // (the level is known: the collection is read)
+  useMarineModels.mockReturnValue({ models: {}, failed: false, retry: jest.fn() });
+  await act(async () => { root = create(<SanctuaryScene {...props} level={1} />); });
+  expect(picture()).toHaveLength(0);
+  await act(async () => root.unmount());
+  mockKept = { ...mockKept, picture: { uri: PICTURE, level: 1, habitat: 'island' } };
+  await act(async () => { root = create(<SanctuaryScene {...props} habitat="kelp" />); });
+  expect(picture()).toHaveLength(0);
+  await act(async () => root.unmount());
+  const explorer = { camera: null, tapScale: 1, zoom: () => 40, focus: jest.fn() };
+  await act(async () => { root = create(<SanctuaryScene {...props} explorer={explorer} />); });
+  expect(picture()).toHaveLength(0);
+});
+test('what Home’s own island shows is kept for the next launch (its level and its animals’ models), not another island’s', async () => {
+  const { rememberHomeScene } = require('../home-start');
+  rememberHomeScene.mockClear();
+  useMarineModels.mockReturnValue({ models: { 'reef-fish': {} }, failed: false, retry: jest.fn() });
+  await act(async () => { root = create(<SanctuaryScene {...props} residents={[logged('clown-triggerfish', 'fish')]} />); });
+  expect(rememberHomeScene).toHaveBeenLastCalledWith(1, 'island', ['reef-fish']);
+  rememberHomeScene.mockClear();
+  await act(async () => root.update(<SanctuaryScene {...props} habitat="kelp" residents={[logged('clown-triggerfish', 'fish')]} />));
+  expect(rememberHomeScene).not.toHaveBeenCalled();
 });

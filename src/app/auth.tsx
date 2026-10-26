@@ -29,6 +29,7 @@ import {
   startRecovery,
 } from '@/lib/auth';
 import { confirmAction } from '@/lib/confirm';
+import { leave } from '@/lib/leave';
 import { useAppStore, useDivesBefore, usePendingChanges } from '@/lib/store';
 import { getSupabase } from '@/lib/supabase';
 
@@ -94,7 +95,7 @@ function Account({ username }: { username: string }) {
     });
     if (!ok) return;
     await signOutUser();
-    router.back();
+    leave('/logbook');
   };
 
   const removeAccount = async () => {
@@ -110,7 +111,7 @@ function Account({ username }: { username: string }) {
     setError(null);
     try {
       await deleteAccount();
-      router.back();
+      leave('/logbook');
     } catch (e: any) {
       const message = e.message ?? 'Could not delete your account';
       setError(message);

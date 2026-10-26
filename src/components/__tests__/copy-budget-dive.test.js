@@ -11,7 +11,7 @@ const BUDGET = 75;
 
 let mockHeader;
 jest.mock('expo-router', () => ({
-  router: { back: jest.fn(), push: jest.fn(), replace: jest.fn() },
+  router: { back: jest.fn(), push: jest.fn(), replace: jest.fn(), canGoBack: jest.fn(() => true), canDismiss: jest.fn(() => true) },
   useLocalSearchParams: () => ({ id: 'd1' }),
   Stack: { Screen: ({ options }) => { mockHeader = options; return options?.headerRight ? options.headerRight() : null; } },
 }));

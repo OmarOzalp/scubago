@@ -30,6 +30,8 @@ jest.mock('../three/kelp-movers', () => ({ KELP_MOVERS: 12, KelpMoversContext: r
 jest.mock('../three/macro-life', () => ({ MacroLife: () => null }));
 jest.mock('../island-scene', () => ({ IslandScene: () => <fallback /> }));
 jest.mock('expo-router', () => ({ router: { push: jest.fn() } }));
+// No asset files under Jest: no seabed built ahead of time (it is worked out).
+jest.mock('../three/seabed-files', () => ({ SEABED_FILES: {} }));
 
 let root;
 beforeEach(() => {

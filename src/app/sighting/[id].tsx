@@ -23,6 +23,7 @@ import { announce } from '@/lib/announce';
 import { UNLISTED_ID, speciesForSighting } from '@/lib/catalog';
 import { confirmAction } from '@/lib/confirm';
 import { formatDiveNumber } from '@/lib/dives';
+import { leave } from '@/lib/leave';
 import { isPrivateSighting, privacySummary, sharesNotes, sharesPhoto } from '@/lib/privacy';
 import { canEditSighting, localIsoDate } from '@/lib/sighting-edit';
 import { useAppStore, useMyUserId, useSiteById } from '@/lib/store';
@@ -64,7 +65,11 @@ export default function SightingDetailScreen() {
   const theme = useTheme();
   const scheme = useSchemeName();
   const siteById = useSiteById();
-  const sighting = useAppStore((s) => s.sightings.find((x) => x.id === id));
+  const live = useAppStore((s) => s.sightings.find((x) => x.id === id));
+  // Deleted from this page: it goes on showing the sighting while it closes, rather than "This sighting isn't
+  // here any more" sliding away (the store has dropped it before the navigator has taken the page down).
+  const [leaving, setLeaving] = useState<Sighting | null>(null);
+  const sighting = live ?? leaving ?? undefined;
   // Only the diver's own pages are ever on the phone.
   const dive = useAppStore((s) => (sighting?.diveId ? s.dives.find((d) => d.id === sighting.diveId) : undefined));
   const myUserId = useMyUserId();
@@ -109,11 +114,14 @@ export default function SightingDetailScreen() {
   const remove = async () => {
     setBusy(true);
     setError(null);
+    setLeaving(sighting);
     try {
       await deleteSighting(sighting.id);
-      router.back();
+      // Back where the diver came from; opened straight from a link, to its page (or the logbook).
+      leave(sighting.diveId ? `/dive/${sighting.diveId}` : '/logbook');
     } catch (e: any) {
       const message = e.message ?? 'Could not delete this sighting';
+      setLeaving(null);
       setError(message);
       announce(message);
       setBusy(false);
