@@ -81,8 +81,11 @@ export function AnimatedMarine({ model, gltf, lane, active, inspect = false, pop
     return rig?.complete ? rig : null;
   }, [instance, model, lane]);
   const mixer = useMemo(() => new AnimationMixer(instance), [instance]);
-  // Slender animals get an invisible tap target over their body that moves (and leaps) with them.
-  const target = useMemo(() => (inspect || !onPress ? null : tapTarget(instance, SIZE[model], tapScale, TAP_SHAPES[model])), [instance, inspect, onPress, model, tapScale]);
+  // Slender animals get an invisible tap target over their body that moves (and leaps) with them. It depends on whether there is
+  // a handler at all, never on which closure it is (the scene hands a new one down at every render), and on the body of the model
+  // the animal was cloned from: measured once for all of them (tap-target.ts).
+  const tappable = !!onPress;
+  const target = useMemo(() => (inspect || !tappable ? null : tapTarget(instance, SIZE[model], tapScale, TAP_SHAPES[model], gltf.scene)), [instance, inspect, tappable, model, tapScale, gltf.scene]);
   const group = useRef<Group>(null);
   const elapsed = useRef(0);
   // Without a shared motion, pitch follows the rise and fall through the water, eased so it never snaps.

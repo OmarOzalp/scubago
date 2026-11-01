@@ -48,14 +48,31 @@ export const TAP_SHAPES: Partial<Record<keyof typeof MARINE_SIZE, { z: number; h
   clownfish: { z: 0, halfWidth: .2, halfLength: .45 },
 };
 
+/** A model's body at rest, in its own units: the middle of its box and the box's size. */
+type Body = { center: Vector3; extent: Vector3 };
+/** Measured once for each parsed model: every animal cloned from it has this same body (see `tapTarget`'s `source`). */
+const bodies = new WeakMap<object, Body>();
+
 /**
  * An invisible tap target for a slender animal (a dolphin seen from above, a reef fish): an oval
  * over its body, in the model's own units, at least MIN_TAP across on screen when the camera has
  * pulled back by `scale` and the model is drawn `size` long. Null when the body is big enough to
  * tap as it is. A fixed `shape` (TAP_SHAPES) is always used, kept to the same minimum.
+ *
+ * The body is measured on `instance` as it is right now, so call it on a clone not yet placed in
+ * the scene (placed, its box would be taken in the world, scaled and turned with its animal).
+ * Measuring skins every vertex of a rigged model, which is slow under Hermes, so with the parsed
+ * model the clone came from as `source` it is measured once and the oval for another clone of it, or
+ * for another camera pullback (the explorer's zoom), is worked out from that.
  */
-export function tapTarget(instance: Object3D, size: number, scale = 1, shape?: { z: number; halfWidth: number; halfLength: number }) {
-  const box = new Box3().setFromObject(instance), center = box.getCenter(new Vector3()), extent = box.getSize(new Vector3());
+export function tapTarget(instance: Object3D, size: number, scale = 1, shape?: { z: number; halfWidth: number; halfLength: number }, source?: object) {
+  let body = source ? bodies.get(source) : undefined;
+  if (!body) {
+    const box = new Box3().setFromObject(instance);
+    body = { center: box.getCenter(new Vector3()), extent: box.getSize(new Vector3()) };
+    if (source) bodies.set(source, body);
+  }
+  const { center, extent } = body;
   const least = MIN_TAP * scale / size;
   if (shape) return { x: 0, y: center.y, z: shape.z, halfWidth: Math.max(shape.halfWidth, least), halfLength: Math.max(shape.halfLength, least) };
   const halfWidth = extent.x / 2, halfLength = extent.z / 2;

@@ -313,6 +313,24 @@ for (const lite of [false, true]) {
   }
 }
 
+// A model's tap target is measured once, on a clone at rest (tapTarget's `source`, animated-marine.tsx), however many animals are cloned from
+// it and whatever the camera's pullback: the oval for a clone already on show (scaled and turned with its animal, where measuring it again would
+// take its box in the world) and for another pullback is the one a freshly cloned animal gets.
+{
+  for (const name of ['bottlenose-dolphin', 'reef-fish', 'great-barracuda', 'golden-jellyfish', 'whale-shark', ...REEF]) {
+    const source = await loadModel(name), size = MARINE_SIZE[name], shape = TAP_SHAPES[name];
+    const prepared = () => { const copy = clone(source.scene); prepareUnderwater(copy, ocean, false, undefined); return copy; };
+    for (const scale of [1, oceanScale(6), 2.5]) {
+      const fresh = tapTarget(prepared(), size, scale, shape);
+      assert.deepEqual(tapTarget(prepared(), size, scale, shape, source.scene), fresh, `${name}: the tap target of a model measured once differs from a fresh clone's (pullback ${scale})`);
+      const placed = prepared(), group = new Group().add(placed);
+      group.position.set(3.1, -.4, -2.2); group.rotation.set(.2, 1.1, 0, 'YXZ'); group.scale.setScalar(size); group.updateMatrixWorld(true);
+      assert.deepEqual(tapTarget(placed, size, scale, shape, source.scene), fresh, `${name}: its tap target changed once the animal was on show (pullback ${scale})`);
+    }
+  }
+  console.log('tap targets: measured once for each model, the same for a clone on show and at every pullback');
+}
+
 // The Mangroves & Seagrass island's seagrass (seagrass-geometry.ts): within its triangle budget, every
 // vertex finite, every blade standing on the seabed and wholly under the surface.
 for (const level of [1, 6]) {
