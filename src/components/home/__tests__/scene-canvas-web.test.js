@@ -9,8 +9,9 @@ const mockInvalidate = jest.fn();
 let mockFrame;
 jest.mock('@react-three/fiber', () => ({
   Canvas: (props) => <canvas {...props} />,
-  useThree: (select) => select({ invalidate: (...args) => mockInvalidate(...args) }),
+  useThree: (select) => select({ invalidate: (...args) => mockInvalidate(...args), gl: {}, scene: {} }),
   useFrame: (callback) => { mockFrame = callback; },
+  addAfterEffect: () => () => {},
 }));
 let root;
 beforeEach(() => { global.IS_REACT_ACT_ENVIRONMENT = true; jest.useFakeTimers(); mockInvalidate.mockClear(); mockFrame = undefined; });

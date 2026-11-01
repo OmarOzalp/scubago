@@ -17,8 +17,9 @@ jest.mock('@react-three/fiber/native', () => ({
 }));
 // (the frame pacer, shared with the web canvas, reads the same renderer through the package's own entry)
 jest.mock('@react-three/fiber', () => ({
-  useThree: (select) => select({ invalidate: (...args) => mockInvalidate(...args) }),
+  useThree: (select) => select({ invalidate: (...args) => mockInvalidate(...args), gl: {}, scene: {} }),
   useFrame: (callback) => { mockFrame = callback; },
+  addAfterEffect: () => () => {},
 }));
 let root;
 beforeEach(() => {

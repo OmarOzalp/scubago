@@ -1,6 +1,7 @@
 import type { ComponentProps } from 'react';
 import { Canvas } from '@react-three/fiber';
 import { AMBIENT_FPS, FramePacer, FrameRateContext } from './frame-pacer';
+import { ProgramKeeper } from './program-keeper';
 import { sceneQuality, SceneQualityContext } from './scene-quality';
 
 /**
@@ -15,5 +16,6 @@ export function SceneCanvas({ children, frameloop = 'always', fps = AMBIENT_FPS,
       <SceneQualityContext.Provider value={sceneQuality(false)}>{children}</SceneQualityContext.Provider>
     </FrameRateContext.Provider>
     {paced && <FramePacer fps={fps} />}
+    <ProgramKeeper />
   </Canvas>;
 }

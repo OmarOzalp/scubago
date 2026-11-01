@@ -3,6 +3,7 @@ import { PixelRatio, StyleSheet, View } from 'react-native';
 import { isDevice } from 'expo-device';
 import { Canvas, useFrame, useThree } from '@react-three/fiber/native';
 import { AMBIENT_FPS, FramePacer, FrameRateContext } from './frame-pacer';
+import { ProgramKeeper } from './program-keeper';
 import { sceneQuality, SceneQualityContext } from './scene-quality';
 
 /**
@@ -76,6 +77,7 @@ export function SceneCanvas({ style, children, frameloop = 'always', fps = AMBIE
       </FrameRateContext.Provider>
       {!isDevice && <SimulatorFrames active={frameloop === 'always'} />}
       {paced && <FramePacer fps={fps} />}
+      <ProgramKeeper />
     </Canvas>}
   </View>;
 }
