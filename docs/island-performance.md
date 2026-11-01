@@ -344,8 +344,8 @@ the animals swim over (seabed-lattice.ts), the depth map's texels, the water's s
 grid of the bottom. The Coral Reef's lattice was also worked out twice (once for the drawn seabed, once
 for the animals: their caches had different keys). Now the two share one, and `scripts/bake-seabed.ts`
 writes what each island alone at each level works out (and Home's island alone in the explorer, at a
-phone's reach) to `assets/baked/seabed/*.bin` (6.4 MB in all; one file, 160 to 310 KB, is loaded for the
-island on show). Once loaded (`seabed-assets.ts`), a scene uses it instead: the very same numbers. The
+phone's reach) to `assets/baked/seabed/*.bin` (6.4 MB in all, 8.6 MB since the other islands' animals' grids were
+baked too, see "Ready before you open it" below; one file, 160 to 310 KB, is loaded for the island on show). Once loaded (`seabed-assets.ts`), a scene uses it instead: the very same numbers. The
 `seabed-bake-*.test.ts` tests compare every file with the computation, so a bake left stale by a change
 to the seabed fails them: run `npx tsx scripts/bake-seabed.ts` again. Without a bake (several islands in
 the explorer, another reach), everything is worked out as before.
@@ -414,7 +414,8 @@ picture to the pixel, before and after this work).
 
 - The explorer with several islands in reach still works out its seabed (about 1.2 s with a JIT, much
   longer on an interpreter); only Home's island alone is baked for it. (It is now worked out once for each
-  set of islands and level and kept, and about 40% quicker the first time: see "Building less" below.)
+  set of islands and level and kept, about 40% quicker the first time: see "Building less" below; and since then it
+  arrives in slices, is saved on the phone and is made ready while Home is idle: see "Ready before you open it".)
 - With Reduce Motion the island is still, and a still island is not photographed (as for Share), so the
   card takes no new picture; one kept earlier is still shown and replaced at once.
 - Physical-device timing is still unmeasured.
@@ -548,7 +549,7 @@ same islands, corals, forests and boats in the same places.
 Not done: the animals' simulation is still started for every island at every mount (about 0.55 s an island
 under `--jitless`, 0.09 s more for each animal after the first), the first mount of each island's coast and
 props (the corals' own copy for the water's tint is 60 ms a mount even from the cache), the explorer's
-five-island ocean the first time (6.2 s of the 11.5 s at level 3 under `--jitless`: it has no bake), islets and the level-4 palm, which are small and still built at each mount. On a phone to
+five-island ocean the first time (6.2 s of the 11.5 s at level 3 under `--jitless`: it has no bake; since sliced, saved and made ready: see below), islets and the level-4 palm, which are small and still built at each mount. On a phone to
 time: Home on a first launch and after a level-up, the explorer's first open with one, three and five
 islands, and its second open, going back to an island pill, and memory after a session of opening the explorer
 (`geometryCacheSize()` in geometry-cache.ts reports what is kept).
@@ -650,3 +651,102 @@ To time on a phone: Home's first launch, with and without a kept picture (`scuba
 and second open with one, three and five islands (`scubago:explorer-frame`, `-animal`, `-built`, `-picture`), the steps' lengths (the `scubago:step`
 measures), whether the picture is there from the first frame, and whether the animals' arrival and the islands growing in read as smooth.
 
+## Ready before you open it (November 2026)
+
+The explorer's ocean of several islands (its depth map and region maps, the seabed's lattice and the water's
+shoaling) was the longest wait of its first open: 6.2 s of 11.5 s at level 3 under `node --jitless` (the closest
+stand-in for Hermes) for the five islands, 8.6 s at level 6, all in one task that froze the screen, and the same
+numbers every time for the same islands, level and reach. It now arrives in slices, is kept on the phone, and is
+made ready while Home sits idle. Every number is the same as before.
+
+- **Slices** (`slices.ts`). The depth map, the seabed's lattice and the water are written once as generators that
+  yield between a texel row, a ray of an island's terrain and a row of the water (`depthTexelSteps`,
+  `seabedLatticeSteps`, `waterVertexSteps`). The plain calls (`depthTexels`, `waterVertices`, `lattice`, the tests, the
+  bake script) run them to the end at once; `runSliced` runs them a slice at a time, giving the thread back with a
+  zero timeout, working about 12 ms while idle and 40 ms while someone waits (a slice stops before a step that would
+  take it over, judged by the last one). The same code gives the same numbers: `seabed-steps.test.ts` checks every
+  array against the plain call, and the arrays hash the same as before. They also come out the same through the Babel
+  transform an Expo Go dev bundle gets on a phone (generators as regenerator state machines) as through native
+  generators. Worked out in slices the ocean costs no more: five islands at level 3, 6.3 s at once and 6.5 s sliced.
+- **The gate** (`useSeabedReady`, `seabed-assets.ts`). The explorer's islands without a bake shipped wait for their
+  ocean (held, read back, or worked out) through the readiness gate the scene already had, and no longer. A scene that
+  stops waiting (a screen whose reach turned out wider than the first frame's, or one that closes) lets go of what it
+  asked for, and an ocean only waiting scenes asked for is given up at the end of its slice. Home's island alone, with
+  its bake shipped, is as before.
+- **Saved** (`ocean-store.ts`, `ocean-files.ts`, `ocean-files.web.ts`). A worked-out ocean is held in memory (the last
+  three, in `seabed-bake.ts` beside the shipped bakes, so the scene finds it by the same lookups) and written to a file
+  in the cache directory (IndexedDB on the web), the last four kept. A file is the bake format with the region maps
+  added and a digest of its numbers, written under a temporary name and moved into place; its name is a hash of the
+  islands in the explorer's order, the level, the reach and a version. A file that is damaged, cut short, from another
+  version or another ocean is ignored and deleted. Five islands come to 1.64 MB (1.67 at level 6), three islands to
+  1.05 MB (1.09); making the bytes takes 16-32 ms and reading them back 27-41 ms under `--jitless` (8-20 and 18-27 ms
+  under V8; 15 ms for the read from IndexedDB in the browser).
+- **The version** (`ocean-version.ts`, `ocean-fingerprint.ts`). The explorer's oceans are not baked into the app, so a
+  change to the seabed's or the water's maths must not leave old files in use. The version is a digest of the shipped
+  bakes and of three oceans of several islands worked out in full (the whole archipelago at level 6, a part of it in
+  another order on a wide screen, two islands at level 3). `ocean-version.test.ts` fails while the code makes other
+  numbers than the version was written for (checked by changing a sandbar's width in `banks.ts`: all three probes
+  fail), and `npx tsx scripts/bake-seabed.ts`, which already rewrites the bakes, writes the version again.
+- **Ready ahead** (`ocean-ahead.ts`, called from Home's screen). Once Home has an animal on show (`whenMarked`), the
+  phone has been left alone 2.5 s and is idle (`requestIdleCallback` where there is one), the ocean the explorer will
+  ask for (the islands found so far in its order, at `home.level`, with the water's reach for this screen:
+  `waterReach`) is read back or worked out in 12 ms slices and saved. It is made again after a level-up, a newly found
+  island or a screen that reaches farther, and not when it is held or saved, or is Home's island alone on the usual
+  screen.
+- **The other islands' animals' seabed** is baked like the Coral Reef's: the kelp forest, volcanic pinnacle,
+  mangroves and shipwreck bakes now hold the animals' grid of the bottom, which was rasterised from the lattice at
+  the first show of each island and level. `createSeabed` takes 92-146 ms under `--jitless` without it and 1.5-4 ms
+  with it, the very same grid. The bakes grow from 6.4 MB to 8.6 MB.
+
+Measured with the same harness on the tree before and after, runs alternating, median of three (`node --jitless` on
+the process's CPU time; V8 on the same): what the explorer waits for before it can build its islands. "Before" is one
+task; "sliced" is the first open of a phone that has not had the ocean ready, waiting for it with 40 ms slices;
+"ready" is an open after Home had it made (or the next launch, read from the file): the read and the scene's own
+calls in it.
+
+| | before (longest task) | sliced (longest task) | ready (read + scene's own, longest task) |
+| --- | ---: | ---: | ---: |
+| 5 islands, level 3, `--jitless` | 6.22 s (4.08 s) | 6.26 s (68 ms) | 0.13 s (0.04 + 0.09, 47 ms) |
+| 5 islands, level 6, `--jitless` | 8.63 s (5.53 s) | 9.00 s (87 ms) | 0.14 s (0.04 + 0.10, 50 ms) |
+| 3 islands, level 3 / 6, `--jitless` | 3.49 / 5.10 s (2.10 / 2.92 s) | 3.63 / 5.23 s (64 / 84 ms) | 0.09 / 0.10 s (35 ms) |
+| 5 islands, level 3 / 6, V8 | 1.06 / 1.12 s (0.78 / 0.79 s) | 1.09 / 1.15 s (44 / 41 ms) | 0.09 / 0.10 s (37 ms) |
+| 3 islands, level 3 / 6, V8 | 0.64 / 0.75 s (0.43 / 0.51 s) | 0.68 / 0.77 s (40 ms) | 0.08 / 0.09 s (37 ms) |
+| Home's island alone, level 3 / 6 | 41 / 43 ms | the same | the same (its bake ships) |
+
+While Home is idle the work is in 12 ms slices: five islands at level 3 take 6.6 s of CPU (7.3 s with the pauses) in
+718 slices, the longest 56 ms (level 6: 9.2 s, 799 slices, 76 ms). All but that one are under 30 ms, and it is
+`coralHeads`, found once (50 ms at level 3, 80 ms at level 6, in `reef-coast.ts`), which Home's own reef needs too.
+Making the file's bytes and reading them back are each a task of 16-41 ms.
+
+In a browser (Chromium, software WebGL, a phone-sized window; the app's own timing marks, with `x:explorer-ocean` for
+the explorer's ocean mounted, and the gaps between zero timeouts chained on the page's event loop), median of three
+runs (the mean of two at 4x slower CPU) with the builds run in turn. The machine was shared with other work, so the
+spread between runs is wide:
+
+| | before | after |
+| --- | ---: | ---: |
+| Explorer opened cold (a log never opened on Home), five islands at level 3: first animal / longest gap | 3.8 s / 1.84 s | 3.0 s / 0.88 s |
+| ... five islands at level 6 (63 species): first animal / longest gap | 5.2 s / 2.2 s | 3.9 s / 0.14-1.7 s |
+| Home, then the explorer, five islands at level 3: tap to the ocean mounted / longest gap | 2.09 s / 1.61 s | 1.55 s / 0.83 s straight away, 1.43 s / 0.91 s after Home had been idle 12 s |
+| ... five islands at level 6 | 2.74 s / 2.36 s | 2.27 s / 1.59 s, 2.02 s / 1.55 s |
+| ... three islands at level 3 / 6: tap to the ocean | 1.66 / 2.51 s | 1.31 / 2.29 s, 1.56 / 1.89 s |
+| ... Home's island alone (its bake ships): tap to the ocean | 1.26 s | 1.30 s, 1.75 s (no change) |
+| CPU 4x slower, Home then the explorer, five islands at level 3: tap to the ocean / longest gap | 5.4 s / 5.1 s | 2.9 s / 2.4 s |
+| ... five islands at level 6 | 8.1 s / 7.5 s | 5.8 s / 4.7 s |
+| An ocean saved in IndexedDB, a new browser session, five islands | | 1.64 MB read in 15 ms; the ocean mounts at 1.8 s |
+
+The sliced wait is not quicker in wall time (a cold explorer at CPU 4x slower mounts its ocean later, 11.7 s against
+8.0 s for the level-6 five islands, with the first animal at about the same 11.2-11.9 s); what is better is that the screen
+is not frozen for it and the animals' models load meanwhile, so the first animal follows the ocean by under 100 ms
+rather than a second or three later. What remains after it is the scene's own build, the coasts, props and each
+animal's start, in one task (about 1.2 s at full speed in some runs of the level-6 five islands, 4.3 s at 4x slower):
+it was then the longest block of the explorer's opening (the steps of "Building in steps" above split it; the numbers here were taken before them). In the 12 s Home sat idle the page
+shows one gap of 300-520 ms, in every profile including the one island with no ocean to make: it is Home's own picture
+being taken, and the slices add no gap over 53 ms.
+
+Not done: the animals' grid of the bottom for each island of the explorer (about 0.1 s each under `--jitless`, five
+of them at the explorer's open) could be saved with the ocean (0.45 MB more); `coralHeads` and the islands' coast
+builders are not sliced. On a phone to time: the explorer's
+first open with and without Home having been left idle (and after a level-up or a newly found island), the second
+launch (the file read), Home's frame rate while the ocean is made, the cache directory's file after the system has
+cleared its caches, and the size of the app with the baked grids.
