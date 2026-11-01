@@ -1,6 +1,6 @@
 import { expect, test } from '@jest/globals';
 import { ISLAND_PLACES, ISLANDS, type IslandId } from '../archipelago';
-import { createShoreField, islandScale, islets, shapeFor, type IslandShape } from '../island-outline';
+import { createShoreField, islandScale, islets, shapeFor, type IslandShape, type ShoreSample } from '../island-outline';
 import { OCEAN } from '../ocean';
 import { avoidShallows, createSeabed, createSeabedField, HABITATS, type OceanIsland } from '../seabed';
 import { coralHeads } from '../reef-coast';
@@ -168,4 +168,24 @@ test('water too shallow for a body counts as shore: the nearer of the land and t
   for (const [x, z] of [[0, 4], [3, 1], [-2, -3]]) expect(free.island(x, z).distance).toBeCloseTo(land.island(x, z).distance, 6);
   // A body that fits nowhere (bigger than any water there is): nowhere is blocked.
   expect(seabed.distanceTo('nowhere', () => true)(0, 0)).toBeGreaterThan(100);
+});
+
+test('the direction away from the shallows is worked out when first asked for, and is the same however late that is', () => {
+  const seabed = createSeabed(1, 'reef'), blocked = (x: number, z: number) => OCEAN.surfaceLevel - seabed.floor(x, z) < .15;
+  const points: [number, number][] = [[0, 3.9], [0, 5.2], [1.4, 4.6], [-2.2, 3.7], [3, 1], [0, 0], [2.1, -3.8]];
+  // One field asked how far first, many times, then which way; another asked which way at once.
+  const lazy = seabed.distanceTo('lazy', blocked), eager = seabed.distanceTo('eager', blocked);
+  const distances = points.map(([x, z]) => lazy(x, z));
+  const late: ShoreSample = { distance: 0, nx: 0, nz: 0 }, early: ShoreSample = { distance: 0, nx: 0, nz: 0 };
+  for (const [i, [x, z]] of points.entries()) {
+    lazy.sample(x, z, late);
+    eager.sample(x, z, early);
+    expect(late.distance).toBeCloseTo(distances[i], 5);
+    expect(late).toEqual(early);
+    // (a unit direction, or none on a flat spot)
+    expect(Math.hypot(late.nx, late.nz)).toBeCloseTo(1, 6);
+  }
+  // Just past the reef's crest, out to sea is the way away from the shallows.
+  eager.sample(0, 5.2, early);
+  expect(early.nz).toBeGreaterThan(.5);
 });

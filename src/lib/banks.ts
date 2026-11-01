@@ -89,25 +89,48 @@ export function archipelagoBank(islands: readonly { x: number; z: number }[]): B
 
 /**
  * The water depth the bank holds the seabed to at (x, z) (units; negative where a cay's sand is dry),
- * or Infinity off the bank, where the ocean's own depth goes on.
+ * or Infinity off the bank, where the ocean's own depth goes on. Shapes that cannot change the answer are not worked out (`pruned`;
+ * without it every one is, for the tests to check the two give the same).
  */
-export function bankDepth(bank: Bank, x: number, z: number): number {
+export function bankDepth(bank: Bank, x: number, z: number, pruned = true): number {
   // How far outside the bank (negative inside): each island's platform, ragged around it, and the
   // saddles joining neighbours, narrowest midway.
+  // (A shape that is `k` or more farther out than the bank so far leaves it exactly as it is: smoothMin gives the nearer of the two once they are `k` apart.
+  // So a shape whose nearest possible edge, judged from its box, is that far out is not worked out: most of them are not, for most of the ocean.)
   let outside = Infinity;
+  const { platform, platformVariation, saddle } = BANK;
   for (const [cx, cz] of bank.islands) {
-    const a = Math.atan2(z - cz, x - cx);
-    const reach = BANK.platform + BANK.platformVariation * (Math.sin(a * 3 + cx) * .6 + Math.sin(a * 5 - cz) * .4);
-    outside = smoothMin(outside, Math.hypot(x - cx, z - cz) - reach, 2);
+    const dx = x - cx, dz = z - cz;
+    if (pruned && Math.max(Math.abs(dx), Math.abs(dz)) - platform - platformVariation - 1e-9 >= outside + 2) continue;
+    const a = Math.atan2(dz, dx);
+    const reach = platform + platformVariation * (Math.sin(a * 3 + cx) * .6 + Math.sin(a * 5 - cz) * .4);
+    outside = smoothMin(outside, Math.hypot(dx, dz) - reach, 2);
   }
   for (let i = 0; i < bank.islands.length - 1; i++) {
-    const { distance, t } = toSegment(x, z, bank.islands[i], bank.islands[i + 1]);
-    outside = smoothMin(outside, distance - BANK.saddle * (1 + 1.4 * (1 - Math.sin(Math.PI * t)) ** 2), 2);
+    const from = bank.islands[i], to = bank.islands[i + 1];
+    // (how far the point is from the segment's box, and the widest the saddle gets)
+    if (pruned) {
+      const x0 = Math.min(from[0], to[0]), x1 = Math.max(from[0], to[0]), z0 = Math.min(from[1], to[1]), z1 = Math.max(from[1], to[1]);
+      const bx = x < x0 ? x0 - x : x > x1 ? x - x1 : 0, bz = z < z0 ? z0 - z : z > z1 ? z - z1 : 0;
+      if (Math.max(bx, bz) - saddle * 2.4 - 1e-9 >= outside + 2) continue;
+    }
+    const { distance, t } = toSegment(x, z, from, to);
+    outside = smoothMin(outside, distance - saddle * (1 + 1.4 * (1 - Math.sin(Math.PI * t)) ** 2), 2);
   }
   // Each cay and cluster of rocks stands on a sandy shoal of its own (out on the flanks, joining the
   // bank where it is near enough).
-  for (const cay of bank.cays) outside = smoothMin(outside, Math.hypot(x - cay.x, z - cay.z) - cay.radius * BANK.shallows - .4, 1.5);
-  for (const rock of bank.rocks) outside = smoothMin(outside, Math.hypot(x - rock.x, z - rock.z) - rock.size * 4 - .25, 1);
+  for (const cay of bank.cays) {
+    const dx = x - cay.x, dz = z - cay.z;
+    if (pruned && Math.max(Math.abs(dx), Math.abs(dz)) - cay.radius * BANK.shallows - .4 - 1e-9 >= outside + 1.5) continue;
+    outside = smoothMin(outside, Math.hypot(dx, dz) - cay.radius * BANK.shallows - .4, 1.5);
+  }
+  for (const rock of bank.rocks) {
+    const dx = x - rock.x, dz = z - rock.z;
+    if (pruned && Math.max(Math.abs(dx), Math.abs(dz)) - rock.size * 4 - .25 - 1e-9 >= outside + 1) continue;
+    outside = smoothMin(outside, Math.hypot(dx, dz) - rock.size * 4 - .25, 1);
+  }
+  // The edge is ragged by at most BANK.ragged either way (two noises in 0..1): so far out that even that much less cannot bring it back, it is off the bank.
+  if (pruned && outside - BANK.ragged - 1e-6 >= BANK.edge) return Infinity;
   outside += BANK.ragged * ((noise(x * .45 + 3.1, z * .45 - 1.7) - .5) * 1.4 + (noise(x * 1.1 - 5, z * 1.1 + 2) - .5) * .6);
   const off = smoothstep(-BANK.edge, BANK.edge, outside);
   if (off >= 1) return Infinity;

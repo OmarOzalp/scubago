@@ -59,6 +59,8 @@ export function depthTexels(level: number, islands: readonly OceanIsland[], conf
   const data = baked && baked.length === columns * rows * 4 ? baked : new Uint8Array(columns * rows * 4);
   const region = new Uint8Array(columns * rows * 4), regionMore = new Uint8Array(columns * rows * 4);
   const weights = new Float32Array(OCEAN_REGIONS);
+  // (each island's distance from the texel, and the region channel its water has: found for each island, not made again for every texel)
+  const away = new Float64Array(islands.length), slots = islands.map((island) => habitats.indexOf(island.habitat));
   for (let j = 0; j < rows; j++) {
     for (let i = 0; i < columns; i++) {
       const x = x0 + (i + .5) / columns * width, z = z0 + (j + .5) / rows * depth;
@@ -74,12 +76,13 @@ export function depthTexels(level: number, islands: readonly OceanIsland[], conf
       // Each island's water, fading out past the nearer island's across the open sea between them (one island's alone: all its own).
       if (islands.length === 1) { region[k] = 255; continue; }
       weights.fill(0);
-      const closest = Math.min(...islands.map((island) => Math.hypot(x - island.x, z - island.z)));
-      for (const island of islands) {
-        const slot = habitats.indexOf(island.habitat);
-        if (slot >= 0) weights[slot] += Math.exp(-(Math.hypot(x - island.x, z - island.z) - closest) / REGION_BLEND);
+      let closest = Infinity;
+      for (let n = 0; n < islands.length; n++) { const d = Math.hypot(x - islands[n].x, z - islands[n].z); away[n] = d; if (d < closest) closest = d; }
+      for (let n = 0; n < islands.length; n++) {
+        if (slots[n] >= 0) weights[slots[n]] += Math.exp(-(away[n] - closest) / REGION_BLEND);
       }
-      const total = weights.reduce((sum, w) => sum + w, 0);
+      let total = 0;
+      for (let c = 0; c < OCEAN_REGIONS; c++) total += weights[c];
       for (let c = 0; c < 4; c++) { region[k + c] = Math.round(255 * weights[c] / total); regionMore[k + c] = Math.round(255 * weights[c + 4] / total); }
     }
   }

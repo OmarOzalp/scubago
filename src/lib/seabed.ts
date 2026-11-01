@@ -392,17 +392,23 @@ export function createSeabed(level: number, shape: IslandShape = 'reef', among?:
           return found;
         }
         const toNo = distanceToMask(no, columns, rows), toYes = distanceToMask(yes, columns, rows);
-        const signed = new Float32Array(columns * rows), toward = new Float32Array(columns * rows * 2);
+        const signed = new Float32Array(columns * rows);
         // Half a cell either way puts the edge between the two kinds of cell, not on one of them.
         for (let n = 0; n < signed.length; n++) signed[n] = (no[n] ? -(toYes[n] - .5) : toNo[n] - .5) * step;
-        // The way out of them, by differences across a cell (a unit direction, or nothing on a flat spot).
-        for (let j = 0; j < rows; j++) {
-          for (let i = 0; i < columns; i++) {
-            const n = j * columns + i, dx = signed[j * columns + Math.min(i + 1, columns - 1)] - signed[j * columns + Math.max(i - 1, 0)];
-            const dz = signed[Math.min(j + 1, rows - 1) * columns + i] - signed[Math.max(j - 1, 0) * columns + i], length = Math.sqrt(dx * dx + dz * dz);
-            toward[2 * n] = length > 1e-9 ? dx / length : 0; toward[2 * n + 1] = length > 1e-9 ? dz / length : 0;
+        // The way out of them, by differences across a cell (a unit direction, or nothing on a flat spot): worked out when first asked for, as most of the
+        // fields made are only ever looked at for how far, and never for which way.
+        let towards: Float32Array | null = null;
+        const directions = () => {
+          const toward = new Float32Array(columns * rows * 2);
+          for (let j = 0; j < rows; j++) {
+            for (let i = 0; i < columns; i++) {
+              const n = j * columns + i, dx = signed[j * columns + Math.min(i + 1, columns - 1)] - signed[j * columns + Math.max(i - 1, 0)];
+              const dz = signed[Math.min(j + 1, rows - 1) * columns + i] - signed[Math.max(j - 1, 0) * columns + i], length = Math.sqrt(dx * dx + dz * dz);
+              toward[2 * n] = length > 1e-9 ? dx / length : 0; toward[2 * n + 1] = length > 1e-9 ? dz / length : 0;
+            }
           }
-        }
+          return toward;
+        };
         found = Object.assign((x: number, z: number) => {
           let u = (x + REACH.x) / step, v = (z + REACH.z) / step;
           u = u < 0 ? 0 : u > columns - 1 - 1e-6 ? columns - 1 - 1e-6 : u;
@@ -418,6 +424,7 @@ export function createSeabed(level: number, shape: IslandShape = 'reef', among?:
             const i = u | 0, j = v | 0, fu = u - i, fv = v - j, k = j * columns + i, k2 = k + columns;
             const w0 = (1 - fu) * (1 - fv), w1 = fu * (1 - fv), w2 = (1 - fu) * fv, w3 = fu * fv;
             out.distance = signed[k] * w0 + signed[k + 1] * w1 + signed[k2] * w2 + signed[k2 + 1] * w3;
+            const toward = towards ?? (towards = directions());
             const nx = toward[2 * k] * w0 + toward[2 * k + 2] * w1 + toward[2 * k2] * w2 + toward[2 * k2 + 2] * w3;
             const nz = toward[2 * k + 1] * w0 + toward[2 * k + 3] * w1 + toward[2 * k2 + 1] * w2 + toward[2 * k2 + 3] * w3, n = Math.sqrt(nx * nx + nz * nz) || 1;
             out.nx = nx / n; out.nz = nz / n;
