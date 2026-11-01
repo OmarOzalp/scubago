@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore, type ReactNode } from 'react';
 import { Animated, Platform, StyleSheet, View } from 'react-native';
 import { useFrame, useThree } from '@react-three/fiber';
 import { SceneCanvas as Canvas } from './three/scene-canvas';
@@ -7,7 +7,9 @@ import { SceneBoundary, SceneUnavailable } from './scene-boundary';
 import { SceneCamera } from './three/scene-camera';
 import { IslandPerfBadge } from './island-perf-badge';
 import { IslandPerfProbe, ScenePerformance } from './three/scene-performance';
-import { markOnce } from './three/scene-marks';
+import { EXPLORER_MARKS, HOME_MARKS, markOnce, markStep, SceneMarksContext, type SceneMark } from './three/scene-marks';
+import { createStager } from './three/stager';
+import { StagingProvider } from './three/staging';
 import { router } from 'expo-router';
 import { DiscoveryNote, LevelUpBanner, NewTag } from './discovery-overlays';
 import { IslandScene } from './island-scene';
@@ -143,6 +145,8 @@ export type ExplorerScene = {
   reach: WaterReach;
   /** Look closely at a point on the water (x, z): ease over and in to at least `zoom`. */
   focus: (x: number, z: number, zoom: number) => void;
+  /** Where the camera is: the islands (their keys) nearest it first, and how many are in or near the view. What is built first, and when the camera nears another. */
+  near?: () => { order: readonly string[]; near: number };
 };
 
 /** An island in the scene's ocean (its middle, world units, and its shores) and the species living there. */
@@ -167,8 +171,8 @@ function SnapshotRegistrar({ ready }: { ready: boolean }) {
 }
 
 /** Marks the scene's first drawn frame (scene-marks.ts). */
-function FirstFrame() {
-  useFrame(() => markOnce('scubago:scene-frame'));
+function FirstFrame({ mark }: { mark: SceneMark }) {
+  useFrame(() => markOnce(mark));
   return null;
 }
 
@@ -223,7 +227,16 @@ export function SanctuaryScene({ habitat, level, residents, islands, paused = fa
   const card = !explorer && !preview, home = card && habitat === HOME_SHORE;
   const seabedReady = useSeabedReady(level, oceanIslands, explorer?.reach, !loading);
   const everyoneIn = shownModels.every((model) => !!models?.[model]);
-  const picture = useInstantPicture({ enabled: home, level, habitat, loading, armed: seabedReady && !loading && (failed || everyoneIn) });
+  // The scene is built in steps (stager.ts, staging.tsx): the ocean with the first frame, then the islands in view, one coast (in slices), one set
+  // of props, one swimming start and one animal at a time, then the rest. `staged` says when all in view is built.
+  const marks = explorer ? EXPLORER_MARKS : HOME_MARKS;
+  const [stager] = useState(() => createStager({ focus: explorer?.near, trace: markStep }));
+  useEffect(() => { stager.setFocus(explorer?.near); }, [stager, explorer?.near]);
+  const staged = useSyncExternalStore(stager.subscribe, stager.getState, stager.getState);
+  useEffect(() => { if (staged.done) markOnce(marks.built); }, [staged.done, marks]);
+  const picture = useInstantPicture({ enabled: home, level, habitat, loading, armed: seabedReady && !loading && (failed || everyoneIn) && staged.settled });
+  // What arrives under a picture of the scene is simply there; what arrives while it is on show grows in.
+  useEffect(() => { stager.show(!picture.unseen); }, [stager, picture.unseen]);
   // What Home shows is kept for the next launch: its island, level and animals' models (home-start.ts)...
   const requestedKey = [...new Set(requested)].sort().join(',');
   useEffect(() => {
@@ -309,9 +322,12 @@ export function SanctuaryScene({ habitat, level, residents, islands, paused = fa
           ? (i === 0 ? visitors.map((s) => ({ ...s, id: s.model, onPress: () => onInspect(s.model) })) : [])
           : here.map((s) => ({ ...s, id: s.species.id, onPress: () => router.push(`/species/${s.species.id}`) }))}
         onSchoolPress={() => router.push(`/species/${schoolSpecies}`)} school={schooling} schoolSpecies={SCHOOLED} arrivals={i === 0 ? arrivals : undefined} />}
-      {explorer && !loading && macroAt(place, i).length > 0 && <MacroLife level={level} species={macroAt(place, i)} shape={shapeFor(place.habitat)} zoom={explorer.zoom} tapScale={explorer.tapScale} active={active}
-        onPress={(id) => router.push(`/species/${id}`)} onFocus={(x, z, zoom) => explorer.focus(place.x + x, place.z + z, zoom)} />}
     </>,
+    // The reef's small life comes last (staging.tsx).
+    small: explorer && !loading && macroAt(place, i).length > 0
+      ? <MacroLife level={level} species={macroAt(place, i)} shape={shapeFor(place.habitat)} zoom={explorer.zoom} tapScale={explorer.tapScale} active={active}
+        onPress={(id) => router.push(`/species/${id}`)} onFocus={(x, z, zoom) => explorer.focus(place.x + x, place.z + z, zoom)} />
+      : undefined,
   }));
 
   // The 3D view is one labelled image for screen readers. The label sits inside the error boundary,
@@ -322,12 +338,13 @@ export function SanctuaryScene({ habitat, level, residents, islands, paused = fa
       <Canvas orthographic flat {...(Platform.OS === 'web' ? { dpr: 1.25 } : {})} frameloop={active && !loading ? 'always' : 'demand'} camera={SCENE_CAMERA}
         gl={{ antialias: Platform.OS === 'web' }}
         onCreated={({ camera }) => camera.lookAt(0, -.15, 0)} style={styles.canvas}>
+        <StagingProvider stager={stager} hidden={!visible}><SceneMarksContext.Provider value={marks}>
         {/* The view pulls back as the island levels up and its ocean widens. */}
         {!explorer && <SceneCamera scale={oceanScale(level)} />}
         {onOpen && !explorer && <TapAnywhere onTap={onOpen} />}
         {/* The Share button's picture of the card (not the explorer's). A paused island can still be photographed; one that is still for Reduce Motion is not. */}
         {!explorer && <SnapshotRegistrar ready={visible && !loading && (active || paused)} />}
-        <FirstFrame />
+        <FirstFrame mark={marks.frame} />
         <FrameWatch watching={picture.watching} onDrawn={picture.onDrawn} />
         {__DEV__ && <ScenePerformance ready={!!models && !loading} active={active} />}
         {ISLAND_PERF && <IslandPerfProbe />}
@@ -335,6 +352,7 @@ export function SanctuaryScene({ habitat, level, residents, islands, paused = fa
         <SanctuaryEnvironment habitat={habitat} level={level} active={active} growIn={active && !loading} reach={explorer?.reach} islands={sceneIslands} ready={seabedReady}>
           {explorer?.camera}
         </SanctuaryEnvironment>
+        </SceneMarksContext.Provider></StagingProvider>
       </Canvas>
       </View>
     </SceneBoundary>

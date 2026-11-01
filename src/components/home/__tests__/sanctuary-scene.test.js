@@ -14,8 +14,10 @@ jest.mock('@/hooks/use-scene-active', () => ({ useSceneActive: () => true, useSc
 jest.mock('../three/scene-camera', () => ({ SceneCamera: () => null }));
 jest.mock('../three/scene-performance', () => ({ ScenePerformance: () => null }));
 jest.mock('../three/sanctuary-environment', () => ({
-  SanctuaryEnvironment: ({ children, islands, ready }) => <environment data-ready={ready}>{children}{islands?.map((island) => <island key={island.key} data-habitat={island.habitat}>{island.content}</island>)}</environment>,
+  SanctuaryEnvironment: ({ children, islands, ready }) => <environment data-ready={ready}>{children}{islands?.map((island) => <island key={island.key} data-habitat={island.habitat}>{island.content}{island.small}</island>)}</environment>,
 }));
+// In the app the scene is built in steps (staged-scene.test.js drives that); here, with no stager above them, all of it is there at once.
+jest.mock('../three/staging', () => ({ ...jest.requireActual('../three/staging'), StagingProvider: ({ children }) => <>{children}</> }));
 jest.mock('@react-three/fiber', () => ({
   useFrame: jest.fn(),
   useThree: (select) => select({ size: { width: 420, height: 390 }, invalidate: () => {}, camera: {} }),

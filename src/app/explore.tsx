@@ -13,7 +13,7 @@ import { Icon, type IconName } from '@/components/icon';
 import { Type } from '@/constants/theme';
 import { useHomePreferences } from '@/hooks/use-home-preferences';
 import { CATALOG_BY_ID } from '@/lib/catalog';
-import { createExplorer, EXPLORER, waterReach } from '@/lib/explorer-view';
+import { createExplorer, EXPLORER, islandsByView, waterReach } from '@/lib/explorer-view';
 import { AREAS, foundIslands, HOME_ISLAND, ISLAND_PLACES, ISLANDS, isIsland, islandResidents } from '@/lib/archipelago';
 import { deriveHome } from '@/lib/home';
 import { macroResidents } from '@/lib/macro-life';
@@ -149,7 +149,11 @@ export default function ExploreScreen() {
     <GestureDetector gesture={gesture}>
       <View ref={surface} style={styles.root} onLayout={onLayout} collapsable={false}>
         <SanctuaryScene habitat={habitat} level={home.level} residents={home.residents} islands={places} loading={loading} onInspect={inspect}
-          explorer={{ camera: <ExplorerCamera explorer={explorer} />, tapScale, reach, zoom: () => explorer.view.zoom, focus: (x, z, zoom) => explorer.focus(x, z, zoom) }} />
+          explorer={{
+            camera: <ExplorerCamera explorer={explorer} />, tapScale, reach, zoom: () => explorer.view.zoom, focus: (x, z, zoom) => explorer.focus(x, z, zoom),
+            // What to build first is what the view is over or nears.
+            near: () => { const { order, near } = islandsByView(explorer.frame, explorer.view); return { order: order.map((i) => places[i]?.key).filter(Boolean), near }; },
+          }} />
       </View>
     </GestureDetector>
     <View style={[styles.top, { paddingTop: insets.top + 10 }]} pointerEvents="box-none">

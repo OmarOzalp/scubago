@@ -4,7 +4,10 @@ import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js
 import { islets, outlinePoints, shoreDistance } from '@/lib/island-outline';
 import { smoothstep } from '@/lib/steering';
 import { boulder, cliffs, delaunay, faces, hash, noise, paintFaces, triangles } from './coast-geometry';
-import { builtOnce, useHeldGeometry } from './geometry-cache';
+import { useHeldGeometry } from './geometry-cache';
+import { useSlicedGeometry, type Job } from './sliced-geometry';
+import { STAGE } from './stager';
+import { Arriving } from './staging';
 
 /**
  * The Kelp Forest's island: a rugged headland of dark rock on a cold coast, like the granite of
@@ -123,33 +126,45 @@ function shoreRocks(seed: number) {
   return parts;
 }
 
+/**
+ * Everything of the Kelp Forest's island in one geometry, made in slices (sliced-geometry.ts): the same code, in the same order, with places to
+ * stop between its parts. The same at every level but for the islets, so made once for each number of them (geometry-cache.ts).
+ */
+export function* kelpCoastJob(level: number): Job {
+  const parts: BufferGeometry[] = [headland()];
+  yield;
+  parts.push(hilltop(1));
+  yield;
+  // A grove on the hill at the western end, and a few more along the headland.
+  parts.push(...cypress(-1.55, -.25, 1.7, .9, 1), ...cypress(-1.1, -.7, 1.5, .9, 2), ...cypress(-.7, -.2, 1.3, .9, 3));
+  yield;
+  parts.push(...cypress(-2.1, .15, 1.1, .9, 6), ...cypress(.85, -.45, 1.25, .9, 4), ...cypress(1.6, -.55, 1, .9, 5));
+  yield;
+  parts.push(...shoreRocks(1));
+  yield;
+  // From level 5 the islets (island-outline.ts) rise as rocky skerries.
+  parts.push(...islets(level, SHAPE).map(({ position: [x, z], scale }, i) => headland(scale, x, z, 7 + i)));
+  yield;
+  const merged = mergeGeometries(parts);
+  parts.forEach((part) => part.dispose());
+  yield;
+  merged.computeVertexNormals();
+  return merged;
+}
+
 /** Everything of the Kelp Forest's island in one mesh (it never moves): rock, hill, cypress, boulders, stacks. */
 export function KelpCoast({ level }: { level: number }) {
+  // (made in slices, one stager step each, when the scene is staged: sliced-geometry.ts)
+  const geometry = useSlicedGeometry(`kelp-coast:${islets(level, SHAPE).length}`, STAGE.coast, () => kelpCoastJob(level));
   const mesh = useMemo(() => {
-    // (the same at every level but for the islets, so made once for each number of them: geometry-cache.ts)
-    const geometry = builtOnce(`kelp-coast:${islets(level, SHAPE).length}`, () => {
-    const parts: BufferGeometry[] = [
-      headland(),
-      hilltop(1),
-      // A grove on the hill at the western end, and a few more along the headland.
-      ...cypress(-1.55, -.25, 1.7, .9, 1), ...cypress(-1.1, -.7, 1.5, .9, 2), ...cypress(-.7, -.2, 1.3, .9, 3),
-      ...cypress(-2.1, .15, 1.1, .9, 6), ...cypress(.85, -.45, 1.25, .9, 4), ...cypress(1.6, -.55, 1, .9, 5),
-      ...shoreRocks(1),
-      // From level 5 the islets (island-outline.ts) rise as rocky skerries.
-      ...islets(level, SHAPE).map(({ position: [x, z], scale }, i) => headland(scale, x, z, 7 + i)),
-    ];
-    const merged = mergeGeometries(parts);
-    parts.forEach((part) => part.dispose());
-    merged.computeVertexNormals();
-    return merged;
-    });
+    if (!geometry) return null;
     const mesh = new Mesh(geometry, new MeshLambertMaterial({ vertexColors: true, flatShading: true }));
     mesh.name = 'kelp-coast';
     mesh.raycast = () => {};
     return mesh;
-  }, [level]);
+  }, [geometry]);
   // (the geometry is shared, geometry-cache.ts: only the material is this mesh's own to dispose)
-  useHeldGeometry(mesh.geometry);
-  useEffect(() => () => (mesh.material as MeshLambertMaterial).dispose(), [mesh]);
-  return <primitive object={mesh} />;
+  useHeldGeometry(mesh?.geometry ?? null);
+  useEffect(() => () => (mesh?.material as MeshLambertMaterial | undefined)?.dispose(), [mesh]);
+  return mesh ? <Arriving><primitive object={mesh} /></Arriving> : null;
 }

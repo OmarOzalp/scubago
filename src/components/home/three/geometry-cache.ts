@@ -57,6 +57,14 @@ export function builtOnce(key: string, build: () => BufferGeometry): BufferGeome
   return geometry;
 }
 
+/** The geometry kept for `key`, if there is one (as `builtOnce` hands it out, but never making it: for what is made in slices, sliced-geometry.ts). */
+export function peekBuilt(key: string): BufferGeometry | undefined {
+  const had = entries.get(key);
+  if (!had) return undefined;
+  entries.delete(key); entries.set(key, had);
+  return had.geometry;
+}
+
 /** Keep a geometry made along the way to another (what `builtOnce` would later be asked for). */
 export function keepBuilt(key: string, geometry: BufferGeometry) {
   const had = entries.get(key);
@@ -77,9 +85,9 @@ export function holdGeometry(geometry: BufferGeometry) {
   };
 }
 
-/** For a mesh made from a cached geometry: it is in use while the mesh is. */
-export function useHeldGeometry(geometry: BufferGeometry) {
-  useEffect(() => holdGeometry(geometry), [geometry]);
+/** For a mesh made from a cached geometry: it is in use while the mesh is (none yet: nothing held). */
+export function useHeldGeometry(geometry: BufferGeometry | null) {
+  useEffect(() => (geometry ? holdGeometry(geometry) : undefined), [geometry]);
 }
 
 /** Let go of everything kept (the tests). Geometries still held are disposed when their holders let go. */

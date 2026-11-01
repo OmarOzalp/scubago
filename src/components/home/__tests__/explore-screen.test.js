@@ -70,6 +70,18 @@ test('the explorer draws the island full screen with its own camera, and its but
   expect(root.root.findAll((node) => node.props.children === 'Tap an animal to meet it.\nPinch to zoom, drag to look around.').length).toBeGreaterThan(0);
 });
 
+test('it tells the scene which islands to build first: the one it opens on, then those its view nears', async () => {
+  twoIslands();
+  await act(async () => { root = create(<ExploreScreen />); });
+  const scene = () => root.root.findByType('scene').props.explorer;
+  const surface = root.root.findAll((node) => typeof node.props.onLayout === 'function' && node.props.collapsable === false)[0];
+  await act(async () => surface.props.onLayout({ nativeEvent: { layout: { width: 390, height: 844 } } }));
+  // The island it opens on is built first, its neighbours in view with it, then the rest (the Kelp Forest lies 25 units away: out of view on a phone).
+  const { order, near } = scene().near();
+  expect(order).toEqual(['coral-reef', 'kelp-forest']);
+  expect(near).toBe(1);
+});
+
 test('no tap gesture on the screen: one would count two quick pinches as a double tap and zoom in', async () => {
   await act(async () => { root = create(<ExploreScreen />); });
   expect(mockTapGestures).toBe(0);

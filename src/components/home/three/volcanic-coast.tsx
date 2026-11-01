@@ -5,10 +5,13 @@ import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js
 import { islets, outlinePoints, shoreDistance } from '@/lib/island-outline';
 import { smoothstep } from '@/lib/steering';
 import { boulder, cliffs, delaunay, faces, hash, noise, paintFaces, triangles } from './coast-geometry';
-import { builtOnce, useHeldGeometry } from './geometry-cache';
+import { useHeldGeometry } from './geometry-cache';
 import { OceanContext } from './ocean-context';
 import { OCEAN_SHADER_CHUNKS } from './ocean-mesh';
 import { useSceneQuality } from './scene-quality';
+import { useSlicedGeometry, type Job } from './sliced-geometry';
+import { STAGE } from './stager';
+import { Arriving } from './staging';
 
 /**
  * The Volcanic Pinnacle's island: a young lava cone rising steeply out of clear blue water, like the
@@ -222,41 +225,62 @@ function shoreRocks(seed: number) {
   return parts;
 }
 
+/**
+ * Everything solid of the Volcanic Pinnacle's island in one geometry, made in slices (sliced-geometry.ts): the same code, in the same order,
+ * with places to stop between its parts. The same at every level but for the islets, so made once for each number of them (geometry-cache.ts).
+ */
+export function* volcanicCoastJob(level: number): Job {
+  const parts: BufferGeometry[] = [cliffs(ROCKS, FOOT, TOP, 1, 0, 0, 0, (x, z) => shoreTop(x, z) - .05, SHAPE)];
+  yield;
+  parts.push(slopes(1));
+  yield;
+  parts.push(...grove(-1.22, -.12, 9, .38, 1)); yield;
+  parts.push(...grove(1.15, -.42, 8, .38, 2)); yield;
+  parts.push(...grove(1.08, .3, 5, .26, 3)); yield;
+  parts.push(...grove(-.26, -.92, 6, .42, 4)); yield;
+  parts.push(...cactus(-.7, .8, 1.8, 1), ...cactus(-.4, 1, 1.5, 2), ...cactus(.36, .94, 1.7, 3), ...cactus(-1.12, .46, 1.4, 4), ...cactus(1, .64, 1.4, 5));
+  yield;
+  // The causeway on the east point, and a stack of columns off the north shore.
+  parts.push(...columns(1.72, .08, 6, 7, .068, -.25, TOP + .17, -.17, 1));
+  yield;
+  parts.push(...columns(.72, -1.6, 3, 4, .06, .4, TOP + .12, -.06, 2));
+  yield;
+  parts.push(...shoreRocks(1));
+  yield;
+  // From level 5 the islets (island-outline.ts) rise as low lava rocks capped with columns.
+  const rocks = islets(level, SHAPE);
+  for (let i = 0; i < rocks.length; i++) {
+    const { position: [x, z], scale } = rocks[i];
+    parts.push(cliffs(ROCKS, FOOT, TOP, scale, x, z, 7 + i, undefined, SHAPE), ...columns(x, z, 3, 3, .05 * scale * 2.5, i, TOP + .08, TOP - .02, 5 + i));
+    yield;
+  }
+  const merged = mergeGeometries(parts);
+  parts.forEach((part) => part.dispose());
+  yield;
+  merged.computeVertexNormals();
+  return merged;
+}
+
 /** Everything solid of the Volcanic Pinnacle's island in one mesh (it never moves). */
 export function VolcanicCoast({ level }: { level: number }) {
+  // (made in slices, one stager step each, when the scene is staged: sliced-geometry.ts)
+  const geometry = useSlicedGeometry(`volcanic-coast:${islets(level, SHAPE).length}`, STAGE.coast, () => volcanicCoastJob(level));
   const mesh = useMemo(() => {
-    // (the same at every level but for the islets, so made once for each number of them: geometry-cache.ts)
-    const geometry = builtOnce(`volcanic-coast:${islets(level, SHAPE).length}`, () => {
-    const parts: BufferGeometry[] = [
-      cliffs(ROCKS, FOOT, TOP, 1, 0, 0, 0, (x, z) => shoreTop(x, z) - .05, SHAPE),
-      slopes(1),
-      ...grove(-1.22, -.12, 9, .38, 1), ...grove(1.15, -.42, 8, .38, 2), ...grove(1.08, .3, 5, .26, 3), ...grove(-.26, -.92, 6, .42, 4),
-      ...cactus(-.7, .8, 1.8, 1), ...cactus(-.4, 1, 1.5, 2), ...cactus(.36, .94, 1.7, 3), ...cactus(-1.12, .46, 1.4, 4), ...cactus(1, .64, 1.4, 5),
-      // The causeway on the east point, and a stack of columns off the north shore.
-      ...columns(1.72, .08, 6, 7, .068, -.25, TOP + .17, -.17, 1),
-      ...columns(.72, -1.6, 3, 4, .06, .4, TOP + .12, -.06, 2),
-      ...shoreRocks(1),
-      // From level 5 the islets (island-outline.ts) rise as low lava rocks capped with columns.
-      ...islets(level, SHAPE).flatMap(({ position: [x, z], scale }, i) => [cliffs(ROCKS, FOOT, TOP, scale, x, z, 7 + i, undefined, SHAPE), ...columns(x, z, 3, 3, .05 * scale * 2.5, i, TOP + .08, TOP - .02, 5 + i)]),
-    ];
-    const merged = mergeGeometries(parts);
-    parts.forEach((part) => part.dispose());
-    merged.computeVertexNormals();
-    return merged;
-    });
+    if (!geometry) return null;
     const mesh = new Mesh(geometry, new MeshLambertMaterial({ vertexColors: true, flatShading: true }));
     mesh.name = 'volcanic-coast';
     mesh.raycast = () => {};
     return mesh;
-  }, [level]);
+  }, [geometry]);
   // (the geometry is shared, geometry-cache.ts: only the material is this mesh's own to dispose)
-  useHeldGeometry(mesh.geometry);
-  useEffect(() => () => (mesh.material as MeshLambertMaterial).dispose(), [mesh]);
-  return <>
+  useHeldGeometry(mesh?.geometry ?? null);
+  useEffect(() => () => (mesh?.material as MeshLambertMaterial | undefined)?.dispose(), [mesh]);
+  if (!mesh) return null;
+  return <Arriving>
     <primitive object={mesh} />
     <Vent />
     <Currents />
-  </>;
+  </Arriving>;
 }
 
 /** The vent in the crater floor: a dull glow of hot rock (unlit, so it shows), and the steam rising from it. */

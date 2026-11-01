@@ -15,6 +15,8 @@ import { projectPoint } from './project-point';
 import { ReefAnemones } from './reef-anemone';
 import { ReefRocks } from './reef-rocks';
 import { useSceneQuality } from './scene-quality';
+import { STAGE } from './stager';
+import { useSteps } from './staging';
 import { TunaSchoolMesh } from './tuna-school-mesh';
 import { onScreen } from './view-cull';
 
@@ -91,10 +93,16 @@ export function MarineSwimmers({ residents, models, active, level = 1, school = 
   const places = world ? JSON.stringify({ islands: world.islands, index: world.index }) : '';
   /** What the simulation has of each species: its lane, model and group size, and whether it was sent off at the end of its turn. */
   type Joined = { lane: number; model: MarineMember['model']; group: number; leaving: boolean };
+  // The animals the scene may have so far: one more with each step (staging.tsx), the swimming itself starting with none, so that no
+  // one task builds them all; all of them at once where nothing stages the scene.
+  const room = useSteps(STAGE.animal, residents.filter((r) => !r.leaving && models[r.model]).length);
   const start = () => {
-    // Those on the island now whose models are loaded (the rest join as theirs arrive), each in a group sized within the budget.
-    const present = residents.filter((r) => !r.leaving && models[r.model]);
-    const sizes = groupSizes(present, budget, SEED);
+    // Those on the island now whose models are loaded (the rest join as theirs arrive), each in a group sized within the budget: all of
+    // them sized together, as if they all joined now, though only the first `room` do (the others keep the size planned for them).
+    const ready = residents.filter((r) => !r.leaving && models[r.model]);
+    const sizes = groupSizes(ready, budget, SEED);
+    const plan = new Map(ready.map((r, i) => [r.id, sizes[i]] as const));
+    const present = ready.slice(0, room);
     const joined = new Map<string, Joined>(present.map((r, i) => [r.id, { lane: r.lane, model: r.model, group: sizes[i], leaving: false }]));
     const members = present.map((r, i): MarineMember => ({ model: r.model, lane: r.lane, group: sizes[i], speciesId: r.id }));
     const arriving = present.filter((r) => waiting.includes(r.id)).map((r) => r.lane);
@@ -102,7 +110,7 @@ export function MarineSwimmers({ residents, models, active, level = 1, school = 
     // A new tuna brings the whole school in, from out of sight (only ever before the scene is shown).
     if (holdable) motion.holdSchool(aspect);
     // Those on the island whose models are still loading (`late`), and those of them that came on show emerging (`emerging`, their lanes).
-    return { motion, joined, late: new Set<string>(), emerging: new Set<number>() };
+    return { motion, joined, late: new Set<string>(), emerging: new Set<number>(), plan };
   };
   // One simulation for the scene's life (a school of tuna swims with them, src/lib/tuna-school.ts). Species come and go
   // in it one at a time, the others carrying on as they were: one whose turn ends swims off out of the view, the next
@@ -110,10 +118,10 @@ export function MarineSwimmers({ residents, models, active, level = 1, school = 
   // the ocean around the same animals rather than starting over. The school joining (a tuna logged) or leaving (its last
   // sighting deleted) starts one again, and so does another island (Home's card shows one island at a time).
   const [simulation, setSimulation] = useState(() => ({ school, shape, places, ...start() }));
-  let { motion, joined, late, emerging } = simulation;
+  let { motion, joined, late, emerging, plan } = simulation;
   if (simulation.school !== school || simulation.shape !== shape || simulation.places !== places) {
-    ({ motion, joined, late, emerging } = start());
-    setSimulation({ school, shape, places, motion, joined, late, emerging });
+    ({ motion, joined, late, emerging, plan } = start());
+    setSimulation({ school, shape, places, motion, joined, late, emerging, plan });
   }
   // Bring the simulation in step with who is on the island (applying the same changes twice changes nothing).
   const wanted = new Map(residents.filter((r) => models[r.model]).map((r) => [r.id, r]));
@@ -124,13 +132,19 @@ export function MarineSwimmers({ residents, models, active, level = 1, school = 
     else if (now.leaving && !had.leaving) { motion.depart(had.lane, { aspect, instant: !!arrivals?.instant || !active }); had.leaving = true; }
   }
   for (const r of residents) if (!r.leaving && !models[r.model]) late.add(r.id);
+  let admitted = [...joined.values()].filter((j) => !j.leaving).length;
   for (const [id, r] of wanted) {
     if (joined.has(id) || r.leaving) continue;
+    // Its step has not come yet: it joins when it does, as one whose model arrived late does.
+    if (admitted >= room) { late.add(id); continue; }
+    admitted++;
     // Its group's size within what the budget has left. A newcomer (another's turn ended) swims in from the open sea, a new
     // discovery waits for its turn to arrive; one already on the island whose model has only now loaded comes into view
     // where it is, emerging from the deep. Before the scene is on show, or with the scene still, it is simply there.
-    const used = [...joined.values()].reduce((sum, j) => sum + j.group - 1, 0);
-    const group = groupSizes([{ id, model: r.model }], Math.max(0, budget - used), SEED)[0];
+    // (one sized with the others as they started keeps its size; any other gets what the others, and those still to join, leave of the budget)
+    const used = [...joined.values()].reduce((sum, j) => sum + j.group - 1, 0) + [...plan].reduce((sum, [who, size]) => sum + (!joined.has(who) && wanted.has(who) ? size - 1 : 0), 0);
+    const group = plan.get(id) ?? groupSizes([{ id, model: r.model }], Math.max(0, budget - used), SEED)[0];
+    plan.delete(id);
     const held = waiting.includes(id), lateModel = late.delete(id) && !held, still = !!arrivals?.instant || !active || unseen;
     motion.add({ model: r.model, lane: r.lane, group, speciesId: id }, { aspect, waiting: held, instant: still || lateModel });
     if (lateModel && !still) emerging.add(r.lane);

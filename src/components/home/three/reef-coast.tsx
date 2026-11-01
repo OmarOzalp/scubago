@@ -6,6 +6,9 @@ import { coralHeads, JETTY, jettyLine, type CoralHead, type CoralKind } from '@/
 import { smoothstep } from '@/lib/steering';
 import { boulder, cliffs, delaunay, faces, hash, noise, paintFaces, triangles, type RockColors } from './coast-geometry';
 import { builtOnce, useHeldGeometry } from './geometry-cache';
+import { useSlicedGeometry, type Job } from './sliced-geometry';
+import { STAGE } from './stager';
+import { Arriving } from './staging';
 import { islandScale } from './island-shape';
 import { OceanContext } from './ocean-context';
 import type { Ocean } from './water-surface';
@@ -298,24 +301,38 @@ export function coralGeometry(kind: CoralKind, radius: number, height: number, s
 }
 
 /**
- * A mesh of coral heads, drawn on the bottom like the reef's rocks (behind any animal over them) and tinted by the water over them. The heads' geometry is
- * made once for each `key` (geometry-cache.ts); the mesh is made from a copy of it (prepareUnderwater), which is its own.
+ * The geometry of a set of coral heads, made in slices (sliced-geometry.ts): the heads (`heads()`: found when the first slice runs), then a
+ * few at a time, each cut from its template, then merged. The same code, in the same order, as it was in one go.
  */
-function useCoralMesh(heads: readonly CoralHead[], name: string, key: string) {
+export function* coralsJob(heads: () => readonly CoralHead[], lite: boolean): Job {
+  const all = heads();
+  yield;
+  const parts: BufferGeometry[] = [];
+  for (let i = 0; i < all.length; i++) {
+    const head = all[i];
+    if (lite && head.crest && i % 2 !== 0) continue;
+    const geometry = coralGeometry(head.kind, head.radius, head.height, head.seed);
+    geometry.rotateY(hash(head.seed, 13) * Math.PI * 2);
+    geometry.translate(head.x, head.floor - .01, head.z);
+    parts.push(geometry);
+    yield;
+  }
+  const merged = parts.length ? mergeGeometries(parts) : new IcosahedronGeometry(.001, 0);
+  parts.forEach((part) => part.dispose());
+  return merged;
+}
+
+/**
+ * A mesh of coral heads, drawn on the bottom like the reef's rocks (behind any animal over them) and tinted by the water over them. The heads' geometry is
+ * made once for each `key` (geometry-cache.ts), in slices if the scene is staged and the set is big (`sliced`); the mesh is made from a copy of it
+ * (prepareUnderwater), which is its own. Null until the geometry is made.
+ */
+function useCoralMesh(heads: () => readonly CoralHead[], name: string, key: string, sliced: boolean) {
   const ocean = useContext(OceanContext);
   const lite = useSceneQuality() === 'lite';
-  const { mesh, look } = useMemo(() => {
-    const geometry = builtOnce(`${key}:${lite}`, () => {
-      const parts = heads.filter((head, i) => !lite || !head.crest || i % 2 === 0).map((head) => {
-        const geometry = coralGeometry(head.kind, head.radius, head.height, head.seed);
-        geometry.rotateY(hash(head.seed, 13) * Math.PI * 2);
-        geometry.translate(head.x, head.floor - .01, head.z);
-        return geometry;
-      });
-      const merged = parts.length ? mergeGeometries(parts) : new IcosahedronGeometry(.001, 0);
-      parts.forEach((part) => part.dispose());
-      return merged;
-    });
+  const geometry = useSlicedGeometry(`${key}:${lite}`, STAGE.props, () => coralsJob(heads, lite), sliced);
+  const made = useMemo(() => {
+    if (!geometry) return null;
     const material = new MeshLambertMaterial({ vertexColors: true, flatShading: true, side: DoubleSide });
     const mesh = new Mesh(geometry, material);
     mesh.name = name;
@@ -324,15 +341,15 @@ function useCoralMesh(heads: readonly CoralHead[], name: string, key: string) {
     const look = prepareUnderwater(mesh, ocean ?? undefined, lite, { bias: FLOOR_BIAS, seabed: .32 });
     material.dispose();
     return { mesh, look };
-  }, [heads, name, key, ocean, lite]);
-  useEffect(() => () => look.dispose(), [look]);
-  return mesh;
+  }, [geometry, name, ocean, lite]);
+  useEffect(() => () => made?.look.dispose(), [made]);
+  return made?.mesh ?? null;
 }
 
 /** The coral heads of the lagoon and the crest (reef-coast.ts), in the island's frame (world units, not scaled with the island). */
 export function ReefCorals({ level }: { level: number }) {
-  const heads = useMemo(() => coralHeads(level), [level]);
-  return <primitive object={useCoralMesh(heads, 'reef-corals', `reef-corals:${level}`)} />;
+  const mesh = useCoralMesh(() => coralHeads(level), 'reef-corals', `reef-corals:${level}`, true);
+  return mesh ? <Arriving><primitive object={mesh} /></Arriving> : null;
 }
 
 /** One of the lagoon's showpiece corals (SEABED_PROPS) or its reef rock, in the island group's frame, grown in at its level. */
@@ -342,8 +359,9 @@ function Showpiece({ at, level, from, kind, radius, height, seed, ocean, place }
   const scale = islandScale(level), [x, z] = at;
   const floor = useMemo(() => ocean.field.profile(place[0] + x * scale, place[1] + z * scale).floor, [ocean, place, x, z, scale]);
   const heads = useMemo<CoralHead[]>(() => [{ x: 0, z: 0, floor: .01, radius, height, kind: kind === 'rock' ? 'boulder' : kind, seed, crest: false }], [radius, height, kind, seed]);
-  const mesh = useCoralMesh(heads, `reef-showpiece-${seed}`, `reef-showpiece:${kind}:${radius}:${height}:${seed}`);
-  return <group position={[x, floor / scale, z]}><Unlock at={from} level={level} kind="grow"><primitive object={mesh} /></Unlock></group>;
+  // (one head: made at once, with the coast)
+  const mesh = useCoralMesh(() => heads, `reef-showpiece-${seed}`, `reef-showpiece:${kind}:${radius}:${height}:${seed}`, false);
+  return <group position={[x, floor / scale, z]}><Unlock at={from} level={level} kind="grow">{mesh && <primitive object={mesh} />}</Unlock></group>;
 }
 
 /** A small cay of sand out on the reef (an islet, from level 5): a beach, a few shrubs and a palm or two. */
@@ -365,63 +383,82 @@ function IsletCay({ position, scale, seed }: { position: [number, number]; scale
   return <primitive object={mesh} />;
 }
 
+/**
+ * The Coral Reef's cay in one geometry, made in slices (sliced-geometry.ts): the same code, in the same order, with places to stop
+ * between its parts and along the forest's lattice. The same for every level, and for every mount of it (geometry-cache.ts).
+ */
+export function* reefCoastJob(lite: boolean): Job {
+  // The beach loses its lids: the ground drawn over it covers the island.
+  const parts: BufferGeometry[] = [cliffs(BEACH, FOOT, TOP, 1, 0, 0, 0, (x, z) => Math.min(TOP, groundAt(x, z) - .008), SHAPE)];
+  yield;
+  parts.push(ground(1));
+  yield;
+  // Inland, a dense, bright forest on a jittered lattice, rising a little toward the middle, with a few clearings.
+  const step = lite ? .34 : .27;
+  for (let z = -1.7; z <= 1.7; z += step * .87) {
+    for (let x = -2.3; x <= 2.4; x += step) {
+      const px = x + (Math.round(z / step) % 2) * step / 2 + (hash(x * 3 + 1, z * 7) - .5) * step * .5, pz = z + (hash(z * 5 + 2, x) - .5) * step * .5;
+      const d = inside(px, pz);
+      if (d < .5 || noise(px * 1.6 + 3, pz * 1.6 - 7) < .28 || angleTo(Math.atan2(pz, px), JETTY.angle) < .12) continue;
+      const kind = hash(px * 5, pz * 3), colors = kind < .55 ? FOREST : kind < .82 ? PISONIA : SHE_OAK;
+      parts.push(...foliage(px, groundAt(px, pz) + .12 + .06 * smoothstep(.5, 1, d) + .03 * hash(px, pz), pz, 1.3 + .4 * hash(pz, px) + .2 * smoothstep(.5, 1, d), Math.round(px * 31 + pz * 17), colors));
+      yield;
+    }
+  }
+  // A hedge of silvery shrubs between the beach and the forest.
+  const ring = outlinePoints(lite ? 9 : 13, SHAPE);
+  ring.forEach(([ox, oy], i) => {
+    const k = .8 - .05 * hash(i, 2), x = ox * k, z = -oy * k;
+    if (angleTo(Math.atan2(z, x), JETTY.angle) < .1) return;
+    parts.push(...foliage(x, groundAt(x, z) - .005, z, .7 + .3 * hash(i, 5), i * 3 + 7, HEDGE, 3, .5));
+  });
+  yield;
+  // Coconut palms leaning out over the beach all round, and a few among the trees.
+  const palms = outlinePoints(lite ? 3 : 4, SHAPE);
+  palms.forEach(([ox, oy], i) => {
+    const k = .9 - .05 * hash(i, 9), x = ox * k, z = -oy * k, out = Math.atan2(z, x);
+    if (angleTo(out, JETTY.angle) < .15 || angleTo(out, ROCKS.angle) < ROCKS.spread * .6) return;
+    parts.push(...palm(x, z, .36 + .12 * hash(i, 4), out + (hash(i, 6) - .5) * .5, i + 1));
+  });
+  yield;
+  for (const [px, pz, seed] of [[-.6, .25, 41], [.55, -.35, 42], [1.35, .2, 43], [-1.45, -.3, 44]] as const) { parts.push(...palm(px, pz, .5, seed, seed)); yield; }
+  // Slabs of beach rock along the west shore, wet where the water laps them.
+  const shore = outlinePoints(14, SHAPE);
+  shore.forEach(([ox, oy], i) => {
+    const x = ox * 1.01, z = -oy * 1.01, out = Math.atan2(z, x);
+    if (angleTo(out, ROCKS.angle) > ROCKS.spread) return;
+    parts.push(boulder(BEACH_ROCK, x, WATER - .005, z, .1 + .05 * hash(i, 3), .025, .06, out + 1.4, 50 + i, WATER + .005));
+  });
+  yield;
+  parts.push(...jetty());
+  yield;
+  parts.push(...diveBoat());
+  yield;
+  const merged = mergeGeometries(parts);
+  parts.forEach((part) => part.dispose());
+  yield;
+  merged.computeVertexNormals();
+  return merged;
+}
+
 /** Everything of the Coral Reef's cay in one mesh (it never moves): beach, shrubs, forest, palms, beach rock, the jetty and the boat. */
 export function ReefCoast({ level, ocean, place }: { level: number; ocean: Ocean; place: readonly [number, number] }) {
   const lite = useSceneQuality() === 'lite';
+  // (made in slices, one stager step each, when the scene is staged: sliced-geometry.ts)
+  const geometry = useSlicedGeometry(`reef-coast:${lite}`, STAGE.coast, () => reefCoastJob(lite));
   const mesh = useMemo(() => {
-    // (the same for every level, and for every mount of it: geometry-cache.ts)
-    const geometry = builtOnce(`reef-coast:${lite}`, () => {
-    // The beach loses its lids: the ground drawn over it covers the island.
-    const parts: BufferGeometry[] = [cliffs(BEACH, FOOT, TOP, 1, 0, 0, 0, (x, z) => Math.min(TOP, groundAt(x, z) - .008), SHAPE), ground(1)];
-    // Inland, a dense, bright forest on a jittered lattice, rising a little toward the middle, with a few clearings.
-    const step = lite ? .34 : .27;
-    for (let z = -1.7; z <= 1.7; z += step * .87) {
-      for (let x = -2.3; x <= 2.4; x += step) {
-        const px = x + (Math.round(z / step) % 2) * step / 2 + (hash(x * 3 + 1, z * 7) - .5) * step * .5, pz = z + (hash(z * 5 + 2, x) - .5) * step * .5;
-        const d = inside(px, pz);
-        if (d < .5 || noise(px * 1.6 + 3, pz * 1.6 - 7) < .28 || angleTo(Math.atan2(pz, px), JETTY.angle) < .12) continue;
-        const kind = hash(px * 5, pz * 3), colors = kind < .55 ? FOREST : kind < .82 ? PISONIA : SHE_OAK;
-        parts.push(...foliage(px, groundAt(px, pz) + .12 + .06 * smoothstep(.5, 1, d) + .03 * hash(px, pz), pz, 1.3 + .4 * hash(pz, px) + .2 * smoothstep(.5, 1, d), Math.round(px * 31 + pz * 17), colors));
-      }
-    }
-    // A hedge of silvery shrubs between the beach and the forest.
-    const ring = outlinePoints(lite ? 9 : 13, SHAPE);
-    ring.forEach(([ox, oy], i) => {
-      const k = .8 - .05 * hash(i, 2), x = ox * k, z = -oy * k;
-      if (angleTo(Math.atan2(z, x), JETTY.angle) < .1) return;
-      parts.push(...foliage(x, groundAt(x, z) - .005, z, .7 + .3 * hash(i, 5), i * 3 + 7, HEDGE, 3, .5));
-    });
-    // Coconut palms leaning out over the beach all round, and a few among the trees.
-    const palms = outlinePoints(lite ? 3 : 4, SHAPE);
-    palms.forEach(([ox, oy], i) => {
-      const k = .9 - .05 * hash(i, 9), x = ox * k, z = -oy * k, out = Math.atan2(z, x);
-      if (angleTo(out, JETTY.angle) < .15 || angleTo(out, ROCKS.angle) < ROCKS.spread * .6) return;
-      parts.push(...palm(x, z, .36 + .12 * hash(i, 4), out + (hash(i, 6) - .5) * .5, i + 1));
-    });
-    for (const [px, pz, seed] of [[-.6, .25, 41], [.55, -.35, 42], [1.35, .2, 43], [-1.45, -.3, 44]] as const) parts.push(...palm(px, pz, .5, seed, seed));
-    // Slabs of beach rock along the west shore, wet where the water laps them.
-    const shore = outlinePoints(14, SHAPE);
-    shore.forEach(([ox, oy], i) => {
-      const x = ox * 1.01, z = -oy * 1.01, out = Math.atan2(z, x);
-      if (angleTo(out, ROCKS.angle) > ROCKS.spread) return;
-      parts.push(boulder(BEACH_ROCK, x, WATER - .005, z, .1 + .05 * hash(i, 3), .025, .06, out + 1.4, 50 + i, WATER + .005));
-    });
-    parts.push(...jetty(), ...diveBoat());
-    const merged = mergeGeometries(parts);
-    parts.forEach((part) => part.dispose());
-    merged.computeVertexNormals();
-    return merged;
-    });
+    if (!geometry) return null;
     const mesh = new Mesh(geometry, new MeshLambertMaterial({ vertexColors: true, flatShading: true, side: DoubleSide }));
     mesh.name = 'reef-coast';
     mesh.raycast = () => {};
     return mesh;
-  }, [lite]);
+  }, [geometry]);
   // (the geometry is shared, geometry-cache.ts: only the material is this mesh's own to dispose)
-  useHeldGeometry(mesh.geometry);
-  useEffect(() => () => (mesh.material as MeshLambertMaterial).dispose(), [mesh]);
+  useHeldGeometry(mesh?.geometry ?? null);
+  useEffect(() => () => (mesh?.material as MeshLambertMaterial | undefined)?.dispose(), [mesh]);
   const [first, second] = islets(6, SHAPE);
-  return <>
+  if (!mesh) return null;
+  return <Arriving>
     <primitive object={mesh} />
     {/* What each level adds grows in (or rises from the water) when it's unlocked on screen. */}
     <Showpiece at={SEABED_PROPS.coralA} level={level} from={2} kind="table" radius={.2} height={.18} seed={101} ocean={ocean} place={place} />
@@ -431,7 +468,7 @@ export function ReefCoast({ level, ocean, place }: { level: number; ocean: Ocean
     <group position={[-.15, 0, .75]}><Unlock at={4} level={level} kind="grow"><PalmAt x={-.15} z={.75} /></Unlock></group>
     <Unlock at={5} level={level} kind="rise"><IsletCay position={first.position} scale={first.scale} seed={5} /></Unlock>
     <Unlock at={6} level={level} kind="rise"><IsletCay position={second.position} scale={second.scale} seed={6} /></Unlock>
-  </>;
+  </Arriving>;
 }
 
 /** The palm level 4 adds, among the trees (drawn about its own foot, so it grows in where it stands). */

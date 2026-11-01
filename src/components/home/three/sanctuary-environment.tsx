@@ -16,6 +16,8 @@ import { MangroveCoast } from './mangrove-coast';
 import { ReefCoast, ReefCorals } from './reef-coast';
 import { WreckCoast } from './wreck-coast';
 import { SeagrassMeadow } from './seagrass-meadow';
+import { IslandContext, Stage } from './staging';
+import { STAGE } from './stager';
 import { GROWTH_SECONDS, GrowthContext } from './unlock';
 import { useOcean, WaterSurface, type Ocean } from './water-surface';
 
@@ -23,9 +25,9 @@ export const WATER: Record<Habitat, string> = { island: '#C5E3DF', lagoon: '#B9D
 
 /**
  * An island in the scene's ocean: where its middle lies (world units), whose shores it has, and
- * what lives there (its animals, drawn in the island's own frame and water).
+ * what lives there (its animals, drawn in the island's own frame and water; `small`, the reef's small life, which comes last).
  */
-export type SceneIsland = { key: string; habitat: Habitat; x: number; z: number; content?: ReactNode };
+export type SceneIsland = { key: string; habitat: Habitat; x: number; z: number; content?: ReactNode; small?: ReactNode };
 
 /**
  * One island, in its own frame at its place in the ocean: its shores (the Kelp Forest's rocky coast
@@ -41,21 +43,22 @@ function IslandPlace({ island, ocean, level, growIn }: { island: SceneIsland; oc
   // The kelp makes way for the animals swimming through it (kelp-movers.ts).
   const [movers] = useState(createKelpMovers);
   const kelp = island.habitat === 'kelp';
+  // Built in steps (staging.tsx): the coast first, then what grows on and round it, then the animals' swimming (and each animal in
+  // its turn), then the reef's small life. Each is made when its step opens, and grows in if the scene is already on show.
+  const shore = island.habitat;
+  const reef = shore !== 'kelp' && shore !== 'volcanic' && shore !== 'mangrove' && shore !== 'wreck';
+  const coast = kelp ? <KelpCoast level={level} /> : shore === 'volcanic' ? <VolcanicCoast level={level} /> : shore === 'mangrove' ? <MangroveCoast level={level} />
+    : shore === 'wreck' ? <WreckCoast level={level} /> : <ReefCoast level={level} ocean={ocean} place={[island.x, island.z]} />;
+  const props = kelp ? <KelpForest level={level} /> : shore === 'mangrove' ? <SeagrassMeadow level={level} /> : reef ? <ReefCorals level={level} /> : null;
   return <group position={[island.x, 0, island.z]}>
     <OceanContext.Provider value={uniforms}><GrowthContext.Provider value={growth}><KelpMoversContext.Provider value={kelp ? movers : null}>
-      {kelp ? <>
-        <group scale={islandScale(level)}><KelpCoast level={level} /></group>
-        <KelpForest level={level} />
-      </> : island.habitat === 'volcanic'
-        ? <group scale={islandScale(level)}><VolcanicCoast level={level} /></group>
-        : island.habitat === 'mangrove' ? <>
-          <group scale={islandScale(level)}><MangroveCoast level={level} /></group>
-          <SeagrassMeadow level={level} />
-        </> : island.habitat === 'wreck' ? <group scale={islandScale(level)}><WreckCoast level={level} /></group> : <>
-          <group scale={islandScale(level)}><ReefCoast level={level} ocean={ocean} place={[island.x, island.z]} /></group>
-          <ReefCorals level={level} />
-        </>}
-      {island.content}
+      <IslandContext.Provider value={island.key}>
+        {/* (the reef's and the mangroves' coasts and the reef's corals are made in slices, and grow in when they are made: sliced-geometry.ts) */}
+        <Stage at={STAGE.coast} grow={shore === 'wreck'}><group scale={islandScale(level)}>{coast}</group></Stage>
+        {props && <Stage at={STAGE.props} grow={!reef}>{props}</Stage>}
+        <Stage at={STAGE.swim}>{island.content}</Stage>
+        {island.small && <Stage at={STAGE.small} grow>{island.small}</Stage>}
+      </IslandContext.Provider>
     </KelpMoversContext.Provider></GrowthContext.Provider></OceanContext.Provider>
   </group>;
 }
@@ -68,7 +71,7 @@ function IslandWorld({ habitat, level, active, growIn, reach, islands, children 
   const ocean = useOcean(habitat, level, WATER[habitat], quality, reach, islands.map(({ x, z, habitat: shores }) => ({ x, z, habitat: shores })));
   return <OceanContext.Provider value={ocean.uniforms}>
     <WaterSurface ocean={ocean} active={active} />
-    {ocean.field.bank && <ArchipelagoSea bank={ocean.field.bank} />}
+    {ocean.field.bank && <Stage at={STAGE.props} grow><ArchipelagoSea bank={ocean.field.bank} /></Stage>}
     {islands.map((island) => <IslandPlace key={island.key} island={island} ocean={ocean} level={level} growIn={growIn} />)}
     {children}
   </OceanContext.Provider>;

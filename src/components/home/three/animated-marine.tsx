@@ -7,7 +7,7 @@ import { FLOOR_BIAS, prepareUnderwater, type ReefLook } from './underwater-mater
 import { attachSwimRig, swimDrive } from './swim-rig-driver';
 import { MARINE_SIZE, TAP_SHAPES, TAP_SLOP, tapTarget } from './tap-target';
 import { disposeSkeletons } from './skeleton-dispose';
-import { markOnce } from './scene-marks';
+import { markOnce, SceneMarksContext } from './scene-marks';
 import { onScreen } from './view-cull';
 import { MOVEMENT, type MarineMotion } from '@/lib/marine-motion';
 import { SWIM_RIGS, type SwimDrive, type SwimRigModel } from '@/lib/marine-rigs';
@@ -60,7 +60,7 @@ export function AnimatedMarine({ model, gltf, lane, active, inspect = false, pop
   emerge?: boolean;
 }) {
   // The island's water (absent in the close-up), so the animal tints and refracts with the same waves.
-  const ocean = useContext(OceanContext);
+  const ocean = useContext(OceanContext), marks = useContext(SceneMarksContext);
   const lite = useSceneQuality() === 'lite';
   // SkeletonUtils.clone gives each swimmer its own skeleton so several can share one parsed rig.
   const { instance, underwater } = useMemo(() => {
@@ -146,7 +146,7 @@ export function AnimatedMarine({ model, gltf, lane, active, inspect = false, pop
       }
       v.y = y;
       group.current.visible = dive.visible && seen.current;
-      if (group.current.visible) markOnce('scubago:first-animal');
+      if (group.current.visible) markOnce(marks.animal);
       group.current.position.set(pose.x, y, pose.z);
       // Emerging, it rises out of the deep blue head first, as from a dive (and its own dive takes over once deeper than that).
       const rise = emerging.current;

@@ -4,7 +4,10 @@ import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js
 import { islets, outlinePoints, shoreDistance } from '@/lib/island-outline';
 import { smoothstep } from '@/lib/steering';
 import { cliffs, delaunay, faces, hash, noise, paintFaces, triangles } from './coast-geometry';
-import { builtOnce, useHeldGeometry } from './geometry-cache';
+import { useHeldGeometry } from './geometry-cache';
+import { useSlicedGeometry, type Job } from './sliced-geometry';
+import { STAGE } from './stager';
+import { Arriving } from './staging';
 import { useSceneQuality } from './scene-quality';
 
 /**
@@ -256,63 +259,82 @@ function boardwalk(from: number, length: number, angle: number) {
   return parts;
 }
 
+/**
+ * The Mangroves & Seagrass island in one geometry, made in slices (sliced-geometry.ts): the same code, in the same order, with places to stop
+ * between its parts and along the canopy's lattice. The same at every level but for the islets, so made once for each number of them (geometry-cache.ts).
+ */
+export function* mangroveCoastJob(level: number, lite: boolean): Job {
+  // The banks lose their lids (the ground covers the island) and dip where the creek runs out to the sea.
+  const parts: BufferGeometry[] = [cliffs(BANK, FOOT, TOP, 1, 0, 0, 0, (x, z) => Math.min(TOP, groundAt(x, z) - .01), SHAPE)];
+  yield;
+  parts.push(ground(1));
+  yield;
+  // The canopy: trees on a jittered lattice inland, clear of the spit, with a few gaps where the mud shows.
+  const step = .3;
+  for (let z = -1.7; z <= 1.7; z += step * .87) {
+    for (let x = -2.8; x <= 2.8; x += step) {
+      const px = x + (Math.round(z / step) % 2) * step / 2 + (hash(x * 3 + 1, z * 7) - .5) * step * .5, pz = z + (hash(z * 5 + 2, x) - .5) * step * .5;
+      const d = inside(px, pz);
+      if (d < .16 || spit(px, pz) > .35 || creekMargin(px, pz) < .22 || noise(px * 1.8 + 5, pz * 1.8 - 2) < .16) continue;
+      // Taller inland, so the canopy rises gently toward the island's middle.
+      parts.push(...crown(px, groundAt(px, pz) + .2 + .07 * smoothstep(.2, 1, d) + .04 * hash(px, pz), pz, 1.35 + .35 * hash(pz, px) + .2 * smoothstep(.3, 1, d), Math.round(px * 31 + pz * 17)));
+      yield;
+    }
+  }
+  // Red mangroves round the edge, on their prop roots in the water.
+  const edge = outlinePoints(7, SHAPE);
+  for (let i = 0; i < edge.length; i++) {
+    const [ox, oy] = edge[i];
+    if (i % 2 && lite) continue;
+    const x = ox * (1.02 + .035 * hash(i, 3)), z = -oy * (1.02 + .035 * hash(i, 5));
+    if (spit(x, z) > .3 || creekMargin(x, z) < .12) continue;
+    parts.push(...redMangrove(x, z, 1.05 + .35 * hash(i, 7), i, lite ? 4 : 7));
+    yield;
+  }
+  // A few bleached snags among the living trees, and a boardwalk out from the spit.
+  for (const [sx, sz, seed] of [[-1.25, .45, 1], [.35, -.7, 2], [1.15, .1, 3]] as const) parts.push(...snag(sx, sz, seed));
+  yield;
+  parts.push(...boardwalk(1.55, .85, SPIT.angle - .12));
+  yield;
+  // Egrets wading off the spit.
+  parts.push(...egret(Math.cos(SPIT.angle) * 2.25, Math.sin(SPIT.angle) * 1.75, 2.4), ...egret(Math.cos(SPIT.angle + .25) * 1.9, Math.sin(SPIT.angle + .25) * 1.6, -.6));
+  yield;
+  // On the lagoon's far side a few red mangroves stand in its water on their roots (on the near side they
+  // would hide it), and an egret fishes at its edge.
+  const { lagoon } = CREEK;
+  for (let k = 0; k < (lite ? 1 : 3); k++) {
+    const a = -2.3 + k * .75;
+    parts.push(...redMangrove(lagoon.x + Math.cos(a) * lagoon.radius * .92, lagoon.z + Math.sin(a) * lagoon.radius * .92, .62, 60 + k, lite ? 3 : 5));
+    yield;
+  }
+  parts.push(...egret(lagoon.x - lagoon.radius * .45, lagoon.z + lagoon.radius * .55, .9));
+  yield;
+  // From level 5 the islets (island-outline.ts) rise as clumps of red mangroves on their roots.
+  for (const { position: [ix, iz], scale } of islets(level, SHAPE)) {
+    parts.push(cliffs(BANK, FOOT, TOP, scale, ix, iz, 9, undefined, SHAPE));
+    for (let k = 0; k < 3; k++) { parts.push(...redMangrove(ix + Math.cos(k * 2.1) * scale * 1.1, iz + Math.sin(k * 2.1) * scale * .8, .9, 40 + k, lite ? 4 : 6)); yield; }
+  }
+  const merged = mergeGeometries(parts);
+  parts.forEach((part) => part.dispose());
+  yield;
+  merged.computeVertexNormals();
+  return merged;
+}
+
 /** Everything of the Mangroves & Seagrass island in one mesh (it never moves): mud, canopy, prop roots, the spit, egrets. */
 export function MangroveCoast({ level }: { level: number }) {
   const lite = useSceneQuality() === 'lite';
+  // (made in slices, one stager step each, when the scene is staged: sliced-geometry.ts)
+  const geometry = useSlicedGeometry(`mangrove-coast:${islets(level, SHAPE).length}:${lite}`, STAGE.coast, () => mangroveCoastJob(level, lite));
   const mesh = useMemo(() => {
-    // (the same at every level but for the islets, so made once for each number of them: geometry-cache.ts)
-    const geometry = builtOnce(`mangrove-coast:${islets(level, SHAPE).length}:${lite}`, () => {
-    // The banks lose their lids (the ground covers the island) and dip where the creek runs out to the sea.
-    const parts: BufferGeometry[] = [cliffs(BANK, FOOT, TOP, 1, 0, 0, 0, (x, z) => Math.min(TOP, groundAt(x, z) - .01), SHAPE), ground(1)];
-    // The canopy: trees on a jittered lattice inland, clear of the spit, with a few gaps where the mud shows.
-    const step = .3;
-    for (let z = -1.7; z <= 1.7; z += step * .87) {
-      for (let x = -2.8; x <= 2.8; x += step) {
-        const px = x + (Math.round(z / step) % 2) * step / 2 + (hash(x * 3 + 1, z * 7) - .5) * step * .5, pz = z + (hash(z * 5 + 2, x) - .5) * step * .5;
-        const d = inside(px, pz);
-        if (d < .16 || spit(px, pz) > .35 || creekMargin(px, pz) < .22 || noise(px * 1.8 + 5, pz * 1.8 - 2) < .16) continue;
-        // Taller inland, so the canopy rises gently toward the island's middle.
-        parts.push(...crown(px, groundAt(px, pz) + .2 + .07 * smoothstep(.2, 1, d) + .04 * hash(px, pz), pz, 1.35 + .35 * hash(pz, px) + .2 * smoothstep(.3, 1, d), Math.round(px * 31 + pz * 17)));
-      }
-    }
-    // Red mangroves round the edge, on their prop roots in the water.
-    const edge = outlinePoints(7, SHAPE);
-    edge.forEach(([ox, oy], i) => {
-      if (i % 2 && lite) return;
-      const x = ox * (1.02 + .035 * hash(i, 3)), z = -oy * (1.02 + .035 * hash(i, 5));
-      if (spit(x, z) > .3 || creekMargin(x, z) < .12) return;
-      parts.push(...redMangrove(x, z, 1.05 + .35 * hash(i, 7), i, lite ? 4 : 7));
-    });
-    // A few bleached snags among the living trees, and a boardwalk out from the spit.
-    for (const [sx, sz, seed] of [[-1.25, .45, 1], [.35, -.7, 2], [1.15, .1, 3]] as const) parts.push(...snag(sx, sz, seed));
-    parts.push(...boardwalk(1.55, .85, SPIT.angle - .12));
-    // Egrets wading off the spit.
-    parts.push(...egret(Math.cos(SPIT.angle) * 2.25, Math.sin(SPIT.angle) * 1.75, 2.4), ...egret(Math.cos(SPIT.angle + .25) * 1.9, Math.sin(SPIT.angle + .25) * 1.6, -.6));
-    // On the lagoon's far side a few red mangroves stand in its water on their roots (on the near side they
-    // would hide it), and an egret fishes at its edge.
-    const { lagoon } = CREEK;
-    for (let k = 0; k < (lite ? 1 : 3); k++) {
-      const a = -2.3 + k * .75;
-      parts.push(...redMangrove(lagoon.x + Math.cos(a) * lagoon.radius * .92, lagoon.z + Math.sin(a) * lagoon.radius * .92, .62, 60 + k, lite ? 3 : 5));
-    }
-    parts.push(...egret(lagoon.x - lagoon.radius * .45, lagoon.z + lagoon.radius * .55, .9));
-    // From level 5 the islets (island-outline.ts) rise as clumps of red mangroves on their roots.
-    for (const { position: [ix, iz], scale } of islets(level, SHAPE)) {
-      parts.push(cliffs(BANK, FOOT, TOP, scale, ix, iz, 9, undefined, SHAPE));
-      for (let k = 0; k < 3; k++) parts.push(...redMangrove(ix + Math.cos(k * 2.1) * scale * 1.1, iz + Math.sin(k * 2.1) * scale * .8, .9, 40 + k, lite ? 4 : 6));
-    }
-    const merged = mergeGeometries(parts);
-    parts.forEach((part) => part.dispose());
-    merged.computeVertexNormals();
-    return merged;
-    });
+    if (!geometry) return null;
     const mesh = new Mesh(geometry, new MeshLambertMaterial({ vertexColors: true, flatShading: true }));
     mesh.name = 'mangrove-coast';
     mesh.raycast = () => {};
     return mesh;
-  }, [level, lite]);
+  }, [geometry]);
   // (the geometry is shared, geometry-cache.ts: only the material is this mesh's own to dispose)
-  useHeldGeometry(mesh.geometry);
-  useEffect(() => () => (mesh.material as MeshLambertMaterial).dispose(), [mesh]);
-  return <primitive object={mesh} />;
+  useHeldGeometry(mesh?.geometry ?? null);
+  useEffect(() => () => (mesh?.material as MeshLambertMaterial | undefined)?.dispose(), [mesh]);
+  return mesh ? <Arriving><primitive object={mesh} /></Arriving> : null;
 }

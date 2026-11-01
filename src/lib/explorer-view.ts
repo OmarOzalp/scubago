@@ -214,6 +214,21 @@ export function nearestIsland(frame: ExplorerFrame, view: Pick<ExplorerView, 'x'
   return away[second] - away[first] < apart * EXPLORER.between ? -1 : first;
 }
 
+/**
+ * The islands (their indexes in the frame's) nearest the view first, and how many of them are in or near it: those whose swimming
+ * areas reach into the water the screen shows, with `margin` (a share of the screen's size) to spare all round, so an island the
+ * view is about to reach is counted too. What the scene builds first (staging.tsx). On a screen not measured yet, only the island under the middle.
+ */
+export function islandsByView(frame: ExplorerFrame, view: ExplorerView, margin = .25): { order: number[]; near: number } {
+  const islands = islandsOf(frame), s = oceanScale(frame.level);
+  const halfX = frame.width / (2 * view.zoom) * (1 + margin), halfZ = frame.height * EXPLORER.depthStretch / (2 * view.zoom) * (1 + margin);
+  const reaches = islands.map(([x, z]) => Math.abs(x - view.x) < halfX + WORLD.x * s && Math.abs(z - view.z) < halfZ + WORLD.z * s);
+  const away = islands.map(([x, z]) => Math.hypot(x - view.x, z - view.z));
+  const order = islands.map((_, i) => i).sort((a, b) => Number(reaches[b]) - Number(reaches[a]) || away[a] - away[b] || a - b);
+  const measured = frame.width > 1 && frame.height > 1;
+  return { order, near: measured ? reaches.filter(Boolean).length : Math.min(1, order.length) };
+}
+
 /** Drag the water by (dx, dy) screen points: the spot under the finger stays under it. */
 export function panBy(frame: ExplorerFrame, view: ExplorerView, dx: number, dy: number): ExplorerView {
   return clampView(frame, { x: view.x - dx / view.zoom, z: view.z - dy * EXPLORER.depthStretch / view.zoom, zoom: view.zoom });
