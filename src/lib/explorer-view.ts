@@ -352,6 +352,8 @@ export function createExplorer(initial: ExplorerFrame, start?: number) {
     get frame() { return frame; },
     /** Whether the view is still moving on its own (an eased move or a glide), so the camera keeps drawing. */
     get moving() { return !!goal || vx !== 0 || vz !== 0; },
+    /** Whether a finger is down, so the camera draws at every refresh while the view follows it. */
+    get touching() { return fingers.length > 0; },
     /** The screen's size (and the island's level) changed. The first real size starts at the overview (or the island it opens on). */
     resize(next: ExplorerFrame) {
       settle();

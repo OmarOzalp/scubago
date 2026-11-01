@@ -24,7 +24,7 @@ export default function InspectScreen() {
 
   return <ThemedView style={styles.root}>
     <View style={styles.stage}>
-      {models ? <SceneBoundary><View style={styles.canvas} accessible accessibilityRole="image" accessibilityLabel={`A ${about.name.toLowerCase()} turning slowly in open water`}><Canvas orthographic flat {...(Platform.OS === 'web' ? { dpr: 1.25 } : {})} frameloop={active ? 'always' : 'demand'}
+      {models ? <SceneBoundary><View style={styles.canvas} accessible accessibilityRole="image" accessibilityLabel={`A ${about.name.toLowerCase()} turning slowly in open water`}><Canvas orthographic flat {...(Platform.OS === 'web' ? { dpr: 1.25 } : {})} frameloop={active ? 'always' : 'demand'} fps={60}
         gl={{ antialias: Platform.OS === 'web' }}
         camera={{ position: [0, 3.8, 9], zoom: 46, near: .1, far: 60 }}
         onCreated={({ camera }) => camera.lookAt(0, .2, 0)} style={styles.canvas}>

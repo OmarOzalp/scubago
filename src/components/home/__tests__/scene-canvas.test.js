@@ -3,13 +3,20 @@ import { afterEach, beforeEach, expect, jest, test } from '@jest/globals';
 import { create } from 'react-test-renderer';
 import { PixelRatio, View } from 'react-native';
 import { nextFrameDelay, SceneCanvas } from '../three/scene-canvas.native';
+import { LEAD_MS } from '../three/frame-pacer';
 import { useSceneQuality } from '../three/scene-quality';
 
-jest.mock('expo-device', () => ({ isDevice: false }));
+let mockDevice = false;
+jest.mock('expo-device', () => ({ get isDevice() { return mockDevice; } }));
 const mockInvalidate = jest.fn();
 let mockFrame;
 jest.mock('@react-three/fiber/native', () => ({
   Canvas: (props) => <canvas {...props} />,
+  useThree: (select) => select({ invalidate: (...args) => mockInvalidate(...args) }),
+  useFrame: (callback) => { mockFrame = callback; },
+}));
+// (the frame pacer, shared with the web canvas, reads the same renderer through the package's own entry)
+jest.mock('@react-three/fiber', () => ({
   useThree: (select) => select({ invalidate: (...args) => mockInvalidate(...args) }),
   useFrame: (callback) => { mockFrame = callback; },
 }));
@@ -19,6 +26,7 @@ beforeEach(() => {
   jest.useFakeTimers();
   mockInvalidate.mockClear();
   mockFrame = undefined;
+  mockDevice = false;
   jest.spyOn(PixelRatio, 'get').mockReturnValue(3);
 });
 afterEach(async () => {
@@ -84,4 +92,44 @@ test('the simulator renders the scene at lite quality', async () => {
   await act(async () => { root = create(<SceneCanvas frameloop="always"><Probe /></SceneCanvas>); });
   await layout();
   expect(root.root.findByType('probe').props.quality).toBe('lite');
+});
+
+test('on a phone an ambient scene draws 30 times a second: on demand, a frame asked for every 1/30 s while it animates', async () => {
+  mockDevice = true;
+  await act(async () => { root = create(<SceneCanvas frameloop="always" />); });
+  await layout();
+  expect(root.root.findByType('canvas').props.frameloop).toBe('demand');
+  expect(mockInvalidate).toHaveBeenCalledTimes(1);
+  mockInvalidate.mockClear();
+  mockFrame();
+  await act(async () => jest.advanceTimersByTime(1000 / 30 - LEAD_MS));
+  expect(mockInvalidate).toHaveBeenCalledTimes(1);
+  // It is not the simulator's pace (which waits for the GL worker): no 20 fps ceiling, nothing flushed.
+  mockInvalidate.mockClear();
+  mockFrame();
+  await act(async () => jest.advanceTimersByTime(1000 / 30 - LEAD_MS));
+  expect(mockInvalidate).toHaveBeenCalledTimes(1);
+});
+
+test('on a phone a paused scene schedules nothing, and asked for 60 it is a plain always-on loop', async () => {
+  mockDevice = true;
+  await act(async () => { root = create(<SceneCanvas frameloop="demand" />); });
+  await layout();
+  expect(root.root.findByType('canvas').props.frameloop).toBe('demand');
+  mockInvalidate.mockClear();
+  await act(async () => jest.advanceTimersByTime(1000));
+  expect(mockInvalidate).not.toHaveBeenCalled();
+  await act(async () => root.update(<SceneCanvas frameloop="always" fps={60} />));
+  expect(root.root.findByType('canvas').props.frameloop).toBe('always');
+  expect(root.root.findByType('canvas').props.fps).toBeUndefined();
+  mockInvalidate.mockClear();
+  await act(async () => jest.advanceTimersByTime(1000));
+  expect(mockInvalidate).not.toHaveBeenCalled();
+  // Pausing a paced scene stops its timer.
+  await act(async () => root.update(<SceneCanvas frameloop="always" />));
+  mockInvalidate.mockClear();
+  mockFrame();
+  await act(async () => root.update(<SceneCanvas frameloop="demand" />));
+  await act(async () => jest.advanceTimersByTime(1000));
+  expect(mockInvalidate).not.toHaveBeenCalled();
 });

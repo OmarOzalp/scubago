@@ -6,7 +6,7 @@
 export interface FrameSnapshot {
   /** Frames drawn per second over the window. */
   fps: number;
-  /** Frames that took longer than SLOW_FRAME_MS (a visible hitch at 60 Hz). */
+  /** Frames that came more than half again later than the scene's rate asks, slowFrameMs (a visible hitch). */
   slow: number;
   /** JS time per frame, from the first frame callback until three.js has issued its draw calls (ms). */
   jsMs: number;
@@ -18,17 +18,19 @@ export interface FrameSnapshot {
   quality: string;
 }
 
-export const SLOW_FRAME_MS = 25;
+/** A frame is slow when it comes more than half again later than the scene's rate (`fps`) asks: 25 ms at 60 a second, 50 at 30. */
+export const slowFrameMs = (fps: number) => 1500 / fps;
+export const SLOW_FRAME_MS = slowFrameMs(60);
 
 export function createFrameStats(windowSeconds = 2) {
   let frames = 0, seconds = 0, js = 0, jsMax = 0, slow = 0, gl: number | null = null;
   let latest: FrameSnapshot | null = null;
   return {
-    /** One rendered frame: seconds since the previous one, JS ms spent on it, and the renderer's counts for it. */
-    frame(delta: number, jsMs: number, draws: number, triangles: number, quality: string) {
+    /** One rendered frame: seconds since the previous one, JS ms spent on it, the renderer's counts for it, and the rate (a second) the scene is drawn at. */
+    frame(delta: number, jsMs: number, draws: number, triangles: number, quality: string, fps = 60) {
       if (!(delta > 0)) return;
       frames++; seconds += delta; js += jsMs; jsMax = Math.max(jsMax, jsMs);
-      if (delta * 1000 > SLOW_FRAME_MS) slow++;
+      if (delta * 1000 > slowFrameMs(fps)) slow++;
       if (seconds < windowSeconds) return;
       latest = { fps: frames / seconds, slow, jsMs: js / frames, jsMaxMs: jsMax, glMs: gl, draws, triangles, quality };
       frames = 0; seconds = 0; js = 0; jsMax = 0; slow = 0;

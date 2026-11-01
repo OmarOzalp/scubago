@@ -1,5 +1,5 @@
 import { expect, test } from '@jest/globals';
-import { createFrameStats, formatFrameSnapshot } from '@/lib/frame-stats';
+import { createFrameStats, formatFrameSnapshot, slowFrameMs } from '@/lib/frame-stats';
 
 test('frame stats publish averages once per window, counting hitches', () => {
   const stats = createFrameStats(1.05);
@@ -29,4 +29,19 @@ test('the badge reads in two short lines', () => {
   expect(first).toBe('60 fps · 1 slow · full');
   expect(second).toBe('JS 4.1 ms (max 9.0) · GL 3.2 ms · 31 draws · 12.3k tris');
   expect(formatFrameSnapshot({ fps: 20, slow: 0, jsMs: 1, jsMaxMs: 1, glMs: null, draws: 5, triangles: 640, quality: 'lite' })[1]).toBe('JS 1.0 ms (max 1.0) · 5 draws · 640 tris');
+});
+
+test('a frame is slow only when it comes late for the rate the scene is drawn at: 25 ms at 60 a second, 50 at 30', () => {
+  expect(slowFrameMs(60)).toBe(25);
+  expect(slowFrameMs(30)).toBe(50);
+  const stats = createFrameStats(1);
+  // a paced scene: every frame 33 ms apart is on time, two of 60 ms are late
+  for (let i = 0; i < 28; i++) stats.frame(1 / 30, 4, 31, 12345, 'full', 30);
+  stats.frame(.06, 4, 31, 12345, 'full', 30);
+  stats.frame(.06, 4, 31, 12345, 'full', 30);
+  expect(stats.latest()).toMatchObject({ slow: 2 });
+  expect(stats.latest()!.fps).toBeCloseTo(30 * 30 / (28 + 2 * 1.8) * (28 + 2) / 30, 0);
+  // the same 33 ms frames in a scene that draws at 60 are all slow, as they always were
+  for (let i = 0; i < 31; i++) stats.frame(1 / 30, 4, 31, 12345, 'full');
+  expect(stats.latest()).toMatchObject({ slow: 31 });
 });

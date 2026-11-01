@@ -557,3 +557,18 @@ test('islands known only once it is open (the collection still loading): it open
   later.open(1);
   expect(later.view).toEqual(clampView(both, put));
 });
+
+test('a finger on the screen is touching, from the first one down until the last lifts or the system takes the touch away', () => {
+  const explorer = opened(PHONE);
+  expect(explorer.touching).toBe(false);
+  explorer.touch([{ id: 1, x: 0, y: 0 }], 0);
+  expect(explorer.touching).toBe(true);
+  explorer.touch([{ id: 1, x: 0, y: 0 }, { id: 2, x: 40, y: 0 }], 16);
+  explorer.touch([{ id: 2, x: 40, y: 0 }], 32);
+  expect(explorer.touching).toBe(true);
+  explorer.touch([], 48);
+  expect(explorer.touching).toBe(false);
+  explorer.touch([{ id: 3, x: 0, y: 0 }], 64);
+  explorer.touch([], 70, true);
+  expect(explorer.touching).toBe(false);
+});

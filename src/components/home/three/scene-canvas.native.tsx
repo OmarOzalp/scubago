@@ -2,6 +2,7 @@ import { useEffect, useRef, useState, type ComponentProps } from 'react';
 import { PixelRatio, StyleSheet, View } from 'react-native';
 import { isDevice } from 'expo-device';
 import { Canvas, useFrame, useThree } from '@react-three/fiber/native';
+import { AMBIENT_FPS, FramePacer, FrameRateContext } from './frame-pacer';
 import { sceneQuality, SceneQualityContext } from './scene-quality';
 
 /**
@@ -48,15 +49,20 @@ function SimulatorFrames({ active }: { active: boolean }) {
   return null;
 }
 
-/** Expo GL owns its drawing buffer, so native resolution is controlled by layout. */
-export function SceneCanvas({ style, children, frameloop = 'always', ...props }: ComponentProps<typeof Canvas>) {
+/**
+ * Expo GL owns its drawing buffer, so native resolution is controlled by layout. On a phone the scene draws `fps` times a second
+ * while its frameloop is 'always', 30 unless asked for more (it is ambient, and moves by the time between frames, so animals swim
+ * at the same speed at any rate: frame-pacer.tsx); `fps` 60 or more draws at every refresh. The simulator has its own pace.
+ */
+export function SceneCanvas({ style, children, frameloop = 'always', fps = AMBIENT_FPS, ...props }: ComponentProps<typeof Canvas> & { fps?: number }) {
   const [size, setSize] = useState({ width: 0, height: 0 });
   const scale = Math.min(1, (isDevice ? 2 : 1) / PixelRatio.get());
+  const paced = isDevice && frameloop === 'always' && fps < 60;
   return <View style={[styles.container, style]} onLayout={({ nativeEvent: { layout } }) => {
     setSize((previous) => previous.width === layout.width && previous.height === layout.height
       ? previous : { width: layout.width, height: layout.height });
   }}>
-    {size.width > 0 && size.height > 0 && <Canvas {...props} frameloop={isDevice ? frameloop : 'demand'} style={{
+    {size.width > 0 && size.height > 0 && <Canvas {...props} frameloop={isDevice && !paced ? frameloop : 'demand'} style={{
       // Fiber's native Canvas spreads this over its own `flex: 1`, which would stretch the reduced
       // height back to the card's full height: a GL buffer 1.5x the intended size on a @3x iPhone
       // (3x on the simulator), the extra third drawn off-screen and clipped every frame.
@@ -65,8 +71,11 @@ export function SceneCanvas({ style, children, frameloop = 'always', ...props }:
       height: size.height * scale,
       transform: [{ scale: 1 / scale }],
     }}>
-      <SceneQualityContext.Provider value={sceneQuality(!isDevice)}>{children}</SceneQualityContext.Provider>
+      <FrameRateContext.Provider value={paced ? fps : 60}>
+        <SceneQualityContext.Provider value={sceneQuality(!isDevice)}>{children}</SceneQualityContext.Provider>
+      </FrameRateContext.Provider>
       {!isDevice && <SimulatorFrames active={frameloop === 'always'} />}
+      {paced && <FramePacer fps={fps} />}
     </Canvas>}
   </View>;
 }

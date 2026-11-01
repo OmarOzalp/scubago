@@ -14,8 +14,9 @@ import type { OceanUniforms } from './ocean-mesh';
  * water reaches past every edge of the screen (EXPLORER.reach). It must sit inside the island's
  * environment (it changes the water's haze). The island draws only on demand while its animals are
  * still (reduced motion, or still loading), so every move asks for a frame, and a glide or an eased
- * move keeps asking until it settles. Pulled back over several islands, the sea is seen as from high
- * above (`uOceanCalm`, between the zooms in `CALM`, relative to all the way out): the waves' glints
+ * move keeps asking until it settles, as does a finger on the screen: those draw at every refresh,
+ * the rest of the time the scene draws 30 times a second (frame-pacer.tsx). Pulled back over several
+ * islands, the sea is seen as from high above (`uOceanCalm`, between the zooms in `CALM`, relative to all the way out): the waves' glints
  * gather into drifting wind patches instead of repeating stripes, and whitecaps fleck the deep water;
  * closing in on an island brings the waves back as they are close up.
  */
@@ -47,7 +48,8 @@ export function ExplorerCamera({ explorer }: { explorer: Explorer }) {
     camera.updateProjectionMatrix();
     // How far in from the whole archipelago (1 = all the way out); with one island, always its full detail.
     if (ocean) calmWater(ocean, (explorer.frame.islands?.length ?? 1) > 1 ? 1 - smoothstep(CALM.from, CALM.to, view.zoom / zoomRange(explorer.frame).min) : 0);
-    if (explorer.moving) invalidate();
+    // Drawn at every refresh while a finger is down or the view eases or glides (ambient frames are 30 a second, frame-pacer.tsx).
+    if (explorer.moving || explorer.touching) invalidate();
   });
   return null;
 }
