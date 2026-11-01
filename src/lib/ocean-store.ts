@@ -4,7 +4,7 @@ import { createSeabedField, type OceanIsland } from './seabed';
 import { hasOcean, readSeabedBake, rememberOcean, seabedBakeKey, writeSeabedBake, type SeabedBake } from './seabed-bake';
 import { depthGrid, depthTexelSteps, waterVertexCount, waterVertexSteps } from './seabed-depth';
 import type { WaterExtent } from './seabed-lattice';
-import { runSliced, type Pacing, type Steps } from './slices';
+import { runSliced, Stopped, type Pacing, type Steps } from './slices';
 
 /**
  * The explorer's ocean, ready before it is opened. The ocean of several islands (the depth map and its region maps, the seabed's
@@ -65,13 +65,14 @@ export function isWholeOcean(bake: SeabedBake, islands: readonly OceanIsland[], 
 }
 
 /** How an ocean came to be held. */
-export type OceanSource = 'held' | 'file' | 'worked out' | 'failed';
+export type OceanSource = 'held' | 'file' | 'worked out' | 'failed' | 'stopped';
 
 export type OceanStore = ReturnType<typeof createOceanStore>;
 
 /** An ocean store over these files (and this pacing, for the tests: the slices' clock and pauses). */
 export function createOceanStore(files: OceanFiles | null, pacing: Partial<Pacing> = {}) {
-  type Job = { hurry: boolean; promise: Promise<OceanSource> };
+  /** A job: `hurry` once someone waits for it, `waiters` how many do now, `idle` that Home asked for it (so nobody leaving stops it), `stopped` that all who waited for it have left. */
+  type Job = { hurry: boolean; waiters: number; idle: boolean; stopped: boolean; promise: Promise<OceanSource> };
   const jobs = new Map<string, Job>();
   /** What the oceans' slices lasted, for measuring: the longest and how many. */
   const stats = { slices: 0, longest: 0, source: null as OceanSource | null, readMs: 0, savedBytes: 0 };
@@ -129,6 +130,7 @@ export function createOceanStore(files: OceanFiles | null, pacing: Partial<Pacin
     const bake = await runSliced(oceanSteps(level, islands, reach), {
       ...pacing,
       slice: () => (job.hurry ? SLICE_MS.waiting : SLICE_MS.idle),
+      stop: () => job.stopped,
       onSlice: (ms) => { stats.slices++; if (ms > stats.longest) stats.longest = ms; pacing.onSlice?.(ms); },
     });
     rememberOcean(key, bake);
@@ -150,13 +152,26 @@ export function createOceanStore(files: OceanFiles | null, pacing: Partial<Pacin
       if (hasOcean(key)) return Promise.resolve('held');
       let job = jobs.get(key);
       if (!job) {
-        const made: Job = { hurry, promise: Promise.resolve('held') };
+        const made: Job = { hurry, waiters: 0, idle: !hurry, stopped: false, promise: Promise.resolve('held') };
         made.promise = run(made, key, level, islands, reach)
-          .catch((): OceanSource => 'failed')
+          .catch((error): OceanSource => (error instanceof Stopped ? 'stopped' : 'failed'))
           .then((source) => { stats.source = source; jobs.delete(key); return source; });
         jobs.set(key, job = made);
       } else if (hurry) job.hurry = true;
+      else job.idle = true;
+      if (hurry) { job.waiters++; job.stopped = false; }
       return job.promise;
+    },
+    /**
+     * Whoever asked with `hurry` no longer waits (a scene that was for other islands, or a reach it no longer has, or is gone). An ocean
+     * only those waiting asked for is given up at the end of its slice, so that nothing is worked out that no one will use; one Home asked
+     * for goes on.
+     */
+    release(level: number, islands: readonly OceanIsland[], reach: WaterExtent) {
+      const job = jobs.get(seabedBakeKey(level, islands, reach));
+      if (!job || job.waiters === 0) return;
+      job.waiters--;
+      if (job.waiters === 0 && !job.idle) job.stopped = true;
     },
     /** Resolves once every file written so far is down and the old ones are gone (for the tests). */
     settled: () => filing,

@@ -1,5 +1,5 @@
 import { expect, test } from '@jest/globals';
-import { finish, runSliced, type Steps } from '@/lib/slices';
+import { finish, runSliced, Stopped, type Steps } from '@/lib/slices';
 
 // Work in slices: the same steps run at once or a slice at a time, the thread given back between slices.
 function* counting(steps: number, took: (step: number) => void): Steps<string> {
@@ -58,4 +58,15 @@ test('the default pause lets timers run, and a step that throws rejects the run'
   expect(order.indexOf('timer')).toBeLessThan(order.lastIndexOf('step'));
   const broken = (function* (): Steps<void> { yield; throw new Error('no'); })();
   await expect(runSliced(broken, { slice: 5 })).rejects.toThrow('no');
+});
+
+test('a run told to stop goes no further when the thread is next given back, and rejects as stopped', async () => {
+  let steps = 0, stopping = false, pauses = 0;
+  const work = counting(100, () => { steps++; });
+  const run = runSliced(work, { slice: 0, pause: async () => { if (++pauses === 3) stopping = true; }, stop: () => stopping });
+  await expect(run).rejects.toBeInstanceOf(Stopped);
+  expect(steps).toBe(3);
+  // (the steps are finished with: they do not run on if asked again)
+  expect(work.next().done).toBe(true);
+  expect(steps).toBe(3);
 });

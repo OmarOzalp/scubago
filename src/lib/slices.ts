@@ -20,7 +20,14 @@ export type Pacing = {
   now?: () => number;
   /** Told how long each slice ran (ms), for measuring the longest. */
   onSlice?: (ms: number) => void;
+  /** Asked each time the thread has been given back: true to give up (the run then rejects with `Stopped`, and the steps go no further). */
+  stop?: () => boolean;
 };
+
+/** What a run that was told to stop rejects with. */
+export class Stopped extends Error {
+  constructor() { super('Stopped'); this.name = 'Stopped'; }
+}
 
 const clock = () => (typeof performance !== 'undefined' && typeof performance.now === 'function' ? performance.now() : Date.now());
 const later = () => new Promise<void>((resolve) => { setTimeout(resolve, 0); });
@@ -41,5 +48,6 @@ export async function runSliced<T>(steps: Steps<T>, pacing: Pacing): Promise<T> 
       before = at;
     }
     await pause();
+    if (pacing.stop?.()) { steps.return(undefined as never); throw new Stopped(); }
   }
 }

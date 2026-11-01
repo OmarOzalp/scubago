@@ -64,7 +64,8 @@ export function useSeabedReady(level: number, islands: readonly OceanIsland[], r
     const arrived = () => { if (current) setReadyFor(where); };
     if (own) void oceanStore().ensure(level, islands, reach ?? OCEAN.waterExtent, true).then(arrived);
     else loadSeabedBake(level, islands, reach).then(arrived);
-    return () => { current = false; };
+    // (no longer waiting for it: an ocean for a reach the screen turned out not to have, or a scene that has gone, is not worked out for nothing)
+    return () => { current = false; if (own) oceanStore().release(level, islands, reach ?? OCEAN.waterExtent); };
     // (the islands and reach by their key)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [ready, where, wanted]);

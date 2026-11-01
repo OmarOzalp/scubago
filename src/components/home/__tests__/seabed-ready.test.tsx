@@ -10,9 +10,10 @@ import { useSeabedReady } from '../three/seabed-assets';
 jest.mock('../three/seabed-files', () => ({ SEABED_FILES: {} }));
 jest.mock('../three/ocean-files', () => ({ oceanFiles: { read: async () => null, write: async () => undefined, remove: async () => undefined, list: async () => [] } }));
 const mockEnsure = jest.fn<(level: number, islands: readonly OceanIsland[], reach: unknown, hurry: boolean) => Promise<string>>();
+const mockRelease = jest.fn<(level: number, islands: readonly OceanIsland[], reach: unknown) => void>();
 jest.mock('@/lib/ocean-store', () => ({
   ...(jest.requireActual('@/lib/ocean-store') as object),
-  createOceanStore: () => ({ ensure: (...args: Parameters<typeof mockEnsure>) => mockEnsure(...args) }),
+  createOceanStore: () => ({ ensure: (...args: Parameters<typeof mockEnsure>) => mockEnsure(...args), release: (...args: Parameters<typeof mockRelease>) => mockRelease(...args) }),
 }));
 
 const several: OceanIsland[] = [{ x: 0, z: 0, habitat: 'island' }, { x: 2.4, z: 12.4, habitat: 'mangrove' }, { x: -1.6, z: -24.8, habitat: 'kelp' }];
@@ -25,7 +26,7 @@ function Probe(props: { level: number; islands: OceanIsland[]; reach?: typeof EX
 }
 /** What the scene was last told. */
 const ready = () => seen[seen.length - 1];
-beforeEach(() => { (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true; seen.length = 0; mockEnsure.mockReset(); });
+beforeEach(() => { (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true; seen.length = 0; mockEnsure.mockReset(); mockRelease.mockReset(); });
 afterEach(async () => { clearSeabedBakes(); if (root) await act(async () => root!.unmount()); root = undefined; });
 
 test('the explorer’s several islands wait for their ocean, and are ready once it is held', async () => {
@@ -78,4 +79,19 @@ test('Home’s own island, which has its bake shipped, asks nothing of the ocean
   await act(async () => root!.update(<Probe level={2} islands={home} reach={EXPLORER_REACH} />));
   expect(ready()).toBe(true);
   expect(mockEnsure).not.toHaveBeenCalled();
+});
+
+test('a scene that stops waiting (its reach changed, or it is gone) lets the ocean it asked for go', async () => {
+  mockEnsure.mockImplementation(() => new Promise(() => undefined));
+  await act(async () => { root = create(<Probe level={3} islands={several} reach={EXPLORER_REACH} />); });
+  expect(mockRelease).not.toHaveBeenCalled();
+  // The screen turns out to reach farther: the ocean for the first reach is no longer waited for, and another is.
+  await act(async () => root!.update(<Probe level={3} islands={several} reach={{ x: 42, z: 20 }} />));
+  expect(mockRelease).toHaveBeenCalledTimes(1);
+  expect(mockRelease).toHaveBeenCalledWith(3, several, EXPLORER_REACH);
+  expect(mockEnsure).toHaveBeenCalledTimes(2);
+  await act(async () => root!.unmount());
+  root = undefined;
+  expect(mockRelease).toHaveBeenCalledTimes(2);
+  expect(mockRelease).toHaveBeenLastCalledWith(3, several, { x: 42, z: 20 });
 });

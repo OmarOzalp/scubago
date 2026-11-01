@@ -161,6 +161,42 @@ test('asked again while it is on its way, it is one piece of work; someone waiti
   expect(store.stats.longest).toBeGreaterThan(SLICE_MS.idle + 3);
 }, 120000);
 
+test('an ocean only those waiting for it asked for is given up once none of them waits; one Home asked for goes on', async () => {
+  const lone = [{ x: 0, z: 0, habitat: 'wreck' as const }], where = { x: 7, z: 7 };
+  const slowly = { pause: () => new Promise<void>((resolve) => setTimeout(resolve, 0)) };
+  // A scene asks, and leaves (its reach turned out not to be the screen's): the work stops at the end of a slice, and nothing is kept.
+  const store = createOceanStore(null, slowly);
+  const left = store.ensure(1, lone, where, true);
+  await new Promise((resolve) => setTimeout(resolve, 0));
+  store.release(1, lone, where);
+  expect(await left).toBe('stopped');
+  expect(store.has(1, lone, where)).toBe(false);
+  // Two scenes wait; one leaves: it goes on for the other, which has it.
+  const both = [store.ensure(1, lone, where, true), store.ensure(1, lone, where, true)];
+  await new Promise((resolve) => setTimeout(resolve, 0));
+  store.release(1, lone, where);
+  expect(await both[0]).toBe('worked out');
+  expect(store.has(1, lone, where)).toBe(true);
+  clearSeabedBakes();
+  // Home asked for it, then a scene waited and left: Home's work is not given up.
+  const idle = store.ensure(2, lone, where);
+  const waited = store.ensure(2, lone, where, true);
+  await new Promise((resolve) => setTimeout(resolve, 0));
+  store.release(2, lone, where);
+  expect(await waited).toBe('worked out');
+  expect(await idle).toBe('worked out');
+  clearSeabedBakes();
+  // One that left and came back before the end of the slice (a scene mounted twice) goes on.
+  const again = store.ensure(3, lone, where, true);
+  await new Promise((resolve) => setTimeout(resolve, 0));
+  store.release(3, lone, where);
+  const back = store.ensure(3, lone, where, true);
+  expect(await again).toBe('worked out');
+  expect(await back).toBe('worked out');
+  // (a release for nothing in flight is nothing)
+  expect(() => store.release(5, lone, where)).not.toThrow();
+}, 120000);
+
 test('only the last few oceans are kept in files, the oldest going', async () => {
   const lone = [{ x: 0, z: 0, habitat: 'kelp' as const }];
   const { files, kept } = fakeFiles();
