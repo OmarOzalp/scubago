@@ -24,7 +24,7 @@ import type { WaterReach } from '@/lib/explorer-view';
 import { HOME_SHORE, type Habitat } from '@/lib/home';
 import { shapeFor } from '@/lib/island-outline';
 import { captureFrame, captureScene, registerSceneCapture, releaseSnapshot } from '@/lib/scene-snapshot';
-import { rememberHomePicture, rememberHomeScene, useHomeScene } from './home-start';
+import { rememberHomePicture, rememberHomeScene } from './home-start';
 import { FrameWatch, InstantPicture, useInstantPicture } from './instant-picture';
 import { MACRO_SPECIES, macroResidents, type MacroSpecies } from '@/lib/macro-life';
 import { clamp, oceanScale, variation } from '@/lib/steering';
@@ -218,12 +218,10 @@ export function SanctuaryScene({ habitat, level, residents, islands, paused = fa
   const oceanIslands = useMemo(() => JSON.parse(geometry) as { x: number; z: number; habitat: Habitat }[], [geometry]);
   // Home's card (`home`: its own island, which the card opens on and which is kept for the next launch; not another chosen
   // from the pills) opens on its last picture until the live scene has drawn itself with its animals (instant-picture.tsx).
-  // While that picture covers it and the collection is still being read, the level isn't known: nothing is built that no
-  // one would see, and it is built at the level read.
+  // While the collection is still being read the level isn't known: nothing is built until it is (an ocean built at the first
+  // level would be built again at the level read, and a phone takes seconds over each), and the kept picture, where there is one, covers the wait.
   const card = !explorer && !preview, home = card && habitat === HOME_SHORE;
-  const kept = useHomeScene();
-  const covered = home && loading && kept?.picture?.habitat === habitat;
-  const seabedReady = useSeabedReady(level, oceanIslands, explorer?.reach, !covered);
+  const seabedReady = useSeabedReady(level, oceanIslands, explorer?.reach, !loading);
   const everyoneIn = shownModels.every((model) => !!models?.[model]);
   const picture = useInstantPicture({ enabled: home, level, habitat, loading, armed: seabedReady && !loading && (failed || everyoneIn) });
   // What Home shows is kept for the next launch: its island, level and animals' models (home-start.ts)...

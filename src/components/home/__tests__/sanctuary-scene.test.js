@@ -14,7 +14,7 @@ jest.mock('@/hooks/use-scene-active', () => ({ useSceneActive: () => true, useSc
 jest.mock('../three/scene-camera', () => ({ SceneCamera: () => null }));
 jest.mock('../three/scene-performance', () => ({ ScenePerformance: () => null }));
 jest.mock('../three/sanctuary-environment', () => ({
-  SanctuaryEnvironment: ({ children, islands }) => <environment>{children}{islands?.map((island) => <island key={island.key} data-habitat={island.habitat}>{island.content}</island>)}</environment>,
+  SanctuaryEnvironment: ({ children, islands, ready }) => <environment data-ready={ready}>{children}{islands?.map((island) => <island key={island.key} data-habitat={island.habitat}>{island.content}</island>)}</environment>,
 }));
 jest.mock('@react-three/fiber', () => ({
   useFrame: jest.fn(),
@@ -50,6 +50,31 @@ test('the island renders while animal assets are still loading', async () => {
   await act(async () => { root = create(<SanctuaryScene {...props} />); });
   expect(root.root.findAllByType('environment')).toHaveLength(1);
   expect(root.root.findAllByType('swimmer')).toHaveLength(0);
+});
+test('nothing is built until the collection is read and the level known, with a kept picture or without one, so it is built once, at that level', async () => {
+  const built = () => root.root.findByType('environment').props['data-ready'];
+  useMarineModels.mockReturnValue({ models: null, failed: false, retry: jest.fn() });
+  // No picture kept (the first launch, a cold explorer): still reading, nothing to build; read, built.
+  await act(async () => { root = create(<SanctuaryScene {...props} loading />); });
+  expect(built()).toBe(false);
+  await act(async () => root.update(<SanctuaryScene {...props} level={2} loading />));
+  expect(built()).toBe(false);
+  await act(async () => root.update(<SanctuaryScene {...props} level={1} />));
+  expect(built()).toBe(true);
+  await act(async () => root.unmount());
+  // A picture kept: the same (the picture covers the wait).
+  mockKept = { level: 1, habitat: 'island', models: [], picture: { uri: 'file:///documents/home-island-1.png', level: 1, habitat: 'island' } };
+  await act(async () => { root = create(<SanctuaryScene {...props} loading />); });
+  expect(built()).toBe(false);
+  await act(async () => root.update(<SanctuaryScene {...props} />));
+  expect(built()).toBe(true);
+  await act(async () => root.unmount());
+  // The explorer, opened cold.
+  const explorer = { camera: null, tapScale: 1, zoom: () => 40, focus: jest.fn(), reach: { x: 20, z: 20 } };
+  await act(async () => { root = create(<SanctuaryScene {...props} explorer={explorer} loading />); });
+  expect(built()).toBe(false);
+  await act(async () => root.update(<SanctuaryScene {...props} explorer={explorer} />));
+  expect(built()).toBe(true);
 });
 test('a new island’s ocean stays empty until the first discovery: no visitors, no school', async () => {
   useMarineModels.mockReturnValue({ models: {}, failed: false, retry: jest.fn() });
