@@ -413,7 +413,8 @@ picture to the pixel, before and after this work).
 ### Limits
 
 - The explorer with several islands in reach still works out its seabed (about 1.2 s with a JIT, much
-  longer on an interpreter); only Home's island alone is baked for it.
+  longer on an interpreter); only Home's island alone is baked for it. (It is now worked out once for each
+  set of islands and level and kept, and about 40% quicker the first time: see "Building less" below.)
 - With Reduce Motion the island is still, and a still island is not photographed (as for Share), so the
   card takes no new picture; one kept earlier is still shown and replaced at once.
 - Physical-device timing is still unmeasured.
@@ -480,3 +481,74 @@ interpreter, once for each model a session meets); the explorer's programs, whic
 every open because it is a second GL context; unifying the animals' program variants (open water and reef
 differ in code, not only in flags). On a phone to time: the card's and the explorer's feel at 30 a second,
 the explorer under a finger, the first switch to each island.
+
+## Building less (November 2026)
+
+On a phone the islands' JavaScript is the wait: the explorer rebuilt its whole archipelago at every open
+(about 18 s under `node --jitless`, the closest stand-in for Hermes, with five islands; four fifths of it
+the seabed's maths, two fifths the one function that measures how far a point is from a shore), Home built its
+ocean twice on a first launch, and every island pill rebuilt everything. None of it changes how anything looks
+or swims: every number the islands and animals are made from is the same (477 fingerprints: every coast,
+coral, kelp and seagrass mesh at every level, full and lite, each mounted twice; depth maps; lattices; the
+animals' paths in Home's and the explorer's worlds), and `npm run verify:swim` still finds 0 clipped, 0 on
+land, 0 grazing (a subset of it is byte-identical before and after).
+
+- **A faster, exact shore distance** (`shoreDistance`, island-outline.ts). A shoreline's edges are kept in
+  runs of eight with a bounding box each; a point looks first in the run that held its last nearest edge,
+  then only in runs whose box could hold a nearer one, and counts crossings only in runs its row falls in.
+  The very same numbers, bit for bit, as walking every edge (`shoreDistanceByEdges`, kept as the oracle and
+  tested on 100,000 points over every shape and level). Runs of eight were the quickest of 4, 6, 8, 12 and 16.
+- **Exact trims.** `bankDepth` leaves out a platform, saddle, cay or rock that cannot change the answer (a
+  `pruned` flag turns it off for the tests); the direction away from the shallows, which most fields are never
+  asked for, is worked out when first asked (`distanceTo`); the depth map's region weights make nothing per texel.
+- **Worked out once.** `coralHeads(level)` (frozen, shared) and `shorePolygons` are found once; the depth map
+  works out no coral heads where it is baked; the seagrass search skips ground too far from every shore.
+- **Nothing is built until the level is known** (`sanctuary-scene.tsx`). Home without a kept picture, and a
+  cold explorer, built the ocean at the first level while the collection loaded and again at the real one.
+- **The explorer's ocean is kept** (`seabed-depth.ts`): the last eight sets of islands' depth maps and, for each,
+  the last three reaches of water, let go of with the baked seabeds (0.3 MB for a lone island, 2.9 MB for the
+  explorer's five).
+- **Built geometry is shared** (`geometry-cache.ts`): coasts, corals, kelp and seagrass are made once and
+  handed to every mount, canvas and island pill. A mesh never disposes a shared geometry itself
+  (`useHeldGeometry`): it is disposed, its graphics-card buffers freed in every renderer, only once it has left
+  the cache and nothing holds it. Bounded at 24 geometries and 24 MB, least recently used first; all five
+  islands at level 6 hold 13 geometries and 15.8 MB (9.6 MB at lite quality). A coast that differs between
+  levels only by its islets is made once for each number of islets.
+
+Measured with the same harness on the original and the changed tree, runs alternating (`node --jitless` on
+the process's CPU time; V8 on wall time, where the first run of a fresh process is mostly the engine warming
+up, so its differences are small and noisy), median of three, before -> after:
+
+| | jitless | V8 |
+| --- | ---: | ---: |
+| Home's island built cold, level 1 / 3 / 6: reef | 1.90 / 1.96 / 2.56 -> 1.44 / 1.48 / 1.83 s | 0.45 / 0.49 / 0.61 -> 0.39 / 0.52 / 0.53 s |
+| mangrove | 2.20 / 2.13 / 2.50 -> 1.53 / 1.52 / 1.72 s | 0.48 / 0.42 / 0.50 -> 0.47 / 0.41 / 0.45 s |
+| kelp | 1.11 / 1.15 / 1.31 -> 0.99 / 0.95 / 1.06 s | 0.30 / 0.30 / 0.31 -> 0.28 / 0.28 / 0.35 s |
+| volcanic | 0.93 / 0.97 / 1.06 -> 0.91 / 0.83 / 0.94 s | 0.27 / 0.26 / 0.31 -> 0.26 / 0.27 / 0.28 s |
+| wreck | 0.96 / 0.95 / 1.19 -> 0.77 / 0.87 / 0.87 s | 0.24 / 0.24 / 0.26 -> 0.24 / 0.24 / 0.27 s |
+| Explorer, first open, 5 islands, level 1 / 3 / 6 | 17.9 / 18.7 / 29.1 -> 11.4 / 11.5 / 14.7 s | 1.97 / 1.87 / 2.36 -> 1.61 / 1.61 / 1.77 s |
+| 3 islands | 11.5 / 12.0 / 18.3 -> 7.1 / 7.1 / 9.5 s | 1.27 / 1.20 / 1.63 -> 1.18 / 1.19 / 1.32 s |
+| 1 island (baked) | 2.0 / 2.0 / 2.5 -> 1.4 / 1.5 / 1.9 s | 0.41 / 0.48 / 0.63 -> 0.42 / 0.53 / 0.60 s |
+| Explorer's ocean (depth map, seabed, water), 5 islands, level 3: first open / every open after | 11.6 / 9.0 -> 6.2 / 0.06 s | 1.12 / 0.64 -> 0.92 / 0.02 s |
+| level 6: first open / every open after | 21.9 / 16.9 -> 8.8 / 0.06 s | 1.51 / 0.92 -> 1.06 / 0.02 s |
+| Second mount of the eight island parts, level 3 | 2.56 -> 0.08 s | |
+| Home's island pills, level 3, first visit: reef / kelp / volcanic / mangrove / wreck | 1.91 / 1.03 / 0.94 / 2.03 / 0.95 -> 1.42 / 0.93 / 0.86 / 1.63 / 0.71 s | |
+| going back to the reef / the kelp | 1.35 / 0.45 -> 0.22 / 0.10 s | 0.47 / 0.19 -> 0.11 / 0.03 s |
+
+In a browser with software WebGL (SwiftShader) on the web build, the app's own timing marks and the
+browser's long tasks, median of three runs in turn at full speed (and two at 4x slower CPU, in brackets):
+the cold explorer's first animal 3.7 -> 3.1 s (4x, mean of two: 10.8 -> 8.4 s) and its longest blocking task
+1.5 -> 1.1 s; opening the explorer from Home a second time blocks the main thread for 1.4 -> 0.56 s (4x, mean
+of two: 5.7 -> 1.5 s); Home on a first launch shows its first animal at 2.4 s either way at full speed (the
+first ocean builds in a fraction of a second on the web's JIT, alongside the collection loading), and at 4x
+slower CPU in 7.7 -> 5.9 s (mean of two): the slower the engine, the more the one build instead of two saves.
+Home with a kept picture is unchanged (1.8 s). Stills of Home and the explorer before and after show the
+same islands, corals, forests and boats in the same places.
+
+Not done: the animals' simulation is still started for every island at every mount (about 0.55 s an island
+under `--jitless`, 0.09 s more for each animal after the first), the first mount of each island's coast and
+props (the corals' own copy for the water's tint is 60 ms a mount even from the cache), the explorer's
+five-island ocean the first time (6.2 s of the 11.5 s at level 3 under `--jitless`: it has no bake), islets and the level-4 palm, which are small and still built at each mount. On a phone to
+time: Home on a first launch and after a level-up, the explorer's first open with one, three and five
+islands, and its second open, going back to an island pill, and memory after a session of opening the explorer
+(`geometryCacheSize()` in geometry-cache.ts reports what is kept).
