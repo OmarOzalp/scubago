@@ -155,8 +155,94 @@ function circleOf(poly: Float32Array) {
   return circle;
 }
 
-/** Signed distance from (x, z) to the nearest shoreline: negative on land, positive over water. */
+/**
+ * A shoreline prepared for quick questions: its edges as numbers to hand (the very values the plain walk of every edge works out from the points),
+ * in runs of neighbouring edges with a bounding box each. A point's distance is then looked for only in the runs whose box could hold an edge
+ * nearer than the best so far, and its inside/outside test counts crossings only in the runs whose rows it falls in.
+ */
+type Outline = {
+  n: number; runs: number;
+  ax: Float64Array; az: Float64Array; bz: Float64Array; ex: Float64Array; ez: Float64Array; len2: Float64Array;
+  minX: Float64Array; maxX: Float64Array; minZ: Float64Array; maxZ: Float64Array;
+  /** The run that held the nearest edge for the last point asked (the next one asked is usually close by), and every run's squared distance to the point in hand. */
+  last: number; bound: Float64Array;
+};
+/** Edges in a run: more mean fewer boxes to test for a point, fewer mean fewer edges to test in each run chosen. */
+const RUN = 8;
+const outlines = new WeakMap<Float32Array, Outline>();
+function outlineOf(poly: Float32Array): Outline {
+  let outline = outlines.get(poly);
+  if (outline) return outline;
+  const n = poly.length / 2, runs = Math.ceil(n / RUN);
+  const ax = new Float64Array(n), az = new Float64Array(n), bz = new Float64Array(n), ex = new Float64Array(n), ez = new Float64Array(n), len2 = new Float64Array(n);
+  const minX = new Float64Array(runs).fill(Infinity), maxX = new Float64Array(runs).fill(-Infinity);
+  const minZ = new Float64Array(runs).fill(Infinity), maxZ = new Float64Array(runs).fill(-Infinity);
+  // (edge i runs from point j, the one before it, to point i, as in the plain walk)
+  for (let i = 0, j = n - 1; i < n; j = i++) {
+    ax[i] = poly[j * 2]; az[i] = poly[j * 2 + 1]; bz[i] = poly[i * 2 + 1];
+    ex[i] = poly[i * 2] - ax[i]; ez[i] = bz[i] - az[i]; len2[i] = ex[i] * ex[i] + ez[i] * ez[i] || 1;
+    const r = Math.floor(i / RUN), bx = poly[i * 2];
+    minX[r] = Math.min(minX[r], ax[i], bx); maxX[r] = Math.max(maxX[r], ax[i], bx);
+    minZ[r] = Math.min(minZ[r], az[i], bz[i]); maxZ[r] = Math.max(maxZ[r], az[i], bz[i]);
+  }
+  outline = { n, runs, ax, az, bz, ex, ez, len2, minX, maxX, minZ, maxZ, last: 0, bound: new Float64Array(runs) };
+  outlines.set(poly, outline);
+  return outline;
+}
+
+/** The squared distance to the nearest edge of run `r`, or `nearest` (the nearest so far) if none of them is nearer. */
+function nearestInRun(o: Outline, r: number, x: number, z: number, nearest: number) {
+  const { n, ax, az, ex, ez, len2 } = o;
+  for (let i = r * RUN, end = Math.min(n, i + RUN); i < end; i++) {
+    const wx = x - ax[i], wz = z - az[i], px = ex[i], pz = ez[i];
+    const t = Math.max(0, Math.min(1, (wx * px + wz * pz) / len2[i]));
+    const qx = wx - px * t, qz = wz - pz * t, d = qx * qx + qz * qz;
+    if (d < nearest) { nearest = d; o.last = r; }
+  }
+  return nearest;
+}
+
+/** Signed distance from (x, z) to one prepared shoreline: negative on land, positive over water. */
+function outlineDistance(o: Outline, x: number, z: number) {
+  const { n, runs, az, bz, ax, ex, ez, minX, maxX, minZ, maxZ, bound } = o;
+  let inside = false;
+  for (let r = 0; r < runs; r++) {
+    // Nothing in the run is nearer than its box (squared).
+    const dx = x < minX[r] ? minX[r] - x : x > maxX[r] ? x - maxX[r] : 0, dz = z < minZ[r] ? minZ[r] - z : z > maxZ[r] ? z - maxZ[r] : 0;
+    bound[r] = dx * dx + dz * dz;
+    // An edge crosses this row only if one end is above it and the other is not: so only in a run whose box spans it.
+    if (z >= minZ[r] && z < maxZ[r]) {
+      for (let i = r * RUN, end = Math.min(n, i + RUN); i < end; i++) {
+        if ((az[i] > z) !== (bz[i] > z) && x < ax[i] + (z - az[i]) * ex[i] / ez[i]) inside = !inside;
+      }
+    }
+  }
+  // The run that held the nearest edge for the last point first, then any run whose box is not already farther than that (a run is skipped only if
+  // it is farther by more than any rounding in measuring it could make up).
+  const first = o.last;
+  let nearest = nearestInRun(o, first, x, z, Infinity);
+  for (let r = 0; r < runs; r++) if (r !== first && bound[r] <= nearest * (1 + 1e-9) + 1e-12) nearest = nearestInRun(o, r, x, z, nearest);
+  return (inside ? -1 : 1) * Math.sqrt(nearest);
+}
+
+/**
+ * Signed distance from (x, z) to the nearest shoreline: negative on land, positive over water. The very same numbers, bit for bit, as
+ * `shoreDistanceByEdges` (a shoreline's edges are prepared the first time it is asked about, and must not change after).
+ */
 export function shoreDistance(polygons: Float32Array[], x: number, z: number) {
+  // (a point that is not a finite number is not worth a clever walk)
+  if (!Number.isFinite(x) || !Number.isFinite(z)) return shoreDistanceByEdges(polygons, x, z);
+  let best = Infinity;
+  for (const poly of polygons) {
+    // (a shoreline whose bounding circle is farther than the nearest yet cannot be nearer, even with the point inside it: its distance is never less than the circle's)
+    if (best < Infinity) { const circle = circleOf(poly); if (Math.hypot(x - circle.x, z - circle.z) - circle.r > best) continue; }
+    best = Math.min(best, outlineDistance(outlineOf(poly), x, z));
+  }
+  return best;
+}
+
+/** The plain walk of every edge of every shoreline that `shoreDistance` is quicker than, with the same result: to check it against, and for points it is not trusted with. */
+export function shoreDistanceByEdges(polygons: Float32Array[], x: number, z: number) {
   let best = Infinity;
   for (const poly of polygons) {
     // (a shoreline whose bounding circle is farther than the nearest yet cannot be nearer, even with the point inside it: its distance is never less than the circle's)
