@@ -1,8 +1,11 @@
 import { useEffect, useState } from 'react';
+import { OCEAN } from '@/lib/ocean';
+import { createOceanStore, type OceanStore } from '@/lib/ocean-store';
 import type { OceanIsland } from '@/lib/seabed';
-import { hasSeabedBake, registerSeabedBake, seabedBakeKey, seabedBakeName } from '@/lib/seabed-bake';
+import { hasOcean, hasSeabedBake, registerSeabedBake, seabedBakeKey, seabedBakeName } from '@/lib/seabed-bake';
 import type { WaterExtent } from '@/lib/seabed-lattice';
 import { readAssetBytes } from './asset-bytes';
+import { oceanFiles } from './ocean-files';
 import { SEABED_FILES } from './seabed-files';
 
 /**
@@ -11,6 +14,12 @@ import { SEABED_FILES } from './seabed-files';
  * worked out instead, as it is for islands without one.
  */
 const requests = new Map<string, Promise<boolean>>();
+
+/** The oceans no shipped bake covers, held in memory and kept on the phone (src/lib/ocean-store.ts); made on first use. */
+let oceans: OceanStore | undefined;
+export const oceanStore = () => (oceans ??= createOceanStore(oceanFiles));
+/** Whether this ocean has a bake of its own to wait for: none ships (several islands, another reach), so it is held, read back from the phone or worked out in slices. */
+export const oceanNeedsStore = (level: number, islands: readonly OceanIsland[], reach?: WaterExtent) => seabedBakeName(level, islands, reach) === null;
 
 /** Load (once) the bake for these islands at this level and reach. True once it is in use; false when there is none or it failed. */
 export function loadSeabedBake(level: number, islands: readonly OceanIsland[], reach?: WaterExtent): Promise<boolean> {
@@ -35,15 +44,18 @@ export function loadSeabedBake(level: number, islands: readonly OceanIsland[], r
 
 /**
  * Whether a scene can build these islands' ocean now: their bake is in use, or there is none to wait for (none at all,
- * or it failed). Only new islands (another island on Home's card, another reach) wait for theirs; a new level never
- * takes the ocean away: it builds at once, from a bake loaded ahead (preloadSeabedBakes) or worked out. Not `wanted`
+ * or it failed). Several islands in the explorer have no bake shipped: their ocean is held, if Home has had it ready (ocean-ahead.ts),
+ * or read back from the phone, or worked out in slices that never freeze the screen (ocean-store.ts), and the scene waits for that
+ * (quickly: it is the first thing anyone is waiting for). Only new islands (another island on Home's card, another reach) wait; a new
+ * level never takes the ocean away: it builds at once, from a bake loaded ahead (preloadSeabedBakes) or worked out. Not `wanted`
  * yet (nothing would see it), nothing is loaded and it isn't ready.
  */
 export function useSeabedReady(level: number, islands: readonly OceanIsland[], reach?: WaterExtent, wanted = true) {
   const name = seabedBakeName(level, islands, reach), key = seabedBakeKey(level, islands, reach);
   // (the islands as placed and the reach, without the level)
   const where = key.slice(key.indexOf('|') + 1);
-  const waiting = !!name && SEABED_FILES[name] !== undefined && !hasSeabedBake(key);
+  const shipped = !!name && SEABED_FILES[name] !== undefined, own = !name;
+  const waiting = (shipped && !hasSeabedBake(key)) || (own && !hasOcean(key));
   const [readyFor, setReadyFor] = useState<string | null>(waiting ? null : where);
   // (ready for these islands once; a new level of them needs no wait)
   if (!waiting && readyFor !== where) setReadyFor(where);
@@ -51,7 +63,9 @@ export function useSeabedReady(level: number, islands: readonly OceanIsland[], r
   useEffect(() => {
     if (ready || !wanted) return;
     let current = true;
-    loadSeabedBake(level, islands, reach).then(() => { if (current) setReadyFor(where); });
+    const arrived = () => { if (current) setReadyFor(where); };
+    if (own) void oceanStore().ensure(level, islands, reach ?? OCEAN.waterExtent, true).then(arrived);
+    else loadSeabedBake(level, islands, reach).then(arrived);
     return () => { current = false; };
     // (the islands and reach by their key)
     // eslint-disable-next-line react-hooks/exhaustive-deps

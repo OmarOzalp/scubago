@@ -4,7 +4,7 @@ import { islandScale, seabedProps, shapeFor, shoreDistance, shorePolygons, type 
 import { OCEAN, reefShape, seabedProfile, shelfStretch, wallMeasure, type OceanConfig } from './ocean';
 import { coralHeads } from './reef-coast';
 import { REEF_ANEMONE, REEF_ROCK, reefRocks } from './reef-life';
-import { bakedGrid, bakedLattice } from './seabed-bake';
+import { bakedGrid, bakedLattice, whenBakesClear } from './seabed-bake';
 import { seabedLatticeSteps, type Lattice, type WaterExtent } from './seabed-lattice';
 import { finish, type Steps } from './slices';
 import { smoothstep, worldFor } from './steering';
@@ -41,6 +41,8 @@ export type SeabedField = {
 };
 /** The fields made, most recently used last: the water and the animals of the same islands and level share one. */
 const fields = new Map<string, SeabedField>();
+// (a field holds the lattices it was handed from a bake: let go of when the bakes are)
+whenBakesClear(() => fields.clear());
 
 /**
  * The seabed under a set of islands, one function for everything that needs it: the depth map the

@@ -10,13 +10,19 @@
  * Run it after any change to how the seabed or the ocean's depth is made (seabed*.ts, island-outline.ts, ocean.ts,
  * banks.ts, reef-coast.ts, reef-life.ts, wreck.ts...): the seabed-bake tests compare every file with the computation and
  * fail on a stale one. Nothing is baked from a bake: none is registered in this process.
+ *
+ * It also writes the version the oceans saved on a phone are checked against (src/lib/ocean-version.ts, ocean-fingerprint.ts): a digest of
+ * these files and of a few oceans of several islands worked out here, so that a saved ocean from before a change is never used after it.
  */
-import { mkdirSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { OCEAN } from '../src/lib/ocean';
+import { fingerprintBakes, fingerprintOcean, OCEAN_PROBES, oceanVersion } from '../src/lib/ocean-fingerprint';
+import { oceanSteps } from '../src/lib/ocean-store';
 import { bareSeabedGrid, createSeabedField } from '../src/lib/seabed';
 import { seabedBakeKey, seabedBakeVariants, writeSeabedBake, type SeabedBake } from '../src/lib/seabed-bake';
 import { depthTexels, waterVertices } from '../src/lib/seabed-depth';
+import { finish } from '../src/lib/slices';
 
 const ROOT = resolve(dirname(process.argv[1]), '..');
 const OUT = join(ROOT, 'assets/baked/seabed');
@@ -50,3 +56,14 @@ export const SEABED_FILES: Record<string, number> = {
 ${lines.join('\n')}
 };
 `);
+
+// The version of the oceans saved on a phone (ocean-store.ts): the digests of every file here and of the probes, worked out from nothing.
+const parts = {
+  bakes: fingerprintBakes(readdirSync(OUT).filter((file) => file.endsWith('.bin')).sort().map((file) => new Uint8Array(readFileSync(join(OUT, file))))),
+  probes: OCEAN_PROBES.map(({ level, islands, reach }) => fingerprintOcean(finish(oceanSteps(level, islands, reach)))),
+};
+writeFileSync(join(ROOT, 'src/lib/ocean-version.ts'), `/* Written by scripts/bake-seabed.ts (npx tsx scripts/bake-seabed.ts); don't edit by hand. See ocean-fingerprint.ts. */
+export const OCEAN_PARTS = ${JSON.stringify(parts, null, 2)};
+export const OCEAN_VERSION = '${oceanVersion(parts)}';
+`);
+console.log(`ocean version ${oceanVersion(parts)}`);
