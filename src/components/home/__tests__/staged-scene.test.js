@@ -42,6 +42,14 @@ jest.mock('../three/macro-life', () => ({ MacroLife: () => <macro /> }));
 jest.mock('../island-scene', () => ({ IslandScene: () => <fallback /> }));
 jest.mock('expo-router', () => ({ router: { push: jest.fn() } }));
 jest.mock('../three/seabed-files', () => ({ SEABED_FILES: {} }));
+// The explorer's ocean of several islands comes from the ocean store (ocean-store.ts), which would work a real one out in slices: here it is simply held.
+jest.mock('@/lib/ocean-store', () => ({
+  ...jest.requireActual('@/lib/ocean-store'),
+  createOceanStore: () => ({
+    ensure: async (level, islands, reach) => { const bake = require('@/lib/seabed-bake'); bake.rememberOcean(bake.seabedBakeKey(level, islands, reach), {}); return 'held'; },
+    release: () => undefined,
+  }),
+}));
 for (const bake of ['reef-1']) registerSeabedBake(readFileSync(join(process.cwd(), `assets/baked/seabed/${bake}.bin`)));
 
 let root;
