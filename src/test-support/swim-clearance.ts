@@ -27,6 +27,8 @@ export type SurveyScene = {
   explorer?: boolean | WaterExtent;
   /** A new level to move to, and when (s): the island grows under the animals. */
   grow?: { level: number; at: number };
+  /** The island starts with nobody on it and each species joins in its own turn, placed at once, as the scene's steps bring them in (staging.tsx). */
+  oneByOne?: boolean;
 };
 export type Survey = {
   /** How it lives in the water (marine-bodies.ts): `tuna` for the school's fish. */
@@ -105,7 +107,8 @@ const points = new Float64Array(7 * 3);
 export function surveyScene(scene: SurveyScene, seconds: number, every = .5): Record<string, Survey> {
   const members: MarineMember[] = scene.models.map((model, lane) => ({ model, lane, group: groupOf(model), speciesId: scene.species?.[lane] }));
   const world = scene.explorer ? archipelago(scene.shape, scene.explorer === true ? undefined : scene.explorer) : undefined;
-  const motion = createMarineMotion(members, scene.level, { shape: scene.shape, seed: scene.seed ?? 0, school: scene.school ?? false, world });
+  const motion = createMarineMotion(scene.oneByOne ? [] : members, scene.level, { shape: scene.shape, seed: scene.seed ?? 0, school: scene.school ?? false, world });
+  if (scene.oneByOne) for (const member of members) motion.add(member, { instant: true });
   // What the animals steer by, and the drawing it is judged against (the same island, level and neighbors).
   let land = shorePolygons(scene.level, 24, scene.shape), seabed: Seabed = createSeabed(scene.level, scene.shape, world), drawn = drawnSeabed(scene.level, scene.shape, world);
   const raw: Record<string, { s: Survey; above: number[]; below: number[] }> = {};

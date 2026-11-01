@@ -552,3 +552,101 @@ five-island ocean the first time (6.2 s of the 11.5 s at level 3 under `--jitles
 time: Home on a first launch and after a level-up, the explorer's first open with one, three and five
 islands, and its second open, going back to an island pill, and memory after a session of opening the explorer
 (`geometryCacheSize()` in geometry-cache.ts reports what is kept).
+
+## Building in steps (November 2026)
+
+However quick each part had become, the scene was still built in one task: the ocean, every island's coast, corals and forests,
+the animals' swimming and each animal, mounted in one go. On a phone nothing on screen answered for that long (about 1.5 s on Home and
+11 s in the explorer with five islands, under `node --jitless`), and the explorer built islands nobody could see before the one it
+opened on. Now a scene is built in steps, each in a task of its own with the screen drawn in between, nearest and most visible first.
+Nothing that is built looks or swims differently: the same code makes the same numbers.
+
+- **The order** (`stager.ts`, `staging.tsx`). A step belongs to an island (or to none: the sea between) and has a stage: its coast,
+  the animals' swimming, each animal, then what grows on and round the island (corals, the kelp forest, seagrass), then its small life.
+  The next step is always the pending one of lowest rank: islands in or near the view before the rest, then stage by stage, so every island
+  in view has its coast before any has its swimming, and its first animal before any has its second. Nothing but the ocean is built before
+  the scene's first frame has been drawn. In the explorer "in or near the view" is `islandsByView` (explorer-view.ts): the islands whose
+  swimming areas reach into the water the screen shows, with a quarter of the screen to spare; it is asked afresh before every step, so an
+  island the camera nears (a drag, a pill, the zoom out) moves to the front of the queue.
+- **Pace.** Steps follow one another straight away while frames keep coming (the last no older than 50 ms), wait for a drawn frame after a
+  step of 30 ms or more, and ask for a frame themselves only when the scene is drawing none (still, paused, Reduce Motion). A scene that is
+  hidden builds nothing. A step the scene never shows is given up on, so one lost part never stops the rest.
+- **Slices** (`sliced-geometry.ts`). A coast is one geometry made by one long run of code. The coasts of the Coral Reef, the Mangroves, the Volcanic Pinnacle
+  and the Kelp Forest and the reef's corals are now generators: the same code in the same order with places to stop, which the stager
+  runs about 12 ms at a time, each slice a task of its own; the mesh appears (growing in) when the last is done. Written this way the
+  geometry is the same, bit for bit (below). The Shipwreck's coast, the kelp forest itself, the seagrass and the animals' swimming start are
+  still one step each.
+- **Animals one at a time** (`marine-swimmers.tsx`). The swimming starts with nobody on the island, and each species joins in a step
+  of its own (a pod or a squadron with its group), sized as it always was: group sizes are worked out for everyone together when the
+  swimming starts and kept. An animal that joins while the scene is on show rises out of the deep blue where it is, as one whose model
+  arrived late already did; under a picture it is simply there.
+- **Growing in.** What arrives after the first frame grows from nothing over 0.6 s (`Arrive`, like a new coral at a level-up); under a picture
+  of the scene, or with Reduce Motion, it is simply there.
+- **The explorer's picture.** Home's mechanism (instant-picture.tsx, scene-snapshot.ts, home-start.ts), for the explorer's opening view.
+  Once everything in view is built, the view has not been moved and no good picture of it was shown, the scene takes a picture of it
+  1.5 s later (twice the screen's size; a PNG on a phone, a JPEG on the web) and keeps it under the key of that view: the islands in the
+  ocean, the level, the island it opens on and the shape of the screen (`explorerViewKey`). The last four views are kept (two on the web,
+  where they sit in storage). The next time the same view opens, the picture is on screen at once, over the scene being built, and
+  cross-fades away once the scene has drawn all that is in view with its animals (at once with Reduce Motion), or after 4 s in any case,
+  or the moment a finger, a button or the wheel moves the view (it would be a picture of where the view was). A picture of another view,
+  another level or another set of islands is never shown. It covers the wait for the collection to be read too.
+- **Marks.** `scubago:explorer-frame`, `-animal`, `-built` and `-picture` beside Home's `scene-frame`, `first-animal`, `scene-built`, and a
+  measure `scubago:step <island> <stage>.<n>` for each step, for measuring on a phone.
+
+Identical: the 417 fingerprints of `perf-build` (every coast, coral, kelp and seagrass mesh at every level, full and lite; depth maps,
+lattices, the animals' paths) are the same before and after, and the 60 meshes made in slices (the four coasts and the corals, full and
+lite, levels 1 to 6) are the same bit for bit when made under a stager a slice at a time as when made in one go. `npm run verify:swim --
+--one-by-one` (nobody on the island to start with, each species joining in its turn, as the steps bring them in) finds 0 clipped, 0 on land
+and 0 grazing over the five islands at six levels, as the sweep with everyone at the start does, and `swim-depth.test.ts` runs that coarsely.
+Stills of Home's first launch and of the explorer's first and second opening (the second with its kept picture) read as the same islands,
+corals, forests and animals as before, built in the order above.
+
+### Measured
+
+The same tree built in one go (no stager above the scene) and in steps, in Node, one fresh process each, runs alternating, median of three;
+`--jitless` (the interpreter) is the closest to Hermes; frames are stood in for by one every 33 ms costing 8 ms of the thread, as on a phone
+where the GPU does the drawing (`perf-build/staged-build.tsx`). ms from the start of the build:
+
+| Home, level 3 | one go: all on screen | in steps: sea | coast | first animal | all built | longest task, one go -> in steps |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| Coral Reef, jitless | 1387 | 35 | 687 | 1072 | 1789 | 1387 -> 208 |
+| Kelp Forest | 1029 | 32 | 246 | 625 | 1050 | 1028 -> 249 |
+| Volcanic Pinnacle | 859 | 33 | 354 | 759 | 970 | 858 -> 259 |
+| Mangroves | 1546 | 33 | 1016 | 1425 | 1841 | 1546 -> 250 |
+| Shipwreck | 737 | 34 | 215 | 645 | 842 | 736 -> 279 |
+| Coral Reef, level 1 / 6 | 1299 / 1933 | 35 / 36 | 667 / 616 | 1037 / 1110 | 1599 / 2085 | 1299 / 1932 -> 214 / 249 |
+| Coral Reef, V8 | 539 | 39 | 342 | 531 | 711 | 539 -> 121 |
+| Kelp / Volcanic / Mangroves / Shipwreck, V8 | 390 / 346 / 643 / 258 | 33-37 | 204 / 243 / 482 / 183 | 345 / 409 / 690 / 348 | 462 / 448 / 783 / 381 | 390 / 346 / 643 / 257 -> 89 / 106 / 128 / 116 |
+
+| Explorer, level 3, 3 animals an island | one go: all on screen | the ocean (the first frame) | opening island's coast | its first animal | everything in view | every island | longest task, one go -> in steps |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| 1 island, jitless | 1363 | 57 | 655 | 1015 | 1729 | 1729 | 1363 -> 214 |
+| 3 islands, jitless | 7344 | 3539 | 4969 | 6415 | 8172 | 8172 | 7344 -> 3539 |
+| 5 islands, jitless | 12063 | 6443 | 7815 | 9281 | 10977 | 12616 | 12062 -> 6443 |
+| 1 / 3 / 5 islands, V8 | 408 / 1169 / 1652 | 41 / 423 / 683 | 277 / 803 / 1161 | 420 / 1122 / 1461 | 573 / 1500 / 1820 | 573 / 1500 / 2079 | 407 / 1169 / 1652 -> 90 / 422 / 683 |
+
+The work is the same (the sum of the tasks is within 4% either way, and less on the Kelp Forest and at level 6), so all built comes 0 to
+0.8 s later than the one go, and everything is on screen sooner than that: the sea in a frame, the island in view in about half the one
+go's time or less. What the ocean costs (the explorer's first task: 3.5 s with three islands and 6.4 s with five under
+`--jitless`) is the ocean's own: it is not built in steps here. After it, what is still one task over 100 ms under `--jitless` is the
+animals' swimming start (150 to 450 ms an island: marine-motion.ts), the first three animals of an island to join it (105 to 140 ms each),
+the Shipwreck's coast (110), the mangroves' seagrass (175) and the kelp forest (195); a slice of the reef's or the mangroves' coast
+that merges its parts is 105 to 120 ms. Under V8 the longest build task after the ocean is 90 to 130 ms (the swimming's start).
+
+In a browser with software WebGL (SwiftShader, a 200 x 430 window, V8, median of three, before and after runs alternating) the first
+drawn frame comes 0.15 to 0.35 s sooner (Home with a kept picture 1177 -> 1023 ms, a first launch 1638 -> 1279 ms, the explorer from
+Home 1508 -> 1109 ms), the first animal is 0.25 s later with a kept picture (1815 -> 2072 ms) and the same on a first launch, and the longest
+task after the explorer's tap goes 1200 -> 802 ms, but the whole build takes longer there: every frame is drawn by the CPU, 100 ms or more
+of the main thread, and a program's first draw compiles it, 300 to 900 ms; the one-go build pays both once, in one task, and the steps pay
+the compiles in the frames of the animals' first draws and a frame between steps. The longest tasks left there are those frames, not a build
+step (mostly under 80 ms each: the `scubago:step` measures). Under a 4x slower CPU the longest task of Home with a kept picture is
+1.35 -> 0.63 s (mean of two). On a phone the GPU draws and compiles off the JavaScript thread, so the interpreter table is the closer.
+
+Not done: the animals' swimming start and each early join (marine-motion.ts), the kelp forest, the seagrass and the Shipwreck's coast
+(each still one step: the kelp and seagrass builders and the wreck's shared cache would need their own generators); the explorer's ocean
+(another change); the shader programs compile at the first draw of each variant, spread over the frames the steps bring them in
+(about eight variants of the animals), which is the next thing a phone will show; a pill switch on Home still builds the island afresh, in steps.
+To time on a phone: Home's first launch, with and without a kept picture (`scubago:scene-frame`, `first-animal`, `scene-built`), the explorer's first
+and second open with one, three and five islands (`scubago:explorer-frame`, `-animal`, `-built`, `-picture`), the steps' lengths (the `scubago:step`
+measures), whether the picture is there from the first frame, and whether the animals' arrival and the islands growing in read as smooth.
+

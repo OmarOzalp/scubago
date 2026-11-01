@@ -238,8 +238,8 @@ export function SanctuaryScene({ habitat, level, residents, islands, paused = fa
   const card = !explorer && !preview, home = card && habitat === HOME_SHORE;
   const seabedReady = useSeabedReady(level, oceanIslands, explorer?.reach, !loading);
   const everyoneIn = shownModels.every((model) => !!models?.[model]);
-  // The scene is built in steps (stager.ts, staging.tsx): the ocean with the first frame, then the islands in view, one coast (in slices), one set
-  // of props, one swimming start and one animal at a time, then the rest. `staged` says when all in view is built.
+  // The scene is built in steps (stager.ts, staging.tsx): the ocean with the first frame, then the islands in view, one coast (in slices), one
+  // swimming start and one animal at a time, then one set of props, then the rest. `staged` says when all in view is built.
   const marks = explorer ? EXPLORER_MARKS : HOME_MARKS;
   const [stager] = useState(() => createStager({ focus: explorer?.near, trace: markStep }));
   useEffect(() => { stager.setFocus(explorer?.near); }, [stager, explorer?.near]);

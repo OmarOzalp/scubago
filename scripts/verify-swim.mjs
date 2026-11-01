@@ -4,7 +4,7 @@
  * had some part of a body below the seabed or inside the island, per island and level and per species. The jest
  * test (src/lib/__tests__/swim-depth.test.ts) runs the same measure coarsely; this is the exhaustive one.
  *
- *   npm run verify:swim -- [--seconds 120] [--islands reef,kelp] [--levels 1,6] [--seeds 2] [--every .5] [--json out.json]
+ *   npm run verify:swim -- [--seconds 120] [--islands reef,kelp] [--levels 1,6] [--seeds 2] [--every .5] [--one-by-one] [--json out.json]
  *
  * Besides clipping it reports where the animals swim (height over the drawn seabed and depth under the calm surface, by how they live
  * in the water: bottom, reef, open, the school's tuna), how many samples had a body too big for the water it was in ("stranded": more
@@ -22,6 +22,8 @@ for (let i = 2; i < process.argv.length; i++) {
   if (name.startsWith('--')) args.set(name.slice(2), process.argv[i + 1]?.startsWith('--') || i + 1 >= process.argv.length ? 'true' : process.argv[++i]);
 }
 const seconds = Number(args.get('seconds') ?? 120), every = Number(args.get('every') ?? .5), seeds = Number(args.get('seeds') ?? 1);
+// --one-by-one: nobody on the island to start with, each species joining in its own turn (as the scene's steps bring them in), not all at once.
+const oneByOne = args.get('one-by-one') === 'true';
 const islands = (args.get('islands') ?? ISLANDS.join(',')).split(',');
 const levels = (args.get('levels') ?? '1,2,3,4,5,6').split(',').map(Number);
 for (const island of islands) if (!ISLANDS.includes(island)) throw new Error(`unknown island ${island} (${ISLANDS.join(', ')})`);
@@ -37,7 +39,7 @@ for (const shape of islands) {
     const t0 = performance.now();
     for (let seed = 0; seed < seeds; seed++) {
       swimScenes().forEach((scene, c) => {
-        const surveys = surveyScene({ shape, level, models: scene.models, species: scene.species, seed: c + 8 * seed, school: c === 0 }, seconds, every);
+        const surveys = surveyScene({ shape, level, models: scene.models, species: scene.species, seed: c + 8 * seed, school: c === 0, oneByOne }, seconds, every);
         failures.push(...clearFailures(surveys, `${key} seed ${seed}`));
         // (one scene per model, so a second seed's scene of the same models adds to the first's)
         for (const [name, s] of Object.entries(surveys)) {

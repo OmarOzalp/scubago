@@ -12,11 +12,11 @@ const ISLANDS: [IslandShape, number][] = [['reef', 1], ['kelp', 3], ['volcanic',
 const BIGGEST: MarineModel[] = ['whale-shark', 'reef-manta', 'humpback-whale', 'leatherback-turtle', 'tiger-shark', 'great-white-shark', 'mola-mola'];
 
 /** Surveys of the scenes (all of them, or those with one of `only`) on one island at one level: the school with the first scene. */
-function sweep(shape: IslandShape, level: number, seconds: number, only?: readonly MarineModel[]) {
+function sweep(shape: IslandShape, level: number, seconds: number, only?: readonly MarineModel[], oneByOne = false) {
   const merged: Record<string, Survey> = {}, failures: string[] = [];
   swimScenes().forEach((scene, c) => {
     if (only && !scene.models.some((model) => only.includes(model))) return;
-    const surveys = surveyScene({ shape, level, models: scene.models, species: scene.species, seed: c, school: c === 0 }, seconds);
+    const surveys = surveyScene({ shape, level, models: scene.models, species: scene.species, seed: c, school: c === 0, oneByOne }, seconds);
     failures.push(...clearFailures(surveys, `${shape} level ${level}`));
     Object.assign(merged, surveys);
   });
@@ -26,6 +26,12 @@ function sweep(shape: IslandShape, level: number, seconds: number, only?: readon
 test('no body is ever below the seabed, grazing it or inside an island: every model, on every island', () => {
   const failures: string[] = [];
   for (const [shape, level] of ISLANDS) failures.push(...sweep(shape, level, 8).failures);
+  expect(failures).toEqual([]);
+});
+
+test('the same, with each species joining the island in its own turn, as the scene’s steps bring them in (staging.tsx): never below the seabed, grazing it or on land', () => {
+  const failures: string[] = [];
+  for (const [shape, level] of ISLANDS) failures.push(...sweep(shape, level, 8, undefined, true).failures);
   expect(failures).toEqual([]);
 });
 
