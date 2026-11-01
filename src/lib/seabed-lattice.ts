@@ -1,6 +1,7 @@
 import { islandReach, islandScale, shapeFor } from './island-outline';
 import { OCEAN } from './ocean';
 import type { OceanIsland } from './seabed';
+import { finish, type Steps } from './slices';
 
 /** A pseudo-random 0..1 for a pair of numbers: the same every time, so the lattices have the same jitter and relief wherever they are built. */
 export const hash = (x: number, y: number) => {
@@ -74,6 +75,14 @@ function outermost(samples: { offsets: number[]; values: number[] }, target: num
  * but its triangles, which run straight between their vertices.
  */
 export function seabedLattice(field: LatticeSource, level: number, reach: WaterExtent = OCEAN.waterExtent): Lattice {
+  return finish(seabedLatticeSteps(field, level, reach));
+}
+
+/**
+ * The same, in steps (slices.ts): it yields between rows of the open sea's floor and after every ray of an island's terrain, a few
+ * milliseconds' work each, so a phone can do it a slice at a time. Run to the end, it is `seabedLattice`.
+ */
+export function* seabedLatticeSteps(field: LatticeSource, level: number, reach: WaterExtent = OCEAN.waterExtent): Steps<Lattice> {
   const rays = 96;
   const near = [-.12, -.04, 0, .04, .08, .12, .17, .23, .3, .38, .47, .57, .68, .8, .95, 1.15, 1.4, 1.75, 2.2, 2.8, 3.6, 4.6, 6, 8, 10.5];
   const corner = Math.hypot(extentOf(reach).x, extentOf(reach).z) + 1;
@@ -112,6 +121,7 @@ export function seabedLattice(field: LatticeSource, level: number, reach: WaterE
         const x = box.x0 + c * step, z = box.z0 + r * step;
         positions.push(x, field.profile(x, z).floor, z);
       }
+      if (r % 2 === 1) yield;
     }
     for (let r = 0; r < rows - 1; r++) {
       for (let c = 0; c < cols - 1; c++) {
@@ -119,16 +129,17 @@ export function seabedLattice(field: LatticeSource, level: number, reach: WaterE
         indices.push(a, a + cols, a + 1, a + 1, a + cols, a + cols + 1);
       }
     }
+    yield;
   }
   const terrain = indices.length;
-  field.islands.forEach((island, which) => {
+  for (let which = 0; which < field.islands.length; which++) {
+    const island = field.islands[which];
     const offsets = offsetsFor(island), first = positions.length / 3, outline = field.shores[which];
     const reef = shapeFor(island.habitat) === 'reef', follows = reef ? field.crest : undefined, walls = reef ? field.wall : undefined;
     // The Coral Reef's rings from the wall out (from `outer`), which follow the wall round the islets too.
     const outer = walls ? offsets.findIndex((o) => o >= WALL_FROM) : -1;
-    // Each ray's vertices, ring by ring (x, y, z).
-    const rows: number[][][] = [];
-    for (let r = 0; r < rays; r++) {
+    // One ray's vertices, ring by ring (x, y, z).
+    const ray = (r: number): number[][] => {
       const angle = Math.PI * 2 * r / rays, radius = shoreRadius(outline, angle);
       const ux = Math.cos(angle), uz = Math.sin(angle);
       // Where along the ray the reef's own measure is `target`: found by halving, the measure growing out from the shore (where it does not, the offset itself).
@@ -160,7 +171,7 @@ export function seabedLattice(field: LatticeSource, level: number, reach: WaterE
         const jitter = k > 1 && k < offsets.length - 2 && !(follows && nominal >= WALL_FROM) ? (hash(r, k) - .5) * .08 * Math.min(1, nominal) : 0;
         row.push(vertex(k, offset, jitter));
       }
-      if (outer < 0) { rows.push(row); continue; }
+      if (outer < 0) return row;
       // The wall's rings and those past it: where the wall's measure last reaches each one's value along the ray, past the islets' reefs where they
       // lie across it (the main island's measure there, the rings' as they were, if it never does).
       const wall = (o: number) => walls!(which, ux * (radius + o), uz * (radius + o));
@@ -189,8 +200,11 @@ export function seabedLattice(field: LatticeSource, level: number, reach: WaterE
         walled[0][1] = from[1] + (to[1] - from[1]) * Math.max(0, Math.min(1, t));
         for (let j = 1; j < walled.length; j++) walled[j][1] = Math.min(walled[j][1], walled[j - 1][1]);
       }
-      rows.push([...row, ...inside, ...walled]);
-    }
+      return [...row, ...inside, ...walled];
+    };
+    // (every ray, a slice's work each)
+    const rows: number[][][] = [];
+    for (let r = 0; r < rays; r++) { rows.push(ray(r)); yield; }
     // Every ray has as many rings: where fewer of the rings as they were lie inside the wall, the rest are the wall's first, again (no area, nothing drawn).
     const extra = outer < 0 ? 0 : Math.max(...rows.map((row) => row.length)) - offsets.length;
     for (const row of rows) {
@@ -204,6 +218,7 @@ export function seabedLattice(field: LatticeSource, level: number, reach: WaterE
         indices.push(a, b, a + 1, b, b + 1, a + 1);
       }
     }
-  });
+    yield;
+  }
   return { positions, indices, terrain };
 }

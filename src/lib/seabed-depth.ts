@@ -1,8 +1,9 @@
 import { OCEAN, reefCrestAt, seabedPatch, type OceanConfig } from './ocean';
 import { coralHeads } from './reef-coast';
 import { createSeabedField, type OceanIsland } from './seabed';
-import { bakedDepth, bakedShoaling, whenBakesClear } from './seabed-bake';
+import { bakedDepth, bakedRegions, bakedShoaling, whenBakesClear } from './seabed-bake';
 import { hash, oceanBox, type WaterExtent } from './seabed-lattice';
+import { finish, type Steps } from './slices';
 
 /**
  * The numbers the ocean is drawn with (ocean-mesh.ts makes its textures and meshes from them), apart from three.js so
@@ -16,6 +17,19 @@ import { hash, oceanBox, type WaterExtent } from './seabed-lattice';
  * one island's 18 units). `maxDepth` is the deepest depth it encodes.
  */
 export const DEPTH = { margin: 9, perUnit: 128 / 18, maxDepth: 4 };
+/** How many texels across (`columns`) and down (`rows`) the depth map of these islands is, and the area it covers. */
+export function depthGrid(islands: readonly OceanIsland[]) {
+  const xs = islands.map((i) => i.x), zs = islands.map((i) => i.z);
+  const x0 = Math.min(...xs) - DEPTH.margin, z0 = Math.min(...zs) - DEPTH.margin;
+  const width = Math.max(...xs) - Math.min(...xs) + 2 * DEPTH.margin, depth = Math.max(...zs) - Math.min(...zs) + 2 * DEPTH.margin;
+  return { x0, z0, width, depth, columns: Math.round(width * DEPTH.perUnit), rows: Math.round(depth * DEPTH.perUnit) };
+}
+/** How many vertices the water lattice reaching `extent` from these islands has (the length of its shoaling). */
+export function waterVertexCount(islands: readonly OceanIsland[], extent: WaterExtent, config: OceanConfig = OCEAN) {
+  const s = config.facetSize, h = s * Math.sqrt(3) / 2, box = oceanBox(islands, extent);
+  return (Math.ceil(box.width / s) + 1) * (Math.ceil(box.depth / h) + 1);
+}
+
 /** How many different waters (palettes) one ocean blends: one channel each of the region maps (four to a map). */
 export const OCEAN_REGIONS = 8;
 /** How gradually one island's water gives way to the next across the open water between them (units). */
@@ -30,15 +44,21 @@ const smooth = (a: number, b: number, x: number) => { const t = Math.min(1, Math
  * and 2 MB of water), so a few of each are a few megabytes. Let go of with the bakes (a bake's tests and the bake script want things worked out).
  */
 export const KEPT_MAPS = 8, KEPT_WATERS = 3;
-let maps = new Map<string, ReturnType<typeof makeDepthTexels>>();
-let waters = new WeakMap<object, Map<string, ReturnType<typeof makeWaterVertices>>>();
+export type DepthTexels = ReturnType<typeof makeDepthTexelSteps> extends Generator<unknown, infer R, never> ? R : never;
+export type WaterVertices = ReturnType<typeof makeWaterVertexSteps> extends Generator<unknown, infer R, never> ? R : never;
+let maps = new Map<string, DepthTexels>();
+let waters = new WeakMap<object, Map<string, WaterVertices>>();
 whenBakesClear(() => { maps = new Map(); waters = new WeakMap(); });
-function remembered<T>(kept: Map<string, T>, keep: number, key: string, make: () => T) {
-  const had = kept.get(key);
-  if (had) { kept.delete(key); kept.set(key, had); return had; }
-  const made = make();
-  kept.set(key, made);
-  if (kept.size > keep) kept.delete(kept.keys().next().value!);
+/** What was kept for `key`, as the most recently used, or undefined. */
+function kept<T>(held: Map<string, T>, key: string) {
+  const had = held.get(key);
+  if (had) { held.delete(key); held.set(key, had); }
+  return had;
+}
+/** Keep `made` for `key`, the least recently used going when there are more than `keep`. */
+function keep<T>(held: Map<string, T>, count: number, key: string, made: T) {
+  held.set(key, made);
+  if (held.size > count) held.delete(held.keys().next().value!);
   return made;
 }
 
@@ -48,17 +68,20 @@ function remembered<T>(kept: Map<string, T>, keep: number, key: string, make: ()
  * Found once for the usual ocean's islands and level: the same maps every time, shared, and not to be changed.
  */
 export function depthTexels(level: number, islands: readonly OceanIsland[], config: OceanConfig = OCEAN) {
-  return config === OCEAN ? remembered(maps, KEPT_MAPS, `${level}|${JSON.stringify(islands)}`, () => makeDepthTexels(level, islands, config)) : makeDepthTexels(level, islands, config);
+  return finish(depthTexelSteps(level, islands, config));
 }
-function makeDepthTexels(level: number, islands: readonly OceanIsland[], config: OceanConfig) {
+/** The same in steps (slices.ts): the same maps, kept the same way, made a few rows at a time. */
+export function* depthTexelSteps(level: number, islands: readonly OceanIsland[], config: OceanConfig = OCEAN): Steps<DepthTexels> {
+  if (config !== OCEAN) return yield* makeDepthTexelSteps(level, islands, config);
+  const key = `${level}|${JSON.stringify(islands)}`;
+  return kept(maps, key) ?? keep(maps, KEPT_MAPS, key, yield* makeDepthTexelSteps(level, islands, config));
+}
+function* makeDepthTexelSteps(level: number, islands: readonly OceanIsland[], config: OceanConfig) {
   // The seabed under the islands (seabed.ts: one function for this map and for the animals above it): each island's own
   // shores in its own frame (its outline and size: island-outline.ts), the nearest one wherever two reach, the Coral
   // Reef's lagoon and crest, and the bank between the islands.
   const { shores, reefs, nearest, profileAt, bank, lattice } = createSeabedField(level, islands, config);
-  const xs = islands.map((i) => i.x), zs = islands.map((i) => i.z);
-  const x0 = Math.min(...xs) - DEPTH.margin, z0 = Math.min(...zs) - DEPTH.margin;
-  const width = Math.max(...xs) - Math.min(...xs) + 2 * DEPTH.margin, depth = Math.max(...zs) - Math.min(...zs) + 2 * DEPTH.margin;
-  const columns = Math.round(width * DEPTH.perUnit), rows = Math.round(depth * DEPTH.perUnit);
+  const { x0, z0, width, depth, columns, rows } = depthGrid(islands);
   const habitats = [...new Set(islands.map((i) => i.habitat))].slice(0, OCEAN_REGIONS);
   // The Coral Reef's bommies' rubble on the lagoon floor (found when a texel needs them: none does, where the depth map is baked).
   const bommiesOf: ReturnType<typeof coralHeads>[] = [];
@@ -81,34 +104,47 @@ function makeDepthTexels(level: number, islands: readonly OceanIsland[], config:
   };
   const baked = config === OCEAN ? bakedDepth(level, islands) : undefined;
   const data = baked && baked.length === columns * rows * 4 ? baked : new Uint8Array(columns * rows * 4);
-  const region = new Uint8Array(columns * rows * 4), regionMore = new Uint8Array(columns * rows * 4);
+  // (the region maps too, where an ocean held from before has them)
+  const held = config === OCEAN ? bakedRegions(level, islands) : undefined, regionsHeld = !!held && held.region.length === columns * rows * 4 && held.regionMore.length === columns * rows * 4;
+  const region = regionsHeld ? held.region : new Uint8Array(columns * rows * 4), regionMore = regionsHeld ? held.regionMore : new Uint8Array(columns * rows * 4);
   const weights = new Float32Array(OCEAN_REGIONS);
   // (each island's distance from the texel, and the region channel its water has: found for each island, not made again for every texel)
   const away = new Float64Array(islands.length), slots = islands.map((island) => habitats.indexOf(island.habitat));
-  for (let j = 0; j < rows; j++) {
-    for (let i = 0; i < columns; i++) {
-      const x = x0 + (i + .5) / columns * width, z = z0 + (j + .5) / rows * depth;
-      const k = (j * columns + i) * 4;
-      if (data !== baked) {
-        const near = nearest(x, z);
-        const { depth: water, wet } = profileAt(x, z, near);
-        data[k] = Math.round(255 * Math.sqrt(Math.min(1, water / DEPTH.maxDepth)));
-        data[k + 1] = Math.round(255 * Math.min(1, Math.max(0, -wet) / .2));
-        data[k + 2] = Math.round(255 * seabedPatch(near.x, near.z, near.reach));
-        data[k + 3] = near.reef ? Math.round(255 * reefAt(near.x, near.z, near.reach, bommies(near.island))) : 0;
+  const fillRows = (j0: number, j1: number) => {
+    for (let j = j0; j < j1; j++) {
+      for (let i = 0; i < columns; i++) {
+        const x = x0 + (i + .5) / columns * width, z = z0 + (j + .5) / rows * depth;
+        const k = (j * columns + i) * 4;
+        if (data !== baked) {
+          const near = nearest(x, z);
+          const { depth: water, wet } = profileAt(x, z, near);
+          data[k] = Math.round(255 * Math.sqrt(Math.min(1, water / DEPTH.maxDepth)));
+          data[k + 1] = Math.round(255 * Math.min(1, Math.max(0, -wet) / .2));
+          data[k + 2] = Math.round(255 * seabedPatch(near.x, near.z, near.reach));
+          data[k + 3] = near.reef ? Math.round(255 * reefAt(near.x, near.z, near.reach, bommies(near.island))) : 0;
+        }
+        // Each island's water, fading out past the nearer island's across the open sea between them (one island's alone: all its own).
+        if (regionsHeld) continue;
+        if (islands.length === 1) { region[k] = 255; continue; }
+        weights.fill(0);
+        let closest = Infinity;
+        for (let n = 0; n < islands.length; n++) { const d = Math.hypot(x - islands[n].x, z - islands[n].z); away[n] = d; if (d < closest) closest = d; }
+        for (let n = 0; n < islands.length; n++) {
+          if (slots[n] >= 0) weights[slots[n]] += Math.exp(-(away[n] - closest) / REGION_BLEND);
+        }
+        let total = 0;
+        for (let c = 0; c < OCEAN_REGIONS; c++) total += weights[c];
+        for (let c = 0; c < 4; c++) { region[k + c] = Math.round(255 * weights[c] / total); regionMore[k + c] = Math.round(255 * weights[c + 4] / total); }
       }
-      // Each island's water, fading out past the nearer island's across the open sea between them (one island's alone: all its own).
-      if (islands.length === 1) { region[k] = 255; continue; }
-      weights.fill(0);
-      let closest = Infinity;
-      for (let n = 0; n < islands.length; n++) { const d = Math.hypot(x - islands[n].x, z - islands[n].z); away[n] = d; if (d < closest) closest = d; }
-      for (let n = 0; n < islands.length; n++) {
-        if (slots[n] >= 0) weights[slots[n]] += Math.exp(-(away[n] - closest) / REGION_BLEND);
-      }
-      let total = 0;
-      for (let c = 0; c < OCEAN_REGIONS; c++) total += weights[c];
-      for (let c = 0; c < 4; c++) { region[k + c] = Math.round(255 * weights[c] / total); regionMore[k + c] = Math.round(255 * weights[c + 4] / total); }
     }
+  };
+  // (the setup is a step of its own, and so are the coral heads, which the reef's first texels would otherwise find in the middle of a row)
+  yield;
+  if (data !== baked) { for (let n = 0; n < islands.length; n++) bommies(n); yield; }
+  // A row between pauses (156 texels a row for the explorer's islands, a texel taking a phone about 0.1 ms), a few where only the regions are left, none where nothing is.
+  if (data !== baked || !regionsHeld) {
+    const block = data === baked ? 16 : 1;
+    for (let j = 0; j < rows; j += block) { fillRows(j, Math.min(rows, j + block)); yield; }
   }
   return {
     data, region, regionMore, habitats, polygons, islands, bank, level,
@@ -125,12 +161,17 @@ function makeDepthTexels(level: number, islands: readonly OceanIsland[], config:
  * lattice every time, shared, and not to be changed.
  */
 export function waterVertices(level: number, islands: readonly OceanIsland[], profile: (x: number, z: number) => { wet: number }, config: OceanConfig, extent: WaterExtent) {
-  if (config !== OCEAN) return makeWaterVertices(level, islands, profile, config, extent);
+  return finish(waterVertexSteps(level, islands, profile, config, extent));
+}
+/** The same in steps (slices.ts): the same lattice, kept the same way, a few rows of vertices at a time. */
+export function* waterVertexSteps(level: number, islands: readonly OceanIsland[], profile: (x: number, z: number) => { wet: number }, config: OceanConfig, extent: WaterExtent): Steps<WaterVertices> {
+  if (config !== OCEAN) return yield* makeWaterVertexSteps(level, islands, profile, config, extent);
   let mine = waters.get(profile);
   if (!mine) waters.set(profile, mine = new Map());
-  return remembered(mine, KEPT_WATERS, `${level}|${JSON.stringify(islands)}|${JSON.stringify(extent)}`, () => makeWaterVertices(level, islands, profile, config, extent));
+  const key = `${level}|${JSON.stringify(islands)}|${JSON.stringify(extent)}`;
+  return kept(mine, key) ?? keep(mine, KEPT_WATERS, key, yield* makeWaterVertexSteps(level, islands, profile, config, extent));
 }
-function makeWaterVertices(level: number, islands: readonly OceanIsland[], profile: (x: number, z: number) => { wet: number }, config: OceanConfig, extent: WaterExtent) {
+function* makeWaterVertexSteps(level: number, islands: readonly OceanIsland[], profile: (x: number, z: number) => { wet: number }, config: OceanConfig, extent: WaterExtent) {
   const s = config.facetSize, h = s * Math.sqrt(3) / 2, box = oceanBox(islands, extent);
   const cols = Math.ceil(box.width / s) + 1, rows = Math.ceil(box.depth / h) + 1;
   const baked = config === OCEAN ? bakedShoaling(level, islands, extent) : undefined;
@@ -144,13 +185,17 @@ function makeWaterVertices(level: number, islands: readonly OceanIsland[], profi
       positions.push(x, 0, z);
       if (shoaling !== baked) (shoaling as number[]).push(Math.min(1, Math.max(0, profile(x, z).wet / config.waveShoaling)));
     }
+    // (a row of the seabed's depths takes a phone a few milliseconds; a baked one's, hardly any)
+    if (shoaling === baked ? r % 16 === 15 : r % 2 === 1) yield;
   }
+  yield;
   for (let r = 0; r < rows - 1; r++) {
     for (let c = 0; c < cols - 1; c++) {
       const a = r * cols + c, b = a + 1, d = a + cols, e = d + 1;
       if (r % 2 === 0) indices.push(a, d, b, b, d, e);
       else indices.push(a, e, b, a, d, e);
     }
+    if (r % 8 === 7) yield;
   }
   return { positions, shoaling, indices };
 }

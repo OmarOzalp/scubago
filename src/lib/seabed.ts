@@ -5,7 +5,8 @@ import { OCEAN, reefShape, seabedProfile, shelfStretch, wallMeasure, type OceanC
 import { coralHeads } from './reef-coast';
 import { REEF_ANEMONE, REEF_ROCK, reefRocks } from './reef-life';
 import { bakedGrid, bakedLattice } from './seabed-bake';
-import { seabedLattice, type Lattice, type WaterExtent } from './seabed-lattice';
+import { seabedLatticeSteps, type Lattice, type WaterExtent } from './seabed-lattice';
+import { finish, type Steps } from './slices';
 import { smoothstep, worldFor } from './steering';
 import { alongWreck, WRECK } from './wreck';
 
@@ -35,6 +36,8 @@ export type SeabedField = {
   bank: ReturnType<typeof archipelagoBank> | null;
   /** The seabed as a mesh, for the water's reach (OCEAN.waterExtent unless told). */
   lattice(reach?: WaterExtent): Lattice;
+  /** The same in steps (slices.ts), for a phone to work out a slice at a time; made once for each reach, however it is asked for. */
+  latticeSteps(reach?: WaterExtent): Steps<Lattice>;
 };
 /** The fields made, most recently used last: the water and the animals of the same islands and level share one. */
 const fields = new Map<string, SeabedField>();
@@ -101,20 +104,22 @@ export function createSeabedField(level: number, islands: readonly OceanIsland[]
   };
   // The seabed as a mesh (seabed-lattice.ts), made once for each reach of the water.
   const lattices = new Map<string, Lattice>();
+  function* latticeSteps(reach?: WaterExtent): Steps<Lattice> {
+    // (no reach is the usual one: the drawn seabed and the animals' share one lattice)
+    const reaching = JSON.stringify(reach ?? OCEAN.waterExtent);
+    let made = lattices.get(reaching);
+    if (!made) {
+      // Built ahead of time (seabed-bake.ts) for the usual ocean, where there is a bake: the very same lattice.
+      made = (config === OCEAN ? bakedLattice(level, islands, reach) : undefined)
+        ?? (yield* seabedLatticeSteps({ islands, shores: shores.map((polygons) => polygons[0]), bank, profile: (x, z) => profileAt(x, z), crest, wall }, level, reach));
+      lattices.set(reaching, made);
+    }
+    return made;
+  }
   const field: SeabedField = {
     shores, reefs, nearest, profileAt, bank,
-    lattice(reach?: WaterExtent) {
-      // (no reach is the usual one: the drawn seabed and the animals' share one lattice)
-      const reaching = JSON.stringify(reach ?? OCEAN.waterExtent);
-      let made = lattices.get(reaching);
-      if (!made) {
-        // Built ahead of time (seabed-bake.ts) for the usual ocean, where there is a bake: the very same lattice.
-        made = (config === OCEAN ? bakedLattice(level, islands, reach) : undefined)
-          ?? seabedLattice({ islands, shores: shores.map((polygons) => polygons[0]), bank, profile: (x, z) => profileAt(x, z), crest, wall }, level, reach);
-        lattices.set(reaching, made);
-      }
-      return made;
-    },
+    lattice: (reach?: WaterExtent) => finish(latticeSteps(reach)),
+    latticeSteps,
   };
   if (key) {
     fields.set(key, field);
