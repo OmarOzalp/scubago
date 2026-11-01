@@ -1,6 +1,7 @@
 import { useContext, useEffect, useMemo } from 'react';
 import { DoubleSide, Mesh, MeshLambertMaterial, Vector4 } from 'three';
 import { SEAGRASS, seagrassTufts } from '@/lib/seagrass';
+import { builtOnce, useHeldGeometry } from './geometry-cache';
 import { OceanContext } from './ocean-context';
 import { buildSeagrassGeometry } from './seagrass-geometry';
 import { createOceanUniforms, OCEAN_SHADER_CHUNKS, type OceanUniforms } from './ocean-mesh';
@@ -44,14 +45,21 @@ export function SeagrassMeadow({ level }: { level: number }) {
   const ocean = useContext(OceanContext);
   const lite = useSceneQuality() === 'lite';
   const mesh = useMemo(() => {
-    const tufts = seagrassTufts(level, lite ? SEAGRASS.tufts.lite : SEAGRASS.tufts.full);
-    const mesh = new Mesh(buildSeagrassGeometry(tufts, lite ? SEAGRASS.blades.lite : SEAGRASS.blades.full), createSeagrassMaterial(ocean ?? createOceanUniforms('mangrove'), lite));
+    // (made once for each level and quality, and shared: geometry-cache.ts)
+    const geometry = builtOnce(`seagrass:${level}:${lite}`, () => {
+      const tufts = seagrassTufts(level, lite ? SEAGRASS.tufts.lite : SEAGRASS.tufts.full);
+      const built = buildSeagrassGeometry(tufts, lite ? SEAGRASS.blades.lite : SEAGRASS.blades.full);
+      built.boundingSphere!.radius += .2;
+      return built;
+    });
+    const mesh = new Mesh(geometry, createSeagrassMaterial(ocean ?? createOceanUniforms('mangrove'), lite));
     mesh.name = 'seagrass-meadow';
-    mesh.geometry.boundingSphere!.radius += .2;
     mesh.renderOrder = 1;
     mesh.raycast = () => {};
     return mesh;
   }, [level, lite, ocean]);
-  useEffect(() => () => { mesh.geometry.dispose(); (mesh.material as MeshLambertMaterial).dispose(); }, [mesh]);
+  // (the geometry is shared, geometry-cache.ts: only the material is this mesh's own to dispose)
+  useHeldGeometry(mesh.geometry);
+  useEffect(() => () => (mesh.material as MeshLambertMaterial).dispose(), [mesh]);
   return <primitive object={mesh} />;
 }

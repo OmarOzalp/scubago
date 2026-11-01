@@ -6,6 +6,7 @@ import { OCEAN, seabedProfile, shelfStretch } from '@/lib/ocean';
 import { smoothstep } from '@/lib/steering';
 import { alongWreck, WRECK, wreckLength } from '@/lib/wreck';
 import { boulder, cliffs, delaunay, faces, hash, noise, paintFaces, triangles, type RockColors } from './coast-geometry';
+import { builtOnce, keepBuilt, useHeldGeometry } from './geometry-cache';
 import { OceanContext } from './ocean-context';
 import { foliage, palm, tube } from './reef-coast';
 import { useSceneQuality } from './scene-quality';
@@ -320,7 +321,10 @@ function IsletCay({ position, scale, seed }: { position: [number, number]; scale
 export function WreckCoast({ level }: { level: number }) {
   const lite = useSceneQuality() === 'lite';
   const { cay, sunken } = useMemo(() => {
+    // (the same for every level, and for every mount of it: geometry-cache.ts; the wreck under the water is kept as it is made, along the way)
+    const geometry = builtOnce(`wreck-coast:${lite}`, () => {
     const [above, below] = splitAtSurface(wreckGeometry());
+    keepBuilt('wreck-sunken', below);
     // The beach loses its lids: the ground drawn over it covers the cay.
     const parts: BufferGeometry[] = [cliffs(BEACH, FOOT, TOP, 1, 0, 0, 0, (x, z) => Math.min(TOP, groundAt(x, z) - .008), SHAPE), ground(2), above];
     // Beach grass over the dunes, thinner toward the beach.
@@ -341,15 +345,19 @@ export function WreckCoast({ level }: { level: number }) {
     parts.push(driftwood(-1.0, -.37, .4, .32, 1), driftwood(.35, -.53, -.2, .26, 2), driftwood(1.75, .4, 1.2, .22, 3));
     parts.push(...lighthouse());
     for (const [bx, bz, seed] of [[2.1, .73, 41], [-2.05, .77, 42]] as const) parts.push(boulder({ wet: RUST_DARK.clone().lerp(new Color('#55524A'), .7), rock: new Color('#7D786C'), light: new Color('#9E988A') }, bx, WATER - .01, bz, .07, .035, .05, seed, seed, WATER));
-    const geometry = mergeGeometries(parts);
+    const merged = mergeGeometries(parts);
     parts.forEach((part) => part.dispose());
-    geometry.computeVertexNormals();
+    merged.computeVertexNormals();
+    return merged;
+    });
     const cay = new Mesh(geometry, new MeshLambertMaterial({ vertexColors: true, flatShading: true, side: DoubleSide }));
     cay.name = 'wreck-coast';
     cay.raycast = () => {};
-    return { cay, sunken: below };
+    return { cay, sunken: builtOnce('wreck-sunken', () => splitAtSurface(wreckGeometry())[1]) };
   }, [lite]);
-  useEffect(() => () => { cay.geometry.dispose(); (cay.material as MeshLambertMaterial).dispose(); }, [cay]);
+  // (the geometry is shared, geometry-cache.ts: only the material is this mesh's own to dispose)
+  useHeldGeometry(cay.geometry);
+  useEffect(() => () => (cay.material as MeshLambertMaterial).dispose(), [cay]);
   const [first, second] = islets(6, SHAPE);
   return <>
     <primitive object={cay} />

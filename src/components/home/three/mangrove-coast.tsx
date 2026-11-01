@@ -4,6 +4,7 @@ import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js
 import { islets, outlinePoints, shoreDistance } from '@/lib/island-outline';
 import { smoothstep } from '@/lib/steering';
 import { cliffs, delaunay, faces, hash, noise, paintFaces, triangles } from './coast-geometry';
+import { builtOnce, useHeldGeometry } from './geometry-cache';
 import { useSceneQuality } from './scene-quality';
 
 /**
@@ -259,6 +260,8 @@ function boardwalk(from: number, length: number, angle: number) {
 export function MangroveCoast({ level }: { level: number }) {
   const lite = useSceneQuality() === 'lite';
   const mesh = useMemo(() => {
+    // (the same at every level but for the islets, so made once for each number of them: geometry-cache.ts)
+    const geometry = builtOnce(`mangrove-coast:${islets(level, SHAPE).length}:${lite}`, () => {
     // The banks lose their lids (the ground covers the island) and dip where the creek runs out to the sea.
     const parts: BufferGeometry[] = [cliffs(BANK, FOOT, TOP, 1, 0, 0, 0, (x, z) => Math.min(TOP, groundAt(x, z) - .01), SHAPE), ground(1)];
     // The canopy: trees on a jittered lattice inland, clear of the spit, with a few gaps where the mud shows.
@@ -298,14 +301,18 @@ export function MangroveCoast({ level }: { level: number }) {
       parts.push(cliffs(BANK, FOOT, TOP, scale, ix, iz, 9, undefined, SHAPE));
       for (let k = 0; k < 3; k++) parts.push(...redMangrove(ix + Math.cos(k * 2.1) * scale * 1.1, iz + Math.sin(k * 2.1) * scale * .8, .9, 40 + k, lite ? 4 : 6));
     }
-    const geometry = mergeGeometries(parts);
+    const merged = mergeGeometries(parts);
     parts.forEach((part) => part.dispose());
-    geometry.computeVertexNormals();
+    merged.computeVertexNormals();
+    return merged;
+    });
     const mesh = new Mesh(geometry, new MeshLambertMaterial({ vertexColors: true, flatShading: true }));
     mesh.name = 'mangrove-coast';
     mesh.raycast = () => {};
     return mesh;
   }, [level, lite]);
-  useEffect(() => () => { mesh.geometry.dispose(); (mesh.material as MeshLambertMaterial).dispose(); }, [mesh]);
+  // (the geometry is shared, geometry-cache.ts: only the material is this mesh's own to dispose)
+  useHeldGeometry(mesh.geometry);
+  useEffect(() => () => (mesh.material as MeshLambertMaterial).dispose(), [mesh]);
   return <primitive object={mesh} />;
 }

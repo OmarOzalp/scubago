@@ -5,6 +5,7 @@ import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js
 import { islets, outlinePoints, shoreDistance } from '@/lib/island-outline';
 import { smoothstep } from '@/lib/steering';
 import { boulder, cliffs, delaunay, faces, hash, noise, paintFaces, triangles } from './coast-geometry';
+import { builtOnce, useHeldGeometry } from './geometry-cache';
 import { OceanContext } from './ocean-context';
 import { OCEAN_SHADER_CHUNKS } from './ocean-mesh';
 import { useSceneQuality } from './scene-quality';
@@ -224,6 +225,8 @@ function shoreRocks(seed: number) {
 /** Everything solid of the Volcanic Pinnacle's island in one mesh (it never moves). */
 export function VolcanicCoast({ level }: { level: number }) {
   const mesh = useMemo(() => {
+    // (the same at every level but for the islets, so made once for each number of them: geometry-cache.ts)
+    const geometry = builtOnce(`volcanic-coast:${islets(level, SHAPE).length}`, () => {
     const parts: BufferGeometry[] = [
       cliffs(ROCKS, FOOT, TOP, 1, 0, 0, 0, (x, z) => shoreTop(x, z) - .05, SHAPE),
       slopes(1),
@@ -236,15 +239,19 @@ export function VolcanicCoast({ level }: { level: number }) {
       // From level 5 the islets (island-outline.ts) rise as low lava rocks capped with columns.
       ...islets(level, SHAPE).flatMap(({ position: [x, z], scale }, i) => [cliffs(ROCKS, FOOT, TOP, scale, x, z, 7 + i, undefined, SHAPE), ...columns(x, z, 3, 3, .05 * scale * 2.5, i, TOP + .08, TOP - .02, 5 + i)]),
     ];
-    const geometry = mergeGeometries(parts);
+    const merged = mergeGeometries(parts);
     parts.forEach((part) => part.dispose());
-    geometry.computeVertexNormals();
+    merged.computeVertexNormals();
+    return merged;
+    });
     const mesh = new Mesh(geometry, new MeshLambertMaterial({ vertexColors: true, flatShading: true }));
     mesh.name = 'volcanic-coast';
     mesh.raycast = () => {};
     return mesh;
   }, [level]);
-  useEffect(() => () => { mesh.geometry.dispose(); (mesh.material as MeshLambertMaterial).dispose(); }, [mesh]);
+  // (the geometry is shared, geometry-cache.ts: only the material is this mesh's own to dispose)
+  useHeldGeometry(mesh.geometry);
+  useEffect(() => () => (mesh.material as MeshLambertMaterial).dispose(), [mesh]);
   return <>
     <primitive object={mesh} />
     <Vent />

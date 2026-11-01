@@ -4,6 +4,7 @@ import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js
 import { islets, outlinePoints, shoreDistance } from '@/lib/island-outline';
 import { smoothstep } from '@/lib/steering';
 import { boulder, cliffs, delaunay, faces, hash, noise, paintFaces, triangles } from './coast-geometry';
+import { builtOnce, useHeldGeometry } from './geometry-cache';
 
 /**
  * The Kelp Forest's island: a rugged headland of dark rock on a cold coast, like the granite of
@@ -125,6 +126,8 @@ function shoreRocks(seed: number) {
 /** Everything of the Kelp Forest's island in one mesh (it never moves): rock, hill, cypress, boulders, stacks. */
 export function KelpCoast({ level }: { level: number }) {
   const mesh = useMemo(() => {
+    // (the same at every level but for the islets, so made once for each number of them: geometry-cache.ts)
+    const geometry = builtOnce(`kelp-coast:${islets(level, SHAPE).length}`, () => {
     const parts: BufferGeometry[] = [
       headland(),
       hilltop(1),
@@ -135,14 +138,18 @@ export function KelpCoast({ level }: { level: number }) {
       // From level 5 the islets (island-outline.ts) rise as rocky skerries.
       ...islets(level, SHAPE).map(({ position: [x, z], scale }, i) => headland(scale, x, z, 7 + i)),
     ];
-    const geometry = mergeGeometries(parts);
+    const merged = mergeGeometries(parts);
     parts.forEach((part) => part.dispose());
-    geometry.computeVertexNormals();
+    merged.computeVertexNormals();
+    return merged;
+    });
     const mesh = new Mesh(geometry, new MeshLambertMaterial({ vertexColors: true, flatShading: true }));
     mesh.name = 'kelp-coast';
     mesh.raycast = () => {};
     return mesh;
   }, [level]);
-  useEffect(() => () => { mesh.geometry.dispose(); (mesh.material as MeshLambertMaterial).dispose(); }, [mesh]);
+  // (the geometry is shared, geometry-cache.ts: only the material is this mesh's own to dispose)
+  useHeldGeometry(mesh.geometry);
+  useEffect(() => () => (mesh.material as MeshLambertMaterial).dispose(), [mesh]);
   return <primitive object={mesh} />;
 }

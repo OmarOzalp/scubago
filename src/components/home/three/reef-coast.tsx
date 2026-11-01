@@ -5,6 +5,7 @@ import { islets, outlinePoints, SEABED_PROPS, shoreDistance } from '@/lib/island
 import { coralHeads, JETTY, jettyLine, type CoralHead, type CoralKind } from '@/lib/reef-coast';
 import { smoothstep } from '@/lib/steering';
 import { boulder, cliffs, delaunay, faces, hash, noise, paintFaces, triangles, type RockColors } from './coast-geometry';
+import { builtOnce, useHeldGeometry } from './geometry-cache';
 import { islandScale } from './island-shape';
 import { OceanContext } from './ocean-context';
 import type { Ocean } from './water-surface';
@@ -296,29 +297,34 @@ export function coralGeometry(kind: CoralKind, radius: number, height: number, s
   return geometry;
 }
 
-/** A mesh of coral heads, drawn on the bottom like the reef's rocks (behind any animal over them) and tinted by the water over them. */
-function useCoralMesh(heads: readonly CoralHead[], name: string) {
+/**
+ * A mesh of coral heads, drawn on the bottom like the reef's rocks (behind any animal over them) and tinted by the water over them. The heads' geometry is
+ * made once for each `key` (geometry-cache.ts); the mesh is made from a copy of it (prepareUnderwater), which is its own.
+ */
+function useCoralMesh(heads: readonly CoralHead[], name: string, key: string) {
   const ocean = useContext(OceanContext);
   const lite = useSceneQuality() === 'lite';
   const { mesh, look } = useMemo(() => {
-    const parts = heads.filter((head, i) => !lite || !head.crest || i % 2 === 0).map((head) => {
-      const geometry = coralGeometry(head.kind, head.radius, head.height, head.seed);
-      geometry.rotateY(hash(head.seed, 13) * Math.PI * 2);
-      geometry.translate(head.x, head.floor - .01, head.z);
-      return geometry;
+    const geometry = builtOnce(`${key}:${lite}`, () => {
+      const parts = heads.filter((head, i) => !lite || !head.crest || i % 2 === 0).map((head) => {
+        const geometry = coralGeometry(head.kind, head.radius, head.height, head.seed);
+        geometry.rotateY(hash(head.seed, 13) * Math.PI * 2);
+        geometry.translate(head.x, head.floor - .01, head.z);
+        return geometry;
+      });
+      const merged = parts.length ? mergeGeometries(parts) : new IcosahedronGeometry(.001, 0);
+      parts.forEach((part) => part.dispose());
+      return merged;
     });
-    const geometry = parts.length ? mergeGeometries(parts) : new IcosahedronGeometry(.001, 0);
-    parts.forEach((part) => part.dispose());
     const material = new MeshLambertMaterial({ vertexColors: true, flatShading: true, side: DoubleSide });
     const mesh = new Mesh(geometry, material);
     mesh.name = name;
     mesh.raycast = () => {};
     // Standing up off the bottom, they take on a little less of the water's color than the sand around them.
     const look = prepareUnderwater(mesh, ocean ?? undefined, lite, { bias: FLOOR_BIAS, seabed: .32 });
-    geometry.dispose();
     material.dispose();
     return { mesh, look };
-  }, [heads, name, ocean, lite]);
+  }, [heads, name, key, ocean, lite]);
   useEffect(() => () => look.dispose(), [look]);
   return mesh;
 }
@@ -326,7 +332,7 @@ function useCoralMesh(heads: readonly CoralHead[], name: string) {
 /** The coral heads of the lagoon and the crest (reef-coast.ts), in the island's frame (world units, not scaled with the island). */
 export function ReefCorals({ level }: { level: number }) {
   const heads = useMemo(() => coralHeads(level), [level]);
-  return <primitive object={useCoralMesh(heads, 'reef-corals')} />;
+  return <primitive object={useCoralMesh(heads, 'reef-corals', `reef-corals:${level}`)} />;
 }
 
 /** One of the lagoon's showpiece corals (SEABED_PROPS) or its reef rock, in the island group's frame, grown in at its level. */
@@ -336,7 +342,7 @@ function Showpiece({ at, level, from, kind, radius, height, seed, ocean, place }
   const scale = islandScale(level), [x, z] = at;
   const floor = useMemo(() => ocean.field.profile(place[0] + x * scale, place[1] + z * scale).floor, [ocean, place, x, z, scale]);
   const heads = useMemo<CoralHead[]>(() => [{ x: 0, z: 0, floor: .01, radius, height, kind: kind === 'rock' ? 'boulder' : kind, seed, crest: false }], [radius, height, kind, seed]);
-  const mesh = useCoralMesh(heads, `reef-showpiece-${seed}`);
+  const mesh = useCoralMesh(heads, `reef-showpiece-${seed}`, `reef-showpiece:${kind}:${radius}:${height}:${seed}`);
   return <group position={[x, floor / scale, z]}><Unlock at={from} level={level} kind="grow"><primitive object={mesh} /></Unlock></group>;
 }
 
@@ -363,6 +369,8 @@ function IsletCay({ position, scale, seed }: { position: [number, number]; scale
 export function ReefCoast({ level, ocean, place }: { level: number; ocean: Ocean; place: readonly [number, number] }) {
   const lite = useSceneQuality() === 'lite';
   const mesh = useMemo(() => {
+    // (the same for every level, and for every mount of it: geometry-cache.ts)
+    const geometry = builtOnce(`reef-coast:${lite}`, () => {
     // The beach loses its lids: the ground drawn over it covers the island.
     const parts: BufferGeometry[] = [cliffs(BEACH, FOOT, TOP, 1, 0, 0, 0, (x, z) => Math.min(TOP, groundAt(x, z) - .008), SHAPE), ground(1)];
     // Inland, a dense, bright forest on a jittered lattice, rising a little toward the middle, with a few clearings.
@@ -399,15 +407,19 @@ export function ReefCoast({ level, ocean, place }: { level: number; ocean: Ocean
       parts.push(boulder(BEACH_ROCK, x, WATER - .005, z, .1 + .05 * hash(i, 3), .025, .06, out + 1.4, 50 + i, WATER + .005));
     });
     parts.push(...jetty(), ...diveBoat());
-    const geometry = mergeGeometries(parts);
+    const merged = mergeGeometries(parts);
     parts.forEach((part) => part.dispose());
-    geometry.computeVertexNormals();
+    merged.computeVertexNormals();
+    return merged;
+    });
     const mesh = new Mesh(geometry, new MeshLambertMaterial({ vertexColors: true, flatShading: true, side: DoubleSide }));
     mesh.name = 'reef-coast';
     mesh.raycast = () => {};
     return mesh;
   }, [lite]);
-  useEffect(() => () => { mesh.geometry.dispose(); (mesh.material as MeshLambertMaterial).dispose(); }, [mesh]);
+  // (the geometry is shared, geometry-cache.ts: only the material is this mesh's own to dispose)
+  useHeldGeometry(mesh.geometry);
+  useEffect(() => () => (mesh.material as MeshLambertMaterial).dispose(), [mesh]);
   const [first, second] = islets(6, SHAPE);
   return <>
     <primitive object={mesh} />

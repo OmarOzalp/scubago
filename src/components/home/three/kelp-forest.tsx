@@ -1,6 +1,7 @@
 import { useContext, useEffect, useMemo } from 'react';
 import { DoubleSide, Mesh, MeshLambertMaterial, Vector4 } from 'three';
 import { KELP, kelpPlants } from '@/lib/kelp';
+import { builtOnce, useHeldGeometry } from './geometry-cache';
 import { buildKelpGeometry, KELP_DETAIL } from './kelp-geometry';
 import { createKelpMovers, KELP_MOVERS, KelpMoversContext, type KelpMovers } from './kelp-movers';
 import { createOceanUniforms, OCEAN_SHADER_CHUNKS, type OceanUniforms } from './ocean-mesh';
@@ -74,16 +75,23 @@ export function KelpForest({ level }: { level: number }) {
   const ocean = useContext(OceanContext), movers = useContext(KelpMoversContext);
   const lite = useSceneQuality() === 'lite';
   const mesh = useMemo(() => {
-    const plants = kelpPlants(level, lite ? KELP.plants.lite : KELP.plants.full);
-    const mesh = new Mesh(buildKelpGeometry(plants, KELP_DETAIL[lite ? 'lite' : 'full']), createKelpMaterial(ocean ?? createOceanUniforms('kelp'), lite, movers ?? undefined));
+    // (made once for each level and quality, and shared: geometry-cache.ts)
+    const geometry = builtOnce(`kelp-forest:${level}:${lite}`, () => {
+      const plants = kelpPlants(level, lite ? KELP.plants.lite : KELP.plants.full);
+      const built = buildKelpGeometry(plants, KELP_DETAIL[lite ? 'lite' : 'full']);
+      // Out of view (the explorer looking at another island) it isn't drawn: its bounds, padded for the sway and the parting.
+      built.boundingSphere!.radius += 1;
+      return built;
+    });
+    const mesh = new Mesh(geometry, createKelpMaterial(ocean ?? createOceanUniforms('kelp'), lite, movers ?? undefined));
     mesh.name = 'kelp-forest';
-    // Out of view (the explorer looking at another island) it isn't drawn: its bounds, padded for the sway and the parting.
-    mesh.geometry.boundingSphere!.radius += 1;
     mesh.renderOrder = 1;
     // Taps go through the kelp to the animals behind it.
     mesh.raycast = () => {};
     return mesh;
   }, [level, lite, ocean, movers]);
-  useEffect(() => () => { mesh.geometry.dispose(); (mesh.material as MeshLambertMaterial).dispose(); }, [mesh]);
+  // (the geometry is shared, geometry-cache.ts: only the material is this mesh's own to dispose)
+  useHeldGeometry(mesh.geometry);
+  useEffect(() => () => (mesh.material as MeshLambertMaterial).dispose(), [mesh]);
   return <primitive object={mesh} />;
 }
