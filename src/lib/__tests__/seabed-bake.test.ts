@@ -111,6 +111,27 @@ test('a lone island’s animals swim over the baked grid: the same seabed as wor
   expect(baked!.deepest).toBe(worked.deepest);
 }, 60000);
 
+test.each(['kelp', 'volcanic', 'mangrove', 'wreck'] as const)('the %s island’s animals swim over its baked grid too: the same seabed as worked out', (shape) => {
+  const habitat = { kelp: 'kelp', volcanic: 'volcanic', mangrove: 'mangrove', wreck: 'wreck' }[shape] as 'kelp' | 'volcanic' | 'mangrove' | 'wreck';
+  const worked = createSeabed(1, shape);
+  let baked: ReturnType<typeof createSeabed> | undefined, usedGrid = false;
+  jest.isolateModules(() => {
+    /* eslint-disable @typescript-eslint/no-require-imports */
+    const fresh = require('@/lib/seabed-bake') as typeof import('@/lib/seabed-bake');
+    fresh.registerSeabedBake(bakedFile(`${shape}-1`));
+    usedGrid = !!fresh.bakedGrid(1, [{ x: 0, z: 0, habitat }]);
+    baked = (require('@/lib/seabed') as typeof import('@/lib/seabed')).createSeabed(1, shape);
+    /* eslint-enable @typescript-eslint/no-require-imports */
+  });
+  expect(usedGrid).toBe(true);
+  for (const [x, z] of [[0, 0], [2.5, -1.2], [-4, 3.3], [6.1, 5.9], [-7.9, -7.9], [1.234, -5.678]]) {
+    expect(baked!.floor(x, z)).toBe(worked.floor(x, z));
+    expect(baked!.solid(x, z)).toBe(worked.solid(x, z));
+    expect(baked!.ground(x, z)).toBe(worked.ground(x, z));
+  }
+  expect(baked!.deepest).toBe(worked.deepest);
+}, 60000);
+
 test('a bake can say what it is for, and carry the region maps; it reads back exactly, and a file damaged or cut short is refused', () => {
   const lattice = { positions: [0.1, -2.5e-17, Math.PI, -0], indices: [0, 1, 2], terrain: 0 };
   const region = Uint8Array.of(255, 0, 0, 0, 128, 127, 0, 0), regionMore = new Uint8Array(8);

@@ -204,7 +204,7 @@ export type SeabedBakeVariant = {
   name: string; level: number; shape: IslandShape; islands: OceanIsland[];
   /** The explorer's reach (none: Home's card's). */
   reach?: typeof EXPLORER_REACH;
-  /** Which sections: Home's card has the lattice, depth map and shoaling, and the Coral Reef's its animals' grid too (the slowest to work out); the explorer's, its lattice and shoaling. */
+  /** Which sections: Home's card has the lattice, depth map and shoaling and its animals' grid of the bottom; the explorer's, its lattice and shoaling. */
   sections: ('lattice' | 'depth' | 'shoaling' | 'bare')[];
 };
 
@@ -214,7 +214,7 @@ export function seabedBakeVariants(): SeabedBakeVariant[] {
   for (const shape of ['reef', 'kelp', 'volcanic', 'mangrove', 'wreck'] as const) {
     for (let level = 1; level <= 6; level++) {
       const islands = [{ x: 0, z: 0, habitat: HABITAT[shape] }];
-      variants.push({ name: `${shape}-${level}`, level, shape, islands, sections: shape === 'reef' ? ['lattice', 'depth', 'shoaling', 'bare'] : ['lattice', 'depth', 'shoaling'] });
+      variants.push({ name: `${shape}-${level}`, level, shape, islands, sections: ['lattice', 'depth', 'shoaling', 'bare'] });
       if (shape === 'reef') variants.push({ name: `${shape}-${level}-explorer`, level, shape, islands, reach: EXPLORER_REACH, sections: ['lattice', 'shoaling'] });
     }
   }
