@@ -417,3 +417,66 @@ picture to the pixel, before and after this work).
 - With Reduce Motion the island is still, and a still island is not photographed (as for Share), so the
   card takes no new picture; one kept earlier is still shown and replaced at once.
 - Physical-device timing is still unmeasured.
+
+
+## Drawing less (November 2026)
+
+The card and the explorer drew every refresh (60 a second) however still the sea was, rebuilt each
+animal's tap target at every redraw, left a bone texture behind for every animal that went, and
+relinked the same shader programs at every switch of island. None of it changes how anything looks.
+
+- **30 frames a second at rest** (`frame-pacer.tsx`). `SceneCanvas` runs its canvas on demand and a
+  `FramePacer` asks for each frame, a little before it is due, `1000 / 30` ms after the start of the last.
+  Everything is worked out from the time between frames (the swimming's own fixed step included), so
+  animals swim at the same speed at any rate. The explorer draws at every refresh while a finger is
+  on it (`explorer.touching`) or its view eases or glides (`explorer.moving`: a zoom button, "show the
+  whole ocean", a tap on a reef creature), as it always asked to; the pacer puts its own next frame back
+  after any frame, so the two never add up. A scene that is hidden, paused or behind another screen still
+  asks for nothing. The animal close-up (`inspect`) keeps `fps={60}`. The simulator keeps its own pace
+  (it waits for the GL worker). The slow-frame count of the dev log and the `ISLAND_PERF` badge is
+  relative to the rate (`slowFrameMs`: 50 ms at 30 a second).
+- **Bone textures.** `AnimatedMarine` frees its clone's skeletons when it unmounts (`skeleton-dispose.ts`).
+- **Tap targets.** An animal's tap target depends on whether it has a handler, not on the closure the
+  scene hands down at every render, and the body it is worked out from is measured once for each parsed
+  model (`tapTarget`'s `source`): measuring skins every vertex. A rebuild used to measure the body
+  wherever the animal was by then, in the world, so the oval of a reef fish ended up elsewhere in the
+  ocean and a dolphin lost its own; it is now always the body at rest, which is what the first build gave.
+- **Shader programs** (`program-keeper.tsx`). A canvas keeps what it has linked: a built-in material's
+  program gets one more use, and the first material seen with each ShaderMaterial program stays alive
+  (its code gets new numbers in three.js's cache once its last material goes, so the old program would
+  never be found again). Going back to an island links nothing.
+
+Measured in a browser with software WebGL (SwiftShader) and a collection at level 3 on three islands
+(mid3), before and after builds run in turn:
+
+| | Before | After |
+| --- | ---: | ---: |
+| Card at rest, frames a second (draw skipped: this machine's rasterizer can't do 60) | 59 | 30 |
+| Card at rest, main-thread work (ms a second) | 150 | 98 |
+| Explorer at rest / finger resting / dragging / glide over, frames a second | 57 / 60 / 60 / 60 | 28.5 / 60 / 60 / 30 |
+| The scene's own work for 6 s of scene time (no drawing), interpreter / JIT, Coral Reef level 3 | 597-633 / 262-269 ms | 401-447 / 136-144 ms |
+| GL calls for a frame: card / explorer | 148 / 359 | 146 / 376 |
+| GL calls a second at rest: card / explorer (calls a frame x frames a second) | 8,700 / 20,500 | 4,400 / 10,700 |
+| Tap targets built, island mounted then redrawn twice (9-10 animals) | 27-30 | 9-10 |
+| Tap targets built through a run of 6 island switches and 2 explorer opens | 197 | 81 |
+| Measuring bodies, first mount / every later mount, interpreter | 125-140 / 130-175 ms | 111-120 / 0 ms |
+| Measuring bodies, first mount / every later mount, JIT | 36-42 / 14-18 ms | 29-52 / 0 ms |
+| GL textures live in the card's context after 6 island switches | 36 | 5 |
+| Textures live after 2 explorer opens and closes (all contexts) | 82 | 19 |
+| Programs linked by 6 island switches (13 at first) | 63 | 14 |
+| Revisit of an island links | 8-9 programs | none |
+
+The animals' places agree to 1e-15 between the real scene stepped at 60 and at 30 a second after the
+first seconds, and they swim the same distance each second. Stills of the card and the explorer before
+and after look the same; the card without its animals, frozen, after six switches is the same pixel for
+pixel but for a 30 x 25 patch of what moves by its own clock. The `ISLAND_PERF` badge reads
+"60 fps · 0 slow" before and "30 fps · 0 slow" after (it would have counted every frame slow, late for 60).
+
+The 4 textures left by each explorer open are three.js's own empty textures of the explorer's lost GL
+context, not animals'.
+
+Not done: the first measuring of a body still skins its vertices (about 14 ms a model in the
+interpreter, once for each model a session meets); the explorer's programs, which it links afresh at
+every open because it is a second GL context; unifying the animals' program variants (open water and reef
+differ in code, not only in flags). On a phone to time: the card's and the explorer's feel at 30 a second,
+the explorer under a finger, the first switch to each island.
