@@ -229,6 +229,16 @@ export function islandsByView(frame: ExplorerFrame, view: ExplorerView, margin =
   return { order, near: measured ? reaches.filter(Boolean).length : Math.min(1, order.length) };
 }
 
+/**
+ * What a kept picture of the explorer's opening view is of: the islands in the ocean (their ids, in their order), the level, the island
+ * it opens on and the screen's shape (its width ÷ height to 1/50, so that a picture is stretched by a hundredth at most). Another of any,
+ * and the picture is not of the view that opens; `version` goes up when the scene is drawn differently.
+ */
+export const EXPLORER_PICTURE_VERSION = 1;
+export function explorerViewKey({ islands, level, opens, width, height }: { islands: readonly string[]; level: number; opens: string; width: number; height: number }) {
+  return `${EXPLORER_PICTURE_VERSION}|${islands.join(',')}|${level}|${opens}|${Math.round((Math.max(1, width) / Math.max(1, height)) * 50) / 50}`;
+}
+
 /** Drag the water by (dx, dy) screen points: the spot under the finger stays under it. */
 export function panBy(frame: ExplorerFrame, view: ExplorerView, dx: number, dy: number): ExplorerView {
   return clampView(frame, { x: view.x - dx / view.zoom, z: view.z - dy * EXPLORER.depthStretch / view.zoom, zoom: view.zoom });
@@ -369,6 +379,8 @@ export function createExplorer(initial: ExplorerFrame, start?: number) {
     get moving() { return !!goal || vx !== 0 || vz !== 0; },
     /** Whether a finger is down, so the camera draws at every refresh while the view follows it. */
     get touching() { return fingers.length > 0; },
+    /** Whether the view is still where it opened: nothing (a finger, a button, the wheel) has moved it yet. */
+    get opening() { return untouched; },
     /** The screen's size (and the island's level) changed. The first real size starts at the overview (or the island it opens on). */
     resize(next: ExplorerFrame) {
       settle();

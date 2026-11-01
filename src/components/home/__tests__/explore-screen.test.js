@@ -4,7 +4,7 @@ import { create } from 'react-test-renderer';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { router } from 'expo-router';
 import ExploreScreen from '@/app/explore';
-import { zoomRange } from '@/lib/explorer-view';
+import { EXPLORER, zoomRange } from '@/lib/explorer-view';
 
 // How many tap gestures the screen makes (none: the explorer tells a double tap from a quick pinch itself).
 let mockTapGestures = 0;
@@ -70,16 +70,26 @@ test('the explorer draws the island full screen with its own camera, and its but
   expect(root.root.findAll((node) => node.props.children === 'Tap an animal to meet it.\nPinch to zoom, drag to look around.').length).toBeGreaterThan(0);
 });
 
-test('it tells the scene which islands to build first: the one it opens on, then those its view nears', async () => {
+test('it tells the scene which islands to build first and which kept picture of its opening view to show: the key is known once the screen is measured', async () => {
   twoIslands();
   await act(async () => { root = create(<ExploreScreen />); });
   const scene = () => root.root.findByType('scene').props.explorer;
+  expect(scene().pictureKey).toBeNull();
   const surface = root.root.findAll((node) => typeof node.props.onLayout === 'function' && node.props.collapsable === false)[0];
   await act(async () => surface.props.onLayout({ nativeEvent: { layout: { width: 390, height: 844 } } }));
+  // The islands in the ocean, the level, the island it opens on and the shape of the screen.
+  expect(scene().pictureKey).toBe('1|coral-reef,kelp-forest|1|coral-reef|0.46');
   // The island it opens on is built first, its neighbours in view with it, then the rest (the Kelp Forest lies 25 units away: out of view on a phone).
   const { order, near } = scene().near();
   expect(order).toEqual(['coral-reef', 'kelp-forest']);
   expect(near).toBe(1);
+  // The picture is of the view while nothing has moved it.
+  expect(scene().opening()).toBe(true);
+  const explorer = scene().camera.props.explorer;
+  await act(async () => { explorer.zoomBy(EXPLORER.step); });
+  expect(scene().opening()).toBe(false);
+  // The scene can hear the view move (to let the picture go).
+  expect(scene().watch).toBe(explorer.watch);
 });
 
 test('no tap gesture on the screen: one would count two quick pinches as a double tap and zoom in', async () => {

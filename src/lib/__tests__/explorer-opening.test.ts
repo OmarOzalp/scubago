@@ -1,9 +1,9 @@
 import { expect, test } from '@jest/globals';
 import { ISLAND_PLACES } from '../archipelago';
-import { EXPLORER, islandsByView, islandView, overview, type ExplorerFrame } from '../explorer-view';
+import { createExplorer, EXPLORER, EXPLORER_PICTURE_VERSION, explorerViewKey, islandsByView, islandView, overview, type ExplorerFrame } from '../explorer-view';
 import { oceanScale, WORLD } from '../steering';
 
-// What the explorer's scene builds first (staging.tsx).
+// What the explorer's scene builds first (staging.tsx), and the key of the picture kept of its opening view (instant-picture.tsx).
 const PHONE: ExplorerFrame = { width: 390, height: 844, level: 1 };
 const FIVE = Object.values(ISLAND_PLACES) as [number, number][];
 const FIVE_FRAME: ExplorerFrame = { ...PHONE, islands: FIVE };
@@ -49,4 +49,39 @@ test('a screen not measured yet lists only the island under the middle as near, 
   expect(order[0]).toBe(2);
   expect(near).toBe(1);
   expect(islandsByView(PHONE, overview(PHONE))).toEqual({ order: [0], near: 1 });
+});
+
+test('the key of the explorer’s opening view changes with the islands, the level, the island it opens on and the shape of the screen, and not with its size', () => {
+  const base = { islands: IDS, level: 3, opens: 'coral-reef', width: 390, height: 844 };
+  const key = explorerViewKey(base);
+  expect(key.startsWith(`${EXPLORER_PICTURE_VERSION}|`)).toBe(true);
+  expect(explorerViewKey({ ...base })).toBe(key);
+  expect(explorerViewKey({ ...base, islands: IDS.slice(0, 3) })).not.toBe(key);
+  expect(explorerViewKey({ ...base, islands: [...IDS].reverse() })).not.toBe(key);
+  expect(explorerViewKey({ ...base, level: 4 })).not.toBe(key);
+  expect(explorerViewKey({ ...base, opens: 'shipwreck' })).not.toBe(key);
+  expect(explorerViewKey({ ...base, width: 844, height: 390 })).not.toBe(key);
+  // The same shape of screen at another size (a picture stretched by a hundredth at most), and the same phone a point or two off.
+  expect(explorerViewKey({ ...base, width: 780, height: 1688 })).toBe(key);
+  expect(explorerViewKey({ ...base, width: 391, height: 843 })).toBe(key);
+  // Another shape of screen is another picture (a bigger phone of the same shape is the same one).
+  expect(explorerViewKey({ ...base, width: 360, height: 640 })).not.toBe(key);
+  expect(explorerViewKey({ ...base, width: 430, height: 932 })).toBe(key);
+  // An unmeasured screen still makes a key rather than a NaN.
+  expect(explorerViewKey({ ...base, width: 0, height: 0 })).not.toContain('NaN');
+});
+
+test('the view is "opening" until a finger, a button or the wheel has moved it, though the screen being measured does not count', () => {
+  const explorer = createExplorer({ width: 1, height: 1, level: 1, islands: FIVE }, 1);
+  expect(explorer.opening).toBe(true);
+  explorer.resize({ ...PHONE, islands: FIVE });
+  expect(explorer.opening).toBe(true);
+  explorer.open(2);
+  expect(explorer.opening).toBe(true);
+  const wheel = createExplorer(PHONE); wheel.resize(PHONE); wheel.zoomAt(1.2, 0, 0);
+  expect(wheel.opening).toBe(false);
+  const button = createExplorer(PHONE); button.resize(PHONE); button.zoomBy(EXPLORER.step);
+  expect(button.opening).toBe(false);
+  const finger = createExplorer(PHONE); finger.resize(PHONE); finger.touch([{ id: 1, x: 0, y: 0 }], 0);
+  expect(finger.opening).toBe(false);
 });

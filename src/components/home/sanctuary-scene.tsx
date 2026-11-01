@@ -26,7 +26,7 @@ import type { WaterReach } from '@/lib/explorer-view';
 import { HOME_SHORE, type Habitat } from '@/lib/home';
 import { shapeFor } from '@/lib/island-outline';
 import { captureFrame, captureScene, registerSceneCapture, releaseSnapshot } from '@/lib/scene-snapshot';
-import { rememberHomePicture, rememberHomeScene } from './home-start';
+import { rememberExplorerPicture, rememberHomePicture, rememberHomeScene } from './home-start';
 import { FrameWatch, InstantPicture, useInstantPicture } from './instant-picture';
 import { MACRO_SPECIES, macroResidents, type MacroSpecies } from '@/lib/macro-life';
 import { clamp, oceanScale, variation } from '@/lib/steering';
@@ -79,6 +79,10 @@ const NONE: readonly string[] = [];
 const NO_MODELS: MarineModels = {};
 /** How long the card's scene is on show with all its animals before its picture is kept for the next launch (ms). */
 const PICTURE_AFTER_MS = 3000;
+/** The same for the explorer's opening view: sooner, as it is only a picture of the view while it has not been moved. */
+const EXPLORER_PICTURE_AFTER_MS = 1500;
+/** How long the explorer's picture may take to be drawn and read back (ms): nothing waits for it. */
+const EXPLORER_CAPTURE_TIMEOUT_MS = 10000;
 /** Where the tag sits over its animal (px): centered above it, kept inside the card. */
 const TAG = { above: 46, margin: 8, height: 24 };
 
@@ -147,6 +151,13 @@ export type ExplorerScene = {
   focus: (x: number, z: number, zoom: number) => void;
   /** Where the camera is: the islands (their keys) nearest it first, and how many are in or near the view. What is built first, and when the camera nears another. */
   near?: () => { order: readonly string[]; near: number };
+  /**
+   * Its opening view's key for the kept picture (explorerViewKey), null until the screen is measured (no key given: no picture). The picture
+   * is let go once the view has moved (`opening` false: nothing has moved it yet; `watch`: hear it move).
+   */
+  pictureKey?: string | null;
+  opening?: () => boolean;
+  watch?: (listener: () => void) => () => void;
 };
 
 /** An island in the scene's ocean (its middle, world units, and its shores) and the species living there. */
@@ -157,16 +168,16 @@ export type ScenePlace = { key: string; habitat: Habitat; x: number; z: number; 
  * it can: the scene is drawn and on show, and not in the cheap 'lite' tier of an emulator, where reading
  * the picture back would stall the software renderer. It reads the renderer only when asked.
  */
-function SnapshotRegistrar({ ready }: { ready: boolean }) {
+function SnapshotRegistrar({ name, ready }: { name: 'home' | 'explorer'; ready: boolean }) {
   const get = useThree((state) => state.get);
   const lite = useSceneQuality() === 'lite';
   useEffect(() => {
     if (!ready || lite) return;
-    return registerSceneCapture('home', (request) => {
+    return registerSceneCapture(name, (request) => {
       const { gl, scene, camera } = get();
       return captureFrame({ gl, scene, camera }, request);
     });
-  }, [ready, lite, get]);
+  }, [name, ready, lite, get]);
   return null;
 }
 
@@ -234,9 +245,27 @@ export function SanctuaryScene({ habitat, level, residents, islands, paused = fa
   useEffect(() => { stager.setFocus(explorer?.near); }, [stager, explorer?.near]);
   const staged = useSyncExternalStore(stager.subscribe, stager.getState, stager.getState);
   useEffect(() => { if (staged.done) markOnce(marks.built); }, [staged.done, marks]);
-  const picture = useInstantPicture({ enabled: home, level, habitat, loading, armed: seabedReady && !loading && (failed || everyoneIn) && staged.settled });
+  // The explorer's opening view, kept as a picture too (instant-picture.tsx) for the same view of the same islands.
+  const viewKey = explorer && !preview ? explorer.pictureKey : undefined;
+  const picture = useInstantPicture({
+    // (the explorer's picture covers the wait for the collection too, as Home's: its key says which islands and level it is of, once they are known)
+    enabled: home || (!!explorer && viewKey !== undefined), level, habitat, loading,
+    armed: seabedReady && !loading && (failed || everyoneIn) && staged.settled,
+    explorer: explorer ? { key: viewKey ?? null } : undefined,
+  });
   // What arrives under a picture of the scene is simply there; what arrives while it is on show grows in.
   useEffect(() => { stager.show(!picture.unseen); }, [stager, picture.unseen]);
+  // A picture of where the explorer opened is no picture of where it has moved to.
+  const latest = useRef({ explorer, picture });
+  useEffect(() => { latest.current = { explorer, picture }; });
+  const watch = explorer?.watch;
+  useEffect(() => {
+    if (!watch) return;
+    return watch(() => {
+      const { explorer: current, picture: showing } = latest.current;
+      if (current?.opening && !current.opening()) showing.dismiss();
+    });
+  }, [watch]);
   // What Home shows is kept for the next launch: its island, level and animals' models (home-start.ts)...
   const requestedKey = [...new Set(requested)].sort().join(',');
   useEffect(() => {
@@ -264,6 +293,24 @@ export function SanctuaryScene({ habitat, level, residents, islands, paused = fa
     }, PICTURE_AFTER_MS);
     return () => clearTimeout(timer);
   }, [home, picture.live, everyoneIn, loading, active, scene, level, habitat]);
+  // The explorer's, of its opening view, once all in view is built and the view is where it opened: unless one was shown and was good.
+  const [pictureLoaded, setPictureLoaded] = useState(false);
+  useEffect(() => {
+    if (!viewKey || !picture.live || !everyoneIn || loading || !active || !staged.settled || pictureLoaded || pictured.current.has(viewKey)) return;
+    const opening = () => latest.current.explorer?.opening?.() ?? true;
+    if (!opening()) return;
+    const timer = setTimeout(() => {
+      const { width, height } = size.current;
+      if (width < 1 || height < 1 || !opening()) return;
+      pictured.current.add(viewKey);
+      // (nobody waits for it, as Share does for Home's: the whole screen's size of the whole archipelago's water may take a slow GPU longer than that)
+      void captureScene('explorer', { width: Math.round(width * 2), height: Math.round(height * 2) }, EXPLORER_CAPTURE_TIMEOUT_MS).then(async (uri) => {
+        if (!uri) return;
+        try { await rememberExplorerPicture(uri, viewKey); markOnce('scubago:explorer-picture'); } finally { releaseSnapshot(uri); }
+      });
+    }, EXPLORER_PICTURE_AFTER_MS);
+    return () => clearTimeout(timer);
+  }, [viewKey, picture.live, everyoneIn, loading, active, staged.settled, pictureLoaded]);
 
   // The "New" tag: the canvas reports its animal's place on screen every frame.
   const [tag] = useState(() => ({ x: new Animated.Value(-1000), y: new Animated.Value(-1000), inView: new Animated.Value(0) }));
@@ -342,8 +389,8 @@ export function SanctuaryScene({ habitat, level, residents, islands, paused = fa
         {/* The view pulls back as the island levels up and its ocean widens. */}
         {!explorer && <SceneCamera scale={oceanScale(level)} />}
         {onOpen && !explorer && <TapAnywhere onTap={onOpen} />}
-        {/* The Share button's picture of the card (not the explorer's). A paused island can still be photographed; one that is still for Reduce Motion is not. */}
-        {!explorer && <SnapshotRegistrar ready={visible && !loading && (active || paused)} />}
+        {/* The Share button's picture of the card (and the explorer's of its opening view). A paused island can still be photographed; one that is still for Reduce Motion is not. */}
+        <SnapshotRegistrar name={explorer ? 'explorer' : 'home'} ready={visible && !loading && (active || paused)} />
         <FirstFrame mark={marks.frame} />
         <FrameWatch watching={picture.watching} onDrawn={picture.onDrawn} />
         {__DEV__ && <ScenePerformance ready={!!models && !loading} active={active} />}
@@ -356,7 +403,7 @@ export function SanctuaryScene({ habitat, level, residents, islands, paused = fa
       </Canvas>
       </View>
     </SceneBoundary>
-    {picture.picture && <InstantPicture uri={picture.picture} opacity={picture.opacity} onError={picture.onError} />}
+    {picture.picture && <InstantPicture uri={picture.picture} opacity={picture.opacity} onError={picture.onError} onLoad={() => setPictureLoaded(true)} />}
     {!!label && <NewTag label={label} x={tag.x} y={tag.y} inView={tag.inView} visible={!!moments?.tag && !preview}
       onWidth={(width) => { layout.current.tag = width; }} />}
     {moments?.banner && <LevelUpBanner {...moments.banner} still={!active} />}

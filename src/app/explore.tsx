@@ -13,7 +13,7 @@ import { Icon, type IconName } from '@/components/icon';
 import { Type } from '@/constants/theme';
 import { useHomePreferences } from '@/hooks/use-home-preferences';
 import { CATALOG_BY_ID } from '@/lib/catalog';
-import { createExplorer, EXPLORER, islandsByView, waterReach } from '@/lib/explorer-view';
+import { createExplorer, EXPLORER, explorerViewKey, islandsByView, waterReach } from '@/lib/explorer-view';
 import { AREAS, foundIslands, HOME_ISLAND, ISLAND_PLACES, ISLANDS, isIsland, islandResidents } from '@/lib/archipelago';
 import { deriveHome } from '@/lib/home';
 import { macroResidents } from '@/lib/macro-life';
@@ -84,6 +84,10 @@ export default function ExploreScreen() {
   const reach = useMemo(() => ({ x: wide.x, z: wide.z }), [wide.x, wide.z]);
   // Islands known only now (the collection still loading as it opened): open on the one asked for after all.
   useEffect(() => { explorer.open(opening); }, [explorer, opening]);
+  // The picture kept of this view as it opens (the same islands, level, island and shape of screen), known once the screen is measured and
+  // the collection read (until then the islands and level are not the diver's).
+  const pictureKey = ready && size.width > 1 && size.height > 1
+    ? explorerViewKey({ islands: places.map((place) => place.key), level: home.level, opens: places[opening]?.key ?? HOME_ISLAND, width: size.width, height: size.height }) : null;
   // The island in view, named in the label (and marked among the islands' buttons); out between two, the archipelago.
   const [over, setOver] = useState(() => explorer.island);
   useEffect(() => explorer.near(setOver), [explorer]);
@@ -151,8 +155,9 @@ export default function ExploreScreen() {
         <SanctuaryScene habitat={habitat} level={home.level} residents={home.residents} islands={places} loading={loading} onInspect={inspect}
           explorer={{
             camera: <ExplorerCamera explorer={explorer} />, tapScale, reach, zoom: () => explorer.view.zoom, focus: (x, z, zoom) => explorer.focus(x, z, zoom),
-            // What to build first is what the view is over or nears.
+            // What to build first is what the view is over or nears; the picture kept of the view it opens on stands in until the scene is drawn.
             near: () => { const { order, near } = islandsByView(explorer.frame, explorer.view); return { order: order.map((i) => places[i]?.key).filter(Boolean), near }; },
+            pictureKey, opening: () => explorer.opening, watch: explorer.watch,
           }} />
       </View>
     </GestureDetector>

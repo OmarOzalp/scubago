@@ -15,7 +15,14 @@ const KEY = 'scubago.homeScene.v1';
 
 /** A picture of Home's card: where it is (a file on a phone, a data URL on the web) and the island and level it shows. */
 export type HomePicture = { uri: string; level: number; habitat: Habitat };
-export type HomeScene = { level: number; habitat: Habitat; models: MarineModel[]; picture?: HomePicture };
+/**
+ * A picture of the island explorer's opening view, kept the same way: where it is, and the `key` of the view it shows (explorerViewKey: the
+ * islands in the ocean, the level, the island it opens on and the screen's shape).
+ */
+export type ExplorerPicture = { uri: string; key: string };
+export type HomeScene = { level: number; habitat: Habitat; models: MarineModel[]; picture?: HomePicture; views?: ExplorerPicture[] };
+/** How many views of the explorer are kept, the last opened first: each is a picture the size of the screen (on the web a data URL held in storage, so fewer). */
+export const KEPT_VIEWS = Platform.OS === 'web' ? 2 : 4;
 
 /** Undefined until storage has answered; null when nothing is kept (a first launch). */
 let kept: HomeScene | null | undefined;
@@ -31,7 +38,8 @@ function parse(value: string | null): HomeScene | null {
     const scene = JSON.parse(value) as Partial<HomeScene>;
     if (typeof scene.level !== 'number' || typeof scene.habitat !== 'string' || !Array.isArray(scene.models)) return null;
     const picture = scene.picture && typeof scene.picture.uri === 'string' ? scene.picture : undefined;
-    return { level: scene.level, habitat: scene.habitat, models: scene.models.filter((m): m is MarineModel => typeof m === 'string'), picture };
+    const views = Array.isArray(scene.views) ? scene.views.filter((v): v is ExplorerPicture => !!v && typeof v.uri === 'string' && typeof v.key === 'string') : [];
+    return { level: scene.level, habitat: scene.habitat, models: scene.models.filter((m): m is MarineModel => typeof m === 'string'), picture, ...(views.length ? { views } : {}) };
   } catch {
     return null;
   }
@@ -89,7 +97,7 @@ function store(scene: HomeScene) {
 export function rememberHomeScene(level: number, habitat: Habitat, models: readonly MarineModel[]) {
   const was = kept ?? undefined, sorted = [...new Set(models)].sort();
   if (was && was.level === level && was.habitat === habitat && was.models.join() === sorted.join()) return;
-  store({ level, habitat, models: sorted, picture: was?.picture });
+  store({ level, habitat, models: sorted, picture: was?.picture, ...(was?.views ? { views: was.views } : {}) });
 }
 
 /** The picture kept for this island and level, if any. */
@@ -104,8 +112,26 @@ export async function rememberHomePicture(uri: string, level: number, habitat: H
   const saved = Platform.OS === 'web' ? await webPicture(uri) : await nativePicture(uri);
   if (!saved) return;
   const was = kept ?? undefined, old = was?.picture?.uri;
-  store({ level: was?.level ?? level, habitat: was?.habitat ?? habitat, models: was?.models ?? [], picture: { uri: saved, level, habitat } });
+  store({ level: was?.level ?? level, habitat: was?.habitat ?? habitat, models: was?.models ?? [], picture: { uri: saved, level, habitat }, ...(was?.views ? { views: was.views } : {}) });
   if (old && old !== saved && Platform.OS !== 'web') discard(old);
+}
+
+/** The picture kept for this view of the explorer (explorerViewKey), if any. */
+export const explorerPictureFor = (scene: HomeScene | null | undefined, key: string) => scene?.views?.find((view) => view.key === key)?.uri ?? null;
+
+/**
+ * Keep a picture of the explorer's opening view (an image URI from scene-snapshot.ts's capture, which this lets go of), as Home's is: the
+ * last `KEPT_VIEWS` views are kept, a new picture of a view taking the place of its old one, and the one opened longest ago going when there are more.
+ */
+export async function rememberExplorerPicture(uri: string, key: string): Promise<void> {
+  const saved = Platform.OS === 'web' ? await webPicture(uri) : await nativePicture(uri);
+  if (!saved) return;
+  const was = kept ?? undefined, views = was?.views ?? [];
+  const next = [{ uri: saved, key }, ...views.filter((view) => view.key !== key)].slice(0, KEPT_VIEWS);
+  const gone = views.filter((view) => !next.includes(view)).map((view) => view.uri).filter((old) => old !== saved);
+  // (a first launch straight into the explorer has no Home yet: its record is Home's island at the first level)
+  store({ level: was?.level ?? 1, habitat: was?.habitat ?? 'island', models: was?.models ?? [], picture: was?.picture, views: next });
+  if (Platform.OS !== 'web') for (const old of gone) discard(old);
 }
 
 /** expo-file-system, required on a phone only. */

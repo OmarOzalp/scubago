@@ -291,6 +291,65 @@ test('a kept picture of another level, another island or the explorer is not sho
   await act(async () => { root = create(<SanctuaryScene {...props} explorer={explorer} />); });
   expect(picture()).toHaveLength(0);
 });
+const VIEW = 'file:///documents/home-island-77.png', VIEW_KEY = '1|coral-reef,kelp-forest|3|coral-reef|0.46';
+const viewPicture = () => root.root.findAll((node) => node.props.source?.uri === VIEW && typeof node.type === 'string');
+const exploring = (extra = {}) => ({ camera: null, tapScale: 1, zoom: () => 40, focus: jest.fn(), reach: { x: 20, z: 20 }, pictureKey: VIEW_KEY, ...extra });
+test('the explorer opens on the kept picture of its opening view, for that view alone, and lets it go the moment the view moves', async () => {
+  jest.useFakeTimers();
+  try {
+    mockKept = { level: 3, habitat: 'island', models: [], views: [{ uri: VIEW, key: VIEW_KEY }] };
+    useMarineModels.mockReturnValue({ models: {}, failed: false, retry: jest.fn() });
+    let moved = false, hear;
+    const explorer = exploring({ opening: () => !moved, watch: (listener) => { hear = listener; return () => {}; } });
+    await act(async () => { root = create(<SanctuaryScene {...props} level={3} explorer={explorer} />); });
+    expect(viewPicture()).toHaveLength(1);
+    expect(viewPicture()[0].props.pointerEvents).toBe('none');
+    // The screen's own touches change nothing (the view has not moved)...
+    await act(async () => hear());
+    expect(viewPicture()).toHaveLength(1);
+    // ...a finger moving the view does: a picture of where it opened is no picture of where it is.
+    moved = true;
+    await act(async () => hear());
+    await act(async () => { jest.advanceTimersByTime(1000); });
+    expect(viewPicture()).toHaveLength(0);
+  } finally {
+    jest.useRealTimers();
+  }
+});
+test('the explorer’s picture is of one view only: not another key, or no key given', async () => {
+  mockKept = { level: 3, habitat: 'island', models: [], views: [{ uri: VIEW, key: VIEW_KEY }] };
+  useMarineModels.mockReturnValue({ models: {}, failed: false, retry: jest.fn() });
+  for (const [explorer, extra] of [
+    [exploring({ pictureKey: '1|coral-reef|3|coral-reef|0.46' }), {}],
+    [exploring({ pictureKey: undefined }), {}],
+  ]) {
+    await act(async () => { root = create(<SanctuaryScene {...props} level={3} explorer={explorer} {...extra} />); });
+    expect(viewPicture()).toHaveLength(0);
+    await act(async () => root.unmount());
+  }
+  // Home's own picture is not the explorer's: the same island and level, a card's picture, is not shown over the explorer.
+  mockKept = { level: 3, habitat: 'island', models: [], picture: { uri: VIEW, level: 3, habitat: 'island' } };
+  await act(async () => { root = create(<SanctuaryScene {...props} level={3} explorer={exploring()} />); });
+  expect(viewPicture()).toHaveLength(0);
+});
+test('the explorer’s picture covers the wait for the collection, as Home’s does: nothing is built until it is read', async () => {
+  mockKept = { level: 3, habitat: 'island', models: [], views: [{ uri: VIEW, key: VIEW_KEY }] };
+  useMarineModels.mockReturnValue({ models: {}, failed: false, retry: jest.fn() });
+  await act(async () => { root = create(<SanctuaryScene {...props} level={3} explorer={exploring()} loading />); });
+  expect(viewPicture()).toHaveLength(1);
+  expect(root.root.findByType('environment').props['data-ready']).toBe(false);
+  await act(async () => root.update(<SanctuaryScene {...props} level={3} explorer={exploring()} />));
+  expect(viewPicture()).toHaveLength(1);
+  expect(root.root.findByType('environment').props['data-ready']).toBe(true);
+});
+test('the explorer waits for the screen to be measured to know which view it opens on, then shows that view’s picture', async () => {
+  mockKept = { level: 3, habitat: 'island', models: [], views: [{ uri: VIEW, key: VIEW_KEY }] };
+  useMarineModels.mockReturnValue({ models: {}, failed: false, retry: jest.fn() });
+  await act(async () => { root = create(<SanctuaryScene {...props} level={3} explorer={exploring({ pictureKey: null })} />); });
+  expect(viewPicture()).toHaveLength(0);
+  await act(async () => root.update(<SanctuaryScene {...props} level={3} explorer={exploring()} />));
+  expect(viewPicture()).toHaveLength(1);
+});
 test('what Home’s own island shows is kept for the next launch (its level and its animals’ models), not another island’s', async () => {
   const { rememberHomeScene } = require('../home-start');
   rememberHomeScene.mockClear();
