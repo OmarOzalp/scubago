@@ -14,6 +14,19 @@ const { rise, top, edge, foot, height } = OCEAN.reefCrest;
 const at = (angle: number, r = 3) => ({ x: Math.cos(angle) * r, z: Math.sin(angle) * r });
 const open = at(.9), pass = at(OCEAN.reefShape.passes[0]);
 
+test('a level’s coral heads are found once and shared, and nothing may change them', () => {
+  const heads = coralHeads(3);
+  expect(heads.length).toBeGreaterThan(20);
+  expect(coralHeads(3)).toBe(heads);
+  expect(coralHeads(4)).not.toBe(heads);
+  expect(Object.isFrozen(heads)).toBe(true);
+  expect(Object.isFrozen(heads[0])).toBe(true);
+  // (an attempt to change one fails, loudly in strict code and silently in sloppy)
+  const x = heads[0].x;
+  try { (heads[0] as { x: number }).x = 99; } catch { /* strict mode throws */ }
+  expect(heads[0].x).toBe(x);
+});
+
 test('round the Coral Reef the shelf runs on as a lagoon to a crest just under the surface, then drops away; other islands are as they were', () => {
   // Out to the shelf's edge, the same beach and shelf as any island's.
   for (const reach of [-.1, 0, .2, .5]) expect(seabedProfile(reach, OCEAN, open)).toEqual(seabedProfile(reach));

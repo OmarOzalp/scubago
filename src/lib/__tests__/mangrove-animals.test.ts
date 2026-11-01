@@ -36,6 +36,24 @@ test('the seagrass grows in meadows on the shelf around the island, every blade 
   expect(seagrassTufts(3, SEAGRASS.tufts.lite).length).toBe(SEAGRASS.tufts.lite);
 });
 
+test('the seagrass search leaves out only ground too far from every shore to grow any: past the shores’ box by the band’s width, all of it', () => {
+  for (const level of [1, 3, 6]) {
+    const polygons = shorePolygons(level, 24, 'mangrove'), outer = SEAGRASS.band[1];
+    let minX = Infinity, maxX = -Infinity, minZ = Infinity, maxZ = -Infinity;
+    for (const poly of polygons) for (let k = 0; k < poly.length; k += 2) { minX = Math.min(minX, poly[k]); maxX = Math.max(maxX, poly[k]); minZ = Math.min(minZ, poly[k + 1]); maxZ = Math.max(maxZ, poly[k + 1]); }
+    let outside = 0, tooNear = 0;
+    for (let x = -4.6; x <= 4.6; x += .05) {
+      for (let z = -4.6; z <= 4.6; z += .05) {
+        if (x >= minX - outer - 1e-6 && x <= maxX + outer + 1e-6 && z >= minZ - outer - 1e-6 && z <= maxZ + outer + 1e-6) continue;
+        outside++;
+        if (shoreDistance(polygons, x, z) <= outer) tooNear++;
+      }
+    }
+    expect(outside).toBeGreaterThan(1000);
+    expect(tooNear).toBe(0);
+  }
+});
+
 test('tarpon come in small groups and lemon sharks now and then in pairs', () => {
   const species = [{ id: 'tarpon', model: 'tarpon' as MarineModel }, { id: 'lemon-shark', model: 'lemon-shark' as MarineModel }];
   const seen = { tarpon: new Set<number>(), lemon: new Set<number>() };

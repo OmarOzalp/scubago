@@ -1,5 +1,6 @@
 import { afterEach, expect, jest, test } from '@jest/globals';
 import { OCEAN } from '@/lib/ocean';
+import * as reefCoast from '@/lib/reef-coast';
 import { createSeabed, createSeabedField } from '@/lib/seabed';
 import {
   bakedDepth, bakedLattice, bakedShoaling, clearSeabedBakes, EXPLORER_REACH, hasSeabedBake, readSeabedBake, registerSeabedBake,
@@ -71,6 +72,20 @@ test('with a bake registered, the scene uses it in place of working out each par
   expect(hasSeabedBake(key)).toBe(false);
   expect(bakedLattice(2, kelp)).toBeUndefined();
   expect(depthTexels(2, kelp).data[0]).not.toBe(9);
+});
+
+test('a baked depth map needs none of the reef’s coral heads worked out for it; an unbaked one does', () => {
+  const reef = [{ x: 0, z: 0, habitat: 'island' as const }];
+  const depth = new Uint8Array(128 * 128 * 4).fill(7);
+  registerSeabedBake(writeSeabedBake(seabedBakeKey(2, reef), { depth }));
+  const heads = jest.spyOn(reefCoast, 'coralHeads');
+  try {
+    expect(depthTexels(2, reef).data[0]).toBe(7);
+    expect(heads).not.toHaveBeenCalled();
+    clearSeabedBakes();
+    expect(depthTexels(2, reef).data[0]).not.toBe(7);
+    expect(heads).toHaveBeenCalled();
+  } finally { heads.mockRestore(); }
 });
 
 test('a lone island’s animals swim over the baked grid: the same seabed as worked out', () => {

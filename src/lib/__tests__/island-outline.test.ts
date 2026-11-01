@@ -42,6 +42,25 @@ test('the quick shoreDistance gives the very same number, bit for bit, as walkin
   expect(compared).toBeGreaterThan(100000);
 });
 
+test('a shoreline is made once for each island, level and number of divisions, in a list of the caller’s own', () => {
+  const first = shorePolygons(3, 24, 'kelp'), again = shorePolygons(3, 24, 'kelp');
+  expect(again).not.toBe(first);
+  expect(again.length).toBe(first.length);
+  first.forEach((polygon, i) => expect(again[i]).toBe(polygon));
+  // A caller may reorder or cut down its list without changing what the next gets.
+  first.reverse(); first.length = 0;
+  expect(shorePolygons(3, 24, 'kelp').length).toBe(again.length);
+  expect(shorePolygons(3, 24, 'kelp')[0]).toBe(again[0]);
+  // Another island, level or division count is another shoreline.
+  expect(shorePolygons(3, 24, 'reef')[0]).not.toBe(again[0]);
+  expect(shorePolygons(4, 24, 'kelp')[0]).not.toBe(again[0]);
+  expect(shorePolygons(3, 12, 'kelp')[0].length).toBeLessThan(again[0].length);
+  // The islets rise from level 5.
+  expect(shorePolygons(4, 24, 'wreck').length).toBe(1);
+  expect(shorePolygons(5, 24, 'wreck').length).toBe(2);
+  expect(shorePolygons(6, 24, 'wreck').length).toBe(3);
+});
+
 test('it tells land from water: negative inside a shoreline, positive outside, nothing at all of no shorelines', () => {
   for (const shape of SHAPES) {
     const [main] = shorePolygons(1, 24, shape);

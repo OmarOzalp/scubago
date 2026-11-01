@@ -37,8 +37,9 @@ export function depthTexels(level: number, islands: readonly OceanIsland[], conf
   const width = Math.max(...xs) - Math.min(...xs) + 2 * DEPTH.margin, depth = Math.max(...zs) - Math.min(...zs) + 2 * DEPTH.margin;
   const columns = Math.round(width * DEPTH.perUnit), rows = Math.round(depth * DEPTH.perUnit);
   const habitats = [...new Set(islands.map((i) => i.habitat))].slice(0, OCEAN_REGIONS);
-  // The Coral Reef's bommies' rubble on the lagoon floor.
-  const bommies = islands.map((_, n) => (reefs[n] ? coralHeads(level).filter((head) => !head.crest) : []));
+  // The Coral Reef's bommies' rubble on the lagoon floor (found when a texel needs them: none does, where the depth map is baked).
+  const bommiesOf: ReturnType<typeof coralHeads>[] = [];
+  const bommies = (n: number) => (bommiesOf[n] ??= reefs[n] ? coralHeads(level).filter((head) => !head.crest) : []);
   // Every island's shores in the world, for anything measuring from them.
   const polygons = islands.flatMap((island, n) => shores[n].map((poly) => poly.map((v, k) => v + (k % 2 ? island.z : island.x))));
   // The coral channel: the crest's coral and the bommies' rubble up to .5, the crest's surf on to 1.
@@ -71,7 +72,7 @@ export function depthTexels(level: number, islands: readonly OceanIsland[], conf
         data[k] = Math.round(255 * Math.sqrt(Math.min(1, water / DEPTH.maxDepth)));
         data[k + 1] = Math.round(255 * Math.min(1, Math.max(0, -wet) / .2));
         data[k + 2] = Math.round(255 * seabedPatch(near.x, near.z, near.reach));
-        data[k + 3] = near.reef ? Math.round(255 * reefAt(near.x, near.z, near.reach, bommies[near.island])) : 0;
+        data[k + 3] = near.reef ? Math.round(255 * reefAt(near.x, near.z, near.reach, bommies(near.island))) : 0;
       }
       // Each island's water, fading out past the nearer island's across the open sea between them (one island's alone: all its own).
       if (islands.length === 1) { region[k] = 255; continue; }

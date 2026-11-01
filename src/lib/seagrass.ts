@@ -66,9 +66,15 @@ export function seagrassTufts(level: number, limit: number = SEAGRASS.tufts.full
   const polygons = shorePolygons(level, 24, 'mangrove');
   const [inner, outer] = SEAGRASS.band, step = SEAGRASS.spacing, extent = 4.6;
   const candidates: (SeagrassTuft & { rank: number })[] = [];
+  // Tufts grow no farther than `outer` from a shore, so a candidate that far from the box all the shores lie in is left out without being measured
+  // (the very ones measured and found too far).
+  let minX = Infinity, maxX = -Infinity, minZ = Infinity, maxZ = -Infinity;
+  for (const poly of polygons) for (let k = 0; k < poly.length; k += 2) { minX = Math.min(minX, poly[k]); maxX = Math.max(maxX, poly[k]); minZ = Math.min(minZ, poly[k + 1]); maxZ = Math.max(maxZ, poly[k + 1]); }
+  const room = outer + 1e-6;
   for (let j = -extent / step; j <= extent / step; j++) {
     for (let i = -extent / step; i <= extent / step; i++) {
       const x = (i + (hash(i, j) - .5) * .9) * step, z = (j + (hash(j + 17, i) - .5) * .9) * step;
+      if (x < minX - room || x > maxX + room || z < minZ - room || z > maxZ + room) continue;
       const distance = shoreDistance(polygons, x, z);
       if (distance < inner || distance > outer) continue;
       const reach = distance / shelfStretch(x, z);

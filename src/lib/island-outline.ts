@@ -128,8 +128,16 @@ export function seabedProps(level: number, shape: IslandShape = 'reef'): (readon
   return shape === 'reef' ? Object.values(SEABED_PROPS).map(([x, z]) => [x * scale, z * scale] as const) : [];
 }
 
-/** Every dry shoreline of an island at this level as world-space (x, z) polygons; the main island comes first. */
+/** The shorelines made, by island, level and divisions: asked for many times in a scene, and the same numbers every time (and so the same arrays, which carry the quick distance's edges). */
+const shorelines = new Map<string, Float32Array[]>();
+
+/**
+ * Every dry shoreline of an island at this level as world-space (x, z) polygons; the main island comes first. Made once: the list is the
+ * caller's own, but the polygons in it are shared, and must not be changed.
+ */
 export function shorePolygons(level: number, divisions = 24, shape: IslandShape = 'reef') {
+  const key = `${shape}:${level}:${divisions}`, kept = shorelines.get(key);
+  if (kept) return [...kept];
   const outline = outlinePoints(divisions, shape);
   const group = islandScale(level);
   const toWorld = (scale: number, [ox, oz]: [number, number]) => {
@@ -137,7 +145,9 @@ export function shorePolygons(level: number, divisions = 24, shape: IslandShape 
     outline.forEach((p, i) => { points[i * 2] = group * (ox + p[0] * scale); points[i * 2 + 1] = group * (oz - p[1] * scale); });
     return points;
   };
-  return [toWorld(1, [0, 0]), ...islets(level, shape).map((islet) => toWorld(islet.scale, islet.position))];
+  const made = [toWorld(1, [0, 0]), ...islets(level, shape).map((islet) => toWorld(islet.scale, islet.position))];
+  shorelines.set(key, made);
+  return [...made];
 }
 
 /** Each shoreline's middle and the farthest its points are from it (its bounding circle), found once. */

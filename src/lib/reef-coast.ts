@@ -50,8 +50,21 @@ export type CoralKind = 'boulder' | 'brain' | 'table' | 'branching' | 'soft';
 /** A coral head: its middle on the seabed (x, floor, z), its radius and height (units), what it is, and a seed for its shape. */
 export type CoralHead = { x: number; z: number; floor: number; radius: number; height: number; kind: CoralKind; seed: number; crest: boolean };
 
-/** The Coral Reef's coral heads at this level. */
-export function coralHeads(level: number): CoralHead[] {
+const headsKept = new Map<number, readonly CoralHead[]>();
+/**
+ * The Coral Reef's coral heads at this level: found once (the drawn corals, the depth map and the animals' seabed all ask, and each time costs a phone
+ * the best part of a second). The same list every time, shared: it must not be changed.
+ */
+export function coralHeads(level: number): readonly CoralHead[] {
+  const kept = headsKept.get(level);
+  if (kept) return kept;
+  const heads = findCoralHeads(level);
+  for (const head of heads) Object.freeze(head);
+  Object.freeze(heads);
+  headsKept.set(level, heads);
+  return heads;
+}
+function findCoralHeads(level: number): CoralHead[] {
   const polygons = shorePolygons(level, 24, 'reef'), scale = islandScale(level);
   // Every den, rock and anemone the reef could have (the most morays, octopuses and clownfish it gives homes to).
   const { dens, rocks, anemones } = reefRocks(level, 2, 3, 2);
