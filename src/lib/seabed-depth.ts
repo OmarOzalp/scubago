@@ -1,7 +1,7 @@
 import { OCEAN, reefCrestAt, seabedPatch, type OceanConfig } from './ocean';
 import { coralHeads } from './reef-coast';
 import { createSeabedField, type OceanIsland } from './seabed';
-import { bakedDepth, bakedShoaling } from './seabed-bake';
+import { bakedDepth, bakedShoaling, whenBakesClear } from './seabed-bake';
 import { hash, oceanBox, type WaterExtent } from './seabed-lattice';
 
 /**
@@ -24,10 +24,33 @@ const REGION_BLEND = 2.4;
 const smooth = (a: number, b: number, x: number) => { const t = Math.min(1, Math.max(0, (x - a) / (b - a))); return t * t * (3 - 2 * t); };
 
 /**
+ * The last few depth maps and water lattices made, to hand out again: the explorer closed and opened again, or an island of Home's card switched back to, has
+ * the very same ones, which take a phone seconds to work out. The `KEPT_MAPS` last sets of islands' maps are kept, and for each of those the `KEPT_WATERS` last
+ * reaches of water; the least recently used goes when one more is kept. A lone island's come to 0.3 MB, the explorer's five islands' to 2.9 MB (0.9 MB of maps
+ * and 2 MB of water), so a few of each are a few megabytes. Let go of with the bakes (a bake's tests and the bake script want things worked out).
+ */
+export const KEPT_MAPS = 8, KEPT_WATERS = 3;
+let maps = new Map<string, ReturnType<typeof makeDepthTexels>>();
+let waters = new WeakMap<object, Map<string, ReturnType<typeof makeWaterVertices>>>();
+whenBakesClear(() => { maps = new Map(); waters = new WeakMap(); });
+function remembered<T>(kept: Map<string, T>, keep: number, key: string, make: () => T) {
+  const had = kept.get(key);
+  if (had) { kept.delete(key); kept.set(key, had); return had; }
+  const made = make();
+  kept.set(key, made);
+  if (kept.size > keep) kept.delete(kept.keys().next().value!);
+  return made;
+}
+
+/**
  * The depth map's texels at this level (see buildDepthField in ocean-mesh.ts for what each channel holds), its region
  * maps, and what goes with them. The depth texels are built ahead of time where there is a bake (the very same bytes).
+ * Found once for the usual ocean's islands and level: the same maps every time, shared, and not to be changed.
  */
 export function depthTexels(level: number, islands: readonly OceanIsland[], config: OceanConfig = OCEAN) {
+  return config === OCEAN ? remembered(maps, KEPT_MAPS, `${level}|${JSON.stringify(islands)}`, () => makeDepthTexels(level, islands, config)) : makeDepthTexels(level, islands, config);
+}
+function makeDepthTexels(level: number, islands: readonly OceanIsland[], config: OceanConfig) {
   // The seabed under the islands (seabed.ts: one function for this map and for the animals above it): each island's own
   // shores in its own frame (its outline and size: island-outline.ts), the nearest one wherever two reach, the Coral
   // Reef's lagoon and crest, and the bank between the islands.
@@ -98,9 +121,16 @@ export function depthTexels(level: number, islands: readonly OceanIsland[], conf
  * The water's lattice, reaching `extent` units each way from every island's middle: jittered triangles, irregular
  * low-poly facets instead of a visible grid (vertex x, 0, z), and how much each vertex's waves shoal over the shallows
  * (`profile`: the seabed's), built ahead of time where there is a bake (the very same values, as the vertex attribute
- * holds them).
+ * holds them). Kept for the usual ocean, for each profile (the depth map's own, which belongs to its islands and level) and reach of water: the same
+ * lattice every time, shared, and not to be changed.
  */
 export function waterVertices(level: number, islands: readonly OceanIsland[], profile: (x: number, z: number) => { wet: number }, config: OceanConfig, extent: WaterExtent) {
+  if (config !== OCEAN) return makeWaterVertices(level, islands, profile, config, extent);
+  let mine = waters.get(profile);
+  if (!mine) waters.set(profile, mine = new Map());
+  return remembered(mine, KEPT_WATERS, `${level}|${JSON.stringify(islands)}|${JSON.stringify(extent)}`, () => makeWaterVertices(level, islands, profile, config, extent));
+}
+function makeWaterVertices(level: number, islands: readonly OceanIsland[], profile: (x: number, z: number) => { wet: number }, config: OceanConfig, extent: WaterExtent) {
   const s = config.facetSize, h = s * Math.sqrt(3) / 2, box = oceanBox(islands, extent);
   const cols = Math.ceil(box.width / s) + 1, rows = Math.ceil(box.depth / h) + 1;
   const baked = config === OCEAN ? bakedShoaling(level, islands, extent) : undefined;

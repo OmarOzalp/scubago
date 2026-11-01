@@ -114,9 +114,13 @@ export function registerSeabedBake(source: ArrayBuffer | Uint8Array) {
 }
 /** Whether the bake for this key is registered. */
 export const hasSeabedBake = (key: string) => registered.has(key);
+/** Things made from the bakes, or in place of them, that are kept (seabed-depth.ts's maps): let go of when the bakes are, so that what is worked out next is worked out. */
+const keepers: (() => void)[] = [];
+export const whenBakesClear = (forget: () => void) => { keepers.push(forget); };
 /** Forget every bake (the tests and the bake script compute instead). */
 export function clearSeabedBakes() {
   lattices.clear(); depths.clear(); shoalings.clear(); grids.clear(); registered.clear();
+  for (const forget of keepers) forget();
 }
 
 /** The baked lattice for these islands at this level and reach, if any. */
