@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View, type ScrollViewInstance } from 'react-native';
 import { router } from 'expo-router';
 import { HomeEditor } from '@/components/home/home-editor';
+import { useOceanAhead } from '@/components/home/ocean-ahead';
 import { useTip } from '@/components/home/use-tip';
 import { IntroCards, useIntro } from '@/components/intro-cards';
 import { SanctuaryScene } from '@/components/home/sanctuary-scene';
@@ -83,6 +84,8 @@ export default function HomeScreen() {
   const here = useMemo(() => islandResidents(home.residents, island), [home.residents, island]);
   const islandName = AREAS.find((a) => a.id === island)!.name;
   const loading = !ready || saved.loading || moments.loading;
+  // Once the island is on show and the phone is idle, the explorer's ocean is made ready (ocean-ahead.ts), so opening it finds it there.
+  useOceanAhead(home.level, islands, !loading && count > 0);
   // Something swims here, or small life lives on the reef (seen only up close, full screen): there is something to explore.
   const small = macroResidents(here).length, none = noneSwim(here);
   const swimming = !loading && here.length > 0 && (!none || small > 0);

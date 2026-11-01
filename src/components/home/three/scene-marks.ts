@@ -15,6 +15,7 @@ export type SceneMark =
   | 'scubago:explorer-frame' | 'scubago:explorer-animal' | 'scubago:explorer-built' | 'scubago:explorer-picture';
 
 const made = new Set<SceneMark>();
+const waiting = new Map<SceneMark, (() => void)[]>();
 
 export function markOnce(name: SceneMark) {
   if (made.has(name)) return;
@@ -24,6 +25,14 @@ export function markOnce(name: SceneMark) {
   } catch {
     // No User Timing here: nothing to mark.
   }
+  for (const resume of waiting.get(name) ?? []) resume();
+  waiting.delete(name);
+}
+
+/** Resolves once the mark has been made this launch (at once, if it has): for what should wait until the island is on show (ocean-ahead.ts). */
+export function whenMarked(name: SceneMark): Promise<void> {
+  if (made.has(name)) return Promise.resolve();
+  return new Promise((resolve) => { waiting.set(name, [...(waiting.get(name) ?? []), resolve]); });
 }
 
 /** The marks a scene makes for its first drawn frame, its first animal and its being built: Home's card, or the explorer's. */

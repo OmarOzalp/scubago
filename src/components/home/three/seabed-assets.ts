@@ -18,8 +18,6 @@ const requests = new Map<string, Promise<boolean>>();
 /** The oceans no shipped bake covers, held in memory and kept on the phone (src/lib/ocean-store.ts); made on first use. */
 let oceans: OceanStore | undefined;
 export const oceanStore = () => (oceans ??= createOceanStore(oceanFiles));
-/** Whether this ocean has a bake of its own to wait for: none ships (several islands, another reach), so it is held, read back from the phone or worked out in slices. */
-export const oceanNeedsStore = (level: number, islands: readonly OceanIsland[], reach?: WaterExtent) => seabedBakeName(level, islands, reach) === null;
 
 /** Load (once) the bake for these islands at this level and reach. True once it is in use; false when there is none or it failed. */
 export function loadSeabedBake(level: number, islands: readonly OceanIsland[], reach?: WaterExtent): Promise<boolean> {
