@@ -6,6 +6,7 @@ import { useSceneQuality } from './scene-quality';
 import { FLOOR_BIAS, prepareUnderwater, type ReefLook } from './underwater-material';
 import { attachSwimRig, swimDrive } from './swim-rig-driver';
 import { MARINE_SIZE, TAP_SHAPES, TAP_SLOP, tapTarget } from './tap-target';
+import { disposeSkeletons } from './skeleton-dispose';
 import { markOnce } from './scene-marks';
 import { onScreen } from './view-cull';
 import { MOVEMENT, type MarineMotion } from '@/lib/marine-motion';
@@ -73,6 +74,8 @@ export function AnimatedMarine({ model, gltf, lane, active, inspect = false, pop
     return { instance: scene, underwater: inspect ? null : prepareUnderwater(scene, ocean ?? undefined, lite, reef) };
   }, [gltf.scene, inspect, ocean, lite, model]);
   useEffect(() => () => underwater?.dispose(), [underwater]);
+  // The clone's own skeletons (and their bone textures on the GPU) go with it.
+  useEffect(() => () => disposeSkeletons(instance), [instance]);
   // Species models swim procedurally so tail beats and wing strokes follow speed and turns;
   // family representatives play their artist-authored clip.
   const swimRig = useMemo(() => {

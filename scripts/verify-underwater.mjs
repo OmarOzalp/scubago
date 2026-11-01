@@ -13,6 +13,7 @@ import { createSchoolHitArea, SCHOOL_HIT_DEPTH } from '../src/components/home/th
 import { createSchoolMaterial } from '../src/components/home/three/school-material.ts';
 import { createTunaGeometry } from '../src/components/home/three/tuna-geometry.ts';
 import { MARINE_SIZE, MIN_TAP, TAP_SHAPES, tapTarget } from '../src/components/home/three/tap-target.ts';
+import { disposeSkeletons } from '../src/components/home/three/skeleton-dispose.ts';
 import { oceanScale, VIEW_SPAN } from '../src/lib/steering.ts';
 import { createMarineMotion } from '../src/lib/marine-motion.ts';
 import { sampleDive } from '../src/lib/ocean-depth.ts';
@@ -329,6 +330,19 @@ for (const lite of [false, true]) {
     }
   }
   console.log('tap targets: measured once for each model, the same for a clone on show and at every pullback');
+}
+
+// A clone's bone textures (one for each skinned mesh's skeleton) are the clone's own and are freed with it (skeleton-dispose.ts).
+{
+  for (const name of ['bottlenose-dolphin', 'giant-moray', 'reef-fish', 'day-octopus']) {
+    const source = await loadModel(name), copy = clone(source.scene), skeletons = [];
+    copy.traverse((object) => { if (object.isSkinnedMesh) { object.skeleton.computeBoneTexture(); skeletons.push(object.skeleton); } });
+    assert(skeletons.length > 0 && skeletons.every((skeleton) => skeleton.boneTexture), `${name}: a bone texture for each skeleton`);
+    source.scene.traverse((object) => { if (object.isSkinnedMesh) assert(!skeletons.includes(object.skeleton), `${name}: the clone shares a skeleton with its model`); });
+    disposeSkeletons(copy);
+    assert(skeletons.every((skeleton) => skeleton.boneTexture === null), `${name}: a bone texture left behind`);
+  }
+  console.log('bone textures: freed with their clone, the model\'s own skeletons untouched');
 }
 
 // The Mangroves & Seagrass island's seagrass (seagrass-geometry.ts): within its triangle budget, every
