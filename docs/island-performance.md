@@ -750,3 +750,98 @@ builders are not sliced. On a phone to time: the explorer's
 first open with and without Home having been left idle (and after a level-up or a newly found island), the second
 launch (the file read), Home's frame rate while the ocean is made, the cache directory's file after the system has
 cleared its caches, and the size of the app with the baked grids.
+
+## The explorer's ocean ships with the app (November 2026)
+
+A diver who opens the explorer for the first time (a new install, or right after a level-up or a new island, before Home had time to make the
+ocean ready) used to wait for the ocean to be worked out: 6.2 s with five islands at level 3 and 8.4 s at level 6 under `node --jitless` (the
+closest stand-in for Hermes), in slices that kept the screen alive but did not make the wait shorter. The ocean of the islands a diver can have is
+the same numbers every time, so it now ships with the app, worked out ahead of time, and the first open reads it: 0.14 s for the five islands under
+`--jitless`, in steps no longer than 10 ms. Every number is the same as the computation gives.
+
+- **What can be shipped.** Home's island is always first in the explorer's list (`foundIslands`), and the others follow in the order they were found.
+  The level comes from the species count (3 species is level 2, 8 is level 3: `levelForCount`), so a diver of level 1 has found at most two other
+  islands and one of level 2 or more may have all four: 85 sets of islands and levels (10 at level 1, 15 at each of levels 2 to 6), 336 lists in all
+  with their orders. The explorer's water on any phone, or a tablet held upright, reaches 20 units each way (`waterReach`); only a screen wide enough
+  to need more (a tablet on its side) works the ocean out as before, as does anything else nothing ships for.
+- **What is shipped** (`assets/baked/ocean`, 130 files, 3,764,576 bytes, all deflated: a zip around them gains nothing). Not the arrays (1.6 MB for the
+  five islands, 85 of them would be 100 MB) but what the code cannot make quickly, kept as small as the ocean's structure allows:
+  - a *pack* for each set and level (85, 2.29 MB): the depth map's four planes (each as predicted from its row above or its left neighbour), the
+    water's shoaling, and the heights of the open sea's floor between the islands. These are the same in every order of the islands after Home's, so
+    one pack serves them all;
+  - a *table* for each island and level (30, 1.3 MB): the heights of the seabed round the island, ray by ray, which are the same in every set that
+    has the island except at a few vertices (0 for the Kelp Forest and the Shipwreck, about 30 for the Mangroves, 75 for the Volcanic Pinnacle, 80
+    to 120 for the Coral Reef) where the shallow bank between the islands is nearer the surface: the pack holds those. The Coral Reef's table holds
+    its rays' x and z too, which are dear to find;
+  - the *region maps* of each set (15, 158 KB): whose water each texel is. They do not depend on the level, and one plane for each island goes to
+    its channel in any order of the islands.
+  Everything else (the plain shores' rays, the triangles, the water's own vertices) is made by the same code as always: `seabedLatticeSteps`
+  takes a `known` argument (`LatticeKnown`) naming the numbers it need not work out, and `regionFiller` (seabed-depth.ts) is the one formula for the
+  region maps, with a short way for islands that each have a water of their own. `src/lib/inflate.ts` reads the files back (there is no zlib in
+  Hermes): 14.7 ms for 300 KB under `--jitless`, tested against node's zlib.
+- **Where the ocean store looks** (`ocean-store.ts`): held in memory, a saved file, the shipped files, working it out. A shipped file that is not in the
+  app, fails its digest, does not inflate, is for other islands or is not the size of the ocean is a `console.warn` in a development build (once for
+  each ocean) and the ocean is worked out as before: nothing throws. The shipped ocean is never written to a saved file, so the phone's files stay
+  for the oceans nothing ships. Islands, an order (Home's island not first) or a reach nothing ships for are worked out too.
+- **Why Home must be first.** Far from every shore, `nearest` (seabed.ts) falls back to the first island in the list, so the depth map and the water
+  differ in the open sea (about 4,000 to 6,000 texels) if another island is listed first. The app never does; `oceanPackName` gives no name then.
+- **Exactness.** `scripts/bake-oceans.ts` (run by `npx tsx scripts/bake-seabed.ts`, or `npm run bake:oceans`) works out all 85 oceans the slow way,
+  unpacks every pack again from the bytes it is about to write (with and without its region maps) and compares it with the computation number for
+  number (`Object.is`); a pack that differs is never written. `npm run verify:ocean-packs` (about three minutes) works out every one of the 336 lists
+  of islands from nothing and compares it with what the ocean store hands out from the files on disk: 314,243,580 numbers identical (depth map, region
+  maps, shoaling, lattice vertices and triangles), at levels 1 to 6. The ocean version (`ocean-version.ts`) records the files' digests, so a saved
+  ocean from before a change is never used and the version test fails while the files are not the ones it was written for;
+  `ocean-pack-shipped.test.ts` unpacks the shipped packs of the version's probes to the very fingerprints it records, and `ocean-pack.test.ts` and the
+  store tests make files from the computation for small sets and check each way a file can be wrong. A change to the seabed's maths (checked by
+  widening the sandbars in `banks.ts` by 0.05: 1,707 depth texels, 37 shoaling values and 94 lattice numbers differed) fails them until
+  `npx tsx scripts/bake-seabed.ts` makes the files again. The 477 fingerprints of `perf-build` (every coast, coral, kelp and seagrass mesh, depth
+  maps, lattices, the animals' paths) are the same as before the stage-1 work, and `npm run verify:swim` still finds 0 clipped, 0 on land and 0
+  grazing over the five islands at six levels.
+- **Hermes.** The shipped numbers are those of the machine that made them (Node's V8). Hermes's `Math.sin`, `Math.exp` and `Math.hypot` may differ from
+  V8's in the last bit, so the few numbers the phone still works out for itself (a plain shore's rays, the water's jittered vertices, and the region maps
+  where no file of them is read) could differ from the shipped ones by about 1e-16, which nothing can show. "Identical" means identical to the Node
+  computation, as it already did for the baked seabeds. There is no Hermes here to compare with, and no test of it on a phone.
+
+Measured with the same harness on the tree before and after (`node --jitless` on the process's CPU time, V8 on the same; median of 5, fresh process each;
+what the explorer waits for before it can build its islands: the ocean unpacked and the scene's own calls with it held; `ocean-store` reading from
+the files):
+
+| | worked out (before) | shipped (after) | V8 before -> after |
+| --- | ---: | ---: | ---: |
+| 5 islands, level 3, `--jitless` | 6,191 ms | 140 ms | 917 -> 128 ms |
+| 5 islands, level 6 | 8,447 ms | 161 ms | 1,062 -> 165 ms |
+| 3 islands, level 3 | 3,441 ms | 89 ms | 682 -> 105 ms |
+| 2 islands, level 3 | 2,280 ms | 62 ms | 536 -> 77 ms |
+| 2 islands, level 1 | 2,300 ms | 66 ms | 540 -> 78 ms |
+
+The longest step of the unpacking is 9.5 ms (the unpacking is sliced like the computation, 12 ms while idle and 40 ms while someone waits). For comparison an
+ocean saved in a file is 67 ms. Where the time goes for five islands at level 3: depth planes 25 ms, region planes 33, shoaling 6, tables 10, lattice 26,
+the scene's own calls 22.
+
+In a browser (Chromium with software WebGL, a phone-sized window, the app's own timing marks and `x:explorer-ocean` for the explorer's ocean mounted;
+a collection never opened on Home, so no ocean saved, and nothing made ready by an idle Home), builds of the tree before and after run in turn, median
+of three runs (two at 4x slower CPU):
+
+| | before | after |
+| --- | ---: | ---: |
+| Five islands, level 3, cold explorer: ocean mounted / first animal / everything built | 2.01 / 6.8 / 14.2 s | 1.33 / 6.0 / 10.9 s |
+| Five islands, level 6 (63 species) | 2.24 / 7.9 / 24.0 s | 1.15 / 5.6 / 14.3 s |
+| CPU 4x slower, level 3 | 7.2 / 17.4 / 27.5 s | 3.6 / 16.0 / 29.5 s |
+| CPU 4x slower, level 6 | 8.9 / 21.5 / 42.9 s | 4.5 / 18.3 / 44.7 s |
+| Home idle 12 s, then the explorer (level 3): tap to the ocean / what Home saved in IndexedDB | 1.26 s / 1.64 MB | 1.10 s / nothing |
+
+The web's JIT works the ocean out in about a second, so the cold open gains less there than on an interpreter, and the first animal is waiting for other
+things (models, the swimming's start) as well. Under the 4x slower CPU the longest single block is *longer* after (4.2 s against 1.7 s at level 3, 6.4
+against 2.4 s at level 6) and everything built comes 2 s later: it is the explorer's picture being taken (`captureScene`: resizing the canvas to twice the
+screen and encoding it, 2.4 s and 2.0 s in a CPU profile), which no build step is (the longest `scubago:step` is 315 ms). Before, with the ocean not yet
+there, the picture's mark (`scubago:explorer-picture`) came at 6 s, before the ocean was mounted (by the marks, the picture was taken of a scene with
+nothing in view yet to build; not looked at); now it is taken once the islands are built. That is the explorer picture's own timing (`sanctuary-scene.tsx`, not changed here), and it is the first thing to look at next.
+Stills of Home and of the explorer before and after (a cold open, and after Home sat idle) show the same islands, corals, forests, boats and shoals.
+
+
+Not done: the animals' grid of the bottom for each island of the explorer (`createSeabed`: about 0.1 s each under `--jitless`) is still worked out when
+an island's swimming starts; the Reef's x and z as ray offsets (about 0.3 MB less), byte-splitting the tables (about 0.1 MB) and level-to-level deltas of
+the depth planes (about 0.6 MB, with a chain to inflate) would make the files smaller; the shipped oceans are for the water a phone has, and a screen
+that reaches farther still works its ocean out. On a phone to time: the first-ever explorer open with 2, 3 and 5 islands; an open right after a level-up
+and after a newly found island; Home's frame rate while its idle work makes the ocean ready (about 0.15 s of CPU now, not seven to nine seconds in
+slices); and the six small file reads at an open, in Expo Go and in a release build.
