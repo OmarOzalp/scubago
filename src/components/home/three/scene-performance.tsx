@@ -21,7 +21,7 @@ export function ScenePerformance({ ready, active }: { ready: boolean; active: bo
     if (value.frames <= 2) return;
     value.seconds += delta;
     if (delta > late) value.slow++;
-    if (value.frames === 122) console.info(`[island] 120 JS frames: ${Math.round(120 / value.seconds)}fps scheduled (not display FPS); ${value.slow} frames over ${Math.round(late * 1000)}ms; ${gl.info.render.calls} draw calls; ${gl.info.render.triangles} triangles`);
+    if (value.frames === 122) console.info(`[island] 120 JS frames: ${Math.round(120 / value.seconds)}fps scheduled (not display FPS); ${value.slow} frames over ${Math.round(late * 1000)}ms; ${gl.info.render.calls} draw calls; ${gl.info.render.triangles} triangles; ${gl.info.programs?.length ?? '?'} shader programs`);
   });
   return null;
 }
