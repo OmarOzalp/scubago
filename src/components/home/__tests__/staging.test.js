@@ -23,6 +23,7 @@ afterEach(async () => {
   if (root) await act(async () => root.unmount());
   root = null;
   jest.useRealTimers();
+  delete process.env.EXPO_PUBLIC_ISLAND_ARRIVAL;
 });
 /** A frame drawn: the stager hears it, and then the timers it set run. */
 const draw = async (stager, ms = 0) => { await act(async () => { stager.frame(); jest.advanceTimersByTime(ms); }); };
@@ -97,7 +98,8 @@ test('without a stager the room is the count itself', async () => {
   expect(names()).toEqual(['room 5']);
 });
 
-test('what arrives into a scene on show grows in from nothing; under a picture of it, or with the first frame, it is simply there', async () => {
+test('with growing arrival, what arrives into a scene on show grows in from nothing; under a picture of it, or with the first frame, it is simply there', async () => {
+  process.env.EXPO_PUBLIC_ISLAND_ARRIVAL = 'grow';
   const group = () => ({ scale: { value: 1, setScalar(v) { this.value = v; } } });
   const made = [];
   const createNodeMock = (element) => { if (element.type !== 'group') return null; const node = group(); made.push(node); return node; };
@@ -140,6 +142,27 @@ test('what arrives into a scene on show grows in from nothing; under a picture o
   await draw(still);
   await act(async () => { jest.advanceTimersByTime(0); });
   expect(made.at(-1)?.scale.value ?? 1).toBe(1);
+});
+
+test('with whole arrival (the default), what arrives is simply there at full size, never grown in, in a scene on show or not', async () => {
+  const made = [];
+  const createNodeMock = (element) => {
+    if (element.type !== 'group') return null;
+    const node = { scale: { value: 1, setScalar(v) { this.value = v; } } };
+    made.push(node);
+    return node;
+  };
+  const stager = createStager({ heavy: 1e9, age: 1e9 });
+  stager.show(true);
+  await act(async () => {
+    root = create(<StagerContext.Provider value={stager}><GrowthContext.Provider value={{ animate: true, duration: 3.5 }}>
+      {island('a', <Stage at={STAGE.props} grow><Built name="props" /></Stage>)}
+    </GrowthContext.Provider></StagerContext.Provider>, { createNodeMock });
+  });
+  await draw(stager);
+  await act(async () => { jest.advanceTimersByTime(0); });
+  expect(names()).toEqual(['props']);
+  expect(made.at(-1).scale.value).toBe(1);
 });
 
 test('the provider hands the stager the canvas’s frames and its way to ask for another, and holds the building while the scene is hidden', async () => {

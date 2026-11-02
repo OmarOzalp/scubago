@@ -222,3 +222,39 @@ test('what is shown is traced: island, stage, number and how long it took', () =
     { island: 'a', stage: STAGE.animal, index: 1, ms: 7 },
   ]);
 });
+
+test('whether an island has steps of some stages, and whether any is still to open or being shown, is asked of the stager, and every change to it is heard', () => {
+  const stager = make({ heavy: 0 });
+  const heard = jest.fn();
+  const stop = stager.watch(heard);
+  expect(stager.has('a')).toBe(false);
+  expect(stager.pending('a', [STAGE.coast, STAGE.props])).toBe(false);
+  // A step that opens and is not yet shown is pending, on its own island only.
+  const g = { island: 'a', stage: STAGE.coast, total: 1, opened: 0, open: () => undefined };
+  stager.register(g);
+  group(stager, 'b', STAGE.coast);
+  group(stager, 'a', STAGE.props);
+  expect(heard).toHaveBeenCalled();
+  expect(stager.has('a', [STAGE.coast])).toBe(true);
+  expect(stager.has('a', [STAGE.animal])).toBe(false);
+  expect(stager.pending('a', [STAGE.coast, STAGE.props])).toBe(true);
+  stager.frame();
+  advance(0);
+  // (a's coast opened, and is not shown: the scene has not committed it)
+  expect(g.opened).toBe(1);
+  expect(stager.pending('a', [STAGE.coast])).toBe(true);
+  expect(stager.pending('b', [STAGE.coast])).toBe(true);
+  heard.mockClear();
+  stager.committed(g);
+  expect(heard).toHaveBeenCalled();
+  expect(stager.pending('a', [STAGE.coast])).toBe(false);
+  expect(stager.pending('a', [STAGE.coast, STAGE.props])).toBe(true);
+  stager.frame();
+  advance(1000);
+  expect(stager.pending('a', [STAGE.coast, STAGE.props])).toBe(false);
+  expect(stager.pending('b')).toBe(false);
+  stop();
+  heard.mockClear();
+  group(stager, 'c', STAGE.coast);
+  expect(heard).not.toHaveBeenCalled();
+});

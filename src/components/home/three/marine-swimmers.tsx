@@ -16,7 +16,7 @@ import { ReefAnemones } from './reef-anemone';
 import { ReefRocks } from './reef-rocks';
 import { useSceneQuality } from './scene-quality';
 import { STAGE } from './stager';
-import { useSteps } from './staging';
+import { SeenContext, useSteps } from './staging';
 import { TunaSchoolMesh } from './tuna-school-mesh';
 import { onScreen } from './view-cull';
 
@@ -81,6 +81,8 @@ export function MarineSwimmers({ residents, models, active, level = 1, school = 
   arrivals?: Arrivals;
 }) {
   const lite = useSceneQuality() === 'lite';
+  // On an island built before (built-islands.ts) the animals that join as their steps open are simply there, as under a picture, not rising out of the deep.
+  const seen = useContext(SeenContext);
   const size = useThree((state) => state.size), invalidate = useThree((state) => state.invalidate);
   const aspect = size.width / Math.max(1, size.height);
   // Group members come from a budget of their own, smaller where the GPU is emulated.
@@ -147,7 +149,7 @@ export function MarineSwimmers({ residents, models, active, level = 1, school = 
     plan.delete(id);
     const held = waiting.includes(id), lateModel = late.delete(id) && !held, still = !!arrivals?.instant || !active || unseen;
     motion.add({ model: r.model, lane: r.lane, group, speciesId: id }, { aspect, waiting: held, instant: still || lateModel });
-    if (lateModel && !still) emerging.add(r.lane);
+    if (lateModel && !still && !seen) emerging.add(r.lane);
     joined.set(id, { lane: r.lane, model: r.model, group, leaving: false });
   }
   // An animal that has swum off is taken out of the scene's list.

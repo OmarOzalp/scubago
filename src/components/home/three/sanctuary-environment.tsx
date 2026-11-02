@@ -16,7 +16,8 @@ import { MangroveCoast } from './mangrove-coast';
 import { ReefCoast, ReefCorals } from './reef-coast';
 import { WreckCoast } from './wreck-coast';
 import { SeagrassMeadow } from './seagrass-meadow';
-import { IslandContext, Stage } from './staging';
+import { builtKey, wasBuilt } from './built-islands';
+import { IslandContext, SeenContext, Stage, Whole } from './staging';
 import { STAGE } from './stager';
 import { GROWTH_SECONDS, GrowthContext } from './unlock';
 import { useOcean, WaterSurface, type Ocean } from './water-surface';
@@ -36,6 +37,9 @@ export type SceneIsland = { key: string; habitat: Habitat; x: number; z: number;
 function IslandPlace({ island, ocean, level, growIn }: { island: SceneIsland; ocean: Ocean; level: number; growIn: boolean }) {
   const quality = useSceneQuality();
   const uniforms = useMemo(() => islandOceanUniforms(ocean.uniforms, island.habitat), [ocean.uniforms, island.habitat]);
+  // Built to the end before in this session (built-islands.ts)? Then it is simply there: nothing of it is staged. Otherwise it is built in steps and shown whole.
+  const memory = builtKey(island.habitat, level, quality);
+  const [seen] = useState(() => wasBuilt(memory));
   const growth = useMemo(() => ({
     animate: growIn, duration: GROWTH_SECONDS[quality],
     submerge: (group: Object3D) => submerge(group, uniforms, quality === 'lite'),
@@ -43,8 +47,9 @@ function IslandPlace({ island, ocean, level, growIn }: { island: SceneIsland; oc
   // The kelp makes way for the animals swimming through it (kelp-movers.ts).
   const [movers] = useState(createKelpMovers);
   const kelp = island.habitat === 'kelp';
-  // Built in steps (staging.tsx): the coast first, then what grows on and round it, then the animals' swimming (and each animal in
-  // its turn), then the reef's small life. Each is made when its step opens, and grows in if the scene is already on show.
+  // Built in steps (staging.tsx): the coast first, then the animals' swimming (and each animal in its turn), then what grows on and round
+  // the island, then the reef's small life. Each is made when its step opens; the coast and what grows on and round it are shown together, whole,
+  // when the last of their steps has (an island built before is simply there).
   const shore = island.habitat;
   const reef = shore !== 'kelp' && shore !== 'volcanic' && shore !== 'mangrove' && shore !== 'wreck';
   const coast = kelp ? <KelpCoast level={level} /> : shore === 'volcanic' ? <VolcanicCoast level={level} /> : shore === 'mangrove' ? <MangroveCoast level={level} />
@@ -52,13 +57,15 @@ function IslandPlace({ island, ocean, level, growIn }: { island: SceneIsland; oc
   const props = kelp ? <KelpForest level={level} /> : shore === 'mangrove' ? <SeagrassMeadow level={level} /> : reef ? <ReefCorals level={level} /> : null;
   return <group position={[island.x, 0, island.z]}>
     <OceanContext.Provider value={uniforms}><GrowthContext.Provider value={growth}><KelpMoversContext.Provider value={kelp ? movers : null}>
-      <IslandContext.Provider value={island.key}>
-        {/* (the reef's and the mangroves' coasts and the reef's corals are made in slices, and grow in when they are made: sliced-geometry.ts) */}
-        <Stage at={STAGE.coast} grow={shore === 'wreck'}><group scale={islandScale(level)}>{coast}</group></Stage>
-        {props && <Stage at={STAGE.props} grow={!reef}>{props}</Stage>}
+      <IslandContext.Provider value={island.key}><SeenContext.Provider value={seen}>
+        {/* (the reef's, the mangroves', the volcano's and the kelp's coasts and the reef's corals are made in slices: sliced-geometry.ts) */}
+        <Whole memory={memory}>
+          <Stage at={STAGE.coast} grow={shore === 'wreck'} staged={false}><group scale={islandScale(level)}>{coast}</group></Stage>
+          {props && <Stage at={STAGE.props} grow={!reef} staged={false}>{props}</Stage>}
+        </Whole>
         <Stage at={STAGE.swim}>{island.content}</Stage>
         {island.small && <Stage at={STAGE.small} grow>{island.small}</Stage>}
-      </IslandContext.Provider>
+      </SeenContext.Provider></IslandContext.Provider>
     </KelpMoversContext.Provider></GrowthContext.Provider></OceanContext.Provider>
   </group>;
 }
@@ -69,9 +76,11 @@ function IslandWorld({ habitat, level, active, growIn, reach, islands, children 
 }) {
   const quality = useSceneQuality();
   const ocean = useOcean(habitat, level, WATER[habitat], quality, reach, islands.map(({ x, z, habitat: shores }) => ({ x, z, habitat: shores })));
+  // (the sea between the islands is simply there when every island in it was built before)
+  const [builtBefore] = useState(() => islands.every((island) => wasBuilt(builtKey(island.habitat, level, quality))));
   return <OceanContext.Provider value={ocean.uniforms}>
     <WaterSurface ocean={ocean} active={active} />
-    {ocean.field.bank && <Stage at={STAGE.props} grow><ArchipelagoSea bank={ocean.field.bank} /></Stage>}
+    {ocean.field.bank && <SeenContext.Provider value={builtBefore}><Stage at={STAGE.props} grow staged={false}><ArchipelagoSea bank={ocean.field.bank} /></Stage></SeenContext.Provider>}
     {islands.map((island) => <IslandPlace key={island.key} island={island} ocean={ocean} level={level} growIn={growIn} />)}
     {children}
   </OceanContext.Provider>;

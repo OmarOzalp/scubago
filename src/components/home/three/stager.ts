@@ -71,7 +71,7 @@ export function createStager(options: StagerOptions = {}) {
   const now = options.now ?? (() => (typeof performance === 'undefined' ? Date.now() : performance.now()));
   const later = options.later ?? wait;
   const groups = new Set<Group>();
-  const listeners = new Set<() => void>();
+  const listeners = new Set<() => void>(), changes = new Set<() => void>();
   /** Island keys in the order they were met, for ranking when nothing says which is nearer. */
   const met: string[] = [];
   let focus = options.focus;
@@ -92,6 +92,7 @@ export function createStager(options: StagerOptions = {}) {
       settled: !live.some((g) => pending(g) && tierOf(g.island, near) === 0) && !busy,
       done: built && !live.some(pending) && !busy,
     };
+    changes.forEach((listener) => listener());
     if (next.settled === state.settled && next.done === state.done) return;
     state = next;
     listeners.forEach((listener) => listener());
@@ -196,10 +197,23 @@ export function createStager(options: StagerOptions = {}) {
     get started() { return started; },
     getState: () => state,
     subscribe(listener: () => void) { listeners.add(listener); return () => { listeners.delete(listener); }; },
+    /** Whether this island has any run of these stages (any, unless given) at all. */
+    has(island: string, stages?: readonly number[]) {
+      for (const g of groups) if (g.island === island && (!stages || stages.includes(g.stage))) return true;
+      return false;
+    },
+    /** Whether this island has any step of these stages (any, unless given) still to open, or one opened and not yet shown. */
+    pending(island: string, stages?: readonly number[]) {
+      const of = (g: Group) => g.island === island && (!stages || stages.includes(g.stage));
+      for (const g of groups) if (of(g) && g.opened < g.total) return true;
+      return !!busy && of(busy.group);
+    },
+    /** Hear every change to what is pending (a step opened or shown, a run joined, left or grew): finer than `subscribe`, which hears only the scene's two states. */
+    watch(listener: () => void) { changes.add(listener); return () => { changes.delete(listener); }; },
     dispose() {
       disposed = true;
       cancelGuard?.(); cancelNext?.();
-      listeners.clear(); groups.clear();
+      listeners.clear(); changes.clear(); groups.clear();
     },
   };
   return stager;

@@ -574,15 +574,16 @@ Nothing that is built looks or swims differently: the same code makes the same n
   hidden builds nothing. A step the scene never shows is given up on, so one lost part never stops the rest.
 - **Slices** (`sliced-geometry.ts`). A coast is one geometry made by one long run of code. The coasts of the Coral Reef, the Mangroves, the Volcanic Pinnacle
   and the Kelp Forest and the reef's corals are now generators: the same code in the same order with places to stop, which the stager
-  runs about 12 ms at a time, each slice a task of its own; the mesh appears (growing in) when the last is done. Written this way the
+  runs about 12 ms at a time, each slice a task of its own; the mesh is made when the last is done. Written this way the
   geometry is the same, bit for bit (below). The Shipwreck's coast, the kelp forest itself, the seagrass and the animals' swimming start are
   still one step each.
 - **Animals one at a time** (`marine-swimmers.tsx`). The swimming starts with nobody on the island, and each species joins in a step
   of its own (a pod or a squadron with its group), sized as it always was: group sizes are worked out for everyone together when the
   swimming starts and kept. An animal that joins while the scene is on show rises out of the deep blue where it is, as one whose model
-  arrived late already did; under a picture it is simply there.
-- **Growing in.** What arrives after the first frame grows from nothing over 0.6 s (`Arrive`, like a new coral at a level-up); under a picture
-  of the scene, or with Reduce Motion, it is simply there.
+  arrived late already did; under a picture, or on an island built before, it is simply there.
+- **Growing in.** (Replaced: see "Islands that are already there" below.) What arrived after the first frame grew from nothing over 0.6 s
+  (`Arrive`, like a new coral at a level-up); under a picture of the scene, or with Reduce Motion, it was simply there. It still can be
+  (`EXPO_PUBLIC_ISLAND_ARRIVAL=grow`); by default an island is now shown whole.
 - **The explorer's picture.** Home's mechanism (instant-picture.tsx, scene-snapshot.ts, home-start.ts), for the explorer's opening view.
   Once everything in view is built, the view has not been moved and no good picture of it was shown, the scene takes a picture of it
   1.5 s later (twice the screen's size; a PNG on a phone, a JPEG on the web) and keeps it under the key of that view: the islands in the
@@ -649,10 +650,51 @@ step (mostly under 80 ms each: the `scubago:step` measures). Under a 4x slower C
 Not done: the animals' swimming start and each early join (marine-motion.ts), the kelp forest, the seagrass and the Shipwreck's coast
 (each still one step: the kelp and seagrass builders and the wreck's shared cache would need their own generators); the explorer's ocean
 (another change); the shader programs compile at the first draw of each variant, spread over the frames the steps bring them in
-(about eight variants of the animals), which is the next thing a phone will show; a pill switch on Home still builds the island afresh, in steps.
+(about eight variants of the animals), which is the next thing a phone will show; a pill switch on Home still builds the island afresh, in steps
+(an island seen before is now there at once: see "Islands that are already there").
 To time on a phone: Home's first launch, with and without a kept picture (`scubago:scene-frame`, `first-animal`, `scene-built`), the explorer's first
 and second open with one, three and five islands (`scubago:explorer-frame`, `-animal`, `-built`, `-picture`), the steps' lengths (the `scubago:step`
 measures), whether the picture is there from the first frame, and whether the animals' arrival and the islands growing in read as smooth.
+
+## Islands that are already there (November 2026)
+
+After building in steps, every island pill on Home and every opening of the explorer still staged its islands piece by piece and grew each piece
+in from nothing, though the geometry was cached and the work, warm, is small (Home's reef at level 4, a second time in one process: 1368 -> ~200 ms
+under `node --jitless`; the explorer's five islands 11.8 s -> ~650 ms). What the owner saw was an island coming up out of the ground every time:
+the lagoon, then the forest growing from a dot over a second or more, and in the explorer the same for each island.
+
+- **An island built before is simply there** (`built-islands.ts`). Once an island's coast and what grows on and round it have all been shown,
+  it is remembered for the session by its shores, level and quality tier (the same key as its cached geometry). Mounted again (the pill
+  switched back, the explorer opened again, an island seen on Home and then in the explorer), its coast, corals, forest, seagrass and the sea
+  between are in the first commit: no step of theirs goes to the stager and nothing grows (`SeenContext`, `Stage staged={false}`). The
+  animals are the exception, since their simulation is made afresh each time: they still join in steps of their own, but without rising.
+- **An island new to the session is shown whole** (`Whole` in `staging.tsx`). Its coast and what grows on and round it are built in steps as
+  before (a sliced coast, the corals) but kept hidden, and appear all at once when the last of their steps has opened: no piece grows and no
+  piece pops. `arrival()` in `staging.tsx` is the one switch: `whole` (the default) or `grow`, the earlier way, each piece growing as its
+  step opens (`EXPO_PUBLIC_ISLAND_ARRIVAL=grow` for comparing them, and the place a nicer arrival would plug in). What a level-up adds
+  (`unlock.tsx`: the palm and corals growing, an islet rising) is deliberate and is untouched.
+- **The picture waits for the stager** (`instant-picture.tsx`): see "The explorer's picture" above.
+
+Measured on the web (V8 + software GL, so ratios, not phone milliseconds; three runs of each, interleaved, base against new; the machine was
+shared and busy):
+
+| | before | after |
+|---|---|---|
+| Home pill back to a built island: steps staged / pieces that grow | 7 / 2 | 5 (the animals) / 0 |
+| Explorer reopened, with its picture: steps staged | 30 | 21 |
+| Same: the last step ends at | 3.3 and 3.1 s | 2.8 and 3.0 s |
+| Same: main-thread long tasks in the first 4 s | 2.3 and 3.1 s | 1.8 and 2.1 s |
+| Explorer first opened, no picture, the reef built on Home | the reef's forest grows from a dot over ~4 s | the reef is complete in the first live frame |
+
+Stills read for each: the Home pill switched back and the explorer opened with no picture (the island complete in its first frame, not
+growing), a first visit (the island appears whole), the explorer reopened under its picture, and a level-up (the islet still rises).
+
+What whole arrival costs: the island of a first visit appears once all of its coast and props are built, not as the first piece is. On Home's
+first launch with no kept picture (the reef alone, three runs, medians) the forest was first on screen at 4.0 s (2.7 to 4.6 s) and all there at
+7.6 s (6.7 to 8.3 s); with the steps in their order then (coast, animals, props) the whole island came at 7.3 s (6.9 to 7.9 s), nearly as late
+as the old way finished.
+
+Identical: the 162 fingerprints of `perf-build --quick --explorer`; `npm run verify:swim` 0 clipped, 0 on land, 0 grazing in all 30 cases.
 
 ## Ready before you open it (November 2026)
 
