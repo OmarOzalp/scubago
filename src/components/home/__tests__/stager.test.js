@@ -45,10 +45,10 @@ test('nothing is built before the scene’s first frame has been drawn, and then
   expect(opened).toEqual(['a:1.0']);
   stager.frame();
   advance(0);
-  expect(opened).toEqual(['a:1.0', 'a:4.0']);
+  expect(opened).toEqual(['a:1.0', 'a:2.0']);
 });
 
-test('every island in view has its coast before any has its swimming or props, and its first animal before any has its second', () => {
+test('every island in view has its coast before any has its props, its props before any has its swimming, and its first animal before any has its second', () => {
   const stager = make({ focus: () => ({ order: ['a', 'b', 'c'], near: 3 }) });
   for (const island of ['c', 'a', 'b']) {
     group(stager, island, STAGE.coast); group(stager, island, STAGE.props); group(stager, island, STAGE.swim); group(stager, island, STAGE.animal, 2);
@@ -56,8 +56,8 @@ test('every island in view has its coast before any has its swimming or props, a
   stager.frame();
   advance(10000);
   expect(opened).toEqual([
-    'a:1.0', 'b:1.0', 'c:1.0', 'a:2.0', 'b:2.0', 'c:2.0',
-    'a:3.0', 'b:3.0', 'c:3.0', 'a:3.1', 'b:3.1', 'c:3.1', 'a:4.0', 'b:4.0', 'c:4.0',
+    'a:1.0', 'b:1.0', 'c:1.0', 'a:2.0', 'b:2.0', 'c:2.0', 'a:3.0', 'b:3.0', 'c:3.0',
+    'a:4.0', 'b:4.0', 'c:4.0', 'a:4.1', 'b:4.1', 'c:4.1',
   ]);
 });
 
@@ -66,7 +66,7 @@ test('the islands in or near the view are built before the rest, and the rest in
   for (const island of ['a', 'b', 'c', 'd']) { group(stager, island, STAGE.coast); group(stager, island, STAGE.props); }
   stager.frame();
   advance(10000);
-  expect(opened).toEqual(['b:1.0', 'c:1.0', 'b:4.0', 'c:4.0', 'a:1.0', 'd:1.0', 'a:4.0', 'd:4.0']);
+  expect(opened).toEqual(['b:1.0', 'c:1.0', 'b:2.0', 'c:2.0', 'a:1.0', 'd:1.0', 'a:2.0', 'd:2.0']);
 });
 
 test('an island the camera comes near moves up the order, even with others waiting', () => {
@@ -81,7 +81,7 @@ test('an island the camera comes near moves up the order, even with others waiti
   stager.frame();
   advance(1000);
   // (c's coast and props, then the coasts of the rest, before their props)
-  expect(opened.slice(0, 4)).toEqual(['a:1.0', 'c:1.0', 'c:4.0', 'b:1.0']);
+  expect(opened.slice(0, 4)).toEqual(['a:1.0', 'c:1.0', 'c:2.0', 'b:1.0']);
 });
 
 test('the sea between the islands is built with the islands in view', () => {
@@ -89,7 +89,7 @@ test('the sea between the islands is built with the islands in view', () => {
   group(stager, 'b', STAGE.coast); group(stager, null, STAGE.props); group(stager, 'a', STAGE.coast);
   stager.frame();
   advance(1000);
-  expect(opened).toEqual(['a:1.0', '-:4.0', 'b:1.0']);
+  expect(opened).toEqual(['a:1.0', '-:2.0', 'b:1.0']);
 });
 
 test('a heavy step is followed by a drawn frame; light ones follow one another while the frames keep coming', () => {
@@ -103,11 +103,12 @@ test('a heavy step is followed by a drawn frame; light ones follow one another w
   expect(opened).toEqual(['a:1.0']);
   stager.frame();
   advance(0);
-  expect(opened).toEqual(['a:1.0', 'a:2.0']);
+  // (the props: 2 ms, then the swimming, 12 ms: heavy)
+  expect(opened).toEqual(['a:1.0', 'a:2.0', 'a:3.0']);
   // The rest cost 2 ms each and the last frame is fresh: they follow one another at once.
   stager.frame();
   advance(0);
-  expect(opened).toEqual(['a:1.0', 'a:2.0', 'a:3.0', 'a:3.1', 'a:3.2', 'a:4.0']);
+  expect(opened).toEqual(['a:1.0', 'a:2.0', 'a:3.0', 'a:4.0', 'a:4.1', 'a:4.2']);
 });
 
 test('once the last frame is older than the scene can bear, even a step that is not heavy is followed by a frame', () => {
@@ -121,7 +122,7 @@ test('once the last frame is older than the scene can bear, even a step that is 
   expect(opened).toEqual(['a:1.0', 'a:2.0']);
   stager.frame();
   advance(0);
-  expect(opened).toEqual(['a:1.0', 'a:2.0', 'a:4.0']);
+  expect(opened).toEqual(['a:1.0', 'a:2.0', 'a:3.0']);
 });
 
 test('a frame that never comes is waited for only so long', () => {
@@ -133,7 +134,7 @@ test('a frame that never comes is waited for only so long', () => {
   advance(99);
   expect(opened).toEqual(['a:1.0']);
   advance(1);
-  expect(opened).toEqual(['a:1.0', 'a:4.0']);
+  expect(opened).toEqual(['a:1.0', 'a:2.0']);
 });
 
 test('a step the scene never shows does not stop the others', () => {
@@ -146,7 +147,7 @@ test('a step the scene never shows does not stop the others', () => {
   expect(opened).toEqual([]);
   // (given up on after four times the patience, then a frame is waited for as after any step)
   advance(100 + 50);
-  expect(opened).toEqual(['a:4.0']);
+  expect(opened).toEqual(['a:2.0']);
 });
 
 test('steps added later (an animal’s model arrived) are built in their turn, and a group that goes is forgotten', () => {
@@ -154,17 +155,17 @@ test('steps added later (an animal’s model arrived) are built in their turn, a
   const animals = group(stager, 'a', STAGE.animal, 1);
   stager.frame();
   advance(100);
-  expect(opened).toEqual(['a:3.0']);
+  expect(opened).toEqual(['a:4.0']);
   stager.resize(animals, 3);
   advance(100);
   stager.frame();
   advance(100);
-  expect(opened).toEqual(['a:3.0', 'a:3.1', 'a:3.2']);
+  expect(opened).toEqual(['a:4.0', 'a:4.1', 'a:4.2']);
   const leaving = group(stager, 'b', STAGE.coast, 1);
   const leave = stager.register({ island: 'c', stage: STAGE.coast, total: 1, opened: 0, open: () => { throw new Error('built after it went'); } });
   leave();
   advance(100);
-  expect(opened).toEqual(['a:3.0', 'a:3.1', 'a:3.2', 'b:1.0']);
+  expect(opened).toEqual(['a:4.0', 'a:4.1', 'a:4.2', 'b:1.0']);
   expect(leaving.opened).toBe(1);
 });
 
@@ -177,7 +178,7 @@ test('held while the scene is hidden, and carried on when it is on show again', 
   expect(opened).toEqual([]);
   stager.hold(false);
   advance(1000);
-  expect(opened).toEqual(['a:1.0', 'a:4.0']);
+  expect(opened).toEqual(['a:1.0', 'a:2.0']);
 });
 
 test('it says when all in view is built (settled) and when all is (done), and asks for a frame as each step is shown', () => {

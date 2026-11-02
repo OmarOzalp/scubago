@@ -47,8 +47,8 @@ function IslandPlace({ island, ocean, level, growIn }: { island: SceneIsland; oc
   // The kelp makes way for the animals swimming through it (kelp-movers.ts).
   const [movers] = useState(createKelpMovers);
   const kelp = island.habitat === 'kelp';
-  // Built in steps (staging.tsx): the coast first, then the animals' swimming (and each animal in its turn), then what grows on and round
-  // the island, then the reef's small life. Each is made when its step opens; the coast and what grows on and round it are shown together, whole,
+  // Built in steps (staging.tsx): the coast first, then what grows on and round the island, then the animals' swimming (and each animal in
+  // its turn), then the reef's small life. Each is made when its step opens; the coast and what grows on and round it are shown together, whole,
   // when the last of their steps has (an island built before is simply there).
   const shore = island.habitat;
   const reef = shore !== 'kelp' && shore !== 'volcanic' && shore !== 'mangrove' && shore !== 'wreck';

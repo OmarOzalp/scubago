@@ -563,9 +563,11 @@ opened on. Now a scene is built in steps, each in a task of its own with the scr
 Nothing that is built looks or swims differently: the same code makes the same numbers.
 
 - **The order** (`stager.ts`, `staging.tsx`). A step belongs to an island (or to none: the sea between) and has a stage: its coast,
-  the animals' swimming, each animal, then what grows on and round the island (corals, the kelp forest, seagrass), then its small life.
+  then what grows on and round the island (corals, the kelp forest, seagrass), the animals' swimming, each animal, then its small life (the
+  props come before the animals so that an island new to the scene, shown whole once its coast and props are built, is not held back by its
+  animals: "Islands that are already there" below).
   The next step is always the pending one of lowest rank: islands in or near the view before the rest, then stage by stage, so every island
-  in view has its coast before any has its swimming, and its first animal before any has its second. Nothing but the ocean is built before
+  in view has its coast before any has its props, and its props before any has its swimming, and its first animal before any has its second. Nothing but the ocean is built before
   the scene's first frame has been drawn. In the explorer "in or near the view" is `islandsByView` (explorer-view.ts): the islands whose
   swimming areas reach into the water the screen shows, with a quarter of the screen to spare; it is asked afresh before every step, so an
   island the camera nears (a drag, a pill, the zoom out) moves to the front of the queue.
@@ -691,8 +693,11 @@ growing), a first visit (the island appears whole), the explorer reopened under 
 
 What whole arrival costs: the island of a first visit appears once all of its coast and props are built, not as the first piece is. On Home's
 first launch with no kept picture (the reef alone, three runs, medians) the forest was first on screen at 4.0 s (2.7 to 4.6 s) and all there at
-7.6 s (6.7 to 8.3 s); with the steps in their order then (coast, animals, props) the whole island came at 7.3 s (6.9 to 7.9 s), nearly as late
-as the old way finished.
+7.6 s (6.7 to 8.3 s); with the steps in the order they had (coast, animals, props) the whole island came at 7.3 s (6.9 to 7.9 s), nearly as late
+as the old way finished. With the props
+built before the animals (coast, props, animals) the whole island is there at 3.7 s (3.4 to 4.3 s), sooner than the first piece was before; the
+first animal comes at 3.4 s (3.6 s before) and everything is built at 5.5 s (6.3 s before; the runs vary by seconds on this busy machine). The
+animals now join a little after the island rather than before it, which keeps them from swimming over water the island is about to appear in.
 
 Identical: the 162 fingerprints of `perf-build --quick --explorer`; `npm run verify:swim` 0 clipped, 0 on land, 0 grazing in all 30 cases.
 

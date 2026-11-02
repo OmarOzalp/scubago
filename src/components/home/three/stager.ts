@@ -4,17 +4,18 @@
  * hands it out in steps instead, each in a task of its own, with the screen drawn in between (staging.tsx opens the steps in the scene;
  * sliced-geometry.ts builds the big meshes in slices of a few milliseconds each).
  *
- * A step belongs to an island (or to none: the sea between) and has a stage (STAGE: the coast first, then the animals' swimming and each
- * animal, then what grows on and round the island, then the small life of the reef). The next step is always the pending one with the lowest
+ * A step belongs to an island (or to none: the sea between) and has a stage (STAGE: the coast first, then what grows on and round the island,
+ * the animals' swimming and each animal, then the small life of the reef: an island new to the scene is shown whole once its coast and what grows
+ * on it are built, so these come before the animals). The next step is always the pending one with the lowest
  * rank: the islands in or near the view before the rest (`focus`, asked afresh at every step, so an island the camera nears moves up),
- * and within them stage by stage, so every island in view has its coast before any has its props, and its first animal before any has
+ * and within them stage by stage, so every island in view has its coast before any has its swimming, and its first animal before any has
  * its second. Nothing is built before the scene's first frame has been drawn: the ocean comes first.
  *
  * Pure: no React, no three.js, and the clock and timers are handed in, so the order is tested without a scene.
  */
 
-/** The stages of an island, in the order they are built in: the coast, the animals' swimming, each animal (a stage with many steps), then what grows on and round the island, and its small life. */
-export const STAGE = { coast: 1, swim: 2, animal: 3, props: 4, small: 5 } as const;
+/** The stages of an island, in the order they are built in: the coast, what grows on and round the island, the animals' swimming, each animal (a stage with many steps), and its small life. */
+export const STAGE = { coast: 1, props: 2, swim: 3, animal: 4, small: 5 } as const;
 
 /** Islands (their keys) nearest the view first, and how many of them are in or near it. */
 export type Focus = { order: readonly string[]; near: number };
