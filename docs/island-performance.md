@@ -588,9 +588,12 @@ Nothing that is built looks or swims differently: the same code makes the same n
   1.5 s later (twice the screen's size; a PNG on a phone, a JPEG on the web) and keeps it under the key of that view: the islands in the
   ocean, the level, the island it opens on and the shape of the screen (`explorerViewKey`). The last four views are kept (two on the web,
   where they sit in storage). The next time the same view opens, the picture is on screen at once, over the scene being built, and
-  cross-fades away once the scene has drawn all that is in view with its animals (at once with Reduce Motion), or after 4 s in any case,
+  cross-fades away once the scene has drawn all that is in view with its animals (at once with Reduce Motion), or in any case after 12 s (Home's: 4 s),
   or the moment a finger, a button or the wheel moves the view (it would be a picture of where the view was). A picture of another view,
-  another level or another set of islands is never shown. It covers the wait for the collection to be read too.
+  another level or another set of islands is never shown. It covers the wait for the collection to be read too. Frames drawn while the
+  stager still has something in view to build do not count towards "drawn" (the canvas's first two frames come before its islands have said
+  what they have to build: they once ended the picture some 50 ms after mount, in 2 of 9 reopens on the web, with the build still seconds
+  from done), and the explorer's picture waits up to 12 s, not 4: with the CPU slowed 4x it went at 5 to 6 s while the build ended at 8 to 9 s.
 - **Marks.** `scubago:explorer-frame`, `-animal`, `-built` and `-picture` beside Home's `scene-frame`, `first-animal`, `scene-built`, and a
   measure `scubago:step <island> <stage>.<n>` for each step, for measuring on a phone.
 

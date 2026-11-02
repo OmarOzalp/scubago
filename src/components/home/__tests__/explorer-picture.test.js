@@ -128,3 +128,28 @@ test('a picture already kept for the view and shown is left alone; one that coul
   await wait(6000);
   expect(captureScene).toHaveBeenCalledTimes(1);
 });
+
+test('the explorer’s picture waits up to 12 s for a scene that is still being built (no frame has drawn it complete), where Home’s goes at 4 s', async () => {
+  // (the picture is still laid over the scene while it is fully opaque; once it has begun to fade, or is gone, it is not)
+  const shownPicture = () => root.root.findAll((node) => typeof node.type === 'string' && node.props.source?.uri === PICTURE
+    && [node.props.style].flat(3).every((style) => !style || style.opacity === undefined || (style.opacity.__getValue?.() ?? style.opacity) >= 1)).length;
+  // (no frame is ever drawn here: the scene never says it is drawn, so only the longest wait ends the picture)
+  mockKept = { level: 1, habitat: 'island', models: [], picture: { uri: PICTURE, level: 1, habitat: 'island' }, views: [{ uri: PICTURE, key: KEY }] };
+  await show();
+  expect(shownPicture()).toBe(1);
+  // (in steps, so that a fade begun by an earlier end of the wait has time to show in the picture before it is looked at)
+  for (const ms of [3000, 3000, 3000, 1000, 500, 500, 500]) await wait(ms);
+  expect(shownPicture()).toBe(1);
+  // (the longest wait is over: the picture fades, which takes a moment more)
+  for (const ms of [600, 300, 300]) await wait(ms);
+  expect(shownPicture()).toBe(0);
+  await act(async () => root.unmount());
+  root = null;
+  // Home's card: the picture is laid over its scene and goes after 4 s at the longest.
+  await act(async () => { root = create(<SanctuaryScene {...props} />); });
+  expect(shownPicture()).toBe(1);
+  for (const ms of [1500, 1500, 400]) await wait(ms);
+  expect(shownPicture()).toBe(1);
+  for (const ms of [300, 300, 300, 300]) await wait(ms);
+  expect(shownPicture()).toBe(0);
+});

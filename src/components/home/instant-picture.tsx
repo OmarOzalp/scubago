@@ -1,14 +1,17 @@
-import { useEffect, useRef, useState } from 'react';
+import { useContext, useEffect, useRef, useState } from 'react';
 import { AccessibilityInfo, Animated, StyleSheet } from 'react-native';
 import { useFrame, useThree } from '@react-three/fiber';
 import type { Habitat } from '@/lib/home';
 import { explorerPictureFor, pictureFor, useHomeScene } from './home-start';
 import { markOnce } from './three/scene-marks';
+import { StagerContext } from './three/staging';
 
 /** How long the picture fades into the live scene (ms; at once with Reduce Motion). */
 const FADE_MS = 450;
 /** However things go, the live scene shows after this long (ms): the picture never stays up for good. */
 const LONGEST_MS = 4000;
+/** The explorer's, which covers the building of every island in view (seconds on a phone, the first time): it stays up until they are all in. */
+const EXPLORER_LONGEST_MS = 12000;
 
 /** Whether Reduce Motion is on (false until the setting has been read). */
 function useReduceMotion() {
@@ -55,11 +58,12 @@ export function useInstantPicture({ enabled, level, habitat, loading, armed, exp
   }
   // Drawn with its animals (FrameWatch), or taking too long: fade to the live scene.
   const [drawn, setDrawn] = useState(false);
+  const longest = explorer ? EXPLORER_LONGEST_MS : LONGEST_MS;
   useEffect(() => {
     if (phase !== 'picture' && phase !== 'deciding') return;
-    const timer = setTimeout(() => setDrawn(true), LONGEST_MS);
+    const timer = setTimeout(() => setDrawn(true), longest);
     return () => clearTimeout(timer);
-  }, [phase]);
+  }, [phase, longest]);
   if (drawn && phase === 'picture') setPhase('fading');
   if (drawn && phase === 'deciding') setPhase('live');
   useEffect(() => {
@@ -88,10 +92,12 @@ export function useInstantPicture({ enabled, level, habitat, loading, armed, exp
 
 /**
  * In the canvas: once `watching`, calls `onDrawn` after the scene has drawn two frames (its animals in the first are on
- * screen by the second), asking for them if the scene only draws on demand (still, or paused).
+ * screen by the second), asking for them if the scene only draws on demand (still, or paused). Frames drawn while the scene's stager is
+ * not settled (something in view still to build) are not counted, whatever `watching` last said.
  */
 export function FrameWatch({ watching, onDrawn }: { watching: boolean; onDrawn: () => void }) {
   const invalidate = useThree((state) => state.invalidate);
+  const stager = useContext(StagerContext);
   const frames = useRef(0);
   const latest = useRef(onDrawn);
   useEffect(() => { latest.current = onDrawn; });
@@ -100,7 +106,9 @@ export function FrameWatch({ watching, onDrawn }: { watching: boolean; onDrawn: 
     if (watching) invalidate();
   }, [watching, invalidate]);
   useFrame(() => {
-    if (!watching || frames.current >= 2) return;
+    // (what is still to be built counts as it is now, not as the scene last said: the canvas's first frames come before its islands have said what
+    // they have to build, and a scene that is not settled has not drawn what is in view)
+    if (!watching || frames.current >= 2 || stager?.getState().settled === false) return;
     frames.current += 1;
     if (frames.current === 2) latest.current();
     else invalidate();
