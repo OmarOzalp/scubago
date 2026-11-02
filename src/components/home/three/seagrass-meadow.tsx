@@ -7,6 +7,7 @@ import { buildSeagrassGeometry } from './seagrass-geometry';
 import { createOceanUniforms, OCEAN_SHADER_CHUNKS, type OceanUniforms } from './ocean-mesh';
 import { useSceneQuality } from './scene-quality';
 import { underwaterTintGLSL, underwaterVertexGLSL } from './underwater-material';
+import { holdStill } from './static-matrix';
 
 /**
  * The blades sway with the surge, a wave travelling through the meadow, more toward their tips; under
@@ -56,6 +57,7 @@ export function SeagrassMeadow({ level }: { level: number }) {
     mesh.name = 'seagrass-meadow';
     mesh.renderOrder = 1;
     mesh.raycast = () => {};
+    holdStill(mesh);
     return mesh;
   }, [level, lite, ocean]);
   // (the geometry is shared, geometry-cache.ts: only the material is this mesh's own to dispose)

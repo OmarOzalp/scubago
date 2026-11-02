@@ -6,6 +6,7 @@ import { REEF_ROCK, reefRocks, type ReefRock } from '@/lib/reef-life';
 import { OceanContext } from './ocean-context';
 import { useSceneQuality } from './scene-quality';
 import { FLOOR_BIAS, prepareUnderwater } from './underwater-material';
+import { holdStill } from './static-matrix';
 
 /** Weathered reef rock, darker than the island's dry stones, its faces a little lighter and darker. */
 const ROCK = new Color('#6E7A66'), DARK = new Color('#58634F'), LIGHT = new Color('#89937B');
@@ -65,6 +66,7 @@ export function ReefRocks({ level, morays, octopuses, shape = 'reef' }: { level:
     const material = new MeshLambertMaterial({ vertexColors: true });
     const mesh = new Mesh(geometry, material);
     mesh.raycast = () => {};
+    holdStill(mesh);
     // prepareUnderwater gives the mesh its own copies of the geometry and material.
     // Standing up off the bottom, they take on less of the water's color than the sand around them.
     const look = prepareUnderwater(mesh, ocean ?? undefined, lite, { bias: FLOOR_BIAS, seabed: .45 });

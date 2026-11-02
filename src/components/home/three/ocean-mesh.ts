@@ -7,6 +7,7 @@ import { OCEAN, waveTerms, type OceanConfig } from '@/lib/ocean';
 import type { OceanIsland } from '@/lib/seabed';
 import { DEPTH, depthTexels, OCEAN_REGIONS, waterVertices } from '@/lib/seabed-depth';
 import { hash, type WaterExtent } from '@/lib/seabed-lattice';
+import { holdStill } from './static-matrix';
 
 /**
  * The ocean around the islands: a low-poly water surface displaced by several
@@ -561,6 +562,7 @@ export function createWaterMesh(uniforms: OceanUniforms, field: DepthField, conf
   mesh.renderOrder = 2;
   mesh.frustumCulled = false;
   mesh.raycast = () => {};
+  holdStill(mesh);
   return mesh;
 }
 
@@ -577,6 +579,7 @@ export function createLiteOceanMesh(uniforms: OceanUniforms, field: DepthField, 
   mesh.renderOrder = -1;
   mesh.frustumCulled = false;
   mesh.raycast = () => {};
+  holdStill(mesh);
   return mesh;
 }
 
@@ -628,5 +631,6 @@ export function createSeabedMesh(uniforms: OceanUniforms, field: DepthField, rea
   mesh.renderOrder = -1;
   mesh.frustumCulled = false;
   mesh.raycast = () => {};
+  holdStill(mesh);
   return mesh;
 }

@@ -8,6 +8,7 @@ import { createOceanUniforms, OCEAN_SHADER_CHUNKS, type OceanUniforms } from './
 import { OceanContext } from './ocean-context';
 import { useSceneQuality } from './scene-quality';
 import { underwaterTintGLSL, underwaterVertexGLSL } from './underwater-material';
+import { holdStill } from './static-matrix';
 
 /**
  * Kelp's material: vertex-colored and double-sided, swaying in the vertex shader from each vertex's
@@ -88,6 +89,7 @@ export function KelpForest({ level }: { level: number }) {
     mesh.renderOrder = 1;
     // Taps go through the kelp to the animals behind it.
     mesh.raycast = () => {};
+    holdStill(mesh);
     return mesh;
   }, [level, lite, ocean, movers]);
   // (the geometry is shared, geometry-cache.ts: only the material is this mesh's own to dispose)

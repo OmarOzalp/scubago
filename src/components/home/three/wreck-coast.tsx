@@ -12,6 +12,7 @@ import { foliage, palm, tube } from './reef-coast';
 import { useSceneQuality } from './scene-quality';
 import { FLOOR_BIAS, prepareUnderwater } from './underwater-material';
 import { Unlock } from './unlock';
+import { holdStill } from './static-matrix';
 
 /**
  * The Shipwreck: a low crescent of white sand dunes with beach grass, a few palms and driftwood,
@@ -286,6 +287,7 @@ function SunkenWreck({ geometry }: { geometry: BufferGeometry }) {
     const mesh = new Mesh(geometry, material);
     mesh.name = 'wreck-sunken';
     mesh.raycast = () => {};
+    holdStill(mesh);
     // Lying in the water, she takes on its color like the seabed itself.
     const look = prepareUnderwater(mesh, ocean ?? undefined, lite, { bias: FLOOR_BIAS, seabed: .85 });
     material.dispose();
@@ -311,6 +313,7 @@ function IsletCay({ position, scale, seed }: { position: [number, number]; scale
     const mesh = new Mesh(geometry, new MeshLambertMaterial({ vertexColors: true, flatShading: true, side: DoubleSide }));
     mesh.name = 'wreck-islet';
     mesh.raycast = () => {};
+    holdStill(mesh);
     return mesh;
   }, [position, scale, seed]);
   useEffect(() => () => { mesh.geometry.dispose(); (mesh.material as MeshLambertMaterial).dispose(); }, [mesh]);
@@ -353,6 +356,7 @@ export function WreckCoast({ level }: { level: number }) {
     const cay = new Mesh(geometry, new MeshLambertMaterial({ vertexColors: true, flatShading: true, side: DoubleSide }));
     cay.name = 'wreck-coast';
     cay.raycast = () => {};
+    holdStill(cay);
     return { cay, sunken: builtOnce('wreck-sunken', () => splitAtSurface(wreckGeometry())[1]) };
   }, [lite]);
   // (the geometry is shared, geometry-cache.ts: only the material is this mesh's own to dispose)

@@ -15,6 +15,7 @@ import type { Ocean } from './water-surface';
 import { useSceneQuality } from './scene-quality';
 import { FLOOR_BIAS, prepareUnderwater } from './underwater-material';
 import { Unlock } from './unlock';
+import { holdStill } from './static-matrix';
 
 /**
  * The Coral Reef: Home's island, a coral cay like Heron Island or the cays of the Maldives. A white
@@ -337,6 +338,7 @@ function useCoralMesh(heads: () => readonly CoralHead[], name: string, key: stri
     const mesh = new Mesh(geometry, material);
     mesh.name = name;
     mesh.raycast = () => {};
+    holdStill(mesh);
     // Standing up off the bottom, they take on a little less of the water's color than the sand around them.
     const look = prepareUnderwater(mesh, ocean ?? undefined, lite, { bias: FLOOR_BIAS, seabed: .32 });
     material.dispose();
@@ -377,6 +379,7 @@ function IsletCay({ position, scale, seed }: { position: [number, number]; scale
     const mesh = new Mesh(geometry, new MeshLambertMaterial({ vertexColors: true, flatShading: true, side: DoubleSide }));
     mesh.name = 'reef-islet';
     mesh.raycast = () => {};
+    holdStill(mesh);
     return mesh;
   }, [position, scale, seed]);
   useEffect(() => () => { mesh.geometry.dispose(); (mesh.material as MeshLambertMaterial).dispose(); }, [mesh]);
@@ -451,6 +454,7 @@ export function ReefCoast({ level, ocean, place }: { level: number; ocean: Ocean
     const mesh = new Mesh(geometry, new MeshLambertMaterial({ vertexColors: true, flatShading: true, side: DoubleSide }));
     mesh.name = 'reef-coast';
     mesh.raycast = () => {};
+    holdStill(mesh);
     return mesh;
   }, [geometry]);
   // (the geometry is shared, geometry-cache.ts: only the material is this mesh's own to dispose)
@@ -480,6 +484,7 @@ function PalmAt({ x, z }: { x: number; z: number }) {
     geometry.computeVertexNormals();
     const mesh = new Mesh(geometry, new MeshLambertMaterial({ vertexColors: true, flatShading: true, side: DoubleSide }));
     mesh.raycast = () => {};
+    holdStill(mesh);
     return mesh;
   }, [x, z]);
   useEffect(() => () => { mesh.geometry.dispose(); (mesh.material as MeshLambertMaterial).dispose(); }, [mesh]);

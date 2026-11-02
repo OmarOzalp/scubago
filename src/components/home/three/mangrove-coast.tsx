@@ -9,6 +9,7 @@ import { useSlicedGeometry, type Job } from './sliced-geometry';
 import { STAGE } from './stager';
 import { Arriving } from './staging';
 import { useSceneQuality } from './scene-quality';
+import { holdStill } from './static-matrix';
 
 /**
  * The Mangroves & Seagrass island: a low island of tidal mud under a dense, glossy canopy of
@@ -331,6 +332,7 @@ export function MangroveCoast({ level }: { level: number }) {
     const mesh = new Mesh(geometry, new MeshLambertMaterial({ vertexColors: true, flatShading: true }));
     mesh.name = 'mangrove-coast';
     mesh.raycast = () => {};
+    holdStill(mesh);
     return mesh;
   }, [geometry]);
   // (the geometry is shared, geometry-cache.ts: only the material is this mesh's own to dispose)

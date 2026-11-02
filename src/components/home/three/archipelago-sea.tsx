@@ -4,6 +4,7 @@ import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js
 import type { Bank } from '@/lib/banks';
 import { OCEAN } from '@/lib/ocean';
 import { boulder, faces, hash, paintFaces } from './coast-geometry';
+import { holdStill } from './static-matrix';
 
 /**
  * What breaks the surface of the archipelago's bank between the islands (banks.ts): small cays of
@@ -73,6 +74,7 @@ export function ArchipelagoSea({ bank }: { bank: Bank }) {
     const mesh = new Mesh(geometry, new MeshLambertMaterial({ vertexColors: true, flatShading: true }));
     mesh.name = 'archipelago-sea';
     mesh.raycast = () => {};
+    holdStill(mesh);
     return mesh;
   }, [bank]);
   useEffect(() => () => { mesh.geometry.dispose(); (mesh.material as MeshLambertMaterial).dispose(); }, [mesh]);

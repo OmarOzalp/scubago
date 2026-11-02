@@ -6,6 +6,7 @@ import { REEF_ANEMONE, reefRocks, type ReefRock } from '@/lib/reef-life';
 import { OceanContext } from './ocean-context';
 import { useSceneQuality } from './scene-quality';
 import { FLOOR_BIAS, prepareUnderwater } from './underwater-material';
+import { holdStill } from './static-matrix';
 
 /** A magnificent sea anemone: a purple column under a dense crown of finger-like tentacles, sand-colored with green-gold tips. */
 const COLUMN = new Color('#b0307e'), DISC = new Color('#c98a6a'), TENTACLE = new Color('#efc47e'), TIP = new Color('#a8dc48');
@@ -92,6 +93,7 @@ export function ReefAnemones({ level, count, shape = 'reef' }: { level: number; 
     const material = new MeshLambertMaterial({ vertexColors: true });
     const mesh = new Mesh(geometry, material);
     mesh.raycast = () => {};
+    holdStill(mesh);
     // Vivid on the sand: it takes on much less of the water's color than the rocks do.
     const look = prepareUnderwater(mesh, ocean ?? undefined, lite, { bias: FLOOR_BIAS, seabed: .1 });
     geometry.dispose();

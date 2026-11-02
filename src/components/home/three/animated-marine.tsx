@@ -8,6 +8,7 @@ import { attachSwimRig, swimDrive } from './swim-rig-driver';
 import { MARINE_SIZE, TAP_SHAPES, TAP_SLOP, tapTarget } from './tap-target';
 import { disposeSkeletons } from './skeleton-dispose';
 import { markOnce, SceneMarksContext } from './scene-marks';
+import { freezeMatrices } from './static-matrix';
 import { onScreen } from './view-cull';
 import { MOVEMENT, type MarineMotion } from '@/lib/marine-motion';
 import { SWIM_RIGS, type SwimDrive, type SwimRigModel } from '@/lib/marine-rigs';
@@ -133,6 +134,8 @@ export function AnimatedMarine({ model, gltf, lane, active, inspect = false, pop
       where.set(pose.x, pose.y + dive.y, pose.z);
       if (group.current.parent) where.applyMatrix4(group.current.parent.matrixWorld);
       seen.current = onScreen(camera, where, SIZE[model]);
+      // Out of sight nothing draws it, so its skeleton's matrices (a bone each) are left alone until the frame it is shown again.
+      freezeMatrices(instance, !seen.current);
       if (swimRig && dt > 0 && seen.current) {
         const sink = ((motion ? motion.dive(lane, clock - dt) : sampleDive(clock - dt, lane, population)).y - dive.y) / dt;
         swimRig.update(dt, swimDrive(swimming, SIZE[model], sink));

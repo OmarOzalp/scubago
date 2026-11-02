@@ -8,6 +8,7 @@ import { useHeldGeometry } from './geometry-cache';
 import { useSlicedGeometry, type Job } from './sliced-geometry';
 import { STAGE } from './stager';
 import { Arriving } from './staging';
+import { holdStill } from './static-matrix';
 
 /**
  * The Kelp Forest's island: a rugged headland of dark rock on a cold coast, like the granite of
@@ -161,6 +162,7 @@ export function KelpCoast({ level }: { level: number }) {
     const mesh = new Mesh(geometry, new MeshLambertMaterial({ vertexColors: true, flatShading: true }));
     mesh.name = 'kelp-coast';
     mesh.raycast = () => {};
+    holdStill(mesh);
     return mesh;
   }, [geometry]);
   // (the geometry is shared, geometry-cache.ts: only the material is this mesh's own to dispose)

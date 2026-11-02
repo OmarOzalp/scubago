@@ -12,6 +12,7 @@ import { useSceneQuality } from './scene-quality';
 import { useSlicedGeometry, type Job } from './sliced-geometry';
 import { STAGE } from './stager';
 import { Arriving } from './staging';
+import { holdStill } from './static-matrix';
 
 /**
  * The Volcanic Pinnacle's island: a young lava cone rising steeply out of clear blue water, like the
@@ -270,6 +271,7 @@ export function VolcanicCoast({ level }: { level: number }) {
     const mesh = new Mesh(geometry, new MeshLambertMaterial({ vertexColors: true, flatShading: true }));
     mesh.name = 'volcanic-coast';
     mesh.raycast = () => {};
+    holdStill(mesh);
     return mesh;
   }, [geometry]);
   // (the geometry is shared, geometry-cache.ts: only the material is this mesh's own to dispose)
@@ -291,6 +293,7 @@ function Vent() {
     geometry.translate(CONE.x, TOP + .03 + CONE.height - CONE.crater - .008, CONE.z);
     const mesh = new Mesh(paintFaces(faces(geometry), (x, _y, z, f) => new Color('#E0642C').lerp(new Color('#7A2A1B'), Math.min(1, Math.hypot(x - CONE.x, z - CONE.z) / (CONE.rim * .42) * .9 + hash(f, 2) * .25))), new MeshBasicMaterial({ vertexColors: true }));
     mesh.raycast = () => {};
+    holdStill(mesh);
     return mesh;
   }, []);
   useEffect(() => () => { glow.geometry.dispose(); (glow.material as MeshBasicMaterial).dispose(); }, [glow]);
@@ -415,6 +418,7 @@ function Currents() {
     mesh.renderOrder = 2;
     mesh.frustumCulled = false;
     mesh.raycast = () => {};
+    holdStill(mesh);
     return mesh;
   }, [ocean, lite]);
   useEffect(() => () => { mesh.geometry.dispose(); (mesh.material as ShaderMaterial).dispose(); }, [mesh]);
