@@ -2,7 +2,7 @@ import { ISLAND_PLACES, ISLANDS } from './archipelago';
 import { inflate } from './inflate';
 import { shapeFor, shorePolygons } from './island-outline';
 import type { OceanIsland } from './seabed';
-import { seabedBakeKey, type SeabedBake } from './seabed-bake';
+import { digestBytes, type SeabedBake } from './seabed-bake';
 import { depthGrid, habitatsOf, regionFiller } from './seabed-depth';
 import { oceanBox, seabedLatticeSteps, type Lattice, type LatticeKnown, type LatticeSource, type WaterExtent } from './seabed-lattice';
 import type { Steps } from './slices';
@@ -68,13 +68,13 @@ export function oceanPackName(level: number, islands: readonly OceanIsland[], re
 }
 /** The name of the region maps of these islands (in any order; the same at every level): 'rg-kvrmw'. */
 export const oceanRegionsName = (islands: readonly OceanIsland[]) => { const set = oceanSetCode(islands); return set ? `rg-${set}` : null; };
-/** The name of an island's table at a level: 'r-3'. */
-export const oceanTableName = (code: string, level: number) => `${code}-${level}`;
+/** The name of an island's table at a level: 't-r-3'. */
+export const oceanTableName = (code: string, level: number) => `t-${code}-${level}`;
 export const islandCode = codeOf;
 
 type Section = { offset: number; length: number; size: number };
 type PackHeader = {
-  v: number; name: string; key: string; level: number; columns: number; rows: number; floor: number;
+  v: number; name: string; level: number; columns: number; rows: number; floor: number;
   /** Each island's block of vertices in the lattice: its code, the rings a ray has, how many of its heights differ from the table's. */
   blocks: { code: string; n: number; over: number }[];
   /** How each plane of the texels is predicted: from the row above ('up'), the texel to the left, or not at all. */
@@ -88,6 +88,7 @@ type TableHeader = { v: number; code: string; level: number; variants: { n: numb
 
 const PACK_MAGIC = 0x4b504753, TABLE_MAGIC = 0x4b544753, REGIONS_MAGIC = 0x4b524753; // 'SGPK', 'SGTK', 'SGRK'
 const VERSION = 1;
+const NO_DIGEST = '0'.repeat(16);
 
 /** Bytes laid out as a file: magic, version, the header (JSON) and then the sections each deflated, every one on a multiple of 8 bytes. */
 function writeFile(magic: number, header: Record<string, unknown> & { sections?: Record<string, Section> }, parts: [string, Uint8Array, number][]) {
@@ -95,11 +96,14 @@ function writeFile(magic: number, header: Record<string, unknown> & { sections?:
   const sections: Record<string, Section> = {};
   let offset = 0;
   for (const [name, bytes, size] of parts) { sections[name] = { offset, length: bytes.length, size }; offset += Math.ceil(bytes.length / 8) * 8; }
-  const json = JSON.stringify({ ...header, sections }), start = Math.ceil((12 + json.length) / 8) * 8;
+  const json = JSON.stringify({ ...header, sections, check: NO_DIGEST }), start = Math.ceil((12 + json.length) / 8) * 8;
   const out = new Uint8Array(start + offset), view = new DataView(out.buffer);
   view.setUint32(0, magic, true); view.setUint32(4, VERSION, true); view.setUint32(8, json.length, true);
   for (let i = 0; i < json.length; i++) out[12 + i] = json.charCodeAt(i);
   for (const [name, bytes] of parts) out.set(bytes, start + sections[name].offset);
+  // (a digest of everything after the header goes in once the sections are down: a file cut short or damaged is told by it)
+  const digest = digestBytes(out, start), at = 12 + json.indexOf(`"check":"${NO_DIGEST}`) + 9;
+  for (let i = 0; i < digest.length; i++) out[at + i] = digest.charCodeAt(i);
   return out;
 }
 function readFile(source: ArrayBuffer | Uint8Array, magic: number) {
@@ -111,6 +115,7 @@ function readFile(source: ArrayBuffer | Uint8Array, magic: number) {
   let json = '';
   for (let i = 0; i < length; i++) json += String.fromCharCode(bytes[12 + i]);
   const header = JSON.parse(json), start = Math.ceil((12 + length) / 8) * 8;
+  if (header.check !== digestBytes(bytes, start)) throw new Error('Ocean pack damaged or cut short');
   /** A section, inflated (a copy of its own, so that it can be viewed as numbers). */
   const section = (name: string) => {
     const s = (header.sections as Record<string, Section>)[name];
@@ -192,7 +197,7 @@ export type Compress = (bytes: Uint8Array) => Uint8Array;
 
 /**
  * The tables of the islands, from every ocean there is: for each island, level and number of rings a ray has, the height most sets agree on at each
- * vertex (the Coral Reef's x and z too: they are the same in every set). Returns them by `oceanTableName` and the number of rings, with the
+ * vertex (the Coral Reef's x and z too: they are the same in every set). Returns them by island, level and number of rings (`r|3|28`), with the
  * contents `encodeOceanPack` leaves out of each pack.
  */
 export function chooseTables(sources: readonly PackSource[]) {
@@ -275,7 +280,7 @@ export function encodeOceanPack(source: PackSource, tables: ReturnType<typeof ch
   const indexBytes = bytesOf(overIndex, Uint32Array), yBytes = bytesOf(overY, Float64Array);
   parts.push(['overIndex', compress(indexBytes), indexBytes.length], ['overY', compress(yBytes), yBytes.length]);
   const name = oceanPackName(level, islands, PACK_REACH)!;
-  const header = { v: VERSION, name, key: seabedBakeKey(level, order.map((o) => o.island), PACK_REACH), level, columns, rows, floor: layout.floor, blocks, planes };
+  const header = { v: VERSION, name, level, columns, rows, floor: layout.floor, blocks, planes };
   return writeFile(PACK_MAGIC, header, parts);
 }
 

@@ -6,7 +6,7 @@ import type { WaterExtent } from './seabed-lattice';
 /**
  * What tells a saved ocean (ocean-store.ts) from a stale one. The ocean of several islands is not baked into the app, so a change to
  * how the seabed or the water is made would leave the files on the phones holding the old numbers. Their version (ocean-version.ts,
- * written by scripts/bake-seabed.ts) is a digest of what the shipped bakes hold (every island alone, at every level) and of a few
+ * written by scripts/bake-seabed.ts) is a digest of what the shipped bakes hold (every island alone, at every level) and the oceans shipped (ocean-pack.ts) and of a few
  * oceans of several islands worked out in full here (the probes): while the code makes other numbers than the version was written
  * for, ocean-version.test.ts fails; run `npx tsx scripts/bake-seabed.ts` and the version changes, and so does every saved ocean's name.
  */
@@ -35,11 +35,11 @@ export function fingerprintOcean(bake: SeabedBake) {
   ];
   return parts.map((part) => digestBytes(part)).join('.');
 }
-/** A digest of the shipped bakes' files, in the order given. */
+/** A digest of the shipped bakes' (or shipped oceans') files, in the order given. */
 export const fingerprintBakes = (files: Uint8Array[]) => files.map((file) => digestBytes(file)).join('.');
 /** The version from its parts: a digest of their text. */
-export function oceanVersion(parts: { bakes: string; probes: string[] }) {
-  const text = [parts.bakes, ...parts.probes].join('\n');
+export function oceanVersion(parts: { bakes: string; probes: string[]; packs: string }) {
+  const text = [parts.bakes, ...parts.probes, parts.packs].join('\n');
   const bytes = new Uint8Array(text.length);
   for (let i = 0; i < text.length; i++) bytes[i] = text.charCodeAt(i) & 255;
   return digestBytes(bytes);

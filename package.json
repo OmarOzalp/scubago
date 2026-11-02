@@ -71,6 +71,9 @@
     "verify:underwater": "tsx scripts/verify-underwater.mjs",
     "verify:ocean": "tsx scripts/verify-ocean.mjs",
     "verify:swim": "tsx scripts/verify-swim.mjs",
+    "verify:ocean-packs": "tsx scripts/verify-ocean-packs.ts",
+    "bake:seabed": "tsx scripts/bake-seabed.ts",
+    "bake:oceans": "tsx scripts/bake-oceans.ts",
     "build:species": "tsx scripts/art/build-species.ts",
     "plates:sheet": "tsx scripts/art/plates-sheet.ts",
     "seed:supabase": "tsx scripts/seed-supabase.ts",
@@ -86,6 +89,7 @@
   "jest": {
     "preset": "jest-expo",
     "moduleNameMapper": {
+      "\\.bin$": "<rootDir>/src/test-support/bin-asset.js",
       "^@react-native-async-storage/async-storage$": "@react-native-async-storage/async-storage/jest/async-storage-mock",
       "^@/assets/(.*)$": "<rootDir>/assets/$1",
       "^@/(.*)$": "<rootDir>/src/$1"
