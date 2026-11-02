@@ -67,6 +67,9 @@ export function prepareUnderwater(instance: Object3D, ocean: OceanUniforms = cre
   // Reef animals only: in-den cut (from the tail, from the head), color state (brightness, saturation, contrast, its average), depth bias, seabed tint.
   const hide = { value: new Vector2(0, 0) }, tone = { value: new Vector4(1, 1, 1, .2) };
   const bias = { value: reef?.bias ?? 0 }, seabed = { value: reef?.seabed ?? 0 };
+  // One program for every animal, reef or open water: the reef's extra work is skipped (not merely neutral) when this is 0, so an
+  // open-water animal comes out exactly as it did with a program of its own.
+  const reefOn = { value: reef ? 1 : 0 };
   let luma = 0, colors = 0;
   const materials = new Map<Material, Material>();
   const geometries: BufferGeometry[] = [];
@@ -108,7 +111,7 @@ export function prepareUnderwater(instance: Object3D, ocean: OceanUniforms = cre
         material.forceSinglePass = true;
         material.onBeforeCompile = (shader) => {
           // The water's uniforms are shared objects, so every animal follows the same waves and palette.
-          Object.assign(shader.uniforms, ocean, { diveDepth: depth, surfacing }, reef ? { diveHide: hide, diveTone: tone, diveBias: bias, diveSeabed: seabed } : {});
+          Object.assign(shader.uniforms, ocean, { diveDepth: depth, surfacing, diveReef: reefOn, diveHide: hide, diveTone: tone, diveBias: bias, diveSeabed: seabed });
           shader.vertexShader = `attribute float diveAlong;\nuniform float diveDepth;\nuniform float surfacing;\nuniform float uOceanSurface;\nuniform float uOceanDistortion;\nuniform vec2 uOceanEdge;
 varying float submersion;\nvarying float vOceanDepth;\nvarying float vOceanHaze;\n${OCEAN_SHADER_CHUNKS.waves}\n${shader.vertexShader}`
             .replace('#include <begin_vertex>', `#include <begin_vertex>
@@ -118,31 +121,31 @@ varying float submersion;\nvarying float vOceanDepth;\nvarying float vOceanHaze;
               float emergence = smoothstep(0.0, .45, (1.0 - diveFade) * 1.45 - (1.0 - diveAlong));
               submersion = mix(submersion, 1.0 - emergence, surfacing);`)
             .replace('#include <project_vertex>', `#include <project_vertex>
-              vec4 oceanWorld = modelMatrix * vec4(transformed, 1.0);${underwaterVertexGLSL(lite, '(modelMatrix * vec4(0.0, 0.0, 0.0, 1.0)).xz')}${reef ? `
+              vec4 oceanWorld = modelMatrix * vec4(transformed, 1.0);${underwaterVertexGLSL(lite, '(modelMatrix * vec4(0.0, 0.0, 0.0, 1.0)).xz')}
               // Reef: drawn farther back than it is (see ReefLook), and where along its body each fragment is.
-              gl_Position.z -= projectionMatrix[2][2] * diveBias * gl_Position.w;
-              vDiveAlong = diveAlong;` : ''}`);
-          if (reef) {
-            shader.vertexShader = `uniform float diveBias;\nvarying float vDiveAlong;\n${shader.vertexShader}`;
-            shader.fragmentShader = `uniform vec2 diveHide;\nuniform vec4 diveTone;\nuniform float diveSeabed;\nuniform vec3 uOceanSeabed;\nvarying float vDiveAlong;\n${shader.fragmentShader}`
-              .replace('#include <color_fragment>', `#include <color_fragment>
-              // The part of it inside a den is out of sight.
-              if (vDiveAlong < diveHide.x || vDiveAlong > 1.0 - diveHide.y) discard;
-              // Its color state: saturation, then contrast about its average shade, then brightness.
-              float toneLuma = dot(diffuseColor.rgb, vec3(.2126, .7152, .0722));
-              diffuseColor.rgb = max(vec3(0.0), (mix(vec3(toneLuma), diffuseColor.rgb, diveTone.y) - diveTone.w) * diveTone.z + diveTone.w) * diveTone.x;`);
-          }
+              if (diveReef > .5) gl_Position.z -= projectionMatrix[2][2] * diveBias * gl_Position.w;
+              vDiveAlong = diveAlong;`);
+          shader.vertexShader = `uniform float diveReef;\nuniform float diveBias;\nvarying float vDiveAlong;\n${shader.vertexShader}`;
+          shader.fragmentShader = `uniform float diveReef;\nuniform vec2 diveHide;\nuniform vec4 diveTone;\nuniform float diveSeabed;\nuniform vec3 uOceanSeabed;\nvarying float vDiveAlong;\n${shader.fragmentShader}`
+            .replace('#include <color_fragment>', `#include <color_fragment>
+              if (diveReef > .5) {
+                // The part of it inside a den is out of sight.
+                if (vDiveAlong < diveHide.x || vDiveAlong > 1.0 - diveHide.y) discard;
+                // Its color state: saturation, then contrast about its average shade, then brightness.
+                float toneLuma = dot(diffuseColor.rgb, vec3(.2126, .7152, .0722));
+                diffuseColor.rgb = max(vec3(0.0), (mix(vec3(toneLuma), diffuseColor.rgb, diveTone.y) - diveTone.w) * diveTone.z + diveTone.w) * diveTone.x;
+              }`);
           shader.fragmentShader = `uniform vec4 uOceanUnderwater;\nuniform vec3 uOceanCard;\nuniform vec2 uOceanOpacity;\nvarying float submersion;\nvarying float vOceanDepth;\nvarying float vOceanHaze;\n${OCEAN_SHADER_CHUNKS.color}\n${shader.fragmentShader}`
-            .replace('#include <opaque_fragment>', `${underwaterTintGLSL(lite)}${reef ? `
-              // A rock takes on the water above it like the seabed's props.
-              outgoingLight = mix(outgoingLight, oceanWaterColor(vOceanDepth), diveSeabed * (1.0 - exp(-max(0.0, vOceanDepth - .15) / uOceanSeabed.x)));` : ''}
+            .replace('#include <opaque_fragment>', `${underwaterTintGLSL(lite)}
+              // A reef rock takes on the water above it like the seabed's props.
+              if (diveReef > .5) outgoingLight = mix(outgoingLight, oceanWaterColor(vOceanDepth), diveSeabed * (1.0 - exp(-max(0.0, vOceanDepth - .15) / uOceanSeabed.x)));
               outgoingLight = mix(outgoingLight, oceanTone, submersion * .8);
               outgoingLight = mix(outgoingLight, uOceanCard, vOceanHaze);
               diffuseColor.a *= 1.0 - submersion;
               if (diffuseColor.a < .005) discard;
               #include <opaque_fragment>`);
         };
-        material.customProgramCacheKey = () => `marine-ocean-water-v3${lite ? '-lite' : ''}${reef ? '-reef' : ''}`;
+        material.customProgramCacheKey = () => `marine-ocean-water-v4${lite ? '-lite' : ''}`;
         materials.set(source, material);
       }
       return materials.get(source)!;

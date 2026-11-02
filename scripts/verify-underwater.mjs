@@ -85,7 +85,7 @@ for (const name of MODELS) {
     assert(shader.fragmentShader.includes('uOceanOpacity.y * .85'));
     assert(shader.fragmentShader.includes('diffuseColor.a *= 1.0 - submersion'));
     // A separate program key, so three.js never reuses the full-quality program for lite animals.
-    assert.equal(material.customProgramCacheKey(), 'marine-ocean-water-v3-lite');
+    assert.equal(material.customProgramCacheKey(), 'marine-ocean-water-v4-lite');
   });
   lite.dispose();
   assert.equal(min, 0); assert.equal(max, 1);
@@ -120,7 +120,10 @@ for (const name of MODELS) {
         assert.equal(shader.uniforms.diveBias.value, FLOOR_BIAS);
         // Its contrast works about its own average shade.
         assert(shader.uniforms.diveTone.value.w > .02 && shader.uniforms.diveTone.value.w < .8, `${name}: average shade ${shader.uniforms.diveTone.value.w}`);
-        assert.equal(material.customProgramCacheKey(), lite ? 'marine-ocean-water-v3-lite-reef' : 'marine-ocean-water-v3-reef');
+        assert.equal(shader.uniforms.diveReef.value, 1, `${name}: the reef's extra work is off for a reef animal`);
+        assert(shader.vertexShader.includes('if (diveReef > .5) gl_Position.z'), `${name}: the set-back must wait on the reef flag`);
+        // One program for every animal, reef or open water (the reef's work is behind the flag).
+        assert.equal(material.customProgramCacheKey(), lite ? 'marine-ocean-water-v4-lite' : 'marine-ocean-water-v4');
       });
       b.traverse((object) => {
         if (!object.isMesh) return;
@@ -132,7 +135,7 @@ for (const name of MODELS) {
       });
       first.dispose(); second.dispose();
     }
-    // The open water's animals keep their own program, untouched by any of this.
+    // The open water's animals share the reef's program, with the reef's work switched off (so they come out as they always did).
     const plain = clone(source.scene);
     prepareUnderwater(plain, ocean);
     plain.traverse((object) => {
@@ -140,10 +143,12 @@ for (const name of MODELS) {
       const material = Array.isArray(object.material) ? object.material[0] : object.material;
       const shader = { uniforms: {}, vertexShader: ShaderLib.lambert.vertexShader, fragmentShader: ShaderLib.lambert.fragmentShader };
       material.onBeforeCompile(shader, null);
-      assert(!shader.vertexShader.includes('diveBias') && !shader.fragmentShader.includes('diveHide'));
+      assert.equal(shader.uniforms.diveReef.value, 0, `${name}: an open-water animal must have the reef's work switched off`);
+      assert(/if \(diveReef > \.5\) \{\s*\/\/ The part of it inside a den/.test(shader.fragmentShader), `${name}: the den cut and color state must wait on the reef flag`);
+      assert(shader.fragmentShader.includes('if (diveReef > .5) outgoingLight = mix(outgoingLight, oceanWaterColor(vOceanDepth), diveSeabed'));
       // The waves refract the whole animal together: their slope is read at its middle, never per vertex (which bent long bodies).
       assert(shader.vertexShader.includes('oceanSlope((modelMatrix * vec4(0.0, 0.0, 0.0, 1.0)).xz)') && !shader.vertexShader.includes('oceanSlope(oceanWorld.xz)'));
-      assert.equal(material.customProgramCacheKey(), 'marine-ocean-water-v3');
+      assert.equal(material.customProgramCacheKey(), 'marine-ocean-water-v4');
     });
   }
   // Set back far enough: an octopus on the shelf is drawn behind a whale shark at the bottom of its swimming

@@ -26,7 +26,7 @@ renderer.map = new WeakMap();
 const sceneOf = (...materials) => ({ traverse: jest.fn((visit) => materials.forEach((m) => visit({ material: m }))) });
 
 test('a built-in material\'s program gets one more use, once, so disposing every material that uses it never frees it', () => {
-  const lambert = program('lambert,highp,srgb,marine-ocean-water-v3', 3), basic = program('basic,highp,srgb', 1);
+  const lambert = program('lambert,highp,srgb,marine-ocean-water-v4', 3), basic = program('basic,highp,srgb', 1);
   const gl = renderer([lambert, basic]), keeper = createProgramKeeper();
   keeper.keep(gl, sceneOf());
   keeper.keep(gl, sceneOf());
