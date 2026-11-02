@@ -1,4 +1,7 @@
 import { OCEAN } from './ocean';
+import {
+  oceanPackName, oceanRegionsName, oceanSetCode, oceanTableName, readOceanPack, readOceanRegions, readOceanTable, unpackOcean, type OceanTable,
+} from './ocean-pack';
 import { OCEAN_VERSION } from './ocean-version';
 import { createSeabedField, type OceanIsland } from './seabed';
 import { hasOcean, readSeabedBake, rememberOcean, seabedBakeKey, writeSeabedBake, type SeabedBake } from './seabed-bake';
@@ -14,6 +17,11 @@ import { runSliced, Stopped, type Pacing, type Steps } from './slices';
  * from everything that shapes it and a version that changes whenever the numbers would (ocean-version.ts: the tests fail while it is
  * stale). The next open finds it in memory or reads it back; a file that is damaged, cut short or from another version is ignored,
  * deleted, and the ocean worked out again.
+ *
+ * For the islands a diver can have found, at the water a phone has (ocean-pack.ts), the app ships the ocean itself, worked out ahead of time: the
+ * very same numbers read back in a fraction of a second where working them out takes seconds. It comes after a saved file (which it never writes: it
+ * is always there to be read) and before working the ocean out; anything wrong with it (not there, damaged, not inflating, for other islands, the
+ * wrong size) is a warning in a development build and the ocean is worked out as it always was.
  */
 
 /** Where the oceans are kept: a file each, by name. The phone's cache directory (ocean-files.ts), the web's IndexedDB (ocean-files.web.ts). */
@@ -25,6 +33,12 @@ export type OceanFiles = {
   remove(name: string): Promise<void>;
   /** Every file and when it was written (ms). */
   list(): Promise<{ name: string; at: number }[]>;
+};
+
+/** Where the oceans shipped with the app are: a file each, by name (ocean-pack.ts; three/seabed-assets.ts reads the app's own files). */
+export type OceanPackSource = {
+  /** The file's bytes, or null if the app ships no file of this name. */
+  read(name: string): Promise<Uint8Array | null>;
 };
 
 /** How many oceans are kept on the phone: the last few written (a level-up or a newly found island makes the old ones useless). */
@@ -65,12 +79,12 @@ export function isWholeOcean(bake: SeabedBake, islands: readonly OceanIsland[], 
 }
 
 /** How an ocean came to be held. */
-export type OceanSource = 'held' | 'file' | 'worked out' | 'failed' | 'stopped';
+export type OceanSource = 'held' | 'file' | 'shipped' | 'worked out' | 'failed' | 'stopped';
 
 export type OceanStore = ReturnType<typeof createOceanStore>;
 
 /** An ocean store over these files (and this pacing, for the tests: the slices' clock and pauses). */
-export function createOceanStore(files: OceanFiles | null, pacing: Partial<Pacing> = {}) {
+export function createOceanStore(files: OceanFiles | null, pacing: Partial<Pacing> = {}, packs: OceanPackSource | null = null) {
   /** A job: `hurry` once someone waits for it, `waiters` how many do now, `idle` that Home asked for it (so nobody leaving stops it), `stopped` that all who waited for it have left. */
   type Job = { hurry: boolean; waiters: number; idle: boolean; stopped: boolean; promise: Promise<OceanSource> };
   const jobs = new Map<string, Job>();
@@ -106,6 +120,48 @@ export function createOceanStore(files: OceanFiles | null, pacing: Partial<Pacin
     return false;
   }
 
+  /** Why an ocean shipped with the app could not be used: said once for each, in a development build (the ocean is worked out instead). */
+  const warned = new Set<string>();
+  function warn(key: string, why: string) {
+    if (warned.has(key) || typeof __DEV__ === 'undefined' || !__DEV__) return;
+    warned.add(key);
+    console.warn(`the shipped ocean for ${key} is not used (${why}); working it out instead`);
+  }
+
+  /** The ocean shipped with the app for these islands, unpacked in slices; null where there is none or it is not good (the ocean is then worked out). */
+  async function fromPack(job: Job, key: string, level: number, islands: readonly OceanIsland[], reach: WaterExtent): Promise<SeabedBake | null> {
+    if (!packs) return null;
+    const name = oceanPackName(level, islands, reach), set = oceanSetCode(islands), regionsName = oceanRegionsName(islands);
+    if (!name || !set || !regionsName) { warn(key, 'no ocean is shipped for these islands, level or reach'); return null; }
+    try {
+      const bytes = await packs.read(name);
+      if (!bytes) { warn(key, `${name} is not in the app`); return null; }
+      const pack = readOceanPack(bytes);
+      const tables = new Map<string, OceanTable>();
+      for (const code of set) {
+        const table = await packs.read(oceanTableName(code, level));
+        if (!table) { warn(key, `${oceanTableName(code, level)} is not in the app`); return null; }
+        tables.set(code, readOceanTable(table));
+      }
+      // (without the region maps' file they are worked out from the formula: the same numbers)
+      const regionBytes = await packs.read(regionsName);
+      const regions = regionBytes ? readOceanRegions(regionBytes) : undefined;
+      const bake = await runSliced(unpackOcean(pack, tables, regions, level, islands, reach), {
+        ...pacing,
+        slice: () => (job.hurry ? SLICE_MS.waiting : SLICE_MS.idle),
+        stop: () => job.stopped,
+        onSlice: (ms) => { stats.slices++; if (ms > stats.longest) stats.longest = ms; pacing.onSlice?.(ms); },
+      });
+      if (!isWholeOcean(bake, islands, reach)) { warn(key, `${name} is not the size of the ocean`); return null; }
+      return bake;
+    } catch (error) {
+      // (the ocean is no longer wanted: the same as anywhere else)
+      if (error instanceof Stopped) throw error;
+      warn(key, `${error instanceof Error ? error.message : String(error)}`);
+      return null;
+    }
+  }
+
   /** Keep the ocean in a file, and tidy: only the last few written stay. Never fails the one who asked. */
   function save(key: string, bake: SeabedBake) {
     if (!files) return filing;
@@ -127,6 +183,12 @@ export function createOceanStore(files: OceanFiles | null, pacing: Partial<Pacin
 
   async function run(job: Job, key: string, level: number, islands: readonly OceanIsland[], reach: WaterExtent): Promise<OceanSource> {
     if (await fromFile(key, islands, reach)) return 'file';
+    const shipped = await fromPack(job, key, level, islands, reach);
+    if (shipped) {
+      // (not saved: the app has it, and the phone's files are for oceans nothing ships)
+      rememberOcean(key, shipped);
+      return 'shipped';
+    }
     const bake = await runSliced(oceanSteps(level, islands, reach), {
       ...pacing,
       slice: () => (job.hurry ? SLICE_MS.waiting : SLICE_MS.idle),

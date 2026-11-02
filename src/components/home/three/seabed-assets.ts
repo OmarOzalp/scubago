@@ -1,11 +1,12 @@
 import { useEffect, useState } from 'react';
 import { OCEAN } from '@/lib/ocean';
-import { createOceanStore, type OceanStore } from '@/lib/ocean-store';
+import { createOceanStore, type OceanPackSource, type OceanStore } from '@/lib/ocean-store';
 import type { OceanIsland } from '@/lib/seabed';
 import { hasOcean, hasSeabedBake, registerSeabedBake, seabedBakeKey, seabedBakeName } from '@/lib/seabed-bake';
 import type { WaterExtent } from '@/lib/seabed-lattice';
 import { readAssetBytes } from './asset-bytes';
 import { oceanFiles } from './ocean-files';
+import { OCEAN_PACK_FILES } from './ocean-pack-files';
 import { SEABED_FILES } from './seabed-files';
 
 /**
@@ -15,9 +16,17 @@ import { SEABED_FILES } from './seabed-files';
  */
 const requests = new Map<string, Promise<boolean>>();
 
-/** The oceans no shipped bake covers, held in memory and kept on the phone (src/lib/ocean-store.ts); made on first use. */
+/** The oceans shipped with the app for the explorer's several islands (src/lib/ocean-pack.ts), read from the app's own files by name. */
+export const shippedOceans: OceanPackSource = {
+  async read(name) {
+    const module = OCEAN_PACK_FILES[name];
+    return module === undefined ? null : new Uint8Array(await readAssetBytes(module));
+  },
+};
+
+/** The oceans no shipped bake covers, held in memory and kept on the phone (src/lib/ocean-store.ts), the shipped ones read back; made on first use. */
 let oceans: OceanStore | undefined;
-export const oceanStore = () => (oceans ??= createOceanStore(oceanFiles));
+export const oceanStore = () => (oceans ??= createOceanStore(oceanFiles, {}, shippedOceans));
 
 /** Load (once) the bake for these islands at this level and reach. True once it is in use; false when there is none or it failed. */
 export function loadSeabedBake(level: number, islands: readonly OceanIsland[], reach?: WaterExtent): Promise<boolean> {

@@ -1,6 +1,9 @@
-import { afterEach, beforeAll, expect, test } from '@jest/globals';
+import { afterEach, beforeAll, expect, jest, test } from '@jest/globals';
 import { OCEAN } from '@/lib/ocean';
-import { createOceanStore, isWholeOcean, KEPT_FILES, oceanFileName, SLICE_MS, type OceanFiles } from '@/lib/ocean-store';
+import { type IslandId } from '@/lib/archipelago';
+import { PACK_REACH } from '@/lib/ocean-pack';
+import { createOceanStore, isWholeOcean, KEPT_FILES, oceanFileName, SLICE_MS, type OceanFiles, type OceanPackSource } from '@/lib/ocean-store';
+import { memorySource, packFiles, place, workedOcean } from '@/test-support/ocean-packs';
 import { OCEAN_VERSION } from '@/lib/ocean-version';
 import { createSeabedField, type OceanIsland } from '@/lib/seabed';
 import {
@@ -231,3 +234,100 @@ test('an ocean is whole only with every part the length it must be', () => {
   // (another reach has another length of water)
   expect(isWholeOcean(reference, islands, { x: 12, z: 10 })).toBe(false);
 });
+
+// The oceans shipped with the app (ocean-pack.ts) are read before an ocean is worked out, never written to a file, and anything wrong with them is
+// a warning (in a development build) and the ocean worked out as it always was. The shipped files here are made from the computation, for Home's
+// island and the Volcanic Pinnacle at the first level.
+const RV: IslandId[] = ['coral-reef', 'volcanic-pinnacle'];
+const shippedIslands = RV.map(place), shippedKey = seabedBakeKey(1, shippedIslands, PACK_REACH);
+const expectHeldIs = (want: SeabedBake) => {
+  expect(hasOcean(shippedKey)).toBe(true);
+  same(bakedDepth(1, shippedIslands), want.depth!);
+  same(bakedRegions(1, shippedIslands)?.region, want.region!);
+  same(bakedShoaling(1, shippedIslands, PACK_REACH), want.shoaling!);
+  same(bakedLattice(1, shippedIslands, PACK_REACH)!.positions, want.lattice!.positions);
+  same(bakedLattice(1, shippedIslands, PACK_REACH)!.indices, want.lattice!.indices);
+};
+const warnings = () => jest.spyOn(console, 'warn').mockImplementation(() => undefined);
+
+test('an ocean shipped with the app is unpacked in slices, held as the computation gives it, and not kept in a file', async () => {
+  const want = workedOcean(1, RV), { files, kept, log } = fakeFiles(), { source, asked } = memorySource(packFiles(1, [RV]).files);
+  clearSeabedBakes();
+  const warn = warnings();
+  const store = createOceanStore(files, pacing, source);
+  expect(await store.ensure(1, shippedIslands, PACK_REACH)).toBe('shipped');
+  expect(store.stats.slices).toBeGreaterThan(0);
+  expectHeldIs(want);
+  await store.settled();
+  // (the saved-file path was tried first, and nothing was written to it: the phone's files are for the oceans nothing ships)
+  expect(log).toEqual([`read ${oceanFileName(shippedKey)}`]);
+  expect(kept.size).toBe(0);
+  expect(asked.sort()).toEqual(['rg-vr', 't-r-1', 't-v-1', 'vr-1']);
+  expect(warn).not.toHaveBeenCalled();
+  warn.mockRestore();
+}, 60000);
+
+test('a saved file still comes first, and the shipped files are not asked for', async () => {
+  const want = workedOcean(1, RV), { files, kept } = fakeFiles(), { source, asked } = memorySource(packFiles(1, [RV]).files);
+  kept.set(oceanFileName(shippedKey), { bytes: writeSeabedBake(shippedKey, want, OCEAN_VERSION), at: 1 });
+  clearSeabedBakes();
+  expect(await createOceanStore(files, pacing, source).ensure(1, shippedIslands, PACK_REACH)).toBe('file');
+  expect(asked).toEqual([]);
+  expectHeldIs(want);
+}, 60000);
+
+/**
+ * Every way the shipped ocean can be wrong: the ocean is worked out instead (the computation starts, and is called off at the end of its first slice,
+ * which is all these look at: working an ocean out is tested above), with one warning in a development build and nothing thrown.
+ */
+const broken: [string, (files: Map<string, Uint8Array>) => OceanPackSource][] = [
+  ['a pack that is not in the app', (files) => { files.delete('vr-1'); return memorySource(files).source; }],
+  ['a table that is not in the app', (files) => { files.delete('t-r-1'); return memorySource(files).source; }],
+  ['a pack that fails its digest', (files) => { const bytes = files.get('vr-1')!.slice(); bytes[bytes.length - 20] ^= 0x40; files.set('vr-1', bytes); return memorySource(files).source; }],
+  ['a table that is cut short', (files) => { files.set('t-v-1', files.get('t-v-1')!.subarray(0, 300)); return memorySource(files).source; }],
+  ['a file that is not a pack', (files) => { files.set('vr-1', new Uint8Array(500)); return memorySource(files).source; }],
+  ['sections that do not inflate', () => memorySource(packFiles(1, [RV], () => Uint8Array.of(1, 2, 3, 4)).files).source],
+  ['files that cannot be read', () => ({ read: async () => { throw new Error('no storage'); } })],
+];
+/** Ask for the ocean as someone waiting for it who then leaves: it works the first slice out (if it works anything out) and gives up. */
+async function askAndLeave(store: ReturnType<typeof createOceanStore>, level: number, on: OceanIsland[], reach: { x: number; z: number }) {
+  const result = store.ensure(level, on, reach, true);
+  store.release(level, on, reach);
+  return { source: await result, slices: store.stats.slices };
+}
+test.each(broken)('%s: the ocean is worked out, with one warning, nothing thrown', async (_what, make) => {
+  const files = new Map(packFiles(1, [RV]).files), source = make(files);
+  clearSeabedBakes();
+  const warn = warnings();
+  const { source: how, slices } = await askAndLeave(createOceanStore(null, pacing, source), 1, shippedIslands, PACK_REACH);
+  expect([how, slices]).toEqual(['stopped', 1]);
+  expect(warn).toHaveBeenCalledTimes(1);
+  expect(String(warn.mock.calls[0][0])).toContain('working it out instead');
+  warn.mockRestore();
+}, 60000);
+
+test('islands, an order or a reach nothing is shipped for are worked out, with one warning, and the shipped files are not asked for', async () => {
+  const warn = warnings(), { source, asked } = memorySource(packFiles(1, [RV]).files);
+  // another reach (a wide screen), and Home's island not first
+  clearSeabedBakes();
+  expect((await askAndLeave(createOceanStore(null, pacing, source), 1, shippedIslands, { x: 42, z: 20 }))).toEqual({ source: 'stopped', slices: 1 });
+  clearSeabedBakes();
+  expect((await askAndLeave(createOceanStore(null, pacing, source), 1, [...shippedIslands].reverse(), PACK_REACH))).toEqual({ source: 'stopped', slices: 1 });
+  expect(warn).toHaveBeenCalledTimes(2);
+  expect(asked).toEqual([]);
+  warn.mockRestore();
+}, 60000);
+
+test('a store with no shipped oceans works them out without a word, as before; the same warning is said once', async () => {
+  const warn = warnings();
+  clearSeabedBakes();
+  expect((await askAndLeave(createOceanStore(null, pacing), 1, shippedIslands, PACK_REACH)).source).toBe('stopped');
+  expect(warn).not.toHaveBeenCalled();
+  const store = createOceanStore(null, pacing, { read: async () => null });
+  clearSeabedBakes();
+  await askAndLeave(store, 1, shippedIslands, PACK_REACH);
+  clearSeabedBakes();
+  await askAndLeave(store, 1, shippedIslands, PACK_REACH);
+  expect(warn).toHaveBeenCalledTimes(1);
+  warn.mockRestore();
+}, 60000);
