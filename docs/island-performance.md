@@ -895,3 +895,87 @@ the depth planes (about 0.6 MB, with a chain to inflate) would make the files sm
 that reaches farther still works its ocean out. On a phone to time: the first-ever explorer open with 2, 3 and 5 islands; an open right after a level-up
 and after a newly found island; Home's frame rate while its idle work makes the ocean ready (about 0.15 s of CPU now, not seven to nine seconds in
 slices); and the six small file reads at an open, in Expo Go and in a release build.
+
+## Smoother frames (November 2026)
+
+The explorer and an island's first visit stalled at the moment new things arrived (each new kind of material links a shader program the
+first time it is drawn, and JavaScript waits for the GL thread to build it), and every frame did a little work for things that never
+move. None of it changes how anything looks; every picture below is compared pixel for pixel.
+
+- **One program for every animal** (`marine-colors.ts`, `underwater-material.ts`). Animals compiled to four programs: models with plain
+  colours (the shark, manta and reef fish, and everyone's eyes), the usual models with red-green-blue vertex colours, the golden jellyfish
+  with colours that carry an alpha, and the reef's animals (their den cut, colour states, set-back and rock tint were different code). The
+  loader now gives every mesh vertex colours with an alpha (white and opaque where it had none, an alpha of 1 where it had red, green and
+  blue, the jellyfish's own left alone), and the reef's extra work sits behind a `diveReef` flag that open-water animals leave at 0, so
+  there is one program (`marine-ocean-water-v4`). Colour times white and alpha times 1 are exact, and the flag skips the reef's code
+  instead of feeding it neutral numbers, so the open-water animals come out as they always did.
+- **Fewer matrices per frame** (`static-matrix.ts`). `holdStill(mesh)` on meshes made once in place (coasts, forests, corals, rocks, the
+  ocean's layers) makes their matrix once; `freezeMatrices(instance, true)` leaves an animal's skeleton (a bone each) alone for as long as
+  it is out of view, and it is brought up to date by the frame it comes back (before the renderer updates the scene).
+- **The water's surface skips the dry beach and the island** (`ocean-mesh.ts`). Where there is no water, no foam line, no whitecap and no
+  surf, every term of the surface's colour is zero and the pixel is (0, 0, 0, 0), which blending leaves as it is: the shader now returns
+  before the noise, the glint and the colour. All texture reads stay above the return.
+- **A warm-up** (`warm-up.tsx`, not called by anything yet; see below).
+
+Measured (web build, Chromium with software GL, this machine shared with other work, so every figure is from builds run in turn):
+
+| | before | after |
+| --- | ---: | ---: |
+| Programs for the animals of any island (51 models, full and lite, resting, mid-dive, the reef's states) | 4 | 1 |
+| Programs linked by Home's reef card / by the explorer with five islands | 8 / 13 | 7 / 12 |
+| A new animal joins the reef (a golden jellyfish; three runs, 1x CPU): programs linked, main thread waiting on them | 1, 0.63 / 0.69 / 0.75 s (one task of 0.66-0.78 s) | 0, 0 s, no long task |
+| First visit to the Kelp Forest from Home's pill (three runs): programs linked after the tap, main thread waiting on them | 2, 0.42 / 0.94 / 0.62 s | 0, 0 s with the warm-up run at Home's start (wired for the measurement only); 2, 0.55 / 0.34 / 0.78 s without it |
+| The explorer's open, time the main thread waits on programs in the first 9 s (three runs) | 3.4 / 4.9 / 4.1 s | 2.6 / 3.7 / 4.5 s (the animals' one program); warming all five islands' kinds at the open: 7.8 / 6.5 / 5.2 s (worse, see below) |
+| `scene.updateMatrixWorld`, the explorer zoomed in with 2 of 30 animals in view (least of seven batches) | 0.048-0.075 ms | 0.015-0.016 ms |
+| ... the opening view, 19 of 30 in view / Home, all 8 in view | 0.050-0.054 / 0.011-0.014 ms | 0.039-0.043 / 0.012-0.014 ms |
+| ... a tree shaped like the explorer's (341 objects), Node without a JIT, every animal hidden | 0.574 ms | 0.110 ms |
+| The whole real scene, 60 frames, Node without a JIT and a stand-in GL context (median of three): explorer / Home | 475 / 288 ms | 383 / 290 ms |
+
+The pictures are the same: Home's card (the reef, the mangroves, the wreck) and the explorer zoomed in three times, animals hidden and the water clock
+fixed, differ in no pixel of 160,000 and 514,000; the explorer's whole view and the volcano differ only where the steam moves on its own clock (the same
+number of pixels as between two runs of the same build), the kelp card only where the animals push the kelp, and 51 models drawn in fixed poses (resting,
+mid-dive, with the reef's den and colour states, full and lite) differ in no pixel of 1,080,000 in any of five pictures. `verify:swim` still reports
+0 clipped, 0 on land and 0 grazing, and the geometry fingerprints are identical.
+
+The pixel cost of the explorer, for reference only (nothing was lowered). One frame of the settled explorer, 390 x 844 points, in software GL (the
+least of the renders, two runs; the ratios are the thing, not the milliseconds), and the same card of Home (332 x 308):
+
+| Pixel ratio | Explorer frame | of it the ocean (seabed + surface) | Home frame | of it the ocean |
+| ---: | ---: | ---: | ---: | ---: |
+| 2 (what a phone draws at: two pixels a point) | 1028-1126 ms | 759-860 ms (74-76%) | 237 ms | 134 ms (56%) |
+| 1.5 | 706-871 ms | 469-535 ms | 190 ms | 113 ms |
+| 1.25 (the web build's) | 647-650 ms | 409-411 ms (63%) | 134 ms | 50 ms |
+| 1 | 523-581 ms | 304-368 ms | 133 ms | 22 ms |
+
+So at the phone's own ratio the ocean is three quarters of an explorer frame and a pixel ratio of 1.5 would be 0.7-0.75 of the cost, 1.25 about 0.6; the
+picture is visibly crisper at 2 (palm fronds, the forest's edge: `shots/dpr-sheet-explorer-reef.png` in the measuring folder), which is why none of it
+is done. The water surface's shader skips the dry beach and the island with an early return that leaves every pixel exactly as it was; it covers 4.5-8.4% of
+the surface's pixels and, paired in one page, was not measurably cheaper (medians 219 against 222 ms for the explorer's surface alone, 56 against 53 ms for Home's), so it was not kept.
+
+What did not work, and what was learnt:
+
+- The coasts' two programs (flat-shaded and vertex-coloured, one-sided for the kelp, volcanic and mangrove coasts and the bank's cays,
+  two-sided for the reef's and the wreck's) are the same code for flat shading (three.js's derivative normal ignores `DOUBLE_SIDED`) but
+  link as two programs because the side is part of a program's key. Making the one-sided meshes two-sided changes 17 pixels by up to 3 levels at
+  silhouettes (back faces tie with front ones at the edge, 3 million pixels compared); making the two-sided ones one-sided changes 32,000
+  and loses their back faces. Neither is the same picture, so the two stay.
+- A matrix pass is small (about 2% of an explorer frame under `--jitless`): the frame is mostly the swimming, the draw calls and their uniforms.
+- A browser's software GL builds a program's pipeline at its first draw, not when it is linked, so `compile` alone does not move that work earlier
+  there; on a phone it may or may not (the GL thread does the linking and the driver may finish at the first draw too). That is why
+  `<WarmUp />` also draws each stand-in once, outside the view, a kind a frame.
+
+Where to call the warm-up (not wired: the explorer's picture and staging are another change's):
+
+- In the explorer's canvas, as early as the canvas exists (under the picture that stands in for the scene), with the habitats of the islands in view:
+  `<WarmUp habitats={inView} />` inside `<Canvas>`, after `SanctuaryEnvironment` (so the lights are in the scene); then, when the scene is built and idle,
+  `warmUp(gl, scene, camera, { habitats: all })` for the rest (it links only the kinds not done yet). The explorer is a GL context of its own, so it
+  links everything afresh at every open. Warming all five islands' kinds at the open was measured and is slower to settle (above): a kind the opening view does
+  not need only delays the ones it does. Pass `school` if a tuna is logged. `drawWarmed` draws the next kind (the component calls it each frame).
+- In Home's canvas, once, at start, with every habitat the collection has (`waters={1}`: Home's ocean has one island's water): a canvas keeps its programs
+  across islands (`ProgramKeeper`), so a first visit to an island links nothing.
+- `scripts/verify-warm-up.mjs` checks it against three.js's own renderer (a stand-in GL context): the warm-up links exactly the programs the real scene needs,
+  after it the real scene links none, and it does nothing the second time. Run it when a material is added or changed: a new kind of program wants a stand-in
+  in `warm-specimens.ts`.
+
+On a phone to time: opening the explorer (the stall after the picture, and how long the picture waits), the first visit to each island from Home's pills,
+the explorer zoomed in (frame rate), and that the animals (the reef's dens, the jellyfish's see-through bell, the sharks' eyes) look as before.
