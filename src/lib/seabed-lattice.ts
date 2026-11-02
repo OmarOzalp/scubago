@@ -79,10 +79,24 @@ export function seabedLattice(field: LatticeSource, level: number, reach: WaterE
 }
 
 /**
+ * Numbers of a lattice that are already known (ocean-pack.ts: shipped with the app, worked out ahead of time by this very function), so that
+ * what is dear to find out, the height of the bottom under a vertex, and the Coral Reef's rays, are not worked out again. Everything else is
+ * still made by the code below, so the vertices and triangles are the very same.
+ */
+export type LatticeKnown = {
+  /** The heights (y) of the open sea's floor, vertex by vertex in order; the profile is not asked for them. */
+  floor?: ArrayLike<number>;
+  /** Island `which`'s whole block of vertices (x, y, z one after another, ray by ray and ring by ring, `n` rings a ray); its rays are not worked out. */
+  block?(which: number): { n: number; vertices: ArrayLike<number> } | undefined;
+  /** The heights (y) of island `which`'s vertices, ray by ray and ring by ring: its rays are worked out (a plain shore's are cheap), but not the bottom under them. */
+  heights?(which: number): ArrayLike<number> | undefined;
+};
+
+/**
  * The same, in steps (slices.ts): it yields between rows of the open sea's floor and after every ray of an island's terrain, a few
  * milliseconds' work each, so a phone can do it a slice at a time. Run to the end, it is `seabedLattice`.
  */
-export function* seabedLatticeSteps(field: LatticeSource, level: number, reach: WaterExtent = OCEAN.waterExtent): Steps<Lattice> {
+export function* seabedLatticeSteps(field: LatticeSource, level: number, reach: WaterExtent = OCEAN.waterExtent, known?: LatticeKnown): Steps<Lattice> {
   const rays = 96;
   const near = [-.12, -.04, 0, .04, .08, .12, .17, .23, .3, .38, .47, .57, .68, .8, .95, 1.15, 1.4, 1.75, 2.2, 2.8, 3.6, 4.6, 6, 8, 10.5];
   const corner = Math.hypot(extentOf(reach).x, extentOf(reach).z) + 1;
@@ -119,7 +133,7 @@ export function* seabedLatticeSteps(field: LatticeSource, level: number, reach: 
     for (let r = 0; r < rows; r++) {
       for (let c = 0; c < cols; c++) {
         const x = box.x0 + c * step, z = box.z0 + r * step;
-        positions.push(x, field.profile(x, z).floor, z);
+        positions.push(x, known?.floor ? known.floor[r * cols + c] : field.profile(x, z).floor, z);
       }
       if (r % 2 === 1) yield;
     }
@@ -202,16 +216,26 @@ export function* seabedLatticeSteps(field: LatticeSource, level: number, reach: 
       }
       return [...row, ...inside, ...walled];
     };
-    // (every ray, a slice's work each)
-    const rows: number[][][] = [];
-    for (let r = 0; r < rays; r++) { rows.push(ray(r)); yield; }
-    // Every ray has as many rings: where fewer of the rings as they were lie inside the wall, the rest are the wall's first, again (no area, nothing drawn).
-    const extra = outer < 0 ? 0 : Math.max(...rows.map((row) => row.length)) - offsets.length;
-    for (const row of rows) {
-      if (outer >= 0) row.splice(outer + (row.length - offsets.length), 0, ...Array.from({ length: extra - (row.length - offsets.length) }, () => row[row.length - (offsets.length - outer)]));
-      for (const v of row) positions.push(v[0], v[1], v[2]);
+    const given = known?.block?.(which);
+    let n: number;
+    if (given) {
+      // (this island's vertices are known)
+      for (let i = 0; i < given.vertices.length; i++) positions.push(given.vertices[i]);
+      n = given.n;
+    } else {
+      // (every ray, a slice's work each)
+      const rows: number[][][] = [];
+      for (let r = 0; r < rays; r++) { rows.push(ray(r)); yield; }
+      // Every ray has as many rings: where fewer of the rings as they were lie inside the wall, the rest are the wall's first, again (no area, nothing drawn).
+      const extra = outer < 0 ? 0 : Math.max(...rows.map((row) => row.length)) - offsets.length;
+      const heights = known?.heights?.(which);
+      let at = 0;
+      for (const row of rows) {
+        if (outer >= 0) row.splice(outer + (row.length - offsets.length), 0, ...Array.from({ length: extra - (row.length - offsets.length) }, () => row[row.length - (offsets.length - outer)]));
+        for (const v of row) positions.push(v[0], heights ? heights[at++] : v[1], v[2]);
+      }
+      n = offsets.length + extra;
     }
-    const n = offsets.length + extra;
     for (let r = 0; r < rays; r++) {
       for (let k = 0; k < n - 1; k++) {
         const a = first + r * n + k, b = first + ((r + 1) % rays) * n + k;
