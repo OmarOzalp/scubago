@@ -2,7 +2,7 @@ import { Mesh, MeshLambertMaterial, MeshStandardMaterial, SkinnedMesh } from 'th
 import { GLTFLoader, type GLTF } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import type { MarineModel } from '@/lib/swimming';
 import { readAssetBytes } from './asset-bytes';
-import { standardizeVertexColors } from './marine-colors';
+import { animalMaterial, standardizeVertexColors } from './marine-colors';
 
 const modules: Record<MarineModel, number> = {
   'whale-shark': require('@/assets/models/marine/whale-shark.glb'),
@@ -88,11 +88,7 @@ function parseModel(buffer: ArrayBuffer): Promise<GLTF> {
       const source = Array.isArray(object.material) ? object.material : [object.material];
       const converted = source.map((material) => {
         if (!(material instanceof MeshStandardMaterial)) return material;
-        if (!materials.has(material)) materials.set(material, new MeshLambertMaterial({
-          color: material.color, vertexColors: true, side: material.side,
-          transparent: material.transparent, opacity: material.opacity, alphaTest: material.alphaTest,
-          depthWrite: material.depthWrite, depthTest: material.depthTest,
-        }));
+        if (!materials.has(material)) materials.set(material, animalMaterial(material));
         return materials.get(material)!;
       });
       object.material = Array.isArray(object.material) ? converted : converted[0];

@@ -550,13 +550,25 @@ function waterLattice(field: DepthField, config: OceanConfig, extent: WaterExten
   return geometry;
 }
 
+/**
+ * The ocean's three materials, made here (and nowhere else) so that the warm-up (warm-up.ts) links exactly the programs the ocean will use: a ShaderMaterial's
+ * program is found by its code, and the code depends on how many islands' waters (`habitats`) the ocean has.
+ */
+export const createWaterMaterial = (uniforms: OceanUniforms, habitats: number) => new ShaderMaterial({
+  uniforms, vertexShader: WATER_VERTEX, fragmentShader: waterFragment(habitats),
+  transparent: true, depthWrite: false, premultipliedAlpha: true, side: DoubleSide,
+});
+export const createSeabedMaterial = (uniforms: OceanUniforms, habitats: number) => new ShaderMaterial({
+  uniforms, vertexShader: SEABED_VERTEX, fragmentShader: seabedFragment(habitats), depthWrite: false, depthTest: false, side: DoubleSide,
+});
+export const createLiteOceanMaterial = (uniforms: OceanUniforms) => new ShaderMaterial({
+  uniforms, vertexShader: LITE_VERTEX, fragmentShader: LITE_FRAGMENT, depthWrite: false, depthTest: false, side: DoubleSide,
+});
+
 /** The water's surface, reaching `extent` units each way from every island (the Home card's view never sees past OCEAN.waterExtent; the explorer's water reaches farther). */
 export function createWaterMesh(uniforms: OceanUniforms, field: DepthField, config: OceanConfig = OCEAN, extent: WaterExtent = OCEAN.waterExtent) {
   const geometry = waterLattice(field, config, extent);
-  const material = new ShaderMaterial({
-    uniforms, vertexShader: WATER_VERTEX, fragmentShader: waterFragment(field.habitats.length),
-    transparent: true, depthWrite: false, premultipliedAlpha: true, side: DoubleSide,
-  });
+  const material = createWaterMaterial(uniforms, field.habitats.length);
   const mesh = new Mesh(geometry, material);
   mesh.name = 'ocean-surface';
   mesh.renderOrder = 2;
@@ -571,9 +583,7 @@ export function createWaterMesh(uniforms: OceanUniforms, field: DepthField, conf
  * the baked map (see buildLiteOceanMap). Replaces the seabed and surface meshes.
  */
 export function createLiteOceanMesh(uniforms: OceanUniforms, field: DepthField, config: OceanConfig = OCEAN, extent: WaterExtent = OCEAN.waterExtent) {
-  const material = new ShaderMaterial({
-    uniforms, vertexShader: LITE_VERTEX, fragmentShader: LITE_FRAGMENT, depthWrite: false, depthTest: false, side: DoubleSide,
-  });
+  const material = createLiteOceanMaterial(uniforms);
   const mesh = new Mesh(waterLattice(field, config, extent), material);
   mesh.name = 'ocean-lite';
   mesh.renderOrder = -1;
@@ -623,9 +633,7 @@ export function createSeabedMesh(uniforms: OceanUniforms, field: DepthField, rea
   geometry.setAttribute('position', new Float32BufferAttribute(positions, 3));
   geometry.setIndex(new Uint16BufferAttribute(farthestFirst(positions, indices, terrain), 1));
   geometry.computeBoundingSphere();
-  const material = new ShaderMaterial({
-    uniforms, vertexShader: SEABED_VERTEX, fragmentShader: seabedFragment(field.habitats.length), depthWrite: false, depthTest: false, side: DoubleSide,
-  });
+  const material = createSeabedMaterial(uniforms, field.habitats.length);
   const mesh = new Mesh(geometry, material);
   mesh.name = 'ocean-seabed';
   mesh.renderOrder = -1;

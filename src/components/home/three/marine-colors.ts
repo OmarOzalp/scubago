@@ -1,4 +1,4 @@
-import { BufferAttribute, type BufferGeometry, type Mesh, type Object3D } from 'three';
+import { BufferAttribute, MeshLambertMaterial, type BufferGeometry, type Color, type Mesh, type Object3D, type Side } from 'three';
 
 /**
  * Gives every mesh under `root` vertex colors with an alpha: white and opaque where it had none (the eyes of the first three
@@ -31,5 +31,16 @@ export function standardizeVertexColors(root: Object3D): void {
       else { array[i * 4] = color.getX(i); array[i * 4 + 1] = color.getY(i); array[i * 4 + 2] = color.getZ(i); }
     }
     geometry.setAttribute('color', new BufferAttribute(array, 4, short));
+  });
+}
+
+/**
+ * The material a parsed model's meshes are given in place of the glTF's: diffuse shading and vertex colors (every mesh has them now,
+ * see above), and what of the glTF material Lambert has too. Made here so that the warm-up (warm-up.ts) draws its stand-in animal with exactly the same.
+ */
+export function animalMaterial(source: { color: Color; side: Side; transparent: boolean; opacity: number; alphaTest: number; depthWrite: boolean; depthTest: boolean }) {
+  return new MeshLambertMaterial({
+    color: source.color, vertexColors: true, side: source.side, transparent: source.transparent, opacity: source.opacity,
+    alphaTest: source.alphaTest, depthWrite: source.depthWrite, depthTest: source.depthTest,
   });
 }
