@@ -38,6 +38,15 @@ test('red, green and blue stay exactly as they are and an alpha of 1 is added', 
   expect(Array.from(colors(body).array)).toEqual([1, 2, 3, 65535, 400, 500, 600, 65535]);
 });
 
+test('colors inside an interleaved buffer (how a parsed model has them) are copied out raw, stride and offset respected, and stay 16-bit', () => {
+  const data = { array: new Uint16Array([9, 9, 1, 2, 3, 9, 9, 4, 5, 6, 8]), stride: 5 };
+  const body = mesh(2, { array: data.array, itemSize: 3, normalized: true, isInterleavedBufferAttribute: true, offset: 2, data } as unknown as Attribute);
+  standardizeVertexColors(rootOf(body));
+  expect(colors(body).array).toBeInstanceOf(Uint16Array);
+  expect(colors(body).normalized).toBe(true);
+  expect(Array.from(colors(body).array)).toEqual([1, 2, 3, 65535, 4, 5, 6, 65535]);
+});
+
 test('colors that are already red, green, blue and alpha (the jellyfish) are left alone', () => {
   const jelly = { array: new Uint16Array([9, 8, 7, 6]), itemSize: 4, normalized: true };
   const m = mesh(1, jelly);

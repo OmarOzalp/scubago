@@ -1,4 +1,4 @@
-import { BufferAttribute, MeshLambertMaterial, type BufferGeometry, type Color, type Mesh, type Object3D, type Side } from 'three';
+import { BufferAttribute, MeshLambertMaterial, type BufferGeometry, type Color, type InterleavedBufferAttribute, type Mesh, type Object3D, type Side } from 'three';
 
 /**
  * Gives every mesh under `root` vertex colors with an alpha: white and opaque where it had none (the eyes of the first three
@@ -18,17 +18,22 @@ export function standardizeVertexColors(root: Object3D): void {
     if (!mesh.isMesh || done.has(mesh.geometry)) return;
     const geometry = mesh.geometry;
     done.add(geometry);
-    const color = geometry.attributes.color as BufferAttribute | undefined;
+    const color = geometry.attributes.color as BufferAttribute | InterleavedBufferAttribute | undefined;
     if (color && color.itemSize === 4) return;
     const count = geometry.attributes.position.count;
-    const short = !color || (!(color as { isInterleavedBufferAttribute?: boolean }).isInterleavedBufferAttribute && color.array instanceof Uint16Array && color.normalized);
+    // (a parsed model's colors are 16-bit normalized, usually inside an interleaved buffer: the raw numbers are copied out of it as they are)
+    const short = !color || (color.array instanceof Uint16Array && color.normalized);
     const white = short ? 65535 : 1;
     const array = short ? new Uint16Array(count * 4) : new Float32Array(count * 4);
     array.fill(white);
-    if (color) for (let i = 0; i < count; i++) {
-      // (the raw numbers of a 16-bit normalized color are copied as they are; any other kind is read as the float it is)
-      if (short) { const a = color.array as Uint16Array; array[i * 4] = a[i * 3]; array[i * 4 + 1] = a[i * 3 + 1]; array[i * 4 + 2] = a[i * 3 + 2]; }
-      else { array[i * 4] = color.getX(i); array[i * 4 + 1] = color.getY(i); array[i * 4 + 2] = color.getZ(i); }
+    if (color) {
+      const interleaved = (color as InterleavedBufferAttribute).isInterleavedBufferAttribute === true;
+      const stride = interleaved ? (color as InterleavedBufferAttribute).data.stride : 3, offset = interleaved ? (color as InterleavedBufferAttribute).offset : 0;
+      for (let i = 0; i < count; i++) {
+        // (the raw numbers of a 16-bit normalized color are copied as they are; any other kind is read as the float it is)
+        if (short) { const a = color.array as Uint16Array, at = i * stride + offset; array[i * 4] = a[at]; array[i * 4 + 1] = a[at + 1]; array[i * 4 + 2] = a[at + 2]; }
+        else { array[i * 4] = color.getX(i); array[i * 4 + 1] = color.getY(i); array[i * 4 + 2] = color.getZ(i); }
+      }
     }
     geometry.setAttribute('color', new BufferAttribute(array, 4, short));
   });
