@@ -20,8 +20,9 @@ import { runSliced, Stopped, type Pacing, type Steps } from './slices';
  *
  * For the islands a diver can have found, at the water a phone has (ocean-pack.ts), the app ships the ocean itself, worked out ahead of time: the
  * very same numbers read back in a fraction of a second where working them out takes seconds. It comes after a saved file (which it never writes: it
- * is always there to be read) and before working the ocean out; anything wrong with it (not there, damaged, not inflating, for other islands, the
- * wrong size) is a warning in a development build and the ocean is worked out as it always was.
+ * is always there to be read) and before working the ocean out; anything wrong with a shipped file (not there, damaged, not inflating, for other
+ * islands, the wrong size) is a warning in a development build and the ocean is worked out as it always was. Islands, an order or a reach nothing
+ * is shipped for (a wide screen) are simply worked out, without a warning.
  */
 
 /** Where the oceans are kept: a file each, by name. The phone's cache directory (ocean-files.ts), the web's IndexedDB (ocean-files.web.ts). */
@@ -132,7 +133,8 @@ export function createOceanStore(files: OceanFiles | null, pacing: Partial<Pacin
   async function fromPack(job: Job, key: string, level: number, islands: readonly OceanIsland[], reach: WaterExtent): Promise<SeabedBake | null> {
     if (!packs) return null;
     const name = oceanPackName(level, islands, reach), set = oceanSetCode(islands), regionsName = oceanRegionsName(islands);
-    if (!name || !set || !regionsName) { warn(key, 'no ocean is shipped for these islands, level or reach'); return null; }
+    // (islands, an order or a reach nothing is shipped for (a wide screen): expected, so worked out without a word, as before)
+    if (!name || !set || !regionsName) return null;
     try {
       const bytes = await packs.read(name);
       if (!bytes) { warn(key, `${name} is not in the app`); return null; }

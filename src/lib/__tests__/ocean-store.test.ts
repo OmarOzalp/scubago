@@ -306,14 +306,14 @@ test.each(broken)('%s: the ocean is worked out, with one warning, nothing thrown
   warn.mockRestore();
 }, 60000);
 
-test('islands, an order or a reach nothing is shipped for are worked out, with one warning, and the shipped files are not asked for', async () => {
+test('islands, an order or a reach nothing is shipped for are worked out without a warning, and the shipped files are not asked for', async () => {
   const warn = warnings(), { source, asked } = memorySource(packFiles(1, [RV]).files);
   // another reach (a wide screen), and Home's island not first
   clearSeabedBakes();
   expect((await askAndLeave(createOceanStore(null, pacing, source), 1, shippedIslands, { x: 42, z: 20 }))).toEqual({ source: 'stopped', slices: 1 });
   clearSeabedBakes();
   expect((await askAndLeave(createOceanStore(null, pacing, source), 1, [...shippedIslands].reverse(), PACK_REACH))).toEqual({ source: 'stopped', slices: 1 });
-  expect(warn).toHaveBeenCalledTimes(2);
+  expect(warn).not.toHaveBeenCalled();
   expect(asked).toEqual([]);
   warn.mockRestore();
 }, 60000);
