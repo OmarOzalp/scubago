@@ -915,7 +915,7 @@ move. None of it changes how anything looks; every picture below is compared pix
 - **The water's surface skips the dry beach and the island** (`ocean-mesh.ts`). Where there is no water, no foam line, no whitecap and no
   surf, every term of the surface's colour is zero and the pixel is (0, 0, 0, 0), which blending leaves as it is: the shader now returns
   before the noise, the glint and the colour. All texture reads stay above the return.
-- **A warm-up** (`warm-up.tsx`, not called by anything yet; see below).
+- **A warm-up** (`warm-up.tsx`; wired in "The explorer stays" below).
 
 Measured (web build, Chromium with software GL, this machine shared with other work, so every figure is from builds run in turn):
 
@@ -964,7 +964,7 @@ What did not work, and what was learnt:
   there; on a phone it may or may not (the GL thread does the linking and the driver may finish at the first draw too). That is why
   `<WarmUp />` also draws each stand-in once, outside the view, a kind a frame.
 
-Where to call the warm-up (not wired: the explorer's picture and staging are another change's):
+Where to call the warm-up (it is now wired, and not as first written here: see "The explorer stays" below for what was measured):
 
 - In the explorer's canvas, as early as the canvas exists (under the picture that stands in for the scene), with the habitats of the islands in view:
   `<WarmUp habitats={inView} />` inside `<Canvas>`, after `SanctuaryEnvironment` (so the lights are in the scene); then, when the scene is built and idle,
@@ -1025,3 +1025,82 @@ the first build reads them.
   about 8 MB in all. They are still worked out when the animals start swimming.
 - **The kelp forest is not shipped.** Its six files would be 2,065,944 bytes (5,961,984 in all) to save about 55 ms jitless (176 to 121), and the saving would stay one block, since it is
   built in one go by `builtOnce`. It is made on the phone as before; with no file for its key nothing is read and no warning is given.
+
+## The explorer stays (November 2026)
+
+Opening the explorer used to build it again every time: a new route, a new canvas and GL context, the five islands made again and every shader program of the
+new context linked again (12 of them; each stops the frame that first draws with it until the GL thread has built it), with a blank frame, then the kept
+picture, before the live scene. Now the explorer is a tab of Home's navigator that the tab bar draws no button for (`src/app/(tabs)/explore.tsx`), so closing it
+does not unmount it: the scene is **kept, mounted and asleep**, and opening it again shows the live scene at once.
+
+- **Lifecycle.** Tabs mount on their first visit (so a first open is exactly what it was: the kept picture over the scene being built) and react-native-screens
+  detaches a closed tab's view without unmounting it (`freezeOnBlur` is false in Expo Router's tabs). expo-gl's `GLView` destroys its context only when its own view
+  is removed from its superview (`removeFromSuperview`, `GLView.swift`), which a detached screen does not do, so the context, its programs and its buffers
+  survive. It cannot be tried here: see "On a phone to check" below.
+- **One canvas draws at a time.** A scene that has been on show and is not (another tab or screen is over it, or the app is in the background) has its
+  frame loop set to `never`, not even a frame on demand, and its stager holds, so nothing is built while hidden (`SanctuaryScene`, `asleep`); on show again it
+  asks for a frame at once (`Wake`). Home's canvas sleeps while the explorer is on show, the explorer's while Home is. A closed explorer lets nothing of the
+  collection in (`useHeld`): a level-up or a newly found island is let into the scene, and built, when the explorer is next shown, not while it is out of sight.
+  Each open puts the view where it opens (`explorer.reopen`: the island asked for, `?island=`, on every open; the whole ocean in view; nothing moving).
+- **The switch and the relief.** `EXPO_PUBLIC_EXPLORER_KEEP=0` (a build-time switch: restart Metro with `--clear`) or iOS's memory warning (React Native's
+  `AppState` `'memoryWarning'`, once heard it holds for the rest of the session) makes the explorer render no scene while it is closed: the scene is let go
+  once the tab has faded out, and built afresh at the next open, as it always was (`explorer-keep.ts`, `useSceneMounted`). A warning heard while the explorer
+  is on show lets the scene go when it is closed.
+- **Going back** (`explorer-origin.ts`). The route's `from` param says where it was opened from and the close button, the Android back button and a link with nothing
+  before it all go there: Home opens it with none and closing goes back to Home (Home too from a deep link); Rewards -> Islands goes to the one explorer with
+  `router.dismissTo(... from: 'islands')` (a second explorer over that screen would be a second canvas) and closing puts the Rewards and Islands screens back
+  (back from the explorer's tab, then Rewards, then Islands); another tab would pass its own path (`from=/logbook`) and closing goes to that tab. The tabs' own back
+  behaviour is not touched. There was never an iOS back swipe on the explorer (it was a full-screen modal), and it has none now. `/explore` and `/explore?island=...`
+  still open it. The bar draws nothing while the explorer is on show.
+- **Feel.** The explorer fades in over the screen it was opened from and out as it closes, 300 ms each way (the full-screen modal fade it replaces was the native stack's own, of about the same length; neither could be timed on a phone from here).
+  What is different: on every open after the first the scene is there at once, with its animals, where there was a picture and then a cross-fade to the live scene.
+- **Warm-up wired** (`three/warm-up.tsx`). Home: once its first animal has been drawn and the phone has been idle for 2.5 s (`ocean-ahead.ts`'s wait), the shader
+  programs of every island the collection has are linked, a kind a frame; a new island found later links its own. The explorer: once it is built and has been idle for
+  a second, one kind a frame (`warmNext`: each frame links and draws the next kind the islands bring, so no frame waits for more than one program), and none in a frame
+  while a finger is down or the camera is easing (`explorer.touching` / `moving`), so a tap on an island's button never lands on a warm-up. Warming the islands in view
+  first, under the picture (`EXPO_PUBLIC_EXPLORER_WARM=view`), was measured and made the first open slower on the web (below): of its thirteen stand-ins five were
+  programs the scene does not make until later (the rising islet's two for a level-up, the kelp's and the reef's small-life variants for a visit). Nothing was dropped
+  from the kinds: `scripts/verify-warm-up.mjs` shows the warm-up links exactly the programs the real scene can make (full quality 14, the emulator's lite tier 13) and
+  that a kind a frame links the same ones, so a kind that never matches anything the scene makes does not exist; what an iPhone never uses is the lite tier, which it
+  is not given.
+
+Measured (web build, Chromium with software GL on a shared machine, 200 x 430 points, one session per arm in turn, the median of three, the 4 seconds after the tap;
+`before` is the branch before this change):
+
+| | before | after |
+| --- | ---: | ---: |
+| Reopening the explorer (2nd and 3rd open): programs linked | 12 | 0 |
+| ... main thread waiting on programs | 1.09 / 1.03 s | 0 |
+| ... long tasks, total / longest | 1.23 / 0.73 s, 1.27 / 0.71 s | none |
+| ... growing steps, building under the scene | 21 | 0 |
+| Closing it (Home taking over): longest task | 0.74 / 0.67 / 0.70 s | none |
+| GL contexts after three opens | 4 (a browser does not release one) | 2 |
+| First visit to an island from Home's pill (after 9 s at Home): programs linked / main thread waiting | 2 / 0.12 s | 0 / 0 |
+| First visit to an island from the explorer's pill: programs linked / waiting / longest task | 1 / 0.26-0.36 s / 0.29-0.37 s | 0 / 0 / none |
+| First explorer open, in the first 14 s: first animal, built | 2.6-4.3 s, 3.6-5.7 s (two sets of runs) | with the in-view warm-up under the picture: 5.2-6.2 s, 6.2-7.2 s; as shipped: 3.9 s, 5.6 s (within the noise of the first) |
+| ... programs linked, main thread waiting on them | 12, 0.7-1.2 s | in view first: 17, 2.5-3.2 s; as shipped: 17, 0.7 s in the first 4 s and the rest, 1.8 s, once built and idle |
+
+The explorer's idle warm-up (the same builds, a pill tapped after the scene was built; two to three runs): started a second after it is built, once the browser calls
+the page idle (up to 5 s later, as on a phone), it is 3 tasks of 0.5-1.0 s (longest 0.98 s, 2.1 s in all: each kind links one to three programs, 0.3 s each in software
+GL) against 3 tasks, longest 1.17 s, 2.7 s in all, when every kind was queued at once; once it has run, a first visit to another island's button costs no task (0.55 s
+before, one program). Tapped 1.5 or 3 s after the scene is built, before the warm-up has started, the tap costs what it did (one task of 0.8-1.0 s, the first visit's
+program), and the warm-up waits for a finger or the camera to be still before each kind.
+
+Work in each state (software GL draws on the CPU, so the browser's GPU process stands in for GPU work; one run, a quiet 6 s each, frames counted by each renderer
+itself): Home on show, 48-50 frames, the explorer (kept, asleep) 0, the GPU process at 160-165% of a core; the explorer on show, 13-14 frames (it is the heavier
+scene), Home 0, the GPU process at 160-170%; another tab on show, both 0, the page's renderer process at 5% and the GPU process at 1.5%. With Reduce Motion on, each
+scene on show draws on demand (a frame or a few as it comes on show) and the one asleep draws nothing, 5 s of quiet drew none. (The branch before this change already
+kept Home from drawing under the explorer; it had no explorer to keep.)
+
+Memory (the same run; JS heap from Chromium): Home alone 32 geometries (5.2 MB of vertex data), 11 textures, 15 programs (7 before the warm-up), 1 GL context, 56 MB of
+heap; Home and the kept explorer: + 65 geometries (20.6 MB), 23 textures (0.9 MB), 17 programs, a second context, 76 MB of heap (+20 MB); after a memory
+warning the explorer's scene is disposed (its geometries and textures freed; what stays is the geometry cache's shared ones, 17 geometries) and Home alone is back to
+its size. Native GPU memory is not measured here.
+
+Unchanged: the 162 fingerprints of `perf-build --quick --explorer` are identical to the branch's, `verify:swim` finds 0 clipped, 0 on land and 0 grazing, and filmed
+stills of the open, the close, three reopens, an explorer pill visit, a Home pill revisit and a Home pill first visit read as the same islands and animals as before.
+
+On a phone to check (Expo Go, iPhone 15 or newer): open the explorer and close it three times: from the second open the live scene should be there at once, with
+its animals, with no picture and no blank frame. If a reopened explorer comes back black, or builds again as it did on the first open, the GL context did not survive
+the tab being detached: set `EXPO_PUBLIC_EXPLORER_KEEP=0` and say so. For memory, shake the phone and choose Show Performance Monitor: it shows RAM (the app's footprint, in MB), the JS heap and the UI and JS frame rates;
+read RAM at Home alone, after opening the explorer once, and after opening and closing it a few times (it should stay level, about 50-100 MB above Home alone, not climb). To send the memory warning from a simulator: Debug > Simulate Memory Warning; the explorer should then build afresh at its next open.
