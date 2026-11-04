@@ -7,6 +7,7 @@ import { IslandsView } from '@/components/rewards/islands-view';
 import { ThemedText } from '@/components/themed-text';
 import { WhenReady } from '@/components/when-ready';
 import { useRewards } from '@/hooks/use-rewards';
+import { ORIGIN } from '@/components/home/explorer-origin';
 import { HOME_ISLAND } from '@/lib/archipelago';
 
 /** The archipelago's islands: which have risen, who lives there, and who to look for next. */
@@ -31,10 +32,11 @@ function IslandsScreen() {
           </ThemedText>
         </Disclosure>
       </View>
-      {/* The explorer opens on the island asked for (`?island=`), as from Home's pills; Home's own island is where it opens without one. */}
+      {/* The explorer opens on the island asked for (`?island=`), as from Home's pills; Home's own island is where it opens without one. It is a tab (kept
+          mounted when closed), so this goes to that tab, over the Rewards screens that are left behind, instead of a second explorer opened over them; `from` has closing put them back. */}
       <IslandsView
         islands={islands}
-        onOpenIsland={(id) => router.push(id === HOME_ISLAND ? '/explore' : { pathname: '/explore', params: { island: id } })}
+        onOpenIsland={(id) => router.dismissTo({ pathname: '/explore', params: id === HOME_ISLAND ? { from: ORIGIN.islands } : { island: id, from: ORIGIN.islands } })}
         onOpenSpecies={(id) => router.push(`/species/${id}`)}
       />
     </Screen>

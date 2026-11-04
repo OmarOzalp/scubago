@@ -1,10 +1,12 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
-import { Animated, Platform, Pressable, StyleSheet, Text, View, type LayoutChangeEvent, type ViewInstance } from 'react-native';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { Animated, BackHandler, Platform, Pressable, StyleSheet, Text, useWindowDimensions, View, type LayoutChangeEvent, type ViewInstance } from 'react-native';
 import { Gesture, GestureDetector, GestureHandlerRootView, type GestureTouchEvent } from 'react-native-gesture-handler';
 import { useReducedMotion } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { router, useLocalSearchParams } from 'expo-router';
-import { SanctuaryScene } from '@/components/home/sanctuary-scene';
+import { router, useFocusEffect, useIsFocused, useLocalSearchParams } from 'expo-router';
+import { closeExplorer, rememberOrigin } from '@/components/home/explorer-origin';
+import { useMayKeep } from '@/components/home/explorer-keep';
+import { SanctuaryScene, type ExplorerScene } from '@/components/home/sanctuary-scene';
 import { ExplorerCamera } from '@/components/home/three/explorer-camera';
 import { WATER } from '@/components/home/three/sanctuary-environment';
 import { tapScaleAt } from '@/components/home/three/tap-target';
@@ -41,16 +43,26 @@ const HINT_MS = 7000;
  * label names the island in view. Tapping an animal opens its page, as on Home. The islands, their
  * animals and their behavior are Home's; only the camera and the reach of the water are the
  * explorer's (explorer-view.ts).
+ *
+ * It is a tab of its own (the tab bar draws no button for it and is hidden over it), so closing it does not unmount it: the scene is kept, mounted but
+ * asleep (nothing drawn, nothing built, nothing of the collection let in), and opening it again finds the islands there, opened afresh on the island
+ * asked for (`?island=`, on every open). A phone short of memory lets the scene go when closed instead (explorer-keep.ts); then it is built afresh at every open.
  */
 export default function ExploreScreen() {
   const insets = useSafeAreaInsets();
+  const full = useWindowDimensions();
   const mine = useMySightings();
   const owner = useMyUserId();
   const ready = useAppStore((s) => s.ready);
-  const home = useMemo(() => deriveHome(mine, CATALOG_BY_ID), [mine]);
+  // On show, or closed (still mounted, as a tab is). Closed, the collection is not let in (a level-up or a new island is built when it is next opened,
+  // not while it is out of sight) and, unless it is kept, nor is the scene.
+  const focused = useIsFocused();
+  const mounted = useSceneMounted(focused, useMayKeep());
+  const now = useMemo(() => deriveHome(mine, CATALOG_BY_ID), [mine]);
+  const home = useHeld(now, !focused);
   // Every island found so far (src/lib/archipelago.ts), each at its place in the one ocean with its own shores and
   // animals; it opens on the one named (Home's unless another is).
-  const params = useLocalSearchParams<{ island?: string }>();
+  const params = useLocalSearchParams<{ island?: string; from?: string }>();
   const islands = useMemo(() => foundIslands(home.residents), [home.residents]);
   const places = useMemo(() => islands.map((id) => ({
     key: id, habitat: ISLANDS[id], x: ISLAND_PLACES[id][0], z: ISLAND_PLACES[id][1], residents: islandResidents(home.residents, id),
@@ -84,6 +96,18 @@ export default function ExploreScreen() {
   const reach = useMemo(() => ({ x: wide.x, z: wide.z }), [wide.x, wide.z]);
   // Islands known only now (the collection still loading as it opened): open on the one asked for after all.
   useEffect(() => { explorer.open(opening); }, [explorer, opening]);
+  // Opened again (it was kept): on the island asked for this time, the whole ocean in view, as when it opens for the first time.
+  const asked = useRef(opening);
+  useEffect(() => { asked.current = opening; });
+  useFocusEffect(useCallback(() => { explorer.reopen(asked.current); }, [explorer]));
+  // Where it was opened from (the route's `from`, as of this open): closing goes back there.
+  useEffect(() => { rememberOrigin(params.from); }, [params.from]);
+  const close = useCallback(() => closeExplorer(), []);
+  // The Android back button closes it as its button does (left to the tabs' own back, it would go to Home even from the screen opened over Rewards).
+  useFocusEffect(useCallback(() => {
+    const subscription = BackHandler.addEventListener('hardwareBackPress', () => { close(); return true; });
+    return () => subscription.remove();
+  }, []));
   // The picture kept of this view as it opens (the same islands, level, island and shape of screen), known once the screen is measured and
   // the collection read (until then the islands and level are not the diver's).
   const pictureKey = ready && size.width > 1 && size.height > 1
@@ -129,19 +153,19 @@ export default function ExploreScreen() {
     return () => node.removeEventListener('wheel', wheel);
   }, [explorer]);
 
-  // The hint fades once it has been read (or simply goes, with reduced motion), and is there only the first few times the explorer opens.
-  const tip = useTip(HINT_KEY, { times: HINT_TIMES });
-  const [hint] = useState(() => new Animated.Value(1));
-  useEffect(() => {
-    const timer = setTimeout(() => Animated.timing(hint, { toValue: 0, duration: reduced ? 0 : 600, useNativeDriver: Platform.OS !== 'web' }).start(), HINT_MS);
-    return () => clearTimeout(timer);
-  }, [hint, reduced]);
-
   // The reef's small life shows only up close: say it is there to find.
   const hiding = places.reduce((sum, place) => sum + macroResidents(place.residents).length, 0);
   const small = hiding === 0 ? '' : hiding === 1 ? 'A small creature lives on the reef. Zoom in to find it.' : `${hiding} small creatures live on the reef. Zoom in to find them.`;
-  const close = () => (router.canGoBack() ? router.back() : router.replace('/'));
-  const inspect = (model: MarineModel) => router.push({ pathname: '/inspect', params: { model, preview: '1' } });
+  // The scene, made again only when something it shows changes (not each time the screen is drawn for another reason: it is not drawn at all while closed).
+  const explorerScene = useMemo<ExplorerScene>(() => ({
+    camera: <ExplorerCamera explorer={explorer} />, tapScale, reach, zoom: () => explorer.view.zoom, focus: (x, z, zoom) => explorer.focus(x, z, zoom),
+    // What to build first is what the view is over or nears; the picture kept of the view it opens on stands in until the scene is drawn.
+    near: () => { const { order, near } = islandsByView(explorer.frame, explorer.view); return { order: order.map((i) => places[i]?.key).filter(Boolean), near }; },
+    pictureKey, opening: () => explorer.opening, watch: explorer.watch,
+  }), [explorer, tapScale, reach, places, pictureKey]);
+  const scene = useMemo(() => (
+    <SanctuaryScene habitat={habitat} level={home.level} residents={home.residents} islands={places} loading={loading} onInspect={inspect} explorer={explorerScene} />
+  ), [habitat, home.level, home.residents, places, loading, explorerScene]);
   const button = (icon: IconName, label: string, onPress: () => void) => (
     <Pressable key={label} accessibilityRole="button" accessibilityLabel={label} onPress={onPress} hitSlop={6}
       style={({ pressed }) => [styles.button, { opacity: pressed ? 0.7 : 1 }]}>
@@ -149,16 +173,11 @@ export default function ExploreScreen() {
     </Pressable>
   );
 
-  return <GestureHandlerRootView style={[styles.root, { backgroundColor: WATER[habitat] }]}>
+  // (as big as the window whatever the tab bar does around it: shown, the explorer has no bar, but out of sight it is under one; its size stays what it was drawn at)
+  return <GestureHandlerRootView style={[styles.root, { backgroundColor: WATER[habitat], width: full.width, height: full.height }]}>
     <GestureDetector gesture={gesture}>
-      <View ref={surface} style={styles.root} onLayout={onLayout} collapsable={false}>
-        <SanctuaryScene habitat={habitat} level={home.level} residents={home.residents} islands={places} loading={loading} onInspect={inspect}
-          explorer={{
-            camera: <ExplorerCamera explorer={explorer} />, tapScale, reach, zoom: () => explorer.view.zoom, focus: (x, z, zoom) => explorer.focus(x, z, zoom),
-            // What to build first is what the view is over or nears; the picture kept of the view it opens on stands in until the scene is drawn.
-            near: () => { const { order, near } = islandsByView(explorer.frame, explorer.view); return { order: order.map((i) => places[i]?.key).filter(Boolean), near }; },
-            pictureKey, opening: () => explorer.opening, watch: explorer.watch,
-          }} />
+      <View ref={surface} style={styles.fill} onLayout={onLayout} collapsable={false}>
+        {mounted && scene}
       </View>
     </GestureDetector>
     <View style={[styles.top, { paddingTop: insets.top + 10 }]} pointerEvents="box-none">
@@ -183,14 +202,58 @@ export default function ExploreScreen() {
       {button('minus', 'Zoom out', () => explorer.zoomBy(1 / EXPLORER.step))}
       {button('locate', 'Show the whole ocean', () => explorer.showAll())}
     </View>
-    {tip.show && <Animated.View style={[styles.hint, { bottom: insets.bottom + 26, opacity: hint }]} pointerEvents="none">
-      <Text style={styles.hintText}>{[MEET, small || LOOK].join('\n')}</Text>
-    </Animated.View>}
+    {focused && <Hint small={small} bottom={insets.bottom + 26} reduced={reduced} />}
   </GestureHandlerRootView>;
 }
 
+/** What to do with the scene when asked to look at it: `await`ed by nobody, so a plain function. */
+const inspect = (model: MarineModel) => router.push({ pathname: '/inspect', params: { model, preview: '1' } });
+
+/** Time for the explorer to fade out before an unkept scene is let go (ms): a little over the tab's fade. */
+const FADE_OUT_MS = 600;
+
+/**
+ * Whether the scene is mounted. While the explorer is on show, yes; closed, only if it is kept (explorer-keep.ts), and otherwise
+ * until it has faded out of sight, then it goes (it is built afresh at the next open, as it always was).
+ */
+function useSceneMounted(focused: boolean, keeps: boolean) {
+  const [visited, setVisited] = useState(focused);
+  if (focused && !visited) setVisited(true);
+  const [was, setWas] = useState(focused);
+  const [fading, setFading] = useState(false);
+  if (was !== focused) { setWas(focused); setFading(!focused); }
+  useEffect(() => {
+    if (!fading) return;
+    const timer = setTimeout(() => setFading(false), FADE_OUT_MS);
+    return () => clearTimeout(timer);
+  }, [fading]);
+  return focused || (visited && (keeps || fading));
+}
+
+/** `value`, but while `hold` is set the last one before it was (the collection is not let into a closed explorer). */
+function useHeld<T>(value: T, hold: boolean): T {
+  const [held, setHeld] = useState(value);
+  if (!hold && held !== value) setHeld(value);
+  return hold ? held : value;
+}
+
+/** The hint at the bottom: there each of the first few times the explorer is opened (it is mounted afresh at every open), and fades once it has been read. */
+function Hint({ small, bottom, reduced }: { small: string; bottom: number; reduced: boolean }) {
+  const tip = useTip(HINT_KEY, { times: HINT_TIMES });
+  const [opacity] = useState(() => new Animated.Value(1));
+  useEffect(() => {
+    const timer = setTimeout(() => Animated.timing(opacity, { toValue: 0, duration: reduced ? 0 : 600, useNativeDriver: Platform.OS !== 'web' }).start(), HINT_MS);
+    return () => clearTimeout(timer);
+  }, [opacity, reduced]);
+  if (!tip.show) return null;
+  return <Animated.View style={[styles.hint, { bottom, opacity }]} pointerEvents="none">
+    <Text style={styles.hintText}>{[MEET, small || LOOK].join('\n')}</Text>
+  </Animated.View>;
+}
+
 const styles = StyleSheet.create({
-  root: { flex: 1 },
+  root: { position: 'absolute', top: 0, left: 0 },
+  fill: { flex: 1 },
   top: { position: 'absolute', top: 0, left: 0, right: 0, paddingHorizontal: 14, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8 },
   spacer: { width: 44 },
   pill: { flexShrink: 1, minWidth: 0, paddingHorizontal: 12, paddingVertical: 6, borderRadius: 14, backgroundColor: 'rgba(255,255,255,0.55)' },

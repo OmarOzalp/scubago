@@ -11,7 +11,7 @@ import { evaluateRewards } from '@/lib/rewards';
 
 // The theme module imports the web stylesheet, which Jest can't parse.
 jest.mock('@/global.css', () => ({}));
-jest.mock('expo-router', () => ({ router: { push: jest.fn() } }));
+jest.mock('expo-router', () => ({ router: { push: jest.fn(), dismissTo: jest.fn() } }));
 jest.mock('react-native-safe-area-context', () => ({ useSafeAreaInsets: () => ({ top: 0, bottom: 0, left: 0, right: 0 }) }));
 // The pictures are drawn from code; each only needs a box here.
 jest.mock('@/components/home/island-art', () => ({ IslandArt: () => null }));
@@ -45,7 +45,7 @@ const island = (id) => rewards.islands.find((i) => i.id === id);
 let root;
 beforeEach(() => {
   global.IS_REACT_ACT_ENVIRONMENT = true;
-  router.push.mockClear();
+  router.push.mockClear(); router.dismissTo.mockClear();
   mockRewards = rewards;
 });
 afterEach(async () => {
@@ -90,9 +90,10 @@ test('on the Islands page Home’s island opens the explorer, and another opens 
   await act(async () => { root = create(<IslandsRoute />); });
   expect(textOf()).toContain('Kelp Forest');
   await act(async () => head('Coral Reef').props.onPress());
-  expect(router.push).toHaveBeenLastCalledWith('/explore');
+  // (to the one explorer, a tab kept under Home, over the Rewards screens: not a second explorer opened over this one)
+  expect(router.dismissTo).toHaveBeenLastCalledWith({ pathname: '/explore', params: { from: 'islands' } });
   await act(async () => head('Kelp Forest').props.onPress());
-  expect(router.push).toHaveBeenLastCalledWith({ pathname: '/explore', params: { island: 'kelp-forest' } });
+  expect(router.dismissTo).toHaveBeenLastCalledWith({ pathname: '/explore', params: { island: 'kelp-forest', from: 'islands' } });
   // Islands still to rise have no explorer to open.
   expect(head('Shipwreck')).toBeUndefined();
   expect(head('Mangroves & Seagrass')).toBeUndefined();

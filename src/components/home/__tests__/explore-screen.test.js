@@ -3,7 +3,8 @@ import React, { act } from 'react';
 import { create } from 'react-test-renderer';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { router } from 'expo-router';
-import ExploreScreen from '@/app/explore';
+import ExploreScreen from '@/app/(tabs)/explore';
+import { forgetKeeping, relieveMemory } from '../explorer-keep';
 import { EXPLORER, zoomRange } from '@/lib/explorer-view';
 
 // How many tap gestures the screen makes (none: the explorer tells a double tap from a quick pinch itself).
@@ -22,7 +23,17 @@ jest.mock('../three/tap-target', () => ({ tapScaleAt: (zoom) => 14 / (.42 * zoom
 jest.mock('@/global.css', () => ({}));
 jest.mock('react-native-reanimated', () => ({ useReducedMotion: () => false }));
 jest.mock('react-native-safe-area-context', () => ({ useSafeAreaInsets: () => ({ top: 20, bottom: 30, left: 0, right: 0 }) }));
-jest.mock('expo-router', () => ({ router: { back: jest.fn(), replace: jest.fn(), push: jest.fn(), canGoBack: () => true }, useLocalSearchParams: () => ({}) }));
+// The screen is a tab: focused (on show) or not (closed, still mounted). A test turns focus on and off, then draws the screen again.
+let mockFocused = true, mockParams = {};
+jest.mock('expo-router', () => {
+  const { useEffect } = require('react');
+  return {
+    router: { back: jest.fn(), replace: jest.fn(), push: jest.fn(), dismiss: jest.fn(), canGoBack: () => true },
+    useLocalSearchParams: () => mockParams,
+    useIsFocused: () => mockFocused,
+    useFocusEffect: (callback) => { const focused = mockFocused; useEffect(() => (focused ? callback() : undefined), [callback, focused]); },
+  };
+});
 jest.mock('@/components/home/sanctuary-scene', () => ({ SanctuaryScene: (props) => <scene {...props} /> }));
 jest.mock('@/components/home/three/explorer-camera', () => ({ ExplorerCamera: () => null }));
 jest.mock('@/components/home/three/sanctuary-environment', () => ({ WATER: { island: '#88ccc4', lagoon: '#8fd3c9', cove: '#7fc0b9' } }));
@@ -36,7 +47,7 @@ jest.mock('@/lib/store', () => ({
 }));
 
 let root;
-beforeEach(async () => { global.IS_REACT_ACT_ENVIRONMENT = true; jest.useFakeTimers(); mockSightings = []; await AsyncStorage.clear(); });
+beforeEach(async () => { global.IS_REACT_ACT_ENVIRONMENT = true; jest.useFakeTimers(); mockSightings = []; mockFocused = true; mockParams = {}; forgetKeeping(); delete process.env.EXPO_PUBLIC_EXPLORER_KEEP; await AsyncStorage.clear(); });
 afterEach(async () => { if (root) await act(async () => root.unmount()); root = null; jest.useRealTimers(); });
 
 test('the explorer draws the island full screen with its own camera, and its buttons zoom, show the whole ocean and close it', async () => {

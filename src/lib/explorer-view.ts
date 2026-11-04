@@ -452,6 +452,18 @@ export function createExplorer(initial: ExplorerFrame, start?: number) {
       report(true);
       moved();
     },
+    /**
+     * Open again on an island (its index in the frame's, or the whole ocean without one), wherever the view has been taken since: as when the
+     * explorer is opened for the first time, straight there, nothing moving and no finger down (a kept explorer is opened again like this).
+     */
+    reopen(island?: number) {
+      opensAt = island !== undefined && islandsOf(frame)[island] ? island : undefined;
+      untouched = true;
+      goal = null; vx = 0; vz = 0; fingers = []; trail = []; pending = null; pinched = false; tap = null; lastTap = null;
+      view = opening(); asked = view.zoom;
+      report(true);
+      moved();
+    },
     /** The island the view is over now (its index in the frame's; -1 in the open sea between two). */
     get island() { return over; },
     /** Ease over to a point on the water (x, z) and in to at least `zoom` (a reef creature's home tapped from afar). */

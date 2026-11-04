@@ -181,6 +181,13 @@ function SnapshotRegistrar({ name, ready }: { name: 'home' | 'explorer'; ready: 
   return null;
 }
 
+/** Asks for a frame as the scene comes back on show (its frame loop was stopped while it was out of sight; one on demand would otherwise wait for something to ask). */
+function Wake({ visible }: { visible: boolean }) {
+  const invalidate = useThree((state) => state.invalidate);
+  useEffect(() => { if (visible) invalidate(); }, [visible, invalidate]);
+  return null;
+}
+
 /** Marks the scene's first drawn frame (scene-marks.ts). */
 function FirstFrame({ mark }: { mark: SceneMark }) {
   useFrame(() => markOnce(mark));
@@ -200,6 +207,11 @@ export function SanctuaryScene({ habitat, level, residents, islands, paused = fa
 }) {
   const active = useSceneActive(paused);
   const visible = useSceneVisible();
+  // Once it has been on show, a scene that is not (another screen is over it, or the app is in the background) draws nothing at all, not a frame
+  // on demand either: a screen that is kept (Home's under the explorer, the explorer's under Home) is asleep, and takes no CPU or GPU.
+  const [shownOnce, setShownOnce] = useState(false);
+  if (visible && !shownOnce) setShownOnce(true);
+  const asleep = shownOnce && !visible;
   const places = islands ?? [{ key: habitat, habitat, x: 0, z: 0, residents }];
   const preview = SHOWCASE;
   const visitors = SHOWCASE_SWIMMERS;
@@ -382,7 +394,7 @@ export function SanctuaryScene({ habitat, level, residents, islands, paused = fa
   return <View style={frame} onLayout={onLayout}>
     <SceneBoundary fallback={fallback}>
       <View style={styles.canvas} accessible accessibilityRole="image" accessibilityLabel={description}>
-      <Canvas orthographic flat {...(Platform.OS === 'web' ? { dpr: 1.25 } : {})} frameloop={active && !loading ? 'always' : 'demand'} camera={SCENE_CAMERA}
+      <Canvas orthographic flat {...(Platform.OS === 'web' ? { dpr: 1.25 } : {})} frameloop={asleep ? 'never' : active && !loading ? 'always' : 'demand'} camera={SCENE_CAMERA}
         gl={{ antialias: Platform.OS === 'web' }}
         onCreated={({ camera }) => camera.lookAt(0, -.15, 0)} style={styles.canvas}>
         <StagingProvider stager={stager} hidden={!visible}><SceneMarksContext.Provider value={marks}>
@@ -391,6 +403,7 @@ export function SanctuaryScene({ habitat, level, residents, islands, paused = fa
         {onOpen && !explorer && <TapAnywhere onTap={onOpen} />}
         {/* The Share button's picture of the card (and the explorer's of its opening view). A paused island can still be photographed; one that is still for Reduce Motion is not. */}
         <SnapshotRegistrar name={explorer ? 'explorer' : 'home'} ready={visible && !loading && (active || paused)} />
+        <Wake visible={visible} />
         <FirstFrame mark={marks.frame} />
         <FrameWatch watching={picture.watching} onDrawn={picture.onDrawn} />
         {__DEV__ && <ScenePerformance ready={!!models && !loading} active={active} />}

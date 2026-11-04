@@ -17,6 +17,8 @@ const TAB_ICONS: Record<string, IconName> = {
 
 /** The coral "Log dive" button sits in the middle of the bar, after this tab. */
 const LOG_AFTER = 'map';
+/** The tab the bar has no button for: the island explorer (src/app/(tabs)/explore.tsx), which stays mounted when it is closed. */
+const HIDDEN_TAB = 'explore';
 
 /**
  * The paper tab bar: four tabs with the coral "Log dive" button raised in the middle. The current
@@ -24,6 +26,8 @@ const LOG_AFTER = 'map';
  */
 export function JournalTabBar({ state, descriptors, emitter, navigateToTab, insets }: BottomTabBarProps) {
   const theme = useTheme();
+  // The island explorer is a tab with no button of its own, and draws over the whole screen: no bar over it.
+  if (state.routes[state.index]?.name === HIDDEN_TAB) return null;
   return (
     <View
       accessibilityRole="tablist"
@@ -33,6 +37,7 @@ export function JournalTabBar({ state, descriptors, emitter, navigateToTab, inse
       ]}>
       <View style={styles.row}>
         {state.routes.map((route, index) => {
+          if (route.name === HIDDEN_TAB) return null;
           const { options } = descriptors[route.key];
           const focused = state.index === index;
           const label = options.title ?? route.name;
