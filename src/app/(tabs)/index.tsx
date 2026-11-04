@@ -81,6 +81,8 @@ export default function HomeScreen() {
   const [arrived, setArrived] = useState(arrivingAt);
   if (arrivingAt !== arrived) { setArrived(arrivingAt); if (arrivingAt) setChosen(arrivingAt); }
   const island = islands.includes(chosen) ? chosen : HOME_ISLAND, habitat = ISLANDS[island];
+  // The shores of every island so far, for the card to have their shader programs ready before the pills visit them (warm-up.tsx).
+  const shores = useMemo(() => islands.map((id) => ISLANDS[id]), [islands]);
   const here = useMemo(() => islandResidents(home.residents, island), [home.residents, island]);
   const islandName = AREAS.find((a) => a.id === island)!.name;
   const loading = !ready || saved.loading || moments.loading;
@@ -139,7 +141,7 @@ export default function HomeScreen() {
                 </Pressable>
               </View>
             </View>
-            <SanctuaryScene habitat={habitat} level={moments.level} residents={here} loading={loading} paused={paused || editing || loading} onInspect={inspect} onOpen={swimming ? explore : undefined}
+            <SanctuaryScene habitat={habitat} level={moments.level} residents={here} loading={loading} paused={paused || editing || loading} onInspect={inspect} onOpen={swimming ? explore : undefined} warm={shores}
               moments={{ featured: moments.featured, waiting: moments.waiting, now: moments.now, onArrived: moments.onArrived, tag: moments.tag, banner: moments.banner, note: moments.note, busy: moments.busy }} />
             <View style={styles.heroFooter}>
               {/* How to look around, said once over the island's water, where the animals are (it takes no room of its own). */}

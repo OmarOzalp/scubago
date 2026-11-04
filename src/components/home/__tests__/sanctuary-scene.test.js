@@ -9,6 +9,8 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 jest.mock('../three/scene-canvas', () => ({ SceneCanvas: ({ children }) => <>{children}</> }));
+// The shader warm-up (three/warm-up.tsx loads three.js, which jest can't): a host element that says what it was asked to warm.
+jest.mock('../three/warm-up', () => ({ WarmUp: (props) => <warm {...props} /> }));
 jest.mock('../three/use-marine-models', () => ({ useMarineModels: jest.fn() }));
 jest.mock('@/hooks/use-scene-active', () => ({ useSceneActive: () => true, useSceneVisible: () => true }));
 jest.mock('../three/scene-camera', () => ({ SceneCamera: () => null }));

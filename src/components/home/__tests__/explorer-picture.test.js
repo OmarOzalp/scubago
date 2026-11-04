@@ -15,6 +15,7 @@ jest.mock('@/hooks/use-scene-active', () => ({ useSceneActive: () => true, useSc
 jest.mock('../three/scene-quality', () => ({ useSceneQuality: () => mockQuality }));
 jest.mock('@/lib/scene-snapshot', () => ({ ...jest.requireActual('@/lib/scene-snapshot'), captureFrame: jest.fn(async () => 'file:///cache/GLView/explorer.png'), captureScene: jest.fn() }));
 jest.mock('../three/scene-canvas', () => ({ SceneCanvas: ({ children }) => <>{children}</> }));
+jest.mock('../three/warm-up', () => ({ WarmUp: () => null }));
 jest.mock('../three/use-marine-models', () => ({ useMarineModels: jest.fn() }));
 jest.mock('../three/scene-camera', () => ({ SceneCamera: () => null }));
 jest.mock('../three/scene-performance', () => ({ ScenePerformance: () => null }));

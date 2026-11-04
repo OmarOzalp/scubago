@@ -137,18 +137,44 @@ export function drawWarmed(renderer: WebGLRenderer, scene: Scene, camera: Camera
 }
 
 /**
+ * The next kind the options' habitats bring that has not been done on this renderer, linked and drawn now (one kind, so no frame has more than one program to
+ * wait for); null when there is none left. What a paced `<WarmUp />` does each frame.
+ */
+export function warmNext(renderer: WebGLRenderer, scene: Scene, camera: Camera, options: WarmUpOptions = {}): WarmKind | null {
+  const done = warmedKinds(renderer), next = kindsFor(options.habitats ?? [], options.school).find((kind) => !done.has(kind));
+  if (!next) return null;
+  warmUp(renderer, scene, camera, { ...options, kinds: [next] });
+  drawWarmed(renderer, scene, camera);
+  return next;
+}
+
+/**
  * Inside a `<Canvas>`: warms the renderer up (see `warmUp`) once, as the canvas mounts, with the canvas's own renderer, scene and camera. Put it
  * after the scene's lights in the tree. Renders nothing.
  */
-export function WarmUp({ spread = true, ...options }: WarmUpOptions & {
+export function WarmUp({ spread = true, paced = false, paused, ...options }: WarmUpOptions & {
   /** Draw the stand-ins one kind a frame, after the programs are queued (default), so a driver that builds a program at its first draw has done so before the scene needs it. */
   spread?: boolean;
+  /**
+   * Do everything a kind a frame, queueing as well as drawing (default: queue them all as the canvas mounts, draw a kind a frame): each frame links the next kind
+   * the habitats bring that has not been done, so no frame has more than one program to wait for.
+   */
+  paced?: boolean;
+  /** (paced) Whether to leave it for now (a finger is down, the camera is easing): nothing is linked in a frame it answers true. */
+  paused?: () => boolean;
 }) {
   const gl = useThree((state) => state.gl), scene = useThree((state) => state.scene), camera = useThree((state) => state.camera);
   // (once for the canvas: the options are read as it mounts; warmUp itself does nothing for kinds it has already done)
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  useLayoutEffect(() => { warmUp(gl, scene, camera, options); }, [gl, scene, camera]);
+  useLayoutEffect(() => { if (!paced) warmUp(gl, scene, camera, options); }, [gl, scene, camera]);
   // Before the frame's own drawing (never a positive priority: that would take the drawing over): the next kind, if any is waiting.
-  useFrame(() => { if (spread) drawWarmed(gl, scene, camera); }, -500);
+  useFrame(() => {
+    if (paced) {
+      if (paused?.()) return;
+      warmNext(gl, scene, camera, options);
+      return;
+    }
+    if (spread) drawWarmed(gl, scene, camera);
+  }, -500);
   return null;
 }

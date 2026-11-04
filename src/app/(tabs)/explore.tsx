@@ -161,7 +161,7 @@ export default function ExploreScreen() {
     camera: <ExplorerCamera explorer={explorer} />, tapScale, reach, zoom: () => explorer.view.zoom, focus: (x, z, zoom) => explorer.focus(x, z, zoom),
     // What to build first is what the view is over or nears; the picture kept of the view it opens on stands in until the scene is drawn.
     near: () => { const { order, near } = islandsByView(explorer.frame, explorer.view); return { order: order.map((i) => places[i]?.key).filter(Boolean), near }; },
-    pictureKey, opening: () => explorer.opening, watch: explorer.watch,
+    pictureKey, opening: () => explorer.opening, watch: explorer.watch, busy: () => explorer.touching || explorer.moving,
   }), [explorer, tapScale, reach, places, pictureKey]);
   const scene = useMemo(() => (
     <SanctuaryScene habitat={habitat} level={home.level} residents={home.residents} islands={places} loading={loading} onInspect={inspect} explorer={explorerScene} />

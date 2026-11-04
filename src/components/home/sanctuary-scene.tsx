@@ -7,8 +7,9 @@ import { SceneBoundary, SceneUnavailable } from './scene-boundary';
 import { SceneCamera } from './three/scene-camera';
 import { IslandPerfBadge } from './island-perf-badge';
 import { IslandPerfProbe, ScenePerformance } from './three/scene-performance';
-import { EXPLORER_MARKS, HOME_MARKS, markOnce, markStep, SceneMarksContext, type SceneMark } from './three/scene-marks';
+import { EXPLORER_MARKS, HOME_MARKS, markOnce, markStep, SceneMarksContext, whenMarked, type SceneMark } from './three/scene-marks';
 import { createStager } from './three/stager';
+import { WarmUp, type WarmUpOptions } from './three/warm-up';
 import { StagingProvider } from './three/staging';
 import { router } from 'expo-router';
 import { DiscoveryNote, LevelUpBanner, NewTag } from './discovery-overlays';
@@ -20,6 +21,7 @@ import { TapAnywhere } from './three/tap-anywhere';
 import { useMarineModels } from './three/use-marine-models';
 import { preloadSeabedBakes, useSeabedReady } from './three/seabed-assets';
 import { EXPLORER_REACH } from '@/lib/seabed-bake';
+import { habitatsOf } from '@/lib/seabed-depth';
 import type { MarineModels } from './three/marine-loader';
 import { useSceneActive, useSceneVisible } from '@/hooks/use-scene-active';
 import type { WaterReach } from '@/lib/explorer-view';
@@ -27,6 +29,8 @@ import { HOME_SHORE, type Habitat } from '@/lib/home';
 import { shapeFor } from '@/lib/island-outline';
 import { captureFrame, captureScene, registerSceneCapture, releaseSnapshot } from '@/lib/scene-snapshot';
 import { rememberExplorerPicture, rememberHomePicture, rememberHomeScene } from './home-start';
+import { IDLE_MS } from './ocean-ahead';
+import { useIdle } from './use-idle';
 import { FrameWatch, InstantPicture, useInstantPicture } from './instant-picture';
 import { MACRO_SPECIES, macroResidents, type MacroSpecies } from '@/lib/macro-life';
 import { clamp, oceanScale, variation } from '@/lib/steering';
@@ -83,6 +87,8 @@ const PICTURE_AFTER_MS = 3000;
 const EXPLORER_PICTURE_AFTER_MS = 1500;
 /** How long the explorer's picture may take to be drawn and read back (ms): nothing waits for it. */
 const EXPLORER_CAPTURE_TIMEOUT_MS = 10000;
+/** How long after the explorer is built the phone is left alone before the shader programs the other islands need are linked (ms; see Warm). */
+const EXPLORER_WARM_AFTER_MS = 1000;
 /** Where the tag sits over its animal (px): centered above it, kept inside the card. */
 const TAG = { above: 46, margin: 8, height: 24 };
 
@@ -158,6 +164,8 @@ export type ExplorerScene = {
   pictureKey?: string | null;
   opening?: () => boolean;
   watch?: (listener: () => void) => () => void;
+  /** Whether a finger is down or the camera is easing: the idle warm-up leaves its next program until it is not. */
+  busy?: () => boolean;
 };
 
 /** An island in the scene's ocean (its middle, world units, and its shores) and the species living there. */
@@ -181,6 +189,16 @@ function SnapshotRegistrar({ name, ready }: { name: 'home' | 'explorer'; ready: 
   return null;
 }
 
+/**
+ * In the canvas: links the shader programs the islands' materials need before they are drawn (three/warm-up.tsx; a program is built the first
+ * time something is drawn with it, and the frame that does it stops until the GL thread has built it). It draws one kind of program a frame, so it
+ * never holds a frame up. A new list of shores (`key`) warms the kinds it needs that were not done before.
+ */
+function Warm(options: Omit<WarmUpOptions, 'quality'> & { paced?: boolean; paused?: () => boolean }) {
+  const quality = useSceneQuality();
+  return <WarmUp {...options} quality={quality} />;
+}
+
 /** Asks for a frame as the scene comes back on show (its frame loop was stopped while it was out of sight; one on demand would otherwise wait for something to ask). */
 function Wake({ visible }: { visible: boolean }) {
   const invalidate = useThree((state) => state.invalidate);
@@ -194,8 +212,13 @@ function FirstFrame({ mark }: { mark: SceneMark }) {
   return null;
 }
 
-export function SanctuaryScene({ habitat, level, residents, islands, paused = false, loading = false, onInspect, onOpen, moments, explorer }: {
+export function SanctuaryScene({ habitat, level, residents, islands, paused = false, loading = false, onInspect, onOpen, moments, explorer, warm }: {
   habitat: Habitat; level: number; residents: DexEntry[]; paused?: boolean; loading?: boolean; onInspect: (model: MarineModel) => void;
+  /**
+   * The shores of every island the collection has (Home's card shows one at a time, from the pills): once Home's island has been on show with its animals
+   * and the phone is idle, the shader programs each of them needs are linked, so a first visit to another links none. Defaults to the island shown.
+   */
+  warm?: readonly Habitat[];
   /**
    * Every island in the ocean, each with its own residents (the explorer's archipelago). Unless
    * given, the habitat's island alone, home to `residents`. Discovery moments play at the first.
@@ -257,6 +280,25 @@ export function SanctuaryScene({ habitat, level, residents, islands, paused = fa
   useEffect(() => { stager.setFocus(explorer?.near); }, [stager, explorer?.near]);
   const staged = useSyncExternalStore(stager.subscribe, stager.getState, stager.getState);
   useEffect(() => { if (staged.done) markOnce(marks.built); }, [staged.done, marks]);
+  // The shader programs for what the scene may come to show are linked while the phone is idle (see Warm). Home's card: for every island the collection has, once its
+  // first animal has been on show (as the explorer's ocean is made ahead, ocean-ahead.ts). The explorer: for every island once it is all built (measured: warming the
+  // islands in view under the picture delayed the first animal by about 2 s on the web, its stand-ins not matching all the programs the scene then makes; EXPO_PUBLIC_EXPLORER_WARM=view does).
+  const [firstAnimal, setFirstAnimal] = useState(false);
+  useEffect(() => {
+    if (!card || explorer) return;
+    let live = true;
+    void whenMarked(marks.animal).then(() => { if (live) setFirstAnimal(true); });
+    return () => { live = false; };
+  }, [card, explorer, marks]);
+  const idle = useIdle(explorer ? staged.done : firstAnimal, explorer ? EXPLORER_WARM_AFTER_MS : IDLE_MS);
+  const shores = [...new Set(explorer ? places.map((place) => place.habitat) : warm ?? [habitat])];
+  // (EXPO_PUBLIC_EXPLORER_WARM=view: the explorer's shores in view as its canvas is ready, the island it opens on and those near it; see Warm below)
+  const [inView, setInView] = useState<readonly Habitat[] | null>(null);
+  if (explorer && seabedReady && visible && !inView && process.env.EXPO_PUBLIC_EXPLORER_WARM === 'view') {
+    const { order, near } = explorer.near?.() ?? { order: places.map((place) => place.key), near: 1 };
+    const keys = new Set(order.slice(0, Math.max(1, near)));
+    setInView([...new Set(places.filter((place) => keys.has(place.key)).map((place) => place.habitat))]);
+  }
   // The explorer's opening view, kept as a picture too (instant-picture.tsx) for the same view of the same islands.
   const viewKey = explorer && !preview ? explorer.pictureKey : undefined;
   const picture = useInstantPicture({
@@ -412,6 +454,12 @@ export function SanctuaryScene({ habitat, level, residents, islands, paused = fa
         <SanctuaryEnvironment habitat={habitat} level={level} active={active} growIn={active && !loading} reach={explorer?.reach} islands={sceneIslands} ready={seabedReady}>
           {explorer?.camera}
         </SanctuaryEnvironment>
+        {/* After the environment, so its lights are in the scene. The explorer is a GL context of its own, so it links its programs afresh at every open, all of them once it
+            is built and idle (so that sailing to an island first seen links none), or, with EXPO_PUBLIC_EXPLORER_WARM=view, those of the islands in view as soon as its canvas
+            is ready, under the picture, and the rest then. Its ocean blends the waters of all its islands. Home's keeps its programs across islands, so one warm-up for
+            every island is enough, with its one water. */}
+        {seabedReady && visible && explorer && (idle || inView) && <Warm paced paused={explorer.busy} key={idle ? `all:${shores.join()}` : 'view'} habitats={idle ? shores : inView ?? shores} waters={habitatsOf(oceanIslands).length} school={school} />}
+        {seabedReady && visible && card && idle && <Warm key={shores.join()} habitats={shores} waters={1} school={school} />}
         </SceneMarksContext.Provider></StagingProvider>
       </Canvas>
       </View>

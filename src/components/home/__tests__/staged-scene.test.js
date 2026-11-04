@@ -13,6 +13,7 @@ import { join } from 'node:path';
  * sanctuary-environment.tsx, which three.js keeps out of Jest: perf-build/staged-build.tsx measures those.)
  */
 jest.mock('../three/scene-canvas', () => ({ SceneCanvas: ({ children }) => <>{children}</> }));
+jest.mock('../three/warm-up', () => ({ WarmUp: () => null }));
 jest.mock('../three/use-marine-models', () => ({ useMarineModels: jest.fn() }));
 jest.mock('@/hooks/use-scene-active', () => ({ useSceneActive: () => true, useSceneVisible: () => true }));
 jest.mock('../three/scene-camera', () => ({ SceneCamera: () => null }));

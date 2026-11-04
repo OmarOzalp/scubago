@@ -25,7 +25,7 @@ import { animalMaterial, standardizeVertexColors } from '../src/components/home/
 import { FLOOR_BIAS, prepareUnderwater } from '../src/components/home/three/underwater-material.ts';
 import { submerge } from '../src/components/home/three/islet-material.ts';
 import { kindsFor } from '../src/components/home/three/warm-kinds.ts';
-import { drawWarmed, warmUp, warmedKinds } from '../src/components/home/three/warm-up.tsx';
+import { drawWarmed, warmNext, warmUp, warmedKinds } from '../src/components/home/three/warm-up.tsx';
 import { ISLAND_PLACES, ISLANDS } from '../src/lib/archipelago.ts';
 import { MOVEMENT } from '../src/lib/marine-motion.ts';
 
@@ -163,6 +163,18 @@ for (const lite of [false, true]) {
   const volcano = warmUp(renderer, scene, camera, { ocean, habitats: ['kelp', 'volcanic'], waters: 1 });
   assert.deepEqual(volcano.kinds, ['steam']);
   console.log(`one island at a time: kelp ${kelp.added} programs, then the volcano's ${volcano.added} more`);
+}
+// One kind a frame (the explorer's idle warm-up): each step links one kind, and together they are the same programs as all at once.
+{
+  const renderer = makeRenderer(), scene = makeScene(), seen = [];
+  let kind;
+  while ((kind = warmNext(renderer, scene, camera, { ocean, habitats, school: true })) !== null) seen.push(kind);
+  assert.deepEqual(new Set(seen), new Set(kindsFor(habitats, true)));
+  assert.equal(seen.length, new Set(seen).size, 'each kind once');
+  const all = makeRenderer(); warmUp(all, makeScene(), camera, { ocean, habitats, school: true, draw: true });
+  assert.equal(renderer.info.programs.length, all.info.programs.length, 'a kind a frame links the same programs as all at once');
+  assert.equal(warmNext(renderer, scene, camera, { ocean, habitats, school: true }), null);
+  console.log(`a kind a frame: ${seen.length} steps, ${renderer.info.programs.length} programs, as all at once`);
 }
 assert(camera instanceof Camera);
 console.log('warm-up: programs found ready by the real scene, once for each kind');
