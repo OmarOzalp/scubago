@@ -10,6 +10,7 @@ import { OceanContext } from './ocean-context';
 import { OCEAN_SHADER_CHUNKS } from './ocean-mesh';
 import { useSceneQuality } from './scene-quality';
 import { useSlicedGeometry, type Job } from './sliced-geometry';
+import { meshKey } from './mesh-keys';
 import { STAGE } from './stager';
 import { Arriving } from './staging';
 import { holdStill } from './static-matrix';
@@ -265,7 +266,7 @@ export function* volcanicCoastJob(level: number): Job {
 /** Everything solid of the Volcanic Pinnacle's island in one mesh (it never moves). */
 export function VolcanicCoast({ level }: { level: number }) {
   // (made in slices, one stager step each, when the scene is staged: sliced-geometry.ts)
-  const geometry = useSlicedGeometry(`volcanic-coast:${islets(level, SHAPE).length}`, STAGE.coast, () => volcanicCoastJob(level));
+  const geometry = useSlicedGeometry(meshKey.volcanicCoast(level), STAGE.coast, () => volcanicCoastJob(level));
   const mesh = useMemo(() => {
     if (!geometry) return null;
     const mesh = new Mesh(geometry, new MeshLambertMaterial({ vertexColors: true, flatShading: true }));

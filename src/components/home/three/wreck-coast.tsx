@@ -7,6 +7,7 @@ import { smoothstep } from '@/lib/steering';
 import { alongWreck, WRECK, wreckLength } from '@/lib/wreck';
 import { boulder, cliffs, delaunay, faces, hash, noise, paintFaces, triangles, type RockColors } from './coast-geometry';
 import { builtOnce, keepBuilt, useHeldGeometry } from './geometry-cache';
+import { meshKey } from './mesh-keys';
 import { OceanContext } from './ocean-context';
 import { foliage, palm, tube } from './reef-coast';
 import { useSceneQuality } from './scene-quality';
@@ -320,44 +321,57 @@ function IsletCay({ position, scale, seed }: { position: [number, number]; scale
   return <primitive object={mesh} />;
 }
 
+/** What of the wreck lies under the water, on its own (the geometry cache's `wreck-sunken` where the cay's own build did not leave it there). */
+export const wreckSunkenGeometry = () => splitAtSurface(wreckGeometry())[1];
+
+/**
+ * The Shipwreck's cay in one geometry (the beach, the dunes and their plants, the lighthouse, the hut, the steamer's funnel and foremast above the water), and the
+ * steamer's part that lies under it, made together. The same for every level: the geometry cache keeps them (`meshKey.wreckCoast`, `meshKey.wreckSunken`) and the
+ * bake ships them (scripts/bake-meshes.ts).
+ */
+export function wreckCoastGeometries(lite: boolean) {
+  const [above, below] = splitAtSurface(wreckGeometry());
+  // The beach loses its lids: the ground drawn over it covers the cay.
+  const parts: BufferGeometry[] = [cliffs(BEACH, FOOT, TOP, 1, 0, 0, 0, (x, z) => Math.min(TOP, groundAt(x, z) - .008), SHAPE), ground(2), above];
+  // Beach grass over the dunes, thinner toward the beach.
+  for (let k = 0; k < (lite ? 60 : 150); k++) {
+    const x = -2.2 + 4.4 * hash(k, 1), z = -.75 + 1.7 * hash(k, 2), d = inside(x, z);
+    if (d > .14 && hash(k, 3) < smoothstep(.12, .3, d) && Math.hypot(x - LIGHT.x, z - LIGHT.z) > .12 && Math.hypot(x - HUT.x, z - HUT.z) > .14) parts.push(grass(x, z, k));
+  }
+  // A few palms, low shrubs among the dunes, driftwood on the beach and a boulder or two at the points.
+  for (const [px, pz, h, lean, seed] of [[.75, -.2, .4, -1.2, 1], [-1.45, .2, .36, 2.6, 2], [.2, -.37, .44, -1.9, 3], [1.55, .4, .34, -.3, 4], [-.95, -.15, .42, 2.2, 5]] as const) parts.push(...palm(px, pz, h, lean, seed, groundAt(px, pz) - .01));
+  // Sea grape and low shrubs among the dunes, and mats of beach vine creeping over the sand.
+  for (const [sx, sz, seed, size] of [[1.2, -.1, 31, .8], [-1.15, .05, 32, .75], [.45, -.07, 33, .7], [-.2, -.43, 34, .6], [1.75, .1, 35, .55], [-1.75, .25, 36, .55]] as const) {
+    parts.push(...foliage(sx, groundAt(sx, sz) - .005, sz, size, seed, [SEAGRAPE, SEAGRAPE.clone().lerp(SEAGRAPE_LIGHT, .5), SEAGRAPE_LIGHT, VINE_LIGHT], 3, .55));
+  }
+  for (let k = 0; k < (lite ? 8 : 16); k++) {
+    const x = -1.9 + 3.8 * hash(k, 21), z = -.6 + 1.2 * hash(k, 22);
+    if (inside(x, z) > .16) parts.push(...foliage(x, groundAt(x, z) - .02, z, .45 + .2 * hash(k, 23), 60 + k, [VINE, VINE.clone().lerp(VINE_LIGHT, .5), VINE_LIGHT, GRASS], 2, .25));
+  }
+  parts.push(driftwood(-1.0, -.37, .4, .32, 1), driftwood(.35, -.53, -.2, .26, 2), driftwood(1.75, .4, 1.2, .22, 3));
+  parts.push(...lighthouse());
+  for (const [bx, bz, seed] of [[2.1, .73, 41], [-2.05, .77, 42]] as const) parts.push(boulder({ wet: RUST_DARK.clone().lerp(new Color('#55524A'), .7), rock: new Color('#7D786C'), light: new Color('#9E988A') }, bx, WATER - .01, bz, .07, .035, .05, seed, seed, WATER));
+  const merged = mergeGeometries(parts);
+  parts.forEach((part) => part.dispose());
+  merged.computeVertexNormals();
+  return { coast: merged, sunken: below };
+}
+
 /** Everything of the Shipwreck in the island group's frame: the cay, and the wreck above and under the water. */
 export function WreckCoast({ level }: { level: number }) {
   const lite = useSceneQuality() === 'lite';
   const { cay, sunken } = useMemo(() => {
     // (the same for every level, and for every mount of it: geometry-cache.ts; the wreck under the water is kept as it is made, along the way)
-    const geometry = builtOnce(`wreck-coast:${lite}`, () => {
-    const [above, below] = splitAtSurface(wreckGeometry());
-    keepBuilt('wreck-sunken', below);
-    // The beach loses its lids: the ground drawn over it covers the cay.
-    const parts: BufferGeometry[] = [cliffs(BEACH, FOOT, TOP, 1, 0, 0, 0, (x, z) => Math.min(TOP, groundAt(x, z) - .008), SHAPE), ground(2), above];
-    // Beach grass over the dunes, thinner toward the beach.
-    for (let k = 0; k < (lite ? 60 : 150); k++) {
-      const x = -2.2 + 4.4 * hash(k, 1), z = -.75 + 1.7 * hash(k, 2), d = inside(x, z);
-      if (d > .14 && hash(k, 3) < smoothstep(.12, .3, d) && Math.hypot(x - LIGHT.x, z - LIGHT.z) > .12 && Math.hypot(x - HUT.x, z - HUT.z) > .14) parts.push(grass(x, z, k));
-    }
-    // A few palms, low shrubs among the dunes, driftwood on the beach and a boulder or two at the points.
-    for (const [px, pz, h, lean, seed] of [[.75, -.2, .4, -1.2, 1], [-1.45, .2, .36, 2.6, 2], [.2, -.37, .44, -1.9, 3], [1.55, .4, .34, -.3, 4], [-.95, -.15, .42, 2.2, 5]] as const) parts.push(...palm(px, pz, h, lean, seed, groundAt(px, pz) - .01));
-    // Sea grape and low shrubs among the dunes, and mats of beach vine creeping over the sand.
-    for (const [sx, sz, seed, size] of [[1.2, -.1, 31, .8], [-1.15, .05, 32, .75], [.45, -.07, 33, .7], [-.2, -.43, 34, .6], [1.75, .1, 35, .55], [-1.75, .25, 36, .55]] as const) {
-      parts.push(...foliage(sx, groundAt(sx, sz) - .005, sz, size, seed, [SEAGRAPE, SEAGRAPE.clone().lerp(SEAGRAPE_LIGHT, .5), SEAGRAPE_LIGHT, VINE_LIGHT], 3, .55));
-    }
-    for (let k = 0; k < (lite ? 8 : 16); k++) {
-      const x = -1.9 + 3.8 * hash(k, 21), z = -.6 + 1.2 * hash(k, 22);
-      if (inside(x, z) > .16) parts.push(...foliage(x, groundAt(x, z) - .02, z, .45 + .2 * hash(k, 23), 60 + k, [VINE, VINE.clone().lerp(VINE_LIGHT, .5), VINE_LIGHT, GRASS], 2, .25));
-    }
-    parts.push(driftwood(-1.0, -.37, .4, .32, 1), driftwood(.35, -.53, -.2, .26, 2), driftwood(1.75, .4, 1.2, .22, 3));
-    parts.push(...lighthouse());
-    for (const [bx, bz, seed] of [[2.1, .73, 41], [-2.05, .77, 42]] as const) parts.push(boulder({ wet: RUST_DARK.clone().lerp(new Color('#55524A'), .7), rock: new Color('#7D786C'), light: new Color('#9E988A') }, bx, WATER - .01, bz, .07, .035, .05, seed, seed, WATER));
-    const merged = mergeGeometries(parts);
-    parts.forEach((part) => part.dispose());
-    merged.computeVertexNormals();
-    return merged;
+    const geometry = builtOnce(meshKey.wreckCoast(lite), () => {
+      const made = wreckCoastGeometries(lite);
+      keepBuilt(meshKey.wreckSunken, made.sunken);
+      return made.coast;
     });
     const cay = new Mesh(geometry, new MeshLambertMaterial({ vertexColors: true, flatShading: true, side: DoubleSide }));
     cay.name = 'wreck-coast';
     cay.raycast = () => {};
     holdStill(cay);
-    return { cay, sunken: builtOnce('wreck-sunken', () => splitAtSurface(wreckGeometry())[1]) };
+    return { cay, sunken: builtOnce(meshKey.wreckSunken, wreckSunkenGeometry) };
   }, [lite]);
   // (the geometry is shared, geometry-cache.ts: only the material is this mesh's own to dispose)
   useHeldGeometry(cay.geometry);

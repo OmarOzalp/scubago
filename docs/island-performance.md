@@ -979,3 +979,49 @@ Where to call the warm-up (not wired: the explorer's picture and staging are ano
 
 On a phone to time: opening the explorer (the stall after the picture, and how long the picture waits), the first visit to each island from Home's pills,
 the explorer zoomed in (frame rate), and that the animals (the reef's dens, the jellyfish's see-through bell, the sharks' eyes) look as before.
+
+## The islands' coasts and what grows on them ship with the app (November 2026)
+
+The first time an island is shown in a session (Home's first launch, a pill tapped for an island not seen yet, the explorer's first open) its meshes were worked out on
+the phone: the coast and the corals of the Coral Reef, the Kelp Forest's coast and its kelp, the Volcanic Pinnacle, the Mangroves' coast and their seagrass, the
+Shipwreck's cay. Under `node --jitless` (the stand-in for Hermes) that is 0.45 to 0.7 s for the Coral Reef, 0.7 to 0.9 s for the Mangroves, and about 2.4 s
+for the five islands of the explorer at level 3. They are the same meshes every time, so they now ship with the app, worked out ahead of time by the very builders, and
+the first build reads them.
+
+- **What is shipped** (`assets/baked/mesh`, 24 files, 3,896,040 bytes, deflated): every mesh the geometry cache (`builtOnce`, `useSlicedGeometry`) is asked for in
+  the full quality tier, for each island at levels 1 to 6: the reef's coast (1) and corals (6 levels), the kelp coast (3 sizes), the volcanic
+  coast (3), the mangrove coast (3) and seagrass (6), the wreck's cay and the part of the wreck under the water. The keys are in one place (`mesh-keys.ts`) so the
+  components, the bake and the loader cannot disagree. Not shipped: the kelp forest (see below), and, because they cost next to nothing, the reef's rocks and anemones (15 to 25 ms), the
+  showpiece corals, and the simulator's `lite` tier (which still computes).
+- **Bit for bit.** A mesh is a list of separate triangles, and the file holds exactly the bits the builder made: a colour a whole face shares or a vertex shared by
+  the corners of several triangles is stored once and pointed at; an all-zero attribute (the uv) is not stored; the flat normals are not stored where they are what
+  three.js's own `computeVertexNormals` makes of the positions (`flatNormals` does the same sums in the same order, and the bake checks that it comes out the same, mesh by mesh);
+  the bounding sphere is kept as the builder left it. Chunks of 8192 vertices are deflated by themselves (`src/lib/mesh-pack.ts`, `src/lib/inflate.ts`), so a mesh is read a
+  chunk at a time (no step is longer than 16 ms jitless) and a damaged chunk is found. Each file names its key and a digest of the rest.
+- **The bake refuses to write anything that differs.** `npm run bake:meshes` (scripts/bake-meshes.ts) builds each mesh twice (it must come out the same), at every level that
+  shares its key (the same mesh), encodes it, reads the file back with the code the app reads it with, and compares every float's bits and the sphere with the builder's; one that
+  differs stops the bake and nothing is written. `npm run verify:meshes` checks the files as they are on disk, through the store the app uses, against every builder at every
+  level, and the list of files and the size (at most 4,000,000 bytes). `src/lib/__tests__/mesh-fresh.test.ts` runs it: it fails when a builder (or anything a mesh is made
+  from) has changed and the files have not been baked again.
+- **How the app finds them.** `mesh-assets.ts` starts reading a mesh's file with the island's seabed (`loadSeabedBake`, and beside the explorer's wait for its ocean), and for the next level and the other islands Home may show (`preloadSeabedBakes`); a sliced builder also asks for its file when its step is registered. `builtOnce` makes a mesh of the file if
+  it is held, else by the builder; a sliced mesh does the same when its first step runs. Nothing waits for the files: a first try that held the scene's first frame until they were read made
+  it later on the web (1.43 to 1.79 s at 1x in a first launch), because the reads queue behind the launch's own work; read in step with the seabed but not waited for, the coast's steps (which come after the first frame) find them held, and a file not read by then is a mesh built as before. A file that is not there, is for another mesh, is damaged or cut short, or does not inflate
+  is a mesh made as before (a `console.warn` in a development build). The shipped geometry gets the same `holdStill` (static matrices) as the builders' meshes did, since that is
+  done on the mesh, not the geometry.
+- **Measured** (`perf-build/ab.mjs`, alternating runs, CPU time, medians of 3, the island scene's coast and props phases before and after):
+
+  | | jitless before | jitless after | V8 before | V8 after |
+  |---|---|---|---|---|
+  | Home, Coral Reef level 3 (coast + corals) | 859 ms | 259 ms | 287 ms | 156 ms |
+  | Home, Mangroves level 3 (coast + seagrass) | 833 ms | 217 ms | 522 ms | 165 ms |
+  | Home, Kelp Forest level 3 (coast only; the forest is still made) | 138 ms | 43 ms | – | – |
+  | Home, Volcanic Pinnacle level 3 | 276 ms | 62 ms | 110 ms | 55 ms |
+  | Home, Shipwreck level 3 | 122 ms | 53 ms | 115 ms | 72 ms |
+  | Explorer, five islands, level 3 (all meshes) | 2361 ms | 673 ms | 564 ms | 229 ms |
+
+  What is left is the inflating (66 ms for the reef's coast, 129 to 146 for the Mangroves', 112 for the kelp forest), the meshes and materials, which are the same as before.
+- **Not shipped: the explorer islands' bottom grids** (`createSeabed`, about 0.1 s jitless each). The grid depends on the whole set of islands: at level 3 the Coral Reef has 15
+  different grids over the 64 orders of the others, the Mangroves 8, the Shipwreck 7, the Volcanic Pinnacle 5, the Kelp Forest 2, thousands of cells differing each,
+  about 8 MB in all. They are still worked out when the animals start swimming.
+- **The kelp forest is not shipped.** Its six files would be 2,065,944 bytes (5,961,984 in all) to save about 55 ms jitless (176 to 121), and the saving would stay one block, since it is
+  built in one go by `builtOnce`. It is made on the phone as before; with no file for its key nothing is read and no warning is given.

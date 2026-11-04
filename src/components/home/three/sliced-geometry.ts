@@ -1,6 +1,7 @@
 import { useContext, useLayoutEffect, useState } from 'react';
 import type { BufferGeometry } from 'three';
 import { builtOnce, keepBuilt, peekBuilt } from './geometry-cache';
+import { shippedOrMade, wantMesh } from './mesh-store';
 import type { Group } from './stager';
 import { IslandContext, StagerContext } from './staging';
 
@@ -40,7 +41,10 @@ export function useSlicedGeometry(key: string, stage: number, make: () => Job, s
   const kept = now ?? peekBuilt(key) ?? null;
   useLayoutEffect(() => {
     if (!stager || peekBuilt(key)) return;
-    const job = make();
+    // The file shipped for it, if there is one, is read while the step waits its turn (and was, mostly, ahead of the scene: mesh-assets.ts); the job is
+    // that mesh's from the file if it is held when the step opens, else the builder's own.
+    wantMesh(key);
+    const job = shippedOrMade(key, make);
     const group: Group = {
       island, stage, total: 1, opened: 0,
       open: () => {

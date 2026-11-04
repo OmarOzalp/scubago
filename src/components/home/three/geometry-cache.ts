@@ -1,5 +1,6 @@
 import { useEffect } from 'react';
 import type { BufferGeometry } from 'three';
+import { shippedNow } from './mesh-store';
 
 /**
  * Geometry that is the same every time it is asked for (an island's coast, its kelp, its seagrass, the template its corals are cut from: each depends
@@ -45,14 +46,17 @@ function keep(key: string, geometry: BufferGeometry) {
   }
 }
 
-/** The geometry for `key`, built by `build` the first time. */
+/**
+ * The geometry for `key`, built by `build` the first time: or made from the file shipped with the app for it, if one has been read (mesh-store.ts), which gives
+ * the very same bits for a fraction of the work. A file that turns out wrong is built as ever.
+ */
 export function builtOnce(key: string, build: () => BufferGeometry): BufferGeometry {
   const had = entries.get(key);
   if (had) {
     entries.delete(key); entries.set(key, had);
     return had.geometry;
   }
-  const geometry = build();
+  const geometry = shippedNow(key) ?? build();
   keep(key, geometry);
   return geometry;
 }

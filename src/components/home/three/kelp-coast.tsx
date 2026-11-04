@@ -6,6 +6,7 @@ import { smoothstep } from '@/lib/steering';
 import { boulder, cliffs, delaunay, faces, hash, noise, paintFaces, triangles } from './coast-geometry';
 import { useHeldGeometry } from './geometry-cache';
 import { useSlicedGeometry, type Job } from './sliced-geometry';
+import { meshKey } from './mesh-keys';
 import { STAGE } from './stager';
 import { Arriving } from './staging';
 import { holdStill } from './static-matrix';
@@ -156,7 +157,7 @@ export function* kelpCoastJob(level: number): Job {
 /** Everything of the Kelp Forest's island in one mesh (it never moves): rock, hill, cypress, boulders, stacks. */
 export function KelpCoast({ level }: { level: number }) {
   // (made in slices, one stager step each, when the scene is staged: sliced-geometry.ts)
-  const geometry = useSlicedGeometry(`kelp-coast:${islets(level, SHAPE).length}`, STAGE.coast, () => kelpCoastJob(level));
+  const geometry = useSlicedGeometry(meshKey.kelpCoast(level), STAGE.coast, () => kelpCoastJob(level));
   const mesh = useMemo(() => {
     if (!geometry) return null;
     const mesh = new Mesh(geometry, new MeshLambertMaterial({ vertexColors: true, flatShading: true }));

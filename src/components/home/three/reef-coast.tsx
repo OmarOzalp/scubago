@@ -6,6 +6,7 @@ import { coralHeads, JETTY, jettyLine, type CoralHead, type CoralKind } from '@/
 import { smoothstep } from '@/lib/steering';
 import { boulder, cliffs, delaunay, faces, hash, noise, paintFaces, triangles, type RockColors } from './coast-geometry';
 import { builtOnce, useHeldGeometry } from './geometry-cache';
+import { meshKey } from './mesh-keys';
 import { useSlicedGeometry, type Job } from './sliced-geometry';
 import { STAGE } from './stager';
 import { Arriving } from './staging';
@@ -350,7 +351,7 @@ function useCoralMesh(heads: () => readonly CoralHead[], name: string, key: stri
 
 /** The coral heads of the lagoon and the crest (reef-coast.ts), in the island's frame (world units, not scaled with the island). */
 export function ReefCorals({ level }: { level: number }) {
-  const mesh = useCoralMesh(() => coralHeads(level), 'reef-corals', `reef-corals:${level}`, true);
+  const mesh = useCoralMesh(() => coralHeads(level), 'reef-corals', meshKey.reefCorals(level), true);
   return mesh ? <Arriving><primitive object={mesh} /></Arriving> : null;
 }
 
@@ -448,7 +449,7 @@ export function* reefCoastJob(lite: boolean): Job {
 export function ReefCoast({ level, ocean, place }: { level: number; ocean: Ocean; place: readonly [number, number] }) {
   const lite = useSceneQuality() === 'lite';
   // (made in slices, one stager step each, when the scene is staged: sliced-geometry.ts)
-  const geometry = useSlicedGeometry(`reef-coast:${lite}`, STAGE.coast, () => reefCoastJob(lite));
+  const geometry = useSlicedGeometry(meshKey.reefCoast(lite), STAGE.coast, () => reefCoastJob(lite));
   const mesh = useMemo(() => {
     if (!geometry) return null;
     const mesh = new Mesh(geometry, new MeshLambertMaterial({ vertexColors: true, flatShading: true, side: DoubleSide }));

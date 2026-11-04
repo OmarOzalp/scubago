@@ -1,0 +1,28 @@
+/* eslint-disable @typescript-eslint/no-require-imports -- Metro bundles an asset only where a require() names it */
+/** The meshes shipped with the app (written by scripts/bake-meshes.ts with the files themselves: don't edit by hand), by geometry-cache key (mesh-keys.ts). */
+export const MESH_FILES: Record<string, number> = {
+  'kelp-coast:0': require('@/assets/baked/mesh/kelp-coast-0.bin'),
+  'kelp-coast:1': require('@/assets/baked/mesh/kelp-coast-1.bin'),
+  'kelp-coast:2': require('@/assets/baked/mesh/kelp-coast-2.bin'),
+  'mangrove-coast:0:false': require('@/assets/baked/mesh/mangrove-coast-0-false.bin'),
+  'mangrove-coast:1:false': require('@/assets/baked/mesh/mangrove-coast-1-false.bin'),
+  'mangrove-coast:2:false': require('@/assets/baked/mesh/mangrove-coast-2-false.bin'),
+  'reef-coast:false': require('@/assets/baked/mesh/reef-coast-false.bin'),
+  'reef-corals:1:false': require('@/assets/baked/mesh/reef-corals-1-false.bin'),
+  'reef-corals:2:false': require('@/assets/baked/mesh/reef-corals-2-false.bin'),
+  'reef-corals:3:false': require('@/assets/baked/mesh/reef-corals-3-false.bin'),
+  'reef-corals:4:false': require('@/assets/baked/mesh/reef-corals-4-false.bin'),
+  'reef-corals:5:false': require('@/assets/baked/mesh/reef-corals-5-false.bin'),
+  'reef-corals:6:false': require('@/assets/baked/mesh/reef-corals-6-false.bin'),
+  'seagrass:1:false': require('@/assets/baked/mesh/seagrass-1-false.bin'),
+  'seagrass:2:false': require('@/assets/baked/mesh/seagrass-2-false.bin'),
+  'seagrass:3:false': require('@/assets/baked/mesh/seagrass-3-false.bin'),
+  'seagrass:4:false': require('@/assets/baked/mesh/seagrass-4-false.bin'),
+  'seagrass:5:false': require('@/assets/baked/mesh/seagrass-5-false.bin'),
+  'seagrass:6:false': require('@/assets/baked/mesh/seagrass-6-false.bin'),
+  'volcanic-coast:0': require('@/assets/baked/mesh/volcanic-coast-0.bin'),
+  'volcanic-coast:1': require('@/assets/baked/mesh/volcanic-coast-1.bin'),
+  'volcanic-coast:2': require('@/assets/baked/mesh/volcanic-coast-2.bin'),
+  'wreck-coast:false': require('@/assets/baked/mesh/wreck-coast-false.bin'),
+  'wreck-sunken': require('@/assets/baked/mesh/wreck-sunken.bin'),
+};

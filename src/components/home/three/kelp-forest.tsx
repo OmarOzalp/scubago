@@ -4,6 +4,7 @@ import { KELP, kelpPlants } from '@/lib/kelp';
 import { builtOnce, useHeldGeometry } from './geometry-cache';
 import { buildKelpGeometry, KELP_DETAIL } from './kelp-geometry';
 import { createKelpMovers, KELP_MOVERS, KelpMoversContext, type KelpMovers } from './kelp-movers';
+import { meshKey } from './mesh-keys';
 import { createOceanUniforms, OCEAN_SHADER_CHUNKS, type OceanUniforms } from './ocean-mesh';
 import { OceanContext } from './ocean-context';
 import { useSceneQuality } from './scene-quality';
@@ -67,6 +68,15 @@ varying float vOceanDepth;\nvarying float vOceanHaze;\n${OCEAN_SHADER_CHUNKS.wav
   return material;
 }
 
+/** The giant kelp's geometry at a level and quality tier: the one the geometry cache keeps (`meshKey.kelpForest`) and the bake ships (scripts/bake-meshes.ts). */
+export function kelpForestGeometry(level: number, lite: boolean) {
+  const plants = kelpPlants(level, lite ? KELP.plants.lite : KELP.plants.full);
+  const built = buildKelpGeometry(plants, KELP_DETAIL[lite ? 'lite' : 'full']);
+  // Out of view (the explorer looking at another island) it isn't drawn: its bounds, padded for the sway and the parting.
+  built.boundingSphere!.radius += 1;
+  return built;
+}
+
 /**
  * The Kelp Forest island's giant kelp (src/lib/kelp.ts): every plant in one mesh, swaying in the
  * shader with the island's water clock (so it stills when the scene pauses). Fewer plants with fewer
@@ -77,13 +87,7 @@ export function KelpForest({ level }: { level: number }) {
   const lite = useSceneQuality() === 'lite';
   const mesh = useMemo(() => {
     // (made once for each level and quality, and shared: geometry-cache.ts)
-    const geometry = builtOnce(`kelp-forest:${level}:${lite}`, () => {
-      const plants = kelpPlants(level, lite ? KELP.plants.lite : KELP.plants.full);
-      const built = buildKelpGeometry(plants, KELP_DETAIL[lite ? 'lite' : 'full']);
-      // Out of view (the explorer looking at another island) it isn't drawn: its bounds, padded for the sway and the parting.
-      built.boundingSphere!.radius += 1;
-      return built;
-    });
+    const geometry = builtOnce(meshKey.kelpForest(level, lite), () => kelpForestGeometry(level, lite));
     const mesh = new Mesh(geometry, createKelpMaterial(ocean ?? createOceanUniforms('kelp'), lite, movers ?? undefined));
     mesh.name = 'kelp-forest';
     mesh.renderOrder = 1;

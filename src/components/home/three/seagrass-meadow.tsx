@@ -2,6 +2,7 @@ import { useContext, useEffect, useMemo } from 'react';
 import { DoubleSide, Mesh, MeshLambertMaterial, Vector4 } from 'three';
 import { SEAGRASS, seagrassTufts } from '@/lib/seagrass';
 import { builtOnce, useHeldGeometry } from './geometry-cache';
+import { meshKey } from './mesh-keys';
 import { OceanContext } from './ocean-context';
 import { buildSeagrassGeometry } from './seagrass-geometry';
 import { createOceanUniforms, OCEAN_SHADER_CHUNKS, type OceanUniforms } from './ocean-mesh';
@@ -37,6 +38,14 @@ varying float vOceanDepth;\nvarying float vOceanHaze;\n${OCEAN_SHADER_CHUNKS.wav
   return material;
 }
 
+/** The seagrass's geometry at a level and quality tier: the one the geometry cache keeps (`meshKey.seagrass`) and the bake ships (scripts/bake-meshes.ts). */
+export function seagrassGeometry(level: number, lite: boolean) {
+  const tufts = seagrassTufts(level, lite ? SEAGRASS.tufts.lite : SEAGRASS.tufts.full);
+  const built = buildSeagrassGeometry(tufts, lite ? SEAGRASS.blades.lite : SEAGRASS.blades.full);
+  built.boundingSphere!.radius += .2;
+  return built;
+}
+
 /**
  * The Mangroves & Seagrass island's seagrass meadows (src/lib/seagrass.ts) on the shelf around it, in
  * one mesh swaying on the island's water clock (so it stills when the scene does). Fewer tufts with
@@ -47,12 +56,7 @@ export function SeagrassMeadow({ level }: { level: number }) {
   const lite = useSceneQuality() === 'lite';
   const mesh = useMemo(() => {
     // (made once for each level and quality, and shared: geometry-cache.ts)
-    const geometry = builtOnce(`seagrass:${level}:${lite}`, () => {
-      const tufts = seagrassTufts(level, lite ? SEAGRASS.tufts.lite : SEAGRASS.tufts.full);
-      const built = buildSeagrassGeometry(tufts, lite ? SEAGRASS.blades.lite : SEAGRASS.blades.full);
-      built.boundingSphere!.radius += .2;
-      return built;
-    });
+    const geometry = builtOnce(meshKey.seagrass(level, lite), () => seagrassGeometry(level, lite));
     const mesh = new Mesh(geometry, createSeagrassMaterial(ocean ?? createOceanUniforms('mangrove'), lite));
     mesh.name = 'seagrass-meadow';
     mesh.renderOrder = 1;

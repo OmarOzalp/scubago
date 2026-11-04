@@ -28,8 +28,26 @@ export const shippedOceans: OceanPackSource = {
 let oceans: OceanStore | undefined;
 export const oceanStore = () => (oceans ??= createOceanStore(oceanFiles, {}, shippedOceans));
 
-/** Load (once) the bake for these islands at this level and reach. True once it is in use; false when there is none or it failed. */
+/**
+ * The coast and what grows on each of these islands at this level, shipped with the app (mesh-assets.ts), read alongside the seabed. Nothing waits for them (the
+ * scene's first frame is not held up by files its coast will want a moment later; one not read by then is made as before). Never rejects.
+ */
+export function loadIslandsMeshes(level: number, islands: readonly OceanIsland[]): Promise<void> {
+  try {
+    const { loadIslandMeshes } = require('./mesh-assets') as typeof import('./mesh-assets'); // eslint-disable-line @typescript-eslint/no-require-imports
+    return Promise.all(islands.map((island) => loadIslandMeshes(island.habitat, level))).then(() => undefined, () => undefined);
+  } catch {
+    return Promise.resolve();
+  }
+}
+
+/** Load (once) the bake for these islands at this level and reach, and start reading their meshes. True once the bake is in use; false when there is none or it failed. */
 export function loadSeabedBake(level: number, islands: readonly OceanIsland[], reach?: WaterExtent): Promise<boolean> {
+  void loadIslandsMeshes(level, islands);
+  return loadBakeFile(level, islands, reach);
+}
+
+function loadBakeFile(level: number, islands: readonly OceanIsland[], reach?: WaterExtent): Promise<boolean> {
   const name = seabedBakeName(level, islands, reach), module = name ? SEABED_FILES[name] : undefined;
   if (!name || module === undefined) return Promise.resolve(false);
   const key = seabedBakeKey(level, islands, reach);
@@ -71,7 +89,7 @@ export function useSeabedReady(level: number, islands: readonly OceanIsland[], r
     if (ready || !wanted) return;
     let current = true;
     const arrived = () => { if (current) setReadyFor(where); };
-    if (own) void oceanStore().ensure(level, islands, reach ?? OCEAN.waterExtent, true).then(arrived);
+    if (own) { void loadIslandsMeshes(level, islands); void oceanStore().ensure(level, islands, reach ?? OCEAN.waterExtent, true).then(arrived); }
     else loadSeabedBake(level, islands, reach).then(arrived);
     // (no longer waiting for it: an ocean for a reach the screen turned out not to have, or a scene that has gone, is not worked out for nothing)
     return () => { current = false; if (own) oceanStore().release(level, islands, reach ?? OCEAN.waterExtent); };

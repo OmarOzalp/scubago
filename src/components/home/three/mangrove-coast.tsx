@@ -6,6 +6,7 @@ import { smoothstep } from '@/lib/steering';
 import { cliffs, delaunay, faces, hash, noise, paintFaces, triangles } from './coast-geometry';
 import { useHeldGeometry } from './geometry-cache';
 import { useSlicedGeometry, type Job } from './sliced-geometry';
+import { meshKey } from './mesh-keys';
 import { STAGE } from './stager';
 import { Arriving } from './staging';
 import { useSceneQuality } from './scene-quality';
@@ -326,7 +327,7 @@ export function* mangroveCoastJob(level: number, lite: boolean): Job {
 export function MangroveCoast({ level }: { level: number }) {
   const lite = useSceneQuality() === 'lite';
   // (made in slices, one stager step each, when the scene is staged: sliced-geometry.ts)
-  const geometry = useSlicedGeometry(`mangrove-coast:${islets(level, SHAPE).length}:${lite}`, STAGE.coast, () => mangroveCoastJob(level, lite));
+  const geometry = useSlicedGeometry(meshKey.mangroveCoast(level, lite), STAGE.coast, () => mangroveCoastJob(level, lite));
   const mesh = useMemo(() => {
     if (!geometry) return null;
     const mesh = new Mesh(geometry, new MeshLambertMaterial({ vertexColors: true, flatShading: true }));
