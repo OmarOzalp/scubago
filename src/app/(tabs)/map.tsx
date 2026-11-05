@@ -1,4 +1,4 @@
-import { router } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
 import { useCallback, useDeferredValue, useMemo, useState } from 'react';
 import {
   Platform,
@@ -15,6 +15,7 @@ import { boundsOfSites, buildPlaces, searchExplore, type Place } from '@/compone
 import { FilterChip, SearchBar } from '@/components/explore/search-bar';
 import { SearchPanel } from '@/components/explore/search-panel';
 import { Icon } from '@/components/icon';
+import { Chip } from '@/components/journal/chip';
 import { IconButton } from '@/components/journal/icon-button';
 import { Paper } from '@/components/journal/paper';
 import { ScreenHeader } from '@/components/journal/screen';
@@ -26,6 +27,7 @@ import { SpeciesAvatar } from '@/components/species-avatar';
 import { ThemedText } from '@/components/themed-text';
 import { MaxContentWidth, Radius, Spacing, TabBarOverhang, Type } from '@/constants/theme';
 import { canonicalSiteId } from '@/data/sites';
+import { useRewards } from '@/hooks/use-rewards';
 import { useTheme } from '@/hooks/use-theme';
 import { CATALOG, CATALOG_BY_ID } from '@/lib/catalog';
 import { confirmAction } from '@/lib/confirm';
@@ -43,9 +45,13 @@ function whose({ mine, others }: Seen): string {
   return [mine ? `${mine} of yours` : null, others ? `${others} by others` : null].filter(Boolean).join(' · ');
 }
 
+/** Which sites the map shows: every one, or only those the diver has dived (they wear their passport stamp either way). */
+type Show = 'all' | 'dived';
+
 /**
- * The Explore tab: every dive site on a map (a list on the web), and one search for dive sites,
- * places and animals. A site you pick is selected (and the map flies to it); an animal shows where
+ * The Sites tab: every dive site on a map (a list on the web), and one search for dive sites,
+ * places and animals. The sites you have dived wear their passport stamp; `?show=dived` (the old
+ * passport's link) opens on only those. A site you pick is selected (and the map flies to it); an animal shows where
  * it is seen; a place shows only its sites. The map is mounted on the page like a chart pasted into
  * the journal.
  */
@@ -55,7 +61,21 @@ export default function ExploreScreen() {
   const { height: windowHeight } = useWindowDimensions();
   const allSites = useAllSites();
   // A to Z: the list (the web's map, and the phone's list view) otherwise follows the order the sites were added in.
-  const sites = useMemo(() => [...allSites].sort((a, b) => a.name.localeCompare(b.name)), [allSites]);
+  const everySite = useMemo(() => [...allSites].sort((a, b) => a.name.localeCompare(b.name)), [allSites]);
+  // The passport's stamps, one for each site dived: they mark the map, and the list says when and how often.
+  const { passport } = useRewards();
+  const stamps = useMemo(() => new Map(passport.flatMap((g) => g.stamps).map((st) => [st.siteId, st])), [passport]);
+  const { show: asked } = useLocalSearchParams<{ show?: string }>();
+  const [picked, setShow] = useState<Show>(asked === 'dived' ? 'dived' : 'all');
+  // The Sites tab stays mounted, so a link to "dived" arrives as a new param.
+  const [seenAsk, setSeenAsk] = useState(asked);
+  if (asked !== seenAsk) {
+    setSeenAsk(asked);
+    if (asked === 'dived' || asked === 'all') setShow(asked);
+  }
+  // With nothing dived yet there is no filter to offer: every site shows.
+  const show: Show = stamps.size > 0 ? picked : 'all';
+  const sites = useMemo(() => (show === 'dived' ? everySite.filter((s) => stamps.has(s.id)) : everySite), [everySite, show, stamps]);
   const sightings = useAppStore((s) => s.sightings);
   const myUserId = useMyUserId();
   const myDives = useMyDives();
@@ -102,27 +122,27 @@ export default function ExploreScreen() {
   const lastLng = lastSite?.lng;
   const startAt = useMemo(() => (lastLat === undefined || lastLng === undefined ? null : { south: lastLat, north: lastLat, west: lastLng, east: lastLng }), [lastLat, lastLng]);
 
-  const places = useMemo(() => buildPlaces(sites), [sites]);
+  const places = useMemo(() => buildPlaces(everySite), [everySite]);
   const placeFilter = useMemo(() => (placeFilterId ? (places.find((p) => p.id === placeFilterId) ?? null) : null), [places, placeFilterId]);
 
   const highlightedSiteIds = useMemo(() => {
     if (speciesFilter) {
       const ids = new Set<string>();
-      for (const site of sites) {
+      for (const site of everySite) {
         const seenHere = sightingsBySite.get(site.id)?.has(speciesFilter.id);
         if (seenHere || site.notableSpecies.includes(speciesFilter.id)) ids.add(site.id);
       }
       return ids;
     }
     return placeFilter ? new Set(placeFilter.siteIds) : null;
-  }, [speciesFilter, placeFilter, sites, sightingsBySite]);
+  }, [speciesFilter, placeFilter, everySite, sightingsBySite]);
 
   const results = useMemo(
-    () => (typed.trim() ? searchExplore({ sites, places, species: CATALOG, query: typed }) : null),
-    [typed, sites, places],
+    () => (typed.trim() ? searchExplore({ sites: everySite, places, species: CATALOG, query: typed }) : null),
+    [typed, everySite, places],
   );
 
-  const selectedSite = selectedSiteId ? sites.find((s) => s.id === selectedSiteId) : null;
+  const selectedSite = selectedSiteId ? everySite.find((s) => s.id === selectedSiteId) : null;
   const selectedTopSpecies = useMemo(() => {
     if (!selectedSiteId) return [];
     const counts = sightingsBySite.get(selectedSiteId);
@@ -139,6 +159,7 @@ export default function ExploreScreen() {
     setQuery('');
   };
   const pickSpecies = (species: Species) => {
+    setShow('all');
     setSpeciesFilter(species);
     setPlaceFilterId(null);
     setSelectedSiteId(null);
@@ -147,17 +168,19 @@ export default function ExploreScreen() {
     closeSearch();
   };
   const pickPlace = (place: Place) => {
+    setShow('all');
     setPlaceFilterId(place.id);
     setSpeciesFilter(null);
     setSelectedSiteId(null);
     const ids = new Set(place.siteIds);
-    const bounds = boundsOfSites(sites, ids);
+    const bounds = boundsOfSites(everySite, ids);
     setFocus(bounds ? { bounds, siteId: null } : null);
     closeSearch();
   };
   // The same as tapping the site's pin (its card opens), and the map flies to it (the list scrolls to it).
   // A filter that leaves the site out would hide what was asked for, so it goes; one that has it stays.
   const pickSite = (site: DiveSite) => {
+    if (show === 'dived' && !stamps.has(site.id)) setShow('all');
     if (highlightedSiteIds && !highlightedSiteIds.has(site.id)) {
       setSpeciesFilter(null);
       setPlaceFilterId(null);
@@ -168,7 +191,7 @@ export default function ExploreScreen() {
   };
   // Return: the first row of the first section, worked out from what is in the field now.
   const submitSearch = () => {
-    const top = searchExplore({ sites, places, species: CATALOG, query }).top;
+    const top = searchExplore({ sites: everySite, places, species: CATALOG, query }).top;
     if (!top) return;
     if (top.kind === 'site') pickSite(top.site);
     else if (top.kind === 'place') pickPlace(top.place);
@@ -206,6 +229,7 @@ export default function ExploreScreen() {
       highlightLabel={placeFilter ? `In ${placeFilter.name}` : undefined}
       focus={focus}
       startAt={startAt}
+      stamps={stamps}
       selectedSiteId={Platform.OS === 'web' ? selectedSiteId : undefined}
       onSelectSite={selectSite}
       onLongPress={handleLongPress}
@@ -223,7 +247,7 @@ export default function ExploreScreen() {
       {/* The page's head: title, the add-site and list buttons, then the search, and under it the filter it has set. */}
       <View style={[styles.column, styles.header, { paddingTop: insets.top + Spacing.four }]}>
         <ScreenHeader
-          title="Explore"
+          title="Sites"
           accessory={
             // Adding a site without the long-press, which VoiceOver and the web app can't do; and the list view.
             <View style={styles.tools}>
@@ -250,6 +274,14 @@ export default function ExploreScreen() {
           />
         </View>
 
+        {/* Only once there is a stamp to filter by: Dived shows just those sites, All shows every one (the dived ones still wear their stamp). */}
+        {stamps.size > 0 && !speciesFilter && !placeFilter ? (
+          <View style={styles.showRow}>
+            <Chip label="Dived" selected={show === 'dived'} onPress={() => setShow('dived')} />
+            <Chip label="All" selected={show === 'all'} onPress={() => setShow('all')} />
+          </View>
+        ) : null}
+
         {speciesFilter ? (
           <FilterChip
             leading={<SpeciesAvatar species={speciesFilter} size={38} showRarityRing />}
@@ -275,7 +307,7 @@ export default function ExploreScreen() {
 
       <View style={styles.body}>
         {listView && Platform.OS !== 'web' ? (
-          <SiteList sites={sites} highlightedSiteIds={highlightedSiteIds} onSelectSite={selectSite} reveal={focus} selectedSiteId={selectedSiteId} />
+          <SiteList sites={sites} highlightedSiteIds={highlightedSiteIds} onSelectSite={selectSite} reveal={focus} selectedSiteId={selectedSiteId} stamps={stamps} />
         ) : mapShown ? (
           // The chart, mounted like the island on Home: a fine ink frame inside a raised sheet. It stops
           // short of the tab bar so the raised "Log dive" button never covers it.
@@ -438,6 +470,10 @@ const styles = StyleSheet.create({
   header: {
     gap: 14,
     paddingBottom: 14,
+  },
+  showRow: {
+    flexDirection: 'row',
+    gap: 8,
   },
   tools: {
     flexDirection: 'row',

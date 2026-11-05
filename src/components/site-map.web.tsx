@@ -38,7 +38,7 @@ function useMapNote(): { show: boolean; dismiss: () => void } {
  * header sits above it on the page (not over it), so the list needs no top inset. Where the native
  * map flies to the site or place the search picked, the list scrolls to it.
  */
-export const SiteMap = memo(function SiteMap({ sites, highlightedSiteIds, focus, selectedSiteId, onSelectSite }: SiteMapProps) {
+export const SiteMap = memo(function SiteMap({ sites, highlightedSiteIds, focus, selectedSiteId, stamps, onSelectSite }: SiteMapProps) {
   const note = useMapNote();
   return (
     <SiteList
@@ -47,6 +47,7 @@ export const SiteMap = memo(function SiteMap({ sites, highlightedSiteIds, focus,
       onSelectSite={onSelectSite}
       reveal={focus}
       selectedSiteId={selectedSiteId}
+      stamps={stamps}
       note={note.show ? 'The map is in the iOS and Android apps.' : undefined}
       onDismissNote={note.dismiss}
     />

@@ -5,11 +5,13 @@ import { ExternalLink } from '@/components/external-link';
 import { Icon } from '@/components/icon';
 import { Paper, PaperButton } from '@/components/journal/paper';
 import { Wash } from '@/components/journal/wash';
+import { longDate, plural } from '@/components/rewards/format';
 import { ThemedText } from '@/components/themed-text';
 import { MaxContentWidth, Radius, Spacing, TabBarOverhang, Type } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { hasImportedSites } from '@/lib/site-clusters';
 import { OSM_ATTRIBUTION } from '@/lib/site-import';
+import type { PassportStamp } from '@/lib/rewards';
 import type { DiveSite } from '@/lib/types';
 import { hashSeed } from '@/lib/wash';
 
@@ -74,6 +76,7 @@ export const SiteList = memo(function SiteList({
   topInset = 0,
   reveal = null,
   selectedSiteId = null,
+  stamps,
 }: {
   sites: DiveSite[];
   highlightedSiteIds: Set<string> | null;
@@ -89,6 +92,8 @@ export const SiteList = memo(function SiteList({
   reveal?: { siteId: string | null } | null;
   /** The site whose card is open: its row is edged in coral. */
   selectedSiteId?: string | null;
+  /** The sites the diver has dived: their rows wear a stamp and say when they first dived there and how often. */
+  stamps?: ReadonlyMap<string, PassportStamp>;
 }) {
   const theme = useTheme();
   const listRef = useRef<FlatList<DiveSite>>(null);
@@ -97,6 +102,7 @@ export const SiteList = memo(function SiteList({
     [sites, highlightedSiteIds],
   );
   const credit = useMemo(() => hasImportedSites(sites), [sites]);
+  const stamped = useMemo(() => (stamps ? visible.filter((s) => stamps.has(s.id)).length : 0), [visible, stamps]);
   // Names more than one site has: those rows keep their full region, which is what tells them apart.
   const sharedNames = useMemo(() => {
     const seen = new Set<string>();
@@ -145,10 +151,11 @@ export const SiteList = memo(function SiteList({
         country={item.country}
         full={sharedNames.has(item.name)}
         selected={item.id === selectedSiteId}
+        stampLine={stampLine(stamps?.get(item.id))}
         onSelect={onSelectSite}
       />
     ),
-    [onSelectSite, selectedSiteId, sharedNames],
+    [onSelectSite, selectedSiteId, sharedNames, stamps],
   );
 
   return (
@@ -183,8 +190,9 @@ export const SiteList = memo(function SiteList({
               ) : null}
             </Paper>
           ) : null}
-          <ThemedText type="label">
-            {visible.length} {visible.length === 1 ? 'site' : 'sites'}
+          <ThemedText type="small" themeColor="textSecondary">
+            {plural(visible.length, 'site')}
+            {stamped > 0 ? ` · ${stamped} stamped` : ''}
           </ThemedText>
         </View>
       }
@@ -197,6 +205,11 @@ export const SiteList = memo(function SiteList({
     />
   );
 });
+
+/** "Stamped 12 March 2026 · 3 visits": the passport's line for a site. */
+function stampLine(stamp?: PassportStamp): string | undefined {
+  return stamp ? `Stamped ${longDate(stamp.firstVisitedOn)} · ${plural(stamp.visits, 'visit')}` : undefined;
+}
 
 const siteKey = (site: DiveSite) => site.id;
 
@@ -212,6 +225,7 @@ const SiteRow = memo(function SiteRow({
   country,
   full,
   selected,
+  stampLine,
   onSelect,
 }: {
   id: string;
@@ -221,6 +235,8 @@ const SiteRow = memo(function SiteRow({
   /** Another site has this name: show the whole region. */
   full: boolean;
   selected: boolean;
+  /** Set when the diver has dived here. */
+  stampLine?: string;
   onSelect: (siteId: string) => void;
 }) {
   const theme = useTheme();
@@ -228,13 +244,13 @@ const SiteRow = memo(function SiteRow({
   return (
     <PaperButton
       onPress={() => onSelect(id)}
-      accessibilityLabel={`${name}, ${region}, ${country}`}
+      accessibilityLabel={`${name}, ${region}, ${country}${stampLine ? `. ${stampLine}` : ''}`}
       accessibilityState={{ selected }}
       style={selected ? [styles.row, { borderColor: theme.coral, boxShadow: `0px 0px 0px 1px ${theme.coral}` }] : styles.row}>
       {/* Each site gets its own watercolour blob behind the pin, so the list isn't one repeated mark. */}
       <View style={styles.pin}>
         <Wash width={46} height={38} color={theme.wash} seed={seed} style={StyleSheet.absoluteFill} />
-        <Icon name="pin" size={22} wash={theme.coral} washOpacity={0.45} />
+        {stampLine ? <Icon name="stamp" size={24} color={theme.stamp} /> : <Icon name="pin" size={22} wash={theme.coral} washOpacity={0.45} />}
       </View>
       <View style={styles.body}>
         <Text numberOfLines={2} style={[styles.name, { color: theme.text }]}>
@@ -243,6 +259,11 @@ const SiteRow = memo(function SiteRow({
         <Text numberOfLines={1} style={[styles.where, { color: theme.textSecondary }]}>
           {siteWhere(region, country, full)}
         </Text>
+        {stampLine ? (
+          <Text numberOfLines={1} style={[styles.where, { color: theme.stamp }]}>
+            {stampLine}
+          </Text>
+        ) : null}
       </View>
       <Icon name="chevronRight" size={18} color={theme.textSecondary} weight="bold" />
     </PaperButton>

@@ -106,3 +106,18 @@ test('the OpenStreetMap credit sits under the list, as a link, only when importe
   await act(async () => { root = create(<SiteList sites={generateSites(30, 'gen-')} highlightedSiteIds={null} onSelectSite={() => {}} />); });
   expect(credits()).toHaveLength(0);
 });
+
+test('a dived site\'s row says when it was first stamped and how many visits; the header counts the stamps; other rows stay plain', async () => {
+  const sites = generateSites(10, 'gen-');
+  const stamps = new Map([['gen-3', { siteId: 'gen-3', siteName: 'Site 003', firstVisitedOn: '2026-03-12', lastVisitedOn: '2026-04-02', visits: 3, dives: 3, speciesIds: [] }]]);
+  await act(async () => { root = create(<SiteList sites={sites} highlightedSiteIds={null} onSelectSite={() => {}} stamps={stamps} />); });
+  expect(text()).toContain('10 sites · 1 stamped');
+  expect(text()).toContain('Stamped 12 March 2026 · 3 visits');
+  expect(text().match(/Stamped/g)).toHaveLength(1);
+  const dived = rows().find((r) => r.props.accessibilityLabel.startsWith('Site 003,'));
+  expect(dived.props.accessibilityLabel).toBe('Site 003, Dahab, Red Sea, Egypt. Stamped 12 March 2026 · 3 visits');
+  // With no stamps (a new diver) the header is just the count.
+  await act(async () => root.update(<SiteList sites={sites} highlightedSiteIds={null} onSelectSite={() => {}} />));
+  expect(text()).toContain('10 sites');
+  expect(text()).not.toContain('stamped');
+});

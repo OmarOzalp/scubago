@@ -2,10 +2,14 @@ import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useStat
 import { StyleSheet, Text, View } from 'react-native';
 import MapView, { Marker, type LongPressEvent, type Region } from 'react-native-maps';
 
+import { Icon } from '@/components/icon';
+import { longDate, plural } from '@/components/rewards/format';
+import { stampLook } from '@/components/rewards/stamp-look';
 import { OsmCredit } from '@/components/site-list';
 import { OnFill, Radius, Shadow, Type } from '@/constants/theme';
 import { useSchemeName, useTheme } from '@/hooks/use-theme';
 import { boundsToRegion, clusterSites, hasImportedSites, spreadStackedSites, type MapRegion, type SiteBounds, type SiteCluster } from '@/lib/site-clusters';
+import type { PassportStamp } from '@/lib/rewards';
 import type { DiveSite } from '@/lib/types';
 
 /**
@@ -30,6 +34,8 @@ export interface SiteMapProps {
   startAt?: SiteBounds | null;
   /** The site whose card is open. Only the web list marks it (the map's pins don't change, and must not be redrawn for it). */
   selectedSiteId?: string | null;
+  /** The sites the diver has dived, with their passport stamp: each wears the stamp on the map in place of a pin. */
+  stamps?: ReadonlyMap<string, PassportStamp>;
   onSelectSite: (siteId: string) => void;
   onLongPress: (lat: number, lng: number) => void;
 }
@@ -65,7 +71,7 @@ const CENTRE = { x: 0.5, y: 0.5 } as const;
  * the same callbacks every time, so choosing a site (which only changes the screen's card) doesn't
  * touch the map, and moving the map only adds and removes the markers whose cell changed.
  */
-export const SiteMap = memo(function SiteMap({ sites, highlightedSiteIds, highlightLabel = 'Where to see it', focus = null, startAt = null, onSelectSite, onLongPress }: SiteMapProps) {
+export const SiteMap = memo(function SiteMap({ sites, highlightedSiteIds, highlightLabel = 'Where to see it', focus = null, startAt = null, stamps, onSelectSite, onLongPress }: SiteMapProps) {
   const mapRef = useRef<MapView>(null);
   const theme = useTheme();
   const scheme = useSchemeName();
@@ -96,9 +102,9 @@ export const SiteMap = memo(function SiteMap({ sites, highlightedSiteIds, highli
     () =>
       clusters.map((cluster) => {
         const matching = highlightedSiteIds === null ? 0 : cluster.siteIds.reduce((n, id) => n + (highlightedSiteIds.has(id) ? 1 : 0), 0);
-        return markerSpec(cluster, matching, highlightedSiteIds !== null, sitesById, spread.get(cluster.id));
+        return markerSpec(cluster, matching, highlightedSiteIds !== null, sitesById, spread.get(cluster.id), stamps?.get(cluster.id));
       }),
-    [clusters, highlightedSiteIds, sitesById, spread],
+    [clusters, highlightedSiteIds, sitesById, spread, stamps],
   );
 
   const handleSelect = useCallback((siteId: string) => latest.current.onSelectSite(siteId), []);
@@ -148,7 +154,19 @@ export const SiteMap = memo(function SiteMap({ sites, highlightedSiteIds, highli
         onRegionChangeComplete={handleRegionChangeComplete}
         onLongPress={handleLongPress}>
         {markers.map((m) =>
-          m.count === 1 ? (
+          m.count === 1 && m.stamp ? (
+            <StampPin
+              key={m.id}
+              id={m.id}
+              latitude={m.lat}
+              longitude={m.lng}
+              look={m.stamp}
+              paper={paper}
+              opacity={m.state === 'other' ? 0.3 : 1}
+              label={m.label}
+              onSelect={handleSelect}
+            />
+          ) : m.count === 1 ? (
             <SitePin
               key={m.id}
               id={m.id}
@@ -222,10 +240,12 @@ interface MarkerSpec {
   /** While a species filter is on: `match` for a site where it is seen (or a cluster holding one), `other` for the rest. */
   state: 'plain' | 'match' | 'other';
   label: string;
+  /** A lone site the diver has dived: its stamp's tilt, outline and ink (the same as in the passport's). */
+  stamp?: { rotate: number; oval: boolean; lagoon: boolean };
 }
 
 /** The plain values a marker is drawn from, including what a screen reader says. `at` moves a lone site's pin off a spot it shares. */
-function markerSpec(cluster: SiteCluster, matching: number, filtering: boolean, sitesById: Map<string, DiveSite>, at?: { lat: number; lng: number }): MarkerSpec {
+function markerSpec(cluster: SiteCluster, matching: number, filtering: boolean, sitesById: Map<string, DiveSite>, at?: { lat: number; lng: number }, stamp?: PassportStamp): MarkerSpec {
   const state = !filtering ? 'plain' : matching > 0 ? 'match' : 'other';
   if (cluster.count === 1) {
     const site = sitesById.get(cluster.id);
@@ -235,7 +255,10 @@ function markerSpec(cluster: SiteCluster, matching: number, filtering: boolean, 
       lng: at?.lng ?? cluster.lng,
       count: 1,
       state,
-      label: site ? `${site.name}, ${site.region}, ${site.country}${state === 'match' ? ', matches your search' : ''}` : cluster.id,
+      label: site
+        ? `${site.name}, ${site.region}, ${site.country}${stamp ? `, stamped, first visited ${longDate(stamp.firstVisitedOn)}, ${plural(stamp.visits, 'visit')}` : ''}${state === 'match' ? ', matches your search' : ''}`
+        : cluster.id,
+      stamp: stamp ? stampLook(stamp.siteId) : undefined,
     };
   }
   const near = cluster.place ? ` in ${cluster.place}` : '';
@@ -272,6 +295,54 @@ const SitePin = memo(function SitePin({
       accessibilityRole="button"
       accessibilityLabel={label}
     />
+  );
+});
+
+/**
+ * A site the diver has dived: its passport stamp, small. Double ruled, tilted and inked like the stamp on the passport page
+ * (stamp red, or lagoon), with a stamp mark in it. A lone view, so it is copied into the map once and then left alone.
+ */
+const StampPin = memo(function StampPin({
+  id,
+  latitude,
+  longitude,
+  look,
+  paper,
+  opacity,
+  label,
+  onSelect,
+}: {
+  id: string;
+  latitude: number;
+  longitude: number;
+  look: { rotate: number; oval: boolean; lagoon: boolean };
+  paper: string;
+  opacity: number;
+  label: string;
+  onSelect: (siteId: string) => void;
+}) {
+  const theme = useTheme();
+  const coordinate = useMemo(() => ({ latitude, longitude }), [latitude, longitude]);
+  const handlePress = useCallback(() => onSelect(id), [onSelect, id]);
+  const ink = look.lagoon ? theme.tint : theme.stamp;
+  const tracksViewChanges = useSettledTracking(`${ink}|${paper}|${look.rotate}`);
+  return (
+    <Marker
+      coordinate={coordinate}
+      anchor={CENTRE}
+      opacity={opacity}
+      tracksViewChanges={tracksViewChanges}
+      onPress={handlePress}
+      accessibilityRole="button"
+      accessibilityLabel={label}>
+      <View style={styles.stampHit}>
+        <View style={[styles.stampOuter, { borderColor: ink, backgroundColor: paper, borderRadius: look.oval ? 20 : 7, transform: [{ rotate: `${look.rotate}deg` }] }]}>
+          <View style={[styles.stampInner, { borderColor: ink, borderRadius: look.oval ? 17 : 4 }]}>
+            <Icon name="stamp" size={16} color={ink} />
+          </View>
+        </View>
+      </View>
+    </Marker>
   );
 });
 
@@ -356,6 +427,25 @@ function useSettledTracking(signature: string): boolean {
 }
 
 const styles = StyleSheet.create({
+  // Padding makes the stamp 44 points to tap without making it any larger on the map.
+  stampHit: {
+    width: 44,
+    height: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  stampOuter: {
+    width: 34,
+    height: 34,
+    borderWidth: 2,
+    padding: 2,
+  },
+  stampInner: {
+    flex: 1,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   overlay: {
     position: 'absolute',
     top: 10,
