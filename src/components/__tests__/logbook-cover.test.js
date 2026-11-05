@@ -62,7 +62,7 @@ describe('the cover', () => {
 
   test('holds the three lifetime totals (dives, time, deepest) and the way to the badges', async () => {
     await render();
-    expect(texts()).toEqual(expect.arrayContaining(['DIVES', 'TIME', 'DEEPEST', 'Badges & collections']));
+    expect(texts()).toEqual(expect.arrayContaining(['Dives', 'Time', 'Deepest', 'Badges & collections']));
     // 21 before ScubaGo, and the pages numbered on from there.
     expect(texts()).toContain('23');
     // 120 + 177 minutes, short enough to stay on one line of its cell.
@@ -88,7 +88,7 @@ describe('the cover', () => {
     dives = [];
     mockSightings = [];
     await render();
-    expect(texts()).toEqual(expect.arrayContaining(['21', 'DIVES']));
+    expect(texts()).toEqual(expect.arrayContaining(['21', 'Dives']));
     expect(texts().filter((t) => /Badges/.test(t))).toEqual([]);
   });
 

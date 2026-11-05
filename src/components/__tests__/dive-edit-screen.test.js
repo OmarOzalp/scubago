@@ -71,7 +71,7 @@ describe('the site picker on the edit page', () => {
     await act(async () => back.onPress());
     expect(router.back).not.toHaveBeenCalled();
     // Back on the page, with what was typed still there, and the navigator's own arrow again.
-    expect(mockOptions.title).toBe('Edit No. 26');
+    expect(mockOptions.title).toBe('Edit page');
     expect(mockOptions.headerLeft).toBeUndefined();
     expect(field('Max depth (m)').props.value).toBe('31');
   });
@@ -90,7 +90,7 @@ describe('the site picker on the edit page', () => {
       await press(changeSite());
       await act(async () => { handled = listeners.at(-1)(); });
       expect(handled).toBe(true);
-      expect(mockOptions.title).toBe('Edit No. 26');
+      expect(mockOptions.title).toBe('Edit page');
     } finally {
       add.mockRestore();
       Platform.OS = original;

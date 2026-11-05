@@ -268,7 +268,8 @@ describe('"Recorded near dive sites" on the page', () => {
     const text = textOf();
     expect(text.indexOf('Where it’s been seen')).toBeGreaterThan(-1);
     expect(text.indexOf('Recorded near dive sites')).toBeGreaterThan(text.indexOf('Where it’s been seen'));
-    expect(text.indexOf('Delete my Reef Manta Ray log')).toBeGreaterThan(text.indexOf('Recorded near dive sites'));
+    // Deleting the log is in the header's menu now, not at the foot of the page.
+    expect(text).not.toContain('Delete my Reef Manta Ray log');
   });
 
   test('never uses the network, with or without saved records', async () => {

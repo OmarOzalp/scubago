@@ -116,8 +116,8 @@ test('an animal’s page counts a sighting at a hidden id at its site, names the
   // Where it's been seen: both Shark Reef sightings at Shark & Yolanda Reef, and the Kormoran.
   const seenAt = root.root.findAll((n) => n.props.site && typeof n.props.count === 'number' && typeof n.props.last === 'string');
   expect(seenAt.map((c) => [c.props.site.id, c.props.count])).toEqual([['shark-yolanda', 2], [canonicalSiteId(KORMORAN), 1]]);
-  // The diver's sites: one, though logged under two ids.
-  expect(root.root.findAll((n) => Array.isArray(n.props.items) && n.props.items.some((i) => i.label === 'Site')).length).toBeGreaterThan(0);
+  // "In your log" is one line: how often, and where the first was (a name for the hidden id, not "Unknown site").
+  expect(labels().some((l) => /^In your log\. Seen 2 times, first on .* at Shark Reef$/.test(l))).toBe(true);
 
   // Each of the diver's rows says where it was logged.
   const rows = labels().filter((l) => /^Reef Manta Ray, /.test(l));
