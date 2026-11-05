@@ -105,12 +105,12 @@ test('opened from Home, the explorer is the tab on show, with no tab bar; closin
 
 test('the tab bar never shows a button for the explorer', async () => {
   await start();
-  expect(tabLabels()).toEqual(['Home', 'Explore', 'Log dive', 'Logbook', 'Field guide']);
+  expect(tabLabels()).toEqual(['Home', 'Sites', 'Log', 'Logbook', 'Field guide']);
   await press('Explore your islands');
   await close();
   // It is mounted now, as a tab, and still has no button.
   expect(where()).toContain('explore');
-  expect(tabLabels()).toEqual(['Home', 'Explore', 'Log dive', 'Logbook', 'Field guide']);
+  expect(tabLabels()).toEqual(['Home', 'Sites', 'Log', 'Logbook', 'Field guide']);
 });
 
 test('it opens on the island asked for on every open, not just the first, and Home’s own island when none is asked for', async () => {

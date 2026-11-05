@@ -10,18 +10,18 @@ import { hashSeed } from '@/lib/wash';
 
 const TAB_ICONS: Record<string, IconName> = {
   index: 'home',
-  map: 'explore',
+  map: 'map',
   logbook: 'logbook',
   'field-guide': 'fieldGuide',
 };
 
-/** The coral "Log dive" button sits in the middle of the bar, after this tab. */
+/** The coral "Log" button sits in the middle of the bar, after this tab. */
 const LOG_AFTER = 'map';
 /** The tab the bar has no button for: the island explorer (src/app/(tabs)/explore.tsx), which stays mounted when it is closed. */
 const HIDDEN_TAB = 'explore';
 
 /**
- * The paper tab bar: four tabs with the coral "Log dive" button raised in the middle. The current
+ * The paper tab bar: four tabs with the coral "Log" button raised in the middle. The current
  * tab's icon sits on a watercolour wash.
  */
 export function JournalTabBar({ state, descriptors, emitter, navigateToTab, insets }: BottomTabBarProps) {
@@ -121,8 +121,8 @@ function LogDiveButton() {
       <View style={[styles.logCircle, { backgroundColor: theme.coral, borderColor: theme.background, boxShadow: Shadow[scheme].coral }]}>
         <Icon name="plus" size={26} color={OnFill[scheme].coral} weight="bold" />
       </View>
-      <Text numberOfLines={1} maxFontSizeMultiplier={1.3} style={[styles.label, { fontFamily: Type.bodyHeavy, color: theme.text }]}>
-        Log dive
+      <Text numberOfLines={1} maxFontSizeMultiplier={1.3} style={[styles.label, { fontFamily: Type.bodyBold, color: theme.textSecondary }]}>
+        Log
       </Text>
     </Pressable>
   );

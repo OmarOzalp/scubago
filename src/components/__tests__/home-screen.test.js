@@ -6,7 +6,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { router } from 'expo-router';
 import HomeScreen from '@/app/(tabs)/index';
 
-// The island's 3D scene (three.js) and the first-launch intro are beside the point here; the editor is a marker.
+// The island's 3D scene (three.js) is beside the point here; the editor is a marker.
 jest.mock('@/global.css', () => ({}));
 jest.mock('react-native-reanimated', () => ({ __esModule: true, useReducedMotion: () => true, default: { View: require('react-native').View } }));
 jest.mock('react-native-safe-area-context', () => ({ useSafeAreaInsets: () => ({ top: 0, bottom: 0, left: 0, right: 0 }) }));
@@ -16,7 +16,6 @@ let mockScene = {};
 jest.mock('@/components/home/sanctuary-scene', () => ({ SanctuaryScene: (props) => { mockScene = props; return null; } }));
 jest.mock('@/components/home/home-editor', () => ({ HomeEditor: () => <editor /> }));
 jest.mock('@/components/home/three/sanctuary-environment', () => ({ WATER: { island: '#88ccc4', kelp: '#88ccc4', volcanic: '#88ccc4', mangrove: '#88ccc4', wreck: '#88ccc4' } }));
-jest.mock('@/components/intro-cards', () => ({ IntroCards: () => null, useIntro: () => ({ show: false, done: () => {} }) }));
 jest.mock('@/hooks/use-home-preferences', () => ({ useHomePreferences: () => ({ loading: false, preferences: { name: 'Kai’s Atoll' }, error: '', saving: false, save: async () => true }) }));
 jest.mock('@/hooks/use-scene-active', () => ({ useSceneActive: () => false }));
 jest.mock('@/hooks/use-discovery-moments', () => ({

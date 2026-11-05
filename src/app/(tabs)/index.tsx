@@ -4,7 +4,6 @@ import { router } from 'expo-router';
 import { HomeEditor } from '@/components/home/home-editor';
 import { useOceanAhead } from '@/components/home/ocean-ahead';
 import { useTip } from '@/components/home/use-tip';
-import { IntroCards, useIntro } from '@/components/intro-cards';
 import { SanctuaryScene } from '@/components/home/sanctuary-scene';
 import { WATER } from '@/components/home/three/sanctuary-environment';
 import { Icon } from '@/components/icon';
@@ -43,7 +42,6 @@ const captureHeroSnapshot = () => captureScene('home', HERO_SNAPSHOT);
 
 export default function HomeScreen() {
   const theme = useTheme();
-  const intro = useIntro();
   const mine = useMySightings();
   const owner = useMyUserId();
   const ready = useAppStore((s) => s.ready);
@@ -188,7 +186,6 @@ export default function HomeScreen() {
       </>}
     </Screen>
     {editing && <HomeEditor key={owner} preferences={saved.preferences} saving={saved.saving} error={saved.error} onSave={saved.save} onClose={() => setEditing(false)} />}
-    <IntroCards visible={intro.show} onDone={intro.done} />
   </View>;
 }
 

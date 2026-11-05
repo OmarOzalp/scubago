@@ -2,6 +2,8 @@ import { useCallback, useEffect, useState, useSyncExternalStore } from 'react';
 import { AccessibilityInfo, AppState } from 'react-native';
 import { useFocusEffect } from 'expo-router';
 
+import { useOceanPaused } from '@/lib/ocean-pause';
+
 function subscribeAppState(onChange: () => void) {
   const subscription = AppState.addEventListener('change', onChange);
   return () => subscription?.remove();
@@ -16,6 +18,7 @@ const serverForeground = () => false;
  * until the reduce-motion setting has been read.
  */
 export function useSceneActive(paused = false) {
+  const chosen = useOceanPaused();
   const [focused, setFocused] = useState(false);
   useFocusEffect(useCallback(() => {
     setFocused(true);
@@ -35,7 +38,7 @@ export function useSceneActive(paused = false) {
       .catch(() => { if (mounted && !motionChanged) setReduced(false); });
     return () => { mounted = false; motion?.remove(); };
   }, []);
-  return focused && foreground && !reduced && !paused;
+  return focused && foreground && !reduced && !paused && !chosen;
 }
 
 /** Whether the scene's screen is on show: focused, with the app in the foreground (motion settings aside). */
