@@ -6,9 +6,9 @@ import { FormField } from '@/components/form-field';
 import { ThemedText } from '@/components/themed-text';
 import { OnFill, Radius, Spacing, Type } from '@/constants/theme';
 import { useSchemeName, useTheme } from '@/hooks/use-theme';
-import { HOME_NAME_MAX, type HomePreferences } from '@/lib/home';
+import { DEFAULT_HOME, HOME_NAME_MAX, type HomePreferences } from '@/lib/home';
 
-/** "Customize your home": its name, on a paper sheet. (Its islands are the archipelago's, raised by the diver's discoveries.) */
+/** "Name your island": its name, on a paper sheet. (Its islands are the archipelago's, raised by the diver's discoveries.) */
 export function HomeEditor({ preferences, saving, error, onSave, onClose }: {
   preferences: HomePreferences; saving: boolean; error: string;
   onSave: (value: HomePreferences) => Promise<boolean>; onClose: () => void;
@@ -25,7 +25,7 @@ export function HomeEditor({ preferences, saving, error, onSave, onClose }: {
       <View style={styles.header}>
         {/* The sheet is one field, so it is named by its title alone (a screen reader hears what opened it). */}
         <View style={styles.titles}>
-          <ThemedText type="display" accessibilityRole="header" accessibilityLabel="Customize your home. Make it yours">Make it yours</ThemedText>
+          <ThemedText type="display" accessibilityRole="header">Name your island</ThemedText>
         </View>
         <Pressable accessibilityRole="button" onPress={onClose} disabled={saving} style={({ pressed }) => [styles.cancel, { opacity: saving ? 0.45 : pressed ? 0.6 : 1 }]}>
           <ThemedText type="smallBold" themeColor="tint" style={styles.cancelText}>Cancel</ThemedText>
@@ -33,7 +33,7 @@ export function HomeEditor({ preferences, saving, error, onSave, onClose }: {
       </View>
 
       <View style={styles.nameField}>
-        <FormField label="Home name" value={draft.name} onChangeText={(name) => setDraft((s) => ({ ...s, name }))} maxLength={HOME_NAME_MAX} placeholder="My little island" selectionColor={theme.tint} style={styles.nameInput} />
+        <FormField label="Island name" value={draft.name} onChangeText={(name) => setDraft((s) => ({ ...s, name }))} maxLength={HOME_NAME_MAX} placeholder={DEFAULT_HOME.name} selectionColor={theme.tint} style={styles.nameInput} />
         {/* The field stops typing at the limit without a word; this says how far along the name is, and (read aloud, too) when it can be no longer. */}
         <ThemedText type="small" themeColor={atLimit ? 'tint' : 'textSecondary'} style={styles.count} accessibilityLiveRegion={atLimit ? 'polite' : 'none'}>
           {atLimit ? `${HOME_NAME_MAX} of ${HOME_NAME_MAX} · that is as long as a name can be` : `${draft.name.length} of ${HOME_NAME_MAX}`}
@@ -44,7 +44,7 @@ export function HomeEditor({ preferences, saving, error, onSave, onClose }: {
       {/* Drawn like the primary OceanButton, with room for a spinner while the save is on its way. */}
       <Pressable accessibilityRole="button" disabled={cannotSave} aria-disabled={cannotSave} onPress={async () => { if (await onSave(draft)) onClose(); }}
         style={({ pressed }) => [styles.save, { backgroundColor: theme.lagoon, opacity: cannotSave ? 0.45 : 1, transform: [{ translateY: pressed && !cannotSave ? 2 : 0 }] }]}>
-        {saving ? <ActivityIndicator color={OnFill[scheme].lagoon} /> : <Text style={[styles.saveText, { color: OnFill[scheme].lagoon }]}>Save my home</Text>}
+        {saving ? <ActivityIndicator color={OnFill[scheme].lagoon} /> : <Text style={[styles.saveText, { color: OnFill[scheme].lagoon }]}>Save</Text>}
       </Pressable>
     </ScrollView>
   </Modal>;

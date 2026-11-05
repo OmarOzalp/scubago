@@ -45,7 +45,7 @@ test('a failed save preserves the home and allows a retry', async () => {
   await mount();
   jest.spyOn(AsyncStorage, 'setItem').mockRejectedValueOnce(new Error('Disk full'));
   await act(async () => { expect(await current.save({ name: 'New cove' })).toBe(false); });
-  expect(current.preferences.name).toBe('My little island');
+  expect(current.preferences.name).toBe('Your island');
   expect(current.error).toContain('Could not save');
   await act(async () => { expect(await current.save({ name: 'New cove' })).toBe(true); });
   expect(current.preferences.name).toBe('New cove');

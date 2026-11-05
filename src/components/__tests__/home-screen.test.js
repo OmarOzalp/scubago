@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, jest, test } from '@jest/globals';
 import React, { act } from 'react';
-import { StyleSheet } from 'react-native';
+import { AccessibilityInfo, StyleSheet } from 'react-native';
 import { create } from 'react-test-renderer';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { router } from 'expo-router';
@@ -88,15 +88,15 @@ describe('the islands under the island’s art', () => {
     expect(texts().join('|')).not.toMatch(/to discover|islands raised/);
   });
 
-  test('choosing an island shows it in place of Home’s, and Home’s name is not left under its art', async () => {
+  test('choosing an island shows it in place of Home’s, and Home’s name is not left on the page', async () => {
     await render();
     expect(texts()).toContain('Kai’s Atoll');
-    expect(buttons('Kai’s Atoll')).toHaveLength(1);
+    expect(buttons('Rename your island')).toHaveLength(1);
     await press(buttons('Kelp Forest')[0]);
     expect(buttons('Kelp Forest')[0].props.accessibilityLabel).toBe('Kelp Forest, 2 species. Showing this island');
     expect(texts()).not.toContain('Kai’s Atoll');
-    expect(buttons('Kai’s Atoll')).toHaveLength(0);
-    // The island is named under its art instead, and the Open Ocean's species are Home's, not here.
+    expect(buttons('Rename your island')).toHaveLength(0);
+    // The island is named in the title instead, and the Open Ocean's species are Home's, not here.
     expect(texts().filter((t) => t === 'Kelp Forest')).toHaveLength(2);
     expect(buttons('Coral Reef')[0].props.accessibilityLabel).toBe('Coral Reef, 3 species, including 1 from Open Ocean. Show this island');
     expect(buttons('Kelp Forest')[0].props.accessibilityLabel).not.toMatch(/including/);
@@ -135,7 +135,8 @@ describe('a first run', () => {
     expect(shown).not.toContain('Life around you');
     expect(byTitle(/^Log dive/)).toHaveLength(0);
     // The goal is the hook, said once.
-    expect(shown).toEqual(expect.arrayContaining(['New Explorer · level 1', '0 / 3', '3 more species for a coral garden.']));
+    expect(shown).toContain('3 more animals for a coral garden');
+    expect(shown.join('|')).not.toMatch(/level \d|0 \/ 3|New Explorer/);
   });
 
   test('is over once there is a page, even before an animal', async () => {
@@ -144,43 +145,89 @@ describe('a first run', () => {
     await render();
     expect(byTitle('Log your first dive')).toHaveLength(0);
     expect(texts().filter((t) => /come to live here/i.test(t))).toHaveLength(1);
-    expect(texts()).toContain('Log dive No. 2');
+    expect(byTitle(/^Log dive/)).toHaveLength(0);
     expect(texts()).not.toContain('Next in your logbook');
   });
 });
 
-test('the start button names the page it begins', async () => {
+test('there is no second Log button once there are animals: the tab bar logs, and only a first run has the big one', async () => {
   mockSightings = logged(REEF);
   mockDives = [page(27)];
   mockNext = 28;
   await render();
-  expect(texts()).toContain('Log dive No. 28');
-  expect(texts().join('|')).not.toMatch(/Begin entry/);
-  expect(byTitle('Log dive No. 28')).toHaveLength(1);
-  await press(byTitle('Log dive No. 28')[0]);
-  expect(router.push).toHaveBeenCalledWith('/log/new');
+  expect(byTitle(/^Log /)).toHaveLength(0);
+  expect(texts().join('|')).not.toMatch(/Log dive|Begin entry/);
 });
 
-test('the full-screen button is “Open full screen”, once something swims to explore', async () => {
-  mockSightings = logged(REEF);
-  await render();
-  expect(buttons('Open full screen')).toHaveLength(0);
-  mockNoneSwim = false;
-  await act(async () => root.update(<HomeScreen />));
-  expect(buttons('Open full screen')).toHaveLength(1);
-  expect(buttons('Explore your ocean full screen')).toHaveLength(0);
-  await press(buttons('Open full screen')[0]);
-  expect(router.push).toHaveBeenCalledWith('/explore');
+describe('tapping the island', () => {
+  test('opens the explorer once something swims to explore (and the old full-screen and pause icons are gone)', async () => {
+    mockSightings = logged(REEF);
+    await render();
+    expect(mockScene.onOpen).toBeUndefined();
+    mockNoneSwim = false;
+    await act(async () => root.update(<HomeScreen />));
+    expect(typeof mockScene.onOpen).toBe('function');
+    await act(async () => mockScene.onOpen());
+    expect(router.push).toHaveBeenCalledWith('/explore');
+    expect(buttons('Open full screen')).toHaveLength(0);
+    expect(buttons(/ocean animation/)).toHaveLength(0);
+  });
+
+  test('opens the island being shown, when it is not Home’s', async () => {
+    mockSightings = logged([...REEF, ...KELP]);
+    mockNoneSwim = false;
+    await render();
+    await press(buttons('Kelp Forest')[0]);
+    await act(async () => mockScene.onOpen());
+    expect(router.push).toHaveBeenCalledWith({ pathname: '/explore', params: { island: 'kelp-forest' } });
+  });
+
+  test('is one button, “Explore your islands”, for a screen reader (it cannot tap the picture)', async () => {
+    mockSightings = logged(REEF);
+    mockNoneSwim = false;
+    await render();
+    expect(buttons('Explore your islands')).toHaveLength(0);
+    const spy = jest.spyOn(AccessibilityInfo, 'isScreenReaderEnabled').mockResolvedValue(true);
+    try {
+      await act(async () => root.unmount());
+      await render();
+      expect(buttons('Explore your islands')).toHaveLength(1);
+      await press(buttons('Explore your islands')[0]);
+      expect(router.push).toHaveBeenCalledWith('/explore');
+    } finally {
+      spy.mockRestore();
+    }
+  });
 });
 
-describe('the home name', () => {
-  test('is a button that opens the editor, so renaming needs no hunt for the pencil', async () => {
+describe('the header', () => {
+  test('has Share and a “You” button that opens the You screen, and no Customize pencil', async () => {
+    mockSightings = logged(REEF);
+    await render();
+    expect(buttons('Share your archipelago').length).toBeGreaterThan(0);
+    expect(buttons('Customize your home')).toHaveLength(0);
+    const you = buttons(/^You$/);
+    expect(you).toHaveLength(1);
+    await press(you[0]);
+    expect(router.push).toHaveBeenCalledWith('/you');
+  });
+
+  test('names the island once, by the diver’s own name, with no “Your ocean” or “My little island”', async () => {
+    mockSightings = logged(REEF);
+    await render();
+    const shown = texts();
+    expect(shown.filter((t) => t === 'Kai’s Atoll')).toHaveLength(1);
+    expect(shown.join('|')).not.toMatch(/Your ocean|My little island/);
+  });
+});
+
+describe('the island’s name', () => {
+  test('has a pencil beside it that opens the editor', async () => {
     mockSightings = logged(REEF);
     await render();
     expect(root.root.findAllByType('editor')).toHaveLength(0);
-    const name = buttons('Kai’s Atoll, your home');
+    const name = buttons('Rename your island');
     expect(name).toHaveLength(1);
-    expect(name[0].props.accessibilityHint).toBe('Rename your home');
     await press(name[0]);
     expect(root.root.findAllByType('editor')).toHaveLength(1);
   });
@@ -275,27 +322,25 @@ describe('the tip over the island', () => {
 describe('a diver with animals', () => {
   beforeEach(() => { mockSightings = logged([...REEF, ...OPEN_OCEAN]); mockDives = [page(27)]; mockNext = 28; });
 
-  test('sees the level once and the species count where it is new: three figures, no LEVEL tile, no ladder', async () => {
+  test('sees one progress line and bar: no level title, no “3 / 8”, no numbers row, no ladder', async () => {
     await render();
     const shown = texts();
-    expect(shown.filter((t) => /level \d/i.test(t))).toEqual(['Reef Scout · level 2']);
-    expect(shown.filter((t) => t === 'LEVEL' || /^0\d$/.test(t))).toEqual([]);
-    expect(shown.filter((t) => ['SPECIES', 'SIGHTINGS', 'SITES', 'SITE', 'LEVEL'].includes(t))).toEqual(['SPECIES', 'SIGHTINGS', 'SITE']);
-    expect(shown).not.toContain('Species to grow your island');
-    expect(shown).not.toContain('A collection journey, one encounter at a time.');
-    expect(shown).toContain('5 more species for wider turquoise shallows.');
-    expect(shown).toContain('3 / 8');
+    expect(shown).toContain('5 more animals for wider turquoise shallows');
+    expect(shown.join('|')).not.toMatch(/level \d|\d \/ \d|Reef Scout/);
+    expect(shown.filter((t) => ['SPECIES', 'SIGHTINGS', 'SITES', 'SITE', 'LEVEL', 'Species', 'Sightings', 'Sites', 'Site'].includes(t))).toEqual([]);
+    expect(root.root.findAll((n) => n.props.accessibilityRole === 'progressbar').length).toBeGreaterThan(0);
   });
 
-  test('has one coral Log button, under the animals, naming the page; no “Next in your logbook” block around it', async () => {
+  test('sees “New on your island”, with the newest animals first', async () => {
+    mockSightings = [sighting('a', 'reef-manta', { sightedOn: '2026-01-05' }), sighting('b', 'clownfish', { sightedOn: '2026-03-01' }), sighting('c', 'whale-shark', { sightedOn: '2026-02-01' })];
     await render();
-    const log = byTitle('Log dive No. 28');
-    expect(log).toHaveLength(1);
-    expect(drawn(log[0]).minHeight).toBeLessThan(56);
-    const order = texts();
-    expect(order.indexOf('Life around you')).toBeGreaterThan(-1);
-    expect(order.indexOf('Log dive No. 28')).toBeGreaterThan(order.indexOf('Life around you'));
-    expect(order.join('|')).not.toMatch(/Next in your logbook|dives in your log|first page is waiting/);
+    const shown = texts();
+    expect(shown).toContain('New on your island');
+    expect(shown).not.toContain('Life around you');
+    expect(shown.indexOf('Ocellaris Clownfish')).toBeLessThan(shown.indexOf('Whale Shark'));
+    expect(shown.indexOf('Whale Shark')).toBeLessThan(shown.indexOf('Reef Manta Ray'));
+    await press(buttons('Your field guide')[0]);
+    expect(router.push).toHaveBeenCalledWith('/field-guide');
   });
 
   test('is told how close a milestone is only when it is close', async () => {
@@ -320,15 +365,15 @@ const chrome = () => {
 };
 
 describe('the copy budget', () => {
-  test('a seeded Home reads in at most 45 words around its plates, and says its title once', async () => {
+  test('a seeded Home reads in at most 35 words around its plates, and says its title once', async () => {
     mockSightings = logged([...REEF, ...OPEN_OCEAN, ...KELP]);
     mockDives = [page(27)];
     mockNext = 28;
     mockNoneSwim = false;
     await render();
     const shown = chrome();
-    expect(words(shown)).toBeLessThanOrEqual(45);
-    expect(shown.filter((t) => t === 'Your ocean')).toHaveLength(1);
+    expect(words(shown)).toBeLessThanOrEqual(35);
+    expect(shown.filter((t) => t === 'Kai’s Atoll')).toHaveLength(1);
     // (The tip is a one-time extra: seven words.)
     expect(words(texts())).toBeLessThanOrEqual(45 + 40);
   });
@@ -337,7 +382,7 @@ describe('the copy budget', () => {
     await render();
     const shown = texts();
     expect(words(shown)).toBeLessThanOrEqual(30);
-    expect(shown.filter((t) => t === 'Your ocean')).toHaveLength(1);
+    expect(shown.filter((t) => t === 'Kai’s Atoll')).toHaveLength(1);
     // The coral button is the only way to log on the page (the tab bar's is not part of it).
     expect(byTitle(/^Log /)).toHaveLength(1);
   });

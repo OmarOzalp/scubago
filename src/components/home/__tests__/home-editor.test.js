@@ -39,9 +39,9 @@ test('copy budget: the sheet is one field, so it reads in about 15 words, with i
   const shown = texts();
   const words = shown.join(' ').match(/[\p{L}\p{N}][\p{L}\p{N}'’.,%/-]*/gu)?.length ?? 0;
   expect(words).toBeLessThanOrEqual(15);
-  expect(shown.filter((t) => t === 'Make it yours')).toHaveLength(1);
-  expect(shown.join('|')).not.toMatch(/Customize your home|little corner of the ocean/);
-  // A screen reader still hears what the sheet is for.
+  expect(shown.filter((t) => t === 'Name your island')).toHaveLength(1);
+  expect(shown.join('|')).not.toMatch(/Customize your home|Make it yours|little corner of the ocean/);
+  // The title says what the sheet is for, to a screen reader as to the eye.
   const title = root.root.findAll((n) => n.props.accessibilityRole === 'header')[0];
-  expect(title.props.accessibilityLabel).toBe('Customize your home. Make it yours');
+  expect(title.props.children).toBe('Name your island');
 });

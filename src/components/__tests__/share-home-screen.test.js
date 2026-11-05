@@ -38,11 +38,11 @@ afterEach(async () => { if (root) await act(async () => root.unmount()); root = 
 
 const render = async () => { await act(async () => { root = create(<HomeScreen />); }); };
 const shareButton = () => root.root.findAll((n) => n.props.accessibilityLabel === 'Share your archipelago' && typeof n.props.onPress === 'function');
-const editButton = () => root.root.findAll((n) => n.props.accessibilityLabel === 'Customize your home' && typeof n.props.onPress === 'function');
+const editButton = () => root.root.findAll((n) => n.props.accessibilityLabel === 'Rename your island' && typeof n.props.onPress === 'function');
 const texts = () => root.root.findAll((n) => typeof n.children?.[0] === 'string').map((n) => n.children.join(''));
 
 describe('Home’s Share button', () => {
-  test('sits beside "customize" once the diver has a species, and opens the archipelago card', async () => {
+  test('sits beside the rename pencil once the diver has a species, and opens the archipelago card', async () => {
     mockSightings = [sighting('a', 'reef-manta'), sighting('b', 'whale-shark'), sighting('c', 'clownfish', { visibility: 'private' })];
     await render();
     expect(shareButton().length).toBeGreaterThan(0);
@@ -59,7 +59,7 @@ describe('Home’s Share button', () => {
   test.each([
     ['nothing logged', []],
     ['only an example sighting', [sighting('a', 'reef-manta', { isDemo: true })]],
-  ])('is not there with %s, though "customize" is', async (_name, sightings) => {
+  ])('is not there with %s, though the rename pencil is', async (_name, sightings) => {
     mockSightings = sightings;
     await render();
     expect(shareButton()).toHaveLength(0);

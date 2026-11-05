@@ -132,21 +132,57 @@ test('the title pill is the island’s name alone, and a long home name is cut s
   expect(label[0].props.numberOfLines).toBe(1);
   // Nothing in front of it, and it is not drawn in capitals: the old line read “YOUR OCEAN · MY LITTLE ISL…”.
   expect(root.root.findAll((node) => typeof node.props.children === 'string' && /YOUR OCEAN/i.test(node.props.children))).toHaveLength(0);
-  // The pill itself shrinks to what the buttons leave it, and a screen reader still hears whose ocean it is.
+  // The pill itself shrinks to what the buttons leave it, and a screen reader still hears whose island it is.
   const pill = root.root.findAll((node) => node.props.accessibilityLiveRegion === 'polite')[0];
   expect(styleOf(pill).flexShrink).toBe(1);
-  expect(pill.props.accessibilityLabel).toBe('Your ocean, Home');
+  expect(pill.props.accessibilityLabel).toBe('Your island, Home');
 });
 
-test('with several islands, a chip for each is at least 44 points tall; the hint does not repeat what the chips show', async () => {
+const buttonsLabelled = (match) => root.root.findAll((node) => typeof node.props.onPress === 'function' && typeof node.props.accessibilityLabel === 'string' && match(node.props.accessibilityLabel));
+const once = (nodes) => [...new Map(nodes.map((n) => [n.props.onPress, n])).values()];
+
+test('with several islands, one compact switcher replaces the island buttons; its list rows are at least 44 points tall; the hint does not repeat what it shows', async () => {
   twoIslands();
   await act(async () => { root = create(<ExploreScreen />); });
+  // No row of big buttons: nothing offers to sail until the switcher is opened.
+  expect(buttonsLabelled((l) => l.endsWith('Sail there'))).toHaveLength(0);
+  const switcher = once(buttonsLabelled((l) => l.endsWith('Choose an island')));
+  expect(switcher).toHaveLength(1);
+  expect(switcher[0].props.accessibilityLabel).toBe('Home. Choose an island');
+  expect(switcher[0].props.accessibilityState).toEqual({ expanded: false });
+  expect(switcher[0].props.accessibilityRole).toBe('button');
+  await act(async () => switcher[0].props.onPress());
+  expect(once(buttonsLabelled((l) => l.endsWith('Choose an island')))[0].props.accessibilityState).toEqual({ expanded: true });
   // (The host views, whose style is the one drawn.)
-  const chips = root.root.findAll((node) => node.type === 'View' && typeof node.props.accessibilityLabel === 'string' && node.props.accessibilityLabel.endsWith('Sail there'));
-  expect(chips.length).toBeGreaterThan(1);
-  for (const chip of chips) expect(styleOf(chip).minHeight).toBeGreaterThanOrEqual(44);
+  const rows = root.root.findAll((node) => node.type === 'View' && typeof node.props.accessibilityLabel === 'string' && node.props.accessibilityLabel.endsWith('Sail there'));
+  expect(rows.map((r) => r.props.accessibilityLabel)).toEqual(['Home, Coral Reef, in view. Sail there', 'Kelp Forest. Sail there']);
+  for (const row of rows) expect(styleOf(row).minHeight).toBeGreaterThanOrEqual(44);
+  // The row names the island as the pill does (the diver's own name for Home's, with its habitat as a quiet second line), and the current one is marked selected with a check.
+  expect(rows[0].props.accessibilityState).toEqual({ selected: true });
+  expect(rows[1].props.accessibilityState).toEqual({ selected: false });
+  const shown = rows.map((row) => row.findAll((n) => n.type === 'Text').map((n) => n.props.children));
+  expect(shown).toEqual([['Home', 'Coral Reef'], ['Kelp Forest']]);
+  expect(rows[0].findAll((n) => n.props.name === 'check' || n.type === 'svg').length + rows[0].findAll((n) => n.props.weight === 'bold').length).toBeGreaterThan(0);
+  expect(rows[1].findAll((n) => n.props.weight === 'bold')).toHaveLength(0);
   const hint = root.root.findAll((node) => typeof node.props.children === 'string' && node.props.children.startsWith('Tap an animal to meet it'));
   expect(hint[0].props.children).toBe('Tap an animal to meet it.\nPinch to zoom, drag to look around.');
+});
+
+test('choosing an island in the switcher sails there and closes the list; the explorer keeps its X, zoom and locate buttons', async () => {
+  twoIslands();
+  await act(async () => { root = create(<ExploreScreen />); });
+  const explorer = root.root.findByType('scene').props.explorer.camera.props.explorer;
+  const visit = jest.spyOn(explorer, 'visit');
+  await act(async () => once(buttonsLabelled((l) => l.endsWith('Choose an island')))[0].props.onPress());
+  await act(async () => once(buttonsLabelled((l) => l === 'Kelp Forest. Sail there'))[0].props.onPress());
+  expect(visit).toHaveBeenCalledWith(1);
+  expect(buttonsLabelled((l) => l.endsWith('Sail there'))).toHaveLength(0);
+  for (const label of ['Close the explorer', 'Zoom in', 'Zoom out', 'Show the whole ocean']) expect(buttonsLabelled((l) => l === label).length).toBeGreaterThan(0);
+});
+
+test('with one island there is nothing to switch: the title is plain text', async () => {
+  await act(async () => { root = create(<ExploreScreen />); });
+  expect(buttonsLabelled((l) => l.endsWith('Choose an island'))).toHaveLength(0);
 });
 
 const hintShown = () => root.root.findAll((node) => typeof node.props.children === 'string' && node.props.children.startsWith('Tap an animal to meet it')).length > 0;
@@ -173,4 +209,5 @@ test('copy budget: the hint reads in at most 13 words, and the overlay says noth
   expect(words(hint.props.children)).toBeLessThanOrEqual(13);
   const all = root.root.findAll((node) => node.type === 'Text' && typeof node.props.children === 'string').map((node) => node.props.children);
   expect(all).toEqual(['Home', hint.props.children]);
+  // (With several islands the same one name is the switcher: no list of island names until it is opened.)
 });

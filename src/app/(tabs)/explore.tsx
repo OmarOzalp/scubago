@@ -24,7 +24,7 @@ import type { MarineModel } from '@/lib/swimming';
 
 /** Ink on the island's water (the scene's own colours, the same in both schemes). */
 const ON_WATER = '#1F4B40';
-/** How to look about, shown when the explorer opens: the first three times, then never (the islands' own buttons say how to sail between them). */
+/** How to look about, shown when the explorer opens: the first three times, then never (the switcher says how to sail between islands). */
 const MEET = 'Tap an animal to meet it.';
 const LOOK = 'Pinch to zoom, drag to look around.';
 const HINT_KEY = 'scubago.explorerHintShown.v1';
@@ -39,7 +39,7 @@ const HINT_MS = 7000;
  * filling the screen. Pinch (or the mouse wheel, on the web) zooms in about the fingers to see the
  * smaller things, and back out; a drag moves across the water (and glides on, let go fast), over to
  * the next island; a double tap zooms in on that spot (and back out once as close as it goes);
- * buttons do the same for anyone who can't pinch, and a button for each island sails there. The
+ * buttons do the same for anyone who can't pinch, and one compact switcher (the island in view, with a chevron) lists the islands to sail to. The
  * label names the island in view. Tapping an animal opens its page, as on Home. The islands, their
  * animals and their behavior are Home's; only the camera and the reach of the water are the
  * explorer's (explorer-view.ts).
@@ -112,8 +112,11 @@ export default function ExploreScreen() {
   // the collection read (until then the islands and level are not the diver's).
   const pictureKey = ready && size.width > 1 && size.height > 1
     ? explorerViewKey({ islands: places.map((place) => place.key), level: home.level, opens: places[opening]?.key ?? HOME_ISLAND, width: size.width, height: size.height }) : null;
-  // The island in view, named in the label (and marked among the islands' buttons); out between two, the archipelago.
+  // The island in view, named in the label (and marked in the switcher's list); out between two, the archipelago.
   const [over, setOver] = useState(() => explorer.island);
+  // The switcher's list of islands, open or not; it closes when the explorer does.
+  const [choosing, setChoosing] = useState(false);
+  if (!focused && choosing) setChoosing(false);
   useEffect(() => explorer.near(setOver), [explorer]);
   const shown = places[over];
   const nameOf = (id: string) => (id === HOME_ISLAND ? saved.preferences.name : AREAS.find((a) => a.id === id)!.name);
@@ -182,18 +185,30 @@ export default function ExploreScreen() {
     </GestureDetector>
     <View style={[styles.top, { paddingTop: insets.top + 10 }]} pointerEvents="box-none">
       {button('close', 'Close the explorer', close)}
-      {/* The island in view, by its name alone (a screen reader hears whose ocean it is). A very long name is cut short with an ellipsis rather than run on into the buttons either side. */}
-      <View style={styles.pill} accessible accessibilityLabel={`Your ocean, ${shown ? nameOf(shown.key) : 'your archipelago'}`} accessibilityLiveRegion="polite"><Text numberOfLines={1} style={styles.pillText}>{shown ? nameOf(shown.key) : 'Your archipelago'}</Text></View>
+      {/* The island in view, by its name alone; with several islands it is the switcher (tap for the list). A very long name is cut short with an ellipsis rather than run on into the buttons either side. */}
+      {places.length > 1
+        ? <Pressable style={({ pressed }) => [styles.pill, styles.switcher, { opacity: pressed ? 0.7 : 1 }]} accessibilityRole="button" accessibilityState={{ expanded: choosing }} accessibilityLiveRegion="polite"
+          accessibilityLabel={`${shown ? nameOf(shown.key) : 'Your archipelago'}. Choose an island`} onPress={() => setChoosing((value) => !value)} hitSlop={6}>
+          <Text numberOfLines={1} style={[styles.pillText, styles.pillName]}>{shown ? nameOf(shown.key) : 'Your archipelago'}</Text>
+          <Icon name={'chevronDown'} size={16} color={ON_WATER} weight="bold" />
+        </Pressable>
+        : <View style={styles.pill} accessible accessibilityLabel={`Your island, ${shown ? nameOf(shown.key) : 'your archipelago'}`} accessibilityLiveRegion="polite"><Text numberOfLines={1} style={styles.pillText}>{shown ? nameOf(shown.key) : 'Your archipelago'}</Text></View>}
       <View style={styles.spacer} />
     </View>
-    {places.length > 1 && <View style={[styles.islands, { top: insets.top + 64 }]} pointerEvents="box-none">
+    {places.length > 1 && choosing && <View style={[styles.list, { top: insets.top + 64 }]} accessibilityViewIsModal>
       {places.map((place, i) => {
-        const here = i === over, area = AREAS.find((a) => a.id === place.key)!;
+        const here = i === over, area = AREAS.find((a) => a.id === place.key)!, name = nameOf(place.key);
+        // Home's island is the diver's own name, with its habitat as a quiet second line when the two differ.
+        const habitat = name !== area.name ? area.name : '';
         return <Pressable key={place.key} accessibilityRole="button" accessibilityState={{ selected: here }}
-          accessibilityLabel={`${area.name}${here ? ', in view' : ''}. Sail there`} onPress={() => explorer.visit(i)} hitSlop={4}
-          style={({ pressed }) => [styles.island, here && styles.islandHere, { opacity: pressed ? 0.7 : 1 }]}>
+          accessibilityLabel={`${name}${habitat ? `, ${habitat}` : ''}${here ? ', in view' : ''}. Sail there`} onPress={() => { setChoosing(false); explorer.visit(i); }}
+          style={({ pressed }) => [styles.row, { opacity: pressed ? 0.7 : 1 }]}>
           <View style={[styles.dot, { backgroundColor: area.color }]} />
-          <Text style={styles.islandText}>{area.name}</Text>
+          <View style={styles.rowText}>
+            <Text numberOfLines={1} style={styles.islandText}>{name}</Text>
+            {!!habitat && <Text numberOfLines={1} style={styles.habitatText}>{habitat}</Text>}
+          </View>
+          {here && <Icon name="check" size={18} color={ON_WATER} weight="bold" />}
         </Pressable>;
       })}
     </View>}
@@ -257,11 +272,14 @@ const styles = StyleSheet.create({
   top: { position: 'absolute', top: 0, left: 0, right: 0, paddingHorizontal: 14, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8 },
   spacer: { width: 44 },
   pill: { flexShrink: 1, minWidth: 0, paddingHorizontal: 12, paddingVertical: 6, borderRadius: 14, backgroundColor: 'rgba(255,255,255,0.55)' },
-  islands: { position: 'absolute', left: 0, right: 0, flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', gap: 8, paddingHorizontal: 14 },
-  island: { minHeight: 44, flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 12, borderRadius: 18, backgroundColor: 'rgba(255,255,255,0.6)', borderWidth: 1, borderColor: 'rgba(31,75,64,0.12)' },
-  islandHere: { backgroundColor: 'rgba(255,255,255,0.88)', borderColor: ON_WATER },
+  switcher: { minHeight: 44, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, paddingHorizontal: 14 },
+  pillName: { flexShrink: 1 },
+  list: { position: 'absolute', alignSelf: 'center', minWidth: 220, maxWidth: '90%', paddingVertical: 4, borderRadius: 18, backgroundColor: 'rgba(255,255,255,0.92)', borderWidth: 1, borderColor: 'rgba(31,75,64,0.18)' },
+  row: { minHeight: 44, flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 16 },
+  rowText: { flex: 1, minWidth: 0 },
+  habitatText: { color: ON_WATER, opacity: 0.75, fontSize: 13, fontFamily: Type.body },
   dot: { width: 8, height: 8, borderRadius: 4 },
-  islandText: { color: ON_WATER, fontSize: 14, fontFamily: Type.bodySemiBold },
+  islandText: { color: ON_WATER, fontSize: 16, fontFamily: Type.bodySemiBold },
   pillText: { color: ON_WATER, fontSize: 17, lineHeight: 24, fontFamily: Type.display },
   controls: { position: 'absolute', right: 0, bottom: 0, gap: 10 },
   button: { width: 44, height: 44, borderRadius: 22, backgroundColor: 'rgba(255,255,255,0.7)', borderWidth: 1, borderColor: 'rgba(31,75,64,0.18)', alignItems: 'center', justifyContent: 'center' },

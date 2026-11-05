@@ -39,7 +39,7 @@ jest.mock('@/lib/store', () => ({
 
 const Home = () => <>
   <Text>home</Text>
-  <Pressable accessibilityLabel="Open full screen" onPress={() => router.push('/explore')} />
+  <Pressable accessibilityLabel="Explore your islands" onPress={() => router.push('/explore')} />
   <Pressable accessibilityLabel="Open the Kelp Forest full screen" onPress={() => router.push({ pathname: '/explore', params: { island: 'kelp-forest' } })} />
   <Pressable accessibilityLabel="Rewards" onPress={() => router.push('/rewards')} />
 </>;
@@ -91,7 +91,7 @@ test('opened from Home, the explorer is the tab on show, with no tab bar; closin
   expect(scenes()).toHaveLength(0);
   expect(bar()).toHaveLength(1);
 
-  await press('Open full screen');
+  await press('Explore your islands');
   expect(where()).toBe('__root*[(tabs)*[index,explore*]]');
   expect(scenes()).toHaveLength(1);
   expect(bar()).toHaveLength(0);
@@ -106,7 +106,7 @@ test('opened from Home, the explorer is the tab on show, with no tab bar; closin
 test('the tab bar never shows a button for the explorer', async () => {
   await start();
   expect(tabLabels()).toEqual(['Home', 'Explore', 'Log dive', 'Logbook', 'Field guide']);
-  await press('Open full screen');
+  await press('Explore your islands');
   await close();
   // It is mounted now, as a tab, and still has no button.
   expect(where()).toContain('explore');
@@ -118,7 +118,7 @@ test('it opens on the island asked for on every open, not just the first, and Ho
   await press('Open the Kelp Forest full screen');
   expect(island()).toBe(1);
   await close();
-  await press('Open full screen');
+  await press('Explore your islands');
   expect(island()).toBe(0);
   await close();
   await press('Open the Kelp Forest full screen');
@@ -140,7 +140,7 @@ test('it opens on the island asked for on every open, not just the first, and Ho
 
 test('the Android hardware back button closes it as the close button does', async () => {
   await start();
-  await press('Open full screen');
+  await press('Explore your islands');
   await pressBack();
   expect(where()).toBe('__root*[(tabs)*[index*,explore]]');
   expect(scenes()).toHaveLength(1);
@@ -159,7 +159,7 @@ test('a link to /explore opens it (on the island it names); closing it, with not
 
 test('opened from Rewards → Islands, it goes to the one explorer there is; closing it puts the Rewards and Islands screens back; one scene all along', async () => {
   await start();
-  await press('Open full screen');
+  await press('Explore your islands');
   await close();
   const kept = scenes()[0];
   await press('Rewards');
@@ -186,7 +186,7 @@ test('opened from Rewards → Islands, it goes to the one explorer there is; clo
   expect(where()).toContain('rewards/islands*');
   // An open from Home afterwards is not still "from Islands".
   await act(async () => { router.back(); router.back(); });
-  await press('Open full screen');
+  await press('Explore your islands');
   await close();
   expect(where()).toBe('__root*[(tabs)*[index*,explore]]');
 });

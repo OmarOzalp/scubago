@@ -18,7 +18,7 @@
 import { AREAS, areaOf, foundIslands, ISLANDS, type AreaId, type IslandId } from '@/lib/archipelago';
 import { CATALOG_BY_ID, speciesForSighting, UNLISTED_ID } from '@/lib/catalog';
 import { joinedAt } from '@/lib/discoveries';
-import { deriveHome } from '@/lib/home';
+import { DEFAULT_HOME, deriveHome } from '@/lib/home';
 import { isPrivateSighting } from '@/lib/privacy';
 import { RARITY_LABEL, rarityRank } from '@/lib/rarity';
 import type { Dive, DiveSite, Sighting, Species } from '@/lib/types';
@@ -180,7 +180,7 @@ export function archipelagoData(
   const sites = new Set<string>([...shared.map((s) => s.siteId), ...dives.filter((d) => ownerId === undefined || d.userId === ownerId).map((d) => d.siteId)]);
   const islands = foundIslands(home.residents);
   return {
-    name: name.trim() || 'My little island',
+    name: name.trim() || DEFAULT_HOME.name,
     level: home.level,
     rank: home.stage.rank,
     speciesCount: home.residents.length,

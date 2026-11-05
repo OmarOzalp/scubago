@@ -328,7 +328,7 @@ describe('what goes on a card', () => {
 
   test('the archipelago card counts only what is shared', () => {
     const data = archipelagoData('  ', sightings, [dive, { siteId: 'richelieu-rock', userId: 'local' }, { siteId: 'sail-rock', userId: 'someone-else' }], 'local');
-    expect(data).toMatchObject({ name: 'My little island', speciesCount: 3, sitesDived: 2 });
+    expect(data).toMatchObject({ name: 'Your island', speciesCount: 3, sitesDived: 2 });
     expect(data.rarest.map((s) => s.id)).toEqual(['reef-manta', 'napoleon-wrasse', 'clownfish']);
     expect(archipelagoData('x', [sighting('p', 'reef-manta', { visibility: 'private' })], [], 'local')).toBeNull();
   });

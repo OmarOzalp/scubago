@@ -20,7 +20,9 @@ export type Habitat = typeof HABITATS[number]['id'];
 /** The shores Home's island is drawn with: the Coral Reef's sandy island. */
 export const HOME_SHORE: Habitat = 'island';
 export type HomePreferences = { name: string };
-export const DEFAULT_HOME: HomePreferences = { name: 'My little island' };
+export const DEFAULT_HOME: HomePreferences = { name: 'Your island' };
+/** The default name before the island was called "Your island": a saved copy of it is read as the default, so there is one name. */
+const OLD_DEFAULT_NAME = 'My little island';
 /** The longest name a home can have: the editor stops there and says so, and a saved name is cut to it. */
 export const HOME_NAME_MAX = 32;
 
@@ -59,7 +61,7 @@ export function parseHomePreferences(raw: string | null): HomePreferences {
   try {
     const value = raw ? JSON.parse(raw) : null;
     // (A shore saved before the archipelago, when the diver picked one, is left behind.)
-    return { name: typeof value?.name === 'string' && value.name.trim() ? value.name.trim().slice(0, HOME_NAME_MAX) : DEFAULT_HOME.name };
+    return { name: typeof value?.name === 'string' && value.name.trim() && value.name.trim() !== OLD_DEFAULT_NAME ? value.name.trim().slice(0, HOME_NAME_MAX) : DEFAULT_HOME.name };
   } catch {
     return { ...DEFAULT_HOME };
   }

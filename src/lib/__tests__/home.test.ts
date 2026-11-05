@@ -41,8 +41,13 @@ test('final rank has complete progress and no next milestone', () => {
   expect(home.fraction).toBe(1);
 });
 
+test('the old default name is read as the one default name, so there is one name for the island', () => {
+  expect(parseHomePreferences('{"name":"My little island"}')).toEqual({ name: 'Your island' });
+  expect(parseHomePreferences('{"name":"Kai’s Atoll"}')).toEqual({ name: 'Kai’s Atoll' });
+});
+
 test('preferences validate stored values and safely recover corrupted data', () => {
-  expect(parseHomePreferences(null)).toEqual({ name: 'My little island' });
+  expect(parseHomePreferences(null)).toEqual({ name: 'Your island' });
   expect(parseHomePreferences('{')).toEqual(parseHomePreferences(null));
   expect(parseHomePreferences('null')).toEqual(parseHomePreferences(null));
   expect(parseHomePreferences('{"name":"  Cove  "}')).toEqual({ name: 'Cove' });
