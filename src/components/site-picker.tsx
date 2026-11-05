@@ -88,7 +88,7 @@ export function SitePicker({
   const renderItem = useCallback(
     ({ item }: ListRenderItemInfo<Row>) =>
       item.kind === 'header' ? (
-        <ThemedText type="label" accessibilityRole="header" style={styles.groupLabel}>
+        <ThemedText type="smallBold" themeColor="textSecondary" accessibilityRole="header" style={styles.groupLabel}>
           {item.title}
         </ThemedText>
       ) : (
@@ -100,8 +100,12 @@ export function SitePicker({
   return (
     <View style={styles.picker}>
       <View style={styles.search}>
+        <ThemedText type="heading" accessibilityRole="header">
+          Where did you dive?
+        </ThemedText>
         <FormField
           label="Where did you dive?"
+          labelHidden
           value={query}
           onChangeText={setQuery}
           placeholder="Search sites, regions, countries…"
@@ -198,7 +202,7 @@ const SiteRow = memo(function SiteRow({
 
 const styles = StyleSheet.create({
   picker: { flex: 1 },
-  search: { paddingHorizontal: Spacing.three, paddingTop: Spacing.three, paddingBottom: Spacing.one },
+  search: { paddingHorizontal: Spacing.three, paddingTop: Spacing.three, paddingBottom: Spacing.one, gap: Spacing.two + 2 },
   content: { paddingHorizontal: Spacing.three, paddingBottom: Spacing.three },
   separator: { height: Spacing.two + 2 },
   footer: { marginTop: Spacing.three + 2 },

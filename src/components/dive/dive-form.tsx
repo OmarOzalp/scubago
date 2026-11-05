@@ -40,6 +40,7 @@ const PLACEHOLDERS: Partial<Record<TypedNumber, string>> = {
 };
 
 /** The fields under "More details", which is closed until one of them has a problem to show. */
+const QUICK_MORE: DraftField[] = ['number', 'timeIn'];
 const MORE_DETAILS: DraftField[] = ['avgDepthM', 'waterTempC', 'airTempC', 'visibilityM', 'o2Percent', 'tankL', 'pressureStartBar', 'pressureEndBar', 'weightKg'];
 
 /**
@@ -60,6 +61,9 @@ export function DiveForm({
   problem,
   onReveal,
   afterNotes,
+  quick = false,
+  open: controlledOpen,
+  onOpenChange,
 }: {
   draft: DiveDraft;
   onChange: (patch: Partial<DiveDraft>) => void;
@@ -72,9 +76,23 @@ export function DiveForm({
   onReveal?: (field: ViewInstance | TextInputInstance) => void;
   /** Goes between the dive's own fields and "More details": the screen's notes on the animals, photo and privacy. */
   afterNotes?: ReactNode;
+  /**
+   * The short form of Log a dive: only the date, depth and time up front, and "More details" holds the
+   * rest (dive number, time in, notes, the animals' photo and who can see them, then the groups).
+   */
+  quick?: boolean;
+  /** "More details" open or closed, when the screen wants to open it (to show who can see the log). */
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
 }) {
   const theme = useTheme();
-  const [open, setOpen] = useState(initiallyOpen);
+  const [ownOpen, setOwnOpen] = useState(initiallyOpen);
+  const open = controlledOpen ?? ownOpen;
+  const setOpen = (next: boolean | ((was: boolean) => boolean)) => {
+    const value = typeof next === 'function' ? next(open) : next;
+    setOwnOpen(value);
+    onOpenChange?.(value);
+  };
   // The fields' views, to take the diver to the one with a problem.
   const fields = useRef<Partial<Record<DraftField, ViewInstance | TextInputInstance | null>>>({});
   const invalid = (key: DraftField) => (problem?.field === key ? { borderColor: theme.danger } : undefined);
@@ -91,7 +109,7 @@ export function DiveForm({
   const [reveals, setReveals] = useState({ conditions: 0, gas: 0 });
   if (problem !== shownProblem) {
     setShownProblem(problem);
-    if (problem && MORE_DETAILS.includes(problem.field)) setOpen(true);
+    if (problem && (MORE_DETAILS.includes(problem.field) || (quick && QUICK_MORE.includes(problem.field)))) setOpen(true);
     if (problem && CONDITIONS.includes(problem.field)) setReveals((r) => ({ ...r, conditions: r.conditions + 1 }));
     if (problem && GAS_AND_GEAR.includes(problem.field)) setReveals((r) => ({ ...r, gas: r.gas + 1 }));
   }
@@ -137,8 +155,8 @@ export function DiveForm({
   });
   const nitrox = draft.gas === 'nitrox' || draft.gas === 'trimix';
 
-  return (
-    <View style={styles.form}>
+  const numberAndTime = (
+    <>
       <View style={styles.field}>
         <Pair>
           <FormField
@@ -174,7 +192,10 @@ export function DiveForm({
           </ThemedText>
         ) : null}
       </View>
-
+    </>
+  );
+  const dateField = (
+    <>
       <View
         ref={(node) => {
           fields.current.divedOn = node;
@@ -184,7 +205,10 @@ export function DiveForm({
         <DateField label="Date" value={draft.divedOn} onChange={(divedOn) => onChange({ divedOn })} />
         {problemAt('divedOn')}
       </View>
-
+    </>
+  );
+  const depthAndTime = (
+    <>
       <View style={styles.field}>
         <Pair>
           {number('bottomTimeMin', 'number-pad')}
@@ -192,7 +216,10 @@ export function DiveForm({
         </Pair>
         {problemAt('bottomTimeMin', 'maxDepthM')}
       </View>
-
+    </>
+  );
+  const diveNotes = (
+    <>
       <FormField
         label="Dive notes (private)"
         value={draft.notes}
@@ -205,6 +232,36 @@ export function DiveForm({
 
       {/* The animals' own notes, photo and privacy (the screen's), after the dive's own facts. */}
       {afterNotes}
+    </>
+  );
+  // The short form puts the date and the depth and time first, and the rest behind "More details".
+  const quickDepth = (
+    <View style={styles.field}>
+      <Pair>
+        {number('maxDepthM')}
+        {number('bottomTimeMin', 'number-pad')}
+      </Pair>
+      {problemAt('bottomTimeMin', 'maxDepthM')}
+    </View>
+  );
+
+  return (
+    <View style={styles.form}>
+      {quick ? (
+        <>
+          {dateField}
+          {quickDepth}
+        </>
+      ) : (
+        <>
+          {numberAndTime}
+          {dateField}
+          {depthAndTime}
+          {diveNotes}
+          {/* The animals' own notes, photo and privacy (the screen's), after the dive's own facts. */}
+          {afterNotes}
+        </>
+      )}
 
       <Pressable
         onPress={() => setOpen((v) => !v)}
@@ -217,7 +274,7 @@ export function DiveForm({
           </ThemedText>
           {!open ? (
             <ThemedText type="small" themeColor="textSecondary">
-              Conditions, gear, buddy, rating
+              {quick ? 'Notes, photo, who can see it, gear, buddy' : 'Conditions, gear, buddy, rating'}
             </ThemedText>
           ) : null}
         </View>
@@ -226,6 +283,13 @@ export function DiveForm({
 
       {open ? (
         <View style={styles.groups}>
+          {quick ? (
+            <View style={styles.quickMore}>
+              {numberAndTime}
+              {diveNotes}
+              {afterNotes}
+            </View>
+          ) : null}
           <FormGroup title="Conditions" open={initiallyOpen} reveals={reveals.conditions}>
             <Pair>
               {number('waterTempC', signed)}
@@ -406,6 +470,7 @@ const styles = StyleSheet.create({
   },
   flip: { transform: [{ rotate: '180deg' }] },
   groups: { gap: Spacing.two },
+  quickMore: { gap: Spacing.three + 2, paddingBottom: Spacing.two },
   groupBox: { borderWidth: 1, borderRadius: Radius.md, paddingHorizontal: 14 },
   groupFields: { gap: Spacing.three, paddingTop: 4, paddingBottom: 14 },
   group: { gap: Spacing.three },

@@ -1,32 +1,27 @@
 import * as ImagePicker from 'expo-image-picker';
 import { Image } from 'expo-image';
 import { Stack, router, useLocalSearchParams } from 'expo-router';
-import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View, type TextInputInstance, type ViewInstance } from 'react-native';
-import Animated, { useAnimatedStyle, useReducedMotion, useSharedValue, withDelay, withTiming } from 'react-native-reanimated';
 
-import { DateField } from '@/components/date-field';
 import { BottomBar } from '@/components/dive/bottom-bar';
+import { DateField } from '@/components/date-field';
 import { DiveForm } from '@/components/dive/dive-form';
 import { HeaderBack } from '@/components/dive/header-back';
-import { Bookplate } from '@/components/dive/marks';
 import { FormField } from '@/components/form-field';
 import { Icon } from '@/components/icon';
-import { Chip } from '@/components/journal/chip';
 import { Paper } from '@/components/journal/paper';
-import { NewBadge, Stamp } from '@/components/journal/stamp';
+import { SavedReward, type LogResult } from '@/components/log/saved-reward';
+import { SpeciesPicker } from '@/components/log/species-picker';
 import { OceanButton } from '@/components/ocean-button';
 import { PrivacyFields } from '@/components/privacy-fields';
-import { RarityChip } from '@/components/rarity-chip';
-import { NewBadgesCelebration } from '@/components/rewards/new-badges';
-import { SpeciesArt } from '@/components/species-art';
 import { formatDate } from '@/components/sighting-row';
 import { SitePicker } from '@/components/site-picker';
 import { SpeciesAvatar } from '@/components/species-avatar';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { WhenReady } from '@/components/when-ready';
-import { OnFill, Radius, Shadow, Spacing, Type } from '@/constants/theme';
+import { OnFill, Radius, Spacing, Type } from '@/constants/theme';
 import { useDiscardGuard, useHardwareBack } from '@/hooks/use-discard-guard';
 import { DISMISS_ON_DRAG, useKeyboard } from '@/hooks/use-keyboard';
 import { useNewBadges } from '@/hooks/use-new-badges';
@@ -35,32 +30,21 @@ import { useRewards } from '@/hooks/use-rewards';
 import { useScrollTo } from '@/hooks/use-scroll-to';
 import { useSchemeName, useTheme } from '@/hooks/use-theme';
 import { announce } from '@/lib/announce';
-import { CATALOG, CATALOG_BY_ID, UNLISTED_ID, UNLISTED_NAME_MAX, speciesForSighting } from '@/lib/catalog';
+import { CATALOG_BY_ID, UNLISTED_ID, UNLISTED_NAME_MAX, speciesForSighting } from '@/lib/catalog';
 import { carryOver, emptyDraft, fieldOfProblem, readDraft, type DiveDraft, type DraftField } from '@/lib/dive-draft';
-import { formatDiveNumber, milestoneAt, milestoneName, nextDiveNumber, nextMilestone, sortDives } from '@/lib/dives';
+import { formatDiveNumber, sortDives } from '@/lib/dives';
 import { recentDiveDate, rememberDiveDate } from '@/lib/last-dive-date';
 import { leave } from '@/lib/leave';
 import { keepPhoto } from '@/lib/photo-files';
 import { DEFAULT_PRIVACY, lastPrivacyChoice, privacySummary, rememberPrivacyChoice, type PrivacySettings } from '@/lib/privacy-choice';
-import { CATEGORY_LABEL, CATEGORY_ORDER } from '@/lib/rarity';
-import { artFor } from '@/lib/species-art';
 import { canEditSighting, isMaterialChange, localIsoDate, NOTES_MAX } from '@/lib/sighting-edit';
 import { onSiteAdded } from '@/lib/site-added';
 import { useAllSites, useAppStore, useMyDives, useMySightings, useMyUserId, useNextDiveNumber, useSiteById } from '@/lib/store';
-import { searchSpecies } from '@/lib/text-search';
-import type { BadgeResult } from '@/lib/rewards';
-import type { Category, DiveSite, Species } from '@/lib/types';
+import type { DiveSite, Species } from '@/lib/types';
 import { statusOf } from '@/lib/verification';
 
 type Step = 'site' | 'species' | 'details';
-type Result = {
-  count: number;
-  siteName: string;
-  newSpecies: Species[];
-  dexNumber: number;
-  /** The page written (a new dive) or added to. */
-  dive?: { id: string; number: number; written: boolean };
-};
+type Result = LogResult;
 
 const STEP_NAMES: Record<Step, string> = { site: 'Site', species: 'Animals', details: 'Details' };
 const STEP_ORDER: Step[] = ['site', 'species', 'details'];
@@ -92,8 +76,8 @@ function entrySnapshot(entry: {
 }
 
 /**
- * Log a dive: pick the site, tick what you saw (or nothing), then fill in the page (its number,
- * date, depth and time, and as much more as you like) and write it with its sightings. Two other
+ * Log a dive: pick the site, tick what you saw (or nothing), then fill in the page (its date, depth and
+ * time, and under "More details" as much more as you like) and write it with its sightings. Two other
  * ways in go through the same steps: `?dive=<id>` adds animals to a page already written, and
  * `?edit=<id>` edits one sighting (on a page, its site and date stay the page's).
  */
@@ -172,6 +156,8 @@ function LogSightingScreen() {
   const { scrollView, onScroll, scrollTo } = useScrollTo();
   const keyboard = useKeyboard();
   const [result, setResult] = useState<Result | null>(null);
+  // "More details" of the dive's page, opened by "Who can see this" under the button.
+  const [moreOpen, setMoreOpen] = useState(false);
 
   // Leaving with something entered asks first; once saved there is nothing to lose.
   const snapshot = entrySnapshot({
@@ -355,6 +341,7 @@ function LogSightingScreen() {
         setResult({
           count: 1,
           siteName: site.name,
+          animals: chosen,
           newSpecies: chosen,
           dexNumber: new Set([...others.map((s) => s.speciesId), speciesId].filter((id) => id !== UNLISTED_ID)).size,
         });
@@ -367,6 +354,7 @@ function LogSightingScreen() {
         outcome = {
           count: picks.length,
           siteName: site.name,
+          animals: chosen,
           newSpecies: newSpeciesIds.map((id) => CATALOG_BY_ID.get(id)!).filter(Boolean),
           dexNumber: owned.size + newSpeciesIds.length,
           dive: { id: page.id, number: page.number, written: false },
@@ -386,6 +374,7 @@ function LogSightingScreen() {
         outcome = {
           count: picks.length,
           siteName: site.name,
+          animals: chosen,
           newSpecies: newSpeciesIds.map((id) => CATALOG_BY_ID.get(id)!).filter(Boolean),
           dexNumber: owned.size + newSpeciesIds.length,
           dive: { id: dive.id, number: dive.number, written: true },
@@ -395,9 +384,9 @@ function LogSightingScreen() {
       setResult(outcome);
       announce(
         [
-          outcome.dive?.written ? `Entry number ${outcome.dive.number} written.` : 'Saved.',
+          outcome.dive?.written ? 'Dive saved.' : 'Saved.',
           outcome.newSpecies.length > 0
-            ? `${outcome.newSpecies.length === 1 ? 'A new species' : `${outcome.newSpecies.length} new species`} for your collection.`
+            ? `${outcome.newSpecies.length === 1 ? 'A new animal' : `${outcome.newSpecies.length} new animals`} in your field guide.`
             : outcome.count > 0
               ? `${outcome.count === 1 ? 'One sighting' : `${outcome.count} sightings`} on the page.`
               : '',
@@ -411,24 +400,8 @@ function LogSightingScreen() {
     }
   };
 
-  const logMore = () => {
-    setResult(null);
-    setSelected([]);
-    setCustomName('');
-    setNotes('');
-    setPhotoUri(undefined);
-    // The next page: numbered after the one just written, with its gear and buddy.
-    const { dives, divesBefore } = useAppStore.getState();
-    const mine = dives.filter((d) => d.userId === myUserId);
-    const next = { ...emptyDraft({ number: nextDiveNumber(mine, divesBefore[myUserId] ?? 0), siteId: null, divedOn: date }), ...carryOver(sortDives(mine)[0], date).patch };
-    setDraft(next);
-    // A page begun afresh: nothing entered yet, though the site and date stay as they were.
-    setStartSnapshot(entrySnapshot({ siteId, selected: [], customName: '', notes: '', date: dateTouched ? date : null, draft: next, privacy: privacyTouched ? privacy : null }));
-    goTo('site');
-  };
-
   if (result) {
-    return <Saved result={result} onLogMore={newDive ? logMore : undefined} newBadges={newBadges} onBadgesSeen={markBadgesSeen} endOnPage={params.then === 'page'} />;
+    return <SavedReward result={result} newBadges={newBadges} onBadgesSeen={markBadgesSeen} endOnPage={params.then === 'page'} />;
   }
 
   if (params.edit && (!editing || !canEditSighting(editing, myUserId))) {
@@ -623,7 +596,7 @@ function LogSightingScreen() {
               {/* A new entry needs no eyebrow: the title ("Log a dive") and the step ("Details") already say it. */}
               {editing || page ? <ThemedText type="label">{editing ? 'Logbook entry' : formatDiveNumber(page!.number)}</ThemedText> : null}
               <ThemedText type="heading" accessibilityRole="header">
-                {newDive ? `${draft.number ? `No. ${draft.number}` : 'A dive'} at ${site.name}` : site.name}
+                {newDive ? `Dive at ${site.name}` : site.name}
               </ThemedText>
               {page ? (
                 <ThemedText type="small" themeColor="textSecondary">
@@ -656,12 +629,11 @@ function LogSightingScreen() {
             ) : null}
             {(multi && chosen.length > 1 ? [] : chosen).map((s, i) => (
               <View key={s.id} style={[styles.summary, i > 0 && { borderTopWidth: 1, borderTopColor: theme.rule }]}>
-                <SpeciesAvatar species={s} size={48} showRarityRing={s.id !== UNLISTED_ID} />
+                <SpeciesAvatar species={s} size={48} showRarityRing={false} />
                 <View style={{ flex: 1, gap: 3 }}>
                   <ThemedText type="smallBold" numberOfLines={2} style={{ fontFamily: Type.bodyHeavy, fontSize: 15 }}>
                     {s.commonName}
                   </ThemedText>
-                  {s.id !== UNLISTED_ID ? <RarityChip rarity={s.rarity} small /> : null}
                 </View>
                 {multi ? (
                   <Pressable
@@ -770,6 +742,9 @@ function LogSightingScreen() {
               takenBy={takenBy ? { number: takenBy.number, siteName: siteById(takenBy.siteId)?.name } : undefined}
               carried={start.from !== undefined ? { from: start.from, what: start.what } : undefined}
               afterNotes={animalBlock}
+              quick
+              open={moreOpen}
+              onOpenChange={setMoreOpen}
             />
           ) : null}
           {newDive && !dateTouched && date !== localIsoDate(new Date()) ? (
@@ -786,14 +761,16 @@ function LogSightingScreen() {
           {backendEnabled && chosen.length > 0 ? (
             <Pressable
               onPress={() => {
-                scrollTo(privacyField.current, 24);
+                // The choice is under "More details" on a new page: open it, then go there.
+                setMoreOpen(true);
+                setTimeout(() => scrollTo(privacyField.current, 24), 50);
                 announce('Who can see this');
               }}
               accessibilityRole="button"
-              accessibilityLabel={`Visible to: ${privacySummary(privacy, { photo: chosen.length === 1 })}. Change who can see this`}
+              accessibilityLabel={`Who can see this: ${privacySummary(privacy, { photo: chosen.length === 1 })}. Change who can see this`}
               style={({ pressed }) => [styles.visibleTo, { opacity: pressed ? 0.6 : 1 }]}>
               <Text style={[styles.visibleToText, { color: theme.textSecondary }]} numberOfLines={2}>
-                Visible to: <Text style={{ fontFamily: Type.bodyHeavy, color: theme.text }}>{privacySummary(privacy, { photo: chosen.length === 1 })}</Text>
+                Who can see this: <Text style={{ fontFamily: Type.bodyHeavy, color: theme.text }}>{privacySummary(privacy, { photo: chosen.length === 1 })}</Text>
                 {' · '}
                 <Text style={{ fontFamily: Type.bodyHeavy, color: theme.tint }}>change</Text>
               </Text>
@@ -811,7 +788,7 @@ function LogSightingScreen() {
                 : editing
                   ? 'Save changes'
                   : newDive
-                    ? `Save dive${draft.number ? ` No. ${draft.number}` : ''}`
+                    ? 'Save dive'
                     : `Add to ${formatDiveNumber(page!.number)}`
             }
             variant={editing ? 'primary' : 'log'}
@@ -844,502 +821,6 @@ function recentSpeciesIds(sightings: { speciesId: string; createdAt: string }[])
   return seen;
 }
 
-function SpeciesPicker({
-  multi,
-  selected,
-  customName,
-  site,
-  recentIds,
-  allowNone = false,
-  onToggle,
-  onDone,
-}: {
-  multi: boolean;
-  selected: string[];
-  customName: string;
-  site?: DiveSite;
-  recentIds: string[];
-  /** A dive can be logged without any animals: "Next" works with nothing ticked. */
-  allowNone?: boolean;
-  onToggle: (id: string, customName?: string) => void;
-  onDone: () => void;
-}) {
-  // The bar with "Next" is at the foot of this view, and the view is lifted clear of the keyboard.
-  const lift = useRef<ViewInstance>(null);
-  const keyboard = useKeyboard(lift);
-  const [query, setQuery] = useState('');
-  const [category, setCategory] = useState<Category | null>(null);
-  const searching = query.trim().length > 0;
-
-  const results = useMemo(() => {
-    const pool = category ? CATALOG.filter((s) => s.category === category) : CATALOG;
-    return searchSpecies(pool, query);
-  }, [query, category]);
-
-  // Without a search: what's usually seen at this site, then what the diver logs often, then everything.
-  const likely = !searching && !category && site ? site.notableSpecies.map((id) => CATALOG_BY_ID.get(id)).filter((s): s is Species => !!s) : [];
-  const likelyIds = new Set(likely.map((s) => s.id));
-  const recent = !searching && !category ? recentIds.filter((id) => !likelyIds.has(id)).map((id) => CATALOG_BY_ID.get(id)!) : [];
-  const shownAbove = new Set([...likelyIds, ...recent.map((s) => s.id)]);
-  const rest = searching || category ? results : results.filter((s) => !shownAbove.has(s.id));
-
-  const renderRow = (s: Species) => (
-    <SpeciesRow key={s.id} species={s} multi={multi} checked={selected.includes(s.id)} onPress={() => onToggle(s.id)} />
-  );
-  const somethingElseName = searching ? query.trim() : customName;
-  const count = selected.length;
-
-  return (
-    <View ref={lift} collapsable={false} style={{ flex: 1, paddingBottom: keyboard.overlap }}>
-      <View style={[styles.picker, styles.pickerTop]}>
-        <FormField
-          label="What did you see?"
-          value={query}
-          onChangeText={setQuery}
-          placeholder="Search: manta, nudibranch, turtle…"
-          autoCorrect={false}
-          returnKeyType="search"
-        />
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          style={styles.chipsScroll}
-          contentContainerStyle={styles.chips}
-          accessibilityLabel="Filter by group">
-          {CATEGORY_ORDER.map((cat) => (
-            <Chip
-              key={cat}
-              label={CATEGORY_LABEL[cat]}
-              accessibilityLabel={`${CATEGORY_LABEL[cat]} only`}
-              selected={category === cat}
-              onPress={() => setCategory(category === cat ? null : cat)}
-            />
-          ))}
-        </ScrollView>
-      </View>
-      <ScrollView contentContainerStyle={styles.picker} keyboardShouldPersistTaps="handled" keyboardDismissMode={DISMISS_ON_DRAG}>
-        {likely.length > 0 ? (
-          <>
-            <ThemedText type="label" accessibilityRole="header" style={styles.groupLabel}>
-              Often seen at {site!.name}
-            </ThemedText>
-            {likely.map(renderRow)}
-          </>
-        ) : null}
-        {recent.length > 0 ? (
-          <>
-            <ThemedText type="label" accessibilityRole="header" style={styles.groupLabel}>
-              You’ve logged recently
-            </ThemedText>
-            {recent.map(renderRow)}
-          </>
-        ) : null}
-        {likely.length > 0 || recent.length > 0 ? (
-          <ThemedText type="label" accessibilityRole="header" style={styles.groupLabel}>
-            All species
-          </ThemedText>
-        ) : null}
-        {rest.map(renderRow)}
-        {searching && rest.length === 0 ? (
-          <ThemedText type="caption" themeColor="textSecondary" accessibilityLiveRegion="polite">
-            Nothing in the catalogue matches “{query.trim()}”.
-          </ThemedText>
-        ) : null}
-        <SpeciesRow
-          species={speciesForSighting({ speciesId: UNLISTED_ID, customName: somethingElseName })!}
-          multi={multi}
-          checked={selected.includes(UNLISTED_ID)}
-          title={somethingElseName ? `Something else: “${somethingElseName}”` : 'Something else…'}
-          subtitle="Not in the catalogue? Log it in your own words"
-          onPress={() => onToggle(UNLISTED_ID, somethingElseName)}
-        />
-      </ScrollView>
-      {multi ? (
-        <BottomBar keyboardOpen={keyboard.open}>
-          <OceanButton
-            title={count === 0 ? (allowNone ? 'Skip animals' : 'Tick what you saw') : `Next · ${count} ${count === 1 ? 'species' : 'species'}`}
-            variant={count === 0 && allowNone ? 'secondary' : 'primary'}
-            onPress={onDone}
-            disabled={count === 0 && !allowNone}
-          />
-        </BottomBar>
-      ) : null}
-    </View>
-  );
-}
-
-function SpeciesRow({
-  species,
-  multi,
-  checked,
-  title,
-  subtitle,
-  onPress,
-}: {
-  species: Species;
-  multi: boolean;
-  checked: boolean;
-  title?: string;
-  subtitle?: string;
-  onPress: () => void;
-}) {
-  const theme = useTheme();
-  const scheme = useSchemeName();
-  const unlisted = species.id === UNLISTED_ID;
-  const name = title ?? species.commonName;
-  const detail = subtitle ?? species.scientificName;
-  return (
-    <Pressable
-      onPress={onPress}
-      accessibilityRole={multi ? 'checkbox' : 'button'}
-      aria-checked={multi ? checked : undefined}
-      accessibilityLabel={unlisted ? `${name}. ${detail}` : `${name}, ${species.rarity}`}
-      style={({ pressed }) => [
-        styles.row,
-        styles.speciesRow,
-        {
-          backgroundColor: pressed ? theme.backgroundSelected : checked ? `${theme.wash}40` : theme.backgroundElement,
-          borderColor: checked ? theme.lagoon : theme.cardBorder,
-          boxShadow: Shadow[scheme].card,
-        },
-      ]}>
-      <SpeciesAvatar species={species} size={48} showRarityRing={!unlisted} />
-      <View style={{ flex: 1, gap: 1 }}>
-        <Text numberOfLines={2} style={[styles.rowTitle, { color: theme.text }]}>
-          {name}
-        </Text>
-        <ThemedText type={unlisted ? 'small' : 'caption'} themeColor="textSecondary" numberOfLines={2} style={!unlisted && styles.scientific}>
-          {detail}
-        </ThemedText>
-      </View>
-      {!unlisted ? <RarityChip rarity={species.rarity} small /> : null}
-      {multi ? (
-        <View
-          style={[styles.check, { borderColor: checked ? theme.lagoon : theme.rule, backgroundColor: checked ? theme.lagoon : theme.backgroundElement }]}
-          importantForAccessibility="no-hide-descendants"
-          accessibilityElementsHidden>
-          {checked ? <Icon name="check" size={16} color={OnFill[scheme].lagoon} weight="bold" /> : null}
-        </View>
-      ) : null}
-    </Pressable>
-  );
-}
-
-/** Ink on the twilight page of the new-species moment. */
-const ON_TWILIGHT = { text: '#FFFFFF', soft: '#C9D3FF' };
-
-/**
- * After saving. A new species turns over a field-guide card and stamps it "First record"; an
- * ordinary log gets a "Logged" stamp. Nothing moves under Reduce Motion. Either way the next steps
- * are one footer pinned under the page, so they are in reach whatever the page above holds.
- */
-function Saved({
-  result,
-  onLogMore,
-  newBadges,
-  onBadgesSeen,
-  endOnPage = false,
-}: {
-  result: Result;
-  onLogMore?: () => void;
-  newBadges: BadgeResult[];
-  onBadgesSeen: (ids: string[]) => void;
-  /** The page isn't underneath this screen (it replaced the page's saved screen): going to the page opens it. */
-  endOnPage?: boolean;
-}) {
-  const theme = useTheme();
-  const { newSpecies, count, siteName, dive } = result;
-  const milestone = dive?.written ? milestoneAt(dive.number) : null;
-  const ahead = dive?.written && !milestone ? nextMilestone(dive.number + 1) : null;
-  const badgeCelebration = <NewBadgesCelebration fresh={newBadges} onSeen={onBadgesSeen} onOpenAll={() => router.replace('/rewards')} />;
-  // The page is underneath when sightings were added from it, and then it is gone back to; a page just written, or one
-  // whose saved screen this replaced ("Add what you saw"), is opened in this screen's place.
-  const openPage = dive ? () => (dive.written || endOnPage ? router.replace(`/dive/${dive.id}`) : leave(`/dive/${dive.id}`)) : undefined;
-  // Signing from here ends on the page (there's no page behind this screen to go back to).
-  const askToSign = dive?.written ? () => router.replace({ pathname: '/dive/sign', params: { id: dive.id, then: 'page' } }) : undefined;
-  // A dive written without animals can have them added now: the same steps, on its page.
-  const addWhatYouSaw = dive?.written && count === 0 ? () => router.replace({ pathname: '/log/new', params: { dive: dive.id, then: 'page' } }) : undefined;
-  if (newSpecies.length === 0) {
-    return (
-      <ThemedView style={styles.container}>
-        {/* The form's own back arrow steps back through its steps; here the navigator's leaves. */}
-        <Stack.Screen options={{ title: 'Logged', headerLeft: undefined }} />
-        <ScrollView contentContainerStyle={styles.savedScroll}>
-          <Paper raised style={styles.savedCard}>
-            <Stamp
-              lines={dive?.written ? [formatDiveNumber(dive.number).toUpperCase(), siteName.toUpperCase().slice(0, 22)] : ['Logged', siteName.toUpperCase().slice(0, 22)]}
-              animate
-              delay={150}
-              rotate={-6}
-              style={{ alignSelf: 'center' }}
-            />
-            <ThemedText type="display" accessibilityRole="header" style={styles.center}>
-              {dive?.written ? `Entry ${formatDiveNumber(dive.number)}` : 'Saved'}
-            </ThemedText>
-            <ThemedText style={styles.center} themeColor="textSecondary">
-              {dive?.written
-                ? count === 0
-                  ? `Your dive at ${siteName} is written in your logbook, with no animals on it yet.`
-                  : `Written in your logbook, with ${count === 1 ? 'one sighting' : `${count} sightings`} at ${siteName}.`
-                : dive
-                  ? `${count === 1 ? 'Your sighting is' : `${count} sightings are`} on ${formatDiveNumber(dive.number)}.`
-                  : `${count === 1 ? 'Your sighting is' : `${count} sightings are`} in your log, at ${siteName}.`}
-            </ThemedText>
-            {addWhatYouSaw ? <OceanButton title="Add what you saw" icon="plus" variant="secondary" onPress={addWhatYouSaw} style={styles.stretch} /> : null}
-            {milestone ? <Bookplate at={milestone} siteName={siteName} style={styles.stretch} /> : null}
-            {badgeCelebration}
-            {ahead && ahead.remaining <= 5 ? (
-              <ThemedText type="small" themeColor="textSecondary" style={styles.center}>
-                {ahead.remaining === 0 ? `Your next dive is your ${milestoneName(ahead.at)}.` : `${countWord(ahead.remaining + 1)} dives to your ${milestoneName(ahead.at)}.`}
-              </ThemedText>
-            ) : null}
-          </Paper>
-        </ScrollView>
-        <SavedFooter
-          primary={<OceanButton title={dive && !dive.written ? 'Back to the page' : 'Done'} onPress={dive && !dive.written ? openPage! : () => leave('/')} style={styles.stretch} />}
-          // Sightings added to a page end on the page already: "Back to the page" is the way there.
-          page={dive?.written ? { title: 'Open the page', onPress: openPage! } : undefined}
-          onSign={askToSign}
-          onLogMore={onLogMore}
-        />
-      </ThemedView>
-    );
-  }
-  const first = newSpecies[0];
-  return (
-    <View style={[styles.twilight, { backgroundColor: theme.twilight }]}>
-      <Stack.Screen
-        options={{
-          headerStyle: { backgroundColor: theme.twilight },
-          headerTintColor: ON_TWILIGHT.text,
-          headerTitleStyle: { fontFamily: Type.display, fontSize: 19, color: ON_TWILIGHT.text },
-          headerLeft: undefined,
-          title: 'Logged',
-        }}
-      />
-      <Bubbles />
-      <ScrollView contentContainerStyle={styles.twilightContent}>
-        <View style={{ alignItems: 'center', gap: 4 }}>
-          <Text style={[styles.twilightEyebrow, { color: ON_TWILIGHT.soft }]}>
-            {dive ? `${formatDiveNumber(dive.number).toUpperCase()} · ` : ''}
-            {count === 1 ? 'ONE SIGHTING' : `${count} SIGHTINGS`} · {siteName.toUpperCase()}
-          </Text>
-          <Text accessibilityRole="header" style={[styles.twilightTitle, { color: ON_TWILIGHT.text }]}>
-            {newSpecies.length === 1 ? 'A first record' : `${newSpecies.length} first records`}
-          </Text>
-          <Text style={[styles.twilightSub, { color: ON_TWILIGHT.soft }]}>
-            {newSpecies.length === 1 ? `Entry ${result.dexNumber} in your field guide` : `Your field guide now has ${result.dexNumber} species`}
-          </Text>
-        </View>
-        {newSpecies.length === 1 ? (
-          <FlipCard species={first} dexNumber={result.dexNumber} />
-        ) : (
-          <Paper raised style={styles.manyCard}>
-            <Stamp lines={['First records', `×${newSpecies.length}`]} animate delay={400} rotate={-5} style={{ alignSelf: 'center' }} />
-            <View style={styles.newGrid}>
-              {newSpecies.slice(0, 9).map((s) => (
-                <View key={s.id} style={styles.newCell}>
-                  <View style={[styles.newPlate, { backgroundColor: `${artFor(s).wash}26`, borderColor: theme.cardBorder }]}>
-                    <SpeciesArt species={s} width={76} />
-                  </View>
-                  <ThemedText type="small" style={[styles.center, { fontFamily: Type.bodyBold, fontSize: 13, lineHeight: 16 }]} numberOfLines={2}>
-                    {s.commonName}
-                  </ThemedText>
-                </View>
-              ))}
-            </View>
-            {newSpecies.length > 9 ? (
-              <ThemedText type="caption" themeColor="textSecondary" style={styles.center}>
-                and {newSpecies.length - 9} more
-              </ThemedText>
-            ) : null}
-          </Paper>
-        )}
-        {milestone ? <Bookplate at={milestone} siteName={siteName} style={styles.stretch} /> : null}
-        {badgeCelebration}
-        <View style={styles.gains}>
-          <Gain mark={`+${newSpecies.length}`} text={newSpecies.length === 1 ? 'A new resident swims to your island' : `${newSpecies.length} new residents swim to your island`} />
-          {dive?.written ? <Gain mark="No." text={`Entry ${formatDiveNumber(dive.number)} written in your logbook`} /> : null}
-          {count > newSpecies.length ? <Gain mark={`${count}`} text={`${count} sightings saved at ${siteName}`} /> : null}
-        </View>
-      </ScrollView>
-      <SavedFooter
-        twilight
-        primary={<OceanButton title="Visit my home" variant="log" icon="home" onPress={() => router.dismissTo('/(tabs)')} style={styles.stretch} />}
-        page={openPage ? { title: dive?.written ? 'Open the page' : 'Back to the page', onPress: openPage } : undefined}
-        onSign={askToSign}
-        onLogMore={onLogMore}
-      />
-    </View>
-  );
-}
-
-/**
- * What to do next, pinned under the saved page: the main way on, then the page itself, then the
- * quieter ones side by side.
- */
-function SavedFooter({
-  twilight = false,
-  primary,
-  page,
-  onSign,
-  onLogMore,
-}: {
-  twilight?: boolean;
-  primary: ReactNode;
-  page?: { title: string; onPress: () => void };
-  onSign?: () => void;
-  onLogMore?: () => void;
-}) {
-  return (
-    <BottomBar tone={twilight ? 'twilight' : 'page'} maxWidth={440}>
-      {primary}
-      {page ? <OceanButton title={page.title} variant="secondary" icon="logbook" onPress={page.onPress} style={styles.stretch} /> : null}
-      {onSign || onLogMore ? (
-        <View style={styles.quietRow}>
-          {onSign ? <QuietLink title="Ask your buddy to sign" onPress={onSign} twilight={twilight} /> : null}
-          {onLogMore ? <QuietLink title="Log another dive" onPress={onLogMore} twilight={twilight} /> : null}
-        </View>
-      ) : null}
-    </BottomBar>
-  );
-}
-
-/** A text-only action: lagoon ink on paper, white on the twilight page (where lagoon is too dim to read). */
-function QuietLink({ title, onPress, twilight }: { title: string; onPress: () => void; twilight: boolean }) {
-  const theme = useTheme();
-  return (
-    <Pressable onPress={onPress} accessibilityRole="button" style={({ pressed }) => [styles.quietLink, { opacity: pressed ? 0.6 : 1 }]}>
-      <Text style={[styles.quietText, { color: twilight ? ON_TWILIGHT.text : theme.tint }]}>{title}</Text>
-    </Pressable>
-  );
-}
-
-/** "Two", "Three"… for a small count at the start of a sentence. */
-function countWord(n: number): string {
-  return ['Zero', 'One', 'Two', 'Three', 'Four', 'Five', 'Six'][n] ?? String(n);
-}
-
-function Gain({ mark, text }: { mark: string; text: string }) {
-  const theme = useTheme();
-  return (
-    <View style={styles.gain}>
-      {/* Navy ink on turquoise, the same in both schemes (7:1). */}
-      <View style={[styles.gainMark, { backgroundColor: theme.turquoise }]}>
-        <Text style={[styles.gainMarkText, { color: '#1D2B45' }]}>{mark}</Text>
-      </View>
-      <Text style={[styles.gainText, { color: ON_TWILIGHT.text }]}>{text}</Text>
-    </View>
-  );
-}
-
-/**
- * The new species' field-guide card. It arrives face down and turns over by itself; tap to turn it
- * again. Under Reduce Motion it is simply face up.
- */
-function FlipCard({ species, dexNumber }: { species: Species; dexNumber: number }) {
-  const theme = useTheme();
-  const scheme = useSchemeName();
-  const reduced = useReducedMotion();
-  const [faceUp, setFaceUp] = useState(true);
-  const angle = useSharedValue(reduced ? 0 : 180);
-  useEffect(() => {
-    if (!reduced) angle.set(withDelay(450, withTiming(0, { duration: 750 })));
-  }, [angle, reduced]);
-  const flip = () => {
-    const next = !faceUp;
-    setFaceUp(next);
-    angle.set(reduced ? (next ? 0 : 180) : withTiming(next ? 0 : 180, { duration: 650 }));
-  };
-  const front = useAnimatedStyle(() => ({ transform: [{ perspective: 1100 }, { rotateY: `${angle.get()}deg` }] }));
-  const back = useAnimatedStyle(() => ({ transform: [{ perspective: 1100 }, { rotateY: `${angle.get() + 180}deg` }] }));
-  const { wash } = artFor(species);
-  const label = faceUp
-    ? `${species.commonName}, ${species.scientificName}, ${species.rarity}. First record, entry ${dexNumber} in your field guide. Tap to turn the card over.`
-    : 'The card is face down. Tap to turn it over.';
-  return (
-    <Pressable onPress={flip} accessibilityRole="button" accessibilityLabel={label} style={styles.flip}>
-      <Animated.View style={[styles.face, { backgroundColor: theme.backgroundElement, boxShadow: '0px 18px 40px -14px rgba(0, 0, 0, 0.5)' }, front]}>
-        <View style={[styles.plate, { backgroundColor: `${wash}33`, borderBottomColor: theme.cardBorder }]}>
-          <SpeciesArt species={species} width={220} paper={theme.backgroundElement} />
-          <View style={styles.plateTag}>
-            <RarityChip rarity={species.rarity} small />
-          </View>
-          <Stamp lines={['First record']} animate={!reduced} delay={1150} rotate={9} style={styles.plateStamp} />
-          <NewBadge style={styles.plateBadge} />
-        </View>
-        <View style={styles.faceText}>
-          <ThemedText style={styles.faceName} numberOfLines={2}>
-            {species.commonName}
-          </ThemedText>
-          <ThemedText type="caption" themeColor="textSecondary" numberOfLines={1}>
-            {species.scientificName}
-          </ThemedText>
-          <ThemedText type="small" numberOfLines={4} style={{ marginTop: 6 }}>
-            {species.blurb}
-          </ThemedText>
-        </View>
-        <View style={[styles.faceFoot, { borderTopColor: theme.rule }]}>
-          <ThemedText type="label">Entry no. {dexNumber}</ThemedText>
-          <ThemedText type="label">{CATEGORY_LABEL[species.category]}</ThemedText>
-        </View>
-      </Animated.View>
-      <Animated.View style={[styles.face, styles.faceBack, { backgroundColor: theme.lagoon, boxShadow: '0px 18px 40px -14px rgba(0, 0, 0, 0.5)' }, back]}>
-        <View style={[styles.backRing, { borderColor: theme.sun }]}>
-          <View style={[styles.backRingInner, { borderColor: theme.sun }]}>
-            <Icon name="fieldGuide" size={56} color={OnFill[scheme].lagoon} wash={theme.sun} washOpacity={0.7} />
-          </View>
-        </View>
-        <Text style={[styles.backTitle, { color: OnFill[scheme].lagoon }]}>ScubaGo field guide</Text>
-        <Text style={[styles.backHint, { color: OnFill[scheme].lagoon }]}>Tap to turn over</Text>
-      </Animated.View>
-    </Pressable>
-  );
-}
-
-const BUBBLES = [
-  { left: '8%', size: 14, delay: 0 },
-  { left: '18%', size: 8, delay: -3000 },
-  { left: '84%', size: 12, delay: -1500 },
-  { left: '76%', size: 6, delay: -5000 },
-  { left: '90%', size: 9, delay: -7000 },
-  { left: '12%', size: 10, delay: -6000 },
-] as const;
-
-/** Bubbles rising slowly behind the card. Decorative; none under Reduce Motion. */
-function Bubbles() {
-  const reduced = useReducedMotion();
-  if (reduced) return null;
-  return (
-    <View aria-hidden style={[StyleSheet.absoluteFill, { pointerEvents: 'none' }]}>
-      {BUBBLES.map((b) => (
-        <Animated.View
-          key={b.left}
-          style={{
-            position: 'absolute',
-            left: b.left,
-            bottom: -20,
-            width: b.size,
-            height: b.size,
-            borderRadius: b.size / 2,
-            borderWidth: 1.5,
-            borderColor: 'rgba(255, 255, 255, 0.45)',
-            animationName: {
-              '0%': { transform: [{ translateY: 0 }], opacity: 0 },
-              '10%': { opacity: 1 },
-              '100%': { transform: [{ translateY: -900 }], opacity: 0 },
-            },
-            animationDuration: '9s',
-            animationDelay: `${b.delay}ms`,
-            animationIterationCount: 'infinite',
-            animationTimingFunction: 'ease-in',
-          }}
-        />
-      ))}
-    </View>
-  );
-}
-
 const styles = StyleSheet.create({
   container: { flex: 1 },
   steps: {
@@ -1355,32 +836,6 @@ const styles = StyleSheet.create({
   stepDot: { width: 24, height: 24, borderRadius: 12, borderWidth: 1.5, alignItems: 'center', justifyContent: 'center' },
   stepNumber: { fontFamily: Type.display, fontSize: 13, lineHeight: 16 },
   stepLabel: { fontSize: 14, lineHeight: 18, flexShrink: 1 },
-  picker: { paddingHorizontal: Spacing.three, paddingBottom: Spacing.three, gap: Spacing.two + 2 },
-  pickerTop: { paddingTop: Spacing.three, paddingBottom: Spacing.two },
-  groupLabel: { marginTop: Spacing.two },
-  chipsScroll: { marginHorizontal: -Spacing.three, flexGrow: 0 },
-  chips: { gap: Spacing.two, paddingVertical: 2, paddingHorizontal: Spacing.three },
-  row: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-    borderRadius: Radius.md,
-    padding: 10,
-    paddingRight: 12,
-    minHeight: 64,
-  },
-  speciesRow: { borderWidth: 1.5 },
-  rowIcon: { width: 40, height: 40, borderRadius: Radius.sm, alignItems: 'center', justifyContent: 'center' },
-  rowTitle: { fontFamily: Type.bodyHeavy, fontSize: 15, lineHeight: 20 },
-  scientific: { fontSize: 14, lineHeight: 19 },
-  check: {
-    width: 28,
-    height: 28,
-    borderRadius: Radius.xs,
-    borderWidth: 1.5,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
   details: { padding: Spacing.three, gap: Spacing.four, paddingBottom: Spacing.four, width: '100%', maxWidth: 720, alignSelf: 'center' },
   sawCard: { gap: 4, paddingBottom: 8 },
   nameField: { gap: 6 },
@@ -1405,50 +860,5 @@ const styles = StyleSheet.create({
   photoPreview: { width: '100%', height: 220, borderRadius: Radius.md, borderWidth: 1 },
   warning: { flexDirection: 'row', alignItems: 'flex-start', gap: 10 },
   centered: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: Spacing.three, padding: Spacing.four },
-  savedScroll: { flexGrow: 1, justifyContent: 'center', alignItems: 'center', width: '100%', padding: Spacing.three },
-  savedCard: { width: '100%', maxWidth: 420, alignItems: 'center', gap: Spacing.three, paddingVertical: Spacing.four },
   dateNote: { marginTop: -Spacing.three },
-  center: { textAlign: 'center' },
-  stretch: { alignSelf: 'stretch' },
-  quietRow: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', columnGap: Spacing.three },
-  quietLink: { flexGrow: 1, flexShrink: 1, flexBasis: 'auto', minHeight: 44, alignItems: 'center', justifyContent: 'center', paddingHorizontal: Spacing.two },
-  quietText: { fontFamily: Type.bodyBold, fontSize: 15, lineHeight: 20, textAlign: 'center' },
-  twilight: { flex: 1 },
-  twilightContent: { padding: Spacing.three, paddingTop: Spacing.four, paddingBottom: Spacing.four, gap: 20, alignItems: 'center', width: '100%', maxWidth: 440, alignSelf: 'center' },
-  twilightEyebrow: { fontFamily: Type.label, fontSize: 12, letterSpacing: 1.4, textAlign: 'center' },
-  twilightTitle: { fontFamily: Type.display, fontSize: 32, lineHeight: 38, textAlign: 'center' },
-  twilightSub: { fontFamily: Type.bodySemiBold, fontSize: 15, lineHeight: 20, textAlign: 'center' },
-  flip: { width: 288, height: 380 },
-  face: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, borderRadius: Radius.lg, overflow: 'hidden', backfaceVisibility: 'hidden' },
-  faceBack: { alignItems: 'center', justifyContent: 'center', gap: 14 },
-  plate: { height: 200, alignItems: 'center', justifyContent: 'center', borderBottomWidth: 1 },
-  plateTag: { position: 'absolute', top: 12, left: 12 },
-  plateBadge: { position: 'absolute', top: 12, right: 12 },
-  plateStamp: { position: 'absolute', right: 12, bottom: 12 },
-  faceText: { padding: 16, gap: 2, flex: 1 },
-  faceFoot: { flexDirection: 'row', justifyContent: 'space-between', borderTopWidth: 1, marginHorizontal: 16, paddingVertical: 10 },
-  faceName: { fontFamily: Type.display, fontSize: 25, lineHeight: 30 },
-  backRing: { width: 124, height: 124, borderRadius: 62, borderWidth: 1.5, padding: 5 },
-  backRingInner: { flex: 1, borderRadius: 999, borderWidth: 1.5, alignItems: 'center', justifyContent: 'center' },
-  backTitle: { fontFamily: Type.display, fontSize: 22 },
-  backHint: { fontFamily: Type.bodyBold, fontSize: 14, opacity: 0.85 },
-  manyCard: { alignSelf: 'stretch', gap: Spacing.three, paddingVertical: Spacing.four },
-  newGrid: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', gap: Spacing.three },
-  newCell: { width: 92, alignItems: 'center', gap: 6 },
-  newPlate: { width: 92, height: 72, borderRadius: Radius.md, borderWidth: 1, alignItems: 'center', justifyContent: 'center' },
-  gains: { alignSelf: 'stretch', gap: 8 },
-  gain: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-    backgroundColor: 'rgba(255, 255, 255, 0.08)',
-    borderColor: 'rgba(255, 255, 255, 0.14)',
-    borderWidth: 1,
-    borderRadius: Radius.md,
-    paddingVertical: 10,
-    paddingHorizontal: 12,
-  },
-  gainMark: { minWidth: 34, height: 34, paddingHorizontal: 6, borderRadius: 17, alignItems: 'center', justifyContent: 'center' },
-  gainMarkText: { fontFamily: Type.display, fontSize: 15 },
-  gainText: { flex: 1, fontFamily: Type.bodySemiBold, fontSize: 14, lineHeight: 19 },
 });

@@ -12,18 +12,20 @@ type Props = TextInputProps & {
   hint?: string;
   /** At the right end of the label's line: a link that goes with the field. */
   labelAccessory?: ReactNode;
+  /** The label is only the field's accessible name: a heading above it already says what it is. */
+  labelHidden?: boolean;
 };
 
 /**
  * A labelled text field: a typewriter label over a paper box that takes a lagoon edge while you type.
  * The label is visible and is the field's accessible name.
  */
-export const FormField = forwardRef<TextInputInstance, Props>(function FormField({ label, hint, labelAccessory, style, onFocus, onBlur, ...input }, ref) {
+export const FormField = forwardRef<TextInputInstance, Props>(function FormField({ label, hint, labelAccessory, labelHidden = false, style, onFocus, onBlur, ...input }, ref) {
   const theme = useTheme();
   const [focused, setFocused] = useState(false);
   return (
     <View style={styles.field}>
-      {labelAccessory ? (
+      {labelHidden ? null : labelAccessory ? (
         <View style={styles.labelRow}>
           <ThemedText type="label" importantForAccessibility="no" accessibilityElementsHidden>
             {label}

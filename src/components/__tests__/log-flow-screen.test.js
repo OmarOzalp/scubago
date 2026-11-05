@@ -96,7 +96,29 @@ const pickSite = async () => {
   await typeInto('Where did you dive?', SITE.name);
   await press(root.root.findAll((n) => typeof n.props.accessibilityLabel === 'string' && n.props.accessibilityLabel.startsWith(`${SITE.name},`) && typeof n.props.onPress === 'function')[0]);
 };
-const tickFirstSpecies = async () => press(root.root.findAll((n) => n.props.accessibilityRole === 'checkbox' && typeof n.props.onPress === 'function')[0]);
+// The animals are a windowed list: "Something else…" is its last row, so scroll the list down until it is drawn.
+const findSomethingElse = () => root.root.findAll((n) => typeof n.props.accessibilityLabel === 'string' && n.props.accessibilityLabel.startsWith('Something else') && typeof n.props.onPress === 'function')[0];
+const somethingElse = async () => {
+  const list = root.root.findAllByType(ScrollView).find((scroll) => scroll.props.keyboardShouldPersistTaps === 'handled' && typeof scroll.props.onScroll === 'function');
+  const event = (y) => ({ nativeEvent: { contentOffset: { x: 0, y }, contentSize: { width: 393, height: 30000 }, layoutMeasurement: { width: 393, height: 700 }, zoomScale: 1, contentInset: { top: 0, left: 0, bottom: 0, right: 0 } } });
+  await act(async () => {
+    list.props.onLayout?.({ nativeEvent: { layout: { x: 0, y: 0, width: 393, height: 700 } } });
+    list.props.onContentSizeChange?.(393, 30000);
+  });
+  for (let y = 0; y <= 30000 && !findSomethingElse(); y += 1500) {
+    await act(async () => { list.props.onScroll(event(y)); await new Promise((resolve) => setTimeout(resolve, 60)); });
+  }
+  return findSomethingElse();
+};
+// The animal cards that can be ticked (each is a card and the pressable inside it: the outer one counts).
+const checkboxes = () => {
+  const all = root.root.findAll((n) => n.props.accessibilityRole === 'checkbox' && typeof n.props.onPress === 'function');
+  return all.filter((n) => !all.some((o) => o !== n && o.findAll((c) => c === n).length > 0));
+};
+const tickFirstSpecies = async () => press(checkboxes()[0]);
+const openMore = async () => act(async () => {
+  root.root.findAll((n) => n.props.accessibilityRole === 'button' && typeof n.props.onPress === 'function' && n.findAll((c) => c.children?.join?.('') === 'More details').length > 0)[0].props.onPress();
+});
 const texts = () => root.root.findAll((n) => typeof n.children?.[0] === 'string').map((n) => n.children.join(''));
 
 describe('the back arrow of Log a dive', () => {
@@ -107,7 +129,7 @@ describe('the back arrow of Log a dive', () => {
     await pickSite();
     expect(header().label).toBe('Back to site');
     await tickFirstSpecies();
-    await press(byTitle('Next · 1 species'));
+    await press(byTitle('Next · 1 animal'));
     expect(header().label).toBe('Back to animals');
 
     await act(async () => header().onPress());
@@ -171,7 +193,8 @@ describe('leaving Log a dive with something entered', () => {
     await render();
     await pickSite();
     await tickFirstSpecies();
-    await press(byTitle('Next · 1 species'));
+    await press(byTitle('Next · 1 animal'));
+    await openMore();
     await typeInto('Notes on the animal', 'Came up to check us out');
     expect(mockGuard.preventRemove).toBe(true);
 
@@ -192,7 +215,7 @@ describe('leaving Log a dive with something entered', () => {
   test('asks for a typed dive field, too', async () => {
     await render();
     await pickSite();
-    await press(byTitle('Skip animals'));
+    await press(byTitle('Next'));
     await typeInto('Max depth (m)', '18');
     expect(mockGuard.preventRemove).toBe(true);
   });
@@ -200,11 +223,11 @@ describe('leaving Log a dive with something entered', () => {
   test('is not questioned after saving, nor when it saves itself', async () => {
     await render();
     await pickSite();
-    await press(byTitle('Skip animals'));
-    await press(byTitle('Save dive No. 28'));
+    await press(byTitle('Next'));
+    await press(byTitle('Save dive'));
     expect(mockState.logDive).toHaveBeenCalled();
     expect(mockGuard.preventRemove).toBe(false);
-    expect(texts()).toContain('Entry No. 28');
+    expect(texts()).toContain('Dive saved');
   });
 
   test('an edit that saves and closes itself is not questioned on the way out', async () => {
@@ -232,11 +255,11 @@ describe('the saved page', () => {
     await pickSite();
     if (animals) {
       await tickFirstSpecies();
-      await press(byTitle('Next · 1 species'));
+      await press(byTitle('Next · 1 animal'));
     } else {
-      await press(byTitle('Skip animals'));
+      await press(byTitle('Next'));
     }
-    await press(byTitle('Save dive No. 28'));
+    await press(byTitle('Save dive'));
   };
   const titles = () => root.root.findAll((n) => typeof n.props.title === 'string' && typeof n.props.onPress === 'function').map((n) => n.props.title);
   const pinned = (title) => {
@@ -245,39 +268,47 @@ describe('the saved page', () => {
     return !!node && root.root.findAllByType(ScrollView).every((scroll) => scroll.findAll((n) => n === node).length === 0);
   };
 
-  test('an ordinary log: "Logged" in the header, "Done" first, then the page, with sign and log another as quieter links', async () => {
+  test('an ordinary log: "Saved" in the header, the animals, then Done and See your island, pinned', async () => {
     await writeDive({ animals: true });
-    expect(mockOptions.title).toBe('Logged');
+    expect(mockOptions.title).toBe('Saved');
     expect(mockOptions.headerLeft).toBeUndefined();
-    expect(titles()).toEqual(['Done', 'Open the page', 'Ask your buddy to sign', 'Log another dive']);
+    expect(texts()).toContain('Dive saved');
+    expect(titles()).toEqual(['Done', 'See your island']);
     expect(pinned('Done')).toBe(true);
-    expect(pinned('Open the page')).toBe(true);
-    expect(pinned('Ask your buddy to sign')).toBe(true);
-    expect(pinned('Log another dive')).toBe(true);
-    await press(byTitle('Open the page'));
-    expect(router.replace).toHaveBeenCalledWith('/dive/d-28');
+    expect(pinned('See your island')).toBe(true);
     await press(byTitle('Done'));
     expect(router.back).toHaveBeenCalledTimes(1);
-    await press(byTitle('Ask your buddy to sign'));
-    expect(router.replace).toHaveBeenCalledWith({ pathname: '/dive/sign', params: { id: 'd-28', then: 'page' } });
   });
 
-  test('a first record: "Visit my home" first, then the same rows in the same footer', async () => {
+  test('the animals just added are shown by name with their rarity said now, and nothing new is claimed for an animal seen before', async () => {
+    await writeDive({ animals: true });
+    expect(texts()).toContain('You added');
+    expect(texts().some((t) => /find$/.test(t))).toBe(true);
+    expect(texts().join(' ')).not.toContain('New in your field guide');
+    expect(texts().join(' ')).not.toContain('Your island grew');
+  });
+
+  test('a first record: New in your field guide, and how much the island grew; See your island goes Home', async () => {
     await writeDive({ animals: true, firstRecord: true });
-    expect(mockOptions.title).toBe('Logged');
-    expect(mockOptions.headerLeft).toBeUndefined();
-    expect(titles()).toEqual(['Visit my home', 'Open the page', 'Ask your buddy to sign', 'Log another dive']);
-    expect(pinned('Visit my home')).toBe(true);
-    expect(pinned('Open the page')).toBe(true);
-    expect(pinned('Ask your buddy to sign')).toBe(true);
-    expect(pinned('Log another dive')).toBe(true);
-    await press(byTitle('Visit my home'));
+    const said = texts().join(' ');
+    expect(said).toContain('New in your field guide:');
+    expect(said).toMatch(/Your island grew/);
+    expect(titles()).toEqual(['Done', 'See your island']);
+    await press(byTitle('See your island'));
     expect(router.dismissTo).toHaveBeenCalledWith('/(tabs)');
   });
 
-  test('a dive with no animals offers "Add what you saw", which adds them on its page', async () => {
+  test('"Ask your buddy to sign" and "Log another dive" are not here: the dive’s page and the Log tab have them', async () => {
+    await writeDive({ animals: true });
+    expect(titles()).not.toContain('Ask your buddy to sign');
+    expect(titles()).not.toContain('Log another dive');
+    expect(titles()).not.toContain('Open the page');
+  });
+
+  test('a dive with no animals says so, and offers "Add what you saw", which adds them on its page', async () => {
     await writeDive();
-    expect(titles()).toEqual(['Add what you saw', 'Done', 'Open the page', 'Ask your buddy to sign', 'Log another dive']);
+    expect(texts()).toContain('No animals this time.');
+    expect(titles()).toEqual(['Add what you saw', 'Done', 'See your island']);
     await press(byTitle('Add what you saw'));
     // It replaces this screen, so the page is not underneath the next one: it says so.
     expect(router.replace).toHaveBeenCalledWith({ pathname: '/log/new', params: { dive: 'd-28', then: 'page' } });
@@ -290,33 +321,34 @@ describe('the saved page', () => {
       mockState.addSightings = jest.fn(async () => ({ sightings: [], newSpeciesIds: [] }));
       await render();
       await tickFirstSpecies();
-      await press(byTitle('Next · 1 species'));
+      await press(byTitle('Next · 1 animal'));
       await press(byTitle('Add to No. 27'));
     };
 
-    test('from the page: "Back to the page" goes back to it', async () => {
+    test('from the page: Done goes back to it', async () => {
       mockParams = { dive: 'd-27' };
       await addToPage();
-      await press(byTitle('Back to the page'));
+      expect(texts()).toContain('Added to No. 27');
+      await press(byTitle('Done'));
       expect(router.back).toHaveBeenCalledTimes(1);
       expect(router.replace).not.toHaveBeenCalled();
     });
 
     // The bug: after "Add what you saw" there is no page underneath, and Back went to Home instead.
-    test('after "Add what you saw" (the page is not underneath): "Back to the page" opens it', async () => {
+    test('after "Add what you saw" (the page is not underneath): Done opens it', async () => {
       mockParams = { dive: 'd-27', then: 'page' };
       await addToPage();
-      await press(byTitle('Back to the page'));
+      await press(byTitle('Done'));
       expect(router.back).not.toHaveBeenCalled();
       expect(router.replace).toHaveBeenCalledWith('/dive/d-27');
     });
 
-    test('opened straight from a link: "Back to the page" opens it too', async () => {
+    test('opened straight from a link: Done opens it too', async () => {
       mockParams = { dive: 'd-27' };
       router.canGoBack.mockReturnValue(false);
       try {
         await addToPage();
-        await press(byTitle('Back to the page'));
+        await press(byTitle('Done'));
         expect(router.back).not.toHaveBeenCalled();
         expect(router.replace).toHaveBeenCalledWith('/dive/d-27');
       } finally {
@@ -333,18 +365,9 @@ describe('the saved page', () => {
     expect(router.replace).toHaveBeenCalledWith('/');
   });
 
-  test('a dive with animals does not', async () => {
+  test('a dive with animals does not offer "Add what you saw"', async () => {
     await writeDive({ animals: true });
     expect(titles()).not.toContain('Add what you saw');
-  });
-
-  test('"Log another dive" starts a page afresh at the site step', async () => {
-    await writeDive({ animals: true });
-    await press(byTitle('Log another dive'));
-    expect(mockOptions.title).toBe('Log a dive');
-    expect(mockOptions.headerLeft({}).props.label).toBe('Close');
-    // Nothing entered on the new page yet, so leaving it isn't questioned.
-    expect(mockGuard.preventRemove).toBe(false);
   });
 });
 
@@ -353,11 +376,11 @@ describe('the details step', () => {
     await render();
     await pickSite();
     if (unlisted) {
-      await press(root.root.findAll((n) => typeof n.props.accessibilityLabel === 'string' && n.props.accessibilityLabel.startsWith('Something else') && typeof n.props.onPress === 'function')[0]);
-      await press(byTitle('Next · 1 species'));
+      await press(await somethingElse());
+      await press(byTitle('Next · 1 animal'));
     } else {
       await tickFirstSpecies();
-      await press(byTitle('Next · 1 species'));
+      await press(byTitle('Next · 1 animal'));
     }
   };
   const inside = (parent, text) => parent.findAll((n) => n.children?.join?.('') === text).length > 0;
@@ -365,9 +388,9 @@ describe('the details step', () => {
   const bars = () => root.root.findAll((n) => n.type?.name === 'BottomBar');
   const tick = async () => act(async () => { await new Promise((resolve) => setTimeout(resolve, 0)); });
 
-  test('"Save dive No. 28" is pinned under the page, not at the end of it', async () => {
+  test('"Save dive" is pinned under the page, not at the end of it', async () => {
     await goToDetails();
-    const save = byTitle('Save dive No. 28');
+    const save = byTitle('Save dive');
     expect(save).toBeDefined();
     expect(scrollers().every((scroll) => scroll.findAll((n) => n === save).length === 0)).toBe(true);
     expect(bars().some((bar) => bar.findAll((n) => n === save).length > 0)).toBe(true);
@@ -378,7 +401,7 @@ describe('the details step', () => {
     mockState.logDive = jest.fn(async () => { throw new Error('Maximum depth has to be between 0 and 350.'); });
     await goToDetails();
     await typeInto('Max depth (m)', '500');
-    await press(byTitle('Save dive No. 28'));
+    await press(byTitle('Save dive'));
     const message = 'Maximum depth has to be between 0 and 350.';
     const form = scrollers().find((scroll) => inside(scroll, message));
     expect(form).toBeDefined();
@@ -395,14 +418,15 @@ describe('the details step', () => {
 
   test('a typing problem names its field too, and opens More details when the field is in it', async () => {
     await goToDetails();
+    await openMore();
     await typeInto('Time in', 'morning');
-    await press(byTitle('Save dive No. 28'));
+    await press(byTitle('Save dive'));
     expect(mockState.logDive).not.toHaveBeenCalled();
     expect(scrollers().some((scroll) => inside(scroll, 'Write the time in as hours and minutes, like 09:30.'))).toBe(true);
 
     mockState.logDive = jest.fn(async () => { throw new Error('The end pressure can’t be higher than the start pressure.'); });
     await typeInto('Time in', '09:30');
-    await press(byTitle('Save dive No. 28'));
+    await press(byTitle('Save dive'));
     await tick();
     // "End (bar)" is under More details, closed until now.
     expect(field('End (bar)')).toBeDefined();
@@ -413,13 +437,13 @@ describe('the details step', () => {
   test('a problem with the page as a whole is above the button', async () => {
     mockState.logDive = jest.fn(async () => { throw new Error('Could not save'); });
     await goToDetails();
-    await press(byTitle('Save dive No. 28'));
+    await press(byTitle('Save dive'));
     expect(bars().some((bar) => inside(bar, 'Could not save'))).toBe(true);
   });
 
   test('"Something else" without a name is never a greyed-out button: a tap says what is missing and goes to the field', async () => {
     await goToDetails({ unlisted: true });
-    const save = byTitle('Save dive No. 28');
+    const save = byTitle('Save dive');
     expect(save.props.disabled).toBe(false);
     await press(save);
     expect(mockState.logDive).not.toHaveBeenCalled();
@@ -429,7 +453,7 @@ describe('the details step', () => {
     // Naming it ends the message, and the dive can be saved.
     await typeInto('What was it?', 'Nudibranch');
     expect(scrollers().some((scroll) => inside(scroll, 'Name the animal first'))).toBe(false);
-    await press(byTitle('Save dive No. 28'));
+    await press(byTitle('Save dive'));
     expect(mockState.logDive).toHaveBeenCalledWith(expect.objectContaining({ sightings: [expect.objectContaining({ speciesId: 'unlisted', customName: 'Nudibranch' })] }));
   });
 
@@ -437,18 +461,22 @@ describe('the details step', () => {
     await goToDetails({ unlisted: true });
     const labels = scrollers().at(-1).findAll((n) => n.type === TextInput).map((n) => n.props.accessibilityLabel);
     expect(labels[0]).toBe('What was it?');
-    expect(labels.indexOf('Dive number')).toBeGreaterThan(0);
+    expect(labels.indexOf('Max depth (m)')).toBeGreaterThan(0);
   });
 });
 
 describe('What you saw', () => {
   const labels = () => root.root.findAll((n) => n.type === TextInput).map((n) => n.props.accessibilityLabel);
-  const visibleTo = () => root.root.findAll((n) => typeof n.props.accessibilityLabel === 'string' && n.props.accessibilityLabel.startsWith('Visible to:') && typeof n.props.onPress === 'function')[0];
+  const visibleTo = () => root.root.findAll((n) => typeof n.props.accessibilityLabel === 'string' && n.props.accessibilityLabel.startsWith('Who can see this:') && typeof n.props.onPress === 'function')[0];
   const goToDetails = async () => {
     await render();
     await pickSite();
     await tickFirstSpecies();
-    await press(byTitle('Next · 1 species'));
+    await press(byTitle('Next · 1 animal'));
+  };
+  const goToChoice = async () => {
+    await goToDetails();
+    await openMore();
   };
   const choose = async (name, label) => {
     await act(async () => {
@@ -459,41 +487,42 @@ describe('What you saw', () => {
     });
   };
 
-  test('the dive’s own facts come first; then the notes about the animals, the photo and who can see it, one section with no heading of its own', async () => {
+  test('the date, depth and bottom time come first; everything else is behind "More details"', async () => {
     await goToDetails();
+    const first = labels();
+    // Depth then time, and nothing else to fill in before saving.
+    expect(first).toEqual(['Max depth (m)', 'Bottom time (min)']);
+    expect(texts()).toContain('More details');
+    expect(texts()).not.toContain('Who can see this');
+    await openMore();
     const order = labels();
-    // The dive's facts (number, time in, bottom time, depth) and its notes, then the animals' notes: facts before notes.
-    for (const fact of ['Dive number', 'Time in', 'Bottom time (min)', 'Max depth (m)', 'Dive notes (private)']) expect(order).toContain(fact);
-    expect(order.indexOf('Dive number')).toBe(0);
-    expect(order.indexOf('Max depth (m)')).toBeLessThan(order.indexOf('Notes on the animal'));
+    for (const fact of ['Dive number', 'Time in', 'Dive notes (private)', 'Notes on the animal']) expect(order).toContain(fact);
+    expect(order.indexOf('Max depth (m)')).toBeLessThan(order.indexOf('Dive number'));
     expect(order.indexOf('Dive notes (private)')).toBeLessThan(order.indexOf('Notes on the animal'));
     const text = texts();
     expect(text).toEqual(expect.arrayContaining(['Photo', 'Who can see this']));
-    // The animals' section has no "What you saw" heading: the label under it says what it is.
-    expect(text).not.toContain('What you saw');
-    // Its parts come in this order, after the dive's fields and before "More details".
     const at = (t) => text.indexOf(t);
-    expect(at('Dive number')).toBeLessThan(at('Photo'));
     expect(at('Photo')).toBeLessThan(at('Who can see this'));
-    expect(at('Who can see this')).toBeLessThan(at('More details'));
   });
 
   test('with a name to give, "What was it?" comes first, right under the animals, before the dive’s facts', async () => {
     await render();
     await pickSite();
-    await press(root.root.findAll((n) => typeof n.props.accessibilityLabel === 'string' && n.props.accessibilityLabel.startsWith('Something else') && typeof n.props.onPress === 'function')[0]);
-    await press(byTitle('Next · 1 species'));
-    expect(labels().slice(0, 2)).toEqual(['What was it?', 'Dive number']);
+    await press(await somethingElse());
+    await press(byTitle('Next · 1 animal'));
+    expect(labels().slice(0, 2)).toEqual(['What was it?', 'Max depth (m)']);
+    await openMore();
     expect(labels()).toContain('Notes on the animal');
   });
 
   test('several species: the notes go to each (the label says so), and a short line says photos come later instead of a photo', async () => {
     await render();
     await pickSite();
-    const rows = root.root.findAll((n) => n.props.accessibilityRole === 'checkbox' && typeof n.props.onPress === 'function');
+    const rows = checkboxes();
     await press(rows[0]);
     await press(rows[1]);
-    await press(byTitle('Next · 2 species'));
+    await press(byTitle('Next · 2 animals'));
+    await openMore();
     expect(labels()).toContain('Notes on both animals');
     expect(texts().join(' ')).not.toContain('Added to each of the 2 sightings.');
     expect(texts()).not.toContain('Photo');
@@ -501,11 +530,11 @@ describe('What you saw', () => {
     expect(texts().join(' ')).not.toContain('Photos go with one sighting each');
   });
 
-  test('the last choice is remembered, and shown as a line above the save button: "Visible to: Only me · change"', async () => {
+  test('the last choice is remembered, and shown as a line above the save button: "Who can see this: Only me · change"', async () => {
     await AsyncStorage.setItem('scubago.privacyChoice', JSON.stringify({ visibility: 'private', notesPrivate: true, photoPrivate: false }));
     await goToDetails();
-    expect(visibleTo().props.accessibilityLabel).toBe('Visible to: Only me. Change who can see this');
-    const line = texts().filter((t) => t === 'Only me' || t === 'change' || t.startsWith('Visible to:'));
+    expect(visibleTo().props.accessibilityLabel).toBe('Who can see this: Only me. Change who can see this');
+    const line = texts().filter((t) => t === 'Only me' || t === 'change' || t.startsWith('Who can see this:'));
     expect(line).toEqual(expect.arrayContaining(['Only me', 'change']));
     // It is in the bar under the form, not in the form.
     const bar = root.root.findAll((n) => n.type?.name === 'BottomBar')[0];
@@ -514,15 +543,19 @@ describe('What you saw', () => {
 
   test('with nothing remembered the line says what the default is, and changing the choice changes the line', async () => {
     await goToDetails();
-    expect(visibleTo().props.accessibilityLabel).toBe('Visible to: Everyone, but not your notes. Change who can see this');
+    // The line is under the button even while "More details" is closed; the choice itself is behind it.
+    expect(visibleTo().props.accessibilityLabel).toBe('Who can see this: Everyone, but not your notes. Change who can see this');
+    await openMore();
     await choose('Only me', 'Who can see this sighting');
-    expect(visibleTo().props.accessibilityLabel).toBe('Visible to: Only me. Change who can see this');
+    expect(visibleTo().props.accessibilityLabel).toBe('Who can see this: Only me. Change who can see this');
   });
 
-  test('tapping the line takes the diver to the privacy choice', async () => {
+  test('tapping the line opens More details and takes the diver to the privacy choice', async () => {
     await goToDetails();
     mockScrollTo.mockClear();
     await press(visibleTo());
+    await act(async () => { await new Promise((resolve) => setTimeout(resolve, 80)); });
+    expect(texts()).toContain('Fewer details');
     expect(mockScrollTo).toHaveBeenCalledTimes(1);
     const [target] = mockScrollTo.mock.calls[0];
     // The view around the privacy fields.
@@ -530,15 +563,15 @@ describe('What you saw', () => {
   });
 
   test('saving remembers the choice for the next log', async () => {
-    await goToDetails();
+    await goToChoice();
     await choose('Only me', 'Who can see this sighting');
-    await press(byTitle('Save dive No. 28'));
+    await press(byTitle('Save dive'));
     expect(JSON.parse(await AsyncStorage.getItem('scubago.privacyChoice'))).toEqual({ visibility: 'private', notesPrivate: true, photoPrivate: false });
   });
 
   test('without a backend nothing leaves the phone, so there is no line and no choice', async () => {
     mockState.backendEnabled = false;
-    await goToDetails();
+    await goToChoice();
     expect(visibleTo()).toBeUndefined();
     expect(texts()).not.toContain('Who can see this');
     expect(labels()).toContain('Notes on the animal');
@@ -556,7 +589,7 @@ describe('with the keyboard', () => {
     await pickSite();
     const bar = root.root.findAll((n) => n.type?.name === 'BottomBar')[0];
     expect(bar).toBeDefined();
-    expect(bar.findAll((n) => n.props.title === 'Skip animals').length).toBeGreaterThan(0);
+    expect(bar.findAll((n) => n.props.title === 'Next').length).toBeGreaterThan(0);
     const list = root.root.findAllByType(ScrollView).find((scroll) => scroll.props.keyboardShouldPersistTaps === 'handled');
     expect(list.props.keyboardDismissMode).toBe('on-drag');
 
@@ -574,7 +607,7 @@ describe('with the keyboard', () => {
     await render();
     await pickSite();
     await tickFirstSpecies();
-    await press(byTitle('Next · 1 species'));
+    await press(byTitle('Next · 1 animal'));
     const form = root.root.findAllByType(ScrollView).find((scroll) => scroll.props.keyboardShouldPersistTaps === 'handled');
     expect(form.props.automaticallyAdjustKeyboardInsets).toBe(true);
     expect(form.props.keyboardDismissMode).toBe('on-drag');
@@ -610,7 +643,7 @@ describe('the step bar', () => {
     expect(tabs()[0].label).toBe(`Step 1, Site: ${SITE.name}`);
     await tickFirstSpecies();
     expect(tabs()[1].text.length).toBeLessThanOrEqual(14);
-    await press(byTitle('Next · 1 species'));
+    await press(byTitle('Next · 1 animal'));
     // The third step is always "Details", not the dive's number.
     expect(tabs()[2].text).toBe('Details');
   });
@@ -618,13 +651,13 @@ describe('the step bar', () => {
   test('cuts a long name to about 14 characters, and says how many animals when there are several', async () => {
     await render();
     await pickSite();
-    await press(root.root.findAll((n) => typeof n.props.accessibilityLabel === 'string' && n.props.accessibilityLabel.startsWith('Something else') && typeof n.props.onPress === 'function')[0]);
-    await press(byTitle('Next · 1 species'));
+    await press(await somethingElse());
+    await press(byTitle('Next · 1 animal'));
     await typeInto('What was it?', 'A very long name for a nudibranch I could not identify at all, with a long description besides');
     await act(async () => { mockOptions.headerLeft({}).props.onPress(); });
     expect(tabs()[1].text).toBe('A very long n…');
     expect(tabs()[1].label).toContain('A very long name for a nudibranch');
-    const rows = root.root.findAll((n) => n.props.accessibilityRole === 'checkbox' && typeof n.props.onPress === 'function');
+    const rows = checkboxes();
     await press(rows[0]);
     expect(tabs()[1].text).toBe('2 animals');
   });
@@ -641,7 +674,7 @@ describe('the step bar', () => {
     await act(async () => { mockOptions.headerLeft({}).props.onPress(); });
     expect(router.back).not.toHaveBeenCalled();
     await pressText('Change the animal');
-    expect(root.root.findAll((n) => n.props.accessibilityLabel === 'What did you see?').length).toBeGreaterThan(0);
+    expect(texts()).toContain('What did you see?');
   });
 
   test('on a page, an edit changes the animal only: the site is the page’s', async () => {
@@ -659,9 +692,9 @@ describe('the details step, quieter', () => {
   const pickAnimals = async (n) => {
     await render();
     await pickSite();
-    const rows = root.root.findAll((node) => node.props.accessibilityRole === 'checkbox' && typeof node.props.onPress === 'function');
+    const rows = checkboxes();
     for (let i = 0; i < n; i++) await press(rows[i]);
-    await press(byTitle(`Next · ${n} species`));
+    await press(byTitle(`Next · ${n} ${n === 1 ? 'animal' : 'animals'}`));
   };
   const toggle = (label) => root.root.findAll((n) => n.props.accessibilityLabel === label && typeof n.props.onPress === 'function' && n.props['aria-expanded'] !== undefined);
   const pressText = async (text) => act(async () => {
@@ -671,7 +704,7 @@ describe('the details step, quieter', () => {
   test('a new entry has no eyebrow over its title: the title and the step already say what it is', async () => {
     await pickAnimals(1);
     expect(texts()).not.toContain('New logbook entry');
-    expect(texts()).toContain('No. 28 at Blue Corner'.replace('Blue Corner', SITE.name));
+    expect(texts()).toContain(`Dive at ${SITE.name}`);
   });
 
   test('one animal keeps its row, with its tag and a way to remove it', async () => {
@@ -690,18 +723,19 @@ describe('the details step, quieter', () => {
     expect(shown).not.toContain('Add another species');
     expect(shown).toContain('Edit');
     await press(root.root.findAll((n) => n.props.accessibilityLabel === 'Edit the 2 animals' && typeof n.props.onPress === 'function')[0]);
-    expect(root.root.findAll((n) => n.props.accessibilityLabel === 'What did you see?').length).toBeGreaterThan(0);
+    expect(texts()).toContain('What did you see?');
   });
 
   test('the dive number is not explained: it is filled in, and says so itself', async () => {
     await pickAnimals(1);
+    await pressText('More details');
     expect(texts().join(' ')).not.toContain('The next number in your log.');
     expect(field('Dive number').props.value).toBe('28');
   });
 
   test('"More details" is one line, and opens three closed rows: Conditions, Gas and gear, People', async () => {
     await pickAnimals(1);
-    expect(texts()).toContain('Conditions, gear, buddy, rating');
+    expect(texts()).toContain('Notes, photo, who can see it, gear, buddy');
     await pressText('More details');
     expect(texts()).toEqual(expect.arrayContaining(['Conditions', 'Gas and gear', 'People']));
     // Closed: none of their fields are on the page yet.
@@ -720,7 +754,7 @@ describe('the details step, quieter', () => {
   test('a problem with a field in a closed group opens that group, and only that one', async () => {
     mockState.logDive = jest.fn(async () => { throw new Error('The end pressure can’t be higher than the start pressure.'); });
     await pickAnimals(1);
-    await press(byTitle('Save dive No. 28'));
+    await press(byTitle('Save dive'));
     await act(async () => { await new Promise((resolve) => setTimeout(resolve, 0)); });
     expect(field('End (bar)')).toBeDefined();
     expect(field('Water (°C)')).toBeUndefined();
@@ -731,15 +765,16 @@ describe('the details step, quieter', () => {
 
   test('who can see it: what the choice means is behind a row, closed to begin with', async () => {
     await pickAnimals(1);
+    await pressText('More details');
     expect(texts()).toContain('What does this mean?');
     expect(texts().join(' ')).not.toMatch(/Other divers see the species|Only you will see/);
     await act(async () => toggle('What does this mean?')[0].props.onPress());
     expect(texts().join(' ')).toMatch(/Other divers see the species, site and date/);
   });
 
-  test('"Visible to: … · change" and "Can’t find it? Add a dive site" are 44 points tall to hit', async () => {
+  test('"Who can see this: … · change" and "Can’t find it? Add a dive site" are 44 points tall to hit', async () => {
     await pickAnimals(1);
-    const visibleTo = root.root.findAll((n) => typeof n.props.accessibilityLabel === 'string' && n.props.accessibilityLabel.startsWith('Visible to:') && typeof n.props.onPress === 'function')[0];
+    const visibleTo = root.root.findAll((n) => typeof n.props.accessibilityLabel === 'string' && n.props.accessibilityLabel.startsWith('Who can see this:') && typeof n.props.onPress === 'function')[0];
     expect(flat(visibleTo.props.style({ pressed: false })).minHeight).toBeGreaterThanOrEqual(44);
     expect(visibleTo.props.hitSlop).toBeUndefined();
   });
@@ -747,9 +782,9 @@ describe('the details step, quieter', () => {
   test('the species step asks "What did you see?" and no more: the button says to tick', async () => {
     await render();
     await pickSite();
-    expect(root.root.findAll((n) => n.props.accessibilityLabel === 'What did you see?').length).toBeGreaterThan(0);
+    expect(texts()).toContain('What did you see?');
     expect(texts().join(' ')).not.toContain('Tick everything');
-    expect(byTitle('Skip animals')).toBeDefined();
+    expect(byTitle('Next')).toBeDefined();
   });
 });
 
@@ -761,9 +796,9 @@ describe('the Log a dive copy budget', () => {
   const pick = async (n) => {
     await render();
     await pickSite();
-    const rows = root.root.findAll((node) => node.props.accessibilityRole === 'checkbox' && typeof node.props.onPress === 'function');
+    const rows = checkboxes();
     for (let i = 0; i < n; i++) await press(rows[i]);
-    await press(byTitle(`Next · ${n} species`));
+    await press(byTitle(`Next · ${n} ${n === 1 ? 'animal' : 'animals'}`));
   };
 
   test('the details step stays within the budget with one animal, and with two', async () => {

@@ -123,7 +123,7 @@ test('recent sites come first, in the order given, under their own heading, and 
   expect(new Set(list.map((r) => r.key)).size).toBe(list.length);
   expect(text()).toContain('Recent');
   expect(text()).toContain('All sites');
-  const headers = root.root.findAll((n) => n.props.accessibilityRole === 'header' && n.props.type === 'label');
+  const headers = root.root.findAll((n) => n.props.accessibilityRole === 'header' && n.props.type === 'smallBold');
   expect(headers.map((h) => h.props.children)).toEqual(['Recent', 'All sites']);
 
   await type('canyon 009');
