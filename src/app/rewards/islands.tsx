@@ -24,7 +24,8 @@ function IslandsScreen() {
   const raised = islands.filter((i) => i.unlocked).length;
   return (
     <Screen>
-      <ScreenHeader eyebrow={`${raised} of ${islands.length} raised`} title="Islands" />
+      <ScreenHeader title="Your islands" />
+      <ThemedText type="small" themeColor="textSecondary">{`${raised} of ${islands.length} raised`}</ThemedText>
       <View style={styles.about}>
         <Disclosure label="About islands" hint="Shows what raises an island">
           <ThemedText type="small" themeColor="textSecondary">
@@ -33,7 +34,7 @@ function IslandsScreen() {
         </Disclosure>
       </View>
       {/* The explorer opens on the island asked for (`?island=`), as from Home's pills; Home's own island is where it opens without one. It is a tab (kept
-          mounted when closed), so this goes to that tab, over the Rewards screens that are left behind, instead of a second explorer opened over them; `from` has closing put them back. */}
+          mounted when closed), so this goes to that tab, over the Islands screen that is left behind, instead of a second explorer opened over them; `from` has closing put them back. */}
       <IslandsView
         islands={islands}
         onOpenIsland={(id) => router.dismissTo({ pathname: '/explore', params: id === HOME_ISLAND ? { from: ORIGIN.islands } : { island: id, from: ORIGIN.islands } })}

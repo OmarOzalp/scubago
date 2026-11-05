@@ -157,13 +157,19 @@ export default function HomeScreen() {
           <ThemedText type="small" themeColor="textSecondary">Loading your discoveries…</ThemedText>
         ) : (
           <>
-            <ThemedText type="smallBold">{more}</ThemedText>
-            <ProgressBar
-              fraction={home.fraction}
-              accessibilityLabel={home.next ? `${count} of ${home.next.at} species to ${home.next.reward.toLowerCase()}` : 'Every level reached'}
-              max={home.next?.at ?? count}
-              now={count}
-            />
+            {/* The progress line is the way to the islands: which have risen, who lives there. */}
+            <Pressable accessibilityRole="link" accessibilityLabel={`${more}. Your islands`} accessibilityHint="Opens your islands" onPress={() => router.push('/rewards/islands')} style={styles.progressLink}>
+              <View style={styles.progressText}>
+                <ThemedText type="smallBold" style={{ flex: 1 }}>{more}</ThemedText>
+                <Icon name="chevronRight" size={16} color={theme.textSecondary} weight="bold" />
+              </View>
+              <ProgressBar
+                fraction={home.fraction}
+                accessibilityLabel={home.next ? `${count} of ${home.next.at} species to ${home.next.reward.toLowerCase()}` : 'Every level reached'}
+                max={home.next?.at ?? count}
+                now={count}
+              />
+            </Pressable>
             {/* When nothing here can be seen swimming, what does swim, for anyone who wonders. */}
             {count > 0 && none && small === 0 && <Disclosure label="What swims here?" hint="Shows which animals the island draws">
               <ThemedText type="small" themeColor="textSecondary">Sharks, rays, reef fish and some turtles, dolphins and octopuses swim here. The rest live in your field guide.</ThemedText>
@@ -258,6 +264,8 @@ const styles = StyleSheet.create({
   areaName: { color: ON_WATER, fontSize: 13, fontFamily: Type.bodySemiBold },
   areaCount: { color: ON_WATER, fontSize: 13, fontFamily: Type.bodyHeavy },
   progress: { gap: 8 },
+  progressText: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  progressLink: { gap: 8, minHeight: 44, justifyContent: 'center' },
   textButton: { minHeight: 44, justifyContent: 'center' },
   residentsScroll: { marginHorizontal: -Spacing.three, flexGrow: 0 },
   residents: { gap: 10, paddingHorizontal: Spacing.three, paddingVertical: 2 },

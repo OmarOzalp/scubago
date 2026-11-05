@@ -9,8 +9,8 @@ import { renderRouter } from '@/test-support/render-router';
 
 /**
  * The island explorer is a tab with no button (src/app/(tabs)/explore.tsx), kept mounted when it is closed. This runs Expo Router's own navigators (the real tabs layout, the real
- * tab bar and the real explorer screen; Home, Rewards and the 3D scene are stand-ins) to see what opening and closing it does: where it opens, where closing goes, and what
- * stays mounted. The stand-ins make the same calls the real screens do (Home's: src/app/(tabs)/index.tsx; Rewards → Islands: src/app/rewards/islands.tsx).
+ * tab bar and the real explorer screen; Home, Islands and the 3D scene are stand-ins) to see what opening and closing it does: where it opens, where closing goes, and what
+ * stays mounted. The stand-ins make the same calls the real screens do (Home's: src/app/(tabs)/index.tsx; Islands: src/app/rewards/islands.tsx).
  */
 jest.mock('react-native-gesture-handler', () => {
   const chain = () => new Proxy({}, { get: (_, key) => (key === 'then' ? undefined : () => chain()) });
@@ -41,9 +41,8 @@ const Home = () => <>
   <Text>home</Text>
   <Pressable accessibilityLabel="Explore your islands" onPress={() => router.push('/explore')} />
   <Pressable accessibilityLabel="Open the Kelp Forest full screen" onPress={() => router.push({ pathname: '/explore', params: { island: 'kelp-forest' } })} />
-  <Pressable accessibilityLabel="Rewards" onPress={() => router.push('/rewards')} />
+  <Pressable accessibilityLabel="Islands" onPress={() => router.push('/rewards/islands')} />
 </>;
-const Rewards = () => <Pressable accessibilityLabel="Islands" onPress={() => router.push('/rewards/islands')} />;
 const Islands = () => <>
   <Text>islands</Text>
   <Pressable accessibilityLabel="Visit the Kelp Forest" onPress={() => router.dismissTo({ pathname: '/explore', params: { island: 'kelp-forest', from: 'islands' } })} />
@@ -57,7 +56,6 @@ const routes = {
   '(tabs)/logbook': () => <Pressable accessibilityLabel="Explore from the logbook" onPress={() => router.push({ pathname: '/explore', params: { from: '/logbook' } })} />,
   '(tabs)/field-guide': () => <Text>field guide</Text>,
   '(tabs)/explore': ExploreScreen,
-  'rewards/index': Rewards,
   'rewards/islands': Islands,
 };
 
@@ -157,14 +155,13 @@ test('a link to /explore opens it (on the island it names); closing it, with not
   expect(bar()).toHaveLength(1);
 });
 
-test('opened from Rewards → Islands, it goes to the one explorer there is; closing it puts the Rewards and Islands screens back; one scene all along', async () => {
+test('opened from Islands (Home\'s progress line), it goes to the one explorer there is; closing it puts the Islands screen back; one scene all along', async () => {
   await start();
   await press('Explore your islands');
   await close();
   const kept = scenes()[0];
-  await press('Rewards');
   await press('Islands');
-  expect(where()).toBe('__root*[(tabs)[index*,explore],rewards/index,rewards/islands*]');
+  expect(where()).toBe('__root*[(tabs)[index*,explore],rewards/islands*]');
   await press('Visit the Kelp Forest');
   expect(where()).toBe('__root*[(tabs)*[index,explore*{island=kelp-forest,from=islands}]]');
   expect(island()).toBe(1);
@@ -172,11 +169,11 @@ test('opened from Rewards → Islands, it goes to the one explorer there is; clo
   expect(scenes()).toHaveLength(1);
   expect(scenes()[0]).toBe(kept);
   await close();
-  expect(where()).toBe('__root*[(tabs)[index*,explore{island=kelp-forest,from=islands}],rewards/index,rewards/islands*]');
+  expect(where()).toBe('__root*[(tabs)[index*,explore{island=kelp-forest,from=islands}],rewards/islands*]');
   expect(scenes()).toHaveLength(1);
-  // Back from the Islands screen is Rewards, then Home, as before it was opened.
+  // Back from the Islands screen is Home, as before it was opened.
   await act(async () => { router.back(); });
-  expect(where()).toContain('rewards/index*');
+  expect(where()).toContain('index*');
   // And for Home's own island, and by the Android back button too.
   await press('Islands');
   await press("Visit Home's island");
@@ -185,7 +182,7 @@ test('opened from Rewards → Islands, it goes to the one explorer there is; clo
   await pressBack();
   expect(where()).toContain('rewards/islands*');
   // An open from Home afterwards is not still "from Islands".
-  await act(async () => { router.back(); router.back(); });
+  await act(async () => { router.back(); });
   await press('Explore your islands');
   await close();
   expect(where()).toBe('__root*[(tabs)*[index*,explore]]');

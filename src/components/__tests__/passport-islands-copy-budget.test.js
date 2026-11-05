@@ -16,8 +16,9 @@ import { evaluateRewards } from '@/lib/rewards';
 jest.mock('@/global.css', () => ({}));
 let mockParams = {};
 jest.mock('expo-router', () => ({
-  router: { push: jest.fn(), replace: jest.fn() },
+  router: { push: jest.fn(), replace: jest.fn(), dismissTo: jest.fn() },
   useLocalSearchParams: () => mockParams,
+  Redirect: ({ href }) => require('react').createElement('redirect', { href }),
 }));
 jest.mock('react-native-safe-area-context', () => ({ useSafeAreaInsets: () => ({ top: 0, bottom: 0, left: 0, right: 0 }) }));
 // The pictures are drawn from code; each only needs a box here.
@@ -79,28 +80,19 @@ const texts = (skip = () => false) =>
 const copyWords = (skip) => texts(skip).reduce((n, t) => n + words(t), 0);
 const count = (text) => texts().filter((t) => t === text).length;
 
-test('the passport: no eyebrow, no tiles, no dates or footer on a page; the explanation waits behind a row (at most 40 words besides the stamps)', async () => {
+test('the passport is gone: its link lands on the Sites map showing the sites you have dived', async () => {
   await render(<PassportRoute />);
-  const shown = texts().join(' | ');
-  expect(count('Site passport')).toBe(1);
-  expect(shown).not.toMatch(/YOUR DIVE PASSPORT|PASSPORT · PAGE|FIRST \d|LATEST \d|still to stamp|Each stamp shows/);
-  expect(shown).not.toContain('One stamp for every dive site');
-  expect(texts()).toContain('About the passport');
-  expect(shown).not.toContain('A site gets a stamp when');
-  // Closed, it is the title, the row and a place's name and progress: no more than a screenful of words besides the stamps.
-  expect(copyWords((n) => n.props.accessibilityRole === 'link')).toBeLessThanOrEqual(40);
-  // The row opens the explanation, and it is under 40 words.
-  const about = root.root.findAll((n) => n.props.accessibilityRole === 'button' && n.props['aria-expanded'] === false)[0];
-  await act(async () => about.props.onPress());
-  const explanation = texts().find((t) => t.startsWith('A site gets a stamp when'));
-  expect(words(explanation)).toBeLessThanOrEqual(40);
-
+  const redirect = root.root.findByType('redirect');
+  expect(redirect.props.href).toEqual({ pathname: '/map', params: { show: 'dived' } });
+  // Nothing of the old page is left to read.
+  expect(texts()).toEqual([]);
 });
 
-test('islands: the count above the title, the explanation behind a row, one line under each tag, and no habitat blurb (at most 170 words with every island on the page)', async () => {
+test('islands: titled "Your islands" once, the count under it, the explanation behind a row, one line under each tag, and no habitat blurb (at most 170 words with every island on the page)', async () => {
   await render(<IslandsRoute />);
   const raised = rewards.islands.filter((i) => i.unlocked).length;
-  expect(count('Islands')).toBe(1);
+  expect(count('Your islands')).toBe(1);
+  expect(texts().filter((t) => t === 'Islands')).toEqual([]);
   expect(texts()).toContain(`${raised} of ${rewards.islands.length} raised`);
   const shown = texts().join(' | ');
   expect(shown).not.toContain('Your home island is always there');

@@ -330,6 +330,15 @@ describe('a diver with animals', () => {
     expect(root.root.findAll((n) => n.props.accessibilityRole === 'progressbar').length).toBeGreaterThan(0);
   });
 
+  test('can tap the progress line to open the islands: a link, 44 points tall', async () => {
+    await render();
+    const link = root.root.findAll((n) => n.props.accessibilityRole === 'link' && n.props.accessibilityHint === 'Opens your islands')[0];
+    expect(link.props.accessibilityLabel).toContain('5 more animals for wider turquoise shallows');
+    expect(StyleSheet.flatten(link.props.style).minHeight).toBeGreaterThanOrEqual(44);
+    await act(async () => link.props.onPress());
+    expect(router.push).toHaveBeenCalledWith('/rewards/islands');
+  });
+
   test('sees “New on your island”, with the newest animals first', async () => {
     mockSightings = [sighting('a', 'reef-manta', { sightedOn: '2026-01-05' }), sighting('b', 'clownfish', { sightedOn: '2026-03-01' }), sighting('c', 'whale-shark', { sightedOn: '2026-02-01' })];
     await render();
