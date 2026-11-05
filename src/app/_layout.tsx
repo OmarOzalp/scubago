@@ -14,10 +14,12 @@ import { LogBox, Platform } from 'react-native';
 
 import { AnimatedSplashOverlay } from '@/components/animated-icon';
 import { AppError, ScreenError } from '@/components/error-screen';
+import { HeaderBack } from '@/components/dive/header-back';
 import { startHome } from '@/components/home/home-start';
 import { StorageProblem } from '@/components/storage-problem';
 import { Colors, Type } from '@/constants/theme';
 import { useSchemeName } from '@/hooks/use-theme';
+import { leave } from '@/lib/leave';
 import { useAppStore } from '@/lib/store';
 
 // Nothing to do if the splash can't be held (it then hides by itself): never an unhandled rejection at start-up.
@@ -94,6 +96,10 @@ export default function RootLayout() {
           headerTintColor: colors.text,
           headerTitleStyle: { fontFamily: Type.display, fontSize: 19, color: colors.text },
           headerBackButtonDisplayMode: 'minimal',
+          // On a phone the system's own back button is 44 pt. The web's is 30 pt, so there it is drawn at 44 (HeaderBack).
+          ...(Platform.OS === 'web'
+            ? { headerLeft: ({ canGoBack }: { canGoBack?: boolean }) => (canGoBack ? <HeaderBack label="Back" onPress={() => leave('/')} /> : null) }
+            : null),
           contentStyle: { backgroundColor: colors.background },
         }}>
         <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
@@ -106,7 +112,7 @@ export default function RootLayout() {
         <Stack.Screen name="inspect" options={{ presentation: 'modal', title: 'A closer look' }} />
         <Stack.Screen name="verify" options={{ presentation: 'modal', title: 'Buddy code' }} />
         <Stack.Screen name="dive/edit" options={{ presentation: 'modal', title: 'Edit page' }} />
-        <Stack.Screen name="dive/sign" options={{ presentation: 'modal', title: 'Sign the page' }} />
+        <Stack.Screen name="dive/sign" options={{ presentation: 'modal', title: 'Buddy signature' }} />
         <Stack.Screen name="dive/count" options={{ presentation: 'modal', title: 'Dives before ScubaGo' }} />
         {/* A page with a display title of its own shows only the back arrow (and its action icons) in the header: the
             same name twice, 19 px over 34 px, was the one thing every one of them said double. The page still sets its
