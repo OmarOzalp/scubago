@@ -5,13 +5,14 @@ import { router } from 'expo-router';
 import SpeciesDetailScreen from '@/app/species/[id]';
 import { confirmAction } from '@/lib/confirm';
 import { SITES } from '@/data/sites';
+import { chooseFromMenu } from '@/test-support/more-menu';
 
 let mockHeader;
 jest.mock('expo-router', () => ({
   router: { back: jest.fn(), push: jest.fn(), canGoBack: () => true },
   useLocalSearchParams: () => ({ id: 'reef-manta' }),
   // The header options the page sets, so a test can say what the header shows.
-  Stack: { Screen: ({ options }) => { mockHeader = options; return null; } },
+  Stack: { Screen: ({ options }) => { mockHeader = options; return options?.headerRight ? options.headerRight() : null; } },
   useFocusEffect: (callback) => require('react').useEffect(callback, [callback]),
 }));
 // A plain <img> that keeps its props, so a test can say the photo failed to load.
@@ -37,7 +38,8 @@ let root;
 beforeEach(() => { global.IS_REACT_ACT_ENVIRONMENT = true; mockDelete.mockClear(); router.back.mockClear(); router.push.mockClear(); confirmAction.mockClear(); });
 afterEach(async () => { if (root) await act(async () => root.unmount()); root = null; });
 
-const deleteButton = () => root.root.findAll((n) => n.props.accessibilityLabel === 'Delete your Reef Manta Ray log' && typeof n.props.onPress === 'function');
+const deleteMenu = () => root.root.findAll((n) => n.props.accessibilityLabel === 'More actions for Reef Manta Ray' && typeof n.props.onPress === 'function');
+const deleteFromMenu = () => chooseFromMenu(root, /More actions for Reef Manta Ray/, 'Delete my Reef Manta Ray log');
 
 test("an animal's page lists the diver's sightings of it, each opening its own page, and deletes the whole log after asking", async () => {
   mockSightings = [sighting('a', 'local', '2026-03-01'), sighting('b', 'local', '2026-05-02'), sighting('c', 'someone', '2026-04-01')];
@@ -49,8 +51,9 @@ test("an animal's page lists the diver's sightings of it, each opening its own p
   await act(async () => rows[0].props.onPress());
   expect(router.push).toHaveBeenCalledWith('/sighting/b');
 
-  const [button] = deleteButton();
-  await act(async () => button.props.onPress());
+  // The log is deleted from the “…” menu in the header, not by a red button at the foot of the page.
+  expect(textOf()).not.toContain('Delete my Reef Manta Ray log');
+  await deleteFromMenu();
   expect(confirmAction).toHaveBeenCalledWith(expect.objectContaining({ title: 'Delete your Reef Manta Ray log?', destructive: true }));
   expect(confirmAction.mock.calls[0][0].message).toMatch(/All 2 of your Reef Manta Ray sightings .* leave your island/);
   expect(mockDelete).toHaveBeenCalledWith('reef-manta');
@@ -61,14 +64,14 @@ test('nothing is deleted when the diver says no, and an animal they have not log
   mockSightings = [sighting('a', 'local', '2026-03-01')];
   confirmAction.mockImplementationOnce(async () => false);
   await act(async () => { root = create(<SpeciesDetailScreen />); });
-  await act(async () => deleteButton()[0].props.onPress());
+  await deleteFromMenu();
   expect(confirmAction.mock.calls[0][0].message).toMatch(/^Your Reef Manta Ray sighting will be removed/);
   expect(mockDelete).not.toHaveBeenCalled();
   await act(async () => root.unmount());
 
   mockSightings = [sighting('c', 'someone', '2026-04-01')];
   await act(async () => { root = create(<SpeciesDetailScreen />); });
-  expect(deleteButton()).toHaveLength(0);
+  expect(deleteMenu()).toHaveLength(0);
 });
 
 const textOf = () => root.root.findAll((n) => typeof n.type === 'string' && n.children.some((c) => typeof c === 'string')).map((n) => n.children.filter((c) => typeof c === 'string').join('')).join(' | ');
@@ -99,7 +102,7 @@ test('an animal the diver has seen is not asked for again: their own record come
   const text = textOf();
   expect(text).not.toContain('I saw one! Log it');
   // The record, then "Log another sighting", then the share button, then the photo's credit and the 3D link.
-  const order = ['A 3–4 m wing-span acrobat', 'In your log', 'Log another sighting', 'Share this discovery', 'iNaturalist ›', 'See reef manta ray in 3D'].map((s) => text.indexOf(s));
+  const order = ['A 3–4 m wing-span acrobat', 'Seen once, first on', 'Log another sighting', 'Share this discovery', 'iNaturalist ›', 'See reef manta ray in 3D'].map((s) => text.indexOf(s));
   expect(order.every((i) => i > -1)).toBe(true);
   expect([...order].sort((a, b) => a - b)).toEqual(order);
 
@@ -111,7 +114,7 @@ test('an animal the diver has seen is not asked for again: their own record come
 });
 
 test('the diver’s own sighting rows do not say "Only you": it is the same on every row', async () => {
-  mockSightings = [{ ...sighting('a', 'local', '2026-03-01'), visibility: 'private' }];
+  mockSightings = [{ ...sighting('a', 'local', '2026-03-01'), visibility: 'private' }, { ...sighting('b', 'local', '2026-03-02'), visibility: 'private' }];
   await act(async () => { root = create(<SpeciesDetailScreen />); });
   expect(textOf()).not.toContain('Only you');
   // The screen reader still hears it.
@@ -167,4 +170,32 @@ test('a photo that cannot be loaded gives way to a note, not an empty card', asy
   expect(photo()).toHaveLength(0);
   expect(textOf()).toContain('The photo couldn’t be loaded.');
   expect(root.root.findAll((n) => n.props.accessibilityLabel === 'Photo of a Reef Manta Ray: couldn’t be loaded').length).toBeGreaterThan(0);
+});
+
+test('“In your log” is one line: how often, when first, and where', async () => {
+  mockSightings = [sighting('a', 'local', '2026-03-01')];
+  await act(async () => { root = create(<SpeciesDetailScreen />); });
+  const one = textOf().split(' | ').find((t) => t.startsWith('Seen once'));
+  expect(one).toMatch(/^Seen once, first on Mar 1, 2026 at /);
+  // The line is the way to the one sighting's page.
+  const link = root.root.findAll((n) => /^In your log\. Seen once/.test(n.props.accessibilityLabel ?? '') && typeof n.props.onPress === 'function')[0];
+  await act(async () => link.props.onPress());
+  expect(router.push).toHaveBeenCalledWith('/sighting/a');
+  await act(async () => root.unmount());
+
+  mockSightings = [sighting('a', 'local', '2026-03-01'), sighting('b', 'local', '2026-05-02')];
+  await act(async () => { root = create(<SpeciesDetailScreen />); });
+  expect(textOf().split(' | ').find((t) => t.startsWith('Seen 2 times'))).toMatch(/^Seen 2 times, first on Mar 1, 2026 at /);
+  // No row of figures (Sightings, First seen, Sites) any more.
+  expect(textOf()).not.toContain('First seen');
+});
+
+test('tapping the drawing opens the animal in 3D, and the labelled button is still there', async () => {
+  mockSightings = [];
+  await act(async () => { root = create(<SpeciesDetailScreen />); });
+  const open = root.root.findAll((n) => n.props.accessibilityLabel === 'See reef manta ray in 3D' && typeof n.props.onPress === 'function');
+  expect(open.length).toBeGreaterThan(0);
+  await act(async () => open[0].props.onPress());
+  expect(router.push).toHaveBeenCalledWith({ pathname: '/inspect', params: { species: 'reef-manta' } });
+  expect(root.root.findAll((n) => n.props.title === 'See reef manta ray in 3D').length).toBeGreaterThan(0);
 });

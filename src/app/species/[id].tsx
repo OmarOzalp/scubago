@@ -1,15 +1,15 @@
 import { Image } from 'expo-image';
 import { Stack, router, useLocalSearchParams } from 'expo-router';
 import { useMemo, useState } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { Icon } from '@/components/icon';
 import { Disclosure } from '@/components/journal/disclosure';
-import { Ledger } from '@/components/journal/ledger';
 import { Paper, PaperButton } from '@/components/journal/paper';
 import { Screen, SectionHeader } from '@/components/journal/screen';
 import { Wash } from '@/components/journal/wash';
 import { OceanButton } from '@/components/ocean-button';
+import { MoreMenu } from '@/components/ui/more-menu';
 import { RarityChip } from '@/components/rarity-chip';
 import { ShareDiscoveryButton } from '@/components/share/share-buttons';
 import { shortPhotoCredit } from '@/components/sightings/format';
@@ -112,9 +112,14 @@ export default function SpeciesDetailScreen() {
   const { wash, seed } = artFor(species);
   const artWidth = Math.min(380, Math.round(plateWidth * 0.8));
   const artHeight = Math.round(artWidth * 0.64);
-  const plateNumber = CATALOG.findIndex((s) => s.id === species.id) + 1;
-  const firstSeen = seen ? formatDate([...mine].sort((a, b) => a.sightedOn.localeCompare(b.sightedOn))[0].sightedOn) : '';
-  const mySites = new Set(mine.map((s) => canonicalSiteId(s.siteId))).size;
+  const oldestFirst = [...mine].sort((a, b) => a.sightedOn.localeCompare(b.sightedOn) || a.createdAt.localeCompare(b.createdAt));
+  const firstSite = oldestFirst[0] ? siteById(oldestFirst[0].siteId) : undefined;
+  // "Seen once, first on Nov 4, 2026 at Richelieu Rock": the whole record in one line.
+  const inYourLog = seen
+    ? `${mine.length === 1 ? 'Seen once' : `Seen ${mine.length} times`}, first on ${formatDate(oldestFirst[0].sightedOn)}${firstSite ? ` at ${firstSite.name}` : ''}`
+    : '';
+  const has3d = !!speciesMarineModel(species.id);
+  const open3d = () => router.push({ pathname: '/inspect', params: { species: species.id } });
   // Where the tier comes from: the counts behind a real tier, or nothing when it is only ScubaGo's own estimate.
   const rarityEntry = realRarityEntry(species.id);
   const observedNote = rarityEntry ? rarityObservedNote(rarityEntry) : undefined;
@@ -150,7 +155,23 @@ export default function SpeciesDetailScreen() {
   return (
     <Screen>
       {/* The title stays for the browser tab; the header shows only the back arrow, as the page names itself below. */}
-      <Stack.Screen options={{ title: species.commonName, headerTitle: '' }} />
+      <Stack.Screen
+        options={{
+          title: species.commonName,
+          headerTitle: '',
+          headerRight: seen
+            ? () => (
+              <View style={styles.headerActions}>
+                <MoreMenu
+                  accessibilityLabel={`More actions for ${species.commonName}`}
+                  disabled={busy}
+                  items={[{ label: `Delete my ${species.commonName} log`, icon: 'trash', destructive: true, onPress: () => void confirmRemoveLog() }]}
+                />
+              </View>
+            )
+            : undefined,
+        }}
+      />
 
       {/* The plate: painted once the diver has seen one, a pencil sketch until then. */}
       <Paper raised padded={false} style={styles.plateCard}>
@@ -166,11 +187,6 @@ export default function SpeciesDetailScreen() {
           ]}>
           <View style={styles.plateTop}>
             <ThemedText type="label">{CATEGORY_LABEL[species.category]}</ThemedText>
-            {plateNumber > 0 ? (
-              <ThemedText type="label" importantForAccessibility="no" accessibilityElementsHidden>
-                No. {plateNumber}
-              </ThemedText>
-            ) : null}
           </View>
           <View style={[styles.art, { width: artWidth, height: artHeight }]}>
             {seen ? (
@@ -183,7 +199,14 @@ export default function SpeciesDetailScreen() {
                 style={{ position: 'absolute', left: -18, top: -6 }}
               />
             ) : null}
-            <SpeciesArt species={species} width={artWidth} found={seen} />
+            {has3d ? (
+              // Tapping the drawing opens the animal in 3D, as the button below does.
+              <Pressable onPress={open3d} accessibilityRole="button" accessibilityLabel={`See ${species.commonName.toLowerCase()} in 3D`} style={styles.artTap}>
+                <SpeciesArt species={species} width={artWidth} found={seen} />
+              </Pressable>
+            ) : (
+              <SpeciesArt species={species} width={artWidth} found={seen} />
+            )}
           </View>
           {!seen ? (
             <ThemedText type="caption" themeColor="textSecondary" style={styles.pencilNote}>
@@ -225,32 +248,33 @@ export default function SpeciesDetailScreen() {
           not seen yet the button to log it. The photo and the 3D view come after, so they never push it down. */}
       {seen ? (
         <>
-          <SectionHeader title="In your log" />
-          <Ledger
-            items={[
-              {
-                value: String(mine.length),
-                label: mine.length === 1 ? 'Sighting' : 'Sightings',
-                accessibilityLabel: `In your log ${mine.length} ${mine.length === 1 ? 'time' : 'times'}`,
-              },
-              { value: firstSeen, label: 'First seen', accessibilityLabel: `First seen ${firstSeen}` },
-              { value: String(mySites), label: mySites === 1 ? 'Site' : 'Sites' },
-            ]}
-          />
-          {/* Each of the diver's sightings opens its own page, to edit or delete just that one. */}
-          <View style={styles.mine}>
-            {newestFirst.map((s) => (
-              <SightingRow
-                key={s.id}
-                sighting={s}
-                species={species}
-                site={siteById(s.siteId)}
-                pending={!!user && !s.synced}
-                quiet
-                onPress={() => router.push(`/sighting/${s.id}`)}
-              />
-            ))}
-          </View>
+          {mine.length === 1 ? (
+            // One sighting: the line is the way to its page.
+            <PaperButton onPress={() => router.push(`/sighting/${mine[0].id}`)} accessibilityRole="link" accessibilityLabel={`In your log. ${inYourLog}. Open the sighting`} style={styles.logLine}>
+              <ThemedText type="smallBold" style={styles.flex}>
+                {inYourLog}
+              </ThemedText>
+              <Icon name="chevronRight" size={16} color={theme.textSecondary} weight="bold" />
+            </PaperButton>
+          ) : (
+            <>
+              <ThemedText accessibilityLabel={`In your log. ${inYourLog}`}>{inYourLog}</ThemedText>
+              {/* Each of the diver's sightings opens its own page, to edit or delete just that one. */}
+              <View style={styles.mine}>
+                {newestFirst.map((s) => (
+                  <SightingRow
+                    key={s.id}
+                    sighting={s}
+                    species={species}
+                    site={siteById(s.siteId)}
+                    pending={!!user && !s.synced}
+                    quiet
+                    onPress={() => router.push(`/sighting/${s.id}`)}
+                  />
+                ))}
+              </View>
+            </>
+          )}
           <OceanButton
             title="Log another sighting"
             variant="log"
@@ -298,12 +322,7 @@ export default function SpeciesDetailScreen() {
         </View>
       ) : null}
 
-      {speciesMarineModel(species.id) && <OceanButton
-        title={`See ${species.commonName.toLowerCase()} in 3D`}
-        variant="secondary"
-        icon="eye"
-        onPress={() => router.push({ pathname: '/inspect', params: { species: species.id } })}
-      />}
+      {has3d ? <OceanButton title={`See ${species.commonName.toLowerCase()} in 3D`} variant="secondary" icon="eye" onPress={open3d} /> : null}
 
       {/* Only where it says something new: for an animal the diver has seen, one site is the sighting row above. */}
       {seenAt.length >= (seen ? 2 : 1) ? (
@@ -320,31 +339,10 @@ export default function SpeciesDetailScreen() {
       {/* Public records saved on this phone: kept apart from the diver's own sightings above, and read from the cache only. */}
       <SpeciesRecordsSection species={species} sites={sites} />
 
-      {/* Set apart below a rule: deleting the log can't be undone. */}
-      {seen ? (
-        <View style={[styles.dangerZone, { borderTopColor: theme.rule }]}>
-          <Pressable
-            onPress={confirmRemoveLog}
-            disabled={busy}
-            accessibilityRole="button"
-            accessibilityLabel={`Delete your ${species.commonName} log`}
-            accessibilityHint="Removes every sighting of it you logged, and takes it off your island"
-            aria-disabled={busy}
-            style={({ pressed }) => [
-              styles.delete,
-              { borderColor: theme.danger, backgroundColor: pressed ? theme.backgroundSelected : 'transparent', opacity: busy ? 0.4 : 1 },
-            ]}>
-            <Icon name="trash" size={18} color={theme.danger} wash={theme.danger} washOpacity={0.15} />
-            <ThemedText type="smallBold" themeColor="danger">
-              Delete my {species.commonName} log
-            </ThemedText>
-          </Pressable>
-          {error ? (
-            <ThemedText type="small" themeColor="danger" accessibilityLiveRegion="polite" style={styles.center}>
-              {error}
-            </ThemedText>
-          ) : null}
-        </View>
+      {error ? (
+        <ThemedText type="small" themeColor="danger" accessibilityLiveRegion="polite" style={styles.center}>
+          {error}
+        </ThemedText>
       ) : null}
     </Screen>
   );
@@ -419,22 +417,24 @@ const styles = StyleSheet.create({
   mine: {
     gap: Spacing.two,
   },
-  dangerZone: {
-    borderTopWidth: 1,
-    paddingTop: Spacing.four,
-    marginTop: Spacing.two,
-    alignItems: 'center',
-    gap: Spacing.two,
-  },
-  delete: {
-    minHeight: 46,
+  headerActions: {
     flexDirection: 'row',
     alignItems: 'center',
+    paddingRight: Platform.OS === 'web' ? Spacing.three : 0,
+  },
+  artTap: {
+    alignItems: 'center',
     justifyContent: 'center',
+  },
+  logLine: {
+    flexDirection: 'row',
+    alignItems: 'center',
     gap: 8,
-    paddingHorizontal: 20,
-    borderWidth: 1.5,
-    borderRadius: Radius.md,
+    minHeight: 52,
+    paddingHorizontal: 16,
+  },
+  flex: {
+    flex: 1,
   },
   missing: {
     flex: 1,
