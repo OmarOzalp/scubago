@@ -34,6 +34,7 @@ import { CrosshairIcon } from 'phosphor-react-native/src/icons/Crosshair';
 import { CrownIcon } from 'phosphor-react-native/src/icons/Crown';
 import { CylinderIcon } from 'phosphor-react-native/src/icons/Cylinder';
 import { DiamondIcon } from 'phosphor-react-native/src/icons/Diamond';
+import { DotsThreeIcon } from 'phosphor-react-native/src/icons/DotsThree';
 import { DownloadSimpleIcon } from 'phosphor-react-native/src/icons/DownloadSimple';
 import { DropIcon } from 'phosphor-react-native/src/icons/Drop';
 import { EnvelopeSimpleIcon } from 'phosphor-react-native/src/icons/EnvelopeSimple';
@@ -147,6 +148,7 @@ const ICONS = {
   thermometer: ThermometerIcon,
   timer: TimerIcon,
   trash: TrashIcon,
+  more: DotsThreeIcon,
   account: UserCircleIcon,
   buddies: UsersIcon,
   warning: WarningIcon,

@@ -10,6 +10,7 @@ import { Paper } from '@/components/journal/paper';
 import { Screen, ScreenHeader } from '@/components/journal/screen';
 import { Wash } from '@/components/journal/wash';
 import { OceanButton } from '@/components/ocean-button';
+import { MoreMenu } from '@/components/ui/more-menu';
 import { Segmented } from '@/components/segmented';
 import { ThemedText } from '@/components/themed-text';
 import { Spacing } from '@/constants/theme';
@@ -152,12 +153,9 @@ function Account({ username }: { username: string }) {
           <ActivityIndicator color={theme.tint} accessibilityLabel="Deleting your account" />
         </View>
       ) : (
-        <Pressable onPress={removeAccount} accessibilityRole="button" style={({ pressed }) => [styles.textButton, { opacity: pressed ? 0.6 : 1 }]}>
-          <Icon name="trash" size={18} color={theme.danger} wash={theme.danger} washOpacity={0.15} />
-          <ThemedText type="smallBold" themeColor="danger">
-            Delete account
-          </ThemedText>
-        </Pressable>
+        <View style={styles.moreRow}>
+          <MoreMenu accessibilityLabel="More account actions" items={[{ label: 'Delete account', icon: 'trash', destructive: true, onPress: () => void removeAccount() }]} />
+        </View>
       )}
     </Screen>
   );
@@ -496,6 +494,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginTop: -Spacing.two,
   },
+  moreRow: { alignItems: 'center' },
   textButton: {
     flexDirection: 'row',
     alignItems: 'center',

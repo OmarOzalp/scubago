@@ -41,7 +41,8 @@ export function IconButton({
         },
         style,
       ]}>
-      <Icon name={icon} size={Math.round(size * 0.5)} />
+      {/* The three dots stand plain, in ink: a wash behind them would only look like a stain. */}
+      {icon === 'more' ? <Icon name={icon} size={Math.round(size * 0.5)} wash="transparent" washOpacity={0} weight="bold" /> : <Icon name={icon} size={Math.round(size * 0.5)} />}
     </Pressable>
   );
 }
