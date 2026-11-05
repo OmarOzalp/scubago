@@ -111,7 +111,7 @@ export function IslandCard({
       </View>
       {island.next.length > 0 ? (
         <View style={styles.lookFor}>
-          <ThemedText type="label">Look for</ThemedText>
+          <ThemedText type="smallBold">Look for</ThemedText>
           <View style={styles.targets}>
             {island.next.map((target) => {
               const species = CATALOG_BY_ID.get(target.speciesId);
