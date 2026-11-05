@@ -3,7 +3,7 @@ import { StyleSheet, Switch, Text, View } from 'react-native';
 
 import { Icon } from '@/components/icon';
 import { LinkRow } from '@/components/journal/link-row';
-import { Paper } from '@/components/journal/paper';
+import { PaperButton } from '@/components/journal/paper';
 import { Screen, ScreenHeader } from '@/components/journal/screen';
 import { SyncLine } from '@/components/sync-line';
 import { Type } from '@/constants/theme';
@@ -61,20 +61,23 @@ export default function YouScreen() {
 function PauseRow() {
   const theme = useTheme();
   const paused = useOceanPaused();
+  const toggle = () => setOceanPaused(!paused);
+  // The whole row is the switch (44 pt and more to hit); the control inside only shows its state.
   return (
-    <Paper padded={false} style={styles.switchRow}>
+    <PaperButton
+      onPress={toggle}
+      accessibilityRole="switch"
+      accessibilityLabel="Animate the ocean"
+      accessibilityState={{ checked: !paused }}
+      style={styles.switchRow}>
       <View style={[styles.icon, { backgroundColor: theme.backgroundSelected }]}>
         <Icon name="waves" size={24} />
       </View>
       <Text style={[styles.title, { color: theme.text }]}>Animate the ocean</Text>
-      <Switch
-        value={!paused}
-        onValueChange={(on) => setOceanPaused(!on)}
-        accessibilityLabel="Animate the ocean"
-        accessibilityRole="switch"
-        trackColor={{ true: theme.tint }}
-      />
-    </Paper>
+      <View pointerEvents="none" importantForAccessibility="no-hide-descendants" accessibilityElementsHidden>
+        <Switch value={!paused} onValueChange={toggle} trackColor={{ true: theme.tint }} />
+      </View>
+    </PaperButton>
   );
 }
 

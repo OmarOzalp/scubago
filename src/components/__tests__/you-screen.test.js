@@ -84,13 +84,13 @@ describe('You', () => {
 
   test('the ocean animation switch is labelled, on by default, and remembers being turned off', async () => {
     await render();
-    const sw = () => root.root.findAll((n) => n.props.accessibilityRole === 'switch')[0];
+    const sw = () => root.root.findAll((n) => n.props.accessibilityRole === 'switch' && typeof n.props.onPress === 'function')[0];
     expect(sw().props.accessibilityLabel).toBe('Animate the ocean');
-    expect(sw().props.value).toBe(true);
-    await act(async () => sw().props.onValueChange(false));
-    expect(sw().props.value).toBe(false);
+    expect(sw().props.accessibilityState).toEqual({ checked: true });
+    await act(async () => sw().props.onPress());
+    expect(sw().props.accessibilityState).toEqual({ checked: false });
     expect(await AsyncStorage.getItem(OCEAN_PAUSED_KEY)).toBe('1');
-    await act(async () => sw().props.onValueChange(true));
+    await act(async () => sw().props.onPress());
     expect(await AsyncStorage.getItem(OCEAN_PAUSED_KEY)).toBe('0');
   });
 
@@ -98,7 +98,7 @@ describe('You', () => {
     await AsyncStorage.setItem(OCEAN_PAUSED_KEY, '1');
     await render();
     await act(async () => { await Promise.resolve(); });
-    expect(root.root.findAll((n) => n.props.accessibilityRole === 'switch')[0].props.value).toBe(false);
+    expect(root.root.findAll((n) => n.props.accessibilityRole === 'switch')[0].props.accessibilityState).toEqual({ checked: false });
   });
 });
 
