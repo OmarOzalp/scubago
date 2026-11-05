@@ -3,6 +3,8 @@ import React, { act } from 'react';
 import { create } from 'react-test-renderer';
 import { router } from 'expo-router';
 import SightingDetailScreen from '@/app/sighting/[id]';
+import { confirmAction } from '@/lib/confirm';
+import { chooseFromMenu } from '@/test-support/more-menu';
 
 // The header's buttons are drawn by the navigator; here the screen's own options are drawn in its place.
 jest.mock('expo-router', () => ({
@@ -55,9 +57,20 @@ describe('the sighting page’s actions', () => {
     expect(texts()).not.toContain('Delete sighting');
   });
 
-  test('deleting stays in its own zone at the foot', async () => {
+  test('deleting waits in the “…” menu in the header, away from asking a buddy, and nothing at the foot says Delete', async () => {
     await render();
-    expect(texts()).toContain('Delete sighting');
+    expect(button('More actions for this sighting').length).toBeGreaterThan(0);
+    expect(texts()).not.toContain('Delete sighting');
+    expect(button('Delete sighting')).toHaveLength(0);
+  });
+
+  test('choosing Delete in the menu still asks first, and a No leaves the sighting alone', async () => {
+    mockDelete = jest.fn();
+    confirmAction.mockResolvedValueOnce(false);
+    await render();
+    await chooseFromMenu(root, /More actions for this sighting/, 'Delete sighting');
+    expect(confirmAction).toHaveBeenCalledWith(expect.objectContaining({ title: 'Delete this sighting?', destructive: true }));
+    expect(mockDelete).not.toHaveBeenCalled();
   });
 
   // The bug: the store drops the sighting before the navigator takes the page down, so the page said
@@ -65,8 +78,7 @@ describe('the sighting page’s actions', () => {
   test('deleted from here, the page goes on showing the sighting while it closes', async () => {
     mockDelete = jest.fn(async () => { mockSighting = undefined; });
     await render();
-    const del = root.root.findAll((n) => typeof n.props.onPress === 'function' && n.findAll((c) => c.children?.[0] === 'Delete sighting').length > 0).at(-1);
-    await act(async () => del.props.onPress());
+    await chooseFromMenu(root, /More actions for this sighting/, 'Delete sighting');
     await act(async () => root.update(<SightingDetailScreen />));
     expect(mockDelete).toHaveBeenCalledWith('s1');
     expect(router.back).toHaveBeenCalled();

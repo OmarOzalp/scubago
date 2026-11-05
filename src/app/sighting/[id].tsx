@@ -9,6 +9,7 @@ import { Disclosure } from '@/components/journal/disclosure';
 import { IconButton } from '@/components/journal/icon-button';
 import { Paper, PaperButton } from '@/components/journal/paper';
 import { Screen } from '@/components/journal/screen';
+import { MoreMenu } from '@/components/ui/more-menu';
 import { Wash } from '@/components/journal/wash';
 import { RarityChip } from '@/components/rarity-chip';
 import { formatEntryDate } from '@/components/sighting-row';
@@ -148,6 +149,11 @@ export default function SightingDetailScreen() {
             ? () => (
               <View style={styles.headerActions}>
                 <IconButton icon="edit" size={44} accessibilityLabel="Edit sighting" onPress={() => !busy && router.push({ pathname: '/log/new', params: { edit: sighting.id } })} style={{ opacity: busy ? 0.4 : 1 }} />
+                <MoreMenu
+                  accessibilityLabel="More actions for this sighting"
+                  disabled={busy}
+                  items={[{ label: 'Delete sighting', icon: 'trash', destructive: true, onPress: () => void confirmRemoval() }]}
+                />
               </View>
             )
             : undefined,
@@ -157,7 +163,6 @@ export default function SightingDetailScreen() {
       {/* The top of the page, as in a paper logbook: the day, then the site. */}
       <View style={styles.entryHead}>
         <View accessible accessibilityRole="header" accessibilityLabel={`Logbook entry, ${entryDate}`} style={styles.entryTitles}>
-          <ThemedText type="label">Logbook entry</ThemedText>
           <ThemedText type="heading">{entryDate}</ThemedText>
         </View>
         {site ? (
@@ -303,35 +308,16 @@ export default function SightingDetailScreen() {
         </View>
       ) : null}
 
-      {/* Set apart below a rule: deleting can't be undone. */}
-      {mine ? (
-        <View style={[styles.dangerZone, { borderTopColor: theme.rule }]}>
-          <Pressable
-            onPress={confirmRemoval}
-            disabled={busy}
-            accessibilityRole="button"
-            aria-disabled={busy}
-            style={({ pressed }) => [
-              styles.delete,
-              { borderColor: theme.danger, backgroundColor: pressed ? theme.backgroundSelected : 'transparent', opacity: busy ? 0.4 : 1 },
-            ]}>
-            <Icon name="trash" size={18} color={theme.danger} wash={theme.danger} washOpacity={0.15} />
-            <ThemedText type="smallBold" themeColor="danger">
-              Delete sighting
-            </ThemedText>
-          </Pressable>
-          {error ? (
-            <ThemedText type="small" themeColor="danger" accessibilityLiveRegion="polite" style={styles.center}>
-              {error}
-            </ThemedText>
-          ) : null}
-        </View>
+      {error ? (
+        <ThemedText type="small" themeColor="danger" accessibilityLiveRegion="polite" style={styles.center}>
+          {error}
+        </ThemedText>
       ) : null}
     </Screen>
   );
 }
 
-/** A ruled line of the entry: an icon, a typewriter label, and what goes there. */
+/** A ruled line of the entry: an icon, a label, and what goes there. */
 function Fact({
   icon,
   label,
@@ -379,6 +365,9 @@ const styles = StyleSheet.create({
   },
   // The web's header has no margin at its right end (a phone's has its own).
   headerActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.two,
     paddingRight: Platform.OS === 'web' ? Spacing.three : 0,
   },
   missing: {
@@ -483,22 +472,5 @@ const styles = StyleSheet.create({
   },
   colophon: {
     gap: 2,
-  },
-  dangerZone: {
-    borderTopWidth: 1,
-    paddingTop: Spacing.four,
-    marginTop: Spacing.two,
-    alignItems: 'center',
-    gap: Spacing.two,
-  },
-  delete: {
-    minHeight: 46,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-    paddingHorizontal: 20,
-    borderWidth: 1.5,
-    borderRadius: Radius.md,
   },
 });
