@@ -57,7 +57,7 @@ describe('the setup rows that moved here from the Logbook', () => {
   test('signed out they are still here, under the form: neither needs an account to be found', async () => {
     await render();
     const shown = texts();
-    expect(shown).toEqual(expect.arrayContaining(['Sign in to sync your log', 'Dives before ScubaGo', 'Buddy code']));
+    expect(shown).toEqual(expect.arrayContaining(['Keep your log safe', 'Dives before ScubaGo', 'Buddy code']));
     expect(shown.indexOf('Dives before ScubaGo')).toBeGreaterThan(shown.indexOf('Forgot your password?'));
     await act(async () => button('Dives before ScubaGo')[0].props.onPress());
     expect(router.push).toHaveBeenLastCalledWith('/dive/count');
@@ -84,8 +84,8 @@ describe('the copy budget', () => {
     await render();
     const shown = texts();
     expect(words(shown)).toBeLessThanOrEqual(60);
-    expect(shown.filter((t) => t === 'Sign in to sync your log')).toHaveLength(1);
-    expect(shown).toContain('Back up your log and use it on any device.');
+    expect(shown.filter((t) => t === 'Keep your log safe')).toHaveLength(1);
+    expect(shown).toContain('ScubaGo works without an account. Sign in to back up your log and use it on any device.');
   });
 
   test('signed in: at most 50 words, with the username once', async () => {

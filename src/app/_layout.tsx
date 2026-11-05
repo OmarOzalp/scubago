@@ -99,7 +99,10 @@ export default function RootLayout() {
         <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
         <Stack.Screen name="log/new" options={{ presentation: 'modal', title: 'Log a dive' }} />
         <Stack.Screen name="add-site" options={{ presentation: 'modal', title: 'Add a dive site' }} />
-        <Stack.Screen name="auth" options={{ presentation: 'modal', title: 'Account' }} />
+        <Stack.Screen name="auth" options={{ presentation: 'modal', title: 'Back up and sync' }} />
+        {/* You and its help page push like any page; each sets its own display title, so the bar shows only the back arrow. */}
+        <Stack.Screen name="you" options={{ title: 'You', headerTitle: '' }} />
+        <Stack.Screen name="help" options={{ title: 'How ScubaGo works', headerTitle: '' }} />
         <Stack.Screen name="inspect" options={{ presentation: 'modal', title: 'A closer look' }} />
         <Stack.Screen name="verify" options={{ presentation: 'modal', title: 'Buddy code' }} />
         <Stack.Screen name="dive/edit" options={{ presentation: 'modal', title: 'Edit page' }} />

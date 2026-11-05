@@ -66,7 +66,7 @@ export default function AuthScreen() {
       <Screen>
         <Paper style={styles.centred}>
           <WashIcon icon="sync" width={120} height={84} size={44} />
-          <ThemedText style={styles.centreText}>Sync isn&apos;t configured in this build.</ThemedText>
+          <ThemedText style={styles.centreText}>Backup isn&apos;t available in this build. Everything is saved on this phone.</ThemedText>
         </Paper>
         <AccountRows buddy={false} />
       </Screen>
@@ -286,9 +286,9 @@ function SignInForm({ url }: { url: string | null }) {
           ? 'Choose a new password'
           : resetting
             ? 'Reset your password'
-            : 'Sign in to sync your log';
+            : 'Keep your log safe';
   const intro = {
-    'sign-in': 'Back up your log and use it on any device.',
+    'sign-in': 'ScubaGo works without an account. Sign in to back up your log and use it on any device.',
     create: 'Back up your log and see it on any device. Sightings logged on this phone move into your new account.',
     'reset-request': 'We’ll email you a link to choose a new password.',
     'reset-sent': `If there’s an account for ${address}, we’ve emailed it a link. Open the email on this phone and tap the link: ScubaGo opens so you can choose a new password.`,

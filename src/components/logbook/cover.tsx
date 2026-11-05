@@ -4,7 +4,6 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { BackupRow, useBackupRowDismissed } from '@/components/backup-row';
 import { Icon } from '@/components/icon';
-import { IconButton } from '@/components/journal/icon-button';
 import { Ledger } from '@/components/journal/ledger';
 import { LinkRow } from '@/components/journal/link-row';
 import { Paper } from '@/components/journal/paper';
@@ -22,8 +21,8 @@ const shortTime = (min: number) => formatMinutes(min).replace(' h ', 'h ').repla
 
 /**
  * The front of the book: its label (the diver's name when they are signed in), the lifetime totals
- * and the way to the badges, with the account button and, when there is something to say, the
- * backup and sync rows. The setup rows (dives before ScubaGo, the buddy code) are on the account page.
+ * and the way to the badges and, when there is something to say, the backup and sync rows. The
+ * account, the dives before ScubaGo and the settings are on the You screen (the button on Home).
  */
 export function Cover({ dives }: { dives: Dive[] }) {
   const user = useAppStore((s) => s.user);
@@ -47,15 +46,6 @@ export function Cover({ dives }: { dives: Dive[] }) {
 
   return (
     <View style={styles.cover}>
-      <View style={styles.top}>
-        {/* Always there: the account page also holds "Dives before ScubaGo" and the buddy code, so every diver must reach it. */}
-        <IconButton
-          icon="account"
-          onPress={() => router.push('/auth')}
-          accessibilityLabel={user ? `Account, signed in as ${user.username}` : backendEnabled ? 'Sign in or create an account' : 'Account'}
-        />
-      </View>
-
       <View style={styles.middle}>
         <CoverLabel name={user?.username} />
       </View>
@@ -127,7 +117,6 @@ function CoverLabel({ name }: { name?: string }) {
 const styles = StyleSheet.create({
   flex: { flex: 1 },
   cover: { flexGrow: 1, gap: 18 },
-  top: { flexDirection: 'row', justifyContent: 'flex-end' },
   // The label sits in the middle of whatever room the rows leave.
   middle: { flexGrow: 1, minHeight: 150, justifyContent: 'center' },
   label: { alignSelf: 'center', width: '86%', maxWidth: 360, borderWidth: 1.5, borderRadius: Radius.md, padding: 5 },

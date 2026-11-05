@@ -92,28 +92,21 @@ describe('the cover', () => {
     expect(texts().filter((t) => /Badges/.test(t))).toEqual([]);
   });
 
-  test('“Dives before ScubaGo” and “Buddy code” are not here: they are on the account page', async () => {
+  test('“Dives before ScubaGo” and “Buddy code” are not here: they are on the You screen and the account page', async () => {
     await render();
     expect(texts().filter((t) => /Dives before ScubaGo|Buddy code|logged elsewhere/.test(t))).toEqual([]);
   });
 
-  test('the account button is always there, so every diver can reach what lives on the account page', async () => {
-    const account = () => root.root.findAll((n) => n.props.accessibilityRole === 'button' && /^Sign in or create an account$|^Account/.test(n.props.accessibilityLabel ?? ''));
+  test('there is no account button on the cover: the account is on the You screen', async () => {
+    const account = () => root.root.findAll((n) => typeof n.props.onPress === 'function' && /^Sign in or create an account$|^Account/.test(n.props.accessibilityLabel ?? ''));
     await render();
-    await act(async () => account()[0].props.onPress());
-    expect(router.push).toHaveBeenCalledWith('/auth');
+    expect(account()).toEqual([]);
     await act(async () => root.unmount());
-
-    // No server in this build: nothing to sign in to, but "Dives before ScubaGo" is still on the account page.
-    mockBackend = false;
-    await render();
-    expect(account()[0].props.accessibilityLabel).toBe('Account');
-    await act(async () => root.unmount());
-
-    mockBackend = true;
     mockUser = { id: 'u1', username: 'kai' };
     await render();
-    expect(button('Account, signed in as kai').length).toBeGreaterThan(0);
+    expect(account()).toEqual([]);
+    // The diver's name still labels the book.
+    expect(texts()).toContain('kai');
   });
 
   test('says what is waiting to sync, with a way to sync now', async () => {

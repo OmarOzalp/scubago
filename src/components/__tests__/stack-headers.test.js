@@ -52,8 +52,18 @@ test('a modal with no title of its own keeps its name in the header', async () =
   const all = await screens();
   expect(all['log/new'].title).toBe('Log a dive');
   expect(all['add-site'].title).toBe('Add a dive site');
-  expect(all.auth.title).toBe('Account');
+  expect(all.auth.title).toBe('Back up and sync');
   expect(all.verify.title).toBe('Buddy code');
   expect(all['dive/count'].title).toBe('Dives before ScubaGo');
   for (const name of ['log/new', 'add-site', 'auth', 'verify', 'dive/count']) expect(all[name].headerTitle).toBeUndefined();
+});
+
+test('You and its help page push like any page, with the back arrow alone in the header', async () => {
+  const all = await screens();
+  expect(all.you.title).toBe('You');
+  expect(all.help.title).toBe('How ScubaGo works');
+  for (const name of ['you', 'help']) {
+    expect(all[name].headerTitle).toBe('');
+    expect(all[name].presentation).toBeUndefined();
+  }
 });
