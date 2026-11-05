@@ -30,7 +30,11 @@ jest.mock('@/hooks/use-site-sightings', () => ({ useSiteSightings: () => mockHoo
 
 let root;
 const textOf = () => root.root.findAll((n) => typeof n.children?.[0] === 'string' && typeof n.type === 'string').map((n) => n.children.join('')).join(' | ');
-const render = async () => { await act(async () => { root = create(<SiteDetailScreen />); }); };
+const RECORDS = 'Records from science databases';
+const toggle = () => root.root.findAll((n) => n.props.accessibilityLabel === RECORDS && typeof n.props.onPress === 'function')[0];
+// The public records are folded away until asked for: `render` opens them (renderClosed leaves them as a diver first finds them).
+const renderClosed = async () => { await act(async () => { root = create(<SiteDetailScreen />); }); };
+const render = async () => { await renderClosed(); await act(async () => toggle().props.onPress()); };
 
 beforeEach(() => { global.IS_REACT_ACT_ENVIRONMENT = true; });
 afterEach(async () => { if (root) await act(async () => root.unmount()); root = null; });
@@ -91,4 +95,15 @@ test('a curated site shows both its hand-made list and the public records, each 
   } finally {
     mockSiteId = 'osm-test-wreck';
   }
+});
+
+test('the lists from iNaturalist and OBIS are folded under “Records from science databases”, closed to begin with', async () => {
+  mockHook = ready;
+  await renderClosed();
+  expect(textOf()).toContain(RECORDS);
+  expect(textOf()).not.toContain('Marine life recorded here');
+  expect(textOf()).not.toContain('iNaturalist observations');
+  await act(async () => toggle().props.onPress());
+  expect(textOf()).toContain('Marine life recorded here');
+  expect(textOf()).toContain('12 iNaturalist observations');
 });

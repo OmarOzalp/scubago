@@ -66,6 +66,8 @@ describe('the site page’s copy budget', () => {
     const texts = screenTexts(root.toJSON());
     expect(screenWords(root.toJSON())).toBeLessThanOrEqual(BUDGET - 10);
     expect(texts).not.toContain('Sightings');
+    // The key facts are one line, left out when there is nothing to say.
+    expect(texts.join(' ')).not.toMatch(/\d+ (dive|dives) here|animals? seen/);
     expect(texts.join(' ')).not.toMatch(/\bSIGHTINGS?\b|Recent sightings|None yet/i);
   });
 
@@ -91,10 +93,23 @@ describe('the site page’s copy budget', () => {
   test('the public records are one closed row, and their short offline line is one line', async () => {
     visited();
     await render('cod-hole');
+    expect(screenTexts(root.toJSON())).toContain('Records from science databases');
+    expect(screenTexts(root.toJSON())).not.toContain('Marine life recorded here');
+    const [open] = root.root.findAll((n) => n.props.accessibilityLabel === 'Records from science databases' && typeof n.props.onPress === 'function');
+    await act(async () => open.props.onPress());
     const text = screenTexts(root.toJSON());
     expect(text).toContain('Marine life recorded here');
     expect(text).toContain('About these records');
     expect(text).toContain('Couldn’t reach records.');
     expect(text.join(' ')).not.toMatch(/not checked by ScubaGo|offline/i);
+  });
+});
+
+describe('the site page’s key facts', () => {
+  test('are one line under the name: your dives here and the animals seen', async () => {
+    visited();
+    await render('cod-hole');
+    const line = screenTexts(root.toJSON()).find((t) => /dives? here/.test(t) && /animals? seen/.test(t));
+    expect(line).toMatch(/^\d+ dives? here · \d+ animals? seen$/);
   });
 });

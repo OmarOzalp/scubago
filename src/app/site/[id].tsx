@@ -4,6 +4,7 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { ExternalLink } from '@/components/external-link';
 import { Icon, type IconName } from '@/components/icon';
+import { Disclosure } from '@/components/journal/disclosure';
 import { LinkRow } from '@/components/journal/link-row';
 import { Paper } from '@/components/journal/paper';
 import { Screen, SectionHeader } from '@/components/journal/screen';
@@ -111,8 +112,13 @@ export default function SiteDetailScreen() {
   const sources = siteSourceList(site);
   const notable = site.notableSpecies.map((speciesId) => CATALOG_BY_ID.get(speciesId)).filter((s): s is Species => !!s);
   const hasNotes = facts.length > 0 || !!site.conditions;
-  // Totals of nothing are not shown: a site nobody has logged at has no use for a card of zeros.
-  const hasTotals = siteSightings.length > 0;
+  // The key facts on one line: only what is more than nothing ("2 dives · 5 animals seen"), no card of zeros.
+  const keyFacts = [
+    divesHere.length > 0 ? `${divesHere.length} ${divesHere.length === 1 ? 'dive' : 'dives'} here` : null,
+    speciesCount > 0 ? `${speciesCount} ${speciesCount === 1 ? 'animal' : 'animals'} seen` : null,
+  ]
+    .filter(Boolean)
+    .join(' · ');
   // Every sighting here is the diver's own: "@you" and "Only you" on each row would say nothing.
   const mineIds = new Set(mySightings.map((s) => s.id));
   const allMine = siteSightings.every((s) => mineIds.has(s.id));
@@ -125,10 +131,9 @@ export default function SiteDetailScreen() {
       {/* The title stays for the browser tab; the header shows only the back arrow, as the page names itself below. */}
       <Stack.Screen options={{ title: site.name, headerTitle: '' }} />
       <Screen>
-        {/* The page's head: a typewriter eyebrow, the site's name and where it is, and its own watercolour. */}
+        {/* The page's head: the site's name, where it is, and its own watercolour. */}
         <View style={styles.head}>
           <View style={styles.headText}>
-            <ThemedText type="label">Dive site</ThemedText>
             <ThemedText type="display" accessibilityRole="header">
               {site.name}
             </ThemedText>
@@ -139,6 +144,11 @@ export default function SiteDetailScreen() {
                 {addedBy ? ` · added by ${addedBy}` : ''}
               </ThemedText>
             </View>
+            {keyFacts ? (
+              <ThemedText type="smallBold" accessibilityLabel={keyFacts}>
+                {keyFacts}
+              </ThemedText>
+            ) : null}
           </View>
           <View style={styles.headArt}>
             <Wash width={84} height={64} color={theme.wash} seed={hashSeed(site.id)} style={StyleSheet.absoluteFill} />
@@ -149,7 +159,7 @@ export default function SiteDetailScreen() {
         <ThemedText>{site.blurb}</ThemedText>
 
         {/* The log entry: what's known about the site, one ruled line each, with the totals at the foot. */}
-        {hasNotes || hasTotals ? (
+        {hasNotes ? (
         <Paper style={styles.entry}>
           {/* Only facts with a source are ever filled in (src/data/__tests__/integrity.test.ts). */}
           {facts.map((fact, index) => (
@@ -176,15 +186,6 @@ export default function SiteDetailScreen() {
               </ThemedText>
             </View>
           ) : null}
-          {/* A double rule above the totals, as at the foot of a logbook page. */}
-          {hasNotes && hasTotals ? <View style={[styles.doubleRule, { borderColor: theme.rule }]} /> : null}
-          {hasTotals ? (
-            <View style={styles.totals} accessible accessibilityLabel={`${siteSightings.length} sightings, ${speciesCount} species`}>
-              <Total value={siteSightings.length} label={siteSightings.length === 1 ? 'Sighting' : 'Sightings'} />
-              <View style={[styles.totalRule, { backgroundColor: theme.rule }]} />
-              <Total value={speciesCount} label="Species" />
-            </View>
-          ) : null}
         </Paper>
         ) : null}
 
@@ -198,14 +199,7 @@ export default function SiteDetailScreen() {
 
         {divesHere.length > 0 ? (
           <View style={styles.section}>
-            <SectionHeader
-              title="Your dives here"
-              accessory={
-                <ThemedText type="label" accessibilityLabel={`${divesHere.length} ${divesHere.length === 1 ? 'dive' : 'dives'}`}>
-                  {divesHere.length}
-                </ThemedText>
-              }
-            />
+            <SectionHeader title="Your dives here" />
             <View style={styles.rows}>
               {(allDives ? divesHere : divesHere.slice(0, DIVES_SHOWN)).map((dive) => (
                 <LinkRow
@@ -243,7 +237,11 @@ export default function SiteDetailScreen() {
 
         {/* What public records place here: kept apart from the page's own ScubaGo sightings, and the
             main answer to "what's here?" for a site that has no hand-made species list. */}
-        <SiteSightingsSection site={site} />
+        <View>
+          <Disclosure label="Records from science databases" hint="Shows the marine life public records place near this site">
+            <SiteSightingsSection site={site} />
+          </Disclosure>
+        </View>
 
         {/* Nothing logged here yet: no empty box, the button above is the next step. */}
         {siteSightings.length > 0 ? (
@@ -313,17 +311,6 @@ function diveFacts(dive: Dive, sightings: number): string {
     .join(' · ');
 }
 
-/** One figure in the totals; the row around it is read as one sentence. */
-function Total({ value, label }: { value: number; label: string }) {
-  const theme = useTheme();
-  return (
-    <View style={styles.total}>
-      <Text style={[styles.totalValue, { color: theme.text }]}>{value}</Text>
-      <Text style={[styles.totalLabel, { color: theme.textSecondary }]}>{label.toUpperCase()}</Text>
-    </View>
-  );
-}
-
 const styles = StyleSheet.create({
   missing: {
     flex: 1,
@@ -391,36 +378,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 10,
-  },
-  doubleRule: {
-    height: 4,
-    borderTopWidth: 1,
-    borderBottomWidth: 1,
-    marginTop: 2,
-  },
-  totals: {
-    flexDirection: 'row',
-    alignItems: 'stretch',
-    paddingVertical: 12,
-  },
-  total: {
-    flex: 1,
-    alignItems: 'center',
-    gap: 2,
-  },
-  totalRule: {
-    width: 1,
-  },
-  totalValue: {
-    fontFamily: Type.display,
-    fontSize: 26,
-    lineHeight: 32,
-  },
-  totalLabel: {
-    fontFamily: Type.bodyHeavy,
-    fontSize: 12,
-    lineHeight: 15,
-    letterSpacing: 0.8,
   },
   section: {
     gap: 14,

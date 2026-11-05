@@ -127,13 +127,13 @@ test('"Your dives here" lists the diver’s dives at the site and at its hidden 
   expect(router.push).toHaveBeenCalledWith('/dive/dive-7');
 });
 
-test('the log button comes right under the facts, before the diver’s dives and the lists', async () => {
+test('the log button comes right under the key facts line, before the diver’s dives and the lists', async () => {
   mockSiteId = 'cod-hole';
   mockDives = [dive(3, 'cod-hole', '2026-02-01')];
   await act(async () => { root = create(<SiteDetailScreen />); });
   const t = text();
-  const order = ['SPECIES', 'Log a dive here', 'Your dives here', 'What divers see here', 'Recent sightings'].map((heading) => t.indexOf(heading));
-  expect(order).not.toContain(-1); // the totals are the facts' last line
+  const order = [' animals seen', 'Log a dive here', 'Your dives here', 'What divers see here', 'Recent sightings'].map((heading) => t.indexOf(heading));
+  expect(order).not.toContain(-1); // the key facts line comes first
   expect(order).toEqual([...order].sort((a, b) => a - b));
 });
 
