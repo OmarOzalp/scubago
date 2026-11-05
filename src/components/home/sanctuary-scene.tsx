@@ -27,6 +27,7 @@ import { useSceneActive, useSceneVisible } from '@/hooks/use-scene-active';
 import type { WaterReach } from '@/lib/explorer-view';
 import { HOME_SHORE, type Habitat } from '@/lib/home';
 import { shapeFor } from '@/lib/island-outline';
+import { useOceanPaused } from '@/lib/ocean-pause';
 import { captureFrame, captureScene, registerSceneCapture, releaseSnapshot } from '@/lib/scene-snapshot';
 import { rememberExplorerPicture, rememberHomePicture, rememberHomeScene } from './home-start';
 import { IDLE_MS } from './ocean-ahead';
@@ -229,6 +230,8 @@ export function SanctuaryScene({ habitat, level, residents, islands, paused = fa
   moments?: SceneMoments; explorer?: ExplorerScene;
 }) {
   const active = useSceneActive(paused);
+  // (an ocean the person stopped on the You screen is paused, not still for Reduce Motion: it can still be photographed)
+  const oceanPaused = useOceanPaused();
   const visible = useSceneVisible();
   // Once it has been on show, a scene that is not (another screen is over it, or the app is in the background) draws nothing at all, not a frame
   // on demand either: a screen that is kept (Home's under the explorer, the explorer's under Home) is asleep, and takes no CPU or GPU.
@@ -444,7 +447,7 @@ export function SanctuaryScene({ habitat, level, residents, islands, paused = fa
         {!explorer && <SceneCamera scale={oceanScale(level)} />}
         {onOpen && !explorer && <TapAnywhere onTap={onOpen} />}
         {/* The Share button's picture of the card (and the explorer's of its opening view). A paused island can still be photographed; one that is still for Reduce Motion is not. */}
-        <SnapshotRegistrar name={explorer ? 'explorer' : 'home'} ready={visible && !loading && (active || paused)} />
+        <SnapshotRegistrar name={explorer ? 'explorer' : 'home'} ready={visible && !loading && (active || paused || oceanPaused)} />
         <Wake visible={visible} />
         <FirstFrame mark={marks.frame} />
         <FrameWatch watching={picture.watching} onDrawn={picture.onDrawn} />

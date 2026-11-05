@@ -4,6 +4,7 @@ import { create } from 'react-test-renderer';
 import { SanctuaryScene } from '../sanctuary-scene';
 import { useMarineModels } from '../three/use-marine-models';
 import { captureFrame, captureScene, hasScene } from '@/lib/scene-snapshot';
+import { setOceanPaused } from '@/lib/ocean-pause';
 
 // The card's picture (src/lib/scene-snapshot.ts): the scene registers how to take it only while it can.
 let mockActive = true, mockVisible = true, mockQuality = 'full';
@@ -40,6 +41,8 @@ beforeEach(() => {
   mockActive = true; mockVisible = true; mockQuality = 'full';
   useMarineModels.mockReturnValue({ models: {}, failed: false, retry: jest.fn() });
   captureFrame.mockReset();
+  // (the diver's choice is remembered in storage: start every test with the ocean moving)
+  setOceanPaused(false);
 });
 afterEach(async () => { if (root) await act(async () => root.unmount()); root = null; });
 const props = { habitat: 'island', level: 1, residents: [], onInspect: jest.fn() };
@@ -65,6 +68,13 @@ test('it unregisters when the scene goes away, so Share draws the illustration',
 test('a paused island can still be photographed', async () => {
   mockActive = false;
   await show({ paused: true });
+  expect(hasScene('home')).toBe(true);
+});
+
+test('an ocean the diver stopped on the You screen can still be photographed', async () => {
+  mockActive = false;
+  setOceanPaused(true);
+  await show();
   expect(hasScene('home')).toBe(true);
 });
 
