@@ -3,6 +3,7 @@ import React, { act } from 'react';
 import { create } from 'react-test-renderer';
 import { router } from 'expo-router';
 import DivePageScreen from '@/app/dive/[id]';
+import { chooseFromMenu } from '@/test-support/more-menu';
 
 // Deleting a page from its own screen (/dive/[id]): the screen closes to wherever the diver came from, or to the
 // Logbook when nothing is underneath (opened from a link, or a reload on the web), and it keeps showing the page,
@@ -11,7 +12,8 @@ let mockCanGoBack = true;
 jest.mock('expo-router', () => ({
   router: { back: jest.fn(), push: jest.fn(), replace: jest.fn(), canGoBack: jest.fn(() => mockCanGoBack) },
   useLocalSearchParams: () => ({ id: 'd1' }),
-  Stack: { Screen: () => null },
+  // The header's buttons are drawn by the navigator; here the screen's own options are drawn in its place.
+  Stack: { Screen: ({ options }) => (options?.headerRight ? options.headerRight() : null) },
 }));
 jest.mock('@/global.css', () => ({}));
 jest.mock('react-native-safe-area-context', () => ({ useSafeAreaInsets: () => ({ top: 0, bottom: 0, left: 0, right: 0 }) }));
@@ -60,8 +62,7 @@ afterEach(async () => { if (root) await act(async () => root.unmount()); root = 
 const render = async () => { await act(async () => { root = create(<DivePageScreen />); }); };
 const texts = () => root.root.findAll((n) => typeof n.children?.[0] === 'string').map((n) => n.children.join(''));
 const remove = async () => {
-  const del = root.root.findAll((n) => n.props.accessibilityRole === 'button' && typeof n.props.onPress === 'function' && n.findAll((c) => c.children?.[0] === 'Delete page').length > 0)[0];
-  await act(async () => del.props.onPress());
+  await chooseFromMenu(root, /More actions for this page/, 'Delete page');
   // The store has changed under the screen: draw it again, as the store's update would.
   await act(async () => root.update(<DivePageScreen />));
 };

@@ -70,18 +70,19 @@ describe('the dive page’s actions', () => {
     expect(titled('Share this page')).toHaveLength(0);
   });
 
-  test('“Ask your buddy to sign” is a secondary button, whether or not the page is signed', async () => {
+  test('“Ask your buddy to sign this page” is a secondary button, whether or not the page is signed', async () => {
     await render();
-    expect(titled('Ask your buddy to sign')[0].props.variant).toBe('secondary');
+    expect(titled('Ask your buddy to sign this page')[0].props.variant).toBe('secondary');
     await act(async () => root.unmount());
     mockDives = [dive({ signature: { name: 'Maya', svg: '<svg/>', at: '2026-03-12T12:00:00Z' } })];
     await render();
     expect(titled('Add a signature')[0].props.variant).toBe('secondary');
   });
 
-  test('deleting stays in its own zone at the foot', async () => {
+  test('deleting waits in the “…” menu beside Share and Edit, and is not on the page', async () => {
     await render();
-    expect(texts()).toContain('Delete page');
+    expect(texts()).not.toContain('Delete page');
+    expect(root.root.findAll((n) => n.props.accessibilityLabel === 'More actions for this page' && typeof n.props.onPress === 'function').length).toBeGreaterThan(0);
   });
 
   test('a row under “What you saw” says how rare the animal is and what was written about it, not the site again', async () => {

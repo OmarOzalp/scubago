@@ -10,6 +10,7 @@ import { Icon } from '@/components/icon';
 import { Paper } from '@/components/journal/paper';
 import { Seal } from '@/components/journal/stamp';
 import { OceanButton } from '@/components/ocean-button';
+import { MoreMenu } from '@/components/ui/more-menu';
 import { Segmented } from '@/components/segmented';
 import { formatDate } from '@/components/sighting-row';
 import { ThemedText } from '@/components/themed-text';
@@ -64,7 +65,7 @@ function SignDiveScreen() {
   if (!dive) {
     return (
       <ThemedView style={styles.centered}>
-        <Stack.Screen options={{ title: 'Sign the page' }} />
+        <Stack.Screen options={{ title: 'Buddy signature' }} />
         <ThemedText>This page isn’t in your log any more.</ThemedText>
       </ThemedView>
     );
@@ -121,8 +122,11 @@ function SignDiveScreen() {
 
   return (
     <ThemedView style={styles.container}>
-      <Stack.Screen options={{ title: `Sign ${formatDiveNumber(dive.number)}` }} />
+      <Stack.Screen options={{ title: 'Buddy signature' }} />
       <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled" scrollEnabled={!drawing}>
+        <ThemedText type="small" themeColor="textSecondary">
+          Your buddy or guide signs this page, on this phone or on theirs.
+        </ThemedText>
         {/* What is being signed, so the signer can check it. */}
         <Paper style={styles.summary} raised>
           <ThemedText type="label">{formatDate(dive.divedOn)}</ThemedText>
@@ -159,7 +163,9 @@ function SignDiveScreen() {
               <ThemedText type="small" themeColor="textSecondary">
                 A page holds one signature from your phone. To have someone else sign, remove this one, or send them a code to sign from their own phone.
               </ThemedText>
-              <OceanButton title="Remove this signature" variant="secondary" icon="trash" onPress={() => void unsign()} />
+              <View style={styles.moreRow}>
+                <MoreMenu accessibilityLabel="More actions for this signature" items={[{ label: 'Remove this signature', icon: 'trash', destructive: true, onPress: () => void unsign() }]} />
+              </View>
             </Paper>
           ) : (
             <View style={styles.stack}>
@@ -181,7 +187,7 @@ function SignDiveScreen() {
                 </ThemedText>
               ) : null}
               <OceanButton
-                title={saving ? 'Signing…' : `Sign ${formatDiveNumber(dive.number)}`}
+                title={saving ? 'Signing…' : 'Sign this page'}
                 icon={saving ? undefined : 'signature'}
                 variant="log"
                 onPress={() => void sign()}
@@ -323,6 +329,7 @@ function SendCode({ diveId, number, siteName, synced, syncError }: { diveId: str
 }
 
 const styles = StyleSheet.create({
+  moreRow: { alignItems: 'flex-end' },
   container: { flex: 1 },
   centered: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: Spacing.three, padding: Spacing.four },
   content: { padding: Spacing.three, gap: Spacing.four, paddingBottom: Spacing.six, width: '100%', maxWidth: 720, alignSelf: 'center' },

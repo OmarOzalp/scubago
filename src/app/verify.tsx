@@ -167,7 +167,7 @@ export default function VerifyScreen() {
       <View style={styles.intro}>
         <Emblem icon="verified" />
         <ThemedText type="small" themeColor="textSecondary" style={styles.center}>
-          Enter the code your buddy sent. You’ll see what it’s for before you answer.
+          A buddy code lets you confirm what your buddy logged. Enter the one they sent you.
         </ThemedText>
       </View>
 

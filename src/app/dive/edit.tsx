@@ -150,7 +150,7 @@ function EditDiveScreen() {
   return (
     <ThemedView style={styles.container}>
       {/* The picker's own back arrow is gone again: the navigator's closes this screen. */}
-      <Stack.Screen options={{ title: `Edit ${formatDiveNumber(dive.number)}`, headerLeft: undefined }} />
+      <Stack.Screen options={{ title: 'Edit page', headerLeft: undefined }} />
       <ScrollView ref={scrollView} onScroll={onScroll} scrollEventThrottle={16} contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled" keyboardDismissMode={DISMISS_ON_DRAG} automaticallyAdjustKeyboardInsets>
         <View style={styles.field}>
           <ThemedText type="label">Site</ThemedText>

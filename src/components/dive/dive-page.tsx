@@ -5,12 +5,12 @@ import { Platform, Pressable, StyleSheet, Text, View, type AccessibilityActionEv
 import { Bookplate, CentreStamp } from '@/components/dive/marks';
 import { SignatureView } from '@/components/dive/signature';
 import { Icon, type IconName } from '@/components/icon';
-import { Disclosure } from '@/components/journal/disclosure';
 import { IconButton } from '@/components/journal/icon-button';
 import { Ledger, type LedgerItem } from '@/components/journal/ledger';
 import { Paper } from '@/components/journal/paper';
 import { SectionHeader } from '@/components/journal/screen';
 import { OceanButton } from '@/components/ocean-button';
+import { MoreMenu } from '@/components/ui/more-menu';
 import { ShareDiveButton } from '@/components/share/share-buttons';
 import { formatEntryDate, SightingRow } from '@/components/sighting-row';
 import { SyncLine, useSyncLineShown } from '@/components/sync-line';
@@ -180,6 +180,12 @@ export function DivePage({
     <>
       <ShareDiveButton variant="header" dive={dive} site={site} sightings={allSightings} />
       <IconButton icon="edit" size={HEADER_BUTTON} accessibilityLabel="Edit page" onPress={edit} style={{ opacity: busy ? 0.4 : 1 }} />
+      <MoreMenu
+        size={HEADER_BUTTON}
+        accessibilityLabel="More actions for this page"
+        disabled={busy}
+        items={[{ label: 'Delete page', icon: 'trash', destructive: true, onPress: () => void remove() }]}
+      />
     </>
   );
   // A screen reader turns the book's pages from the head of a page, as well as with the page count at the top.
@@ -220,15 +226,22 @@ export function DivePage({
             ) : null}
           </View>
         </View>
-        {actionsIn === 'page' ? <View style={styles.pageActions}>{actions}</View> : null}
       </View>
-      {site ? (
-        <Pressable onPress={() => router.push(`/site/${site.id}`)} accessibilityRole="link" style={styles.siteLink}>
-          <Icon name="pin" size={16} color={theme.tint} />
-          <ThemedText type="smallBold" themeColor="tint">
-            {site.region}, {site.country} ›
-          </ThemedText>
-        </Pressable>
+      {site || actionsIn === 'page' ? (
+        <View style={styles.linkRow}>
+          {site ? (
+            <Pressable onPress={() => router.push(`/site/${site.id}`)} accessibilityRole="link" style={styles.siteLink}>
+              <Icon name="pin" size={16} color={theme.tint} />
+              <ThemedText type="smallBold" themeColor="tint">
+                {site.region}, {site.country} ›
+              </ThemedText>
+            </Pressable>
+          ) : (
+            <View style={styles.flex} />
+          )}
+          {/* In the book there is no header bar, so Share, Edit and More stand at the page's own corner. */}
+          {actionsIn === 'page' ? <View style={styles.pageActions}>{actions}</View> : null}
+        </View>
       ) : null}
 
       {milestone ? <Bookplate at={milestone} siteName={siteName} /> : null}
@@ -236,12 +249,12 @@ export function DivePage({
       {measures.length > 0 ? (
         <Ledger items={measures} />
       ) : (
-        <Paper tone="sand" style={styles.row}>
-          <Icon name="notes" size={20} wash={theme.sun} />
-          <ThemedText type="small" style={styles.flex}>
-            {dive.fromSightings ? 'Made from earlier sightings. Add the depth and time.' : 'No depth or time on this page yet.'}
+        <Pressable onPress={edit} accessibilityRole="link" accessibilityLabel="Add depth and time" style={styles.addLink}>
+          <Icon name="plus" size={16} color={theme.tint} />
+          <ThemedText type="smallBold" themeColor="tint">
+            Add depth and time
           </ThemedText>
-        </Paper>
+        </Pressable>
       )}
 
       {facts.length > 0 || dive.rating ? (
@@ -282,7 +295,7 @@ export function DivePage({
         </Paper>
       ) : null}
 
-      <SectionHeader title="What you saw" eyebrow={onPage.length ? `${onPage.length} ${onPage.length === 1 ? 'sighting' : 'sightings'}` : undefined} />
+      <SectionHeader title="What you saw" />
       {onPage.map((s) => {
         const species = speciesForSighting(s);
         if (!species) return null;
@@ -295,7 +308,7 @@ export function DivePage({
       ) : null}
       <OceanButton title="Add what you saw" icon="plus" variant="secondary" onPress={() => router.push({ pathname: '/log/new', params: { dive: dive.id } })} />
 
-      <SectionHeader title="Signatures" />
+      <SectionHeader title="Buddy signature" />
       {/* Signatures and the centre's stamp sit side by side at the foot of the page, as on paper. */}
       <Paper style={styles.signed}>
         {signatures.length === 0 && !dive.centreName ? (
@@ -322,16 +335,16 @@ export function DivePage({
           </View>
         ) : null}
         <OceanButton
-          title={signatures.length ? 'Add a signature' : 'Ask your buddy to sign'}
+          title={signatures.length ? 'Add a signature' : 'Ask your buddy to sign this page'}
           icon="signature"
           variant="secondary"
           onPress={() => router.push({ pathname: '/dive/sign', params: { id: dive.id } })}
         />
-        <Disclosure label="About signatures" hint="Explains how signing works and what is checked">
-          <ThemedText type="caption" themeColor="textSecondary">
-            Sign on your phone, or let a buddy sign from theirs with a code. Signatures are what the signer wrote; ScubaGo doesn’t check certifications or centres.
+        {signatures.length === 0 ? (
+          <ThemedText type="small" themeColor="textSecondary">
+            Your buddy signs on your phone or from theirs. ScubaGo doesn’t check certifications.
           </ThemedText>
-        </Disclosure>
+        ) : null}
       </Paper>
 
       {colophon || syncShown ? (
@@ -347,24 +360,11 @@ export function DivePage({
 
       {footer}
 
-      <View style={[styles.dangerZone, { borderTopColor: theme.rule }]}>
-        <Pressable
-          onPress={() => void remove()}
-          disabled={busy}
-          accessibilityRole="button"
-          aria-disabled={busy}
-          style={({ pressed }) => [styles.delete, { borderColor: theme.danger, backgroundColor: pressed ? theme.backgroundSelected : 'transparent', opacity: busy ? 0.4 : 1 }]}>
-          <Icon name="trash" size={18} color={theme.danger} wash={theme.danger} washOpacity={0.15} />
-          <ThemedText type="smallBold" themeColor="danger">
-            Delete page
-          </ThemedText>
-        </Pressable>
-        {error ? (
-          <ThemedText type="small" themeColor="danger" accessibilityLiveRegion="polite" style={styles.center}>
-            {error}
-          </ThemedText>
-        ) : null}
-      </View>
+      {error ? (
+        <ThemedText type="small" themeColor="danger" accessibilityLiveRegion="polite" style={styles.center}>
+          {error}
+        </ThemedText>
+      ) : null}
     </>
   );
 }
@@ -393,12 +393,14 @@ const styles = StyleSheet.create({
   headRow: { flexDirection: 'row', alignItems: 'flex-start', gap: Spacing.two },
   head: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 14 },
   // In the book, Share and Edit stand one above the other at the page's top corner, leaving the site its width.
-  pageActions: { gap: Spacing.two },
+  // Beside the region when there is room, under it (at the right) when there is not: a link never breaks across two lines.
+  pageActions: { flexDirection: 'row', alignItems: 'center', gap: Spacing.two, marginLeft: 'auto' },
+  linkRow: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', columnGap: Spacing.two, marginTop: -6 },
+  addLink: { alignSelf: 'flex-start', minHeight: 44, flexDirection: 'row', alignItems: 'center', gap: 6 },
   numberBox: { minWidth: 78, borderWidth: 1.5, borderRadius: Radius.md, paddingHorizontal: 8, paddingVertical: 6, alignItems: 'center' },
-  no: { fontFamily: Type.label, fontSize: 12, letterSpacing: 1 },
+  no: { fontFamily: Type.label, fontSize: 13, letterSpacing: 1 },
   number: { fontFamily: Type.display, fontSize: 34, lineHeight: 40 },
-  siteLink: { alignSelf: 'flex-start', minHeight: 44, flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: -10 },
-  row: { flexDirection: 'row', alignItems: 'flex-start', gap: 10 },
+  siteLink: { minHeight: 44, flexDirection: 'row', alignItems: 'center', gap: 6 },
   fact: { flexDirection: 'row', alignItems: 'center', gap: 8, minHeight: 48, paddingHorizontal: Spacing.three, paddingVertical: 8 },
   factLabel: { minWidth: 92 },
   factValue: { flex: 1, textAlign: 'right' },
@@ -409,6 +411,4 @@ const styles = StyleSheet.create({
   signLine: { borderTopWidth: 1, paddingTop: 4 },
   stampRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.three, paddingVertical: 6 },
   colophon: { gap: 4 },
-  dangerZone: { borderTopWidth: 1, paddingTop: Spacing.four, marginTop: Spacing.two, alignItems: 'center', gap: Spacing.two },
-  delete: { flexDirection: 'row', alignItems: 'center', gap: 8, minHeight: 44, paddingHorizontal: Spacing.three, borderWidth: 1.5, borderRadius: Radius.md },
 });

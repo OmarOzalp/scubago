@@ -1,11 +1,12 @@
 import { afterEach, beforeEach, describe, expect, jest, test } from '@jest/globals';
 import React, { act } from 'react';
 import { create } from 'react-test-renderer';
+import { router } from 'expo-router';
 import DivePageScreen from '@/app/dive/[id]';
 import { screenTexts, screenWords } from '@/test-support/screen-words';
 
-// A dive's page: at most 75 words in all (it was 104; about 70 is the target), the explanation of signing behind a
-// closed row, and nothing about where the page is saved or when it was written when that is the day of the dive.
+// A dive's page: at most 75 words in all (it was 104; about 70 is the target), the one line on signing in plain words, and
+// nothing about where the page is saved or when it was written when that is the day of the dive.
 // The page's one title is the number box; the header carries the same number, so it is the page's only title.
 const BUDGET = 75;
 
@@ -64,16 +65,30 @@ describe('the dive page’s copy budget', () => {
     expect(screenTexts(root.toJSON()).join(' | ')).toMatch(/Written .*2026 · edited .*2026/);
   });
 
-  test('signing is one line and one button; how it works is behind a row', async () => {
+  test('signing is one heading, one line saying what it does, and one button', async () => {
     await render();
     const texts = screenTexts(root.toJSON());
+    expect(texts).toContain('Buddy signature');
     expect(texts).toContain('No signatures yet.');
-    expect(texts).toContain('About signatures');
-    expect(texts.join(' ')).not.toMatch(/Your buddy or guide can sign|ScubaGo doesn’t check/);
-    expect(button('Ask your buddy to sign')).toHaveLength(1);
-    const [toggle] = root.root.findAll((n) => n.props.accessibilityLabel === 'About signatures' && typeof n.props.onPress === 'function');
-    await act(async () => toggle.props.onPress());
-    expect(screenTexts(root.toJSON()).join(' ')).toContain('ScubaGo doesn’t check certifications or centres.');
+    expect(texts).toContain('Your buddy signs on your phone or from theirs. ScubaGo doesn’t check certifications.');
+    expect(texts).not.toContain('About signatures');
+    expect(button('Ask your buddy to sign this page')).toHaveLength(1);
+  });
+
+  test('a page with no depth or time has a small “Add depth and time” link that opens the edit, not a yellow note', async () => {
+    mockDives = [dive({ maxDepthM: undefined, bottomTimeMin: undefined })];
+    await render();
+    expect(screenTexts(root.toJSON()).join(' ')).not.toMatch(/No depth or time on this page yet/);
+    const [link] = root.root.findAll((n) => n.props.accessibilityLabel === 'Add depth and time' && typeof n.props.onPress === 'function');
+    await act(async () => link.props.onPress());
+    expect(router.push).toHaveBeenCalledWith({ pathname: '/dive/edit', params: { id: 'd1' } });
+  });
+
+  test('“What you saw” has one heading, with no count above it', async () => {
+    await render();
+    const texts = screenTexts(root.toJSON());
+    expect(texts).toContain('What you saw');
+    expect(texts.join(' ')).not.toMatch(/\d+ sightings?\b/);
   });
 
   test('the number is the page’s title in the header, and the rows do not say “Only you” on every animal', async () => {

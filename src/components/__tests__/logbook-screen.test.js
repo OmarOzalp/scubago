@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, jest, test } from '@jest/globals';
+import { chooseFromMenu } from '@/test-support/more-menu';
 import React, { act } from 'react';
 import { Modal, StyleSheet } from 'react-native';
 import { create } from 'react-test-renderer';
@@ -233,8 +234,7 @@ describe('the book', () => {
 
   test('deleting the open page leaves the book on its neighbour, without leaving the Logbook', async () => {
     const deleteOpenPage = async () => {
-      const del = openLeaf().findAll((n) => n.props.accessibilityRole === 'button' && typeof n.props.onPress === 'function' && n.findAll((c) => c.children?.[0] === 'Delete page').length > 0)[0];
-      await act(async () => del.props.onPress());
+      await chooseFromMenu(openLeaf(), /More actions for this page/, 'Delete page');
       await rerender();
     };
     await render();
@@ -254,13 +254,16 @@ describe('the book', () => {
     expect(router.replace).not.toHaveBeenCalled();
   });
 
-  test('the open page is the dive’s own page: Share and Edit at its head, what you saw, signatures and Delete', async () => {
+  test('the open page is the dive’s own page: Share and Edit at its head, what you saw, signatures, and Delete in the “…” menu', async () => {
     await render();
     const inPage = (label) => openLeaf().findAll((n) => n.props.accessibilityLabel === label && typeof n.props.onPress === 'function');
     expect(inPage('Share this page').length).toBeGreaterThan(0);
     await act(async () => inPage('Edit page')[0].props.onPress());
     expect(router.push).toHaveBeenCalledWith({ pathname: '/dive/edit', params: { id: 'd3' } });
-    expect(texts()).toEqual(expect.arrayContaining(['What you saw', 'Reef Manta Ray', 'Whale Shark', 'Signatures', 'Delete page']));
+    expect(texts()).toEqual(expect.arrayContaining(['What you saw', 'Reef Manta Ray', 'Whale Shark', 'Buddy signature']));
+    // Delete waits in the page's “…” menu, not on the page itself.
+    expect(texts()).not.toContain('Delete page');
+    expect(inPage('More actions for this page').length).toBeGreaterThan(0);
     // The swipe and the arrows turn the book's pages, so the page has no previous and next buttons of its own.
     expect(root.root.findAll((n) => /^(Previous|Next) page: dive/.test(n.props.accessibilityLabel ?? ''))).toHaveLength(0);
   });
