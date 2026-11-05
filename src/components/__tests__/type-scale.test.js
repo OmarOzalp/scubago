@@ -22,7 +22,7 @@ describe('the type scale', () => {
 // No screen or component sets a font size under 13 itself. (The 3D scene, the share cards drawn at 1080 px and the
 // developer-only frame-rate badge are exempt; the map, site list and rewards are covered by their own pass.)
 const ROOT = path.resolve(process.cwd(), 'src');
-const EXEMPT = [/[\\/]three[\\/]/, /[\\/]share[\\/]/, /__tests__/, /island-perf-badge/, /[\\/]rewards[\\/]/, /site-map/, /site-list/, /[\\/]map\.tsx$/, /field-guide/];
+const EXEMPT = [/[\\/]three[\\/]/, /[\\/]share[\\/]/, /__tests__/, /island-perf-badge/];
 function* files(dir) {
   for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
     const full = path.join(dir, entry.name);
