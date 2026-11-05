@@ -21,6 +21,7 @@ describe('islandGrowth', () => {
     expect(levelForCount(6)).toBe(2);
     expect(growth.text).toBe(`Your island grew: ${HOME_STAGES[2].at - 6} more animals to the next level`);
     expect(growth.levelUp).toBe(false);
+    expect(growth.bar).toBe(true);
     // 6 of the way from 3 to 8.
     expect(growth.fraction).toBeCloseTo(3 / 5);
     expect(growth.from).toBeCloseTo(1 / 5);
@@ -34,6 +35,8 @@ describe('islandGrowth', () => {
     const growth = islandGrowth(2, 3)!;
     expect(growth.text).toBe('Your island grew to level 2');
     expect(growth.levelUp).toBe(true);
+    expect(growth.bar).toBe(false);
+    expect(growth.unlock).toBe(HOME_STAGES[1].reward);
     expect(growth.from).toBe(0);
   });
 
@@ -41,6 +44,7 @@ describe('islandGrowth', () => {
     const last = HOME_STAGES[HOME_STAGES.length - 1].at;
     const growth = islandGrowth(last + 1, last + 3)!;
     expect(growth.text).toBe('Your island grew');
+    expect(growth.bar).toBe(false);
     expect(growth.fraction).toBe(1);
   });
 });

@@ -12,7 +12,7 @@ export function rarityFind(rarity: Rarity): string {
  * stages Home draws it with (HOME_STAGES). `fraction` is how far along the way to the next stage it now
  * is (1 at the last stage). Null when nothing new joined: the island is the size it was.
  */
-export function islandGrowth(before: number, after: number): { text: string; from: number; fraction: number; levelUp: boolean } | null {
+export function islandGrowth(before: number, after: number): { text: string; unlock?: string; bar: boolean; from: number; fraction: number; levelUp: boolean } | null {
   if (after <= before) return null;
   const level = levelForCount(after);
   const stage = HOME_STAGES[level - 1];
@@ -21,10 +21,10 @@ export function islandGrowth(before: number, after: number): { text: string; fro
   const fraction = next ? (after - stage.at) / (next.at - stage.at) : 1;
   // Where the bar starts: where it stood, or empty at the start of a new level.
   const from = levelUp ? 0 : next ? (before - stage.at) / (next.at - stage.at) : 1;
-  if (levelUp) return { text: `Your island grew to level ${level}`, from, fraction, levelUp };
-  if (!next) return { text: 'Your island grew', from, fraction, levelUp };
+  if (levelUp) return { text: `Your island grew to level ${level}`, unlock: stage.reward, bar: false, from, fraction, levelUp };
+  if (!next) return { text: 'Your island grew', bar: false, from, fraction, levelUp };
   const remaining = next.at - after;
-  return { text: `Your island grew: ${remaining} more ${remaining === 1 ? 'animal' : 'animals'} to the next level`, from, fraction, levelUp };
+  return { text: `Your island grew: ${remaining} more ${remaining === 1 ? 'animal' : 'animals'} to the next level`, bar: true, from, fraction, levelUp };
 }
 
 /** "Whale Shark", "Whale Shark and Reef Manta Ray", "A, B and C", "A, B and 2 more". */

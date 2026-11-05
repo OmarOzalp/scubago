@@ -1,6 +1,6 @@
 import { router, Stack } from 'expo-router';
 import { useState } from 'react';
-import { ScrollView, StyleSheet, Text, View, type ViewStyle } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, Text, View, type ViewStyle } from 'react-native';
 import Animated, { useReducedMotion } from 'react-native-reanimated';
 
 import { BottomBar } from '@/components/dive/bottom-bar';
@@ -10,7 +10,7 @@ import { NewBadge, Stamp } from '@/components/journal/stamp';
 import { OceanButton } from '@/components/ocean-button';
 import { NewBadgesCelebration } from '@/components/rewards/new-badges';
 import { SpeciesArt } from '@/components/species-art';
-import { CARD_GAP, cardWidthFor, onGridLayout } from '@/components/species-card';
+import { CARD_GAP, onGridLayout, useCardGrid } from '@/components/species-card';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Radius, Spacing, Type } from '@/constants/theme';
@@ -18,7 +18,7 @@ import { useSchemeName, useTheme } from '@/hooks/use-theme';
 import { UNLISTED_ID } from '@/lib/catalog';
 import { formatDiveNumber, milestoneAt } from '@/lib/dives';
 import { leave } from '@/lib/leave';
-import { islandGrowth, nameList, rarityFind } from '@/lib/log-reward';
+import { islandGrowth, rarityFind } from '@/lib/log-reward';
 import { RARITY_COLOR, RARITY_TEXT } from '@/lib/rarity';
 import type { BadgeResult } from '@/lib/rewards';
 import type { Species } from '@/lib/types';
@@ -37,8 +37,6 @@ export type LogResult = {
   dive?: { id: string; number: number; written: boolean };
 };
 
-const COLUMNS = 3;
-
 /**
  * After saving: a reward, not a receipt. The animals just added (as picture cards, with the rarity now
  * said), which of them are new to the field guide, how much the island grew, and any badge earned. Then
@@ -50,12 +48,15 @@ export function SavedReward({
   newBadges,
   onBadgesSeen,
   endOnPage = false,
+  onLogMore,
 }: {
   result: LogResult;
   newBadges: BadgeResult[];
   onBadgesSeen: (ids: string[]) => void;
   /** The page isn't underneath this screen (it replaced the page's saved screen): going to the page opens it. */
   endOnPage?: boolean;
+  /** Start another page (only after writing a new one). */
+  onLogMore?: () => void;
 }) {
   const theme = useTheme();
   const { animals, newSpecies, count, siteName, dive, dexNumber } = result;
@@ -63,7 +64,8 @@ export function SavedReward({
   const growth = islandGrowth(dexNumber - newSpecies.length, dexNumber);
   const newIds = new Set(newSpecies.map((s) => s.id));
   const [inner, setInner] = useState(393 - 2 * Spacing.three);
-  const cardWidth = cardWidthFor(Math.min(inner, 400), COLUMNS);
+  // Three across, two at large text sizes (as the picker does), so long names fit.
+  const { cardWidth } = useCardGrid(Math.min(inner, 400));
 
   // The page is underneath when sightings were added from it, and then it is gone back to; a page just written, or one
   // whose saved screen this replaced ("Add what you saw"), is opened in this screen's place.
@@ -103,12 +105,6 @@ export function SavedReward({
                 <AnimalCard key={s.id} species={s} width={cardWidth} isNew={newIds.has(s.id)} />
               ))}
             </View>
-            {newSpecies.length > 0 ? (
-              <ThemedText accessibilityLiveRegion="polite">
-                <Text style={{ fontFamily: Type.bodyHeavy }}>New in your field guide: </Text>
-                {nameList(newSpecies.map((s) => s.commonName))}
-              </ThemedText>
-            ) : null}
           </View>
         ) : null}
 
@@ -126,6 +122,11 @@ export function SavedReward({
       <BottomBar maxWidth={440}>
         <OceanButton title="Done" onPress={done} style={styles.stretch} />
         <OceanButton title="See your island" variant="secondary" icon="home" onPress={() => router.dismissTo('/(tabs)')} style={styles.stretch} />
+        {onLogMore ? (
+          <Pressable onPress={onLogMore} accessibilityRole="button" accessibilityLabel="Log another dive" style={({ pressed }) => [styles.link, { opacity: pressed ? 0.6 : 1 }]}>
+            <Text style={[styles.linkText, { color: theme.tint }]}>Log another dive</Text>
+          </Pressable>
+        ) : null}
       </BottomBar>
     </ThemedView>
   );
@@ -173,9 +174,12 @@ function IslandGrowth({ growth }: { growth: NonNullable<ReturnType<typeof island
       <ThemedText type="smallBold" style={{ fontFamily: Type.bodyHeavy, fontSize: 16, lineHeight: 22 }} accessibilityLiveRegion="polite">
         {growth.text}
       </ThemedText>
-      <View style={[styles.track, { backgroundColor: theme.backgroundSelected }]} accessibilityElementsHidden importantForAccessibility="no-hide-descendants">
-        <Animated.View style={[styles.fill, { backgroundColor: theme.lagoon }, fill]} />
-      </View>
+      {growth.unlock ? <ThemedText themeColor="textSecondary">{growth.unlock}</ThemedText> : null}
+      {growth.bar ? (
+        <View style={[styles.track, { backgroundColor: theme.backgroundSelected }]} accessibilityElementsHidden importantForAccessibility="no-hide-descendants">
+          <Animated.View style={[styles.fill, { backgroundColor: theme.lagoon }, fill]} />
+        </View>
+      ) : null}
     </Paper>
   );
 }
@@ -193,6 +197,8 @@ const styles = StyleSheet.create({
   name: { fontFamily: Type.bodyHeavy, fontSize: 15, lineHeight: 19, minHeight: 38, paddingHorizontal: 8 },
   find: { fontFamily: Type.bodyHeavy, fontSize: 13, lineHeight: 16, paddingHorizontal: 8 },
   badge: { position: 'absolute', top: 6, right: 6 },
+  link: { minHeight: 44, alignItems: 'center', justifyContent: 'center' },
+  linkText: { fontFamily: Type.bodyBold, fontSize: 15, lineHeight: 20 },
   growth: { gap: Spacing.two + 2 },
   track: { height: 10, borderRadius: 5, overflow: 'hidden' },
   fill: { height: 10, borderRadius: 5 },

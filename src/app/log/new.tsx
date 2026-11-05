@@ -32,7 +32,7 @@ import { useSchemeName, useTheme } from '@/hooks/use-theme';
 import { announce } from '@/lib/announce';
 import { CATALOG_BY_ID, UNLISTED_ID, UNLISTED_NAME_MAX, speciesForSighting } from '@/lib/catalog';
 import { carryOver, emptyDraft, fieldOfProblem, readDraft, type DiveDraft, type DraftField } from '@/lib/dive-draft';
-import { formatDiveNumber, sortDives } from '@/lib/dives';
+import { formatDiveNumber, nextDiveNumber, sortDives } from '@/lib/dives';
 import { recentDiveDate, rememberDiveDate } from '@/lib/last-dive-date';
 import { leave } from '@/lib/leave';
 import { keepPhoto } from '@/lib/photo-files';
@@ -400,8 +400,25 @@ function LogSightingScreen() {
     }
   };
 
+  const logMore = () => {
+    setResult(null);
+    setSelected([]);
+    setCustomName('');
+    setNotes('');
+    setPhotoUri(undefined);
+    setMoreOpen(false);
+    // The next page: numbered after the one just written, with its gear and buddy.
+    const { dives, divesBefore } = useAppStore.getState();
+    const mine = dives.filter((d) => d.userId === myUserId);
+    const next = { ...emptyDraft({ number: nextDiveNumber(mine, divesBefore[myUserId] ?? 0), siteId: null, divedOn: date }), ...carryOver(sortDives(mine)[0], date).patch };
+    setDraft(next);
+    // A page begun afresh: nothing entered yet, though the site and date stay as they were.
+    setStartSnapshot(entrySnapshot({ siteId, selected: [], customName: '', notes: '', date: dateTouched ? date : null, draft: next, privacy: privacyTouched ? privacy : null }));
+    goTo('site');
+  };
+
   if (result) {
-    return <SavedReward result={result} newBadges={newBadges} onBadgesSeen={markBadgesSeen} endOnPage={params.then === 'page'} />;
+    return <SavedReward result={result} onLogMore={newDive ? logMore : undefined} newBadges={newBadges} onBadgesSeen={markBadgesSeen} endOnPage={params.then === 'page'} />;
   }
 
   if (params.edit && (!editing || !canEditSighting(editing, myUserId))) {

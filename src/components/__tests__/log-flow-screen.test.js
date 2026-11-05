@@ -288,20 +288,25 @@ describe('the saved page', () => {
     expect(texts().join(' ')).not.toContain('Your island grew');
   });
 
-  test('a first record: New in your field guide, and how much the island grew; See your island goes Home', async () => {
+  test('a first record: its card is tagged new, the island grew, and See your island goes Home', async () => {
     await writeDive({ animals: true, firstRecord: true });
     const said = texts().join(' ');
-    expect(said).toContain('New in your field guide:');
+    expect(said).not.toContain('New in your field guide:');
     expect(said).toMatch(/Your island grew/);
     expect(titles()).toEqual(['Done', 'See your island']);
     await press(byTitle('See your island'));
     expect(router.dismissTo).toHaveBeenCalledWith('/(tabs)');
   });
 
-  test('"Ask your buddy to sign" and "Log another dive" are not here: the dive’s page and the Log tab have them', async () => {
+  test('"Log another dive" is a small link under the two buttons and starts a page afresh; signing is on the dive’s page', async () => {
     await writeDive({ animals: true });
     expect(titles()).not.toContain('Ask your buddy to sign');
-    expect(titles()).not.toContain('Log another dive');
+    const link = root.root.findAll((n) => n.props.accessibilityLabel === 'Log another dive' && typeof n.props.onPress === 'function')[0];
+    expect(link).toBeDefined();
+    await press(link);
+    expect(mockOptions.title).toBe('Log a dive');
+    expect(mockGuard.preventRemove).toBe(false);
+    await writeDive({ animals: true });
     expect(titles()).not.toContain('Open the page');
   });
 

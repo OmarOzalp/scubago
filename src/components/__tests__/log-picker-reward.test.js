@@ -220,7 +220,8 @@ describe('the reward screen', () => {
     const said = texts();
     expect(said).toContain(picked.commonName);
     expect(said).toContain(`${picked.rarity[0].toUpperCase()}${picked.rarity.slice(1)} find`);
-    expect(said.join(' ')).toContain('New in your field guide: ');
+    expect(said.join(' ')).not.toContain('New in your field guide');
+    expect(root.root.findAll((n) => /new in your field guide/.test(n.props.accessibilityLabel ?? '')).length).toBeGreaterThan(0);
   });
 
   test('the island grew: said with the same stages Home uses', async () => {
