@@ -43,7 +43,7 @@ export function BadgeLadder({
           {ladderTitle(ladder)}
         </ThemedText>
         <Text accessibilityLabel={`${climbed} of ${rungs.length} rungs climbed`} style={[styles.count, { color: theme.textSecondary }]}>
-          {climbed} OF {rungs.length}
+          {climbed} of {rungs.length}
         </Text>
       </View>
       <View style={styles.row}>
@@ -92,9 +92,8 @@ const styles = StyleSheet.create({
     lineHeight: 24,
   },
   count: {
-    fontFamily: Type.label,
-    fontSize: 12,
-    letterSpacing: 1.2,
+    fontFamily: Type.body,
+    fontSize: 13,
   },
   row: {
     flexDirection: 'row',

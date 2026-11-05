@@ -8,7 +8,7 @@ import { Cover } from '@/components/logbook/cover';
 // The book's cover: what the Logbook's first screen held before it became a book (the totals, the badges,
 // the account button, the backup and sync rows), now on the front, a swipe back from the pages.
 jest.mock('@/global.css', () => ({}));
-jest.mock('expo-router', () => ({ router: { push: jest.fn() } }));
+jest.mock('expo-router', () => ({ router: { push: jest.fn(), navigate: jest.fn() } }));
 jest.mock('react-native-safe-area-context', () => ({ useSafeAreaInsets: () => ({ top: 0, bottom: 0, left: 0, right: 0 }) }));
 jest.mock('react-native-reanimated', () => ({ __esModule: true, useReducedMotion: () => true, default: { View: require('react-native').View } }));
 jest.mock('@/hooks/use-rewards', () => ({ useRewards: () => ({ ready: true, badges: [], collections: [], passport: [], islands: [] }) }));
@@ -40,6 +40,7 @@ beforeEach(async () => {
   dives = [dive(22, { bottomTimeMin: 120, maxDepthM: 31 }), dive(23, { bottomTimeMin: 177, maxDepthM: 18 })];
   mockSightings = [sighting('a', 'reef-manta')];
   router.push.mockClear();
+  router.navigate.mockClear();
 });
 afterEach(async () => { if (root) await act(async () => root.unmount()); root = null; });
 
@@ -62,15 +63,15 @@ describe('the cover', () => {
 
   test('holds the three lifetime totals (dives, time, deepest) and the way to the badges', async () => {
     await render();
-    expect(texts()).toEqual(expect.arrayContaining(['Dives', 'Time', 'Deepest', 'Badges & collections']));
+    expect(texts()).toEqual(expect.arrayContaining(['Dives', 'Time', 'Deepest', 'Badges']));
     // 21 before ScubaGo, and the pages numbered on from there.
     expect(texts()).toContain('23');
     // 120 + 177 minutes, short enough to stay on one line of its cell.
     expect(texts()).toContain('4h 57m');
     expect(texts()).toContain('31 m');
     expect(texts().filter((t) => /badges/.test(t))).toEqual(['0 of 0 badges']);
-    await act(async () => button('Badges & collections. 0 of 0 badges')[0].props.onPress());
-    expect(router.push).toHaveBeenCalledWith('/rewards');
+    await act(async () => button('Badges. 0 of 0 badges')[0].props.onPress());
+    expect(router.navigate).toHaveBeenCalledWith({ pathname: '/field-guide', params: { view: 'badges' } });
     // The species count is the field guide's, not the logbook's.
     expect(texts().filter((t) => /species/i.test(t))).toEqual([]);
   });

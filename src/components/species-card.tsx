@@ -4,8 +4,8 @@ import { PaperButton } from '@/components/journal/paper';
 import { NewBadge } from '@/components/journal/stamp';
 import { SpeciesArt } from '@/components/species-art';
 import { Radius, Type } from '@/constants/theme';
-import { useSchemeName, useTheme } from '@/hooks/use-theme';
-import { RARITY_COLOR, RARITY_LABEL, RARITY_TEXT } from '@/lib/rarity';
+import { useTheme } from '@/hooks/use-theme';
+import { RARITY_COLOR, RARITY_LABEL } from '@/lib/rarity';
 import type { Species } from '@/lib/types';
 
 /** The space between cards, across and down. */
@@ -51,15 +51,14 @@ interface Props {
 }
 
 /**
- * A page of the field guide: the species' drawing, its name and rarity, edged along the top in the
- * rarity colour. A species still to find is a pencil sketch with no caption: its dashed plate and
+ * A page of the field guide: the species' drawing and its name, edged along the top in the
+ * rarity colour (the only place the card shows rarity; the word is on the animal's own page). A species still to find is a pencil sketch with no caption: its dashed plate and
  * paler name say so, the rarity colour on its top edge is a hint of what to hunt for, and the words
  * ("Rare, not seen yet") are in what a screen reader says.
  */
 export function SpeciesCard({ species, width, count, isNew = false, onPress }: Props) {
   const theme = useTheme();
-  const scheme = useSchemeName();
-  const seen = count > 0;
+    const seen = count > 0;
   const rarity = RARITY_LABEL[species.rarity];
   const label = `${species.commonName}, ${rarity.toLowerCase()}, ${
     seen ? (count > 1 ? `seen ${count} times` : 'seen once') : 'not seen yet'
@@ -73,10 +72,9 @@ export function SpeciesCard({ species, width, count, isNew = false, onPress }: P
         <Text numberOfLines={2} style={[styles.name, { color: seen ? theme.text : theme.textSecondary }]}>
           {species.commonName}
         </Text>
-        {seen ? (
-          <Text numberOfLines={1} style={[styles.rarity, { color: RARITY_TEXT[scheme][species.rarity] }]}>
-            {rarity}
-            {count > 1 ? <Text style={{ color: theme.textSecondary }}>{`  ×${count}`}</Text> : null}
+        {count > 1 ? (
+          <Text numberOfLines={1} style={[styles.times, { color: theme.textSecondary }]}>
+            {`×${count}`}
           </Text>
         ) : null}
       </View>
@@ -108,7 +106,7 @@ const styles = StyleSheet.create({
     lineHeight: 19,
     minHeight: 38,
   },
-  rarity: {
+  times: {
     fontFamily: Type.bodyHeavy,
     fontSize: 13,
     lineHeight: 15,

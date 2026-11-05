@@ -93,7 +93,7 @@ export function BadgeDetailView({
         <LinkRow icon="fieldGuide" title="See the collection" onPress={() => onOpenCollection(collectionId)} />
       ) : null}
       {badge.kind === 'place' && onOpenPassport ? (
-        <LinkRow icon="stamp" title="Open your passport" onPress={onOpenPassport} />
+        <LinkRow icon="stamp" title="See your stamps" onPress={onOpenPassport} />
       ) : null}
       {!badge.earned && badge.kind !== 'collection' && onLog ? <OceanButton title="Log a dive" variant="log" icon="plus" onPress={onLog} /> : null}
     </View>

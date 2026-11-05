@@ -4,7 +4,7 @@ import { Icon } from '@/components/icon';
 import { PaperButton } from '@/components/journal/paper';
 import { ProgressRing } from '@/components/journal/progress-ring';
 import { Stamp } from '@/components/journal/stamp';
-import { longDate, stampDate } from '@/components/rewards/format';
+import { longDate } from '@/components/rewards/format';
 import { SpeciesArt } from '@/components/species-art';
 import { Radius, Type } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
@@ -72,11 +72,12 @@ export function CollectionCard({ collection, onPress }: { collection: Collection
             {collection.title}
           </Text>
           {completed ? (
-            <Text style={[styles.label, { color: theme.textSecondary }]}>COMPLETE{collection.completedOn ? ` · ${stampDate(collection.completedOn)}` : ''}</Text>
+            <Text style={[styles.sub, { color: theme.textSecondary }]}>Complete{collection.completedOn ? ` · ${longDate(collection.completedOn)}` : ''}</Text>
           ) : (
-            // The ring and the plates under it say the rest; the hint is in what a screen reader says.
+            // "3 of 10", then the next step in plain words ("2 more reef sharks").
             <Text style={[styles.sub, { color: theme.textSecondary }]}>
               <Text style={{ fontFamily: Type.bodyHeavy, color: theme.text }}>{found}</Text> of {total}
+              {collection.hint ? ` · ${collection.hint}` : ''}
             </Text>
           )}
         </View>
@@ -119,12 +120,6 @@ const styles = StyleSheet.create({
     fontFamily: Type.body,
     fontSize: 14,
     lineHeight: 19,
-  },
-  label: {
-    fontFamily: Type.label,
-    fontSize: 12,
-    lineHeight: 16,
-    letterSpacing: 1.2,
   },
   stamp: {
     alignSelf: 'center',

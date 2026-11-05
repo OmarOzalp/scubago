@@ -180,7 +180,7 @@ test('a finished collection says so with its day, a stamp and no "to go"', async
   }).collections.find((c) => c.id === 'set-hammerheads');
   expect(done.completed).toBe(true);
   await act(async () => { root = create(<CollectionCard collection={done} />); });
-  expect(textOf(root)).toContain('COMPLETE · 03 JUN 2026');
+  expect(textOf(root)).toContain('Complete · 3 June 2026');
   expect(collectionLabel(done)).toBe('Hammerheads, complete, 3 June 2026');
 });
 

@@ -24,8 +24,8 @@ export function CollectionsView({ collections, onOpen }: { collections: readonly
             <SectionHeader
               title={title}
               accessory={
-                <ThemedText type="label" accessibilityLabel={`${done} of ${ofKind.length} complete`}>
-                  {done} / {ofKind.length}
+                <ThemedText type="small" themeColor="textSecondary" accessibilityLabel={`${done} of ${ofKind.length} complete`}>
+                  {done} of {ofKind.length}
                 </ThemedText>
               }
             />

@@ -113,8 +113,11 @@ test('the badges page puts every badge on an album page, earned ones with their 
   expect(labels).toContain('First turtle, earned 2 April 2026, new');
   expect(labels.some((l) => /^Ten species, bronze, not earned yet, 5 of 10/.test(l))).toBe(true);
   const text = textOf(root);
-  expect(text).toContain('Latest');
-  for (const title of ['Firsts', 'Milestones', 'Places', 'Collections']) expect(text).toContain(title);
+  // No "Latest" row repeating the grid; each kind says "x of y", and a badge still to earn says its next step.
+  expect(text).not.toContain('Latest');
+  for (const title of ['Firsts', 'Milestones', 'Places', 'Sets']) expect(text).toContain(title);
+  expect(text).toContain('7 of 10');
+  expect(text).toContain('Log your first marine mammal.');
   expect(text).toContain('Next: 5 more species · 5 of 10');
   // A tap opens the badge.
   const tile = root.root.find((n) => n.props.accessibilityLabel === 'First shark, earned 12 March 2026' && typeof n.props.onPress === 'function');
@@ -122,16 +125,14 @@ test('the badges page puts every badge on an album page, earned ones with their 
   expect(onOpenBadge).toHaveBeenCalledWith(expect.objectContaining({ id: 'first-shark' }));
 });
 
-test('an empty logbook has nothing in "Latest", and offers to log a dive', async () => {
-  const onLog = jest.fn();
-  await act(async () => { root = create(<BadgesView badges={emptyRewards.badges} onLog={onLog} />); });
+test('an empty logbook is a page of pencil medals, each with its next step in plain words, and nothing earned', async () => {
+  await act(async () => { root = create(<BadgesView badges={emptyRewards.badges} />); });
   const text = textOf(root);
-  expect(text).toContain('No badges yet');
   expect(text).not.toContain('Latest');
-  expect(labelsOf(root).some((l) => /earned \d/.test(l))).toBe(false);
-  const button = root.root.find((n) => n.props.accessibilityRole === 'button' && typeof n.props.onPress === 'function');
-  await act(async () => button.props.onPress());
-  expect(onLog).toHaveBeenCalled();
+  expect(text).not.toContain('No badges yet');
+  expect(text).toContain('0 of 10');
+  expect(text).toContain('Log your first shark.');
+  expect(labelsOf(root).some((l) => /, earned/.test(l))).toBe(false);
 });
 
 test('a badge in full shows the day it was earned, or how far there is to go and a way to log', async () => {

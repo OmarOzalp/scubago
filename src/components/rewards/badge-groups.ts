@@ -9,7 +9,7 @@ export const KIND_TITLE: Record<BadgeKind, string> = {
   first: 'Firsts',
   milestone: 'Milestones',
   place: 'Places',
-  collection: 'Collections',
+  collection: 'Sets',
 };
 
 /**

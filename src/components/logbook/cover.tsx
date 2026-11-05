@@ -63,7 +63,7 @@ export function Cover({ dives }: { dives: Dive[] }) {
 
       {/* Nothing to show until there is a first dive: badges and stamps start with it. */}
       {dives.length > 0 ? (
-        <LinkRow icon="medal" title="Badges & collections" detail={rewards.ready ? rewardsLine : undefined} role="link" onPress={() => router.push('/rewards')} />
+        <LinkRow icon="medal" title="Badges" detail={rewards.ready ? rewardsLine : undefined} role="link" onPress={() => router.navigate({ pathname: '/field-guide', params: { view: 'badges' } })} />
       ) : null}
 
       {/* Signed out, the log lives only in this phone's storage: say so in one line, once there is something to lose. */}

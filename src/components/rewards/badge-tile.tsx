@@ -38,6 +38,12 @@ export function BadgeTile({ badge, isNew = false, onPress, medal = 72 }: { badge
       <Text numberOfLines={3} style={[styles.title, { color: badge.earned ? theme.text : theme.textSecondary }]}>
         {badge.title}
       </Text>
+      {/* A badge still to earn says its next step in plain words ("Log your first shark."). */}
+      {!badge.earned && badge.hint ? (
+        <Text numberOfLines={3} style={[styles.hint, { color: theme.textSecondary }]}>
+          {badge.hint}
+        </Text>
+      ) : null}
     </Pressable>
   );
 }
@@ -60,6 +66,12 @@ const styles = StyleSheet.create({
     lineHeight: 18,
     textAlign: 'center',
     minHeight: 36,
+  },
+  hint: {
+    fontFamily: Type.body,
+    fontSize: 13,
+    lineHeight: 17,
+    textAlign: 'center',
   },
   new: {
     position: 'absolute',

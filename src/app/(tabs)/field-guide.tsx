@@ -1,10 +1,11 @@
-import { router } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
 import { useMemo, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
 
 import { Icon } from '@/components/icon';
 import { Chip } from '@/components/journal/chip';
 import { Screen, SectionHeader } from '@/components/journal/screen';
+import { BadgesTab, SetsTab } from '@/components/rewards/collection-tabs';
 import { Segmented } from '@/components/segmented';
 import { CARD_GAP, onGridLayout, SpeciesCard, useCardGrid } from '@/components/species-card';
 import { ThemedText } from '@/components/themed-text';
@@ -21,20 +22,62 @@ import type { Category, Species } from '@/lib/types';
 /** First seen within this many days: a "New" ribbon. */
 const NEW_DAYS = 7;
 
-type Status = 'all' | 'seen' | 'unseen';
-const STATUS_OPTIONS: { value: Status; label: string }[] = [
-  { value: 'all', label: 'All' },
-  { value: 'seen', label: 'Seen' },
-  { value: 'unseen', label: 'Not yet seen' },
+/** The three views of one collection. */
+type View_ = 'animals' | 'sets' | 'badges';
+const VIEWS: { value: View_; label: string }[] = [
+  { value: 'animals', label: 'Animals' },
+  { value: 'sets', label: 'Sets' },
+  { value: 'badges', label: 'Badges' },
 ];
+const asView = (v: unknown): View_ => (v === 'sets' || v === 'badges' ? v : 'animals');
 
-/** Every species in the catalogue, by group: drawn in colour once seen, in pencil until then. */
+/** One row of chips: the animals you have seen, all of them, or one group. */
+type Filter = 'seen' | 'all' | Category;
+
+/**
+ * The field guide: Animals (every species in the catalogue, by group: drawn in colour once seen, in pencil
+ * until then), Sets (collections of animals) and Badges. `?view=sets` or `?view=badges` opens on one of them.
+ */
 export default function FieldGuideScreen() {
+  const { view: asked } = useLocalSearchParams<{ view?: string }>();
+  const [view, setView] = useState<View_>(asView(asked));
+  // The guide is a tab, kept mounted: a link to one of its views (the old Rewards screen's) arrives as a new param.
+  const [seenAsk, setSeenAsk] = useState(asked);
+  if (asked !== seenAsk) {
+    setSeenAsk(asked);
+    if (asked !== undefined) setView(asView(asked));
+  }
+  return view === 'animals' ? <AnimalsView view={view} onView={setView} /> : <OtherView view={view} onView={setView} />;
+}
+
+function Heading({ view, onView, species }: { view: View_; onView: (v: View_) => void; species: number }) {
+  return (
+    <>
+      <ThemedText type="display" accessibilityRole="header">
+        {`${species} of ${CATALOG.length} species`}
+      </ThemedText>
+      <Segmented accessibilityLabel="Show" value={view} onChange={onView} options={VIEWS} />
+    </>
+  );
+}
+
+/** Sets and Badges, under the same heading. */
+function OtherView({ view, onView }: { view: View_; onView: (v: View_) => void }) {
+  const mySightings = useMySightings();
+  const seen = useMemo(() => deriveDex(mySightings, CATALOG_BY_ID).length, [mySightings]);
+  return (
+    <Screen tab>
+      <Heading view={view} onView={onView} species={seen} />
+      {view === 'sets' ? <SetsTab /> : <BadgesTab />}
+    </Screen>
+  );
+}
+
+function AnimalsView({ view, onView }: { view: View_; onView: (v: View_) => void }) {
   const mySightings = useMySightings();
   // The column's width, measured: a phone's to begin with (the static web render has no window).
   const [inner, setInner] = useState(358);
-  const [filter, setFilter] = useState<Category | 'all'>('all');
-  const [status, setStatus] = useState<Status>('all');
+  const [filter, setFilter] = useState<Filter>('all');
   const [query, setQuery] = useState('');
 
   const dex = useMemo(() => deriveDex(mySightings, CATALOG_BY_ID), [mySightings]);
@@ -52,13 +95,13 @@ export default function FieldGuideScreen() {
   // The group chips, the seen toggle and the search narrow together. A search lists what it found in
   // one grid, best match first: once the diver has typed a name, the groups' order is no use to them.
   const typed = query.trim();
-  const keep = (s: Species) => (filter === 'all' || s.category === filter) && (status === 'all' || dexById.has(s.id) === (status === 'seen'));
+  const keep = (s: Species) => (filter === 'all' ? true : filter === 'seen' ? dexById.has(s.id) : s.category === filter);
   const found = typed ? searchSpecies(CATALOG, typed).filter(keep) : null;
   const sections = found
     ? []
     : groups.map(({ cat, species }) => ({ cat, species, listed: species.filter(keep) })).filter((g) => g.listed.length > 0);
   const listedCount = found ? found.length : sections.reduce((n, g) => n + g.listed.length, 0);
-  const narrowed = typed !== '' || filter !== 'all' || status !== 'all';
+  const narrowed = typed !== '' || filter !== 'all';
 
   // Three cards a row on a phone (two at a large text size), more on a wide screen.
   const { cardWidth } = useCardGrid(inner);
@@ -79,23 +122,19 @@ export default function FieldGuideScreen() {
 
   return (
     <Screen tab keyboardDismissMode="on-drag">
-      <View style={styles.head}>
-        <CollectionsLink />
-        <ThemedText type="display" accessibilityRole="header">
-          {`${dex.length} of ${CATALOG.length} species`}
-        </ThemedText>
-      </View>
+      <Heading view={view} onView={onView} species={dex.length} />
 
       <View style={styles.controls}>
         <SearchField value={query} onChange={setQuery} />
-        <Segmented accessibilityLabel="Show species" kind="choice" value={status} onChange={setStatus} options={STATUS_OPTIONS} />
         <ScrollView
           horizontal
           showsHorizontalScrollIndicator={false}
-          accessibilityLabel="Filter by group"
+          accessibilityLabel="Filter animals"
           style={styles.chipsScroll}
           contentContainerStyle={styles.chips}>
-          {/* No "All" chip: the toggle above has one. A chip that is on turns off when it is tapped again. */}
+          {/* One row: Seen, All, then the groups. A chip that is on turns off (to All) when it is tapped again. */}
+          <Chip label="Seen" selected={filter === 'seen'} onPress={() => setFilter(filter === 'seen' ? 'all' : 'seen')} />
+          <Chip label="All" selected={filter === 'all'} onPress={() => setFilter('all')} />
           {groups.map(({ cat }) => (
             <Chip
               key={cat}
@@ -109,15 +148,15 @@ export default function FieldGuideScreen() {
       </View>
 
       {dex.length === 0 && !narrowed ? (
-        <ThemedText type="caption" themeColor="textSecondary">
-          Species you log are painted in.
+        <ThemedText type="small" themeColor="textSecondary">
+          Animals you log appear here.
         </ThemedText>
       ) : null}
 
       {/* Said aloud as it changes, so someone who can't see the grid hears what the filters did. */}
       {narrowed ? (
         <ThemedText type="caption" themeColor="textSecondary" accessibilityLiveRegion="polite">
-          {listedCount === 0 ? emptyMessage(typed, status) : `Showing ${listedCount} of ${CATALOG.length} species`}
+          {listedCount === 0 ? emptyMessage(typed, filter) : `Showing ${listedCount} of ${CATALOG.length} species`}
         </ThemedText>
       ) : null}
 
@@ -145,31 +184,10 @@ export default function FieldGuideScreen() {
   );
 }
 
-/**
- * The way to the collections, where the page's eyebrow used to be: a small link at the top right.
- * It is 44 points to hit, and its margins give the extra back, so it costs the page one line.
- */
-function CollectionsLink() {
-  const theme = useTheme();
-  return (
-    <Pressable
-      onPress={() => router.push({ pathname: '/rewards', params: { tab: 'collections' } })}
-      accessibilityRole="link"
-      accessibilityLabel="Collections"
-      accessibilityHint="Opens your collections"
-      style={({ pressed }) => [styles.collections, pressed && { backgroundColor: theme.backgroundSelected }]}>
-      <ThemedText type="smallBold" themeColor="tint">
-        Collections
-      </ThemedText>
-      <Icon name="chevronRight" size={14} color={theme.tint} weight="bold" />
-    </Pressable>
-  );
-}
-
-/** What the guide says when the filters leave nothing: the search first, else the seen toggle (the group chips always have species). */
-function emptyMessage(typed: string, status: Status): string {
-  if (typed) return `Nothing matches “${typed}”${status === 'all' ? '' : ` among the ${status === 'seen' ? 'seen' : 'unseen'} species`}.`;
-  return status === 'seen' ? 'You haven’t seen any of these yet. Log a dive and the ones you meet show up here.' : 'You’ve seen every one of these.';
+/** What the guide says when the filters leave nothing: the search first, else the Seen chip (the group chips always have species). */
+function emptyMessage(typed: string, filter: Filter): string {
+  if (typed) return `Nothing matches “${typed}”${filter === 'seen' ? ' among the animals you have seen' : ''}.`;
+  return 'You haven’t seen any of these yet. Log a dive and the ones you meet show up here.';
 }
 
 /** A search box over the species: a magnifier, the field, and a button to clear it (44pt, since the field is small). */
@@ -206,21 +224,7 @@ function SearchField({ value, onChange }: { value: string; onChange: (text: stri
 }
 
 const styles = StyleSheet.create({
-  head: {
-    gap: 2,
-  },
-  collections: {
-    alignSelf: 'flex-end',
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 2,
-    minHeight: 44,
-    marginVertical: -12,
-    paddingLeft: 12,
-    paddingRight: 4,
-    borderRadius: Radius.sm,
-  },
-  // The search, the toggle and the chips belong together, so they sit closer than the page's other blocks.
+  // The search and the chips belong together, so they sit closer than the page's other blocks.
   controls: {
     gap: 10,
   },

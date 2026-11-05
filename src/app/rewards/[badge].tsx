@@ -53,7 +53,7 @@ function BadgeScreen() {
           rungs={ladderOf(badges, badge)}
           onOpenBadge={(b) => router.replace({ pathname: '/rewards/[badge]', params: { badge: b.id } })}
           onOpenCollection={(collectionId) => router.push({ pathname: '/rewards/collections/[id]', params: { id: collectionId } })}
-          onOpenPassport={() => router.push('/rewards/passport')}
+          onOpenPassport={() => router.navigate({ pathname: '/map', params: { show: 'dived' } })}
           onLog={() => router.push('/log/new')}
         />
       </Screen>
