@@ -81,7 +81,8 @@ test('the hidden id is a copy of Cod Hole, and Cod Hole has no giant moray of it
 test('a sighting logged at a hidden copy is on the page of the site it stands for', async () => {
   mockSiteId = 'cod-hole';
   await act(async () => { root = create(<SiteDetailScreen />); });
-  expect(root.root.findAll((n) => n.props.accessibilityLabel === '1 sightings, 1 species').length).toBeGreaterThan(0);
+  // The key facts line counts it: the animal seen here.
+  expect(text()).toContain('1 animal seen');
   expect(text()).toContain('Giant Moray');
   expect(text()).not.toContain('None yet');
 });
@@ -90,7 +91,7 @@ test('the hidden id’s own page is the listed site’s, so a sighting logged fr
   mockSiteId = HIDDEN;
   await act(async () => { root = create(<SiteDetailScreen />); });
   expect(text()).toContain(SITES_BY_ID.get('cod-hole').blurb);
-  expect(root.root.findAll((n) => n.props.accessibilityLabel === '1 sightings, 1 species').length).toBeGreaterThan(0);
+  expect(text()).toContain('1 animal seen');
   const log = root.root.findAll((n) => n.props.title === 'Log a dive here' && typeof n.props.onPress === 'function')[0];
   await act(async () => log.props.onPress());
   expect(router.push).toHaveBeenCalledWith({ pathname: '/log/new', params: { siteId: 'cod-hole' } });
@@ -117,8 +118,8 @@ test('"Your dives here" lists the diver’s dives at the site and at its hidden 
   ];
   await act(async () => { root = create(<SiteDetailScreen />); });
   expect(text()).toContain('Your dives here');
-  // The count sits at the right of the heading; a screen reader reads it as "3 dives".
-  expect(root.root.findAll((n) => n.props.accessibilityLabel === '3 dives').length).toBeGreaterThan(0);
+  // The count is in the key facts line under the site's name, not beside the heading.
+  expect(text()).toContain('3 dives here');
   const rows = diveRows();
   expect(rows.map((r) => r.props.accessibilityLabel.split(' · ')[0])).toEqual(['No. 7', 'No. 5', 'No. 3']);
   expect(rows[0].props.accessibilityLabel).toMatch(/20 m · 45 min · 2 sightings$/);
@@ -132,7 +133,7 @@ test('the log button comes right under the key facts line, before the diver’s 
   mockDives = [dive(3, 'cod-hole', '2026-02-01')];
   await act(async () => { root = create(<SiteDetailScreen />); });
   const t = text();
-  const order = [' animals seen', 'Log a dive here', 'Your dives here', 'What divers see here', 'Recent sightings'].map((heading) => t.indexOf(heading));
+  const order = ['1 dive here', 'Log a dive here', 'Your dives here', 'What divers see here', 'Recent sightings'].map((heading) => t.indexOf(heading));
   expect(order).not.toContain(-1); // the key facts line comes first
   expect(order).toEqual([...order].sort((a, b) => a - b));
 });
