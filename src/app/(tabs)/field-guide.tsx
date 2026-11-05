@@ -5,6 +5,7 @@ import { Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native
 import { Icon } from '@/components/icon';
 import { Chip } from '@/components/journal/chip';
 import { Screen, SectionHeader } from '@/components/journal/screen';
+import { useRewards } from '@/hooks/use-rewards';
 import { BadgesTab, SetsTab } from '@/components/rewards/collection-tabs';
 import { Segmented } from '@/components/segmented';
 import { CARD_GAP, onGridLayout, SpeciesCard, useCardGrid } from '@/components/species-card';
@@ -50,11 +51,12 @@ export default function FieldGuideScreen() {
   return view === 'animals' ? <AnimalsView view={view} onView={setView} /> : <OtherView view={view} onView={setView} />;
 }
 
-function Heading({ view, onView, species }: { view: View_; onView: (v: View_) => void; species: number }) {
+/** The big heading follows the view: species seen, sets complete, or badges earned. */
+function Heading({ view, onView, title }: { view: View_; onView: (v: View_) => void; title: string }) {
   return (
     <>
       <ThemedText type="display" accessibilityRole="header">
-        {`${species} of ${CATALOG.length} species`}
+        {title}
       </ThemedText>
       <Segmented accessibilityLabel="Show" value={view} onChange={onView} options={VIEWS} />
     </>
@@ -63,11 +65,14 @@ function Heading({ view, onView, species }: { view: View_; onView: (v: View_) =>
 
 /** Sets and Badges, under the same heading. */
 function OtherView({ view, onView }: { view: View_; onView: (v: View_) => void }) {
-  const mySightings = useMySightings();
-  const seen = useMemo(() => deriveDex(mySightings, CATALOG_BY_ID).length, [mySightings]);
+  const { badges, collections } = useRewards();
+  const title =
+    view === 'sets'
+      ? `${collections.filter((c) => c.completed).length} of ${collections.length} sets complete`
+      : `${badges.filter((b) => b.earned).length} of ${badges.length} badges`;
   return (
     <Screen tab>
-      <Heading view={view} onView={onView} species={seen} />
+      <Heading view={view} onView={onView} title={title} />
       {view === 'sets' ? <SetsTab /> : <BadgesTab />}
     </Screen>
   );
@@ -122,7 +127,7 @@ function AnimalsView({ view, onView }: { view: View_; onView: (v: View_) => void
 
   return (
     <Screen tab keyboardDismissMode="on-drag">
-      <Heading view={view} onView={onView} species={dex.length} />
+      <Heading view={view} onView={onView} title={`${dex.length} of ${CATALOG.length} species`} />
 
       <View style={styles.controls}>
         <SearchField value={query} onChange={setQuery} />
@@ -170,8 +175,8 @@ function AnimalsView({ view, onView }: { view: View_; onView: (v: View_) => void
               <SectionHeader
                 title={CATEGORY_LABEL[cat]}
                 accessory={
-                  <ThemedText type="label" accessibilityLabel={`${seenCount} of ${species.length} seen`}>
-                    {seenCount} / {species.length}
+                  <ThemedText type="small" themeColor="textSecondary" accessibilityLabel={`${seenCount} of ${species.length} seen`}>
+                    {seenCount} of {species.length}
                   </ThemedText>
                 }
               />

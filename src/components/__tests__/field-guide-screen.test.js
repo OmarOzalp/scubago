@@ -125,7 +125,7 @@ test('"Seen" shows only the animals the diver has logged, each group still count
   // Only groups with something left are listed; the sharks have one, of all the sharks there are.
   const sharks = CATALOG.filter((s) => s.category === 'shark').length;
   expect(headings()).toEqual(['3 of 120 species', CATEGORY_LABEL.shark, CATEGORY_LABEL.ray, CATEGORY_LABEL.turtle]);
-  expect(textOf()).toContain(`1 / ${sharks}`);
+  expect(textOf()).toContain(`1 of ${sharks}`);
   expect(chip('Seen').props['aria-selected']).toBe(true);
 
   await act(async () => chip('All').props.onPress());
@@ -347,4 +347,14 @@ test('a link with ?view=badges or ?view=sets opens on that view', async () => {
   mockParams = { view: 'sets' };
   await render();
   expect(segment('Sets').props['aria-selected']).toBe(true);
+});
+
+test('the big heading follows the view: species seen, sets complete, badges earned', async () => {
+  withRewards();
+  await render();
+  expect(headings()[0]).toBe(`${LOGGED.length} of ${CATALOG.length} species`);
+  await press(segment('Sets'));
+  expect(headings()[0]).toBe(`${mockRewards.collections.filter((c) => c.completed).length} of ${mockRewards.collections.length} sets complete`);
+  await press(segment('Badges'));
+  expect(headings()[0]).toBe(`${mockRewards.badges.filter((b) => b.earned).length} of ${mockRewards.badges.length} badges`);
 });
