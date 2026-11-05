@@ -10,7 +10,9 @@ import { SITES } from '@/data/sites';
 // The theme module imports the web stylesheet, which Jest can't parse.
 jest.mock('@/global.css', () => ({}));
 jest.mock('expo-image', () => ({ Image: () => null }));
-jest.mock('expo-router', () => ({ router: { push: jest.fn(), back: jest.fn() } }));
+jest.mock('expo-router', () => ({ router: { push: jest.fn(), back: jest.fn() }, useLocalSearchParams: () => ({}) }));
+const mockRewards = { passport: [], ready: true };
+jest.mock('@/hooks/use-rewards', () => ({ useRewards: () => mockRewards }));
 jest.mock('react-native-safe-area-context', () => ({ useSafeAreaInsets: () => ({ top: 0, bottom: 0, left: 0, right: 0 }) }));
 jest.mock('@/lib/confirm', () => ({ confirmAction: jest.fn(async () => true) }));
 jest.mock('@/lib/announce', () => ({ announce: jest.fn() }));

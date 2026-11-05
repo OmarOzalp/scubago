@@ -325,7 +325,7 @@ const styles = StyleSheet.create({
   },
   creditText: {
     fontFamily: Type.bodyBold,
-    fontSize: 11,
+    fontSize: 13,
     lineHeight: 15,
     textDecorationLine: 'underline',
   },

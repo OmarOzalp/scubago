@@ -13,7 +13,9 @@ import ExploreMapScreen from '@/app/(tabs)/map';
 // The theme module imports the web stylesheet, which Jest can't parse.
 jest.mock('@/global.css', () => ({}));
 jest.mock('expo-image', () => ({ Image: () => null }));
-jest.mock('expo-router', () => ({ router: { push: jest.fn(), back: jest.fn() } }));
+jest.mock('expo-router', () => ({ router: { push: jest.fn(), back: jest.fn() }, useLocalSearchParams: () => ({}) }));
+const mockRewards = { passport: [], ready: true };
+jest.mock('@/hooks/use-rewards', () => ({ useRewards: () => mockRewards }));
 jest.mock('react-native-safe-area-context', () => ({ useSafeAreaInsets: () => ({ top: 0, bottom: 0, left: 0, right: 0 }) }));
 jest.mock('@/lib/confirm', () => ({ confirmAction: jest.fn(async () => true) }));
 jest.mock('@/components/external-link', () => ({ ExternalLink: ({ children, ...props }) => <extlink {...props}>{children}</extlink> }));
@@ -62,9 +64,9 @@ const label = (n) => n.props.accessibilityLabel ?? '';
 const button = (name) => root.root.findAll((n) => typeof n.props.onPress === 'function' && label(n) === name)[0];
 const box = (node) => StyleSheet.flatten(typeof node.props.style === 'function' ? node.props.style({ pressed: false }) : node.props.style);
 
-test('the tab says "Explore" once, with no eyebrow over it, and the page\'s own words are the title, the button and the search (at most 10 words)', async () => {
+test('the tab says "Sites" once, with no eyebrow over it, and the page\'s own words are the title, the button and the search (at most 10 words)', async () => {
   await render();
-  expect(texts().filter((t) => t === 'Explore')).toHaveLength(1);
+  expect(texts().filter((t) => t === 'Sites')).toHaveLength(1);
   expect(texts().some((t) => /^dive sites$/i.test(t))).toBe(false);
   // Over the map the page has no list to count: the title, "Add site", and the search bar's own words.
   expect(texts().reduce((n, t) => n + words(t), 0)).toBeLessThanOrEqual(10);

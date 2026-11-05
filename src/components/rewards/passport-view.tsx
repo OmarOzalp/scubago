@@ -170,7 +170,7 @@ const styles = StyleSheet.create({
   },
   ghostText: {
     fontFamily: Type.label,
-    fontSize: 12,
+    fontSize: 13,
     lineHeight: 14,
     letterSpacing: 1,
   },

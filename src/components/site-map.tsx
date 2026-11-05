@@ -479,7 +479,7 @@ const styles = StyleSheet.create({
   keyText: {
     flexShrink: 1,
     fontFamily: Type.bodyBold,
-    fontSize: 12,
+    fontSize: 13,
     lineHeight: 16,
   },
   halo: {

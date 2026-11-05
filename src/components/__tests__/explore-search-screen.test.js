@@ -11,7 +11,9 @@ import { announce } from '@/lib/announce';
 // The theme module imports the web stylesheet, which Jest can't parse.
 jest.mock('@/global.css', () => ({}));
 jest.mock('expo-image', () => ({ Image: () => null }));
-jest.mock('expo-router', () => ({ router: { push: jest.fn(), back: jest.fn() } }));
+jest.mock('expo-router', () => ({ router: { push: jest.fn(), back: jest.fn() }, useLocalSearchParams: () => ({}) }));
+const mockRewards = { passport: [], ready: true };
+jest.mock('@/hooks/use-rewards', () => ({ useRewards: () => mockRewards }));
 jest.mock('react-native-safe-area-context', () => ({ useSafeAreaInsets: () => ({ top: 0, bottom: 0, left: 0, right: 0 }) }));
 jest.mock('@/lib/confirm', () => ({ confirmAction: jest.fn(async () => true) }));
 jest.mock('@/lib/announce', () => ({ announce: jest.fn() }));
@@ -79,7 +81,7 @@ const input = () => root.root.findByType(TextInput);
 // The headings as a screen reader finds them: the views and texts themselves, not the components that made them.
 const headingNodes = () => root.root.findAll((n) => n.props.accessibilityRole === 'header' && typeof n.type === 'string');
 // (without the page's own title)
-const headings = () => headingNodes().map((n) => n.props.accessibilityLabel ?? n.children.join('')).filter((h) => h !== 'Explore');
+const headings = () => headingNodes().map((n) => n.props.accessibilityLabel ?? n.children.join('')).filter((h) => h !== 'Sites');
 const press = async (label) => act(async () => pressable(label).props.onPress());
 const render = async () => { await act(async () => { root = create(<ExploreMapScreen />); }); };
 const openSearch = async () => { await press(PLACEHOLDER); };

@@ -85,13 +85,13 @@ const styles = StyleSheet.create({
   },
   line: {
     fontFamily: Type.label,
-    fontSize: 12,
+    fontSize: 13,
     lineHeight: 15,
     letterSpacing: 1,
   },
   small: {
     fontFamily: Type.label,
-    fontSize: 12,
+    fontSize: 13,
     lineHeight: 15,
     letterSpacing: 1.4,
   },

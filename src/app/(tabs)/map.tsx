@@ -600,7 +600,7 @@ const styles = StyleSheet.create({
   },
   chipCount: {
     fontFamily: Type.bodyHeavy,
-    fontSize: 12,
+    fontSize: 13,
     lineHeight: 18,
   },
   cardButtons: {

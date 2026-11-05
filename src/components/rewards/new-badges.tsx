@@ -154,7 +154,7 @@ const styles = StyleSheet.create({
   },
   date: {
     fontFamily: Type.label,
-    fontSize: 12,
+    fontSize: 13,
     letterSpacing: 1.3,
     marginTop: 2,
   },
