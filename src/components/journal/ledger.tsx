@@ -39,13 +39,13 @@ export function Ledger({ items, bare = false }: { items: LedgerItem[]; bare?: bo
             {item.value}
             {item.unit ? <Text style={styles.unit}>{item.unit}</Text> : null}
           </Text>
-          {/* A one-word label ("COLLECTIONS") shrinks to fit rather than break in the middle of the word. */}
+          {/* A one-word label ("Collections") shrinks to fit rather than break in the middle of the word. */}
           <Text
             numberOfLines={item.label.includes(' ') ? 2 : 1}
             adjustsFontSizeToFit={!item.label.includes(' ')}
             minimumFontScale={0.75}
-            style={[styles.label, item.label.length > 8 && !item.label.includes(' ') && styles.longLabel, { color: theme.textSecondary }]}>
-            {item.label.toUpperCase()}
+            style={[styles.label, { color: theme.textSecondary }]}>
+            {item.label}
           </Text>
         </View>
       ))}
@@ -84,13 +84,9 @@ const styles = StyleSheet.create({
     fontSize: 14,
   },
   label: {
-    fontFamily: Type.bodyHeavy,
-    fontSize: 12,
-    lineHeight: 15,
-    letterSpacing: 0.8,
+    fontFamily: Type.bodySemiBold,
+    fontSize: 13,
+    lineHeight: 16,
     textAlign: 'center',
-  },
-  longLabel: {
-    letterSpacing: 0.4,
   },
 });

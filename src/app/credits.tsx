@@ -20,13 +20,13 @@ export default function CreditsScreen() {
   const theme = useTheme();
   return (
     <Screen>
-      <ScreenHeader eyebrow="About the data" title="Data & credits" />
+      <ScreenHeader title="Data & credits" />
       <ThemedText>
         ScubaGo’s own sightings are the ones divers log in the app. Everything on this page is public data made by other people and organisations. It is shown with credit, and ScubaGo hasn’t checked it.
       </ThemedText>
 
       <View style={styles.section}>
-        <SectionHeader eyebrow="Source" title="iNaturalist and its observers" />
+        <SectionHeader title="iNaturalist and its observers" />
         <Paper>
           <ThemedText>{INATURALIST_CREDIT.description}</ThemedText>
           <Rule />
@@ -49,7 +49,7 @@ export default function CreditsScreen() {
       </View>
 
       <View style={styles.section}>
-        <SectionHeader eyebrow="Source" title="OBIS and its data providers" />
+        <SectionHeader title="OBIS and its data providers" />
         <Paper>
           <ThemedText>{OBIS_CREDIT.description}</ThemedText>
           <Rule />
@@ -69,7 +69,7 @@ export default function CreditsScreen() {
       </View>
 
       <View style={styles.section}>
-        <SectionHeader eyebrow="Rarity" title="How rare each animal is" />
+        <SectionHeader title="How rare each animal is" />
         <Paper>
           <ThemedText>
             {REAL_RARITY.size > 0
@@ -82,7 +82,7 @@ export default function CreditsScreen() {
       </View>
 
       <View style={styles.section}>
-        <SectionHeader eyebrow="Source" title="OpenStreetMap" />
+        <SectionHeader title="OpenStreetMap" />
         <Paper>
           <ThemedText>Dive site locations © OpenStreetMap contributors, available under the Open Database License (ODbL).</ThemedText>
           <Rule />
@@ -92,7 +92,7 @@ export default function CreditsScreen() {
       </View>
 
       <View style={styles.section}>
-        <SectionHeader eyebrow="Pictures" title="Species photographs" />
+        <SectionHeader title="Species photographs" />
         <Paper>
           <ThemedText>
             The photographs on a species’ page come from iNaturalist, under licences that allow any use with credit (CC0, CC BY or CC BY-SA). Each one is credited to its photographer beneath the photo, and the credit opens the photo on iNaturalist, where its licence is stated. Photos inside a site’s recent observations follow the stricter rule above: CC0 or CC BY only, each with its credit.

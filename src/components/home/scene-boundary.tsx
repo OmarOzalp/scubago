@@ -25,7 +25,7 @@ export class SceneBoundary extends Component<{ children: ReactNode; fallback?: R
 const styles = StyleSheet.create({
   container: { flex: 1, width: '100%', minHeight: 200, justifyContent: 'center' },
   message: { position: 'absolute', bottom: 12, left: 12, right: 12, borderRadius: 14, backgroundColor: '#edf4e9', padding: 12, alignItems: 'center', gap: 6 },
-  text: { color: '#365e4c', fontSize: 12 },
+  text: { color: '#365e4c', fontSize: 13 },
   retry: { minHeight: 44, justifyContent: 'center', paddingHorizontal: 22 },
   button: { color: '#285e4e', fontSize: 13, fontWeight: '600' },
 });

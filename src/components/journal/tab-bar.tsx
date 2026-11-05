@@ -154,7 +154,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   label: {
-    fontSize: 12,
+    fontSize: 13,
     lineHeight: 16,
   },
   // The circle (56) stands TabBarOverhang above the icons (32), so all five labels line up.

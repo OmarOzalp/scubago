@@ -177,7 +177,7 @@ const styles = StyleSheet.create({
   flex: { flex: 1 },
   head: { flexDirection: 'row', alignItems: 'center', gap: 14, padding: Spacing.three },
   numberBox: { minWidth: 70, borderWidth: 1.5, borderRadius: Radius.md, paddingHorizontal: 8, paddingVertical: 4, alignItems: 'center' },
-  no: { fontFamily: Type.label, fontSize: 12, letterSpacing: 1 },
+  no: { fontFamily: Type.label, fontSize: 13, letterSpacing: 1 },
   number: { fontFamily: Type.display, fontSize: 28, lineHeight: 34 },
   site: { fontFamily: Type.display, fontSize: 22, lineHeight: 28 },
   fact: { flexDirection: 'row', alignItems: 'center', gap: 8, minHeight: 48, paddingHorizontal: Spacing.three, borderTopWidth: 1 },

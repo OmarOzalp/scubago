@@ -73,7 +73,7 @@ export function DiveRow({ dive, siteName, species, pending = false, onPress }: {
 const styles = StyleSheet.create({
   row: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 10, paddingLeft: 4, paddingRight: 12, minHeight: 72 },
   margin: { width: 60, alignItems: 'center', alignSelf: 'stretch', justifyContent: 'center', borderRightWidth: 1, paddingRight: 4 },
-  no: { fontFamily: Type.label, fontSize: 12, letterSpacing: 1 },
+  no: { fontFamily: Type.label, fontSize: 13, letterSpacing: 1 },
   number: { fontFamily: Type.display, fontSize: 24, lineHeight: 28 },
   body: { flex: 1, gap: 2 },
   site: { fontFamily: Type.bodyHeavy, fontSize: 15, lineHeight: 20 },

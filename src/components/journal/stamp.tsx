@@ -76,7 +76,7 @@ export function Stamp({ lines, shape = 'rect', color, rotate = -8, animate = fal
           {first}
         </Text>
         {rest.map((line) => (
-          <Text key={line} style={{ fontFamily: Type.label, fontSize: 12, lineHeight: 14, color: ink, letterSpacing: 1 }}>
+          <Text key={line} style={{ fontFamily: Type.label, fontSize: 13, lineHeight: 14, color: ink, letterSpacing: 1 }}>
             {line}
           </Text>
         ))}
@@ -101,7 +101,7 @@ export function Seal({ label = 'Verified', color, rotate = 10, animate = false, 
       ]}>
       <View style={{ flex: 1, borderRadius: 999, borderWidth: 1, borderColor: ink, alignItems: 'center', justifyContent: 'center', gap: 1 }}>
         <Icon name="check" size={size * 0.26} color={ink} weight="bold" />
-        <Text style={{ fontFamily: Type.bodyHeavy, fontSize: 12, letterSpacing: 0.6, color: ink }}>{label.toUpperCase()}</Text>
+        <Text style={{ fontFamily: Type.bodyHeavy, fontSize: 13, letterSpacing: 0.6, color: ink }}>{label.toUpperCase()}</Text>
       </View>
     </Animated.View>
   );
@@ -112,7 +112,7 @@ export function NewBadge({ label = 'New', style }: { label?: string; style?: Sty
   const theme = useTheme();
   return (
     <View style={[{ backgroundColor: theme.sun, borderColor: theme.text, borderWidth: 1.5, borderRadius: 8, paddingHorizontal: 7, paddingVertical: 1 }, style]}>
-      <Text style={{ fontFamily: Type.bodyHeavy, fontSize: 12, lineHeight: 16, color: '#1D2B45', letterSpacing: 0.5 }}>{label.toUpperCase()}</Text>
+      <Text style={{ fontFamily: Type.bodyHeavy, fontSize: 13, lineHeight: 16, color: '#1D2B45', letterSpacing: 0.5 }}>{label.toUpperCase()}</Text>
     </View>
   );
 }

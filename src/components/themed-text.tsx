@@ -19,7 +19,7 @@ export type ThemedTextProps = TextProps & {
     | 'heading'
     /** Fraunces italic: captions and scientific names. */
     | 'caption'
-    /** Courier Prime capitals: logbook labels. */
+    /** Figtree semibold, normal case: a field's or a row's label. */
     | 'label'
     /** Fraunces: a figure in a ledger (dives, depth, species). */
     | 'number';
@@ -87,11 +87,9 @@ export const TextStyles = StyleSheet.create({
     lineHeight: 21,
   },
   label: {
-    fontFamily: Type.label,
-    fontSize: 12,
-    lineHeight: 16,
-    letterSpacing: 1.4,
-    textTransform: 'uppercase',
+    fontFamily: Type.bodySemiBold,
+    fontSize: 13,
+    lineHeight: 18,
   },
   number: {
     fontFamily: Type.display,
@@ -111,7 +109,7 @@ export const TextStyles = StyleSheet.create({
   },
   code: {
     fontFamily: Type.label,
-    fontSize: 12,
+    fontSize: 13,
   },
 });
 

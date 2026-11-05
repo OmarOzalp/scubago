@@ -110,7 +110,7 @@ const styles = StyleSheet.create({
   },
   rarity: {
     fontFamily: Type.bodyHeavy,
-    fontSize: 12,
+    fontSize: 13,
     lineHeight: 15,
   },
   badge: {
