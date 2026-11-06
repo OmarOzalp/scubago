@@ -21,7 +21,8 @@ export type SwimRigModel = 'tiger-shark' | 'whale-shark' | 'great-white-shark' |
   | 'lionfish' | 'batfish'
   | 'grey-reef-shark' | 'blacktip-reef-shark' | 'whitetip-reef-shark' | 'sand-tiger-shark'
   | 'napoleon-wrasse' | 'bumphead-parrotfish' | 'goliath-grouper'
-  | 'bull-shark' | 'bull-ray' | 'cownose-ray';
+  | 'bull-shark' | 'bull-ray' | 'cownose-ray'
+  | 'nurse-shark' | 'zebra-shark' | 'tasselled-wobbegong';
 
 export const SHARK_BONES = [
   'Root', 'Head', 'Spine1', 'Spine2', 'RearBody', 'TailBase', 'Tail', 'TailUpper', 'TailLower',
@@ -643,6 +644,30 @@ export const SWIM_RIGS: Record<SwimRigModel, SwimRigSpec> = {
     frequency: .7, wavelength: .92, tailAmplitude: .105, rootAmplitude: .004, headAmplitude: .006, envelope: 2, headSteady: .6,
     lobes: { upper: .1, lower: .06, upperAngle: .7, lowerAngle: .9, lag: 1 },
     dorsal: .035, pectoral: { flap: .03, pitch: .03, turn: .5, climb: .28 }, roll: .02, bend: .9, hover: .12,
+  },
+  // A nurse shark: it lies on the bottom for most of the day, pumping at its gills; when it moves it is slow
+  // and sinuous, the stout body swaying along its length behind a steady head, the pectorals held low.
+  'nurse-shark': {
+    kind: 'shark', joints: [.3, .46, .6, .71, .8], dorsalParent: 'Spine2', dorsalAt: .48,
+    frequency: .4, wavelength: 1, tailAmplitude: .11, rootAmplitude: .004, headAmplitude: .005, envelope: 2, headSteady: .5,
+    lobes: { upper: .1, lower: .02, upperAngle: .7, lowerAngle: .9, lag: 1 },
+    dorsal: .03, pectoral: { flap: .025, pitch: .03, turn: .5, climb: .25 }, roll: .015, bend: .8, hover: .06,
+  },
+  // A zebra shark: it rests propped on its pectorals in the current; swimming, the long, slender body and
+  // the great tail swing in one slow, wide wave (the tail is half its length), the head steady in front.
+  'zebra-shark': {
+    kind: 'shark', joints: [.25, .41, .57, .7, .84], dorsalParent: 'Spine1', dorsalAt: .38,
+    frequency: .36, wavelength: 1.15, tailAmplitude: .12, rootAmplitude: .004, headAmplitude: .005, envelope: 1.8, headSteady: .5,
+    lobes: { upper: .09, lower: .04, upperAngle: .6, lowerAngle: .9, lag: 1 },
+    dorsal: .03, pectoral: { flap: .03, pitch: .03, turn: .5, climb: .25 }, roll: .018, bend: .85, hover: .05,
+  },
+  // A wobbegong: an ambush predator that lies like a rug for long spells; moving, it undulates like an eel,
+  // the flat body and short tail rippling in a tight wave while the broad head stays still.
+  'tasselled-wobbegong': {
+    kind: 'shark', joints: [.27, .43, .58, .7, .82], dorsalParent: 'Spine2', dorsalAt: .52,
+    frequency: .34, wavelength: .85, tailAmplitude: .12, rootAmplitude: .006, headAmplitude: .006, envelope: 1.6, headSteady: .4,
+    lobes: { upper: .1, lower: .05, upperAngle: .7, lowerAngle: .9, lag: 1 },
+    dorsal: .03, pectoral: { flap: .035, pitch: .03, turn: .5, climb: .25 }, roll: .02, bend: .9, hover: .05,
   },
   // A slow, heavy swimmer that hangs almost motionless over the wreck: lazy, shallow beats and the
   // pectorals sculling to hold it level, the two big dorsals riding steady.

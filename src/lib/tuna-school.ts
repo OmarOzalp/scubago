@@ -113,6 +113,10 @@ export const SCHOOL_REACTIONS: Record<MarineModel, { threat: number; gap: number
   'cownose-ray': { threat: 0, gap: .2 },
   'loggerhead-turtle': { threat: 0, gap: .32 },
   'goliath-grouper': { threat: .35, gap: .34 },
+  // The carpet sharks lie on the bottom and take little notice of a school above them.
+  'nurse-shark': { threat: .15, gap: .3 },
+  'zebra-shark': { threat: .1, gap: .3 },
+  'tasselled-wobbegong': { threat: .15, gap: .26 },
   lionfish: { threat: .1, gap: .16 },
   batfish: { threat: 0, gap: .18 },
   // Reef animals keep to the reef (reef-life.ts): the school never meets them.

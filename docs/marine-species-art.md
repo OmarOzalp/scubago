@@ -528,3 +528,40 @@ swimming should be watched on physical hardware before release.
 - [FishBase: Aetomylaeus bovinus](https://www.fishbase.se/summary/Aetomylaeus-bovinus.html)
 - [Florida Museum: bull shark](https://www.floridamuseum.ufl.edu/discover-fish/species-profiles/carcharhinus-leucas/)
 - [Florida Museum: cownose ray](https://www.floridamuseum.ufl.edu/discover-fish/species-profiles/rhinoptera-bonasus/)
+
+## Batch v10: carpet sharks
+
+Three bottom-living carpet sharks, each its own design file in `scripts/art/species/` on the shark rig, with the pieces they
+share (rounded fin outlines, barbels, the wobbegong's branching tassels, spiracle slits, cell patterns) in
+`scripts/art/species/carpet-sharks.ts`. Built from the field marks in iNaturalist photos (the species photos and a contact
+sheet of a dozen more of each, looked over by eye), Florida Museum, FishBase and WoRMS; references only, nothing copied.
+Like the whitetip reef shark they rest on the bottom for long spells (`hover` in the rig, `pause` in `MOVEMENT`) and then
+move slowly; `STANCES` and `SPECIES_STANCES` keep them close above the seabed.
+
+| Species | Model | Motion | Triangles | GLB bytes |
+| --- | --- | --- | ---: | ---: |
+| Nurse shark | A thick, almost cylindrical, plain yellowish-brown body paler below; a broad, rounded, flat head with tiny eyes, a spiracle behind each, a small mouth underneath and a short barbel at each nostril; five small gill slits; short, pointed-tipped pectorals; two backswept dorsal fins of nearly the same size set far back, the first over the big pelvic fins; a small anal fin; a tail with one long upper lobe and almost no lower one | Slow and sinuous: a long wave through the stout body behind a steady head (0.4 beats/s, the head following half the sway); lies still for most of the time, the tail all but stopped and the pectorals sculling to hold it | 4,004 | 97,420 |
+| Zebra shark | A slender, pale tan adult covered in small dark brown spots, with five ridges along it (one on the back, two on each flank) running from behind the head to the tail, a rounded snout with a short barbel at each nostril, small eyes with a large spiracle behind each; a big, rounded first dorsal, a smaller second one and a small anal fin; broad, rounded, wing-like pectorals; a very long, narrow tail, nearly half the length | One slow, wide wave down the long body and tail (0.36 beats/s, a long wavelength so the tail swings in a single sweep); rests propped on its pectorals, the tail barely stirring | 4,305 | 126,708 |
+| Tasselled wobbegong | The flattest of the three: a very broad, flat head ringed at the front and down each side by a beard of branching, flattened skin flaps (two staggered rows along the sides, a row across the snout, and two more under the chin); a huge terminal mouth; small eyes close together on top, a spiracle behind each; broad, rounded pectoral and pelvic fins held out flat; two low dorsal fins far back; a short tail; pale sand and dark brown in a net of blotches and darker saddles across the back, the fins marked the same way, pale below | Lies like a rug; moving, it undulates like an eel (the tightest wave, 0.34 beats/s) with the broad head still; the slowest of the three and the longest rests | 4,818 | 126,584 |
+
+Review notes. Studio renders of the actual assets (the app's lighting, side, top, three-quarter and head close-ups, swim poses
+and rest poses) were read against the iNaturalist photos: the nurse shark's rounded, blunt head and tiny eyes, its pointed,
+backswept dorsals and thin, long upper tail lobe came from them (the first draft had round dorsals and a fan-shaped tail,
+and a blunt, wide-flanged head that looked like a bulldozer; all were redrawn); the zebra shark's first draft had too few,
+too small spots and a tall, flag-like tail, now a long, low blade with many five-sided spots (five triangles each, far
+cheaper than the kit's spot, with four-sided ones reading as squares) and ridges sitting on the loft's columns so that each
+is a real fold of the body; the wobbegong's tassels first came out as hair-thin needles (the blade's flat side was lying
+along the surface normal, which at the head's edge points straight along the stem) and then as a regimented row of
+thorns; now broad, flat blades fanned out horizontally in staggered rows and turned a little differently each. Its coat is a
+cellular pattern painted on vertices, which cannot hold a thin line at this triangle budget (thin ribbon lines on top were
+tried and looked like cracks, and were taken out), so up close the net is soft and blotchy rather than crisp. At island scale
+(`docs/art-previews/island-carpet-sharks.png`, the app's camera: the three with a whitetip reef shark and a lemon shark for
+scale) they tell apart by outline and colour: the nurse shark plain and rounded, the zebra shark pale and spotted with its
+thread of a tail, the wobbegong a mottled, frilled rug.
+
+Previews: `docs/art-previews/nurse-shark.png`, `zebra-shark.png` and `tasselled-wobbegong.png` (three-quarter, top and side
+views of the swimming pose) and `island-carpet-sharks.png`.
+
+References: [Florida Museum: nurse shark](https://www.floridamuseum.ufl.edu/discover-fish/species-profiles/ginglymostoma-cirratum/),
+[Florida Museum: zebra shark](https://www.floridamuseum.ufl.edu/discover-fish/species-profiles/stegostoma-tigrinum/),
+[FishBase: tasselled wobbegong](https://www.fishbase.se/summary/Eucrossorhinus-dasypogon.html).

@@ -65,6 +65,9 @@ import { buildGoliathGrouper } from './species/goliath-grouper';
 import { buildBullShark } from './species/bull-shark';
 import { buildBullRay } from './species/bull-ray';
 import { buildCownoseRay } from './species/cownose-ray';
+import { buildNurseShark } from './species/nurse-shark';
+import { buildZebraShark } from './species/zebra-shark';
+import { buildTasselledWobbegong } from './species/tasselled-wobbegong';
 
 const OUT = resolve(dirname(process.argv[1]), '../../assets/models/marine') + '/';
 
@@ -116,6 +119,9 @@ const SPECIES: Partial<Record<SwimRigModel, { build: () => { mesh: MeshBuilder; 
   'sand-tiger-shark': { build: buildSandTigerShark, scientificName: 'Carcharias taurus', reference: 'https://www.floridamuseum.ufl.edu/discover-fish/species-profiles/carcharias-taurus/' },
   'napoleon-wrasse': { build: buildNapoleonWrasse, scientificName: 'Cheilinus undulatus', reference: 'https://www.fishbase.se/summary/Cheilinus-undulatus.html' },
   'bumphead-parrotfish': { build: buildBumpheadParrotfish, scientificName: 'Bolbometopon muricatum', reference: 'https://www.fishbase.se/summary/Bolbometopon-muricatum.html' },
+  'nurse-shark': { build: buildNurseShark, scientificName: 'Ginglymostoma cirratum', reference: 'https://www.floridamuseum.ufl.edu/discover-fish/species-profiles/ginglymostoma-cirratum/' },
+  'zebra-shark': { build: buildZebraShark, scientificName: 'Stegostoma tigrinum', reference: 'https://www.floridamuseum.ufl.edu/discover-fish/species-profiles/stegostoma-tigrinum/' },
+  'tasselled-wobbegong': { build: buildTasselledWobbegong, scientificName: 'Eucrossorhinus dasypogon', reference: 'https://www.fishbase.se/summary/Eucrossorhinus-dasypogon.html' },
   'goliath-grouper': { build: buildGoliathGrouper, scientificName: 'Epinephelus itajara', reference: 'https://www.floridamuseum.ufl.edu/discover-fish/species-profiles/epinephelus-itajara/' },
   'bull-shark': { build: buildBullShark, scientificName: 'Carcharhinus leucas', reference: 'https://www.floridamuseum.ufl.edu/discover-fish/species-profiles/carcharhinus-leucas/' },
   'bull-ray': { build: buildBullRay, scientificName: 'Aetomylaeus bovinus', reference: 'https://www.fishbase.se/summary/Aetomylaeus-bovinus.html' },

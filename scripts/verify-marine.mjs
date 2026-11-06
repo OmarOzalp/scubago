@@ -21,7 +21,8 @@ const SPECIES = ['whale-shark', 'tiger-shark', 'great-white-shark', 'scalloped-h
   'dugong', 'sawfish', 'lemon-shark', 'southern-stingray', 'tarpon',
   'grey-reef-shark', 'blacktip-reef-shark', 'whitetip-reef-shark', 'hawksbill-turtle', 'napoleon-wrasse', 'bumphead-parrotfish',
   'sand-tiger-shark', 'loggerhead-turtle', 'goliath-grouper', 'lionfish', 'batfish',
-  'bull-shark', 'bull-ray', 'cownose-ray'];
+  'bull-shark', 'bull-ray', 'cownose-ray',
+  'nurse-shark', 'zebra-shark', 'tasselled-wobbegong'];
 /**
  * Animals with a pose of their own to check beyond swimming and turning: the reef's (resting,
  * jetting), the barracuda hanging still, the sailfish's sail, the clownfish rowing in place.

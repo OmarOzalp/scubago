@@ -409,6 +409,27 @@ export const MOVEMENT: Record<MarineModel, Movement> = {
     depth: -.1, bob: .02, bobPeriod: 24,
     pause: { every: 22, hold: 10, slow: .1, burst: 1.2, dash: 1 },
   },
+  // A nurse shark lies on the bottom for long spells, pumping at its gills, then pads slowly along it.
+  'nurse-shark': {
+    cruise: .2, swing: .1, swingPeriod: 28, surge: 0, turnRate: .35, turnEase: .5, bank: .2, bankMax: .08, bankEase: 1.2, lazyRoll: 0, tilt: 0,
+    halfLength: 1, halfWidth: .34, personalSpace: .26, avoidance: .85, islandClearance: .8, roam: [.05, .6], roamPeriod: 50, patrol: .1,
+    depth: -.3, bob: .01, bobPeriod: 22,
+    pause: { every: 20, hold: 18, slow: .02, burst: 1.3, dash: 1 },
+  },
+  // A zebra shark rests on the sand, propped on its pectorals, then glides off on long, slow sweeps of its tail.
+  'zebra-shark': {
+    cruise: .22, swing: .1, swingPeriod: 26, surge: 0, turnRate: .38, turnEase: .5, bank: .25, bankMax: .1, bankEase: 1.3, lazyRoll: 0, tilt: 0,
+    halfLength: 1, halfWidth: .36, personalSpace: .26, avoidance: .85, islandClearance: .8, roam: [.1, .7], roamPeriod: 46, patrol: .15,
+    depth: -.3, bob: .012, bobPeriod: 22,
+    pause: { every: 22, hold: 16, slow: .02, burst: 1.3, dash: 1 },
+  },
+  // A wobbegong lies like a rug on the reef nearly all the time, and only now and then crawls to a new spot.
+  'tasselled-wobbegong': {
+    cruise: .12, swing: .08, swingPeriod: 30, surge: 0, turnRate: .3, turnEase: .45, bank: .1, bankMax: .05, bankEase: 1, lazyRoll: 0, tilt: 0,
+    halfLength: .72, halfWidth: .34, personalSpace: .2, avoidance: .9, islandClearance: .7, roam: [.05, .5], roamPeriod: 60, patrol: 0,
+    depth: -.4, bob: .005, bobPeriod: 24,
+    pause: { every: 24, hold: 26, slow: .01, burst: 1.2, dash: 1 },
+  },
   // Heavy and steady, round the wreck and out over the sand, up for a breath now and then.
   'loggerhead-turtle': {
     cruise: .32, swing: .1, swingPeriod: 22, surge: 0, turnRate: .36, turnEase: .5, bank: .55, bankMax: .13, bankEase: 1.3, lazyRoll: 0, tilt: 0,
@@ -479,6 +500,7 @@ export const ARRIVAL_PACE: Partial<Record<MarineModel, number>> = {
   'galapagos-shark': 1.2, 'thresher-shark': 1.1, 'giant-trevally': 1.3, 'lemon-shark': 1.15, tarpon: 1.2,
   'grey-reef-shark': 1.25, 'blacktip-reef-shark': 1.2, 'whitetip-reef-shark': 1.1, 'sand-tiger-shark': 1.05,
   'bull-shark': 1.2, 'bull-ray': 1.05, 'cownose-ray': 1.15,
+  'nurse-shark': 1, 'zebra-shark': 1, 'tasselled-wobbegong': .9,
 };
 /** An arrival that takes longer than this (s) counts as arrived anyway. */
 const ARRIVAL_LIMIT = 30;

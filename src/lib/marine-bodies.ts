@@ -64,6 +64,10 @@ const HULL_ROWS: Record<MarineModel, readonly [number, number, number, number, n
   'sand-tiger-shark': [.28, .24, .08, .15, .54, .53, 1.5],
   'loggerhead-turtle': [.18, .24, .1, .07, .18, .68, .68],
   'goliath-grouper': [.3, .2, .14, .22, .29, .38, 1.05],
+  // The carpet sharks: low, broad bodies that lie on the bottom.
+  'nurse-shark': [.23, .27, .15, .16, .38, .45, 1.38],
+  'zebra-shark': [.17, .2, .1, .11, .31, .54, 1.37],
+  'tasselled-wobbegong': [.08, .09, .06, .09, .17, .41, 1],
   lionfish: [.17, .2, .04, .09, .21, .3, .3],
   batfish: [.34, .34, .11, .09, .37, .16, .38],
   'day-octopus': [.06, .11, .1, .1, .25, .56, .55],
@@ -252,7 +256,7 @@ export const STANCES: Record<MarineModel, Stance> = {
   'sand-tiger-shark': reef(.35), 'reef-fish': reef(.5),
   'bull-shark': reef(.35), 'bull-ray': reef(.45), 'cownose-ray': reef(.5),
   // Bottom-dwellers: close above the seabed, following it.
-  'southern-stingray': bottom(.04), sawfish: bottom(.06), 'whitetip-reef-shark': bottom(.05), 'goliath-grouper': bottom(.08), lionfish: bottom(.06), batfish: bottom(.08),
+  'southern-stingray': bottom(.04), sawfish: bottom(.06), 'whitetip-reef-shark': bottom(.05), 'goliath-grouper': bottom(.08), 'nurse-shark': bottom(.06), 'zebra-shark': bottom(.04), 'tasselled-wobbegong': bottom(.03), lionfish: bottom(.06), batfish: bottom(.08),
   'leafy-seadragon': bottom(.12), dugong: bottom(.08),
   // The reef's own (reef-life.ts steers these along the bottom itself).
   'day-octopus': bottom(.03), 'giant-cuttlefish': reef(.4), 'giant-moray': bottom(.03), clownfish: bottom(.12),

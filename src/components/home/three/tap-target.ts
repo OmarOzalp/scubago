@@ -17,6 +17,7 @@ export const MARINE_SIZE = {
   'grey-reef-shark': 1.95, 'blacktip-reef-shark': 1.65, 'whitetip-reef-shark': 1.8, 'hawksbill-turtle': 1.15, 'napoleon-wrasse': 1.45, 'bumphead-parrotfish': 1.15,
   'sand-tiger-shark': 2.5, 'loggerhead-turtle': 1.35, 'goliath-grouper': 1.75, lionfish: .5, batfish: .62,
   'bull-shark': 2.3, 'bull-ray': 1.2, 'cownose-ray': 1.05,
+  'nurse-shark': 2.3, 'zebra-shark': 2.3, 'tasselled-wobbegong': 1.7,
   ...REEF_SIZE,
 } as const;
 
