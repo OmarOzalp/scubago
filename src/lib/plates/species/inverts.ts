@@ -12,10 +12,10 @@ import { softUnion } from '../soft';
 import { emptyGeom, type Fill, type Line, type Paint, type Part, type PlateGeom } from '../types';
 
 /** A point offset from p, marked as a sharp corner for spline(). */
-const corner = (p: Pt, d: Pt): Ctrl => [p[0] + d[0], p[1] + d[1], 1];
+export const corner = (p: Pt, d: Pt): Ctrl => [p[0] + d[0], p[1] + d[1], 1];
 
 /** A rounded-oblong outline (a superellipse), narrowing towards the rear by `taper`. */
-function oblong(c: Pt, a: number, b: number, n = 2.6, taper = 0, steps = 120, wave = 0, freq = 14): Pt[] {
+export function oblong(c: Pt, a: number, b: number, n = 2.6, taper = 0, steps = 120, wave = 0, freq = 14): Pt[] {
   return Array.from({ length: steps }, (_, i) => {
     const t = (i / steps) * Math.PI * 2;
     const ct = Math.cos(t);
@@ -34,14 +34,14 @@ function oblong(c: Pt, a: number, b: number, n = 2.6, taper = 0, steps = 120, wa
 }
 
 /** A leaf or petal from base to tip, `w` wide. */
-function leaf(base: Pt, tip: Pt, w: number, bulge = 0.45): Pt[] {
+export function leaf(base: Pt, tip: Pt, w: number, bulge = 0.45): Pt[] {
   const d = sub(tip, base);
   const n = mul(norm(perp(d)), w / 2);
   return spline([base, add(lerp(base, tip, bulge), n), [tip[0], tip[1], 1], add(lerp(base, tip, bulge), mul(n, -1))], true);
 }
 
 /** A tapering segmented limb (shrimp legs, antennae) along a path. */
-function limb(path: Ctrl[], w0: number, w1: number, paint: Paint, joints = 0, edge = 0.7): Part {
+export function limb(path: Ctrl[], w0: number, w1: number, paint: Paint, joints = 0, edge = 0.7): Part {
   const c = resample(spline(path, false), 50);
   const lines: Line[] = [];
   for (let k = 1; k <= joints; k++) {
