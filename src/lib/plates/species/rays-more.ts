@@ -2,8 +2,8 @@
  * Four more rays from above (disc width = 100): three eagle-ray kin told apart by head and
  * colour (bull, cownose, bat) and the blotched fantail ray, a big round stingray.
  */
-import { add, blob, type Ctrl, ellipse, inside, perp, type Pt, rng, spline } from '../kit';
-import { mirror, ray, type RaySpec } from '../ray';
+import { blob, ellipse, inside, type Pt, rng, spline } from '../kit';
+import { ray, type RaySpec } from '../ray';
 import type { PlateDef } from '../registry';
 import { rotateGeom } from '../render';
 import type { Fill, Line, PlateGeom } from '../types';
@@ -229,7 +229,3 @@ export const MORE_RAYS: Record<string, PlateDef> = {
   'bat-ray': R(bat, { back: '#4E4030', belly: '#EFEADC', dark: '#1E1812' }, -90),
   'blotched-fantail-ray': R(fantail, { back: '#34383D', belly: '#EDEBE6', dark: '#16181B' }, -90),
 };
-export type { Ctrl };
-void add;
-void perp;
-void mirror;

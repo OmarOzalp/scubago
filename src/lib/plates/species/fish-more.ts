@@ -2,7 +2,7 @@
  * Five more reef fish, side on, facing left, 1% of total length per unit: the bluestreak cleaner
  * wrasse, Picasso triggerfish, masked butterflyfish, pygmy sweeper and longnose hawkfish.
  */
-import { ellipse, lerp, type Pt, spline } from '../kit';
+import { ellipse, spline } from '../kit';
 import { fish, type FishCtx, type FishSpec } from '../fish';
 import { shapeIn } from '../marks';
 import type { PlateDef } from '../registry';
@@ -190,7 +190,6 @@ const hawkfish: FishSpec = {
   softBelly: false,
   engraving: 'smooth',
   extra: (c) => {
-    const s = c.s;
     const red = '#D2402A';
     const marks: Fill[] = [];
     // Horizontal red lines along the flank (the long axis of the net) …

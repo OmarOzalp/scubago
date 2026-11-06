@@ -28,6 +28,41 @@ describe('species plates', () => {
     }
   });
 
+  it('gives each of the twenty newest species a drawing of its own, apart from its look-alikes', () => {
+    const lookAlikes: [string, string[]][] = [
+      ['epaulette-shark', ['brownbanded-bamboo-shark', 'zebra-shark']],
+      ['brownbanded-bamboo-shark', ['epaulette-shark', 'zebra-shark']],
+      ['angelshark', ['tasselled-wobbegong']],
+      ['blue-shark', ['shortfin-mako', 'silvertip-shark']],
+      ['silvertip-shark', ['grey-reef-shark', 'whitetip-reef-shark', 'blacktip-reef-shark']],
+      ['bull-ray', ['spotted-eagle-ray', 'cownose-ray', 'bat-ray']],
+      ['cownose-ray', ['bat-ray', 'bull-ray']],
+      ['bat-ray', ['bull-ray', 'cownose-ray']],
+      ['blotched-fantail-ray', ['marbled-ray']],
+      ['short-finned-pilot-whale', ['orca']],
+      ['common-minke-whale', ['humpback-whale']],
+      ['common-dolphin', ['bottlenose-dolphin', 'spinner-dolphin']],
+      ['bluestreak-cleaner-wrasse', []],
+      ['picasso-triggerfish', ['clown-triggerfish', 'queen-triggerfish', 'titan-triggerfish']],
+      ['masked-butterflyfish', ['raccoon-butterflyfish']],
+      ['pygmy-sweeper', []],
+      ['longnose-hawkfish', []],
+      ['banded-coral-shrimp', ['harlequin-shrimp']],
+      ['varicose-wart-slug', ['anna-chromodoris']],
+      ['hairy-squat-lobster', []],
+    ];
+    const ink = (id: string) => {
+      const d = drawPlate(fit(PLATES[id].build()), PLATES[id].palette, { width: 150 });
+      return JSON.stringify(d.shapes);
+    };
+    for (const [id, others] of lookAlikes) {
+      expect(hasPlate(id)).toBe(true);
+      // Not the generic shark drawing that stands in until a species has its own.
+      expect(ink(id)).not.toBe(ink('requiem'));
+      for (const other of others) expect(ink(id)).not.toBe(ink(other));
+    }
+  });
+
   it('draws the same plate every time', () => {
     for (const id of ['whale-shark', 'day-octopus', 'clownfish', 'giant-clam']) {
       const a = drawPlate(fit(PLATES[id].build()), PLATES[id].palette, { width: 120 });

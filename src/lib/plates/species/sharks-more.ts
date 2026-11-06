@@ -2,13 +2,13 @@
  * Five more sharks: the epaulette and brownbanded bamboo sharks (small, slender bottom-dwellers
  * with long low tails), the blue shark, the silvertip, and the angelshark (drawn from above).
  */
-import { add, blob, ellipse, lerp, mul, norm, perp, type Pt, spline, sub } from '../kit';
-import { bar, edgeBand, scatter, scatterIn } from '../marks';
+import { add, blob, ellipse, type Pt, spline } from '../kit';
+import { bar, between, edgeBand, scatter, scatterIn } from '../marks';
 import type { PlateDef } from '../registry';
-import { type CaudalSpec, requiem, shark, type SharkCtx, type SharkSpec, variant, bodyShape } from '../shark';
+import { type CaudalSpec, requiem, shark, type SharkSpec, variant, bodyShape } from '../shark';
 import { atX, finTip, lineAlong, tAtX } from '../side';
 import { topShark, type TopSharkSpec } from '../topshark';
-import type { Fill, Line, Part } from '../types';
+import type { Fill, Line } from '../types';
 
 /** A long low tail with hardly any lower lobe, as the carpet-shark relatives have. */
 const lowTail = (upperY: number, lowerX: number, lowerY: number): CaudalSpec => ({
@@ -156,20 +156,18 @@ const silvertip: SharkSpec = variant(requiem, {
       const idx = (p: Pt) => outline.reduce((bi, q, i) => (Math.hypot(q[0] - p[0], q[1] - p[1]) < Math.hypot(outline[bi][0] - p[0], outline[bi][1] - p[1]) ? i : bi), 0);
       const i0 = Math.min(idx(a), idx(b));
       const i1 = Math.max(idx(a), idx(b));
-      const seg = outline.slice(i0, i1 + 1);
-      void seg;
       return edgeBand(outline, i0 / (outline.length - 1), i1 / (outline.length - 1), w, 'light', 1, 1);
     };
     const flank: Fill = { poly: spline([atX(s, 24, 0.5), atX(s, 40, 0.5), atX(s, 58, 0.52), atX(s, 58, 0.58), atX(s, 40, 0.56), atX(s, 24, 0.55)], true), paint: 'light', o: 0.35, clip: 'trunk' };
     return {
       marks: [flank],
       median: [
-        { fin: 'd1', marks: [white(c.d1!, 0.62), rim(c.d1!.outline, c.d1!.apex, c.d1!.outline[c.d1!.outline.length - 1], 0.9)] },
-        { fin: 'd2', marks: [white(c.d2!, 0.45)] },
-        { fin: 'anal', marks: [white(c.anal!, 0.45)] },
+        { fin: 'd1', marks: [white(c.d1!, 0.62), rim(c.d1!.outline, c.d1!.apex, c.d1!.outline[c.d1!.outline.length - 1], 1.2)] },
+        { fin: 'd2', marks: [white(c.d2!, 0.4)] },
+        { fin: 'anal', marks: [white(c.anal!, 0.4)] },
         { fin: 'pelvic', marks: [white(c.pelvic!, 0.5)] },
         { fin: 'pec', marks: [white(c.pec, 0.74), rim(c.pec.outline, c.pec.apex, c.pec.outline[c.pec.outline.length - 1], 1)] },
-        { fin: 'caudal', marks: [white(c.caudal, 0.62), white(c.caudal.lower, 0.55)] },
+        { fin: 'caudal', marks: [white(c.caudal, 0.62), white(c.caudal.lower, 0.55), edgeBand(c.caudal.outline, ...between(c.caudal.outline, c.caudal.apex, c.caudal.lower.apex), (t) => 2.1 * Math.sin(Math.PI * Math.min(1, t / 0.9)) ** 0.6, 'light', 1, 0.95)] },
       ],
     };
   },
@@ -244,4 +242,3 @@ export const MORE_SHARKS: Record<string, PlateDef> = {
   ...Object.fromEntries(Object.entries(SPECS).map(([id, { spec, palette, seed }]) => [id, { build: () => shark({ ...spec, seed }), palette }])),
   angelshark: { build: () => topShark({ ...angel, seed: 17 }), palette: { back: '#A39A78', belly: '#E4DCC4', fin: '#A39A78', dark: '#4A402C' } },
 };
-export type { SharkCtx };

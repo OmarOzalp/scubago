@@ -141,7 +141,6 @@ const common: SharkSpec = {
     };
   },
 };
-void shapeIn;
 
 const M = (spec: SharkSpec, palette: PlateDef['palette'], seed: number): PlateDef => ({ build: () => shark({ ...spec, seed }), palette });
 
