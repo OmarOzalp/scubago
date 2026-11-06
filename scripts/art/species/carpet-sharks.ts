@@ -4,7 +4,7 @@
  * (Worley) pattern for painting reticulated or spotted skin.
  */
 import { Vector3 } from 'three';
-import { mix, TAU, type RGB } from './kit';
+import { blendSkins, curve, mix, noise, smoothstep, TAU, type RGB } from './kit';
 import type { SharkContext } from './shark';
 
 /**
@@ -189,4 +189,92 @@ export function frond(
     const bd = dir.clone().applyAxisAngle(up, side * spread * (1 + .25 * (i >> 1)));
     strand(part, start, bd, length * (.55 - .12 * i + .1), width * .8, sag, bend, mix(color, tipColor, t), tipColor);
   }
+}
+
+/**
+ * A flat, irregular polygon lying on the skin at `[s, theta]` (a tile of the wobbegong's pale mosaic): `sides` corners
+ * whose radii and angles are jittered by `jitter` (0..1) from `seed`, `r` across in world units, `squash` stretching it along the body.
+ */
+export function tile(ctx: SharkContext, s: number, theta: number, r: number, color: RGB, sides = 6, squash = 1, lift = .0009, jitter = .35, seed = 0) {
+  const { mesh, raw, surface, normal, skin } = ctx;
+  mesh.begin();
+  const gs = raw(s + .002, theta).sub(raw(s - .002, theta)).length() / .004;
+  const gt = raw(s, theta + .01).sub(raw(s, theta - .01)).length() / .02;
+  const c = mesh.vertex(surface(s, theta, lift * 1.4), color, skin(s), normal(s, theta));
+  const spin = 6.28 * noise(seed * 3.1, 2);
+  const ring = Array.from({ length: sides }, (_, i) => {
+    const a = TAU * i / sides + spin + jitter * .6 * noise(seed * 5.3 + i * 1.7, 4);
+    const rr = r * (1 + jitter * noise(seed * 7.9 + i * 2.3, 6));
+    const ps = s + Math.cos(a) * rr * squash / gs, pt = theta + Math.sin(a) * rr / gt;
+    return mesh.vertex(surface(ps, pt, lift), color, skin(ps), normal(ps, pt));
+  });
+  for (let i = 0; i < sides; i++) mesh.tri(c, ring[i], ring[(i + 1) % sides]);
+  mesh.end({ closed: false, normals: false, outward: (i) => new Vector3(mesh.normals[i * 3], mesh.normals[i * 3 + 1], mesh.normals[i * 3 + 2]) });
+}
+
+const airfoil = (u: number) => 5 * (.2969 * Math.sqrt(u) - .126 * u - .3516 * u * u + .2843 * u ** 3 - .1036 * u ** 4);
+
+/** What a paired fin was made from (as `markedFins().paired` takes it): enough to find a point on its upper face again. */
+export type FinPlan = {
+  rootS: number; theta: number; span: number; droop: number; sweep?: number; sink?: number; thickness: number;
+  le: readonly (readonly [number, number])[]; te: readonly (readonly [number, number])[]; bone?: (left: boolean) => string;
+};
+
+/** The upper face of a paired fin: a point at span fraction `a` and chord fraction `u`, its normal, its in-plane axes, its skin and its chord length. */
+export function finSurface(ctx: SharkContext, plan: FinPlan, left: boolean) {
+  const sink = plan.sink ?? .015, le = curve(plan.le), te = curve(plan.te), side = left ? 1 : -1, theta = side * plan.theta;
+  const origin = ctx.surface(plan.rootS, theta, 0).addScaledVector(ctx.normal(plan.rootS, theta), -sink);
+  const out = new Vector3(side * Math.cos(plan.droop), -Math.sin(plan.droop), 0).normalize();
+  const back = new Vector3(0, 0, -1).applyAxisAngle(new Vector3(0, 1, 0), -side * (plan.sweep ?? 0));
+  const up = new Vector3(Math.sin(plan.droop) * side, Math.cos(plan.droop), 0).normalize();
+  return {
+    out, back, up,
+    chord: (a: number) => { const b = a * plan.span + sink; return te(b) - le(b); },
+    at(a: number, u: number, lift = 0) {
+      const b = a * plan.span + sink, v = b / (plan.span + sink);
+      const p = origin.clone().addScaledVector(out, b).addScaledVector(back, le(b) + u * (te(b) - le(b)));
+      return p.addScaledVector(up, airfoil(u) * plan.thickness * (1 - .78 * v) + lift);
+    },
+    skin(p: Vector3, a: number) {
+      const base = ctx.skin(ctx.sOf(p.z));
+      const v = (a * plan.span + sink) / (plan.span + sink);
+      return plan.bone ? blendSkins(base, { [plan.bone(left)]: 1 }, smoothstep(.1, .5, v)) : base;
+    },
+  };
+}
+
+/** A flat irregular polygon on a fin's upper face (a spot or a tile), `r` across in world units; skipped where it would hang over an edge. */
+export function finTile(ctx: SharkContext, fin: ReturnType<typeof finSurface>, a: number, u: number, r: number, color: RGB, sides = 6, jitter = .3, seed = 0) {
+  if (Math.min(u, 1 - u) * fin.chord(a) < r * 1.15 || a < .06 || a > .97) return;
+  const { mesh } = ctx, c = fin.at(a, u, .0012), w = fin.skin(c, a), spin = 6.28 * noise(seed * 3.1, 2);
+  mesh.begin();
+  const centre = mesh.vertex(c, color, w, fin.up);
+  const ring = Array.from({ length: sides }, (_, i) => {
+    const ang = TAU * i / sides + spin + jitter * .6 * noise(seed * 5.3 + i * 1.7, 4);
+    const rr = r * (1 + jitter * noise(seed * 7.9 + i * 2.3, 6));
+    const p = c.clone().addScaledVector(fin.back, Math.cos(ang) * rr).addScaledVector(fin.out, Math.sin(ang) * rr);
+    return mesh.vertex(p, color, w, fin.up);
+  });
+  for (let i = 0; i < sides; i++) mesh.tri(centre, ring[i], ring[(i + 1) % sides]);
+  mesh.end({ closed: false, normals: false, outward: () => fin.up });
+}
+
+/** A flat polygon on the side of the tail fin at height `y` and chord fraction `u` (both faces, `face` +1 or -1), `r` across. */
+export function tailTile(
+  ctx: SharkContext, le: (y: number) => number, te: (y: number) => number, thickness: (y: number) => number,
+  y: number, u: number, face: number, r: number, color: RGB, pivots: { axis: number; upper: number; lower: number }, sides = 6, seed = 0,
+) {
+  const s = le(y) + u * (te(y) - le(y)), p = new Vector3(face * (airfoil(u) * thickness(y) + .0012), y, ctx.z(s));
+  const n = new Vector3(face, 0, 0), { mesh } = ctx;
+  let w = ctx.skin(s);
+  w = blendSkins(w, { TailUpper: 1 }, smoothstep(pivots.upper - .02, pivots.upper + .07, y));
+  w = blendSkins(w, { TailLower: 1 }, smoothstep(-(pivots.lower - .015), -(pivots.lower + .05), y));
+  mesh.begin();
+  const centre = mesh.vertex(p, color, w, n), spin = 6.28 * noise(seed * 3.1, 2);
+  const ring = Array.from({ length: sides }, (_, i) => {
+    const ang = TAU * i / sides + spin, rr = r * (1 + .3 * noise(seed * 7.9 + i * 2.3, 6));
+    return mesh.vertex(new Vector3(p.x, p.y + Math.sin(ang) * rr, p.z - Math.cos(ang) * rr), color, w, n);
+  });
+  for (let i = 0; i < sides; i++) mesh.tri(centre, ring[i], ring[(i + 1) % sides]);
+  mesh.end({ closed: false, normals: false, outward: () => n });
 }

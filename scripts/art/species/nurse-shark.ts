@@ -10,7 +10,7 @@ import { Vector3 } from 'three';
 import { SWIM_RIGS, type SharkRig } from '../../../src/lib/marine-rigs';
 import { hex, mix, noise, smoothstep, type RGB } from './kit';
 import { crisp, eyeball, markedFins, outline, precaudalPits } from './reef-sharks';
-import { barbel, dot, roundFin, slit } from './carpet-sharks';
+import { barbel, roundFin, slit } from './carpet-sharks';
 import { sharkContext, type SharkDesign } from './shark';
 
 // Warm yellowish brown above, a paler golden flank, a cream belly.
@@ -31,14 +31,14 @@ const skinColor = (s: number, theta: number): RGB => {
 };
 
 export const NURSE_SHARK: SharkDesign = {
-  rig, nose: .4, bodyEnd: .8,
+  rig, nose: .4, bodyEnd: .72,
   // A broad, flat head and a rounded snout, a thick round trunk, then a stout tail stock.
-  width: [[0, 0], [.003, .035], [.01, .054], [.024, .067], [.05, .076], [.09, .082], [.14, .081], [.2, .082], [.28, .08], [.36, .074], [.44, .064], [.52, .054], [.6, .044], [.68, .033], [.74, .024], [.8, .014]],
-  top: [[0, 0], [.004, .01], [.012, .02], [.026, .03], [.05, .041], [.09, .054], [.14, .064], [.2, .072], [.28, .076], [.36, .074], [.44, .067], [.52, .052], [.6, .043], [.68, .033], [.74, .025], [.8, .016]],
-  bottom: [[0, 0], [.004, .009], [.012, .017], [.026, .026], [.05, .036], [.09, .047], [.14, .057], [.2, .064], [.28, .068], [.36, .067], [.44, .061], [.52, .047], [.6, .039], [.68, .031], [.74, .024], [.8, .016]],
-  center: [[0, -.012], [.04, -.008], [.1, -.002], [.2, 0], [.4, .002], [.6, .004], [.8, .006]],
-  squareTop: [[0, 2.6], [.1, 2.5], [.25, 2.2], [.6, 2.1], [.8, 2]],
-  squareBottom: [[0, 2.8], [.1, 2.6], [.3, 2.4], [.6, 2.2], [.8, 2]],
+  width: [[0, 0], [.003, .035], [.01, .054], [.024, .067], [.05, .076], [.09, .082], [.14, .081], [.2, .082], [.28, .08], [.36, .074], [.44, .064], [.52, .054], [.6, .044], [.68, .033], [.72, .022]],
+  top: [[0, 0], [.004, .01], [.012, .02], [.026, .03], [.05, .041], [.09, .054], [.14, .064], [.2, .072], [.28, .076], [.36, .074], [.44, .067], [.52, .052], [.6, .043], [.68, .033], [.72, .023]],
+  bottom: [[0, 0], [.004, .009], [.012, .017], [.026, .026], [.05, .036], [.09, .047], [.14, .057], [.2, .064], [.28, .068], [.36, .067], [.44, .061], [.52, .047], [.6, .039], [.68, .031], [.72, .023]],
+  center: [[0, -.012], [.04, -.008], [.1, -.002], [.2, 0], [.4, .002], [.6, .004], [.72, .0055]],
+  squareTop: [[0, 2.6], [.1, 2.5], [.25, 2.2], [.6, 2.1], [.72, 2]],
+  squareBottom: [[0, 2.8], [.1, 2.6], [.3, 2.4], [.6, 2.2], [.72, 2]],
   rings: 62, columnsAbove: 10, columnsBelow: 6,
   boundary, boundaryGap: .03,
   paint: (s, theta) => skinColor(s, theta),
@@ -71,11 +71,10 @@ export function buildNurseShark() {
   });
   // Broad, rounded pectorals: a wide base and a blunt, rounded tip.
   const pectorals = fins.paired({
-    rootS: .2, theta: 2.0, span: .15, droop: .55, sweep: .16, thickness: .02, stations: 8,
+    rootS: .2, theta: 2.0, span: .15, droop: .55, sweep: .14, thickness: .02, stations: 9,
     ...outline(.15, (t) => {
-      const b = t * .15;
-      const front = .45 * b + 5 * b ** 3;
-      return [front, front + .12 * Math.max(0, 1 - t ** 1.7) ** .8 + .01 * Math.exp(-(((t - .1) / .1) ** 2))];
+      const mid = .07 + .075 * t, half = .068 * Math.sqrt(Math.max(0, 1 - t ** 2));
+      return [mid - half, mid + half];
     }, 0),
     bone: (left) => (left ? 'PectoralL' : 'PectoralR'),
     color: (_p, v, u, _left, face) => (face > 0 ? tone(u) : mix(FIN_UNDER, FIN_PALE, .25 * v)),
@@ -90,14 +89,15 @@ export function buildNurseShark() {
     color: (_p, v, u, _left, face) => (face > 0 ? tone(u) : mix(FIN_UNDER, FIN_PALE, .25 * v)),
   });
   const axis = ctx.center(rig.joints[4]);
-  // The tail: one long, rounded upper lobe rising behind the body, almost no lower lobe.
+  // The tail: a long, low upper lobe tapering away behind the body (about a quarter of the length) with a small notch near its
+  // tip and almost no lower lobe.
   const tail = fins.caudal({
-    low: axis - .03, high: axis + .08, edges: [axis + .06],
-    le: [[axis - .03, .93], [axis - .022, .88], [axis - .01, .835], [axis + .004, .805], [axis + .022, .815], [axis + .044, .87], [axis + .063, .94], [axis + .074, .985], [axis + .08, 1]],
-    te: [[axis - .03, .93], [axis - .022, .945], [axis - .01, .96], [axis + .01, .975], [axis + .035, .988], [axis + .07, .998], [axis + .08, 1]],
-    thickness: (y) => .004 + .016 * Math.max(0, 1 - Math.abs(y - axis - .015) / .1) ** 1.1,
-    upperPivot: .045, lowerPivot: .02, stations: 16,
-    color: (p, y, u) => mix(mix(FIN, FIN_PALE, .25 + .2 * (1 - u)), EDGE, .25 * crisp(axis + .07, y, .004) + (p.y < axis ? .1 : 0)),
+    low: axis - .027, high: axis + .05, edges: [axis + .04],
+    le: [[axis - .027, .72], [axis - .01, .72], [axis, .724], [axis + .015, .77], [axis + .03, .85], [axis + .042, .93], [axis + .05, .99]],
+    te: [[axis - .027, .76], [axis - .015, .83], [axis, .95], [axis + .02, .978], [axis + .032, .955], [axis + .042, .99], [axis + .05, 1]],
+    thickness: (y) => .005 + .017 * Math.max(0, 1 - Math.abs(y - axis - .004) / .065) ** 1.1,
+    upperPivot: .03, lowerPivot: .02, stations: 16,
+    color: (p, y, u) => mix(mix(FIN, FIN_PALE, .25 + .2 * (1 - u)), EDGE, .25 * crisp(axis + .04, y, .004) + (p.y < axis ? .1 : 0)),
   });
 
   // Tiny eyes on the sides of the head, each with a spiracle just behind it.
@@ -127,20 +127,7 @@ export function buildNurseShark() {
       (t) => .0017 * Math.sin(Math.PI * (.12 + .76 * t)) ** .6, GILL, .001);
   }
 
-  // The faintest freckling of the skin: small, scattered darker and paler specks over the back and flanks.
-  let n = 0;
-  for (let s = .04; s < .76; s += .034) {
-    const count = Math.max(2, Math.round((ctx.top(s) + ctx.width(s)) * 34));
-    for (let i = 0; i < count; i++) {
-      n++;
-      const t = (i + .5 + .6 * noise(n * 1.7, 4)) / count, theta = (-1 + 2 * t) * 1.75;
-      const ps = s + .012 * noise(n * 2.9, 6);
-      if (noise(n * 5.1, 3) < -.1) continue;
-      const dark = noise(n * 3.1, 9) > 0;
-      dot(ctx, ps, theta, .0034 + .0016 * noise(n * 3.3, 8), dark ? mix(BACK, FIN, .6) : mix(FLANK, BELLY, .12), 5, 1.2, .0007);
-    }
-  }
-  precaudalPits(ctx, mix(BACK, FIN, .5), mix(BELLY, FIN, .35), .775);
+  precaudalPits(ctx, mix(BACK, FIN, .5), mix(BELLY, FIN, .35), .692);
 
   ctx.spineBones();
   bones.push(

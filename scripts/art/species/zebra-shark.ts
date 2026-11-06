@@ -8,9 +8,9 @@
  */
 import { Vector3 } from 'three';
 import { SWIM_RIGS, type SharkRig } from '../../../src/lib/marine-rigs';
-import { hex, mix, noise, smoothstep, type RGB } from './kit';
+import { curve as curveOf, hex, mix, noise, smoothstep, type RGB } from './kit';
 import { crisp, eyeball, markedFins, outline } from './reef-sharks';
-import { barbel, dot, roundFin, slit } from './carpet-sharks';
+import { barbel, dot, finSurface, finTile, roundFin, slit, tailTile } from './carpet-sharks';
 import { sharkContext, type SharkDesign } from './shark';
 
 const BACK = hex('#bba372'), FLANK = hex('#c9b080'), BELLY = hex('#efe6cf'), RIDGE = hex('#a68b5a');
@@ -79,33 +79,40 @@ export function buildZebraShark() {
     color: (_p, _t, u) => mix(mix(FIN_UNDER, FIN_PALE, .3 * (1 - u)), tone(u), .3),
   });
   // Broad, rounded pectorals, wing-like from above.
-  const pectorals = fins.paired({
-    rootS: .19, theta: 2.0, span: .15, droop: .34, sweep: .1, thickness: .018, stations: 8,
+  const pectoralPlan = {
+    rootS: .19, theta: 2.0, span: .15, droop: .34, sweep: .1, thickness: .018,
     ...outline(.15, (t) => {
       const b = t * .15;
       const front = .26 * b + 4.6 * b ** 3;
       return [front, front + .12 * Math.sqrt(Math.max(0, 1 - t ** 2.2)) + .012 * Math.exp(-(((t - .1) / .1) ** 2))];
     }, 0),
-    bone: (left) => (left ? 'PectoralL' : 'PectoralR'),
+    bone: (left: boolean) => (left ? 'PectoralL' : 'PectoralR'),
+  };
+  const pectorals = fins.paired({
+    ...pectoralPlan, stations: 8,
     color: (p, v, u, _left, face) => (face > 0 ? tone(u, p.x, p.z) : mix(FIN_UNDER, FIN_PALE, .25 * v)),
   });
   // Pelvic fins, rounded and smaller.
-  fins.paired({
-    rootS: .43, theta: 2.4, span: .062, droop: .5, sweep: .12, thickness: .012, stations: 5,
+  const pelvicPlan = {
+    rootS: .43, theta: 2.4, span: .062, droop: .5, sweep: .12, thickness: .012,
     ...outline(.062, (t) => {
       const front = .012 * t;
       return [front, front + .07 * Math.sqrt(Math.max(0, 1 - t ** 2.4))];
     }, 0),
+  };
+  fins.paired({
+    ...pelvicPlan, stations: 5,
     color: (_p, v, u, _left, face) => (face > 0 ? tone(u) : mix(FIN_UNDER, FIN_PALE, .25 * v)),
   });
   const axis = ctx.center(rig.joints[4]);
   // The tail: a long, narrow blade, its upper edge rising gently from the body all the way to the tip, only a
   // small lobe below.
+  const tailLe = [[axis - .024, .94], [axis - .016, .87], [axis - .006, .77], [axis + .003, .67], [axis + .012, .64], [axis + .024, .68], [axis + .036, .78], [axis + .046, .91], [axis + .05, .985]] as const;
+  const tailTe = [[axis - .024, .94], [axis - .016, .955], [axis - .006, .975], [axis + .01, .99], [axis + .03, .997], [axis + .05, 1]] as const;
+  const tailThickness = (y: number) => .003 + .012 * Math.max(0, 1 - Math.abs(y - axis - .005) / .06) ** 1.2;
   const tail = fins.caudal({
     low: axis - .024, high: axis + .05, edges: [axis + .034],
-    le: [[axis - .024, .94], [axis - .016, .87], [axis - .006, .77], [axis + .003, .67], [axis + .012, .64], [axis + .024, .68], [axis + .036, .78], [axis + .046, .91], [axis + .05, .985]],
-    te: [[axis - .024, .94], [axis - .016, .955], [axis - .006, .975], [axis + .01, .99], [axis + .03, .997], [axis + .05, 1]],
-    thickness: (y) => .003 + .012 * Math.max(0, 1 - Math.abs(y - axis - .005) / .06) ** 1.2,
+    le: tailLe, te: tailTe, thickness: tailThickness,
     upperPivot: .03, lowerPivot: .015, stations: 14,
     color: (p, y, u) => mix(mix(FIN, FIN_PALE, .25 + .2 * (1 - u)), EDGE, .3 * crisp(axis + .034, y, .004) + (p.y < axis ? .1 : 0)),
   });
@@ -117,12 +124,12 @@ export function buildZebraShark() {
     slit(ctx, .112, side * .95, .017, .0034, hex('#2a2012'), .0012);
   }
   ctx.gills({ from: .145, to: .2, count: 5, top: 1.25, bottom: 1.95, halfWidth: .0013, slant: .006, color: GILL });
-  const curve = (w: number) => Array.from({ length: 11 }, (_, i) => {
+  const mouthLine = (w: number) => Array.from({ length: 11 }, (_, i) => {
     const t = i / 10, theta = Math.PI + (t - .5) * w;
     return [.052 + .008 * (2 * t - 1) ** 2, theta] as const;
   });
-  ctx.ribbon(curve(1.3), (t) => .0036 * (.55 + .45 * Math.sin(Math.PI * t)), mix(BELLY, FLANK, .5), .0007);
-  ctx.ribbon(curve(1.1), (t) => .0016 * (.5 + .5 * Math.sin(Math.PI * t)), MOUTH, .0012);
+  ctx.ribbon(mouthLine(1.3), (t) => .0036 * (.55 + .45 * Math.sin(Math.PI * t)), mix(BELLY, FLANK, .5), .0007);
+  ctx.ribbon(mouthLine(1.1), (t) => .0016 * (.5 + .5 * Math.sin(Math.PI * t)), MOUTH, .0012);
   for (const side of [1, -1]) {
     barbel(ctx, .022, side * (Math.PI - .55), new Vector3(side * .1, -.5, 1), .044, .0115, BARBEL, BARBEL_TIP, -.003);
   }
@@ -139,9 +146,31 @@ export function buildZebraShark() {
       if (ps < .02 || ps > .86 || (ps < .07 && Math.abs(theta) < .35 && ps > .02 && noise(n, 5) > .3)) continue;
       // Not over the ridges' crests (the flat spot would sink into the fold) or the gill slits.
       const onRidge = [0, UPPER, LOWER - .03].some((a) => Math.abs(Math.abs(theta) - a) < .1) && ps > .1 && ps < .78;
-      if (onRidge || (ps > .13 && ps < .215 && Math.abs(theta) > 1.1 && Math.abs(theta) < 2.05)) continue;
+      if (onRidge || (ps > .11 && ps < .24 && Math.abs(theta) > .85 && Math.abs(theta) < 2.25)) continue;
       const r = (.0056 + .003 * (.5 + .5 * noise(n * 3.3, 8))) * (s > .62 ? .75 : 1) * (ps < .12 ? .8 : 1);
       dot(ctx, ps, theta, r, n % 6 === 0 ? SPOT_SOFT : SPOT, 7 + (n % 3 === 0 ? 1 : 0), 1 + .2 * noise(n * 4.1, 3), .0009, 6.28 * noise(n * 6.7, 2));
+    }
+  }
+
+  // Spots on the fins and the tail as on the body: flat polygons lying on their faces.
+  let m = 0;
+  for (const [plan, left] of [[pectoralPlan, true], [pectoralPlan, false], [pelvicPlan, true], [pelvicPlan, false]] as const) {
+    const fin = finSurface(ctx, plan, left);
+    for (let a = .1; a < .96; a += plan === pectoralPlan ? .14 : .2) {
+      for (let u = .12; u < .9; u += .18) {
+        m++;
+        finTile(ctx, fin, a + .03 * noise(m, 2), u + .04 * noise(m, 5), .0048 + .002 * (.5 + .5 * noise(m * 3.3, 8)), SPOT, 6, .2, m);
+      }
+    }
+  }
+  const leOf = curveOf(tailLe), teOf = curveOf(tailTe), pivots = { axis, upper: .03, lower: .015 };
+  for (const face of [1, -1]) {
+    for (let y = axis - .006; y < axis + .036; y += .012) {
+      for (let u = .1; u < .92; u += .075) {
+        m++;
+        if (y > axis + .012 && u < .55 && y < axis + .024) continue;
+        tailTile(ctx, leOf, teOf, tailThickness, y + .002 * noise(m, 3), u + .02 * noise(m, 6), face, .0036 + .0012 * (.5 + .5 * noise(m * 3.3, 8)), SPOT, pivots, 6, m);
+      }
     }
   }
 
