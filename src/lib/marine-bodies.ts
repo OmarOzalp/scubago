@@ -32,7 +32,7 @@ const HULL_ROWS: Record<MarineModel, readonly [number, number, number, number, n
   'california-sea-lion': [.28, .34, .06, .07, .14, .51, .72],
   'spotted-eagle-ray': [.12, .31, 0, .1, .29, .71, 1.66],
   'bull-shark': [.21, .28, .09, .23, .62, .72, 1.38],
-  'bull-ray': [.13, .28, 0, .1, .27, .63, 1.45],
+  'bull-ray': [.13, .28, 0, .1, .27, .63, 1.5],
   'cownose-ray': [.12, .26, 0, .1, .26, .58, 1.28],
   'golden-jellyfish': [.28, .07, .09, .15, .22, .25, .25],
   'humpback-whale': [.43, .64, .21, .29, .49, 1.41, 1.91],

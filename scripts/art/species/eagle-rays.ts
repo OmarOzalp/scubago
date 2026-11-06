@@ -223,7 +223,7 @@ export function buildEagleRay(d: EagleRayDesign) {
       const pts = Array.from({ length: 6 }, (_, i) => {
         const t = i / 5, x = sp.x + .016 * t - .007, z = sp.z - .5 * sp.length * t * 1.1 + .5 * sp.length * .55;
         const a = Math.abs(x), le = leadingEdge(a), te = trailingEdge(a);
-        return [side * x, (le - z) / (le - te)] as const;
+        return [side * x, clamp((le - z) / (le - te), .005, .95)] as const;
       });
       decal(pts, true, (t) => .0042 * Math.sin(Math.PI * (.06 + .88 * t)) ** .6, sp.color);
     }
