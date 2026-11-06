@@ -40,7 +40,10 @@ const ALLOWED: Record<string, { rank: number; label: string; url: string }> = {
  */
 const OVERRIDES: Record<string, [observation: number, photo: number]> = {
   'banded-sea-krait': [270171562, 485849676],
+  'bat-ray': [392022037, 718373027],
+  'brownbanded-bamboo-shark': [253846521, 454600524],
   'bull-shark': [329634698, 597561973],
+  'cownose-ray': [221220484, 391752271],
   garibaldi: [178795972, 311184478],
   'giant-grouper': [19499390, 30003719],
   'giant-guitarfish': [78334040, 128183924],
@@ -53,6 +56,7 @@ const OVERRIDES: Record<string, [observation: number, photo: number]> = {
   sailfish: [180055721, 313572447],
   'sand-tiger-shark': [329650348, 597593028],
   'silky-shark': [333997667, 606440062],
+  'silvertip-shark': [38350456, 60937327],
   'tasselled-wobbegong': [329192241, 596668754],
   'thresher-shark': [327336174, 593010301],
 };

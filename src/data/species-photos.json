@@ -119,6 +119,36 @@
     "license": "CC BY",
     "source": "https://www.inaturalist.org/photos/379827271"
   },
+  "epaulette-shark": {
+    "url": "https://inaturalist-open-data.s3.amazonaws.com/photos/84588251/medium.jpg",
+    "attribution": "(c) \nAnne Hoggett / Lizard Island Research Station, some rights reserved (CC BY)",
+    "license": "CC BY",
+    "source": "https://www.inaturalist.org/photos/84588251"
+  },
+  "brownbanded-bamboo-shark": {
+    "url": "https://inaturalist-open-data.s3.amazonaws.com/photos/454600524/medium.jpg",
+    "attribution": "(c) Jim Moore (Maryland), some rights reserved (CC BY)",
+    "license": "CC BY",
+    "source": "https://www.inaturalist.org/photos/454600524"
+  },
+  "angelshark": {
+    "url": "https://inaturalist-open-data.s3.amazonaws.com/photos/466779464/medium.jpg",
+    "attribution": "(c) Michael Bommerer, some rights reserved (CC BY)",
+    "license": "CC BY",
+    "source": "https://www.inaturalist.org/photos/466779464"
+  },
+  "blue-shark": {
+    "url": "https://inaturalist-open-data.s3.amazonaws.com/photos/92126694/medium.jpeg",
+    "attribution": "(c) Marion Kraschl, some rights reserved (CC BY)",
+    "license": "CC BY",
+    "source": "https://www.inaturalist.org/photos/92126694"
+  },
+  "silvertip-shark": {
+    "url": "https://inaturalist-open-data.s3.amazonaws.com/photos/60937327/medium.jpg",
+    "attribution": "(c) Georgina Jones, some rights reserved (CC BY-SA)",
+    "license": "CC BY-SA",
+    "source": "https://www.inaturalist.org/photos/60937327"
+  },
   "reef-manta": {
     "url": "https://inaturalist-open-data.s3.amazonaws.com/photos/464494946/medium.jpg",
     "attribution": "(c) R Vasconcellos, some rights reserved (CC BY), uploaded by R Vasconcellos",
@@ -178,6 +208,30 @@
     "attribution": "(c) Nathan Mesnildrey, some rights reserved (CC BY)",
     "license": "CC BY",
     "source": "https://www.inaturalist.org/photos/119462809"
+  },
+  "bull-ray": {
+    "url": "https://inaturalist-open-data.s3.amazonaws.com/photos/343471182/medium.jpg",
+    "attribution": "(c) Nicola Faulks, some rights reserved (CC BY), uploaded by Nicola Faulks",
+    "license": "CC BY",
+    "source": "https://www.inaturalist.org/photos/343471182"
+  },
+  "cownose-ray": {
+    "url": "https://inaturalist-open-data.s3.amazonaws.com/photos/391752271/medium.jpg",
+    "attribution": "no rights reserved (CC0)",
+    "license": "CC0",
+    "source": "https://www.inaturalist.org/photos/391752271"
+  },
+  "bat-ray": {
+    "url": "https://inaturalist-open-data.s3.amazonaws.com/photos/718373027/medium.jpg",
+    "attribution": "(c) Gavin Skeen, some rights reserved (CC BY)",
+    "license": "CC BY",
+    "source": "https://www.inaturalist.org/photos/718373027"
+  },
+  "blotched-fantail-ray": {
+    "url": "https://inaturalist-open-data.s3.amazonaws.com/photos/58204765/medium.jpeg",
+    "attribution": "(c) fede2cr, some rights reserved (CC BY)",
+    "license": "CC BY",
+    "source": "https://www.inaturalist.org/photos/58204765"
   },
   "green-turtle": {
     "url": "https://inaturalist-open-data.s3.amazonaws.com/photos/160686955/medium.jpg",
@@ -268,6 +322,24 @@
     "attribution": "(c) Marshal Hedin, some rights reserved (CC BY-SA)",
     "license": "CC BY-SA",
     "source": "https://www.inaturalist.org/photos/311432614"
+  },
+  "short-finned-pilot-whale": {
+    "url": "https://inaturalist-open-data.s3.amazonaws.com/photos/310752874/medium.jpeg",
+    "attribution": "(c) ktslash, some rights reserved (CC BY)",
+    "license": "CC BY",
+    "source": "https://www.inaturalist.org/photos/310752874"
+  },
+  "common-minke-whale": {
+    "url": "https://inaturalist-open-data.s3.amazonaws.com/photos/2901229/medium.jpg",
+    "attribution": "(c) Nils, some rights reserved (CC BY), uploaded by Nils",
+    "license": "CC BY",
+    "source": "https://www.inaturalist.org/photos/2901229"
+  },
+  "common-dolphin": {
+    "url": "https://inaturalist-open-data.s3.amazonaws.com/photos/71700771/medium.jpg",
+    "attribution": "(c) Jorge Herreros de Lartundo, some rights reserved (CC BY), uploaded by Jorge Herreros de Lartundo",
+    "license": "CC BY",
+    "source": "https://www.inaturalist.org/photos/71700771"
   },
   "mola-mola": {
     "url": "https://inaturalist-open-data.s3.amazonaws.com/photos/114458708/medium.jpg",
@@ -587,6 +659,36 @@
     "license": "CC BY",
     "source": "https://www.inaturalist.org/photos/253405406"
   },
+  "bluestreak-cleaner-wrasse": {
+    "url": "https://inaturalist-open-data.s3.amazonaws.com/photos/178811166/medium.jpg",
+    "attribution": "(c) Pauline Walsh Jacobson, some rights reserved (CC BY)",
+    "license": "CC BY",
+    "source": "https://www.inaturalist.org/photos/178811166"
+  },
+  "picasso-triggerfish": {
+    "url": "https://inaturalist-open-data.s3.amazonaws.com/photos/145072184/medium.jpg",
+    "attribution": "no rights reserved, uploaded by Scott Loarie (CC0)",
+    "license": "CC0",
+    "source": "https://www.inaturalist.org/photos/145072184"
+  },
+  "masked-butterflyfish": {
+    "url": "https://inaturalist-open-data.s3.amazonaws.com/photos/2675097/medium.jpg",
+    "attribution": "(c) Bart, some rights reserved (CC BY), uploaded by Bart",
+    "license": "CC BY",
+    "source": "https://www.inaturalist.org/photos/2675097"
+  },
+  "pygmy-sweeper": {
+    "url": "https://inaturalist-open-data.s3.amazonaws.com/photos/128970738/medium.jpg",
+    "attribution": "(c) eyrezer, some rights reserved (CC BY)",
+    "license": "CC BY",
+    "source": "https://www.inaturalist.org/photos/128970738"
+  },
+  "longnose-hawkfish": {
+    "url": "https://inaturalist-open-data.s3.amazonaws.com/photos/259727934/medium.jpg",
+    "attribution": "(c) Pauline Walsh Jacobson, some rights reserved (CC BY)",
+    "license": "CC BY",
+    "source": "https://www.inaturalist.org/photos/259727934"
+  },
   "day-octopus": {
     "url": "https://inaturalist-open-data.s3.amazonaws.com/photos/260686058/medium.jpeg",
     "attribution": "(c) Rohan Arthur, some rights reserved (CC BY)",
@@ -700,6 +802,24 @@
     "attribution": "(c) botanygirl, some rights reserved (CC BY)",
     "license": "CC BY",
     "source": "https://www.inaturalist.org/photos/2765460"
+  },
+  "banded-coral-shrimp": {
+    "url": "https://inaturalist-open-data.s3.amazonaws.com/photos/129009994/medium.jpg",
+    "attribution": "no rights reserved, uploaded by Jean-Paul Boerekamps (CC0)",
+    "license": "CC0",
+    "source": "https://www.inaturalist.org/photos/129009994"
+  },
+  "varicose-wart-slug": {
+    "url": "https://inaturalist-open-data.s3.amazonaws.com/photos/1941/medium.jpg",
+    "attribution": "(c) Steve Childs, some rights reserved (CC BY)",
+    "license": "CC BY",
+    "source": "https://www.inaturalist.org/photos/1941"
+  },
+  "hairy-squat-lobster": {
+    "url": "https://inaturalist-open-data.s3.amazonaws.com/photos/313191780/medium.jpg",
+    "attribution": "(c) Pauline Walsh Jacobson, some rights reserved (CC BY)",
+    "license": "CC BY",
+    "source": "https://www.inaturalist.org/photos/313191780"
   },
   "banded-sea-krait": {
     "url": "https://inaturalist-open-data.s3.amazonaws.com/photos/485849676/medium.jpeg",
