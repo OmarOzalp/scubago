@@ -67,6 +67,11 @@ export class FakeServer {
    */
   seededSites: Set<string> | null = null;
   /**
+   * The animals the project was seeded with (the species table). When set, a sighting must name one of
+   * these (the foreign key sightings.species_id); null leaves species_id unchecked.
+   */
+  seededSpecies: Set<string> | null = null;
+  /**
    * PostgREST's max_rows (supabase/config.toml, and the hosted default): no reply holds more rows
    * than this, whatever limit the query asked for.
    */
@@ -337,6 +342,17 @@ class FakeQuery implements PromiseLike<Result> {
       return { data: null, error: {
         message: `insert or update on table "${this.table}" violates foreign key constraint "${this.table}_site_id_fkey"`,
         details: `Key (site_id)=(${missingSite.site_id}) is not present in table "dive_sites".`,
+        code: '23503',
+      } };
+    }
+    // sightings.species_id references species, with Postgres's own wording.
+    const missingSpecies = server.seededSpecies && this.table === 'sightings'
+      ? writes.find((r: Row) => r.species_id !== undefined && !server.seededSpecies!.has(r.species_id))
+      : undefined;
+    if (missingSpecies) {
+      return { data: null, error: {
+        message: 'insert or update on table "sightings" violates foreign key constraint "sightings_species_id_fkey"',
+        details: `Key (species_id)=(${missingSpecies.species_id}) is not present in table "species".`,
         code: '23503',
       } };
     }

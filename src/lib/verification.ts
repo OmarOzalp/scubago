@@ -44,6 +44,14 @@ export function statusOf(s: Pick<Sighting, 'status'>): SightingStatus {
   return s.status ?? 'unverified';
 }
 
+/**
+ * A change waiting only because the server hasn't caught up with the app yet (it doesn't have the
+ * animal or the dive site; src/lib/sync-service.ts): nothing is wrong, and it goes up on a later sync.
+ */
+export function isServerCatchingUp(message: string | null | undefined): boolean {
+  return !!message && /^The server doesn’t (know|have) this/.test(message);
+}
+
 /** A failed sync caused by having no connection (as opposed to a problem with the change itself). */
 export function isConnectionProblem(message: string | null | undefined): boolean {
   return !!message && /network|fetch|timed? ?out|offline|internet|connection|abort/i.test(message);

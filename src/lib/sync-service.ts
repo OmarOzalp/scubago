@@ -91,6 +91,14 @@ const isMissingTable = (error: { code?: string } | null) => error?.code === 'PGR
 const isMissingSite = (error: PostgrestError | null) =>
   error?.code === '23503' && /site_id|dive_sites/.test(`${error.message ?? ''} ${error.details ?? ''}`);
 
+/**
+ * The server has no row for the animal (sightings.species_id points at species): a catalogue animal added
+ * since the project's owner last ran the seed. Postgres names the column in the details, and the
+ * constraint in the message.
+ */
+const isMissingSpecies = (error: PostgrestError | null) =>
+  error?.code === '23503' && /species_id|"species"/.test(`${error.message ?? ''} ${error.details ?? ''}`);
+
 /** The project has no private photo bucket (no migration 0008). */
 const isMissingBucket = (error: { message?: string } | null) => /bucket not found/i.test(error?.message ?? '');
 
@@ -125,7 +133,7 @@ async function writeRow<T extends { visibility?: Visibility | null; dive_id?: st
       missingColumns.add('dive_id');
       continue;
     }
-    if (error) throw isMissingSite(error) ? new SiteNotOnServerError('sighting') : error;
+    if (error) throw isMissingSite(error) ? new SiteNotOnServerError('sighting') : isMissingSpecies(error) ? new SpeciesNotOnServerError() : error;
     // The column is there (the migration may have been applied since): pulls ask for it again.
     if ('visibility' in out) missingColumns.delete('visibility');
     if ('dive_id' in out) missingColumns.delete('dive_id');
@@ -149,6 +157,18 @@ export class SiteNotOnServerError extends Error {
   constructor(what: 'page' | 'sighting') {
     super(`The server doesn’t have this dive site yet, so the ${what} is waiting on this device`);
     this.name = 'SiteNotOnServerError';
+  }
+}
+
+/**
+ * The server doesn't know the animal yet (isMissingSpecies), because the project's owner hasn't seeded the newest
+ * animals: the sighting stays on this device, with a plain reason, and goes up on a later sync once the
+ * animal is there. Nothing is lost, and the other sightings in the log go up as usual.
+ */
+export class SpeciesNotOnServerError extends Error {
+  constructor() {
+    super('The server doesn’t know this animal yet, so the sighting is waiting on this device');
+    this.name = 'SpeciesNotOnServerError';
   }
 }
 

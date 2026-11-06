@@ -7,7 +7,7 @@ import { StatusChip } from '@/components/status-chip';
 import { Radius, Shadow, Type } from '@/constants/theme';
 import { useSchemeName, useTheme } from '@/hooks/use-theme';
 import type { DiveSite, Sighting, Species } from '@/lib/types';
-import { STATUS_LABEL } from '@/lib/verification';
+import { STATUS_LABEL, isServerCatchingUp } from '@/lib/verification';
 
 interface Props {
   sighting: Sighting;
@@ -41,7 +41,7 @@ export function SightingRow({ sighting, species, site, showUsername = false, pen
     sighting.photoUri ? 'with photo' : null,
     hidden ? 'only you can see it' : null,
     sighting.isDemo ? 'example data, not a real sighting' : null,
-    pending ? (sighting.syncError ? 'not synced yet' : 'waiting to sync') : null,
+    pending ? (sighting.syncError && !isServerCatchingUp(sighting.syncError) ? 'not synced yet' : 'waiting to sync') : null,
     showStatus ? STATUS_LABEL[sighting.status!] : null,
   ]
     .filter(Boolean)
@@ -83,7 +83,7 @@ export function SightingRow({ sighting, species, site, showUsername = false, pen
             {hidden && !quiet ? <Tag label="Only you" small /> : null}
             {/* Unverified is the usual case, so only the others are named here. */}
             {showStatus ? <StatusChip status={sighting.status!} small /> : null}
-            {pending ? <Tag label={sighting.syncError ? 'Not synced' : 'Waiting to sync'} dashed small /> : null}
+            {pending ? <Tag label={sighting.syncError && !isServerCatchingUp(sighting.syncError) ? 'Not synced' : 'Waiting to sync'} dashed small /> : null}
           </View>
         ) : null}
       </View>

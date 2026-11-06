@@ -4,7 +4,7 @@ import { Icon } from '@/components/icon';
 import { ThemedText } from '@/components/themed-text';
 import { useTheme } from '@/hooks/use-theme';
 import { useAppStore } from '@/lib/store';
-import { isConnectionProblem } from '@/lib/verification';
+import { isConnectionProblem, isServerCatchingUp } from '@/lib/verification';
 
 /**
  * Whether the sync line has anything to say. Signed out in a build with a server it says nothing: the
@@ -40,6 +40,14 @@ export function SyncLine({ item }: { item: { synced: boolean; syncError?: string
       <View style={styles.syncRow}>
         <Icon name="checkCircle" size={16} color={theme.tint} />
         <ThemedText type="small" themeColor="textSecondary">Backed up to your account</ThemedText>
+      </View>
+    );
+  }
+  if (item.syncError && !syncing && isServerCatchingUp(item.syncError)) {
+    return (
+      <View style={styles.syncRow}>
+        <Icon name="sync" size={16} {...quiet} />
+        <ThemedText type="small" themeColor="textSecondary">Saved on this device. It will sync as soon as the server is ready.</ThemedText>
       </View>
     );
   }

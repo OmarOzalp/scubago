@@ -203,6 +203,58 @@ describeSqlite('the dive log, offline and across phones', () => {
     });
   });
 
+  it('a sighting of an animal the server has not been seeded with yet stays on the phone with a plain reason, and goes up once it is', async () => {
+    const server = newServer();
+    server.seededSpecies = new Set(['reef-manta', 'grey-reef-shark']);
+    const p = phone(server, 'alice', A);
+    await p.ready();
+    // The newest catalogue animals are in the app before the project's owner has run the seed.
+    const { dive, sightings } = await p.write({}, ['reef-manta', 'epaulette-shark', 'common-dolphin']);
+
+    const before = await p.sync();
+    // Only the two unknown animals wait; the page and the sighting the server knows go up as usual.
+    expect(before).toMatchObject({ failed: 2, pushedDives: 1, pushedSightings: 1 });
+    expect(server.sighting(sightings[0].id)).toMatchObject({ species_id: 'reef-manta', dive_id: dive.id });
+    expect(server.sighting(sightings[1].id)).toBeUndefined();
+    const waiting = await p.sighting(sightings[1].id);
+    expect(waiting).toMatchObject({ speciesId: 'epaulette-shark', synced: false, syncError: expect.stringMatching(/doesn’t know this animal yet, so the sighting is waiting on this device/) });
+    expect(waiting?.syncError).not.toMatch(/foreign key|23503|species_id/);
+    // Still in the log, on its page, and nothing was deleted.
+    expect(await p.sighting(sightings[2].id)).toMatchObject({ speciesId: 'common-dolphin', diveId: dive.id, synced: false });
+
+    // It keeps retrying without losing anything.
+    expect((await p.sync()).failed).toBe(2);
+    expect((await p.all()).sightings.filter((s) => s.diveId === dive.id)).toHaveLength(3);
+
+    // The project's owner runs the seed: both go up on the next sync.
+    server.seededSpecies.add('epaulette-shark');
+    server.seededSpecies.add('common-dolphin');
+    const after = await p.sync();
+    expect(after).toMatchObject({ failed: 0, pushedSightings: 2 });
+    expect(server.sighting(sightings[1].id)).toMatchObject({ species_id: 'epaulette-shark', dive_id: dive.id });
+    expect(server.sighting(sightings[2].id)).toMatchObject({ species_id: 'common-dolphin' });
+    expect(await p.sighting(sightings[1].id)).toMatchObject({ synced: true, syncError: undefined });
+  });
+
+  it('an edit to an animal the server does not know yet waits too, and the synced one stays as it was on the server', async () => {
+    const server = newServer();
+    server.seededSpecies = new Set(['reef-manta']);
+    const p = phone(server, 'alice', A);
+    await p.ready();
+    const { sightings } = await p.write();
+    await p.sync();
+
+    const current = (await p.sighting(sightings[0].id))!;
+    await p.db.updateSighting({ ...current, speciesId: 'bluestreak-cleaner-wrasse', updatedAt: new Date().toISOString() });
+    await p.sync();
+    expect(server.sighting(sightings[0].id)).toMatchObject({ species_id: 'reef-manta' });
+    expect(await p.sighting(sightings[0].id)).toMatchObject({ speciesId: 'bluestreak-cleaner-wrasse', synced: false, syncError: expect.stringMatching(/doesn’t know this animal yet/) });
+
+    server.seededSpecies.add('bluestreak-cleaner-wrasse');
+    await p.sync();
+    expect(server.sighting(sightings[0].id)).toMatchObject({ species_id: 'bluestreak-cleaner-wrasse' });
+  });
+
   it('a new phone restores every page, with the signatures buddies sent for them', async () => {
     const server = newServer();
     const first = phone(server, 'alice', A);

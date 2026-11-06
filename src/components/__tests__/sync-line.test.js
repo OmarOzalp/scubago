@@ -58,4 +58,11 @@ describe('the sync line', () => {
     await render(<SyncLine item={{ synced: false, syncError: 'Network request failed' }} />);
     expect(screenTexts(root.toJSON()).join(' ')).toContain('Waiting for a connection.');
   });
+
+  test('an animal the server is not ready for yet is calm: saved here, no warning, no retry button', async () => {
+    mockState = { user: { id: 'u1' }, backendEnabled: true };
+    await render(<SyncLine item={{ synced: false, syncError: 'The server doesn’t know this animal yet, so the sighting is waiting on this device' }} />);
+    expect(screenTexts(root.toJSON())).toEqual(['Saved on this device. It will sync as soon as the server is ready.']);
+    expect(JSON.stringify(root.toJSON())).not.toMatch(/Couldn|Retry|warning/);
+  });
 });
