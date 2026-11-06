@@ -122,12 +122,12 @@ test('"manta" shows the reef manta under animals, below the Manta sites, with th
   await render();
   await openSearch();
   await type('manta');
-  expect(headings()).toEqual(['Dive sites, 4 matches', 'Animals, where can I see a, 7 matches']);
+  expect(headings()).toEqual(['Dive sites, 4 matches', 'Animals, where can I see a, 6 matches']);
   expect(hasButton('Reef Manta Ray. Show where it’s seen')).toBe(true);
   expect(text()).toContain('Where can I see a…');
   expect(labelsStarting('Manta ').length).toBe(4);
   // Only the first few of a section show, with a way to the rest.
-  expect(hasButton('Show all 7 animals')).toBe(true);
+  expect(hasButton('Show all 6 animals')).toBe(true);
   expect(labelsStarting('Mandarinfish')).toHaveLength(0);
 });
 
@@ -373,7 +373,7 @@ test('screen readers get the section names as headings, every row is a 44-point 
   expect(headings()).toHaveLength(2);
   // The Pressables themselves (the row components pass their props on to one), but not the page's own buttons.
   const rows = allPressables().filter((p) => p.props.accessibilityRole === 'button' && !/^(Add site|Show sites|Show the map)/.test(p.props.accessibilityLabel) && (typeof p.props.style === 'function' || p.props.style));
-  // 4 sites, 3 animals, "Show all 7 animals", the search's own Cancel.
+  // 4 sites, 3 animals, "Show all 6 animals", the search's own Cancel.
   expect(rows).toHaveLength(9);
   for (const row of rows) {
     const style = StyleSheet.flatten(typeof row.props.style === 'function' ? row.props.style({ pressed: false }) : row.props.style);
@@ -383,7 +383,7 @@ test('screen readers get the section names as headings, every row is a 44-point 
   expect(announce).not.toHaveBeenCalled();
   await act(async () => { jest.advanceTimersByTime(800); });
   expect(announce).toHaveBeenCalledTimes(1);
-  expect(announce).toHaveBeenCalledWith('4 dive sites, 7 animals');
+  expect(announce).toHaveBeenCalledWith('4 dive sites, 6 animals');
   await type('xyzzy');
   await act(async () => { jest.advanceTimersByTime(800); });
   expect(announce).toHaveBeenLastCalledWith('No match for xyzzy');

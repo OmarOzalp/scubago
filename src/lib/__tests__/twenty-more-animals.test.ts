@@ -24,7 +24,7 @@ const NEW: Record<string, string> = {
   'bull-ray': 'Aetomylaeus bovinus',
   'cownose-ray': 'Rhinoptera bonasus',
   'bat-ray': 'Myliobatis californica',
-  'blotched-fantail-ray': 'Taeniurops meyeni',
+  'bowmouth-guitarfish': 'Rhina ancylostomus',
   'short-finned-pilot-whale': 'Globicephala macrorhynchus',
   'common-minke-whale': 'Balaenoptera acutorostrata',
   'common-dolphin': 'Delphinus delphis',
@@ -58,7 +58,7 @@ describe('the twenty new animals', () => {
       'picasso-triggerfish': 'coral-reef', 'masked-butterflyfish': 'coral-reef', 'longnose-hawkfish': 'coral-reef', 'banded-coral-shrimp': 'coral-reef',
       'blue-shark': 'open-ocean', 'short-finned-pilot-whale': 'open-ocean', 'common-minke-whale': 'open-ocean', 'common-dolphin': 'open-ocean',
       'bat-ray': 'kelp-forest', 'cownose-ray': 'mangroves', 'angelshark': 'black-sand-bay', 'varicose-wart-slug': 'black-sand-bay',
-      'hairy-squat-lobster': 'black-sand-bay', 'bull-ray': 'shipwreck', 'pygmy-sweeper': 'shipwreck', 'blotched-fantail-ray': 'coral-reef',
+      'hairy-squat-lobster': 'black-sand-bay', 'bull-ray': 'shipwreck', 'pygmy-sweeper': 'shipwreck', 'bowmouth-guitarfish': 'mangroves',
     };
     for (const id of IDS) expect({ id, area: areaOf(id) }).toEqual({ id, area: homes[id] });
     // Each is in exactly one area's residents.
@@ -69,7 +69,7 @@ describe('the twenty new animals', () => {
 
   it('swim on the island with their family’s model: every shark, ray and mammal, none borrowed as a 3D model of its own', () => {
     const expected: Record<string, string> = {
-      'bull-ray': 'spotted-eagle-ray', 'cownose-ray': 'spotted-eagle-ray', 'bat-ray': 'spotted-eagle-ray', 'blotched-fantail-ray': 'southern-stingray',
+      'bull-ray': 'spotted-eagle-ray', 'cownose-ray': 'spotted-eagle-ray', 'bat-ray': 'spotted-eagle-ray', 'bowmouth-guitarfish': 'southern-stingray',
       angelshark: 'southern-stingray', 'epaulette-shark': 'whitetip-reef-shark', 'brownbanded-bamboo-shark': 'whitetip-reef-shark',
       'silvertip-shark': 'grey-reef-shark', 'blue-shark': 'oceanic-whitetip', 'short-finned-pilot-whale': 'orca', 'common-minke-whale': 'humpback-whale',
       'common-dolphin': 'bottlenose-dolphin',
@@ -94,6 +94,7 @@ describe('the twenty new animals', () => {
     expect(first('blue shark')).toBe('blue-shark');
     expect(first('duckbill ray')).toBe('bull-ray');
     expect(first('cow nose ray')).toBe('cownose-ray');
+    expect(first('shark ray')).toBe('bowmouth-guitarfish');
     expect(searchSpecies(SPECIES, 'pilot whale').map((s) => s.id)).toContain('short-finned-pilot-whale');
     expect(searchSpecies(SPECIES, 'minke').map((s) => s.id)).toContain('common-minke-whale');
     expect(searchSpecies(SPECIES, 'cleaner wrasse').map((s) => s.id)).toContain('bluestreak-cleaner-wrasse');
@@ -114,18 +115,18 @@ describe('the twenty new animals', () => {
   });
 });
 
-describe('the same animal under two ids', () => {
-  // The blotched fantail ray was added as an id of its own, but it is the animal the catalogue already
-  // had as the marbled ray (both Taeniurops meyeni). Until one of them goes, the older keeps the name:
-  // its records, its rarity and its divers’ sightings do not move.
-  it('never takes the name, the records or the rarity of the animal that was there first', () => {
-    const names = new Map<string, string[]>();
-    for (const s of SPECIES) names.set(s.scientificName, [...(names.get(s.scientificName) ?? []), s.id]);
-    const shared = [...names.values()].filter((ids) => ids.length > 1);
-    expect(shared).toEqual([['marbled-ray', 'blotched-fantail-ray']]);
+describe('no new animal is one the catalogue already had', () => {
+  // The blotched fantail ray was first added as an id of its own, but it is the marbled ray (both Taeniurops
+  // meyeni); it was replaced by the bowmouth guitarfish. No two catalogue animals share a scientific name,
+  // and no new name is a synonym the matcher already reads as another animal.
+  it('by scientific name or by a synonym in use', () => {
+    for (const id of IDS) {
+      const name = SPECIES_BY_ID.get(id)!.scientificName;
+      expect({ id, owner: catalogMatcher.match(name) }).toEqual({ id, owner: id });
+      expect(SPECIES.filter((s) => s.scientificName === name).map((s) => s.id)).toEqual([id]);
+    }
+    expect(SPECIES_BY_ID.has('blotched-fantail-ray')).toBe(false);
     expect(catalogMatcher.match('Taeniurops meyeni')).toBe('marbled-ray');
-    expect(catalogMatcher.match('Taeniura meyeni')).toBe('marbled-ray');
-    expect(catalogMatcher.classify(['Taeniurops meyeni'])).toEqual({ kind: 'matched', speciesId: 'marbled-ray' });
   });
 });
 

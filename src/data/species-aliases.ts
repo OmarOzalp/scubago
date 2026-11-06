@@ -27,7 +27,7 @@ export const SPECIES_ALIASES: Record<string, string[]> = {
   'bull-ray': ['duckbill ray', 'duck-billed eagle ray', 'eagle ray', 'common eagle ray'],
   'cownose-ray': ['cow nose ray', 'cownose', 'ray'],
   'bat-ray': ['california bat ray', 'eagle ray', 'ray'],
-  'blotched-fantail-ray': ['black blotched stingray', 'blotched stingray', 'round ribbontail ray', 'fantail ray', 'stingray'],
+  'bowmouth-guitarfish': ['shark ray', 'sharkray', 'bowmouth ray', 'clown wedgefish', 'wedgefish', 'guitarfish', 'guitar shark', 'rhina'],
   'marbled-ray': ['blotched fantail ray', 'round ribbontail ray', 'stingray'],
   'southern-stingray': ['stingray'],
   'bluespotted-ribbontail-ray': ['blue spotted stingray', 'stingray'],

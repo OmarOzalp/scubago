@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "generatedAt": "2026-11-06T04:28:00.890Z",
+  "generatedAt": "2026-11-06T05:12:18.509Z",
   "input": "encounter-rarity.sites.json",
   "sources": {
     "inaturalist": {
@@ -245,7 +245,7 @@
     {"id":"bull-ray","scientificName":"Aetomylaeus bovinus","reason":"No dive site records it and none lists it as notable, so there is no way to say where its waters are."},
     {"id":"cownose-ray","scientificName":"Rhinoptera bonasus","reason":"No dive site records it and none lists it as notable, so there is no way to say where its waters are."},
     {"id":"bat-ray","scientificName":"Myliobatis californica","reason":"Only 4 usable dive sites in its waters (North Pacific); at least 5 are needed."},
-    {"id":"blotched-fantail-ray","scientificName":"Taeniurops meyeni","reason":"No dive site records it and none lists it as notable, so there is no way to say where its waters are."},
+    {"id":"bowmouth-guitarfish","scientificName":"Rhina ancylostomus","reason":"No dive site records it and none lists it as notable, so there is no way to say where its waters are."},
     {"id":"harbor-seal","scientificName":"Phoca vitulina","reason":"Only 4 usable dive sites in its waters (North Pacific); at least 5 are needed."},
     {"id":"sea-otter","scientificName":"Enhydra lutris","reason":"Only 4 usable dive sites in its waters (North Pacific); at least 5 are needed."},
     {"id":"short-finned-pilot-whale","scientificName":"Globicephala macrorhynchus","reason":"No dive site records it and none lists it as notable, so there is no way to say where its waters are."},

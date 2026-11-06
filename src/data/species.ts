@@ -46,7 +46,7 @@ export const SPECIES: Species[] = [
   { id: 'bull-ray', commonName: 'Bull Ray', scientificName: 'Aetomylaeus bovinus', category: 'ray', rarity: 'rare', blurb: 'An eagle ray with a blunt, duck-billed head, gliding over sand in the Mediterranean and East Atlantic.' },
   { id: 'cownose-ray', commonName: 'Cownose Ray', scientificName: 'Rhinoptera bonasus', category: 'ray', rarity: 'uncommon', blurb: 'A golden-brown ray with a notched, cow-like head that travels in big schools.' },
   { id: 'bat-ray', commonName: 'Bat Ray', scientificName: 'Myliobatis californica', category: 'ray', rarity: 'uncommon', blurb: 'A dark eagle ray of California’s kelp and sand flats, flapping like a giant bat.' },
-  { id: 'blotched-fantail-ray', commonName: 'Blotched Fantail Ray', scientificName: 'Taeniurops meyeni', category: 'ray', rarity: 'uncommon', blurb: 'A huge round stingray mottled black and grey, resting on sand near the reef.' },
+  { id: 'bowmouth-guitarfish', commonName: 'Bowmouth Guitarfish', scientificName: 'Rhina ancylostomus', category: 'ray', rarity: 'epic', blurb: 'A shark-like ray with a broad, rounded head, rows of thorny ridges along its back and a shark’s tail.' },
 
   // ── Turtles ───────────────────────────────────────────────────────────────
   { id: 'green-turtle', commonName: 'Green Sea Turtle', scientificName: 'Chelonia mydas', category: 'turtle', rarity: 'common', blurb: 'The seagrass-munching favorite of reef and lagoon worldwide.' },

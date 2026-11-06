@@ -80,7 +80,7 @@ describe('the hand-picked sets', () => {
     expect(collection(results, 'set-bottom-sharks').memberIds).toEqual(['nurse-shark', 'zebra-shark', 'tasselled-wobbegong', 'epaulette-shark', 'brownbanded-bamboo-shark']);
     // The families and the islands count them too, with no list to keep: sharks and rays by category, areas by residents.
     expect(collection(results, 'family-shark').memberIds).toEqual(expect.arrayContaining(['epaulette-shark', 'angelshark', 'blue-shark', 'silvertip-shark']));
-    expect(collection(results, 'family-ray').memberIds).toEqual(expect.arrayContaining(['bull-ray', 'cownose-ray', 'bat-ray', 'blotched-fantail-ray']));
+    expect(collection(results, 'family-ray').memberIds).toEqual(expect.arrayContaining(['bull-ray', 'cownose-ray', 'bat-ray', 'bowmouth-guitarfish']));
     expect(collection(results, 'family-mammal').memberIds).toEqual(expect.arrayContaining(['short-finned-pilot-whale', 'common-minke-whale', 'common-dolphin']));
     expect(collection(results, 'area-black-sand-bay').memberIds).toEqual(expect.arrayContaining(['varicose-wart-slug', 'hairy-squat-lobster', 'angelshark']));
     expect(evaluateBadges(input({})).map((b) => b.id)).toEqual(expect.arrayContaining(['collection-set-eagle-rays', 'collection-set-dolphins', 'collection-set-bottom-sharks']));

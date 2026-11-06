@@ -43,11 +43,11 @@ const RELATIVES: Readonly<Record<string, SpeciesMarineModel>> = {
   'giant-sea-bass': 'goliath-grouper',
   'circular-batfish': 'batfish',
   'olive-ridley-turtle': 'loggerhead-turtle',
-  // Rays: the eagle rays fly like the spotted eagle ray; the round stingray rests like the southern stingray; the flat angelshark lies on the sand like one.
+  // Rays: the eagle rays fly like the spotted eagle ray; the flat bowmouth guitarfish and angelshark lie on the sand like the southern stingray.
   'bull-ray': 'spotted-eagle-ray',
   'cownose-ray': 'spotted-eagle-ray',
   'bat-ray': 'spotted-eagle-ray',
-  'blotched-fantail-ray': 'southern-stingray',
+  'bowmouth-guitarfish': 'southern-stingray',
   angelshark: 'southern-stingray',
   // Sharks by body shape: the small slim bottom sharks like a whitetip reef shark, the silvertip like a grey reef shark, the blue shark with long wings like an oceanic whitetip.
   'epaulette-shark': 'whitetip-reef-shark',

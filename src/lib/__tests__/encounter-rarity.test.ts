@@ -614,7 +614,7 @@ describe('tiers from shares', () => {
     // The first 120 animals are the hand-assigned catalogue the bands were cut from; the twenty added since
     // (round 8) keep a provisional tier only until real encounters place them, so they are left out here.
     const added = new Set(['epaulette-shark', 'brownbanded-bamboo-shark', 'angelshark', 'blue-shark', 'silvertip-shark', 'bull-ray', 'cownose-ray', 'bat-ray',
-      'blotched-fantail-ray', 'short-finned-pilot-whale', 'common-minke-whale', 'common-dolphin', 'bluestreak-cleaner-wrasse', 'picasso-triggerfish',
+      'bowmouth-guitarfish', 'short-finned-pilot-whale', 'common-minke-whale', 'common-dolphin', 'bluestreak-cleaner-wrasse', 'picasso-triggerfish',
       'masked-butterflyfish', 'pygmy-sweeper', 'longnose-hawkfish', 'banded-coral-shrimp', 'varicose-wart-slug', 'hairy-squat-lobster']);
     const original = SPECIES.filter((s) => !added.has(s.id));
     const by = tierCounts(original.map((s) => s.rarity));
