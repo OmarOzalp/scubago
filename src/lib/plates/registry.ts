@@ -16,6 +16,7 @@ import { INVERTS } from './species/inverts';
 import { REPTILES } from './species/reptiles';
 import { MORE_SHARKS } from './species/sharks-more';
 import { MORE_RAYS } from './species/rays-more';
+import { MORE_MAMMALS } from './species/mammals-more';
 import type { Palette, PlateGeom } from './types';
 
 export interface PlateDef {
@@ -39,4 +40,5 @@ export const PLATES: Record<string, PlateDef> = {
   ...REPTILES,
   ...MORE_SHARKS,
   ...MORE_RAYS,
+  ...MORE_MAMMALS,
 };
