@@ -31,14 +31,14 @@ const skinColor = (s: number, theta: number): RGB => {
 };
 
 export const NURSE_SHARK: SharkDesign = {
-  rig, nose: .4, bodyEnd: .72,
+  rig, nose: .4, bodyEnd: .8,
   // A broad, flat head and a rounded snout, a thick round trunk, then a stout tail stock.
-  width: [[0, 0], [.003, .035], [.01, .054], [.024, .067], [.05, .076], [.09, .082], [.14, .081], [.2, .082], [.28, .08], [.36, .074], [.44, .064], [.52, .054], [.6, .044], [.68, .033], [.72, .022]],
-  top: [[0, 0], [.004, .01], [.012, .02], [.026, .03], [.05, .041], [.09, .054], [.14, .064], [.2, .072], [.28, .076], [.36, .074], [.44, .067], [.52, .052], [.6, .043], [.68, .033], [.72, .023]],
-  bottom: [[0, 0], [.004, .009], [.012, .017], [.026, .026], [.05, .036], [.09, .047], [.14, .057], [.2, .064], [.28, .068], [.36, .067], [.44, .061], [.52, .047], [.6, .039], [.68, .031], [.72, .023]],
-  center: [[0, -.012], [.04, -.008], [.1, -.002], [.2, 0], [.4, .002], [.6, .004], [.72, .0055]],
-  squareTop: [[0, 2.6], [.1, 2.5], [.25, 2.2], [.6, 2.1], [.72, 2]],
-  squareBottom: [[0, 2.8], [.1, 2.6], [.3, 2.4], [.6, 2.2], [.72, 2]],
+  width: [[0, 0], [.003, .035], [.01, .054], [.024, .067], [.05, .076], [.09, .082], [.14, .081], [.2, .082], [.28, .08], [.36, .074], [.44, .064], [.52, .05], [.6, .037], [.68, .026], [.72, .019], [.8, .009]],
+  top: [[0, 0], [.004, .01], [.012, .02], [.026, .03], [.05, .041], [.09, .054], [.14, .064], [.2, .072], [.28, .076], [.36, .074], [.44, .067], [.52, .05], [.6, .037], [.68, .027], [.72, .021], [.8, .012]],
+  bottom: [[0, 0], [.004, .009], [.012, .017], [.026, .026], [.05, .036], [.09, .047], [.14, .057], [.2, .064], [.28, .068], [.36, .067], [.44, .061], [.52, .045], [.6, .032], [.68, .022], [.72, .017], [.8, .01]],
+  center: [[0, -.012], [.04, -.008], [.1, -.002], [.2, 0], [.4, .002], [.6, .004], [.8, .006]],
+  squareTop: [[0, 2.6], [.1, 2.5], [.25, 2.2], [.6, 2.1], [.8, 2]],
+  squareBottom: [[0, 2.8], [.1, 2.6], [.3, 2.4], [.6, 2.2], [.8, 2]],
   rings: 62, columnsAbove: 10, columnsBelow: 6,
   boundary, boundaryGap: .03,
   paint: (s, theta) => skinColor(s, theta),
@@ -59,13 +59,13 @@ export function buildNurseShark() {
     color: (_p, t, u) => mix(tone(u), EDGE, .25 * crisp(.88, t)),
   });
   fins.midline({
-    ...outline(.072, roundFin(.625, .024, .075, 1.5, .014), .008),
+    ...outline(.072, roundFin(.655, .024, .075, 1.5, .014), .008),
     height: .075, thickness: .014, stations: 6,
     color: (_p, t, u) => mix(tone(u), EDGE, .25 * crisp(.88, t)),
   });
   // A small anal fin, a little behind the second dorsal.
   fins.midline({
-    ...outline(.042, roundFin(.66, .012, .05, 2.2, .01), .008),
+    ...outline(.042, roundFin(.69, .012, .05, 2.2, .01), .008),
     height: .042, thickness: .011, stations: 5, ventral: true,
     color: (_p, _t, u) => mix(mix(FIN_UNDER, FIN_PALE, .3 * (1 - u)), tone(u), .35),
   });
@@ -93,9 +93,9 @@ export function buildNurseShark() {
   // tip and almost no lower lobe.
   const tail = fins.caudal({
     low: axis - .027, high: axis + .05, edges: [axis + .04],
-    le: [[axis - .027, .72], [axis - .01, .72], [axis, .724], [axis + .015, .77], [axis + .03, .85], [axis + .042, .93], [axis + .05, .99]],
+    le: [[axis - .027, .7], [axis - .01, .7], [axis, .705], [axis + .015, .77], [axis + .03, .85], [axis + .042, .93], [axis + .05, .99]],
     te: [[axis - .027, .76], [axis - .015, .83], [axis, .95], [axis + .02, .978], [axis + .032, .955], [axis + .042, .99], [axis + .05, 1]],
-    thickness: (y) => .005 + .017 * Math.max(0, 1 - Math.abs(y - axis - .004) / .065) ** 1.1,
+    thickness: (y) => .004 + .02 * Math.max(0, 1 - (y - axis + .027) / .077) ** 1.2,
     upperPivot: .03, lowerPivot: .02, stations: 16,
     color: (p, y, u) => mix(mix(FIN, FIN_PALE, .25 + .2 * (1 - u)), EDGE, .25 * crisp(axis + .04, y, .004) + (p.y < axis ? .1 : 0)),
   });
@@ -127,7 +127,7 @@ export function buildNurseShark() {
       (t) => .0017 * Math.sin(Math.PI * (.12 + .76 * t)) ** .6, GILL, .001);
   }
 
-  precaudalPits(ctx, mix(BACK, FIN, .5), mix(BELLY, FIN, .35), .692);
+  precaudalPits(ctx, mix(BACK, FIN, .5), mix(BELLY, FIN, .35), .74);
 
   ctx.spineBones();
   bones.push(

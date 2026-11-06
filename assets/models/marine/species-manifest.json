@@ -818,7 +818,7 @@
   "nurse-shark": {
     "status": "stylized-draft",
     "version": 2,
-    "bytes": 130808,
+    "bytes": 130820,
     "triangles": 5604,
     "source": "Original procedural geometry and rig",
     "bones": 12,
