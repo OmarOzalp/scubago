@@ -26,6 +26,11 @@ export const SPECIES: Species[] = [
   { id: 'blacktip-reef-shark', commonName: 'Blacktip Reef Shark', scientificName: 'Carcharhinus melanopterus', category: 'shark', rarity: 'common', blurb: 'Skittish shallow-reef regular with ink-dipped fin tips.' },
   { id: 'whitetip-reef-shark', commonName: 'Whitetip Reef Shark', scientificName: 'Triaenodon obesus', category: 'shark', rarity: 'common', blurb: 'Slender night hunter usually found dozing under ledges by day.' },
   { id: 'nurse-shark', commonName: 'Nurse Shark', scientificName: 'Ginglymostoma cirratum', category: 'shark', rarity: 'common', blurb: 'The Caribbean’s couch potato — big, calm and usually asleep.' },
+  { id: 'epaulette-shark', commonName: 'Epaulette Shark', scientificName: 'Hemiscyllium ocellatum', category: 'shark', rarity: 'uncommon', blurb: 'A small spotted shark that walks across reef flats on its fins, with a big false eye on each shoulder.' },
+  { id: 'brownbanded-bamboo-shark', commonName: 'Brownbanded Bamboo Shark', scientificName: 'Chiloscyllium punctatum', category: 'shark', rarity: 'uncommon', blurb: 'A slender bottom-dweller that rests under ledges by day; the young wear bold brown bands.' },
+  { id: 'angelshark', commonName: 'Angelshark', scientificName: 'Squatina squatina', category: 'shark', rarity: 'epic', blurb: 'A flat, sand-coloured ambusher buried in the seabed, critically endangered and a rare find.' },
+  { id: 'blue-shark', commonName: 'Blue Shark', scientificName: 'Prionace glauca', category: 'shark', rarity: 'rare', blurb: 'A slim, cobalt-blue wanderer of the open ocean with long, wing-like pectoral fins.' },
+  { id: 'silvertip-shark', commonName: 'Silvertip Shark', scientificName: 'Carcharhinus albimarginatus', category: 'shark', rarity: 'rare', blurb: 'A powerful reef-edge shark with bright white tips on every fin.' },
 
   // ── Rays ──────────────────────────────────────────────────────────────────
   { id: 'reef-manta', commonName: 'Reef Manta Ray', scientificName: 'Mobula alfredi', category: 'ray', rarity: 'epic', blurb: 'A 3–4 m wing-span acrobat that barrel-rolls through plankton clouds.' },
@@ -38,6 +43,10 @@ export const SPECIES: Species[] = [
   { id: 'bluespotted-ribbontail-ray', commonName: 'Bluespotted Ribbontail Ray', scientificName: 'Taeniura lymma', category: 'ray', rarity: 'common', blurb: 'Electric-blue spots on a golden disc, peeking from under table corals.' },
   { id: 'giant-guitarfish', commonName: 'Giant Guitarfish', scientificName: 'Glaucostegus typus', category: 'ray', rarity: 'rare', blurb: 'Half shark, half ray — a prehistoric-looking sand cruiser.' },
   { id: 'marbled-electric-ray', commonName: 'Marbled Electric Ray', scientificName: 'Torpedo marmorata', category: 'ray', rarity: 'uncommon', blurb: 'Carries its own 200-volt battery; do not pet.' },
+  { id: 'bull-ray', commonName: 'Bull Ray', scientificName: 'Aetomylaeus bovinus', category: 'ray', rarity: 'rare', blurb: 'An eagle ray with a blunt, duck-billed head, gliding over sand in the Mediterranean and East Atlantic.' },
+  { id: 'cownose-ray', commonName: 'Cownose Ray', scientificName: 'Rhinoptera bonasus', category: 'ray', rarity: 'uncommon', blurb: 'A golden-brown ray with a notched, cow-like head that travels in big schools.' },
+  { id: 'bat-ray', commonName: 'Bat Ray', scientificName: 'Myliobatis californica', category: 'ray', rarity: 'uncommon', blurb: 'A dark eagle ray of California’s kelp and sand flats, flapping like a giant bat.' },
+  { id: 'blotched-fantail-ray', commonName: 'Blotched Fantail Ray', scientificName: 'Taeniurops meyeni', category: 'ray', rarity: 'uncommon', blurb: 'A huge round stingray mottled black and grey, resting on sand near the reef.' },
 
   // ── Turtles ───────────────────────────────────────────────────────────────
   { id: 'green-turtle', commonName: 'Green Sea Turtle', scientificName: 'Chelonia mydas', category: 'turtle', rarity: 'common', blurb: 'The seagrass-munching favorite of reef and lagoon worldwide.' },
@@ -57,6 +66,9 @@ export const SPECIES: Species[] = [
   { id: 'california-sea-lion', commonName: 'California Sea Lion', scientificName: 'Zalophus californianus', category: 'mammal', rarity: 'uncommon', blurb: 'Underwater puppy that will chew your fins and steal the show.', emoji: '🦭' },
   { id: 'harbor-seal', commonName: 'Harbor Seal', scientificName: 'Phoca vitulina', category: 'mammal', rarity: 'uncommon', blurb: 'Big-eyed kelp-forest sneak that appears silently behind you.', emoji: '🦭' },
   { id: 'sea-otter', commonName: 'Sea Otter', scientificName: 'Enhydra lutris', category: 'mammal', rarity: 'epic', blurb: 'Tool-using kelp anchor and professional floater.', emoji: '🦦' },
+  { id: 'short-finned-pilot-whale', commonName: 'Short-finned Pilot Whale', scientificName: 'Globicephala macrorhynchus', category: 'mammal', rarity: 'epic', blurb: 'A black, round-headed dolphin that lives in tight family pods.' },
+  { id: 'common-minke-whale', commonName: 'Common Minke Whale', scientificName: 'Balaenoptera acutorostrata', category: 'mammal', rarity: 'epic', blurb: 'The smallest great whale, curious enough to circle divers on the Great Barrier Reef.' },
+  { id: 'common-dolphin', commonName: 'Short-beaked Common Dolphin', scientificName: 'Delphinus delphis', category: 'mammal', rarity: 'rare', blurb: 'A fast, hourglass-patterned dolphin that races in huge, splashing pods.' },
 
   // ── Big fish ──────────────────────────────────────────────────────────────
   { id: 'mola-mola', commonName: 'Ocean Sunfish (Mola Mola)', scientificName: 'Mola mola', category: 'fish', rarity: 'epic', blurb: 'A two-tonne swimming head that comes shallow to get cleaned.' },
@@ -114,6 +126,11 @@ export const SPECIES: Species[] = [
   { id: 'wolf-eel', commonName: 'Wolf Eel', scientificName: 'Anarrhichthys ocellatus', category: 'fish', rarity: 'rare', blurb: 'Craggy-faced den dweller that mates for life.' },
   { id: 'lingcod', commonName: 'Lingcod', scientificName: 'Ophiodon elongatus', category: 'fish', rarity: 'common', blurb: 'Toothy Pacific Northwest predator with occasional blue flesh.' },
   { id: 'sea-goldie', commonName: 'Sea Goldie (Anthias)', scientificName: 'Pseudanthias squamipinnis', category: 'fish', rarity: 'common', blurb: 'The orange confetti that makes reef walls shimmer.' },
+  { id: 'bluestreak-cleaner-wrasse', commonName: 'Bluestreak Cleaner Wrasse', scientificName: 'Labroides dimidiatus', category: 'fish', rarity: 'common', blurb: 'The reef’s dentist: a tiny striped fish that picks parasites off groupers and mantas.' },
+  { id: 'picasso-triggerfish', commonName: 'Picasso Triggerfish', scientificName: 'Rhinecanthus aculeatus', category: 'fish', rarity: 'common', blurb: 'A lagoon triggerfish painted in blue, yellow and black lines, as if by an abstract artist.' },
+  { id: 'masked-butterflyfish', commonName: 'Masked Butterflyfish', scientificName: 'Chaetodon semilarvatus', category: 'fish', rarity: 'uncommon', blurb: 'A golden butterflyfish with a blue eye mask, usually seen in pairs in the Red Sea.' },
+  { id: 'pygmy-sweeper', commonName: 'Pygmy Sweeper', scientificName: 'Parapriacanthus ransonneti', category: 'fish', rarity: 'common', blurb: 'Glassy little fish that swirl in golden clouds inside caves and wrecks.' },
+  { id: 'longnose-hawkfish', commonName: 'Longnose Hawkfish', scientificName: 'Oxycirrhites typus', category: 'fish', rarity: 'uncommon', blurb: 'A red-checked perch with a long snout, perched in sea fans and black coral.' },
 
   // ── Cephalopods ───────────────────────────────────────────────────────────
   { id: 'day-octopus', commonName: 'Day Octopus', scientificName: 'Octopus cyanea', category: 'cephalopod', rarity: 'common', blurb: 'The reef’s quick-change artist, hunting in broad daylight.' },
@@ -137,6 +154,9 @@ export const SPECIES: Species[] = [
   { id: 'caribbean-spiny-lobster', commonName: 'Caribbean Spiny Lobster', scientificName: 'Panulirus argus', category: 'macro', rarity: 'common', blurb: 'Antennae-first in every crevice; marches in conga lines each autumn.', emoji: '🦞' },
   { id: 'christmas-tree-worm', commonName: 'Christmas Tree Worm', scientificName: 'Spirobranchus giganteus', category: 'macro', rarity: 'common', blurb: 'Twin spiral firs that vanish in a blink when you swim close.', emoji: '🎄' },
   { id: 'giant-clam', commonName: 'Giant Clam', scientificName: 'Tridacna gigas', category: 'macro', rarity: 'uncommon', blurb: 'A 200 kg living jewel box with iridescent lips.', emoji: '🐚' },
+  { id: 'banded-coral-shrimp', commonName: 'Banded Coral Shrimp', scientificName: 'Stenopus hispidus', category: 'macro', rarity: 'common', blurb: 'A red-and-white striped cleaner shrimp waving long white antennae from a crevice.' },
+  { id: 'varicose-wart-slug', commonName: 'Varicose Wart Slug', scientificName: 'Phyllidia varicosa', category: 'macro', rarity: 'common', blurb: 'A bumpy blue-black nudibranch with yellow-tipped warts, one of the reef’s commonest slugs.' },
+  { id: 'hairy-squat-lobster', commonName: 'Hairy Squat Lobster', scientificName: 'Lauriea siagiani', category: 'macro', rarity: 'rare', blurb: 'A fuzzy pink crustacean the size of a fingernail, hiding in barrel sponges.' },
 
   // ── Reptiles & other ──────────────────────────────────────────────────────
   { id: 'banded-sea-krait', commonName: 'Banded Sea Krait', scientificName: 'Laticauda colubrina', category: 'reptile', rarity: 'uncommon', blurb: 'Docile but seriously venomous striped snake that naps on land.', emoji: '🐍' },
