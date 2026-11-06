@@ -14,9 +14,9 @@ const TOP = hex('#7f775d'), TIP = hex('#645e48'), BAR = hex('#a9ae96'), BELLY = 
 
 export const BULL_RAY: EagleRayDesign = {
   // A flattened diamond: a nearly straight, only slightly convex leading edge running diagonally back from the head
-  // to sharp tips at about the middle of the disc's length, and a gently concave rear edge (disc about 1.9 times as wide as long).
-  leading: [[0, .21], [.05, .193], [.1, .174], [.2, .128], [.3, .066], [.4, -.03], [.45, -.07], [.48, -.095], [.5, -.115]],
-  trailing: [[0, -.31], [.06, -.306], [.12, -.297], [.2, -.276], [.3, -.238], [.38, -.195], [.44, -.16], [.48, -.135], [.5, -.115]],
+  // to sharp tips at about the middle of the disc's length, and a concave rear edge curving forward between the pelvic area and the tips (disc about 1.9 times as wide as long).
+  leading: [[0, .25], [.05, .225], [.1, .2], [.2, .14], [.3, .066], [.4, -.034], [.45, -.077], [.48, -.103], [.5, -.12]],
+  trailing: [[0, -.28], [.06, -.255], [.12, -.225], [.17, -.2], [.25, -.175], [.33, -.155], [.4, -.145], [.45, -.138], [.48, -.13], [.5, -.12]],
   thickness: [[0, .082], [.04, .077], [.07, .06], [.1, .04], [.15, .024], [.25, .013], [.35, .008], [.45, .005], [.5, .002]],
   lift: [[0, .004], [.08, .002], [.15, 0], [.5, .004]],
   // A flat, broad head, a little wider than long, flaring slightly toward a rounded, spatulate front, the brow bulging over the eyes.
@@ -28,12 +28,12 @@ export const BULL_RAY: EagleRayDesign = {
   spiracle: { x: .125, z: .108, length: .034, color: hex('#2f2d24') },
   spine: { height: .018, length: .1, at: .1 },
   colors: { top: TOP, tip: TIP, belly: BELLY, margin: MARGIN, mouth: hex('#4a4a42'), gill: hex('#a9ada3'), eye: hex('#07090a'), tail: hex('#5d5848'), spine: hex('#a89f86'), snout: hex('#938a6c') },
-  tail: { start: -.315, length: .92, radius: .0085, dorsal: .018 },
+  tail: { start: -.285, length: .92, radius: .0085, dorsal: .018 },
   // Olive-brown, a little paler along the midline and over the head, darkening toward the wing margins.
   topAt: (x, u, z) => mix(mix(TOP, hex('#8b8466'), (1 - smoothstep(.04, .2, Math.abs(x))) * .55), TIP, smoothstep(.28, .5, Math.abs(x)) + .25 * smoothstep(.8, 1, u)),
   markings: (h: Helpers) => {
     // Faint pale bars across the back, from the midline out over the wings, each curving a little back toward the tips.
-    const bars = [.15, .095, .04, -.015, -.07, -.125, -.18, -.235];
+    const bars = [.19, .135, .08, .025, -.03, -.085, -.14, -.195];
     for (const z0 of bars) {
       let line: (readonly [number, number])[] = [];
       const flush = () => {
