@@ -818,8 +818,8 @@
   "nurse-shark": {
     "status": "stylized-draft",
     "version": 2,
-    "bytes": 97420,
-    "triangles": 4004,
+    "bytes": 141592,
+    "triangles": 5868,
     "source": "Original procedural geometry and rig",
     "bones": 12,
     "clip": "Swim",
@@ -834,8 +834,8 @@
   "zebra-shark": {
     "status": "stylized-draft",
     "version": 2,
-    "bytes": 126708,
-    "triangles": 4305,
+    "bytes": 158184,
+    "triangles": 6000,
     "source": "Original procedural geometry and rig",
     "bones": 12,
     "clip": "Swim",
@@ -850,8 +850,8 @@
   "tasselled-wobbegong": {
     "status": "stylized-draft",
     "version": 2,
-    "bytes": 115064,
-    "triangles": 4494,
+    "bytes": 253140,
+    "triangles": 7397,
     "source": "Original procedural geometry and rig",
     "bones": 12,
     "clip": "Swim",

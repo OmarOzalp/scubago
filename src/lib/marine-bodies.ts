@@ -65,9 +65,9 @@ const HULL_ROWS: Record<MarineModel, readonly [number, number, number, number, n
   'loggerhead-turtle': [.18, .24, .1, .07, .18, .68, .68],
   'goliath-grouper': [.3, .2, .14, .22, .29, .38, 1.05],
   // The carpet sharks: low, broad bodies that lie on the bottom.
-  'nurse-shark': [.23, .27, .15, .16, .38, .45, 1.38],
+  'nurse-shark': [.23, .3, .15, .16, .38, .52, 1.38],
   'zebra-shark': [.17, .2, .1, .11, .31, .54, 1.37],
-  'tasselled-wobbegong': [.08, .09, .06, .09, .17, .41, 1],
+  'tasselled-wobbegong': [.06, .09, .08, .07, .17, .66, 1.01],
   lionfish: [.17, .2, .04, .09, .21, .3, .3],
   batfish: [.34, .34, .11, .09, .37, .16, .38],
   'day-octopus': [.06, .11, .1, .1, .25, .56, .55],
@@ -256,7 +256,7 @@ export const STANCES: Record<MarineModel, Stance> = {
   'sand-tiger-shark': reef(.35), 'reef-fish': reef(.5),
   'bull-shark': reef(.35), 'bull-ray': reef(.45), 'cownose-ray': reef(.5),
   // Bottom-dwellers: close above the seabed, following it.
-  'southern-stingray': bottom(.04), sawfish: bottom(.06), 'whitetip-reef-shark': bottom(.05), 'goliath-grouper': bottom(.08), 'nurse-shark': bottom(.06), 'zebra-shark': bottom(.04), 'tasselled-wobbegong': bottom(.03), lionfish: bottom(.06), batfish: bottom(.08),
+  'southern-stingray': bottom(.04), sawfish: bottom(.06), 'whitetip-reef-shark': bottom(.05), 'goliath-grouper': bottom(.08), 'nurse-shark': bottom(.02), 'zebra-shark': bottom(.015), 'tasselled-wobbegong': bottom(.01), lionfish: bottom(.06), batfish: bottom(.08),
   'leafy-seadragon': bottom(.12), dugong: bottom(.08),
   // The reef's own (reef-life.ts steers these along the bottom itself).
   'day-octopus': bottom(.03), 'giant-cuttlefish': reef(.4), 'giant-moray': bottom(.03), clownfish: bottom(.12),
@@ -267,7 +267,7 @@ export const STANCES: Record<MarineModel, Stance> = {
  * devil rays are open-water animals.
  */
 const SPECIES_STANCES: Readonly<Record<string, Stance>> = {
-  'zebra-shark': bottom(.04), 'tasselled-wobbegong': bottom(.03), 'nurse-shark': bottom(.06), 'shortfin-mako': open(.6), 'silky-shark': open(.6), 'basking-shark': open(.5),
+  'zebra-shark': bottom(.015), 'tasselled-wobbegong': bottom(.01), 'nurse-shark': bottom(.02), 'shortfin-mako': open(.6), 'silky-shark': open(.6), 'basking-shark': open(.5),
   'munks-devil-ray': open(.55), 'marbled-ray': bottom(.04), 'bluespotted-ribbontail-ray': bottom(.04), 'giant-guitarfish': bottom(.04), 'marbled-electric-ray': bottom(.04),
   stonefish: bottom(.03), 'leaf-scorpionfish': bottom(.03), 'giant-frogfish': bottom(.03), 'ribbon-eel': bottom(.03), 'garden-eel': bottom(.03), mandarinfish: bottom(.05), crocodilefish: bottom(.03),
   'flying-gurnard': bottom(.04), 'yellowhead-jawfish': bottom(.04), lingcod: bottom(.06), 'common-seahorse': bottom(.1), porcupinefish: reef(.3),

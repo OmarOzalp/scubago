@@ -40,20 +40,38 @@ describe.each(IDS)('%s', (id) => {
     expect(rig.hover).toBeLessThanOrEqual(.1);
     expect([...rig.joints]).toEqual([...rig.joints].sort((a, b) => a - b));
     const swim = createSwimRig(id), rest = createSwimRig(id);
+    // The spine's own swing (the pectorals and head have their own jobs when it lies down).
     const tail = (r: typeof swim, effort: number) => {
       let widest = 0;
+      const spine = r.bones.map((name, i) => (/^(Spine|RearBody|Tail)/.test(name) ? i : -1)).filter((i) => i >= 0);
       for (let k = 0; k < 16; k++) {
         r.sample(k / 16 * Math.PI * 2, { effort, turn: 0, curvature: 0, climb: 0 });
-        widest = Math.max(widest, Math.abs(r.offset.x), ...[...r.rotation].map(Math.abs));
+        widest = Math.max(widest, Math.abs(r.offset.x), ...spine.flatMap((i) => [0, 1, 2].map((a) => Math.abs(r.rotation[i * 3 + a]))));
       }
       return widest;
     };
     expect(tail(rest, .25)).toBeLessThan(tail(swim, 1) * .6);
   });
 
-  it('is within the triangle and download budgets', () => {
-    expect(manifest[id].triangles).toBeLessThan(5000);
-    expect(statSync(join(DIR, `${id}.glb`)).size).toBeLessThan(220000);
+  it('lies down on the bottom when it rests: sinks, lays its pectorals flat and pumps its gills; never when it swims', () => {
+    const rig = SWIM_RIGS[id] as SharkRig;
+    expect(rig.lie).toBeDefined();
+    const swim = createSwimRig(id), rest = createSwimRig(id);
+    swim.sample(1, { effort: 1, turn: 0, curvature: 0, climb: 0 });
+    rest.sample(1, { effort: .25, turn: 0, curvature: 0, climb: 0 });
+    expect(swim.offset.y).toBeCloseTo(0, 9);
+    expect(rest.offset.y).toBeCloseTo(-rig.lie!.sink, 6);
+    const pectoral = (r: typeof swim) => r.rotation[r.bones.indexOf('PectoralL') * 3 + 2];
+    expect(pectoral(rest) - pectoral(swim)).toBeGreaterThan(rig.lie!.fins * .5);
+    // Half way between (a slow walk) it is half down: nothing snaps.
+    const walk = createSwimRig(id);
+    walk.sample(1, { effort: .45, turn: 0, curvature: 0, climb: 0 });
+    expect(walk.offset.y).toBeLessThan(0);
+    expect(walk.offset.y).toBeGreaterThan(rest.offset.y);
+  });
+  it('is within the triangle and download budgets (8,000 and 340 KB: these three are drawn in more detail)', () => {
+    expect(manifest[id].triangles).toBeLessThan(8000);
+    expect(statSync(join(DIR, `${id}.glb`)).size).toBeLessThan(340000);
   });
 });
 

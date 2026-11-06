@@ -12,13 +12,6 @@ import { createSwimRig, RIG_EULER_ORDER } from '../src/lib/marine-rigs.ts';
 import { hullOf } from '../src/lib/marine-bodies.ts';
 import { MARINE_SIZE } from '../src/components/home/three/tap-target.ts';
 
-/** The fidelity pass's models may spend more: [triangles, bytes] per species; every other model keeps 5,000 / 220 KB. */
-const FIDELITY_BUDGETS = {
-  'bull-shark': [8000, 340000],
-  'bull-ray': [8000, 340000],
-  'cownose-ray': [8000, 340000],
-};
-
 const SPECIES = ['whale-shark', 'tiger-shark', 'great-white-shark', 'scalloped-hammerhead', 'reef-manta', 'mola-mola', 'green-turtle', 'bottlenose-dolphin',
   'day-octopus', 'giant-cuttlefish', 'giant-moray',
   'great-barracuda', 'sailfish', 'california-sea-lion', 'spotted-eagle-ray', 'golden-jellyfish', 'clownfish',
@@ -30,6 +23,15 @@ const SPECIES = ['whale-shark', 'tiger-shark', 'great-white-shark', 'scalloped-h
   'sand-tiger-shark', 'loggerhead-turtle', 'goliath-grouper', 'lionfish', 'batfish',
   'bull-shark', 'bull-ray', 'cownose-ray',
   'nurse-shark', 'zebra-shark', 'tasselled-wobbegong'];
+/**
+ * Budgets per model: 5,000 triangles and 220 KB unless a species has its own (the newest six, which are drawn in more
+ * detail: add a species here with its own limits and a reason).
+ */
+const BUDGETS = {
+  'nurse-shark': { triangles: 8000, bytes: 340000 }, 'zebra-shark': { triangles: 8000, bytes: 340000 }, 'tasselled-wobbegong': { triangles: 8000, bytes: 340000 },
+  'bull-shark': { triangles: 8000, bytes: 340000 }, 'bull-ray': { triangles: 8000, bytes: 340000 }, 'cownose-ray': { triangles: 8000, bytes: 340000 },
+};
+const budgetOf = (name) => BUDGETS[name] ?? { triangles: 5000, bytes: 220000 };
 /**
  * Animals with a pose of their own to check beyond swimming and turning: the reef's (resting,
  * jetting), the barracuda hanging still, the sailfish's sail, the clownfish rowing in place.
@@ -60,9 +62,8 @@ for (const name of ['shark', 'manta', 'reef-fish', ...SPECIES]) {
   });
   console.log(`${name}: ${triangles} triangles, ${bytes.byteLength} bytes`);
   if (SPECIES.includes(name)) assert.equal(meshes, 1, `${name}: too many skinned draw calls`);
-  const [triangleBudget, byteBudget] = FIDELITY_BUDGETS[name] ?? [5000, 220000];
-  assert(triangles < triangleBudget, `${name}: exceeds lightweight swimming budget`);
-  assert(bytes.byteLength < byteBudget, `${name}: exceeds download budget`);
+  assert(triangles < budgetOf(name).triangles, `${name}: exceeds lightweight swimming budget`);
+  assert(bytes.byteLength < budgetOf(name).bytes, `${name}: exceeds download budget`);
   assert(clip && clip.duration > 0, `${name}: missing swim clip`);
   const a = clone(gltf.scene), b = clone(gltf.scene);
   let skin;

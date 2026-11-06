@@ -136,6 +136,12 @@ export type SharkRig = {
    */
   hover?: number;
   /**
+   * A bottom-dweller that lies down when it rests (a nurse shark): as its effort falls below cruising it
+   * settles onto the sand: the whole body sinks by `sink` (model units), the pectorals lift by `fins` (rad) to lie
+   * flat instead of propping it, and the head pumps with its gills by `pump` (rad, 4 beats a cycle).
+   */
+  lie?: { sink: number; fins: number; pump: number };
+  /**
    * A sail on `Dorsal` that folds down into its groove (a sailfish): its height when folded (share of
    * full height), and how far it stands raised when nothing says otherwise. `SwimDrive.sail` sets it
    * (0 folded, 1 fully raised); sideways it still sways with the stroke.
@@ -658,6 +664,7 @@ export const SWIM_RIGS: Record<SwimRigModel, SwimRigSpec> = {
     frequency: .4, wavelength: 1, tailAmplitude: .11, rootAmplitude: .004, headAmplitude: .005, envelope: 2, headSteady: .5,
     lobes: { upper: .1, lower: .02, upperAngle: .7, lowerAngle: .9, lag: 1 },
     dorsal: .03, pectoral: { flap: .025, pitch: .03, turn: .5, climb: .25 }, roll: .015, bend: .8, hover: .06,
+    lie: { sink: .08, fins: .5, pump: .02 },
   },
   // A zebra shark: it rests propped on its pectorals in the current; swimming, the long, slender body and
   // the great tail swing in one slow, wide wave (the tail is half its length), the head steady in front.
@@ -666,14 +673,16 @@ export const SWIM_RIGS: Record<SwimRigModel, SwimRigSpec> = {
     frequency: .36, wavelength: 1.15, tailAmplitude: .12, rootAmplitude: .004, headAmplitude: .005, envelope: 1.8, headSteady: .5,
     lobes: { upper: .09, lower: .04, upperAngle: .6, lowerAngle: .9, lag: 1 },
     dorsal: .03, pectoral: { flap: .03, pitch: .03, turn: .5, climb: .25 }, roll: .018, bend: .85, hover: .05,
+    lie: { sink: .062, fins: .3, pump: .015 },
   },
   // A wobbegong: an ambush predator that lies like a rug for long spells; moving, it undulates like an eel,
   // the flat body and short tail rippling in a tight wave while the broad head stays still.
   'tasselled-wobbegong': {
     kind: 'shark', joints: [.27, .43, .58, .7, .82], dorsalParent: 'Spine2', dorsalAt: .52,
-    frequency: .34, wavelength: .85, tailAmplitude: .12, rootAmplitude: .006, headAmplitude: .006, envelope: 1.6, headSteady: .4,
+    frequency: .34, wavelength: .85, tailAmplitude: .12, rootAmplitude: .012, headAmplitude: .006, envelope: 1.25, headSteady: .4,
     lobes: { upper: .1, lower: .05, upperAngle: .7, lowerAngle: .9, lag: 1 },
     dorsal: .03, pectoral: { flap: .035, pitch: .03, turn: .5, climb: .25 }, roll: .02, bend: .9, hover: .05,
+    lie: { sink: .033, fins: .2, pump: .02 },
   },
   // A slow, heavy swimmer that hangs almost motionless over the wreck: lazy, shallow beats and the
   // pectorals sculling to hold it level, the two big dorsals riding steady.
@@ -953,11 +962,13 @@ function poseShark(spec: SharkRig, s: RigState, set: SetBone, offset: { x: numbe
 
   // The whole body sways slightly with the root; the head only yaws a little against it (less still
   // for a steady-headed species), but leads into turns.
+  // Lying down: below a walking pace it settles on the sand, the pectorals flat, the gills pumping.
+  const down = spec.lie ? clamp((.65 - s.effort) / .4, 0, 1) : 0, lying = down * down * (3 - 2 * down);
   offset.x = lateral(root);
-  offset.y = 0;
+  offset.y = spec.lie ? -spec.lie.sink * lying : 0;
   offset.z = 0;
   set('Root', 0, 0, spec.roll * strength * Math.sin(s.phase - k * (.75 - root)));
-  set('Head', 0, Math.atan2((spec.headSteady ?? 1) * (sway(0) - sway(root)) + bend * root * root, root), 0);
+  set('Head', spec.lie ? spec.lie.pump * lying * Math.sin(4 * s.phase) : 0, Math.atan2((spec.headSteady ?? 1) * (sway(0) - sway(root)) + bend * root * root, root), 0);
   const chain = [root, spine2, rearBody, tailBase, tail, 1];
   const names = ['Spine1', 'Spine2', 'RearBody', 'TailBase', 'Tail'];
   let previous = 0;
@@ -987,8 +998,9 @@ function poseShark(spec: SharkRig, s: RigState, set: SetBone, offset: { x: numbe
   const row = (spec.pectoral.row ?? 0) * (1 + .6 * (1 - still));
   const sweep = row * Math.sin(s.phase + .4);
   const feather = .45 * row * Math.cos(s.phase + .4);
-  set('PectoralL', lift + feather, sweep, trim - Math.max(0, turn) + .4 * Math.max(0, -turn));
-  set('PectoralR', lift - feather, sweep, -(trim - Math.max(0, -turn) + .4 * Math.max(0, turn)));
+  const flat = spec.lie ? spec.lie.fins * lying : 0;
+  set('PectoralL', lift + feather, sweep, trim - Math.max(0, turn) + .4 * Math.max(0, -turn) + flat);
+  set('PectoralR', lift - feather, sweep, -(trim - Math.max(0, -turn) + .4 * Math.max(0, turn)) - flat);
 }
 
 /**

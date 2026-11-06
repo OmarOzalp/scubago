@@ -129,17 +129,64 @@ export function slit(ctx: SharkContext, s: number, theta: number, rs: number, rt
 
 
 /** A flat many-sided dot lying on the skin at `[s, theta]`, `r` across in world units (`sides` triangles: cheaper than the shark kit's spot). */
-export function dot(ctx: SharkContext, s: number, theta: number, r: number, color: RGB, sides = 5, squash = 1, lift = .0009) {
+export function dot(ctx: SharkContext, s: number, theta: number, r: number, color: RGB, sides = 5, squash = 1, lift = .0009, spin = .4) {
   const { mesh, raw, surface, normal, skin } = ctx;
   mesh.begin();
   const gs = raw(s + .002, theta).sub(raw(s - .002, theta)).length() / .004;
   const gt = raw(s, theta + .01).sub(raw(s, theta - .01)).length() / .02;
   const c = mesh.vertex(surface(s, theta, lift * 1.4), color, skin(s), normal(s, theta));
   const ring = Array.from({ length: sides }, (_, i) => {
-    const a = TAU * i / sides + .4;
+    const a = TAU * i / sides + spin;
     const ps = s + Math.cos(a) * r * squash / gs, pt = theta + Math.sin(a) * r / gt;
     return mesh.vertex(surface(ps, pt, lift), color, skin(ps), normal(ps, pt));
   });
   for (let i = 0; i < sides; i++) mesh.tri(c, ring[i], ring[(i + 1) % sides]);
   mesh.end({ closed: false, normals: false, outward: (i) => new Vector3(mesh.normals[i * 3], mesh.normals[i * 3 + 1], mesh.normals[i * 3 + 2]) });
+}
+
+/**
+ * One thin, flat, curving strand of a wobbegong's beard: a ribbon `width` across (horizontal, so it lies out
+ * like a blade of grass), narrowing to its tip in three segments (5 triangles), from `from` along `dir`, bent
+ * toward `sag` (a world vector, so strands can droop) by `bend` of its length. Returns its points.
+ */
+function strand(part: Part, from: Vector3, dir: Vector3, length: number, width: number, sag: Vector3, bend: number, colorBase: RGB, colorTip: RGB) {
+  const { mesh } = part.ctx, { weights } = part;
+  const d = dir.clone().normalize();
+  const across = new Vector3(0, 1, 0).cross(d);
+  if (across.lengthSq() < 1e-4) across.set(1, 0, 0);
+  across.normalize();
+  const stops = [0, .34, .68, 1], widths = [1, .8, .5, 0];
+  const points = stops.map((t) => from.clone().addScaledVector(d, length * t).addScaledVector(sag, length * bend * t * t));
+  mesh.begin();
+  const rows = points.map((p, i) => (i === stops.length - 1
+    ? [mesh.vertex(p, colorTip, weights)]
+    : [mesh.vertex(p.clone().addScaledVector(across, width * widths[i] / 2), mix(colorBase, colorTip, stops[i]), weights), mesh.vertex(p.clone().addScaledVector(across, -width * widths[i] / 2), mix(colorBase, colorTip, stops[i]), weights)]));
+  for (let i = 0; i < rows.length - 2; i++) mesh.quad(rows[i][0], rows[i][1], rows[i + 1][1], rows[i + 1][0]);
+  mesh.tri(rows[rows.length - 2][0], rows[rows.length - 2][1], rows[rows.length - 1][0]);
+  mesh.end({ closed: false, outward: () => new Vector3(0, 1, 0) });
+  return points;
+}
+
+/**
+ * A lacy tuft of the wobbegong's beard at `[s, theta]`: a main strand with `branches` side strands springing from
+ * it at 40% and 68% of its length, all drooping along `sag`. `lean` is where the tuft points; `spread` the side
+ * strands' angle from it (rad). (5 triangles a strand.)
+ */
+export function frond(
+  ctx: SharkContext, s: number, theta: number, lean: Vector3, length: number, width: number,
+  color: RGB, tipColor: RGB, options: { branches?: number; spread?: number; sag?: number; droop?: number } = {},
+) {
+  const part = placed(ctx, s, theta, .004);
+  const branches = options.branches ?? 3, spread = options.spread ?? .6, bend = options.sag ?? .5;
+  const sag = new Vector3(0, -(options.droop ?? 1), 0);
+  const dir = lean.clone().normalize();
+  const up = new Vector3(0, 1, 0);
+  const main = strand(part, part.base, dir, length, width, sag, bend, color, tipColor);
+  const at = [.4, .68, .5, .8];
+  for (let i = 0; i < branches; i++) {
+    const side = i % 2 === 0 ? -1 : 1, t = at[i % at.length];
+    const start = i < 2 ? main[1].clone().lerp(main[2], (t - .34) / .34) : main[1].clone().lerp(main[2], .5);
+    const bd = dir.clone().applyAxisAngle(up, side * spread * (1 + .25 * (i >> 1)));
+    strand(part, start, bd, length * (.55 - .12 * i + .1), width * .8, sag, bend, mix(color, tipColor, t), tipColor);
+  }
 }

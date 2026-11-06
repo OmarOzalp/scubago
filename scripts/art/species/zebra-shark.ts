@@ -36,9 +36,9 @@ const skinColor = (s: number, theta: number): RGB => {
 export const ZEBRA_SHARK: SharkDesign = {
   rig, nose: .4, bodyEnd: .88,
   // A rounded snout and a broad flat head, a slender trunk, then a long, narrowing tail stock.
-  width: [[0, 0], [.004, .028], [.012, .043], [.028, .052], [.055, .058], [.1, .066], [.16, .068], [.24, .064], [.32, .057], [.4, .048], [.48, .04], [.56, .031], [.64, .024], [.72, .018], [.8, .013], [.88, .008]],
-  top: [[0, 0], [.004, .009], [.012, .016], [.028, .024], [.055, .032], [.1, .041], [.16, .048], [.24, .051], [.32, .05], [.4, .045], [.48, .038], [.56, .03], [.64, .024], [.72, .018], [.8, .013], [.88, .009]],
-  bottom: [[0, 0], [.004, .008], [.012, .014], [.028, .021], [.055, .028], [.1, .036], [.16, .041], [.24, .043], [.32, .042], [.4, .038], [.48, .032], [.56, .026], [.64, .02], [.72, .016], [.8, .012], [.88, .008]],
+  width: [[0, 0], [.004, .028], [.012, .043], [.028, .052], [.055, .058], [.1, .066], [.16, .068], [.24, .064], [.32, .056], [.4, .046], [.48, .037], [.56, .027], [.64, .019], [.72, .014], [.8, .01], [.88, .006]],
+  top: [[0, 0], [.004, .009], [.012, .016], [.028, .024], [.055, .032], [.1, .041], [.16, .048], [.24, .051], [.32, .049], [.4, .043], [.48, .035], [.56, .026], [.64, .019], [.72, .014], [.8, .01], [.88, .007]],
+  bottom: [[0, 0], [.004, .008], [.012, .014], [.028, .021], [.055, .028], [.1, .036], [.16, .041], [.24, .043], [.32, .041], [.4, .036], [.48, .029], [.56, .022], [.64, .016], [.72, .012], [.8, .009], [.88, .006]],
   center: [[0, -.012], [.04, -.007], [.1, -.001], [.2, 0], [.4, .002], [.6, .005], [.8, .01], [.88, .013]],
   squareTop: [[0, 2.6], [.1, 2.4], [.25, 2.2], [.6, 2.1], [.88, 2]],
   squareBottom: [[0, 2.8], [.1, 2.6], [.3, 2.4], [.6, 2.2], [.88, 2]],
@@ -48,7 +48,7 @@ export const ZEBRA_SHARK: SharkDesign = {
     { angle: UPPER, height: [[0, 0], [.08, 0], [.14, .007], [.3, .009], [.56, .008], [.7, .004], [.8, 0]] },
     { angle: LOWER - .03, height: [[0, 0], [.08, 0], [.14, .007], [.3, .009], [.56, .008], [.7, .004], [.8, 0]] },
   ],
-  rings: 52, columnsAbove: 4, columnsBelow: 4,
+  rings: 64, columnsAbove: 8, columnsBelow: 5,
   boundary, boundaryGap: .03,
   paint: (s, theta) => skinColor(s, theta),
 };
@@ -59,7 +59,7 @@ export function buildZebraShark() {
   const fins = markedFins(ctx);
   ctx.body();
 
-  const tone = (u: number) => mix(FIN, FIN_PALE, .2 + .35 * (1 - u));
+  const tone = (u: number, x = 0, y = 0) => mix(mix(FIN, FIN_PALE, .2 + .35 * (1 - u)), SPOT_SOFT, .4 * smoothstep(.45, .8, .5 + .5 * noise(x * 40 + y * 31, 7)));
 
   // A big, rounded first dorsal with a long base, over the pelvic fins; a smaller second one far back.
   const dorsal = fins.midline({
@@ -87,11 +87,11 @@ export function buildZebraShark() {
       return [front, front + .12 * Math.sqrt(Math.max(0, 1 - t ** 2.2)) + .012 * Math.exp(-(((t - .1) / .1) ** 2))];
     }, 0),
     bone: (left) => (left ? 'PectoralL' : 'PectoralR'),
-    color: (_p, v, u, _left, face) => (face > 0 ? tone(u) : mix(FIN_UNDER, FIN_PALE, .25 * v)),
+    color: (p, v, u, _left, face) => (face > 0 ? tone(u, p.x, p.z) : mix(FIN_UNDER, FIN_PALE, .25 * v)),
   });
   // Pelvic fins, rounded and smaller.
   fins.paired({
-    rootS: .43, theta: 2.4, span: .062, droop: .85, sweep: .12, thickness: .012, stations: 5,
+    rootS: .43, theta: 2.4, span: .062, droop: .5, sweep: .12, thickness: .012, stations: 5,
     ...outline(.062, (t) => {
       const front = .012 * t;
       return [front, front + .07 * Math.sqrt(Math.max(0, 1 - t ** 2.4))];
@@ -112,30 +112,36 @@ export function buildZebraShark() {
 
   // Small eyes, each with a large spiracle just behind it.
   for (const side of [1, -1]) {
-    eyeball(ctx, .082, side * 1.2, .0048, { pupil: EYE, iris: IRIS, lid: LID }, { squash: .9 });
-    slit(ctx, .112, side * .95, .015, .0032, SPIRACLE);
+    eyeball(ctx, .082, side * 1.2, .0058, { pupil: EYE, iris: mix(IRIS, LID, .4), lid: mix(LID, BACK, .3) }, { squash: .85, height: .5 });
+    slit(ctx, .112, side * .95, .022, .0042, mix(FLANK, SPOT, .35), .0008);
+    slit(ctx, .112, side * .95, .017, .0034, hex('#2a2012'), .0012);
   }
   ctx.gills({ from: .145, to: .2, count: 5, top: 1.25, bottom: 1.95, halfWidth: .0013, slant: .006, color: GILL });
-  ctx.ribbon(Array.from({ length: 9 }, (_, i) => {
-    const t = i / 8, theta = Math.PI + (t - .5) * 1.1;
+  const curve = (w: number) => Array.from({ length: 11 }, (_, i) => {
+    const t = i / 10, theta = Math.PI + (t - .5) * w;
     return [.052 + .008 * (2 * t - 1) ** 2, theta] as const;
-  }), (t) => .0016 * (.5 + .5 * Math.sin(Math.PI * t)), MOUTH);
+  });
+  ctx.ribbon(curve(1.3), (t) => .0036 * (.55 + .45 * Math.sin(Math.PI * t)), mix(BELLY, FLANK, .5), .0007);
+  ctx.ribbon(curve(1.1), (t) => .0016 * (.5 + .5 * Math.sin(Math.PI * t)), MOUTH, .0012);
   for (const side of [1, -1]) {
-    barbel(ctx, .022, side * (Math.PI - .55), new Vector3(side * .1, -.5, 1), .036, .009, BARBEL, BARBEL_TIP);
+    barbel(ctx, .022, side * (Math.PI - .55), new Vector3(side * .1, -.5, 1), .044, .0115, BARBEL, BARBEL_TIP, -.003);
   }
 
   // Many small dark spots over the back and flanks (not the belly), thinning along the tail.
   let n = 0;
-  for (let s = .05; s < .86; s += .0175) {
-    const w = ctx.width(s), count = Math.max(2, Math.round((ctx.top(s) + w) * (s < .62 ? 70 : 50)));
+  for (let s = .022; s < .86; s += .0185) {
+    const w = ctx.width(s), count = Math.max(2, Math.round((ctx.top(s) + w) * (s < .62 ? 62 : 46)));
     const reach = s > .62 ? 1.5 : 1.95;
     for (let i = 0; i < count; i++) {
       n++;
       const t = (i + .5 + .4 * noise(n * 1.7, 4)) / count, theta = (-1 + 2 * t) * reach;
       const ps = s + .01 * noise(n * 2.9, 6) + (i % 2 ? .01 : 0);
-      if (ps < .06 || ps > .86) continue;
-      const r = (.0048 + .0018 * (.5 + .5 * noise(n * 3.3, 8))) * (s > .62 ? .8 : 1);
-      dot(ctx, ps, theta, r, n % 6 === 0 ? SPOT_SOFT : SPOT, 5, 1.1);
+      if (ps < .02 || ps > .86 || (ps < .07 && Math.abs(theta) < .35 && ps > .02 && noise(n, 5) > .3)) continue;
+      // Not over the ridges' crests (the flat spot would sink into the fold) or the gill slits.
+      const onRidge = [0, UPPER, LOWER - .03].some((a) => Math.abs(Math.abs(theta) - a) < .1) && ps > .1 && ps < .78;
+      if (onRidge || (ps > .13 && ps < .215 && Math.abs(theta) > 1.1 && Math.abs(theta) < 2.05)) continue;
+      const r = (.0056 + .003 * (.5 + .5 * noise(n * 3.3, 8))) * (s > .62 ? .75 : 1) * (ps < .12 ? .8 : 1);
+      dot(ctx, ps, theta, r, n % 6 === 0 ? SPOT_SOFT : SPOT, 7 + (n % 3 === 0 ? 1 : 0), 1 + .2 * noise(n * 4.1, 3), .0009, 6.28 * noise(n * 6.7, 2));
     }
   }
 

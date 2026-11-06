@@ -34,7 +34,8 @@ smaller and set into the head) without touching bones or animation; run it after
 Blender export, since the export rewrites the file. Slim the three last (see Instant start below).
 
 The verifier checks actual vertex deformation, loop seams, normalization,
-independent skeletons, and budgets of 5,000 triangles / 220,000 bytes per rig.
+independent skeletons, and budgets of 5,000 triangles / 220,000 bytes per rig
+(a species may have its own in `BUDGETS`: the newest six, drawn in more detail, have 8,000 / 340,000).
 The studio PNGs in art-previews predate this refinement; use the app to review
 the current appearance.
 
