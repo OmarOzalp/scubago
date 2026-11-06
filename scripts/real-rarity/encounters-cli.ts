@@ -9,6 +9,7 @@ import { existsSync, mkdirSync, readFileSync, renameSync, rmSync, writeFileSync 
 import { basename, dirname, join, resolve } from 'node:path';
 
 import { SPECIES } from '../../src/data/species';
+import cutoffsFile from '../../src/data/encounter-rarity.cutoffs.json';
 import { SITES } from '../../src/data/sites';
 import {
   BASINS,
@@ -64,6 +65,8 @@ Options:
   --cells <km>          Analysis, off by default: count cells instead of sites, where dive sites within <km> of each
                         other, directly or through a chain of sites, are one cell. 10 is twice the search radius.
                         Works offline.
+  --recut               Cut new percentile bands across the animals given, instead of using the frozen cutoffs
+                        (src/data/encounter-rarity.cutoffs.json). This can move every animal's tier: see docs/real-rarity.md.
   --stability           Also print how many tiers change if one site (one cell, with --cells) is dropped, by the size
                         of an animal’s waters. Combine with --min-sites 1 to see the small basins too.
   --max-pages <n>       Pages of 200 iNaturalist taxa read per site. Default ${DEFAULT_MAX_PAGES}.
@@ -88,6 +91,7 @@ export interface Options {
   minSites: number | undefined;
   cellKm: number | undefined;
   stability: boolean;
+  recut: boolean;
   maxPages: number | null;
   only: string[] | null;
   allowIncomplete: boolean;
@@ -109,6 +113,7 @@ export function parseArgs(argv: readonly string[]): Options {
     minSites: undefined,
     cellKm: undefined,
     stability: false,
+    recut: false,
     maxPages: null,
     only: null,
     allowIncomplete: false,
@@ -134,6 +139,7 @@ export function parseArgs(argv: readonly string[]): Options {
     else if (arg === '--no-obis') options.obis = false;
     else if (arg === '--allow-incomplete') options.allowIncomplete = true;
     else if (arg === '--stability') options.stability = true;
+    else if (arg === '--recut') options.recut = true;
     else if (arg === '--radius') {
       const km = Number(value(i++, arg));
       if (!Number.isFinite(km) || km < 0.5 || km > 50) throw new UsageError('--radius must be between 0.5 and 50 km.');
@@ -285,6 +291,7 @@ export async function runEncountersCli(argv: readonly string[], deps: CliDeps = 
     radiusKm: file.radiusKm,
     sourcesAsked: file.obis ? ['inaturalist', 'obis'] : ['inaturalist'],
     sources: REAL_RARITY_SOURCES,
+    ...(options.recut ? {} : { cutoffs: cutoffsFile.cutoffs }),
     options: { presence, minRecords: options.minRecords, minSiteTaxa: options.minSiteTaxa, minSites: options.minSites, cellKm: options.cellKm },
   };
   const { data, shares } = buildEncounterData(build);

@@ -609,6 +609,23 @@ export function tiersFromShares(
   return tiers;
 }
 
+/**
+ * Tier cutoffs frozen from the original catalogue (src/data/encounter-rarity.cutoffs.json): the lowest share any
+ * animal of each tier but the last held in the first run. A share at or above a cutoff is that tier or a commoner one.
+ * Animals added later are placed against these, so adding animals never moves an animal that already has a tier.
+ */
+export type TierCutoffs = Readonly<Record<'common' | 'uncommon' | 'rare' | 'epic', number>>;
+
+export function tiersFromCutoffs(shares: ReadonlyMap<string, number> | Readonly<Record<string, number>>, cutoffs: TierCutoffs): Map<string, Rarity> {
+  const tiers = new Map<string, Rarity>();
+  for (const [id, share] of shares instanceof Map ? [...shares.entries()] : Object.entries(shares)) {
+    if (id === UNLISTED_ID || typeof share !== 'number' || !Number.isFinite(share) || share < 0) continue;
+    const at = Math.round(share * 10_000) / 10_000; // the file keeps four places, and the cutoffs are values from it
+    tiers.set(id, at >= cutoffs.common ? 'common' : at >= cutoffs.uncommon ? 'uncommon' : at >= cutoffs.rare ? 'rare' : at >= cutoffs.epic ? 'epic' : 'legendary');
+  }
+  return tiers;
+}
+
 // ── The file ─────────────────────────────────────────────────────────────────
 
 /** A catalogue animal that has no tier, and why. It keeps its catalogue tier in the app. */
@@ -656,6 +673,8 @@ export interface BuildEncounterOptions {
   /** Credit and licence notes written into the file. */
   sources?: Record<string, unknown>;
   options?: { [K in keyof EncounterOptions]?: EncounterOptions[K] | undefined };
+  /** Frozen cutoffs to place animals against, instead of cutting percentile bands across them. */
+  cutoffs?: TierCutoffs;
   /** Set to write the file with its tiers switched off (see `EncounterData.applied`). */
   notApplied?: string;
 }
@@ -673,7 +692,8 @@ const definedOnly = <T extends object>(object: T): Partial<T> => Object.fromEntr
 export function buildEncounterData(build: BuildEncounterOptions): { data: EncounterData; shares: EncounterShares } {
   const options = { ...DEFAULT_ENCOUNTER_OPTIONS, ...definedOnly(build.options ?? {}) };
   const shares = encounterShares(build.catalog, build.sites, build.notableSites ?? [], options);
-  const tiers = tiersFromShares(new Map([...shares.shares].map(([id, entry]) => [id, entry.share] as const)));
+  const shareMap = new Map([...shares.shares].map(([id, entry]) => [id, entry.share] as const));
+  const tiers = build.cutoffs ? tiersFromCutoffs(shareMap, build.cutoffs) : tiersFromShares(shareMap);
 
   const species: Record<string, EncounterEntry> = {};
   const unresolved: UnresolvedSpecies[] = [];
@@ -712,7 +732,7 @@ export function buildEncounterData(build: BuildEncounterOptions): { data: Encoun
       sitesPerBasin: shares.basinSites,
       ...(options.cellKm > 0 && { cellsUsed: shares.usedCells, cellsPerBasin: shares.basinCells, largestCell: shares.largestCell, widestCell: shares.widestCell }),
       basins: BASINS.map(({ id, name, rule }) => ({ id, name, rule })),
-      bands: RARITY_BANDS,
+      ...(build.cutoffs ? { cutoffs: build.cutoffs, cutoffsFrom: 'src/data/encounter-rarity.cutoffs.json' } : { bands: RARITY_BANDS }),
       bandsOrder: 'from the animal recorded at the largest share of the sites in its waters down',
       minSpecies: MIN_SPECIES_FOR_BANDS,
       ties: 'Animals with equal shares share the tier at the middle of their block.',

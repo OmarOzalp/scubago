@@ -11,7 +11,7 @@ happens to have cached.
 site in a live run, and their per-site counts merged into `encounter-rarity.sites.json` (every earlier count is as it was); the tiers
 were recomputed offline. Thirteen of them have a tier; epaulette shark, angelshark, bull ray, cownose ray, bat ray (four North Pacific
 sites), bowmouth guitarfish and short-finned pilot whale keep their provisional tier, for lack of records at the sites in their waters.
-Seven earlier animals moved one tier, because the bands cut over more animals.
+No earlier animal moved: the tiers are placed against cutoffs frozen from the original catalogue (see [Frozen cutoffs](#frozen-cutoffs)).
 The figures below are those of the first run, over 120.
 
 **Status (22 October 2026): run live over all 329 dive sites (the 69 seeds and 260 OpenStreetMap sites),
@@ -289,6 +289,21 @@ What the bands came to on 22 October 2026:
 | Legendary | 0% to 3.0% | 10 |
 
 (A tier's edges overlap by rounding and by the mid-rank of ties: two animals at 20% can sit either side of a cut.)
+
+## Frozen cutoffs
+
+The percentile bands above were cut once, over the 106 animals that had a tier in the first run (22 October 2026). Cut again over a
+larger catalogue they would move animals that were already placed: when twenty were added, seven earlier animals shifted a tier, and
+people had already seen "Epic" or "Rare" on those cards and earned badges from them. So the cutoffs from that first run are stored in
+`src/data/encounter-rarity.cutoffs.json`, as the lowest share any animal of each tier held: common from 0.4167, uncommon from 0.2007,
+rare from 0.0909, epic from 0.0307, and legendary below that. The script places every animal against them (`tiersFromCutoffs`) and
+writes them into the file's `method.cutoffs`. Animals added later get a tier from their own share and **no earlier animal can move**:
+a test (`original-tiers.test.ts`) holds every one of the original 106 to its tier and share, and the other fourteen to their catalogue tier.
+
+To recut on purpose, run the script with `--recut` (offline too: `npx tsx scripts/real-rarity/encounters.ts --input
+src/data/encounter-rarity.sites.json --recut --dry-run`). That cuts new percentile bands across all animals and **can move any animal's
+tier**, so it is a decision for the owner, not a routine step: if the result is kept, write the new lowest shares into the cutoffs file,
+update `src/data/__tests__/original-tiers.json` to the new tiers, and say so in the release notes.
 
 ## The sanity check
 

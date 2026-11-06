@@ -1,0 +1,6 @@
+{
+  "version": 1,
+  "derivedFrom": "The 22 October 2026 run over the original 120 animals: 106 had a tier. Each value is the lowest share held by any animal of that tier then.",
+  "rule": "An animal's tier is the commonest tier whose cutoff its share reaches; below the epic cutoff it is legendary.",
+  "cutoffs": { "common": 0.4167, "uncommon": 0.2007, "rare": 0.0909, "epic": 0.0307 }
+}

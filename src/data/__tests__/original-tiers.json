@@ -1,0 +1,445 @@
+{
+ "note": "The tier of each of the original 120 animals before the catalogue grew (22 October 2026 run). Adding animals must never change one. Tiered: from encounters, with the share. Unresolved: the catalogue tier it keeps.",
+ "tiered": {
+  "whale-shark": {
+   "tier": "rare",
+   "share": 0.1728
+  },
+  "great-white-shark": {
+   "tier": "epic",
+   "share": 0.0455
+  },
+  "tiger-shark": {
+   "tier": "rare",
+   "share": 0.1266
+  },
+  "great-hammerhead": {
+   "tier": "legendary",
+   "share": 0.0274
+  },
+  "scalloped-hammerhead": {
+   "tier": "legendary",
+   "share": 0.0167
+  },
+  "thresher-shark": {
+   "tier": "legendary",
+   "share": 0.0067
+  },
+  "oceanic-whitetip": {
+   "tier": "epic",
+   "share": 0.0307
+  },
+  "bull-shark": {
+   "tier": "epic",
+   "share": 0.0506
+  },
+  "silky-shark": {
+   "tier": "uncommon",
+   "share": 0.3333
+  },
+  "galapagos-shark": {
+   "tier": "common",
+   "share": 0.5
+  },
+  "sand-tiger-shark": {
+   "tier": "epic",
+   "share": 0.0484
+  },
+  "zebra-shark": {
+   "tier": "rare",
+   "share": 0.1452
+  },
+  "tasselled-wobbegong": {
+   "tier": "epic",
+   "share": 0.0645
+  },
+  "lemon-shark": {
+   "tier": "rare",
+   "share": 0.1818
+  },
+  "grey-reef-shark": {
+   "tier": "epic",
+   "share": 0.058
+  },
+  "blacktip-reef-shark": {
+   "tier": "rare",
+   "share": 0.1507
+  },
+  "whitetip-reef-shark": {
+   "tier": "uncommon",
+   "share": 0.2709
+  },
+  "nurse-shark": {
+   "tier": "common",
+   "share": 0.5455
+  },
+  "reef-manta": {
+   "tier": "uncommon",
+   "share": 0.2097
+  },
+  "oceanic-manta": {
+   "tier": "legendary",
+   "share": 0.0166
+  },
+  "munks-devil-ray": {
+   "tier": "legendary",
+   "share": 0
+  },
+  "spotted-eagle-ray": {
+   "tier": "uncommon",
+   "share": 0.2692
+  },
+  "marbled-ray": {
+   "tier": "rare",
+   "share": 0.1176
+  },
+  "southern-stingray": {
+   "tier": "common",
+   "share": 0.8182
+  },
+  "bluespotted-ribbontail-ray": {
+   "tier": "common",
+   "share": 0.7304
+  },
+  "green-turtle": {
+   "tier": "uncommon",
+   "share": 0.2293
+  },
+  "hawksbill-turtle": {
+   "tier": "uncommon",
+   "share": 0.3026
+  },
+  "loggerhead-turtle": {
+   "tier": "epic",
+   "share": 0.0685
+  },
+  "olive-ridley-turtle": {
+   "tier": "legendary",
+   "share": 0
+  },
+  "leatherback-turtle": {
+   "tier": "rare",
+   "share": 0.0909
+  },
+  "bottlenose-dolphin": {
+   "tier": "common",
+   "share": 0.4873
+  },
+  "spinner-dolphin": {
+   "tier": "uncommon",
+   "share": 0.2007
+  },
+  "humpback-whale": {
+   "tier": "rare",
+   "share": 0.1892
+  },
+  "sperm-whale": {
+   "tier": "rare",
+   "share": 0.0909
+  },
+  "orca": {
+   "tier": "common",
+   "share": 0.4167
+  },
+  "dugong": {
+   "tier": "epic",
+   "share": 0.058
+  },
+  "west-indian-manatee": {
+   "tier": "rare",
+   "share": 0.1818
+  },
+  "california-sea-lion": {
+   "tier": "common",
+   "share": 0.5
+  },
+  "mola-mola": {
+   "tier": "rare",
+   "share": 0.0909
+  },
+  "sailfish": {
+   "tier": "epic",
+   "share": 0.0484
+  },
+  "napoleon-wrasse": {
+   "tier": "common",
+   "share": 0.4812
+  },
+  "bumphead-parrotfish": {
+   "tier": "rare",
+   "share": 0.1613
+  },
+  "giant-grouper": {
+   "tier": "rare",
+   "share": 0.1774
+  },
+  "goliath-grouper": {
+   "tier": "rare",
+   "share": 0.1818
+  },
+  "potato-cod": {
+   "tier": "rare",
+   "share": 0.129
+  },
+  "giant-trevally": {
+   "tier": "uncommon",
+   "share": 0.3278
+  },
+  "great-barracuda": {
+   "tier": "uncommon",
+   "share": 0.2566
+  },
+  "chevron-barracuda": {
+   "tier": "uncommon",
+   "share": 0.2581
+  },
+  "tarpon": {
+   "tier": "common",
+   "share": 0.4545
+  },
+  "yellowfin-tuna": {
+   "tier": "rare",
+   "share": 0.1176
+  },
+  "dogtooth-tuna": {
+   "tier": "rare",
+   "share": 0.1365
+  },
+  "clownfish": {
+   "tier": "common",
+   "share": 0.4355
+  },
+  "moorish-idol": {
+   "tier": "rare",
+   "share": 0.1973
+  },
+  "emperor-angelfish": {
+   "tier": "common",
+   "share": 0.587
+  },
+  "french-angelfish": {
+   "tier": "common",
+   "share": 0.9091
+  },
+  "queen-angelfish": {
+   "tier": "common",
+   "share": 0.6364
+  },
+  "king-angelfish": {
+   "tier": "common",
+   "share": 0.8333
+  },
+  "raccoon-butterflyfish": {
+   "tier": "uncommon",
+   "share": 0.3226
+  },
+  "stoplight-parrotfish": {
+   "tier": "common",
+   "share": 0.9091
+  },
+  "titan-triggerfish": {
+   "tier": "common",
+   "share": 0.4881
+  },
+  "clown-triggerfish": {
+   "tier": "uncommon",
+   "share": 0.371
+  },
+  "queen-triggerfish": {
+   "tier": "common",
+   "share": 0.5455
+  },
+  "lionfish": {
+   "tier": "common",
+   "share": 0.7664
+  },
+  "stonefish": {
+   "tier": "uncommon",
+   "share": 0.2287
+  },
+  "leaf-scorpionfish": {
+   "tier": "uncommon",
+   "share": 0.3548
+  },
+  "giant-frogfish": {
+   "tier": "rare",
+   "share": 0.1471
+  },
+  "common-seahorse": {
+   "tier": "epic",
+   "share": 0.0822
+  },
+  "pygmy-seahorse": {
+   "tier": "rare",
+   "share": 0.129
+  },
+  "ornate-ghost-pipefish": {
+   "tier": "uncommon",
+   "share": 0.2258
+  },
+  "ribbon-eel": {
+   "tier": "rare",
+   "share": 0.1452
+  },
+  "giant-moray": {
+   "tier": "common",
+   "share": 0.709
+  },
+  "green-moray": {
+   "tier": "common",
+   "share": 0.6364
+  },
+  "garden-eel": {
+   "tier": "uncommon",
+   "share": 0.3387
+  },
+  "mandarinfish": {
+   "tier": "rare",
+   "share": 0.129
+  },
+  "blue-tang": {
+   "tier": "uncommon",
+   "share": 0.3065
+  },
+  "circular-batfish": {
+   "tier": "uncommon",
+   "share": 0.3311
+  },
+  "oriental-sweetlips": {
+   "tier": "uncommon",
+   "share": 0.2581
+  },
+  "star-puffer": {
+   "tier": "common",
+   "share": 0.5
+  },
+  "porcupinefish": {
+   "tier": "common",
+   "share": 0.4806
+  },
+  "yellow-boxfish": {
+   "tier": "common",
+   "share": 0.5461
+  },
+  "trumpetfish": {
+   "tier": "rare",
+   "share": 0.1452
+  },
+  "crocodilefish": {
+   "tier": "epic",
+   "share": 0.0375
+  },
+  "flying-gurnard": {
+   "tier": "epic",
+   "share": 0.0822
+  },
+  "yellowhead-jawfish": {
+   "tier": "common",
+   "share": 0.6364
+  },
+  "wolf-eel": {
+   "tier": "legendary",
+   "share": 0.0303
+  },
+  "sea-goldie": {
+   "tier": "common",
+   "share": 0.6553
+  },
+  "day-octopus": {
+   "tier": "common",
+   "share": 0.4783
+  },
+  "blue-ringed-octopus": {
+   "tier": "epic",
+   "share": 0.0806
+  },
+  "mimic-octopus": {
+   "tier": "epic",
+   "share": 0.0307
+  },
+  "coconut-octopus": {
+   "tier": "epic",
+   "share": 0.0645
+  },
+  "broadclub-cuttlefish": {
+   "tier": "common",
+   "share": 0.4194
+  },
+  "flamboyant-cuttlefish": {
+   "tier": "epic",
+   "share": 0.0806
+  },
+  "bigfin-reef-squid": {
+   "tier": "uncommon",
+   "share": 0.2169
+  },
+  "bobtail-squid": {
+   "tier": "rare",
+   "share": 0.0968
+  },
+  "chambered-nautilus": {
+   "tier": "rare",
+   "share": 0.1129
+  },
+  "anna-chromodoris": {
+   "tier": "rare",
+   "share": 0.1935
+  },
+  "pikachu-nudibranch": {
+   "tier": "legendary",
+   "share": 0.0137
+  },
+  "spanish-dancer": {
+   "tier": "common",
+   "share": 0.4778
+  },
+  "harlequin-shrimp": {
+   "tier": "rare",
+   "share": 0.1324
+  },
+  "peacock-mantis-shrimp": {
+   "tier": "uncommon",
+   "share": 0.3973
+  },
+  "caribbean-spiny-lobster": {
+   "tier": "common",
+   "share": 0.9091
+  },
+  "christmas-tree-worm": {
+   "tier": "common",
+   "share": 0.6471
+  },
+  "giant-clam": {
+   "tier": "uncommon",
+   "share": 0.2258
+  },
+  "banded-sea-krait": {
+   "tier": "rare",
+   "share": 0.1774
+  },
+  "marine-iguana": {
+   "tier": "legendary",
+   "share": 0
+  },
+  "golden-jellyfish": {
+   "tier": "legendary",
+   "share": 0.0161
+  }
+ },
+ "unresolved": {
+  "basking-shark": "legendary",
+  "shortfin-mako": "epic",
+  "sawfish": "legendary",
+  "giant-guitarfish": "rare",
+  "marbled-electric-ray": "uncommon",
+  "harbor-seal": "uncommon",
+  "sea-otter": "epic",
+  "leafy-seadragon": "legendary",
+  "weedy-seadragon": "epic",
+  "garibaldi": "uncommon",
+  "giant-sea-bass": "epic",
+  "lingcod": "common",
+  "giant-pacific-octopus": "epic",
+  "giant-cuttlefish": "rare"
+ }
+}

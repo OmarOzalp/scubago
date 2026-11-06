@@ -386,9 +386,9 @@ describe('running the script', () => {
       for (const site of Object.values(sites.sites)) for (const counts of Object.values(site.species)) counts.obis = 1;
       writeFileSync(input, sitesToJson(sites));
       const [either, obis, strict] = ['either', 'obis', 'strict'].map((name) => join(scratch, 'options', `${name}.json`));
-      expect(await runEncountersCli(['--input', input, '--out', either], capture().deps)).toBe(0);
-      expect(await runEncountersCli(['--input', input, '--out', obis, '--presence', 'obis'], capture().deps)).toBe(1); // nothing is recorded by OBIS alone: no tiers
-      expect(await runEncountersCli(['--input', input, '--out', strict, '--min-sites', '13'], capture().deps)).toBe(1); // 12 sites, 13 needed
+      expect(await runEncountersCli(['--input', input, '--out', either, '--recut'], capture().deps)).toBe(0);
+      expect(await runEncountersCli(['--input', input, '--out', obis, '--presence', 'obis', '--recut'], capture().deps)).toBe(1); // nothing is recorded by OBIS alone: no tiers
+      expect(await runEncountersCli(['--input', input, '--out', strict, '--min-sites', '13', '--recut'], capture().deps)).toBe(1); // 12 sites, 13 needed
       expect(existsSync(obis)).toBe(false);
       expect(existsSync(strict)).toBe(false);
       expect(Object.keys(read(either).species).length).toBe(23);
@@ -479,7 +479,7 @@ describe('running the script', () => {
         expect(run.lines.join('\n')).toMatch(/sites within 200 km of each other/);
         // A minimum of 11 sites leaves the odd animals (10 Indo-Pacific sites) unresolved; the 11 even ones that keep a share are too few for percentile bands.
         const dry = capture();
-        expect(await runEncountersCli(['--input', input, '--dry-run', '--min-sites', '11'], dry.deps)).toBe(0);
+        expect(await runEncountersCli(['--input', input, '--dry-run', '--min-sites', '11', '--recut'], dry.deps)).toBe(0);
         expect(dry.lines.join('\n')).toMatch(/unresolved sp1 \(Genus speciesb\): Only 10 usable dive sites in its waters \(Indo-Pacific\); at least 11 are needed\./);
         expect(dry.lines.join('\n')).toMatch(/unresolved sp2 \(Genus speciesc\): Only 11 animals could be given a share, fewer than the 20/);
         // 41 sites are needed and there are 40: nothing is left to tier, so nothing is written.
