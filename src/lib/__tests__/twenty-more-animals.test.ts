@@ -140,7 +140,16 @@ describe('real records of the new animals', () => {
     }
   });
 
-  it('every dive site that lists a new animal as notable holds it in its own list', () => {
-    for (const site of SITES) for (const id of site.notableSpecies) expect(SPECIES_BY_ID.has(id)).toBe(true);
+  it('the curated sites list the new animals that real records, or the dive, put there', () => {
+    const at = (id: string) => SITES.find((s) => s.id === id)!.notableSpecies;
+    expect(at('la-jolla-cove')).toEqual(expect.arrayContaining(['bat-ray', 'common-dolphin']));
+    expect(at('north-horn')).toContain('silvertip-shark');
+    expect(at('nudi-falls')).toEqual(expect.arrayContaining(['varicose-wart-slug', 'hairy-squat-lobster']));
+    expect(at('shark-yolanda')).toEqual(expect.arrayContaining(['masked-butterflyfish', 'bluestreak-cleaner-wrasse']));
+    // Each is a catalogue animal, listed once.
+    for (const site of SITES) {
+      expect(new Set(site.notableSpecies).size).toBe(site.notableSpecies.length);
+      for (const id of site.notableSpecies) expect(SPECIES_BY_ID.has(id)).toBe(true);
+    }
   });
 });

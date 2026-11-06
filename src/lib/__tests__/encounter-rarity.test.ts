@@ -611,9 +611,15 @@ describe('tiers from shares', () => {
   it('keeps the shape of the hand-assigned catalogue', () => {
     expect(RARITY_BANDS.map((b) => b.tier)).toEqual(RARITY_ORDER);
     expect(RARITY_BANDS.reduce((sum, b) => sum + b.percent, 0)).toBe(100);
-    const by = tierCounts(SPECIES.map((s) => s.rarity));
+    // The first 120 animals are the hand-assigned catalogue the bands were cut from; the twenty added since
+    // (round 8) keep a provisional tier only until real encounters place them, so they are left out here.
+    const added = new Set(['epaulette-shark', 'brownbanded-bamboo-shark', 'angelshark', 'blue-shark', 'silvertip-shark', 'bull-ray', 'cownose-ray', 'bat-ray',
+      'blotched-fantail-ray', 'short-finned-pilot-whale', 'common-minke-whale', 'common-dolphin', 'bluestreak-cleaner-wrasse', 'picasso-triggerfish',
+      'masked-butterflyfish', 'pygmy-sweeper', 'longnose-hawkfish', 'banded-coral-shrimp', 'varicose-wart-slug', 'hairy-squat-lobster']);
+    const original = SPECIES.filter((s) => !added.has(s.id));
+    const by = tierCounts(original.map((s) => s.rarity));
     expect(by).toEqual({ common: 33, uncommon: 25, rare: 31, epic: 19, legendary: 12 });
-    const bands = bandCounts(SPECIES.length);
+    const bands = bandCounts(original.length);
     for (const tier of RARITY_ORDER) expect(Math.abs(bands[tier] - by[tier])).toBeLessThanOrEqual(1);
     expect(bands.legendary).toBe(12);
   });

@@ -119,7 +119,7 @@ describe('residents and what to look for next', () => {
 
   it('offers up to three unfound residents, the easiest first: lowest rarity, then catalog order', () => {
     const kelp = island(evaluateIslands(input({})), 'kelp-forest');
-    expect(kelp.next.map((t) => t.speciesId)).toEqual(['lingcod', 'california-sea-lion', 'harbor-seal']);
+    expect(kelp.next.map((t) => t.speciesId)).toEqual(['lingcod', 'bat-ray', 'california-sea-lion']);
     expect(kelp.next.map((t) => t.rarity)).toEqual(['common', 'uncommon', 'uncommon']);
     expect(kelp.next[0]).toEqual({ speciesId: 'lingcod', name: 'Lingcod', rarity: 'common' });
     const volcanic = island(evaluateIslands(input({})), 'volcanic-pinnacle');
@@ -135,26 +135,26 @@ describe('residents and what to look for next', () => {
 
   it('moves on once a resident is found, and runs out when they all are', () => {
     const afterLingcod = island(evaluateIslands(input({ sightings: [seen('lingcod', '2026-03-01')] })), 'kelp-forest');
-    expect(afterLingcod.next.map((t) => t.speciesId)).toEqual(['california-sea-lion', 'harbor-seal', 'garibaldi']);
+    expect(afterLingcod.next.map((t) => t.speciesId)).toEqual(['bat-ray', 'california-sea-lion', 'harbor-seal']);
     expect(afterLingcod.residentsFound).toBe(1);
 
     const wreck = residentsOf('shipwreck');
-    const nearly = island(evaluateIslands(input({ sightings: wreck.slice(0, 8).map((id, i) => seen(id, `2026-02-0${i + 1}`)) })), 'shipwreck');
-    expect(nearly).toMatchObject({ unlocked: true, unlockedOn: '2026-02-01', residentsFound: 8, residentsTotal: 9 });
-    expect(nearly.next.map((t) => t.speciesId)).toEqual([wreck[8]]);
-    const all = island(evaluateIslands(input({ sightings: wreck.map((id, i) => seen(id, `2026-02-0${i + 1}`)) })), 'shipwreck');
-    expect(all).toMatchObject({ residentsFound: 9, residentsTotal: 9, next: [] });
+    const nearly = island(evaluateIslands(input({ sightings: wreck.slice(0, wreck.length - 1).map((id, i) => seen(id, `2026-02-${String(i + 1).padStart(2, '0')}`)) })), 'shipwreck');
+    expect(nearly).toMatchObject({ unlocked: true, unlockedOn: '2026-02-01', residentsFound: wreck.length - 1, residentsTotal: wreck.length });
+    expect(nearly.next.map((t) => t.speciesId)).toEqual([wreck[wreck.length - 1]]);
+    const all = island(evaluateIslands(input({ sightings: wreck.map((id, i) => seen(id, `2026-02-${String(i + 1).padStart(2, '0')}`)) })), 'shipwreck');
+    expect(all).toMatchObject({ residentsFound: wreck.length, residentsTotal: wreck.length, next: [] });
   });
 
   it('judges easiest by the rarity found in real records when it is known', () => {
     // Records say garibaldi are an everyday sight and lingcod a much rarer one than the catalog thinks.
     const observed = new Map<string, Rarity>([['garibaldi', 'common'], ['lingcod', 'epic']]);
     const kelp = island(evaluateIslands(input({ observed })), 'kelp-forest');
-    expect(kelp.next.map((t) => t.speciesId)).toEqual(['garibaldi', 'california-sea-lion', 'harbor-seal']);
+    expect(kelp.next.map((t) => t.speciesId)).toEqual(['garibaldi', 'bat-ray', 'california-sea-lion']);
     expect(kelp.next.map((t) => t.rarity)).toEqual(['common', 'uncommon', 'uncommon']);
     expect(kelp.requirement).toBe('Log any Kelp Forest animal, such as a Garibaldi.');
-    // With those three found, the lingcod (an epic sight now) comes after the rares.
-    const later = island(evaluateIslands(input({ observed, sightings: ['garibaldi', 'california-sea-lion', 'harbor-seal'].map((id) => seen(id, '2026-03-01')) })), 'kelp-forest');
+    // With those found, the lingcod (an epic sight now) comes after the rares.
+    const later = island(evaluateIslands(input({ observed, sightings: ['garibaldi', 'bat-ray', 'california-sea-lion', 'harbor-seal'].map((id) => seen(id, '2026-03-01')) })), 'kelp-forest');
     expect(later.next.map((t) => t.speciesId)).toEqual(['wolf-eel', 'giant-cuttlefish', 'sea-otter']);
     expect(later.next.map((t) => t.rarity)).toEqual(['rare', 'rare', 'epic']);
   });
