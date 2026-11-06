@@ -24,7 +24,7 @@ jest.mock('react-native-reanimated', () => ({
   withTiming: (v) => v,
   default: { View: require('react-native').View, createAnimatedComponent: (C) => C },
 }));
-// The plates are drawn from code and slow a render of 120 cards down; their own tests cover them.
+// The plates are drawn from code and slow a render of every card down; their own tests cover them.
 jest.mock('@/components/species-art', () => ({ SpeciesArt: ({ species }) => require('react').createElement('plate', { id: species.id }) }));
 jest.mock('@/hooks/use-rewards', () => ({ useRewards: () => ({ ...mockRewards, ready: true }) }));
 let mockMine = [];
@@ -88,7 +88,7 @@ test('typing a name lists what matches in one grid, best first, and says how man
   expect(expected[0]).toMatch(/Manta/);
   expect(textOf()).toContain(`Showing ${expected.length} of ${CATALOG.length} species`);
   // The groups' own headings are no use to a search, so they go.
-  expect(headings()).toEqual(['3 of 120 species']);
+  expect(headings()).toEqual([`3 of ${CATALOG.length} species`]);
 
   await act(async () => cards()[0].props.onPress());
   expect(router.push).toHaveBeenCalledWith(`/species/${searchSpecies(CATALOG, 'manta')[0].id}`);
@@ -124,7 +124,7 @@ test('"Seen" shows only the animals the diver has logged, each group still count
   expect(textOf()).toContain(`Showing ${SEEN.length} of ${CATALOG.length} species`);
   // Only groups with something left are listed; the sharks have one, of all the sharks there are.
   const sharks = CATALOG.filter((s) => s.category === 'shark').length;
-  expect(headings()).toEqual(['3 of 120 species', CATEGORY_LABEL.shark, CATEGORY_LABEL.ray, CATEGORY_LABEL.turtle]);
+  expect(headings()).toEqual([`3 of ${CATALOG.length} species`, CATEGORY_LABEL.shark, CATEGORY_LABEL.ray, CATEGORY_LABEL.turtle]);
   expect(textOf()).toContain(`1 of ${sharks}`);
   expect(chip('Seen').props['aria-selected']).toBe(true);
 
@@ -192,8 +192,8 @@ const chromeTexts = () =>
 test('the page has no eyebrow, says its title once, and has no corner link to collections (the Sets view replaces it)', async () => {
   await render();
   expect(textOf()).not.toMatch(/Your field guide/i);
-  expect(chromeTexts().filter((t) => t === '3 of 120 species')).toHaveLength(1);
-  expect(headings()[0]).toBe('3 of 120 species');
+  expect(chromeTexts().filter((t) => t === `3 of ${CATALOG.length} species`)).toHaveLength(1);
+  expect(headings()[0]).toBe(`3 of ${CATALOG.length} species`);
   expect(root.root.findAll((n) => n.props.accessibilityRole === 'link')).toHaveLength(0);
   expect(textOf()).not.toContain('Collections');
   expect(textOf()).not.toContain('to fill');
@@ -254,7 +254,7 @@ test('copy budget: besides the species, the page says at most 100 words (a tab s
   const first = chromeTexts().find((t) => /appear here/.test(t));
   expect(first).toBe('Animals you log appear here.');
   expect(words(first)).toBeLessThanOrEqual(10);
-  expect(chromeTexts().filter((t) => t === '0 of 120 species')).toHaveLength(1);
+  expect(chromeTexts().filter((t) => t === `0 of ${CATALOG.length} species`)).toHaveLength(1);
 });
 
 // The bug: covered by a species page, the guide (hidden by the web) measured 0 wide and drew all 120 cards

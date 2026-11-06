@@ -17,7 +17,7 @@ export const SPECIES_COUNTS_PER_PAGE = 200;
 /** Pages of species counts read per refresh (200 species each, most-observed first). */
 export const MAX_SPECIES_PAGES = 3;
 export const OBSERVATIONS_PER_PAGE = 30;
-/** How many taxon ids go into the observations request. The catalogue has 120 species. */
+/** How many taxon ids go into the observations request. Only the most-observed animals the catalogue has; no site has more than a third of the catalogue near it. */
 export const MAX_TAXON_IDS = 100;
 /**
  * The iconic groups every catalogue species falls in (fish, molluscs, reptiles, mammals, and

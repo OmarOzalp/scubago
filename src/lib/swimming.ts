@@ -43,6 +43,21 @@ const RELATIVES: Readonly<Record<string, SpeciesMarineModel>> = {
   'giant-sea-bass': 'goliath-grouper',
   'circular-batfish': 'batfish',
   'olive-ridley-turtle': 'loggerhead-turtle',
+  // Rays: the eagle rays fly like the spotted eagle ray; the round stingray rests like the southern stingray; the flat angelshark lies on the sand like one.
+  'bull-ray': 'spotted-eagle-ray',
+  'cownose-ray': 'spotted-eagle-ray',
+  'bat-ray': 'spotted-eagle-ray',
+  'blotched-fantail-ray': 'southern-stingray',
+  angelshark: 'southern-stingray',
+  // Sharks by body shape: the small slim bottom sharks like a whitetip reef shark, the silvertip like a grey reef shark, the blue shark with long wings like an oceanic whitetip.
+  'epaulette-shark': 'whitetip-reef-shark',
+  'brownbanded-bamboo-shark': 'whitetip-reef-shark',
+  'silvertip-shark': 'grey-reef-shark',
+  'blue-shark': 'oceanic-whitetip',
+  // Mammals: the pilot whale is drawn as a dark, blunt-headed orca, the minke as a small humpback, the common dolphin as a bottlenose.
+  'short-finned-pilot-whale': 'orca',
+  'common-minke-whale': 'humpback-whale',
+  'common-dolphin': 'bottlenose-dolphin',
 };
 export function speciesMarineModel(id: string): SpeciesMarineModel | null {
   return SPECIES_MODELS.includes(id) ? id as SpeciesMarineModel : null;

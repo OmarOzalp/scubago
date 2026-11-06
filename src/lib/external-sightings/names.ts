@@ -69,10 +69,16 @@ export function createNameMatcher(
   for (const [name, id] of Object.entries(synonyms)) {
     if (ids.has(id)) byName.set(name, id);
   }
-  // The catalogue's own names go in last, so a synonym can never take a name from its owner.
+  // The catalogue's own names go in last, so a synonym can never take a name from its owner. Where two
+  // catalogue entries share a name, the earlier one keeps it: an animal added later never takes the records
+  // (and the rarity) of one that divers have already logged.
+  const owned = new Set<string>();
   for (const species of catalog) {
     const name = normalizeScientificName(species.scientificName);
-    if (name) byName.set(name, species.id);
+    if (name && !owned.has(name)) {
+      owned.add(name);
+      byName.set(name, species.id);
+    }
   }
 
   const match = (rawName: unknown): string | undefined => {

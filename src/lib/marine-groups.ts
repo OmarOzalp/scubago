@@ -10,12 +10,17 @@ import type { MarineModel } from './swimming';
  * stay alone); chevron barracuda school (great barracuda hunt alone), giant trevally hunt in packs,
  * bumphead parrotfish move in herds and raccoon butterflyfish go about in pairs; California sea lions
  * play in twos and threes, spotted eagle rays fly in squadrons and golden jellyfish drift in swarms;
- * orcas travel in pods, and sea otters float together in rafts. Grey reef sharks gather on the outer
+ * orcas travel in pods, and sea otters float together in rafts; common dolphins race in pods, pilot whales stay in their family pods, cownose rays travel in schools and pygmy sweepers
+ * hang in clouds. Grey reef sharks gather on the outer
  * reef (now and then a second one), and batfish school round wrecks.
  */
 export const GROUP_SIZES: Readonly<Record<string, readonly [number, number]>> = {
   'bottlenose-dolphin': [2, 3],
   'spinner-dolphin': [2, 3],
+  'common-dolphin': [2, 3],
+  'short-finned-pilot-whale': [2, 3],
+  'cownose-ray': [3, 4],
+  'pygmy-sweeper': [3, 5],
   'scalloped-hammerhead': [2, 3],
   'lemon-shark': [1, 2],
   tarpon: [2, 4],
