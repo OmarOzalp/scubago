@@ -54,8 +54,8 @@ describe('the collections', () => {
 describe('the hand-picked sets', () => {
   const sets = COLLECTIONS.filter((c) => c.source.type === 'species');
 
-  it('are the four promised, and every species id in them is in the catalog', () => {
-    expect(sets.map((c) => c.id)).toEqual(['set-reef-sharks', 'set-mantas-and-devils', 'set-hammerheads', 'set-red-sea-classics']);
+  it('are the ones promised, and every species id in them is in the catalog', () => {
+    expect(sets.map((c) => c.id)).toEqual(['set-reef-sharks', 'set-mantas-and-devils', 'set-hammerheads', 'set-red-sea-classics', 'set-eagle-rays', 'set-dolphins', 'set-bottom-sharks']);
     for (const c of sets) {
       const ids = c.source.type === 'species' ? c.source.ids : [];
       expect(ids.length).toBeGreaterThan(0);
@@ -71,6 +71,19 @@ describe('the hand-picked sets', () => {
     expect(collection(results, 'set-reef-sharks').missingIds).toEqual(['grey-reef-shark', 'blacktip-reef-shark', 'whitetip-reef-shark']);
     expect(collection(results, 'set-mantas-and-devils').total).toBe(3);
     expect(collection(results, 'set-hammerheads').missingIds).toEqual(['scalloped-hammerhead', 'great-hammerhead']);
+  });
+
+  it('count the newest animals: the eagle rays, the dolphins and the bottom sharks', () => {
+    const results = evaluateCollections(input({}));
+    expect(collection(results, 'set-eagle-rays').memberIds).toEqual(['spotted-eagle-ray', 'bull-ray', 'cownose-ray', 'bat-ray']);
+    expect(collection(results, 'set-dolphins').memberIds).toEqual(['bottlenose-dolphin', 'spinner-dolphin', 'common-dolphin']);
+    expect(collection(results, 'set-bottom-sharks').memberIds).toEqual(['nurse-shark', 'zebra-shark', 'tasselled-wobbegong', 'epaulette-shark', 'brownbanded-bamboo-shark']);
+    // The families and the islands count them too, with no list to keep: sharks and rays by category, areas by residents.
+    expect(collection(results, 'family-shark').memberIds).toEqual(expect.arrayContaining(['epaulette-shark', 'angelshark', 'blue-shark', 'silvertip-shark']));
+    expect(collection(results, 'family-ray').memberIds).toEqual(expect.arrayContaining(['bull-ray', 'cownose-ray', 'bat-ray', 'blotched-fantail-ray']));
+    expect(collection(results, 'family-mammal').memberIds).toEqual(expect.arrayContaining(['short-finned-pilot-whale', 'common-minke-whale', 'common-dolphin']));
+    expect(collection(results, 'area-black-sand-bay').memberIds).toEqual(expect.arrayContaining(['varicose-wart-slug', 'hairy-squat-lobster', 'angelshark']));
+    expect(evaluateBadges(input({})).map((b) => b.id)).toEqual(expect.arrayContaining(['collection-set-eagle-rays', 'collection-set-dolphins', 'collection-set-bottom-sharks']));
   });
 
   it('keep the hammerheads as a pair: the set, and its badge, exist only while the catalog has both', () => {
@@ -159,7 +172,7 @@ describe('progress and completion', () => {
       found: 2, total: 3, foundIds: ['grey-reef-shark', 'whitetip-reef-shark'], missingIds: ['blacktip-reef-shark'], completed: false, hint: '1 more reef shark',
     });
     expect(collection(results, 'set-reef-sharks').completedOn).toBeUndefined();
-    expect(collection(results, 'area-coral-reef')).toMatchObject({ found: 2, hint: '32 more Coral Reef animals' });
+    expect(collection(results, 'area-coral-reef')).toMatchObject({ found: 2, hint: `${residentsOf('coral-reef').length - 2} more Coral Reef animals` });
   });
 
   it('completes on the day the last member was first logged, whatever order the log is in', () => {

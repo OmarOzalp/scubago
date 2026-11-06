@@ -86,6 +86,15 @@ const CURATED_COLLECTIONS: CollectionDefinition[] = [
     unit: ['Red Sea classic', 'Red Sea classics'], minMembers: 3,
     source: { type: 'species', ids: ['sea-goldie', 'napoleon-wrasse', 'oceanic-whitetip', 'scalloped-hammerhead', 'thresher-shark', 'emperor-angelfish', 'moorish-idol'] },
     badge: { title: 'Red Sea classic', description: 'Every Red Sea classic, from the anthias to the hammerheads.' } },
+  { id: 'set-eagle-rays', title: 'Eagle rays', description: 'The spotted eagle ray, the bull ray, the cownose ray and the bat ray: rays that flap through the water like wings.', kind: 'curated', emblem: 'ray',
+    unit: ['eagle ray', 'eagle rays'], minMembers: 3, source: { type: 'species', ids: ['spotted-eagle-ray', 'bull-ray', 'cownose-ray', 'bat-ray'] },
+    badge: { title: 'Wing beats', description: 'Every eagle ray in the catalog, logged.' } },
+  { id: 'set-dolphins', title: 'Dolphins', description: 'The bottlenose, the spinner and the common dolphin.', kind: 'curated', emblem: 'mammal',
+    unit: ['dolphin', 'dolphins'], minMembers: 2, source: { type: 'species', ids: ['bottlenose-dolphin', 'spinner-dolphin', 'common-dolphin'] },
+    badge: { title: 'Pod', description: 'Every dolphin in the catalog, logged.' } },
+  { id: 'set-bottom-sharks', title: 'Bottom sharks', description: 'The nurse, zebra, wobbegong, epaulette and bamboo sharks: sharks that rest on the bottom.', kind: 'curated', emblem: 'shark',
+    unit: ['bottom shark', 'bottom sharks'], minMembers: 3, source: { type: 'species', ids: ['nurse-shark', 'zebra-shark', 'tasselled-wobbegong', 'epaulette-shark', 'brownbanded-bamboo-shark'] },
+    badge: { title: 'Sleepers', description: 'Every bottom shark in the catalog, logged.' } },
 ];
 
 /** Every collection, in the order they are listed: the areas, the families, then the hand-picked sets. */
