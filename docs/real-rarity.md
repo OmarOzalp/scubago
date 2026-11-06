@@ -9,7 +9,7 @@ happens to have cached.
 
 **Update (6 November 2026): twenty animals were added (140 now).** The nineteen with their own name were asked about at every
 site in a live run, and their per-site counts merged into `encounter-rarity.sites.json` (every earlier count is as it was); the tiers
-were recomputed offline. Twelve of them have a tier; epaulette shark, angelshark, bull ray, cownose ray, bat ray (four North Pacific
+were recomputed offline. Thirteen of them have a tier; epaulette shark, angelshark, bull ray, cownose ray, bat ray (four North Pacific
 sites) and short-finned pilot whale keep their provisional tier. The blotched fantail ray is the marbled ray under another id (both
 *Taeniurops meyeni*) and has no records of its own. Seven earlier animals moved one tier, because the bands cut over more animals.
 The figures below are those of the first run, over 120.
