@@ -766,5 +766,53 @@
     "material": "vertex colors, no textures",
     "generator": "scripts/art/build-species.ts",
     "animation": "procedural at runtime (src/lib/marine-rigs.ts); Swim clip is the same rig baked at cruising effort"
+  },
+  "bull-shark": {
+    "status": "stylized-draft",
+    "version": 2,
+    "bytes": 95452,
+    "triangles": 3900,
+    "source": "Original procedural geometry and rig",
+    "bones": 12,
+    "clip": "Swim",
+    "loopSeconds": 2.381,
+    "scientificName": "Carcharhinus leucas",
+    "reference": "https://www.floridamuseum.ufl.edu/discover-fish/species-profiles/carcharhinus-leucas/",
+    "humanReview": "pending",
+    "material": "vertex colors, no textures",
+    "generator": "scripts/art/build-species.ts",
+    "animation": "procedural at runtime (src/lib/marine-rigs.ts); Swim clip is the same rig baked at cruising effort"
+  },
+  "bull-ray": {
+    "status": "stylized-draft",
+    "version": 2,
+    "bytes": 88760,
+    "triangles": 3300,
+    "source": "Original procedural geometry and rig",
+    "bones": 17,
+    "clip": "Swim",
+    "loopSeconds": 2.778,
+    "scientificName": "Aetomylaeus bovinus",
+    "reference": "https://www.fishbase.se/summary/Aetomylaeus-bovinus.html",
+    "humanReview": "pending",
+    "material": "vertex colors, no textures",
+    "generator": "scripts/art/build-species.ts",
+    "animation": "procedural at runtime (src/lib/marine-rigs.ts); Swim clip is the same rig baked at cruising effort"
+  },
+  "cownose-ray": {
+    "status": "stylized-draft",
+    "version": 2,
+    "bytes": 79304,
+    "triangles": 3040,
+    "source": "Original procedural geometry and rig",
+    "bones": 17,
+    "clip": "Swim",
+    "loopSeconds": 1.471,
+    "scientificName": "Rhinoptera bonasus",
+    "reference": "https://www.floridamuseum.ufl.edu/discover-fish/species-profiles/rhinoptera-bonasus/",
+    "humanReview": "pending",
+    "material": "vertex colors, no textures",
+    "generator": "scripts/art/build-species.ts",
+    "animation": "procedural at runtime (src/lib/marine-rigs.ts); Swim clip is the same rig baked at cruising effort"
   }
 }

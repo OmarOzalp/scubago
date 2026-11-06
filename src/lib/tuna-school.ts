@@ -107,6 +107,10 @@ export const SCHOOL_REACTIONS: Record<MarineModel, { threat: number; gap: number
   'napoleon-wrasse': { threat: .25, gap: .3 },
   'bumphead-parrotfish': { threat: 0, gap: .26 },
   'sand-tiger-shark': { threat: .5, gap: .4 },
+  // The bull shark hunts fish of all sizes; the bull and cownose rays eat shellfish and are no danger.
+  'bull-shark': { threat: .65, gap: .4, startle: .5 },
+  'bull-ray': { threat: 0, gap: .22 },
+  'cownose-ray': { threat: 0, gap: .2 },
   'loggerhead-turtle': { threat: 0, gap: .32 },
   'goliath-grouper': { threat: .35, gap: .34 },
   lionfish: { threat: .1, gap: .16 },

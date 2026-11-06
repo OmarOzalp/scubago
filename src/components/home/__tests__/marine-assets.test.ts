@@ -25,7 +25,7 @@ function renormalized(weights: number[]) {
 }
 
 test('every marine model is there and slimmed', () => {
-  expect(MODELS).toHaveLength(51);
+  expect(MODELS).toHaveLength(54);
   for (const file of MODELS) {
     const { json } = readGlb(file);
     expect([file, json.extensionsUsed]).toEqual([file, ['KHR_mesh_quantization']]);

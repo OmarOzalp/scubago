@@ -29,7 +29,7 @@ const MODELS = ['shark', 'manta', 'reef-fish', 'whale-shark', 'tiger-shark', 'gr
   'humpback-whale', 'sperm-whale', 'oceanic-whitetip', 'leatherback-turtle', 'oceanic-manta',
   'harbor-seal', 'sea-otter', 'garibaldi', 'leafy-seadragon', 'orca',
   'marine-iguana', 'galapagos-shark', 'thresher-shark', 'giant-trevally', 'king-angelfish',
-  'dugong', 'sawfish', 'lemon-shark', 'southern-stingray', 'tarpon'];
+  'dugong', 'sawfish', 'lemon-shark', 'southern-stingray', 'tarpon', 'bull-shark', 'bull-ray', 'cownose-ray'];
 const REEF = ['day-octopus', 'giant-cuttlefish', 'giant-moray', 'clownfish'];
 const loadModel = async (name) => {
   const bytes = readFileSync(new URL(`../assets/models/marine/${name}.glb`, import.meta.url));

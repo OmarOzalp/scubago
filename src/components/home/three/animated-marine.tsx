@@ -30,6 +30,7 @@ const GAIT: Record<MarineModel, number> = {
   dugong: 1, sawfish: 1, 'lemon-shark': 1, 'southern-stingray': 1, tarpon: 1,
   'grey-reef-shark': 1, 'blacktip-reef-shark': 1, 'whitetip-reef-shark': 1, 'hawksbill-turtle': 1, 'napoleon-wrasse': 1, 'bumphead-parrotfish': 1,
   'sand-tiger-shark': 1, 'loggerhead-turtle': 1, 'goliath-grouper': 1, lionfish: 1, batfish: 1,
+  'bull-shark': 1, 'bull-ray': 1, 'cownose-ray': 1,
 };
 const rigModel = (model: MarineModel) => (Object.hasOwn(SWIM_RIGS, model) ? model as SwimRigModel : null);
 const where = new Vector3();

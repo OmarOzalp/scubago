@@ -16,7 +16,7 @@ const HULL_ROWS: Record<MarineModel, readonly [number, number, number, number, n
   // The three family models (shark, manta, reef fish) are measured over their artist-made swim clips.
   shark: [.14, .25, .08, .22, .57, .45, 1.24],
   manta: [.17, .34, 0, .05, .42, .83, 1.57],
-  'reef-fish': [.12, .07, -.01, .07, .17, .07, .53],
+  'reef-fish': [.12, .07, -.01, .07, .17, .09, .53],
   'whale-shark': [.27, .34, .12, .32, .54, .9, 1.8],
   'tiger-shark': [.18, .29, .09, .2, .44, .62, 1.42],
   'great-white-shark': [.2, .28, .04, .32, .53, .65, 1.5],
@@ -29,18 +29,21 @@ const HULL_ROWS: Record<MarineModel, readonly [number, number, number, number, n
   'great-barracuda': [.11, .16, .06, .16, .17, .24, .9],
   // (Its crest is its sail raised, as it shows it off.)
   sailfish: [.25, .27, .03, .27, .45, .27, 1.1],
-  'california-sea-lion': [.28, .33, .06, .07, .14, .5, .72],
+  'california-sea-lion': [.28, .34, .06, .07, .14, .51, .72],
   'spotted-eagle-ray': [.12, .31, 0, .1, .29, .71, 1.66],
-  'golden-jellyfish': [.21, .07, .09, .15, .22, .25, .24],
+  'bull-shark': [.21, .28, .09, .23, .59, .66, 1.38],
+  'bull-ray': [.13, .28, 0, .1, .25, .61, 1.45],
+  'cownose-ray': [.12, .26, 0, .1, .24, .55, 1.28],
+  'golden-jellyfish': [.28, .07, .09, .15, .22, .25, .25],
   'humpback-whale': [.43, .64, .21, .29, .49, 1.41, 1.91],
   'sperm-whale': [.3, .29, .12, .23, .31, .55, 1.83],
   'oceanic-whitetip': [.18, .26, .05, .22, .52, .76, 1.41],
   'leatherback-turtle': [.52, .6, .1, .25, .59, 1.36, .79],
   'oceanic-manta': [.15, .42, 0, .09, .41, 1.31, 1.29],
-  'harbor-seal': [.14, .03, .07, .06, .13, .44, .69],
+  'harbor-seal': [.2, .03, .07, .06, .13, .44, .69],
   'sea-otter': [.09, .1, .05, .1, .1, .25, .47],
   garibaldi: [.11, .06, .05, .06, .13, .1, .3],
-  'leafy-seadragon': [.07, .08, .04, .07, .13, .1, .31],
+  'leafy-seadragon': [.11, .08, .04, .07, .14, .12, .31],
   orca: [.22, .33, .17, .21, .64, .5, 1.33],
   'marine-iguana': [.03, .03, .02, .01, .06, .15, .57],
   'galapagos-shark': [.18, .25, .09, .23, .49, .55, 1.38],
@@ -247,6 +250,7 @@ export const STANCES: Record<MarineModel, Stance> = {
   'golden-jellyfish': reef(.9), 'harbor-seal': reef(.6), 'sea-otter': reef(.9), garibaldi: reef(.35), 'marine-iguana': reef(1), 'giant-trevally': reef(.55), 'king-angelfish': reef(.35),
   'lemon-shark': reef(.3), tarpon: reef(.6), 'grey-reef-shark': reef(.45), 'blacktip-reef-shark': reef(.7), 'napoleon-wrasse': reef(.45), 'bumphead-parrotfish': reef(.35),
   'sand-tiger-shark': reef(.35), 'reef-fish': reef(.5),
+  'bull-shark': reef(.35), 'bull-ray': reef(.45), 'cownose-ray': reef(.5),
   // Bottom-dwellers: close above the seabed, following it.
   'southern-stingray': bottom(.04), sawfish: bottom(.06), 'whitetip-reef-shark': bottom(.05), 'goliath-grouper': bottom(.08), lionfish: bottom(.06), batfish: bottom(.08),
   'leafy-seadragon': bottom(.12), dugong: bottom(.08),
@@ -259,7 +263,7 @@ export const STANCES: Record<MarineModel, Stance> = {
  * devil rays are open-water animals.
  */
 const SPECIES_STANCES: Readonly<Record<string, Stance>> = {
-  'zebra-shark': bottom(.04), 'tasselled-wobbegong': bottom(.03), 'nurse-shark': bottom(.06), 'bull-shark': reef(.35), 'shortfin-mako': open(.6), 'silky-shark': open(.6), 'basking-shark': open(.5),
+  'zebra-shark': bottom(.04), 'tasselled-wobbegong': bottom(.03), 'nurse-shark': bottom(.06), 'shortfin-mako': open(.6), 'silky-shark': open(.6), 'basking-shark': open(.5),
   'munks-devil-ray': open(.55), 'marbled-ray': bottom(.04), 'bluespotted-ribbontail-ray': bottom(.04), 'giant-guitarfish': bottom(.04), 'marbled-electric-ray': bottom(.04),
   stonefish: bottom(.03), 'leaf-scorpionfish': bottom(.03), 'giant-frogfish': bottom(.03), 'ribbon-eel': bottom(.03), 'garden-eel': bottom(.03), mandarinfish: bottom(.05), crocodilefish: bottom(.03),
   'flying-gurnard': bottom(.04), 'yellowhead-jawfish': bottom(.04), lingcod: bottom(.06), 'common-seahorse': bottom(.1), porcupinefish: reef(.3),

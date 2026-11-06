@@ -20,7 +20,8 @@ export type SwimRigModel = 'tiger-shark' | 'whale-shark' | 'great-white-shark' |
   | 'dugong' | 'sawfish' | 'lemon-shark' | 'southern-stingray' | 'tarpon'
   | 'lionfish' | 'batfish'
   | 'grey-reef-shark' | 'blacktip-reef-shark' | 'whitetip-reef-shark' | 'sand-tiger-shark'
-  | 'napoleon-wrasse' | 'bumphead-parrotfish' | 'goliath-grouper';
+  | 'napoleon-wrasse' | 'bumphead-parrotfish' | 'goliath-grouper'
+  | 'bull-shark' | 'bull-ray' | 'cownose-ray';
 
 export const SHARK_BONES = [
   'Root', 'Head', 'Spine1', 'Spine2', 'RearBody', 'TailBase', 'Tail', 'TailUpper', 'TailLower',
@@ -711,6 +712,30 @@ export const SWIM_RIGS: Record<SwimRigModel, SwimRigSpec> = {
     kind: 'moray', joints: [.13, .25, .37, .49, .6, .71, .81, .9],
     frequency: .85, wavelength: .62, amplitude: .085, headAmplitude: .012, envelope: 1.1, bend: .9,
     drape: .9, sway: .012, look: .3, gape: .36, breathRate: .28, curve: .035,
+  },
+  // The bull shark: a heavy, stocky requiem shark that swims with slow, powerful beats, its broad body
+  // hardly bending, the big triangular first dorsal riding level and the broad pectorals trimming it.
+  'bull-shark': {
+    kind: 'shark', joints: [.28, .44, .58, .69, .79], dorsalParent: 'Spine1', dorsalAt: .37,
+    frequency: .42, wavelength: 1.1, tailAmplitude: .095, rootAmplitude: .0025, headAmplitude: .004, envelope: 2.7,
+    lobes: { upper: .12, lower: .06, upperAngle: .7, lowerAngle: .9, lag: 1 },
+    dorsal: .03, pectoral: { flap: .03, pitch: .03, turn: .5, climb: .25 }, roll: .016, bend: .72,
+  },
+  // The bull ray: a big, heavy eagle ray that flies with slow, deep, rolling wingbeats, the blunt head
+  // steady between the wings and the long whip of a tail trailing behind.
+  'bull-ray': {
+    kind: 'manta', frequency: .36,
+    flap: [.1, .17, .21, .23, .24], waveLag: .34,
+    twist: [0, .04, .08, .12, .15], glideDihedral: [.02, .025, .03, .035, .04],
+    turnAsymmetry: .5, climbGain: .5, bob: .014, pitch: .025, cephalic: 0, tail: [.04, .06, .09],
+  },
+  // The cownose ray: quick, whippy wingbeats of its pointed wings, flown in a school; faster than the
+  // bull ray's, the notched head held level and the thin tail trailing.
+  'cownose-ray': {
+    kind: 'manta', frequency: .68,
+    flap: [.1, .17, .22, .26, .28], waveLag: .3,
+    twist: [0, .05, .1, .15, .2], glideDihedral: [.015, .02, .028, .035, .04],
+    turnAsymmetry: .55, climbGain: .55, bob: .012, pitch: .03, cephalic: 0, tail: [.04, .07, .1],
   },
 };
 

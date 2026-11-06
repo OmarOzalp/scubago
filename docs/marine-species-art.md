@@ -438,6 +438,39 @@ goliath grouper, and the olive ridley turtle as the loggerhead.
 Previews: `docs/art-previews/island-coral-reef.png` and `island-shipwreck.png`, each island's
 animals as the app's camera sees them.
 
+## Batch v10: bull shark, bull ray and cownose ray
+
+Three animals that swam as a relative's model (the bull shark as the generic shark, the two rays as the
+spotted eagle ray) now have their own. The bull shark is on the reef sharks' lofted body and crisp fin
+lofter (`bull-shark.ts`, `shark.ts`, `reef-sharks.ts`); the two rays share a new lofter
+(`eagle-rays.ts`: the spotted eagle ray's airfoil-sheet disc and head loft, with the planform, head,
+snout notch, colours and markings given by a design) and each is a short design file (`bull-ray.ts`,
+`cownose-ray.ts`). The spotted eagle ray's own file is untouched. All three are within the 5,000-triangle,
+220 KB budget (`npm run verify:marine`).
+
+| Species | Model | Motion | Triangles | GLB bytes |
+| --- | --- | --- | ---: | ---: |
+| Bull shark | Very stout and humpbacked, with a very short, broad, blunt snout and small round eyes; a big, tall, triangular first dorsal over the pectorals' free tips, a low ridge to a small second dorsal; broad, triangular pectorals; warm grey above with a faint pale flank band, white below; dusky tips on the pectoral undersides, second dorsal, anal fin and lower tail lobe | `shark`: slow, powerful beats, the heavy body hardly bending. 0.42 beats/s | 3,900 | 95,452 (159,280 as built) |
+| Bull ray | A broad, rounded-diamond disc with blunt tips and a nearly straight rear edge; a short, blunt, duck-billed head with a bulging brow, set apart from the wings; olive-brown, paler along the midline, crossed by faint pale bars from the midline out over the wings; white below with dusky margins; a very long whip tail, tiny dorsal fin and a pale spine | `manta`: slow, deep wingbeats (0.36/s) with a lazy glide, always alone or with one other | 3,300 | 88,760 (149,472) |
+| Cownose ray | A kite-shaped disc of long, pointed, swept-back wings with a concave rear edge; a broad, flat, projecting head whose snout is notched into two lobes (the cow nose), eyes out on its sides; plain golden brown above, no markings, white below; long thin tail, small dorsal fin, spine | `manta`: quick, whippy wingbeats of the pointed wings (0.68/s), flown as a school of three or four in loose formation | 3,040 | 79,304 (132,540) |
+
+Review notes. The first renders of the rays had the same fan-shaped disc: the bull ray's was lengthened
+and rounded (the tips only a little behind the middle of the disc) and the cownose's wings given
+pointed, strongly swept tips, so they read apart from each other and from the spotted eagle ray, whose
+wings are long and narrow, from above. Colour does the rest at island scale: the spotted eagle ray is
+blue-black with white spots, the bull ray olive with pale bars, the cownose ray golden brown. The
+bars were first bright white and are now faint and bluish, as in the photographs. The bull shark's
+first dorsal was a thin spike and was widened into the broad triangle the species has. The hull
+table (`marine-bodies.ts`) rows for the three were measured over the swimming stroke. Fellow species:
+the bat ray still flies as the spotted eagle ray. `verify:marine` also failed before these animals on
+five older hull rows (reef fish, California sea lion, golden jellyfish, harbor seal, leafy seadragon:
+each a few hundredths short of what its clip reaches); those rows were widened to the measured reach.
+
+Previews: `docs/art-previews/bull-shark.png`, `bull-ray.png` and `cownose-ray.png` (studio renders of the
+actual assets with the app's lighting: top, side, front, three-quarter, underside and head close-up) and
+`island-batch-v10-bull.png` (the spotted eagle ray, bull ray, three cownose rays and the bull shark as
+the island's camera sees them).
+
 References used for proportions and pattern placement:
 - [Florida Museum: whale shark](https://www.floridamuseum.ufl.edu/discover-fish/species-profiles/whale-shark/)
 - [Florida Museum: tiger shark](https://www.floridamuseum.ufl.edu/discover-fish/species-profiles/tiger-shark/)
@@ -492,3 +525,6 @@ swimming should be watched on physical hardware before release.
 - [Florida Museum: goliath grouper](https://www.floridamuseum.ufl.edu/discover-fish/species-profiles/epinephelus-itajara/)
 - [FishBase: red lionfish](https://www.fishbase.se/summary/Pterois-volitans.html)
 - [FishBase: longfin batfish](https://www.fishbase.se/summary/Platax-teira.html)
+- [FishBase: Aetomylaeus bovinus](https://www.fishbase.se/summary/Aetomylaeus-bovinus.html)
+- [Florida Museum: bull shark](https://www.floridamuseum.ufl.edu/discover-fish/species-profiles/carcharhinus-leucas/)
+- [Florida Museum: cownose ray](https://www.floridamuseum.ufl.edu/discover-fish/species-profiles/rhinoptera-bonasus/)

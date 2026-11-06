@@ -445,6 +445,26 @@ export const MOVEMENT: Record<MarineModel, Movement> = {
   shark: FAMILY,
   manta: { ...FAMILY, cruise: .31, turnRate: .3, turnEase: .45, halfLength: .9, halfWidth: .8, islandClearance: 1.05 },
   'reef-fish': { ...FAMILY, cruise: .44, turnRate: .45, turnEase: .65, halfLength: .4, halfWidth: .1, personalSpace: .2, avoidance: 1, islandClearance: .5, roam: [0, .8] },
+  // A heavy, bold shark of the shallows: slow and powerful, cruising close in over the flats and along
+  // the drop-off, turning wide, with a sudden surge now and then.
+  'bull-shark': {
+    cruise: .36, swing: .1, swingPeriod: 24, surge: .18, turnRate: .38, turnEase: .5, bank: .45, bankMax: .18, bankEase: 1.5, lazyRoll: .03, tilt: 0,
+    halfLength: 1.02, halfWidth: .42, personalSpace: .28, avoidance: .85, islandClearance: .8, roam: [.05, .9], roamPeriod: 42, patrol: .35,
+    depth: -.04, bob: .03, bobPeriod: 20, weave: .1, weavePeriod: 16,
+  },
+  // A big eagle ray flying slowly over the flats and the reef edge on deep wingbeats, alone or with one
+  // other, banking in wide, lazy turns.
+  'bull-ray': {
+    cruise: .3, swing: .1, swingPeriod: 18, surge: 0, turnRate: .3, turnEase: .45, bank: 1.3, bankMax: .3, bankEase: 1.1, lazyRoll: 0, tilt: 0,
+    halfLength: .5, halfWidth: .6, personalSpace: .25, avoidance: .8, islandClearance: .9, roam: [.1, .85], roamPeriod: 48, patrol: 0,
+    depth: -.01, bob: .06, bobPeriod: 16,
+  },
+  // A school's quick, steady cruise: small, pointed wings beating fast, a tight group turning together.
+  'cownose-ray': {
+    cruise: .42, swing: .08, swingPeriod: 14, surge: 0, turnRate: .4, turnEase: .6, bank: 1.5, bankMax: .34, bankEase: 1.4, lazyRoll: 0, tilt: 0,
+    halfLength: .45, halfWidth: .5, personalSpace: .2, avoidance: .8, islandClearance: .9, roam: [.15, .9], roamPeriod: 38, patrol: 0,
+    depth: -.02, bob: .06, bobPeriod: 13,
+  },
 };
 
 /**
@@ -458,6 +478,7 @@ export const ARRIVAL_PACE: Partial<Record<MarineModel, number>> = {
   sailfish: 1.3, 'california-sea-lion': 1.25, 'great-barracuda': 1.2, 'oceanic-whitetip': 1.1, orca: 1.2, 'harbor-seal': 1.15,
   'galapagos-shark': 1.2, 'thresher-shark': 1.1, 'giant-trevally': 1.3, 'lemon-shark': 1.15, tarpon: 1.2,
   'grey-reef-shark': 1.25, 'blacktip-reef-shark': 1.2, 'whitetip-reef-shark': 1.1, 'sand-tiger-shark': 1.05,
+  'bull-shark': 1.2, 'bull-ray': 1.05, 'cownose-ray': 1.15,
 };
 /** An arrival that takes longer than this (s) counts as arrived anyway. */
 const ARRIVAL_LIMIT = 30;

@@ -11,6 +11,7 @@ import { SITES } from '@/data/sites';
 import { areaOf, islandOf, residentsOf, AREAS } from '@/lib/archipelago';
 import { catalogMatcher } from '@/lib/external-sightings/names';
 import { GROUP_SIZES, GROUP_STYLES, groupSizes } from '@/lib/marine-groups';
+import { SWIM_RIGS } from '@/lib/marine-rigs';
 import { marineModelFor, speciesMarineModel } from '@/lib/swimming';
 import { searchSpecies } from '@/lib/text-search';
 
@@ -67,9 +68,20 @@ describe('the twenty new animals', () => {
     expect(islandOf('blue-shark')).toBe('coral-reef'); // the Open Ocean has no island: its animals swim at Home
   });
 
+  it('the bull shark, bull ray and cownose ray swim as themselves, each with a rig, movement and body of its own', () => {
+    for (const id of ['bull-shark', 'bull-ray', 'cownose-ray']) {
+      expect(speciesMarineModel(id)).toBe(id);
+      expect(marineModelFor(SPECIES_BY_ID.get(id)!)).toBe(id);
+    }
+    // The two rays fly with different wingbeats: the cownose's quicker than the bull ray's, and a school flies together.
+    expect(SWIM_RIGS['cownose-ray'].frequency).toBeGreaterThan(SWIM_RIGS['bull-ray'].frequency);
+    expect(GROUP_STYLES['cownose-ray']).toBeDefined();
+    expect(GROUP_STYLES['bull-ray']).toBeUndefined();
+  });
+
   it('swim on the island with their family’s model: every shark, ray and mammal, none borrowed as a 3D model of its own', () => {
     const expected: Record<string, string> = {
-      'bull-ray': 'spotted-eagle-ray', 'cownose-ray': 'spotted-eagle-ray', 'bat-ray': 'spotted-eagle-ray', 'bowmouth-guitarfish': 'southern-stingray',
+      'bat-ray': 'spotted-eagle-ray', 'bowmouth-guitarfish': 'southern-stingray',
       angelshark: 'southern-stingray', 'epaulette-shark': 'whitetip-reef-shark', 'brownbanded-bamboo-shark': 'whitetip-reef-shark',
       'silvertip-shark': 'grey-reef-shark', 'blue-shark': 'oceanic-whitetip', 'short-finned-pilot-whale': 'orca', 'common-minke-whale': 'humpback-whale',
       'common-dolphin': 'bottlenose-dolphin',

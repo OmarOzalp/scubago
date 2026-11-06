@@ -71,6 +71,10 @@ export const GROUP_STYLES: Partial<Record<MarineModel, GroupStyle>> = {
   'spotted-eagle-ray': {
     places: [[.85, .62], [-.85, .62], [0, 1.25]], wander: .07, wanderPeriod: 17, swapEvery: 0, swapTime: 5, dip: .2, depthSpread: .07, stagger: 0, skip: 0,
   },
+  // A school of cownose rays: close, in loose rows, wingtip behind wingtip, turning together.
+  'cownose-ray': {
+    places: [[.7, .5], [-.7, .55], [.05, 1.05]], wander: .09, wanderPeriod: 13, swapEvery: 0, swapTime: 5, dip: .22, depthSpread: .07, stagger: 0, skip: 0,
+  },
   // A school of chevron barracuda: close, parallel, slowly wheeling.
   'great-barracuda': {
     places: [[.3, .35], [-.3, .5], [.05, .9], [-.35, 1.05]], wander: .1, wanderPeriod: 12, swapEvery: 30, swapTime: 4, dip: .14, depthSpread: .06, stagger: 0, skip: 0,
@@ -128,7 +132,7 @@ export const GROUP_BUDGET = { full: 6, lite: 3 };
  * then a jellyfish swarm (alone, a jellyfish is hardly one), then hammerheads, eagle rays and shoals.
  */
 const PRIORITY: Partial<Record<MarineModel, number>> = {
-  'bottlenose-dolphin': 0, 'california-sea-lion': 1, orca: 1, 'sea-otter': 2, 'golden-jellyfish': 2, 'scalloped-hammerhead': 3, 'spotted-eagle-ray': 4, 'giant-trevally': 4, 'lemon-shark': 3, tarpon: 4, 'great-barracuda': 5, 'reef-fish': 6, 'bumphead-parrotfish': 4, 'grey-reef-shark': 5, batfish: 4,
+  'bottlenose-dolphin': 0, 'california-sea-lion': 1, orca: 1, 'sea-otter': 2, 'golden-jellyfish': 2, 'scalloped-hammerhead': 3, 'spotted-eagle-ray': 4, 'cownose-ray': 4, 'giant-trevally': 4, 'lemon-shark': 3, tarpon: 4, 'great-barracuda': 5, 'reef-fish': 6, 'bumphead-parrotfish': 4, 'grey-reef-shark': 5, batfish: 4,
 };
 
 const hash = (id: string) => { let h = 7; for (let i = 0; i < id.length; i++) h = (h * 31 + id.charCodeAt(i)) % 100003; return h; };
