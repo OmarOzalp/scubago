@@ -12,7 +12,7 @@ import type { Fill, Line, Part } from '../types';
 
 const F = (spec: FishSpec, palette: PlateDef['palette'], seed: number): PlateDef => ({ build: () => fish({ ...spec, seed }), palette });
 /** A band along part of a fin's outline (its margin). */
-const margin = (outline: Pt[], w: number, paint: Fill['paint'], o = 1): Fill => {
+export const margin = (outline: Pt[], w: number, paint: Fill['paint'], o = 1): Fill => {
   const n = outline.length;
   const inner = outline.map((p, i) => {
     const a = outline[Math.max(0, i - 1)];
@@ -23,7 +23,7 @@ const margin = (outline: Pt[], w: number, paint: Fill['paint'], o = 1): Fill => 
   return { poly: [...outline, ...inner.reverse()], paint, o };
 };
 /** A filament streaming back from a point, as a thin tapering ribbon. */
-const filament = (pts: Pt[], w: number, paint: Fill['paint']): Part => ({ poly: swell(spline(pts, false), w, 'end'), paint, lines: [], edge: 0.5 });
+export const filament = (pts: Pt[], w: number, paint: Fill['paint']): Part => ({ poly: swell(spline(pts, false), w, 'end'), paint, lines: [], edge: 0.5 });
 /** A vertical band across the body between two x positions, bowed by `bow`, from f0 to f1. */
 const vband = (c: FishCtx, x0: number, x1: number, bow = 0, f0 = -0.6, f1 = 1.6): Pt[] => {
   const s = c.s;
@@ -321,7 +321,7 @@ const king: FishSpec = {
 // A black eye mask followed by a white band; a broad diagonal black shoulder crescent; a black spot
 // on the tail stock joined by a black line under the soft dorsal; diagonal orange stripes on the
 // lower flank; a round yellow disc with a short pointed snout.
-const raccoon: FishSpec = {
+export const raccoon: FishSpec = {
   tip: [0, 0.5],
   blunt: 0.2,
   top: [[1, -1.2], [3, -3], [5, -5.4], [7, -9], [10, -14], [14, -19], [20, -23], [27, -25], [35, -25.4], [44, -24], [53, -20], [61, -14.6], [68, -9.6], [74, -6.6], [79, -6]],
@@ -418,7 +418,7 @@ const stoplight: FishSpec = {
 };
 
 // Triggerfish shape: a huge head with the eye far back and a long sloping snout.
-const triggerBody = (depth: number) => ({
+export const triggerBody = (depth: number) => ({
   tip: [0, 4] as Pt,
   blunt: 0.5,
   top: [[0.4, 2.4], [3, -1.8], [7, -7], [12, -12.4], [17, -16.6], [23, -19.4], [30, -20.6], [38, -20.4], [47, -18.6], [56, -15.2], [64, -11], [71, -7.4], [77, -5.6], [80, -5.2]].map(([x, y]) => [x, y * depth] as [number, number]),
@@ -433,7 +433,7 @@ const triggerBody = (depth: number) => ({
   engraving: 'smooth' as const,
 });
 // The first dorsal: a low-slung triangle of three spines joined by membrane, not a tall serrated horn.
-const trigger1 = { from: 28, to: 42, spines: 3, rays: 0, h: [[0, 9], [0.5, 7], [1, 4]] as [number, number][], notch: 0.2, rake: [20, 30] as [number, number] };
+export const trigger1 = { from: 28, to: 42, spines: 3, rays: 0, h: [[0, 9], [0.5, 7], [1, 4]] as [number, number][], notch: 0.2, rake: [20, 30] as [number, number] };
 
 // ── Titan triggerfish ────────────────────────────────────────────────────────
 // A dark moustache band above the mouth; a cross-hatched pattern of dark scales with pale edges;
