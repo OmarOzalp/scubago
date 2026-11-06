@@ -4,6 +4,7 @@ import { create } from 'react-test-renderer';
 import { CollectionCard, collectionLabel } from '@/components/rewards/collection-card';
 import { CollectionDetailView } from '@/components/rewards/collection-detail';
 import { CollectionsView } from '@/components/rewards/collections-view';
+import { residentsOf } from '@/lib/archipelago';
 import { islandLabel } from '@/components/rewards/island-card';
 import { IslandsView } from '@/components/rewards/islands-view';
 import { NewBadgesBanner, NewBadgesCelebration, newBadgesSummary } from '@/components/rewards/new-badges';
@@ -117,7 +118,7 @@ test('each island says whether it has risen, how many residents are found, and w
   const labels = labelsOf(root);
   const kelp = rewards.islands.find((i) => i.id === 'kelp-forest');
   expect(kelp.unlocked).toBe(false);
-  expect(islandLabel(kelp)).toMatch(/^Kelp Forest, locked\. Log any Kelp Forest animal, such as a Lingcod\. 0 of 14 residents found\.$/);
+  expect(islandLabel(kelp)).toBe(`Kelp Forest, locked. Log any Kelp Forest animal, such as a Lingcod. 0 of ${residentsOf('kelp-forest').length} residents found.`);
   expect(labels).toContain(islandLabel(kelp));
   expect(text).toContain('Locked');
   expect(text).toContain('Log any Kelp Forest animal, such as a Lingcod.');
@@ -216,10 +217,10 @@ test('the entry points quote the real numbers, and nothing before there is a log
   expect(s.earned).toBe(rewards.badges.filter((b) => b.earned).length);
   expect(badgesLine(s)).toBe(`${s.earned} of ${s.badges} badges · ${s.stamps} site stamps`);
   expect(badgesLine(summarize(empty))).toBe('Badges and site stamps start with your first dive');
-  // Seven habitats, five families and four hand-picked sets (the Shipwreck's residents are one collection, not two).
-  expect(empty.collections).toHaveLength(16);
-  expect(collectionsLine(summarize(empty))).toMatch(/^16 collections to fill/);
-  expect(collectionsLine({ ...s, complete: 2, collections: 16 })).toBe('2 of 16 complete');
+  // Seven habitats, five families and seven hand-picked sets (the Shipwreck's residents are one collection, not two).
+  expect(empty.collections).toHaveLength(19);
+  expect(collectionsLine(summarize(empty))).toMatch(/^19 collections to fill/);
+  expect(collectionsLine({ ...s, complete: 2, collections: 19 })).toBe('2 of 19 complete');
 });
 
 test('new badges are celebrated by name and day, with a way to the rest, and nothing at all when there are none', async () => {

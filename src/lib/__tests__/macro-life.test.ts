@@ -5,8 +5,11 @@ import type { DexEntry, Species } from '../types';
 
 const ALL = Object.keys(MACRO_SPECIES) as MacroSpecies[];
 
-test('every macro species in the catalog has a creature, and only those', () => {
-  const macro = SPECIES.filter((s) => s.category === 'macro').map((s) => s.id).sort();
+test('every macro species in the catalog has a creature, and only those, bar the newest three still to be modelled', () => {
+  // The banded coral shrimp, varicose wart slug and hairy squat lobster are in the catalogue and the guide, with their
+  // plates, but have no explorer creature yet (like the squid and the nautilus on the swimming side).
+  const stillToModel = new Set(['banded-coral-shrimp', 'varicose-wart-slug', 'hairy-squat-lobster']);
+  const macro = SPECIES.filter((s) => s.category === 'macro' && !stillToModel.has(s.id)).map((s) => s.id).sort();
   expect([...ALL].sort()).toEqual(macro);
   expect(new Set(Object.values(MACRO_SPECIES)).size).toBe(ALL.length);
 });
