@@ -814,5 +814,53 @@
     "material": "vertex colors, no textures",
     "generator": "scripts/art/build-species.ts",
     "animation": "procedural at runtime (src/lib/marine-rigs.ts); Swim clip is the same rig baked at cruising effort"
+  },
+  "nurse-shark": {
+    "status": "stylized-draft",
+    "version": 2,
+    "bytes": 97420,
+    "triangles": 4004,
+    "source": "Original procedural geometry and rig",
+    "bones": 12,
+    "clip": "Swim",
+    "loopSeconds": 2.5,
+    "scientificName": "Ginglymostoma cirratum",
+    "reference": "https://www.floridamuseum.ufl.edu/discover-fish/species-profiles/ginglymostoma-cirratum/",
+    "humanReview": "pending",
+    "material": "vertex colors, no textures",
+    "generator": "scripts/art/build-species.ts",
+    "animation": "procedural at runtime (src/lib/marine-rigs.ts); Swim clip is the same rig baked at cruising effort"
+  },
+  "zebra-shark": {
+    "status": "stylized-draft",
+    "version": 2,
+    "bytes": 126708,
+    "triangles": 4305,
+    "source": "Original procedural geometry and rig",
+    "bones": 12,
+    "clip": "Swim",
+    "loopSeconds": 2.778,
+    "scientificName": "Stegostoma tigrinum",
+    "reference": "https://www.floridamuseum.ufl.edu/discover-fish/species-profiles/stegostoma-tigrinum/",
+    "humanReview": "pending",
+    "material": "vertex colors, no textures",
+    "generator": "scripts/art/build-species.ts",
+    "animation": "procedural at runtime (src/lib/marine-rigs.ts); Swim clip is the same rig baked at cruising effort"
+  },
+  "tasselled-wobbegong": {
+    "status": "stylized-draft",
+    "version": 2,
+    "bytes": 115064,
+    "triangles": 4494,
+    "source": "Original procedural geometry and rig",
+    "bones": 12,
+    "clip": "Swim",
+    "loopSeconds": 2.941,
+    "scientificName": "Eucrossorhinus dasypogon",
+    "reference": "https://www.fishbase.se/summary/Eucrossorhinus-dasypogon.html",
+    "humanReview": "pending",
+    "material": "vertex colors, no textures",
+    "generator": "scripts/art/build-species.ts",
+    "animation": "procedural at runtime (src/lib/marine-rigs.ts); Swim clip is the same rig baked at cruising effort"
   }
 }

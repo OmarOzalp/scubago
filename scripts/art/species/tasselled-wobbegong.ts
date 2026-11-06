@@ -122,31 +122,33 @@ export function buildTasselledWobbegong() {
   // The beard: tassels all round the front and down each side of the head, each a stem with two or
   // three branches, leaning out and forward from the head's edge, longer and denser at the front.
   const bw = (s: number) => (ctx.width(s + .004) - ctx.width(s - .004)) / .008;
-  const tint = (i: number) => mix(mix(SAND, CREAM, .5 + .5 * noise(i * 2.3, 9)), MID, .3 + .3 * noise(i * 1.9, 4));
+  // Colours follow the head's own pattern at the tassel's root, with paler tips.
+  const tint = (i: number, s = .1, x = .08) => mix(coat(s, x * (1 + .1 * noise(i, 3))), MID, .15);
+  const pale = (c: RGB) => mix(c, CREAM, .6);
   let k = 0;
-  // Two staggered rows down each side (the edge, and a shorter one on the upper head), each tassel turned a little differently.
+  // One row down each side along the rim: broad, flat, leaf-like flaps lying low and out, each fanning into three lobes.
   for (const side of [1, -1]) {
-    for (const row of [0, 1]) {
-      for (let s = row ? .03 : .016; s <= (row ? .21 : .235); s += row ? .026 : .0185) {
-        k++;
-        const w = bw(s);
-        const yaw = .35 * noise(k * 1.3, 11);
-        const lean = new Vector3(side * 1, row ? .15 : -.04, clamp(w, -.4, 2.2) * .8 - .05 * (s > .16 ? 1 : 0)).applyAxisAngle(new Vector3(0, 1, 0), yaw);
-        const front = 1 - smoothstep(0, .09, s);
-        const length = (row ? .03 : .036) + .012 * front + .006 * noise(k, 2);
-        tassel(ctx, s, side * (row ? 1.12 : 1.5 + .04 * noise(k * 3.1, 7)), lean, length, row ? .03 : .036, tint(k), mix(tint(k), CREAM, .55),
-          { branches: 3, spread: .95 + .2 * noise(k * 2.1, 3), curl: .003, lift: row ? .5 : .1 });
-      }
+    for (let s = .016; s <= .235; s += .022) {
+      k++;
+      const w = bw(s);
+      const yaw = .3 * noise(k * 1.3, 11);
+      const lean = new Vector3(side * 1, -.12, clamp(w, -.4, 2.2) * .8 - .05 * (s > .16 ? 1 : 0)).applyAxisAngle(new Vector3(0, 1, 0), yaw);
+      const front = 1 - smoothstep(0, .09, s);
+      const length = .05 + .014 * front + .005 * noise(k, 2);
+      const c = tint(k, s, ctx.width(s));
+      tassel(ctx, s, side * (1.5 + .04 * noise(k * 3.1, 7)), lean, length, .05, c, pale(c),
+        { branches: 3, spread: .85 + .15 * noise(k * 2.1, 3), curl: -.002, lift: 0, flat: .12 });
     }
   }
-  // Across the front of the head, over and under the snout.
+  // Across the front of the head.
   [-1, -.55, -.18, .18, .55, 1].forEach((theta, i) => {
-    tassel(ctx, .006 + .004 * (i % 2), theta, new Vector3(theta * .5, -.02, 1), .044, .034, tint(i + 40), mix(tint(i + 40), CREAM, .55), { branches: 3, spread: .75, curl: .003, lift: .15 });
+    const c = tint(i + 40, .01, .05 * theta);
+    tassel(ctx, .006 + .004 * (i % 2), theta, new Vector3(theta * .5, -.1, 1), .056, .05, c, pale(c), { branches: 3, spread: .85, curl: -.002, lift: 0, flat: .12 });
   });
   // The two long, branched nasal barbels under the snout, and a few tassels under the chin.
   for (const side of [1, -1]) {
-    barbel(ctx, .03, side * (Math.PI - .5), new Vector3(side * .12, -.4, 1), .034, .0085, tint(60), mix(tint(60), CREAM, .6));
-    tassel(ctx, .03, side * (Math.PI - .85), new Vector3(side * .6, -.5, .9), .034, .014, tint(61), CREAM, { branches: 2, spread: .7, curl: -.002, lift: .1 });
+    barbel(ctx, .03, side * (Math.PI - .5), new Vector3(side * .12, -.4, 1), .034, .0085, tint(60), pale(tint(60)));
+    tassel(ctx, .03, side * (Math.PI - .85), new Vector3(side * .6, -.5, .9), .034, .014, tint(61), pale(tint(61)), { branches: 2, spread: .8, curl: -.002, lift: 0, flat: .12 });
   }
 
   // Small eyes close together on top of the head, a spiracle behind each, then the gill slits under the flank.

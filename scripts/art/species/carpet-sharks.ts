@@ -104,21 +104,21 @@ export function barbel(ctx: SharkContext, s: number, theta: number, lean: Vector
  */
 export function tassel(
   ctx: SharkContext, s: number, theta: number, lean: Vector3, length: number, width: number,
-  color: RGB, tipColor: RGB, options: { spread?: number; branches?: number; curl?: number; lift?: number } = {},
+  color: RGB, tipColor: RGB, options: { spread?: number; branches?: number; curl?: number; lift?: number; flat?: number } = {},
 ) {
   const part = placed(ctx, s, theta, .004);
   const spread = options.spread ?? .55, branches = options.branches ?? 2, curl = options.curl ?? 0;
   const dir = part.n.clone().multiplyScalar(options.lift ?? .35).add(lean.clone().normalize()).normalize();
   const up = new Vector3(0, 1, 0);
   const stemLength = length * .5;
-  const fork = spike(part, part.base, dir, stemLength, width, curl * .4, color, mix(color, tipColor, .3), .45, 3);
+  const fork = spike(part, part.base, dir, stemLength, width, curl * .4, color, mix(color, tipColor, .3), options.flat ?? .45, 3);
   for (let i = 0; i < branches; i++) {
     const side = branches === 2 ? (i === 0 ? -1 : 1) : i - 1;
     const bd = dir.clone().applyAxisAngle(up, side * spread).addScaledVector(part.n, .12).normalize();
     const bl = length * (side === 0 ? .62 : .5 + .12 * (i & 1));
     // Branches start a little before the stem's end, so the join is solid.
     const start = part.base.clone().lerp(fork, .86);
-    spike(part, start, bd, bl, width * .7, curl, mix(color, tipColor, .3), tipColor, .45, 2);
+    spike(part, start, bd, bl, width * .7, curl, mix(color, tipColor, .3), tipColor, options.flat ?? .45, 2);
   }
 }
 
