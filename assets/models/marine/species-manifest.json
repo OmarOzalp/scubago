@@ -786,8 +786,8 @@
   "bull-ray": {
     "status": "stylized-draft",
     "version": 2,
-    "bytes": 88760,
-    "triangles": 3300,
+    "bytes": 87808,
+    "triangles": 3260,
     "source": "Original procedural geometry and rig",
     "bones": 17,
     "clip": "Swim",
