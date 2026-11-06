@@ -78,26 +78,31 @@ const picasso: FishSpec = {
   extra: (c) => {
     const s = c.s;
     const X = (x: number) => tAtX(s, x);
-    const back = region(s, X(8), X(80), -0.1, 0.42);
-    const shoulder = shapeIn(s, [[X(30), -0.05], [X(40), -0.05], [X(48), 0.14], [X(54), 0.4], [X(47), 0.4], [X(38), 0.2]]);
+    const back = region(s, X(8), X(80), -0.1, 0.4);
+    // The broad dark band: from the eye down and back to the belly.
+    const band = shapeIn(s, [[X(17), 0.08], [X(24), -0.04], [X(36), 0.36], [X(52), 0.96], [X(46), 1.02], [X(33), 0.72], [X(18), 0.42]]);
+    // Black-and-white stripes sloping across the rear flank.
     const stripes: Fill[] = [];
-    [38, 44, 50, 56].forEach((x, i) => {
-      const pts: [number, number][] = [[x + 7, 0.98], [x + 3.5, 0.76], [x, 0.56 - i * 0.02]];
-      stripes.push(stroke(c, pts, 2.2, '#EEF4F4', 0.95), stroke(c, pts.map(([px, f]) => [px - 0.2, f + 0.09] as [number, number]), 0.9, '#3677C9', 0.9));
+    [46, 52, 58, 64].forEach((x, i) => {
+      const pts: [number, number][] = [[x + 9, 1.0], [x + 5, 0.74], [x + 1, 0.52 - i * 0.02]];
+      stripes.push(stroke(c, pts, 2.4, 'ink', 0.92), stroke(c, pts.map(([px, f]) => [px + 2.4, f + 0.03] as [number, number]), 1.6, '#F6F6F0', 0.98));
     });
-    // Blue lines through and round the eye, a yellow one behind it.
+    // Bright blue lines across the eye region and between the eyes.
+    const blue = '#2A78E0';
     const eyeLines: Fill[] = [
-      stroke(c, [[17, 0.0], [17.8, 0.22], [17.2, 0.46]], 0.9, '#2F6FD0', 0.95),
-      stroke(c, [[19.2, -0.04], [20, 0.22], [19.6, 0.5]], 0.9, '#2F6FD0', 0.95),
-      stroke(c, [[24, -0.04], [24.6, 0.2], [24, 0.46]], 1, '#F0C23A', 0.95),
+      stroke(c, [[15.4, -0.04], [16.2, 0.2], [15.6, 0.5]], 1, blue, 0.98),
+      stroke(c, [[18, -0.04], [18.8, 0.2], [18.2, 0.5]], 1, blue, 0.98),
+      stroke(c, [[23.4, -0.04], [23.8, 0.2], [23.2, 0.5]], 1, blue, 0.98),
+      stroke(c, [[9, 0.0], [12, 0.08], [15, 0.14]], 0.9, blue, 0.95),
     ];
-    // The streak on the tail stock: a black bar with white beads.
+    // The streak along the tail stock: a black bar with white beads.
     const streak: Fill[] = [stroke(c, [[62, 0.42], [70, 0.44], [76, 0.44]], 1.7, 'ink', 0.95), ...[64, 68, 72].map((x): Fill => ({ poly: ellipse(atX(s, x, 0.44), 0.7, 0.5), paint: 'light', clip: 'trunk' }))];
     const lips: Fill = { poly: ellipse(atX(s, 1.2, 0.74), 2, 1.3), paint: '#F29A28', edge: 0.8 };
-    const chin = stroke(c, [[2, 0.82], [10, 0.92], [18, 0.98]], 1.6, '#F0A030', 0.95);
+    // The yellow-orange line from the mouth back to the pectoral base.
+    const line = stroke(c, [[1.6, 0.76], [10, 0.7], [20, 0.58], [28, 0.46]], 1.9, '#F29A28', 0.98);
     return {
-      tint: [{ poly: back, paint: '#A88E62', o: 0.55, clip: 'trunk' }],
-      marks: [{ poly: shoulder, paint: '#5B3E26', o: 0.85, clip: 'trunk' }, ...stripes, ...eyeLines, ...streak, chin, lips],
+      tint: [{ poly: back, paint: '#B79F72', o: 0.3, clip: 'trunk' }],
+      marks: [{ poly: band, paint: '#46362A', o: 0.9, clip: 'trunk' }, ...stripes, ...eyeLines, line, ...streak, lips],
       median: [
         { part: 'dorsal', index: 1, marks: [margin(c.dorsal[1].outline, 0.7, '#6C5B3C', 0.6)] },
         { part: 'anal', marks: [margin(c.anal[0].outline, 0.7, '#6C5B3C', 0.6)] },
@@ -220,7 +225,7 @@ const hawkfish: FishSpec = {
 
 export const MORE_FISH: Record<string, PlateDef> = {
   'bluestreak-cleaner-wrasse': F(cleaner, { back: '#B8C8D4', belly: '#EAF1F4', fin: '#C2D2DE', dark: '#1C2830' }, 31),
-  'picasso-triggerfish': F(picasso, { back: '#D6C7A2', belly: '#F4F0E4', fin: '#D9CBA4', dark: '#3A2E20' }, 32),
+  'picasso-triggerfish': F(picasso, { back: '#E6DCC0', belly: '#F6F2E8', fin: '#E2D6B6', dark: '#3A2E20' }, 32),
   'masked-butterflyfish': F(masked, { back: '#F3C718', belly: '#F6D83C', fin: '#EFC21C', dark: '#3A3410' }, 33),
   'pygmy-sweeper': F(sweeper, { back: '#D1AE55', belly: '#EFE6C8', fin: '#E9DBAA', dark: '#4A3C18' }, 34),
   'longnose-hawkfish': F(hawkfish, { back: '#F2EADB', belly: '#FAF6EC', fin: '#EFE1CE', dark: '#4A2A20' }, 35),

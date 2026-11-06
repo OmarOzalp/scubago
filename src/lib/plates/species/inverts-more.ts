@@ -180,14 +180,14 @@ function hairySquat(): PlateGeom {
   const hairs: Fill[] = [];
   const hair = (p: Pt, d: Pt, len: number) => {
     const tip = add(add(p, mul(d, len)), mul(perp(d), (rand() - 0.5) * 1.6));
-    hairs.push({ poly: swell([p, lerp(p, tip, 0.55), tip], 0.9, 'both'), paint: '#FFF6F9', o: 0.95, edge: 0.3 });
+    hairs.push({ poly: swell([p, lerp(p, tip, 0.55), tip], 0.5, 'both'), paint: '#F3E4EC', o: 0.8, edge: 0.18 });
   };
   limbs.forEach(({ path, w0, w1 }, li) => {
     g.far.push(limb(path, w0, w1, violet, li < 2 ? 2 : 1, 0.7));
     const c = resample(spline(path as Pt[], false), 30);
-    for (let k = 4; k < 28; k += 3) {
+    for (let k = 3; k < 28; k += 2) {
       const d = norm(sub(c[k + 1], c[k - 1]));
-      for (const sd of [-1, 1]) hair(c[k], norm(add(mul(perp(d), sd), mul(d, 0.4))), 3.2 + rand() * 2);
+      for (const sd of [-1, 1]) hair(c[k], norm(add(mul(perp(d), sd), mul(d, 0.7))), 2.4 + rand() * 1.4);
     }
   });
   // The pincers: a pair of slender blades at the end of each long claw.
@@ -199,11 +199,11 @@ function hairySquat(): PlateGeom {
     g.far.push({ poly: leaf(base, tip, w, 0.45), paint: violet, lines: [], edge: 0.7 }, { poly: leaf(base, add(add(tip, mul(perp(d), w * 0.5)), mul(d, -2)), w * 0.6, 0.45), paint: '#A66ACB', lines: [], edge: 0.7 });
   }
   // The halo of hairs round the carapace, and a few over its back.
-  const rim = resample(body, 70);
+  const rim = resample(body, 130);
   rim.forEach((p, i) => {
     const d = norm(sub(p, [102, 64]));
-    hair(p, d, 6 + rand() * 4);
-    if (i % 3 === 0) hair(lerp(p, [102, 64], 0.35), d, 7 + rand() * 3);
+    hair(p, d, 4 + rand() * 3);
+    if (i % 2 === 0) hair(lerp(p, [102, 64], 0.3), norm(add(d, [rand() * 0.6 - 0.3, rand() * 0.6 - 0.3])), 5 + rand() * 3);
   });
   g.marks.push(...hairs);
   g.engraving.push({ pts: spline([[88, 58], [100, 54], [114, 58]], false), w: 1, taper: 'both', o: 0.6 }, { pts: spline([[88, 70], [100, 74], [114, 70]], false), w: 1, taper: 'both', o: 0.6 });

@@ -1,8 +1,9 @@
 /**
- * Four more rays from above (disc width = 100): three eagle-ray kin told apart by head and
- * colour (bull, cownose, bat) and the blotched fantail ray, a big round stingray.
+ * Three eagle-ray kin from above (disc width = 100), told apart by head and colour: bull, cownose and bat.
  */
-import { blob, ellipse, inside, type Pt, rng, spline } from '../kit';
+import { blob, type Ctrl, ellipse, type Pt, spline } from '../kit';
+import { scatterIn } from '../marks';
+import { mirrorY, topShark, type TopSharkSpec } from '../topshark';
 import { ray, type RaySpec } from '../ray';
 import type { PlateDef } from '../registry';
 import { rotateGeom } from '../render';
@@ -66,14 +67,17 @@ const bull: RaySpec = {
     // The raised head: a fold where it rises from the disc, and the broad mouth-bill under it.
     const fold: Line = { pts: spline([[-8.4, 12.8], [-4, 11], [4, 11], [8.4, 12.8]], false), w: 1, taper: 'both' };
     const bands: Fill[] = [
-      ...crossBand(16, -1.5, 32, 2.4, 0.27),
-      ...crossBand(22.6, -1, 40, 2.6, 0.29),
-      ...crossBand(29.4, -0.6, 44, 2.6, 0.29),
-      ...crossBand(36, 0.4, 36, 2.6, 0.29),
-      ...crossBand(42.5, 1.4, 26, 2.4, 0.27),
+      ...crossBand(16, -1.5, 32, 3.2, 0.42),
+      ...crossBand(22.6, -1, 40, 3.4, 0.45),
+      ...crossBand(29.4, -0.6, 44, 3.4, 0.45),
+      ...crossBand(36, 0.4, 36, 3.4, 0.45),
+      ...crossBand(42.5, 1.4, 26, 3.2, 0.42),
       ...crossBand(46, 2, 16, 2.8, 0.22),
     ];
-    return { marks: bands, lines: [fold] };
+    // The duck-bill: a broad, pale, blunt snout that juts ahead of the raised head.
+    const bill: Fill = { poly: spline([[-6.6, 1.6], [-3.4, -0.1], [3.4, -0.1], [6.6, 1.6], [7.4, 5], [0, 6.4], [-7.4, 5]], true), paint: 'light', o: 0.4, clip: 'trunk' };
+    const billEdge: Line = { pts: spline([[-7.2, 6], [0, 7.4], [7.2, 6]], false), w: 1.1, taper: 'both' };
+    return { marks: [bill, ...bands], lines: [fold, billEdge] };
   },
 };
 
@@ -177,47 +181,6 @@ const bat: RaySpec = {
   },
 };
 
-// ── Blotched fantail ray ─────────────────────────────────────────────────────
-// A huge round disc, near black, mottled all over with pale grey blotches (the reverse of the
-// marbled look); a thin pale rim; a short thick tail with a broad fold under it to the tip and a
-// spine behind a small ridge; granular skin, a row of thorns down the back.
-const fantail: RaySpec = {
-  disc: [
-    [0, 0],
-    [14, 1.4],
-    [30, 6.4],
-    [42.5, 15],
-    [49.2, 27],
-    [50, 40],
-    [47.4, 54],
-    [40, 67],
-    [28, 78],
-    [14, 85],
-    [0, 87.5],
-  ],
-  hub: [0, 42],
-  tail: { path: [[0, 84], [0.5, 108], [3, 136], [8, 164], [14, 190]], w0: 7.4, w1: 0.5, hold: 1.4, spines: { at: 0.26, n: 1, len: 7 }, fold: { from: 0.3, w: 3.8, paint: 'back' } },
-  eye: [8.2, 18],
-  eyeR: 1.3,
-  spiracle: { at: [10, 24], r: 2 },
-  extra: (c) => {
-    const rand = rng(61);
-    const blotches: Fill[] = [];
-    for (let k = 0; k < 230; k++) {
-      const x = (rand() - 0.5) * 92;
-      const y = 4 + rand() * 80;
-      if (!inside([x, y], c.disc)) continue;
-      const r = 0.7 + rand() ** 2.2 * 3.8;
-      blotches.push({ poly: blob([x, y], r, 0.5, rand, 9, 1 + rand() * 0.9, rand() * 180), paint: 'light', o: 0.22 + rand() * 0.22, clip: 'trunk' });
-    }
-    // The pale rim round the edge of the disc.
-    const rim: Pt[] = c.disc.map(([x, y]) => [x * 0.965, y * 0.965 + 1.5] as Pt);
-    const rimBand: Fill = { poly: [...c.disc, ...rim.slice().reverse()], paint: 'light', o: 0.3, clip: 'trunk' };
-    const thorns: Fill[] = Array.from({ length: 12 }, (_, i) => ({ poly: ellipse([0, 28 + i * 4], 0.7), paint: '#D8CDB4' as const, edge: 0.6 }));
-    return { marks: [rimBand, ...blotches, ...thorns] };
-  },
-};
-
 const R = (spec: RaySpec, palette: PlateDef['palette'], rotate = 0): PlateDef => ({
   build: (): PlateGeom => (rotate ? rotateGeom(ray(spec), rotate) : ray(spec)),
   palette,
@@ -227,5 +190,42 @@ export const MORE_RAYS: Record<string, PlateDef> = {
   'bull-ray': R(bull, { back: '#6E6048', belly: '#F4F1E8', dark: '#2C2820' }, -90),
   'cownose-ray': R(cownose, { back: '#A98B58', belly: '#F4F0E4', dark: '#4A3C24' }, -90),
   'bat-ray': R(bat, { back: '#4E4030', belly: '#EFEADC', dark: '#1E1812' }, -90),
-  'blotched-fantail-ray': R(fantail, { back: '#34383D', belly: '#EDEBE6', dark: '#16181B' }, -90),
 };
+
+// ── Bowmouth guitarfish ──────────────────────────────────────────────────────
+// Seen from above: a broad, rounded, shovel-fronted head with a bowed mouth, merging into big
+// pectoral fins (a heart-shaped front, unlike the giant guitarfish's pointed wedge or the sawfish's
+// saw); thorny ridges in arcs over each eye and down the middle; two tall shark-like dorsals; a
+// shark's tail with a big lower lobe; grey-brown with white spots and dark smudges on the pectorals.
+const BOW: [number, number][] = [[0.6, 5], [2, 9], [5, 12.6], [10, 15.2], [16, 16.6], [22, 16.4], [28, 14.6], [34, 11.6], [40, 8.6], [48, 6], [58, 4.2], [68, 3.2], [76, 2.6]];
+const bowmouth: TopSharkSpec = {
+  tip: [0, 0],
+  blunt: 1,
+  top: BOW.map(([x, w]) => [x, -w] as Ctrl),
+  bot: mirrorY(BOW.map(([x, w]) => [x, -w] as Ctrl)),
+  pelvic: { at: 38, base: 6, h: 5.6, sweep: 0.8, rear: 1.4, round: 1.2 },
+  d1: { at: 50, base: 6.4, h: 8.4, sweep: 0.66, rear: 1.8, concave: 0.12 },
+  d2: { at: 64, base: 5.6, h: 7.2, sweep: 0.66, rear: 1.6, concave: 0.12 },
+  caudal: { upper: [100, -6.4], lower: [90, 9.4], fork: [94, 1.6], notch: 2, trail: 0.04, lowerTrail: 0.04, lowerBow: 0.1 },
+  eyes: [[14, -5.4], [14, 5.4]],
+  eyeR: 0.7,
+  rings: { top: [0.04, 0.1, 0.18], bot: [0.78, 0.86, 0.93] },
+  extra: (c) => {
+    const rand = c.rand;
+    const thorn = (p: Pt, r = 0.5): Fill => ({ poly: ellipse(p, r), paint: '#E9E0C8', edge: 0.5 });
+    const arcs: Fill[] = [];
+    for (const k of [-1, 1]) {
+      for (let i = 0; i < 9; i++) {
+        const a = (-0.3 + i * 0.2) * Math.PI;
+        arcs.push(thorn([14 + Math.cos(a) * 4.2 - 0.6, k * (5.4 + Math.sin(a) * 4.8 * -1 * (k < 0 ? -1 : 1) - 0.3 * 0)], 0.5));
+      }
+    }
+    const mid: Fill[] = Array.from({ length: 20 }, (_, i) => thorn([22 + i * 2.6, 0.2 * Math.sin(i)], 0.45));
+    const spots = scatterIn([[2, -9], [16, -15], [32, -11], [46, -5], [46, 5], [32, 11], [16, 15], [2, 9]], { r: 0.55, gap: 1.9, paint: 'light', rand, tries: 600, o: 0.9 });
+    const smudges: Fill[] = [-1, 1].flatMap((k) => [[20, 11], [30, 8.4]].map(([x, y]) => ({ poly: blob([x, k * y], 2.6, 0.35, rand, 9, 1.5), paint: 'dark' as const, o: 0.35, clip: 'trunk' as const })));
+    const mouth: Line = { pts: spline([[6.4, -7.4], [3.8, -3.6], [3.2, 0], [3.8, 3.6], [6.4, 7.4]], false), w: 1.4 };
+    const spir: Fill[] = [-1, 1].map((k) => ({ poly: ellipse([18.6, k * 4.2], 0.9, 0.55), paint: 'dark', o: 0.8 }));
+    return { marks: [...spots.map((f) => ({ ...f, clip: 'trunk' as const })), ...smudges, ...arcs, ...mid, ...spir], lines: [mouth] };
+  },
+};
+MORE_RAYS['bowmouth-guitarfish'] = { build: () => topShark({ ...bowmouth, seed: 19 }), palette: { back: '#8B7F6C', belly: '#EFEBE0', dark: '#3A3226' } };
