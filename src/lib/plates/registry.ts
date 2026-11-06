@@ -14,6 +14,7 @@ import { REEF_FISH_2 } from './species/reef2';
 import { CEPHALOPODS } from './species/cephalopods';
 import { INVERTS } from './species/inverts';
 import { REPTILES } from './species/reptiles';
+import { MORE_SHARKS } from './species/sharks-more';
 import type { Palette, PlateGeom } from './types';
 
 export interface PlateDef {
@@ -35,4 +36,5 @@ export const PLATES: Record<string, PlateDef> = {
   ...CEPHALOPODS,
   ...INVERTS,
   ...REPTILES,
+  ...MORE_SHARKS,
 };
