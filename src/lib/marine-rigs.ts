@@ -165,6 +165,12 @@ export type MantaRig = {
   /** Cephalic lobe curl (rad) and trailing tail wave (rad per segment). */
   cephalic: number;
   tail: readonly number[];
+  /**
+   * Optional bouts, as the turtles' have: a few wing strokes (min, max per bout), then a glide of
+   * (min, max) seconds with the wings held in a shallow V, the wave easing out and back in.
+   */
+  bout?: readonly [number, number];
+  glide?: readonly [number, number];
 };
 
 export type SunfishRig = {
@@ -753,6 +759,8 @@ export const SWIM_RIGS: Record<SwimRigModel, SwimRigSpec> = {
     flap: [.1, .17, .21, .23, .24], waveLag: .34,
     twist: [0, .04, .08, .12, .15], glideDihedral: [.02, .025, .03, .035, .04],
     turnAsymmetry: .5, climbGain: .5, bob: .014, pitch: .025, cephalic: 0, tail: [.04, .06, .09],
+    // Slow and heavy: three to five deep strokes, then a long, level glide.
+    bout: [3, 4], glide: [3, 6],
   },
   // The cownose ray: quick, whippy wingbeats of its pointed wings, flown in a school; faster than the
   // bull ray's, the notched head held level and the thin tail trailing.
@@ -761,6 +769,8 @@ export const SWIM_RIGS: Record<SwimRigModel, SwimRigSpec> = {
     flap: [.1, .17, .22, .26, .28], waveLag: .3,
     twist: [0, .05, .1, .15, .2], glideDihedral: [.015, .02, .028, .035, .04],
     turnAsymmetry: .55, climbGain: .55, bob: .012, pitch: .03, cephalic: 0, tail: [.04, .07, .1],
+    // Quick runs of strokes with short glides between, as a school keeps moving.
+    bout: [4, 8], glide: [1.2, 2.6],
   },
 };
 
@@ -828,7 +838,7 @@ export function createSwimRig(model: SwimRigModel, phase = 0) {
     // Sailfish only: how far the sail stands.
     sail: spec.kind === 'shark' && spec.sail ? spec.sail.cruise : 1,
   };
-  if (spec.kind === 'turtle' || spec.kind === 'pinniped') state.strokes = spec.bout[0];
+  if (spec.kind === 'turtle' || spec.kind === 'pinniped' || (spec.kind === 'manta' && spec.bout)) state.strokes = spec.bout![0];
   const slot = Object.fromEntries(bones.map((bone, index) => [bone, index * 3])) as Record<string, number>;
   const set = (bone: string, x: number, y: number, z: number) => {
     const i = slot[bone];
@@ -877,7 +887,7 @@ export function createSwimRig(model: SwimRigModel, phase = 0) {
         state.sail = ease(state.sail, sail, sail < state.sail ? 3.5 : 1.8, dt);
       }
       state.breath = (state.breath + TAU * breathRate * dt) % TAU;
-      if (spec.kind === 'turtle' || spec.kind === 'pinniped') stepBouts(spec, state, dt);
+      if (spec.kind === 'turtle' || spec.kind === 'pinniped' || (spec.kind === 'manta' && spec.bout)) stepBouts(spec, state, dt);
       else state.phase = (state.phase + TAU * strokeFrequency(spec, state.effort) * dt) % TAU;
       pose();
     },
@@ -1043,8 +1053,9 @@ function poseCetacean(spec: CetaceanRig, s: RigState, set: SetBone, offset: { x:
 function poseManta(spec: MantaRig, s: RigState, set: SetBone, offset: { x: number; y: number; z: number }) {
   const effort = clamp(s.effort, .25, 1.6);
   // Below cruising effort the manta increasingly glides, holding its wings in a shallow V.
-  const glide = clamp((1 - effort) / .5, 0, 1);
-  const stroke = (.35 + .65 * effort) * (1 + spec.climbGain * s.climb) * (1 - .45 * glide);
+  // Bouts (bull and cownose rays) ease the whole stroke out between bouts, into the same shallow V.
+  const glide = Math.max(clamp((1 - effort) / .5, 0, 1), spec.bout ? 1 - s.activity : 0);
+  const stroke = (.35 + .65 * effort) * (1 + spec.climbGain * s.climb) * (1 - .45 * glide) * (spec.bout ? s.activity : 1);
   const asymmetry = clamp(spec.turnAsymmetry * s.turn, -.45, .45);
   const left = stroke * (1 - asymmetry), right = stroke * (1 + asymmetry);
   for (let i = 0; i < spec.flap.length; i++) {
@@ -1098,13 +1109,14 @@ function poseSunfish(spec: SunfishRig, s: RigState, set: SetBone, offset: { x: n
  * flippers swept back (phase 0), so a bout can end at any cycle boundary and ease straight into the
  * glide pose.
  */
-function stepBouts(spec: TurtleRig | PinnipedRig, s: RigState, dt: number) {
+function stepBouts(spec: TurtleRig | PinnipedRig | MantaRig, s: RigState, dt: number) {
+  const bout = spec.bout!, glideTime = spec.glide!;
   if (s.glide > 0) {
     s.glide = Math.max(0, s.glide - dt);
     s.activity = ease(s.activity, 0, 1.4, dt);
     if (s.glide === 0) {
       s.bouts++;
-      s.strokes = spec.bout[0] + Math.round(variation(s.bouts) * (spec.bout[1] - spec.bout[0]));
+      s.strokes = bout[0] + Math.round(variation(s.bouts) * (bout[1] - bout[0]));
     }
     return;
   }
@@ -1115,7 +1127,7 @@ function stepBouts(spec: TurtleRig | PinnipedRig, s: RigState, dt: number) {
   if (s.strokes > 0) { s.phase = next - TAU; return; }
   // Faster swimming shortens the glides; gliding never lasts less than a second.
   s.phase = 0;
-  const [short, long] = spec.glide;
+  const [short, long] = glideTime;
   s.glide = Math.max(1, (short + (long - short) * variation(s.bouts + .5)) / clamp(s.effort, .6, 1.6));
 }
 

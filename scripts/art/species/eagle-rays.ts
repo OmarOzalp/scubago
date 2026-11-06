@@ -26,6 +26,12 @@ export type EagleRayDesign = {
   /** A notch in the snout's front, splitting it into two lobes: how deep, how wide, and from which z it begins. */
   notch?: { depth: number; width: number; from: number };
   eye: { x: number; y: number; z: number; r: number };
+  /** Eye colours: the iris ring (the pupil is `colors.eye`) and the lid around it. */
+  iris?: RGB; lid?: RGB;
+  /** The spiracle behind each eye: where (x from the midline, z), its length and colour. */
+  spiracle?: { x: number; z: number; length: number; color: RGB };
+  /** The tail spine: its height, length and how far behind the tail's start it stands. */
+  spine?: { height: number; length: number; at: number };
   colors: { top: RGB; tip: RGB; belly: RGB; margin: RGB; mouth: RGB; gill: RGB; eye: RGB; tail: RGB; spine: RGB; snout?: RGB };
   /** Tail: where it starts (z), its length, its base radius, and the small dorsal fin's height and position behind the disc. */
   tail: { start: number; length: number; radius: number; dorsal: number };
@@ -43,7 +49,7 @@ export type Helpers = {
   decal: (line: readonly (readonly [number, number])[], upper: boolean, width: (t: number) => number, color: RGB) => void;
 };
 
-const K = 12; // points along each surface of a section
+const K = 14; // points along each surface of a section
 const half = (u: number) => 5 * (.2969 * Math.sqrt(u) - .126 * u - .3516 * u * u + .2843 * u ** 3 - .1036 * u ** 4);
 
 export function buildEagleRay(d: EagleRayDesign) {
@@ -111,7 +117,7 @@ export function buildEagleRay(d: EagleRayDesign) {
   mesh.end();
 
   // The head: a crown between the eyes narrowing into the snout; `notch` splits the snout's front in two.
-  const around = 16, rounded = d.headShape ?? .75;
+  const around = 22, rounded = d.headShape ?? .75;
   const front = d.head[d.head.length - 1][0];
   const notchAt = (x: number, z: number) => {
     if (!d.notch) return 0;
@@ -139,8 +145,51 @@ export function buildEagleRay(d: EagleRayDesign) {
   }
   mesh.end();
 
-  // Eyes bulge from the sides of the head.
-  for (const side of [1, -1]) eye(mesh, new Vector3(side * d.eye.x, d.eye.y, d.eye.z), new Vector3(side, .45, .1), d.eye.r, C.eye, { Head: 1 }, .6);
+  // The mouth and nostrils on the head's underside: a broad, shallow arc of a mouth curving back at its corners,
+  // and a pair of slanting nostril slits ahead of it. (The head rows give the belly's height at each z.)
+  {
+    const rows = d.head;
+    const rowAt = (z: number) => {
+      for (let i = 0; i < rows.length - 1; i++) {
+        if (z <= rows[i + 1][0]) {
+          const t = clamp((z - rows[i][0]) / (rows[i + 1][0] - rows[i][0]), 0, 1);
+          return rows[i].map((v, k) => v + (rows[i + 1][k] - v) * t);
+        }
+      }
+      return rows[rows.length - 1];
+    };
+    const belly = (x: number, z: number) => {
+      const [, w, , down] = rowAt(z);
+      const e = clamp(x / Math.max(w, 1e-3), -1, 1);
+      return new Vector3(x, .004 - down * Math.abs(1 - e * e) ** (.5 * rounded) - .0004, z);
+    };
+    const strip = (line: readonly (readonly [number, number])[], width: (t: number) => number, color: RGB) => {
+      mesh.begin();
+      const ids = line.map(([x, z], i) => {
+        const t = i / (line.length - 1), w = width(t);
+        return [-1, 1].map((sign) => mesh.vertex(belly(x, z + sign * w), color, { Head: 1 }, new Vector3(0, -1, 0)));
+      });
+      for (let i = 0; i < ids.length - 1; i++) mesh.quad(ids[i][0], ids[i][1], ids[i + 1][1], ids[i + 1][0]);
+      mesh.end({ closed: false, normals: false, outward: () => new Vector3(0, -1, 0) });
+    };
+    const mouthZ = front * .62, mouthW = rowAt(mouthZ)[1] * .62;
+    strip(Array.from({ length: 11 }, (_, i) => {
+      const e = i / 5 - 1;
+      return [e * mouthW, mouthZ + .016 * e * e] as const;
+    }), (t) => .0034 * Math.sin(Math.PI * (.05 + .9 * t)) ** .5 + .0006, C.mouth);
+    for (const side of [1, -1]) {
+      strip([[side * .02, front * .84], [side * .027, front * .8], [side * .036, front * .77]], () => .0024, mix(C.mouth, C.belly, .2));
+    }
+  }
+
+  // Eyes bulge from the sides of the head: a pale lid ring round an iris round a dark pupil.
+  for (const side of [1, -1]) {
+    const c = new Vector3(side * d.eye.x, d.eye.y, d.eye.z), n = new Vector3(side, .45, .1).normalize();
+    const lid = d.lid ?? mix(C.top, C.belly, .25);
+    eye(mesh, c.clone().addScaledVector(n, -.0006), n, d.eye.r * 1.22, lid, { Head: 1 }, .45);
+    eye(mesh, c, n, d.eye.r, d.iris ?? mix(C.eye, C.spine, .35), { Head: 1 }, .62);
+    eye(mesh, c.clone().addScaledVector(n, d.eye.r * .12), n, d.eye.r * .55, C.eye, { Head: 1 }, .62);
+  }
 
   // Decals lie just above the sheet so they bend with it.
   const decal: Helpers['decal'] = (line, upper, width, color) => {
@@ -167,9 +216,25 @@ export function buildEagleRay(d: EagleRayDesign) {
     mesh.end({ closed: false, normals: false, outward: (i) => new Vector3(mesh.normals[i * 3], mesh.normals[i * 3 + 1], mesh.normals[i * 3 + 2]) });
   };
   d.markings?.({ sheet, leadingEdge, trailingEdge, decal });
+  // The spiracles: a short dark slit, slanting back and out, behind each eye on the shoulder.
+  {
+    const sp = d.spiracle ?? { x: d.eye.x * 1.5, z: d.eye.z - .05, length: .03, color: mix(C.top, C.eye, .75) };
+    for (const side of [1, -1]) {
+      const pts = Array.from({ length: 6 }, (_, i) => {
+        const t = i / 5, x = sp.x + .016 * t - .007, z = sp.z - .5 * sp.length * t * 1.1 + .5 * sp.length * .55;
+        const a = Math.abs(x), le = leadingEdge(a), te = trailingEdge(a);
+        return [side * x, (le - z) / (le - te)] as const;
+      });
+      decal(pts, true, (t) => .0042 * Math.sin(Math.PI * (.06 + .88 * t)) ** .6, sp.color);
+    }
+  }
 
   // Underside: the mouth under the head and five short gill slits per side.
-  decal(Array.from({ length: 7 }, (_, i) => [(i / 6 * 2 - 1) * .028, .02] as const), false, (t) => .0036 * Math.sin(Math.PI * (.08 + .84 * t)) ** .5, C.mouth);
+  decal(Array.from({ length: 9 }, (_, i) => [(i / 8 * 2 - 1) * .04, .024 - .012 * (i / 8 * 2 - 1) ** 2] as const), false, (t) => .0046 * Math.sin(Math.PI * (.08 + .84 * t)) ** .5, C.mouth);
+  for (const side of [1, -1]) {
+    // Nasal flaps ahead of the mouth, slanting in toward the midline.
+    decal([[side * .052, .008], [side * .042, .0], [side * .03, -.004]].map(([x, u]) => [x, Math.max(.004, u + .01)] as const), false, () => .0022, C.gill);
+  }
   for (const side of [1, -1]) {
     for (let i = 0; i < 5; i++) {
       const u = .14 + i * .035;
@@ -223,16 +288,20 @@ export function buildEagleRay(d: EagleRayDesign) {
     mesh.tri(cap, trows[0][k], trows[0][(k + 1) % sides]);
   }
   mesh.end();
-  // The stinging spine: a short, pale, flat blade riding the tail behind the dorsal fin.
-  fin(mesh, {
-    stations: 3,
-    le: (v) => new Vector3(0, .004 + .004 * v, tz - .12 - .01 * v),
-    te: (v) => new Vector3(0, .004 + .004 * v * .5, tz - .13 - .05 * (1 - v)),
-    thickness: (v) => .003 * (1 - .6 * v),
-    side: new Vector3(1, 0, 0),
-    color: () => C.spine,
-    skin: () => ({ Tail1: .6, Tail2: .4 }),
-  });
+  // The stinging spine: a pale, flat, swept-back blade with a darker sheath at its base, riding the
+  // tail behind the dorsal fin; a second, smaller blade stands just behind it (they are replaced in turn).
+  const sp = d.spine ?? { height: .016, length: .09, at: .1 };
+  for (const [offset, scale] of [[0, 1], [.03, .6]] as const) {
+    fin(mesh, {
+      stations: 4,
+      le: (v) => new Vector3(0, .004 + sp.height * scale * v, tz - sp.at - offset - sp.length * scale * .55 * v),
+      te: (v) => new Vector3(0, .004 + sp.height * scale * v, tz - sp.at - offset - sp.length * scale * (1 - .45 * v) - .008 * scale),
+      thickness: (v) => .0034 * (1 - .65 * v),
+      side: new Vector3(1, 0, 0),
+      color: (_p, v) => mix(mix(C.tail, C.spine, .5), C.spine, v),
+      skin: () => ({ Tail1: .6, Tail2: .4 }),
+    });
+  }
 
   const spar = (a: number) => leadingEdge(a) - .38 * (leadingEdge(a) - trailingEdge(a));
   bones.push(

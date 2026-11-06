@@ -445,14 +445,15 @@ spotted eagle ray) now have their own. The bull shark is on the reef sharks' lof
 lofter (`bull-shark.ts`, `shark.ts`, `reef-sharks.ts`); the two rays share a new lofter
 (`eagle-rays.ts`: the spotted eagle ray's airfoil-sheet disc and head loft, with the planform, head,
 snout notch, colours and markings given by a design) and each is a short design file (`bull-ray.ts`,
-`cownose-ray.ts`). The spotted eagle ray's own file is untouched. All three are within the 5,000-triangle,
-220 KB budget (`npm run verify:marine`).
+`cownose-ray.ts`). The spotted eagle ray's own file is untouched. After the fidelity pass (below) all
+three have a per-species budget of 8,000 triangles and 340 KB in `scripts/verify-marine.mjs`
+(`FIDELITY_BUDGETS`); every other model keeps 5,000 / 220 KB.
 
 | Species | Model | Motion | Triangles | GLB bytes |
 | --- | --- | --- | ---: | ---: |
-| Bull shark | Very stout and humpbacked, with a very short, broad, blunt snout and small round eyes; a big, tall, triangular first dorsal over the pectorals' free tips, a low ridge to a small second dorsal; broad, triangular pectorals; warm grey above with a faint pale flank band, white below; dusky tips on the pectoral undersides, second dorsal, anal fin and lower tail lobe | `shark`: slow, powerful beats, the heavy body hardly bending. 0.42 beats/s | 3,900 | 95,452 (159,280 as built) |
-| Bull ray | A broad, rounded-diamond disc with blunt tips and a nearly straight rear edge; a short, blunt, duck-billed head with a bulging brow, set apart from the wings; olive-brown, paler along the midline, crossed by faint pale bars from the midline out over the wings; white below with dusky margins; a very long whip tail, tiny dorsal fin and a pale spine | `manta`: slow, deep wingbeats (0.36/s) with a lazy glide, always alone or with one other | 3,260 | 87,808 (147,844) |
-| Cownose ray | A kite-shaped disc of long, pointed, swept-back wings with a concave rear edge; a broad, flat, projecting head whose snout is notched into two lobes (the cow nose), eyes out on its sides; plain golden brown above, no markings, white below; long thin tail, small dorsal fin, spine | `manta`: quick, whippy wingbeats of the pointed wings (0.68/s), flown as a school of three or four in loose formation | 3,040 | 79,304 (132,540) |
+| Bull shark | Very stout and humpbacked, with a very short, broad, blunt snout and small round eyes; a big, tall, triangular first dorsal over the pectorals' free tips, a low ridge to a small second dorsal; broad, triangular pectorals; warm grey above with a faint pale flank band, white below; dusky tips on the pectoral undersides, second dorsal, anal fin and lower tail lobe | `shark`: slow, powerful beats, the heavy body hardly bending. 0.42 beats/s | 5,840 | 135,876 (228,492 as built) |
+| Bull ray | A broad, rounded-diamond disc with blunt tips and a nearly straight rear edge; a short, blunt, duck-billed head with a bulging brow, set apart from the wings; olive-brown, paler along the midline, crossed by faint pale bars from the midline out over the wings; white below with dusky margins; a very long whip tail, tiny dorsal fin and a pale spine | `manta`: slow, deep wingbeats (0.36/s) with a lazy glide, always alone or with one other | 4,204 | 109,080 (184,672) |
+| Cownose ray | A kite-shaped disc of long, pointed, swept-back wings with a concave rear edge; a broad, flat, projecting head whose snout is notched into two lobes (the cow nose), eyes out on its sides; plain golden brown above, no markings, white below; long thin tail, small dorsal fin, spine | `manta`: quick, whippy wingbeats of the pointed wings (0.68/s), flown as a school of three or four in loose formation | 3,940 | 98,812 (166,144) |
 
 Review notes. The first renders of the rays had the same fan-shaped disc: the bull ray's was lengthened
 and rounded (the tips only a little behind the middle of the disc) and the cownose's wings given
@@ -465,6 +466,25 @@ table (`marine-bodies.ts`) rows for the three were measured over the swimming st
 the bat ray still flies as the spotted eagle ray. `verify:marine` also failed before these animals on
 five older hull rows (reef fish, California sea lion, golden jellyfish, harbor seal, leafy seadragon:
 each a few hundredths short of what its clip reaches); those rows were widened to the measured reach.
+
+Fidelity pass (side-by-side sheets of render against CC photographs, read in the studio: the sheets are in the
+working notes, `sheet-bull-ray-1`, `sheet-cownose-1`, `sheet-bull-shark-1` and `-2`).
+- Bull shark: stouter through the shoulders and belly (girth profiles scaled by up to 7% above and 10%
+  below), warmer tan-grey back (sampled from three photographs), larger and broader pectorals, a wider
+  gape curling up toward the eyes with real teeth (15 broad upper and 14 narrow lower little pyramids),
+  slightly larger eyes with a lid ring; 5,840 triangles (smoother rings and more columns).
+- Bull ray: swept-back, pointed wing tips behind a gently concave rear edge and a convex leading edge,
+  seven curved pale bars that follow the wing, a bulging brow and spatulate bill, a layered eye
+  (lid, iris, pupil), dark spiracle slits behind the eyes, a mouth and nostril slits under the head, and a
+  taller, swept, pale tail spine with a second blade behind it.
+- Cownose ray: a true kite (long falcate tips, strongly concave rear edge), a notch about twice as deep
+  and wide, the same eye, spiracle, mouth and spine details, plain golden back kept.
+- Swimming: `MantaRig` gained optional `bout` and `glide` (as the turtles'). The bull ray flies 3 to 4
+  slow deep strokes, then glides 3 to 6 s; the cownose ray 4 to 8 quick strokes, then 1.2 to 2.6 s. The wave
+  still travels outward (segment amplitudes 0.10 to 0.24 and 0.10 to 0.28 rad, lagging by 0.34 and 0.30
+  rad per segment); other rays are unchanged.
+- Hull rows for the three were widened to their measured reach (bull shark crest .62 and width .72, bull ray
+  crest .27 and width .63, cownose ray crest .26 and width .58).
 
 Previews: `docs/art-previews/bull-shark.png`, `bull-ray.png` and `cownose-ray.png` (studio renders of the
 actual assets with the app's lighting: top, side, front, three-quarter, underside and head close-up) and

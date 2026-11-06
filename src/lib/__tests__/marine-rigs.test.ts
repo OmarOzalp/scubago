@@ -147,6 +147,34 @@ test('the green turtle flies in bouts of flipper strokes separated by glides', (
   expect(hold.rotation[flipper + 1]).toBeGreaterThan(.5);
 });
 
+test('the bull ray and the cownose ray fly in bouts of wing strokes with glide pauses; the other rays keep stroking', () => {
+  const dt = 1 / 30;
+  const measure = (model: SwimRigModel) => {
+    const rig = createSwimRig(model, .3);
+    const tip = rig.bones.indexOf('WingL5') * 3 + 2;
+    let still = 0, moving = 0, glide = 0, longest = 0, previous = rig.rotation[tip];
+    for (let i = 0; i < 30 * 90; i++) {
+      rig.step(dt, CRUISE);
+      const rate = Math.abs(rig.rotation[tip] - previous) / dt;
+      previous = rig.rotation[tip];
+      if (rate < .15) { still++; glide += dt; longest = Math.max(longest, glide); } else { moving++; glide = 0; }
+    }
+    return { share: still / (still + moving), longest };
+  };
+  const bull = measure('bull-ray'), cownose = measure('cownose-ray');
+  // Both rest between bouts, the heavy bull ray for longer.
+  expect(bull.share).toBeGreaterThan(.2);
+  expect(cownose.share).toBeGreaterThan(.08);
+  expect(bull.longest).toBeGreaterThan(cownose.longest);
+  expect(bull.longest).toBeGreaterThan(1.5);
+  // A ray without bouts only slows at the top and bottom of each stroke.
+  expect(measure('spotted-eagle-ray').share).toBeLessThan(bull.share / 2);
+  // The wave still reaches the tips during a bout: the outer segment lags the inner one.
+  const poses = cycle('bull-ray');
+  const flap = (bone: string) => poses.map((pose) => pose[bone][2]);
+  expect(peak(flap('WingL5'))).toBeGreaterThan(peak(flap('WingL1')) * 1.8);
+});
+
 test('the hammerhead sways more of its body than the great white, while its wide head stays steadier', () => {
   const frontShare = (model: SwimRigModel) => {
     const poses = cycle(model);

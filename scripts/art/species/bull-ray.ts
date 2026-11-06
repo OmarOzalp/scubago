@@ -13,32 +13,35 @@ import { hex, mix, smoothstep } from './kit';
 const TOP = hex('#7f775d'), TIP = hex('#645e48'), BAR = hex('#a9ae96'), BELLY = hex('#f3f1e8'), MARGIN = hex('#8b8573');
 
 export const BULL_RAY: EagleRayDesign = {
-  // A broad diamond with angular tips and a nearly straight, slightly concave rear edge.
-  leading: [[0, .19], [.05, .186], [.1, .168], [.2, .11], [.3, .04], [.4, -.05], [.46, -.12], [.5, -.2]],
-  trailing: [[0, -.25], [.06, -.245], [.12, -.236], [.2, -.224], [.3, -.212], [.4, -.205], [.46, -.203], [.5, -.2]],
+  // A broad, rounded diamond whose wings end in swept-back, pointed tips behind a gently concave rear edge.
+  leading: [[0, .19], [.05, .188], [.1, .178], [.2, .14], [.3, .075], [.4, -.01], [.45, -.09], [.48, -.19], [.5, -.285]],
+  trailing: [[0, -.25], [.06, -.245], [.12, -.236], [.2, -.226], [.3, -.218], [.37, -.226], [.43, -.248], [.47, -.268], [.5, -.285]],
   thickness: [[0, .082], [.04, .077], [.07, .06], [.1, .04], [.15, .024], [.25, .013], [.35, .008], [.45, .005], [.5, .002]],
-  lift: [[0, .004], [.08, .002], [.15, 0], [.5, -.012]],
-  // A flat, broad head drawn out into a rounded duck's bill, blending into the disc at the eyes.
-  head: [[.1, .05, .026, .022], [.15, .066, .03, .024], [.19, .074, .03, .022], [.23, .07, .022, .018], [.26, .062, .016, .014],
-    [.29, .052, .011, .01], [.315, .042, .008, .007], [.33, .03, .005, .005]],
+  lift: [[0, .004], [.08, .002], [.15, 0], [.5, .004]],
+  // A flat, broad head with a bulging brow, drawn out into a rounded, slightly spatulate duck's bill.
+  head: [[.1, .05, .026, .022], [.15, .068, .032, .024], [.19, .078, .035, .022], [.23, .074, .026, .018], [.26, .068, .018, .014],
+    [.29, .06, .012, .01], [.315, .05, .009, .007], [.335, .036, .006, .005]],
   headShape: .6,
-  eye: { x: .074, y: .02, z: .19, r: .0085 },
+  eye: { x: .078, y: .021, z: .19, r: .0105 },
+  iris: hex('#8a7a45'), lid: hex('#6e684f'),
+  spiracle: { x: .112, z: .152, length: .034, color: hex('#2f2d24') },
+  spine: { height: .018, length: .1, at: .1 },
   colors: { top: TOP, tip: TIP, belly: BELLY, margin: MARGIN, mouth: hex('#4a4a42'), gill: hex('#a9ada3'), eye: hex('#07090a'), tail: hex('#5d5848'), spine: hex('#a89f86'), snout: hex('#938a6c') },
   tail: { start: -.255, length: .92, radius: .0085, dorsal: .018 },
   // Olive-brown, a little paler along the midline and over the head, darkening toward the wing margins.
   topAt: (x, u, z) => mix(mix(TOP, hex('#8b8466'), (1 - smoothstep(.04, .2, Math.abs(x))) * .55), TIP, smoothstep(.28, .5, Math.abs(x)) + .25 * smoothstep(.8, 1, u)),
   markings: (h: Helpers) => {
     // Faint pale bars across the back, from the midline out over the wings, each curving a little back toward the tips.
-    const bars = [.12, .06, 0, -.06, -.12, -.17];
+    const bars = [.135, .08, .025, -.03, -.085, -.14, -.19];
     for (const z0 of bars) {
       let line: (readonly [number, number])[] = [];
       const flush = () => {
-        if (line.length > 3) h.decal(line, true, (t) => .0048 * Math.sin(Math.PI * (.04 + .92 * t)) ** .5, BAR);
+        if (line.length > 3) h.decal(line, true, (t) => .0058 * Math.sin(Math.PI * (.04 + .92 * t)) ** .5, BAR);
         line = [];
       };
       for (let i = -14; i <= 14; i++) {
         const x = i / 14 * .42, a = Math.abs(x);
-        const z = z0 - .08 * a * a;
+        const z = z0 - .42 * a * a;
         const le = h.leadingEdge(a), te = h.trailingEdge(a);
         const u = (le - z) / (le - te);
         if (u > .06 && u < .94 && !(a < .06 && z > .09)) line.push([x, u]);

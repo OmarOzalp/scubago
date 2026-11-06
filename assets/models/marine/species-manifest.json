@@ -770,8 +770,8 @@
   "bull-shark": {
     "status": "stylized-draft",
     "version": 2,
-    "bytes": 95452,
-    "triangles": 3900,
+    "bytes": 135876,
+    "triangles": 5840,
     "source": "Original procedural geometry and rig",
     "bones": 12,
     "clip": "Swim",
@@ -786,8 +786,8 @@
   "bull-ray": {
     "status": "stylized-draft",
     "version": 2,
-    "bytes": 87808,
-    "triangles": 3260,
+    "bytes": 109080,
+    "triangles": 4204,
     "source": "Original procedural geometry and rig",
     "bones": 17,
     "clip": "Swim",
@@ -802,8 +802,8 @@
   "cownose-ray": {
     "status": "stylized-draft",
     "version": 2,
-    "bytes": 79304,
-    "triangles": 3040,
+    "bytes": 98812,
+    "triangles": 3940,
     "source": "Original procedural geometry and rig",
     "bones": 17,
     "clip": "Swim",

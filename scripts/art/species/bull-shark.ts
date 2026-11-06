@@ -14,10 +14,10 @@ import { crisp, eyeball, markedFins, nostrilsAndFurrows, outline, precaudalPits 
 import { sharkContext, type SharkDesign } from './shark';
 
 // Body: a warm grey back (with a hint of brown), paler flanks with a faint band, a white belly.
-const BACK = hex('#74777a'), FLANK = hex('#8f9291'), BAND = hex('#b3b6b3'), BELLY = hex('#f1f1ec');
+const BACK = hex('#777870'), FLANK = hex('#939389'), BAND = hex('#b3b6b3'), BELLY = hex('#f1f1ec');
 // Fins: grey a little darker than the back, paler where light falls on them; the dusky tips.
 const FIN = hex('#696c6f'), FIN_PALE = hex('#868a8c'), FIN_UNDER = hex('#e8eae8'), DUSK = hex('#2f3133');
-const GILL = hex('#46494b'), MOUTH = hex('#505355'), EYE = hex('#06080a'), IRIS = hex('#4e4a35'), LID = hex('#6d6f6c');
+const TOOTH = hex('#ecebde'), GILL = hex('#46494b'), MOUTH = hex('#505355'), EYE = hex('#06080a'), IRIS = hex('#4e4a35'), LID = hex('#6d6f6c');
 
 const rig = SWIM_RIGS['bull-shark'] as SharkRig;
 
@@ -34,18 +34,21 @@ const skinColor = (s: number, theta: number): RGB => {
   return mix(pale, BELLY, smoothstep(boundary(s) - .03, boundary(s) + .03, theta));
 };
 
+/** Girth scaled up through the shoulders and belly: the bull shark is the stoutest of the requiem sharks. */
+const stout = (rows: readonly (readonly [number, number])[], k: number) => rows.map(([s, v]) => [s, v * (1 + k * Math.sin(Math.PI * Math.min(1, s / .8)) ** .8)] as [number, number]);
+
 export const BULL_SHARK: SharkDesign = {
   rig, nose: .4, bodyEnd: .8,
   // A very short, blunt, broad snout; a thick, humpbacked torpedo body; a stout tail stock.
-  width: [[0, 0], [.006, .02], [.015, .036], [.03, .052], [.05, .067], [.08, .08], [.12, .09], [.16, .096], [.22, .1], [.29, .1], [.36, .094], [.44, .083], [.52, .069], [.6, .053], [.66, .04], [.72, .029], [.77, .02], [.8, .012]],
-  top: [[0, 0], [.006, .02], [.015, .035], [.03, .05], [.05, .063], [.08, .076], [.12, .088], [.16, .099], [.22, .11], [.29, .114], [.36, .11], [.44, .098], [.52, .08], [.6, .06], [.66, .045], [.72, .032], [.77, .022], [.8, .016]],
-  bottom: [[0, 0], [.006, .014], [.015, .026], [.03, .037], [.05, .048], [.08, .058], [.12, .067], [.16, .074], [.22, .08], [.29, .081], [.36, .078], [.44, .07], [.52, .058], [.6, .045], [.66, .035], [.72, .026], [.77, .02], [.8, .014]],
+  width: stout([[0, 0], [.006, .02], [.015, .036], [.03, .052], [.05, .067], [.08, .08], [.12, .09], [.16, .096], [.22, .1], [.29, .1], [.36, .094], [.44, .083], [.52, .069], [.6, .053], [.66, .04], [.72, .029], [.77, .02], [.8, .012]], .07),
+  top: stout([[0, 0], [.006, .02], [.015, .035], [.03, .05], [.05, .063], [.08, .076], [.12, .088], [.16, .099], [.22, .11], [.29, .114], [.36, .11], [.44, .098], [.52, .08], [.6, .06], [.66, .045], [.72, .032], [.77, .022], [.8, .016]], .07),
+  bottom: stout([[0, 0], [.006, .014], [.015, .026], [.03, .037], [.05, .048], [.08, .058], [.12, .067], [.16, .074], [.22, .08], [.29, .081], [.36, .078], [.44, .07], [.52, .058], [.6, .045], [.66, .035], [.72, .026], [.77, .02], [.8, .014]], .1),
   center: [[0, -.007], [.04, -.003], [.1, 0], [.2, 0], [.4, .002], [.6, .004], [.8, .006]],
   squareTop: [[0, 2], [.1, 2.05], [.3, 2.1], [.6, 2.05], [.8, 2]],
   squareBottom: [[0, 2.1], [.1, 2.25], [.3, 2.35], [.6, 2.2], [.8, 2]],
   // The low interdorsal ridge, from behind the first dorsal to the second.
   ridges: [{ angle: 0, height: [[.43, 0], [.47, .004], [.55, .006], [.62, .0045], [.66, 0]] }],
-  rings: 46, columnsAbove: 7, columnsBelow: 5,
+  rings: 62, columnsAbove: 9, columnsBelow: 7,
   boundary, boundaryGap: .03,
   paint: (s, theta) => skinColor(s, theta),
 };
@@ -79,11 +82,11 @@ export function buildBullShark() {
   // Broad, triangular pectorals: a convex front edge sweeping back to a narrowly rounded tip and a
   // concave rear edge. Grey above; white below with a dusky tip.
   const pectorals = fins.paired({
-    rootS: .2, theta: 2, span: .185, droop: .32, sweep: .1, thickness: .019, stations: 9, edges: [.7],
-    ...outline(.185, (t) => {
-      const b = t * .185;
+    rootS: .2, theta: 2, span: .2, droop: .26, sweep: .1, thickness: .019, stations: 9, edges: [.7],
+    ...outline(.2, (t) => {
+      const b = t * .2;
       const front = .42 * b + 9 * b ** 3;
-      return [front, front + .112 * (1 - t) ** 1.2 + .016 * Math.exp(-(((t - .12) / .1) ** 2)) + .03 * Math.sqrt(1 - t) * t ** 3];
+      return [front, front + .122 * (1 - t) ** 1.2 + .016 * Math.exp(-(((t - .12) / .1) ** 2)) + .03 * Math.sqrt(1 - t) * t ** 3];
     }, 0),
     bone: (left) => (left ? 'PectoralL' : 'PectoralR'),
     color: (_p, v, u, _left, face) => face > 0
@@ -110,15 +113,32 @@ export function buildBullShark() {
     color: (p, y, u) => mix(mix(FIN, FIN_PALE, .25 + .2 * (1 - u) - (p.y < axis ? .1 : 0)), DUSK, .75 * (1 - crisp(axis - .06, y, .002))),
   });
   // Small round eyes in a faint ring of lid, set a little above the mouth corners.
-  for (const side of [1, -1]) eyeball(ctx, .082, side * 1.25, .0082, { pupil: EYE, iris: IRIS, lid: LID });
+  for (const side of [1, -1]) eyeball(ctx, .082, side * 1.25, .0098, { pupil: EYE, iris: IRIS, lid: LID });
   ctx.gills({ from: .17, to: .228, count: 5, top: 1.3, bottom: 2, halfWidth: .0018, slant: .008, color: GILL });
-  // A broad, shallow arc of a mouth under the snout.
-  ctx.ribbon(Array.from({ length: 9 }, (_, i) => {
-    const t = i / 8, theta = Math.PI + (t - .5) * 2.1;
-    return [.088 + .024 * (2 * t - 1) ** 2, theta] as const;
-  }), (t) => .0019 * (.5 + .5 * Math.sin(Math.PI * t)), MOUTH);
+  // A broad, shallow arc of a mouth under the snout, a little parted, its dark gape lined by teeth: the upper
+  // ones broad, triangular and serrated-looking, hanging over a narrower row of lower ones.
+  const mouthAt = (t: number) => [.086 + .04 * (2 * t - 1) ** 2, Math.PI + (t - .5) * 2.5] as const;
+  ctx.ribbon(Array.from({ length: 9 }, (_, i) => mouthAt(i / 8)), (t) => .0036 * (.4 + .6 * Math.sin(Math.PI * t)), MOUTH);
+  // Each tooth is a little pyramid standing out of the jaw line (upper ones broad and tall, lower ones narrow).
+  const tooth = (t: number, back: number, halfWidth: number, height: number, shade: number) => {
+    const [s0, th] = mouthAt(t);
+    const color = mix(TOOTH, MOUTH, shade);
+    const weights = ctx.skin(s0);
+    mesh.begin();
+    const a = mesh.vertex(ctx.surface(s0, th - halfWidth, .0004), color, weights);
+    const b = mesh.vertex(ctx.surface(s0, th + halfWidth, .0004), color, weights);
+    const c = mesh.vertex(ctx.surface(s0 + back * .9, th, .0004), color, weights);
+    const apex = mesh.vertex(ctx.surface(s0 + back * .35, th, height), color, weights);
+    mesh.tri(a, b, apex); mesh.tri(b, c, apex); mesh.tri(c, a, apex); mesh.tri(a, c, b);
+    mesh.end();
+  };
+  for (let i = 0; i < 15; i++) {
+    const k = Math.abs(i - 7) / 7;
+    tooth(.08 + .84 * i / 14, .0075 * (1 - .3 * k), .05 * (1 - .25 * k), .0048 * (1 - .3 * k), .1 * k);
+  }
+  for (let i = 0; i < 14; i++) tooth(.085 + .83 * (i + .5) / 14, -.0055, .03, .0032, .15);
 
-  nostrilsAndFurrows(ctx, { nostril: .028, corner: .112, spread: 1.05, color: MOUTH });
+  nostrilsAndFurrows(ctx, { nostril: .028, corner: .126, spread: 1.05, color: MOUTH });
   precaudalPits(ctx, mix(BACK, FIN, .5), mix(BELLY, FIN, .35));
 
   ctx.spineBones();
