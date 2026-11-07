@@ -278,3 +278,74 @@ export function tailTile(
   for (let i = 0; i < sides; i++) mesh.tri(centre, ring[i], ring[(i + 1) % sides]);
   mesh.end({ closed: false, normals: false, outward: () => n });
 }
+
+/*
+ * Cheap spots (round 10): flat polygons drawn as a fan from one corner, with no centre vertex, so a five-sided spot
+ * costs 3 triangles (the centred ones above cost 5). At spot sizes the flat chord sits well inside the lift.
+ */
+
+/** A small flat polygon fan lying on the skin at `[s, theta]`, `r` across in world units (`sides` corners, `sides - 2` triangles). */
+export function speck(ctx: SharkContext, s: number, theta: number, r: number, color: RGB, sides = 5, squash = 1, lift = .0009, spin = .4) {
+  const { mesh, raw, surface, normal, skin } = ctx;
+  mesh.begin();
+  const gs = raw(s + .002, theta).sub(raw(s - .002, theta)).length() / .004;
+  const gt = raw(s, theta + .01).sub(raw(s, theta - .01)).length() / .02;
+  const ring = Array.from({ length: sides }, (_, i) => {
+    const a = TAU * i / sides + spin;
+    const ps = s + Math.cos(a) * r * squash / gs, pt = theta + Math.sin(a) * r / gt;
+    return mesh.vertex(surface(ps, pt, lift), color, skin(ps), normal(ps, pt));
+  });
+  for (let i = 1; i < sides - 1; i++) mesh.tri(ring[0], ring[i], ring[i + 1]);
+  mesh.end({ closed: false, normals: false, outward: (i) => new Vector3(mesh.normals[i * 3], mesh.normals[i * 3 + 1], mesh.normals[i * 3 + 2]) });
+}
+
+/** A fan polygon in the plane spanned by `ex` and `ey` around `c`, all corners sharing one skin and one normal. */
+function flatFan(ctx: SharkContext, c: Vector3, n: Vector3, ex: Vector3, ey: Vector3, r: number, color: RGB, weights: ReturnType<SharkContext['skin']>, sides: number, seed: number) {
+  const { mesh } = ctx, spin = 6.28 * noise(seed * 3.1, 2);
+  mesh.begin();
+  const ring = Array.from({ length: sides }, (_, i) => {
+    const ang = TAU * i / sides + spin, rr = r * (1 + .3 * noise(seed * 7.9 + i * 2.3, 6));
+    const p = c.clone().addScaledVector(ex, Math.cos(ang) * rr).addScaledVector(ey, Math.sin(ang) * rr);
+    return mesh.vertex(p, color, weights, n);
+  });
+  for (let i = 1; i < sides - 1; i++) mesh.tri(ring[0], ring[i], ring[i + 1]);
+  mesh.end({ closed: false, normals: false, outward: () => n });
+}
+
+/** `finTile` as a fan (`sides - 2` triangles, jitter fixed at .3). */
+export function finSpeck(ctx: SharkContext, fin: ReturnType<typeof finSurface>, a: number, u: number, r: number, color: RGB, sides = 5, seed = 0) {
+  if (Math.min(u, 1 - u) * fin.chord(a) < r * 1.15 || a < .06 || a > .97) return;
+  const c = fin.at(a, u, .0011);
+  flatFan(ctx, c, fin.up, fin.back, fin.out, r, color, fin.skin(c, a), sides, seed);
+}
+
+/** `tailTile` as a fan. */
+export function tailSpeck(
+  ctx: SharkContext, le: (y: number) => number, te: (y: number) => number, thickness: (y: number) => number,
+  y: number, u: number, face: number, r: number, color: RGB, pivots: { axis: number; upper: number; lower: number }, sides = 5, seed = 0,
+) {
+  const s = le(y) + u * (te(y) - le(y)), p = new Vector3(face * (airfoil(u) * thickness(y) + .0011), y, ctx.z(s));
+  let w = ctx.skin(s);
+  w = blendSkins(w, { TailUpper: 1 }, smoothstep(pivots.upper - .02, pivots.upper + .07, y));
+  w = blendSkins(w, { TailLower: 1 }, smoothstep(-(pivots.lower - .015), -(pivots.lower + .05), y));
+  flatFan(ctx, p, new Vector3(face, 0, 0), new Vector3(0, 0, -1), new Vector3(0, 1, 0), r, color, w, sides, seed);
+}
+
+/**
+ * A spot on the side of a dorsal or anal fin made with `markedFins().midline` (`plan` is the options object it took, less the
+ * colour): `h` is the height above the skin, `u` the chord fraction, `face` +1 or -1.
+ */
+export function midlineSpeck(
+  ctx: SharkContext, plan: { le: readonly (readonly [number, number])[]; te: readonly (readonly [number, number])[]; height: number; thickness: number; sink?: number; ventral?: boolean; bone?: string },
+  h: number, u: number, face: number, r: number, color: RGB, sides = 5, seed = 0,
+) {
+  const le = curve(plan.le), te = curve(plan.te), sink = plan.sink ?? .012, sign = plan.ventral ? -1 : 1;
+  const sLe = le(h), sTe = te(h);
+  if (Math.min(u, 1 - u) * Math.abs(sTe - sLe) < r * 1.1 || h < r * 1.2 || h + r > plan.height * .96) return;
+  const at = (s: number) => new Vector3(0, (plan.ventral ? ctx.yBottom(s) : ctx.yTop(s)) + sign * h, ctx.z(s));
+  const v = (h + sink) / (plan.height + sink);
+  const p = at(sLe).lerp(at(sTe), u);
+  p.x = face * (airfoil(u) * plan.thickness * (1 - .75 * v) + .0011);
+  const w = plan.bone ? blendSkins(ctx.skin(sLe + u * (sTe - sLe)), { [plan.bone]: 1 }, smoothstep(.12, .55, v)) : ctx.skin(sLe + u * (sTe - sLe));
+  flatFan(ctx, p, new Vector3(face, 0, 0), new Vector3(0, 0, -1), new Vector3(0, 1, 0), r, color, w, sides, seed);
+}

@@ -669,7 +669,7 @@ export const SWIM_RIGS: Record<SwimRigModel, SwimRigSpec> = {
   // A zebra shark: it rests propped on its pectorals in the current; swimming, the long, slender body and
   // the great tail swing in one slow, wide wave (the tail is half its length), the head steady in front.
   'zebra-shark': {
-    kind: 'shark', joints: [.25, .41, .57, .7, .84], dorsalParent: 'Spine1', dorsalAt: .38,
+    kind: 'shark', joints: [.24, .35, .47, .61, .82], dorsalParent: 'Spine1', dorsalAt: .335,
     frequency: .36, wavelength: 1.15, tailAmplitude: .12, rootAmplitude: .004, headAmplitude: .005, envelope: 1.8, headSteady: .5,
     lobes: { upper: .09, lower: .04, upperAngle: .6, lowerAngle: .9, lag: 1 },
     dorsal: .03, pectoral: { flap: .03, pitch: .03, turn: .5, climb: .25 }, roll: .018, bend: .85, hover: .05,
