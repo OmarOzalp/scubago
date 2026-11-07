@@ -33,7 +33,7 @@ function saddleAt(s: number, x: number, seed = 0) {
 /** The beige ground, a little lighter and deeper from place to place, with the soft saddles. The mosaic over it is geometry (`tile`), because a vertex colour cannot hold a sharp edge. */
 function coatAt(s: number, x: number, seed: number): RGB {
   const ground = mix(BEIGE, BEIGE_DEEP, clamp(.3 + .5 * noise(s * 13 + x * 9, 9 + seed), 0, 1));
-  return mix(ground, SADDLE, .55 * saddleAt(s, x, seed));
+  return mix(ground, SADDLE, .7 * saddleAt(s, x, seed));
 }
 /** The coat averaged over a few samples round the point, so a vertex between two edges keeps a hint of both rather than aliasing. */
 function coat(s: number, x: number, seed = 0, spread = .006): RGB {
@@ -169,48 +169,48 @@ export function buildTasselledWobbegong() {
   const rnd = (i: number, k: number) => { const v = Math.sin(i * 127.1 + k * 311.7 + 17.3) * 43758.5453; return v - Math.floor(v); };
   /** What patch number `i` is: its outer and inner colours (no inner for a solid patch), size, corner count and stretch. */
   const patch = (i: number, saddle: number) => {
-    const kind = rnd(i, 1), sides = [4, 4, 4, 5, 5, 6, 7][Math.floor(rnd(i, 2) * 7)];
-    const size = (.011 + .02 * rnd(i, 5) ** 1.5) * (1 + .15 * saddle);
+    const kind = rnd(i, 1), sides = [4, 4, 4, 5, 5, 6, 6][Math.floor(rnd(i, 2) * 7)];
+    const size = (.007 + .013 * rnd(i, 5) ** 1.5) * (1 + .15 * saddle);
     const ring = kind < .45;
     const outer = ring ? mix(BROWN, DBROWN, rnd(i, 6) * .8) : kind < .6 ? mix(BROWN, DBROWN, rnd(i, 6) * .5) : mix(DBEIGE, BEIGE_DEEP, rnd(i, 6) * .7);
     return { sides, size: ring ? size * 1.45 : size * (kind < .6 ? .75 : 1.1), outer, inner: ring ? mix(BEIGE, CREAM, rnd(i, 7) * .7) : null, stretch: .6 + 1.3 * rnd(i, 4), jitter: sides === 4 ? .2 : .4 };
   };
   let n = 0;
   for (let s = .03; s < .8;) {
-    const f = clamp(ctx.width(s) / .13, .4, 1), arc = (ctx.width(s) + ctx.top(s)) * 1.05, count = Math.max(2, Math.round(arc / (.033 * f)));
+    const f = clamp(ctx.width(s) / .13, .4, 1), arc = (ctx.width(s) + ctx.top(s)) * 1.05, count = Math.max(2, Math.round(arc / (.025 * f)));
     for (let i = 0; i < count; i++) {
       n++;
-      if (rnd(n, 9) < .1) continue;
+      if (rnd(n, 9) < .25 || (rnd(n, 1) > .6 && rnd(n, 12) < .5)) continue;
       const t = (i + .5 + .6 * (rnd(n, 10) - .5)) / count, theta = (-1 + 2 * t) * 1.5;
       const ps = s + .01 * (rnd(n, 11) - .5) + (i % 2 ? .014 * f : 0);
       if ((Math.abs(ps - .088) < .02 && Math.abs(Math.abs(theta) - .5) < .22) || (Math.abs(ps - .122) < .022 && Math.abs(Math.abs(theta) - .58) < .25)) continue;
       const x = ctx.raw(ps, theta).x, pt = patch(n, saddleAt(ps, x));
       tile(ctx, ps, theta, pt.size * f, pt.outer, pt.sides, pt.stretch, .0009, pt.jitter, n);
-      if (pt.inner) tile(ctx, ps, theta, pt.size * f * .7, pt.inner, pt.sides, pt.stretch, .0017, pt.jitter, n);
+      if (pt.inner) tile(ctx, ps, theta, pt.size * f * .8, pt.inner, pt.sides, pt.stretch, .0017, pt.jitter, n);
     }
-    s += .027 * Math.max(.55, f);
+    s += .02 * Math.max(.55, f);
   }
   for (const [plan, left] of [[pectoralPlan, true], [pectoralPlan, false], [pelvicPlan, true], [pelvicPlan, false]] as const) {
     const fin = finSurface(ctx, plan, left);
-    for (let a = .1; a < .97; a += .13) {
-      for (let u = .12; u < .9; u += .16) {
+    for (let a = .1; a < .97; a += .1) {
+      for (let u = .12; u < .9; u += .12) {
         n++;
         if (rnd(n, 9) < .2) continue;
         const pt = patch(n, saddleAt(.4 - fin.at(a, u).z, fin.at(a, u).x * .6) * .6), r = pt.size * .85;
         finTile(ctx, fin, a + .03 * (rnd(n, 2) - .5), u + .05 * (rnd(n, 5) - .5), r, pt.outer, pt.sides, pt.jitter, n);
-        if (pt.inner) finTile(ctx, fin, a + .03 * (rnd(n, 2) - .5), u + .05 * (rnd(n, 5) - .5), r * .7, pt.inner, pt.sides, pt.jitter, n, .0022);
+        if (pt.inner) finTile(ctx, fin, a + .03 * (rnd(n, 2) - .5), u + .05 * (rnd(n, 5) - .5), r * .8, pt.inner, pt.sides, pt.jitter, n, .0022);
       }
     }
   }
   const leOf = curve(tailLe), teOf = curve(tailTe), pivots = { axis, upper: .035, lower: .025 };
-  for (let y = axis - .03; y < axis + .08; y += .02) {
+  for (let y = axis - .03; y < axis + .08; y += .015) {
     for (const face of [1, -1]) {
-      for (const u of [.28, .62]) {
+      for (const u of [.2, .45, .7]) {
         n++;
         if (rnd(n, 9) < .25) continue;
         const pt = patch(n, 0), r = pt.size * .5;
         tailTile(ctx, leOf, teOf, tailThickness, y + .008 * (rnd(n, 2) - .5), u + .1 * (rnd(n, 5) - .5), face, r, pt.outer, pivots, pt.sides, n);
-        if (pt.inner) tailTile(ctx, leOf, teOf, tailThickness, y + .008 * (rnd(n, 2) - .5), u + .1 * (rnd(n, 5) - .5), face, r * .7, pt.inner, pivots, pt.sides, n, .0022);
+        if (pt.inner) tailTile(ctx, leOf, teOf, tailThickness, y + .008 * (rnd(n, 2) - .5), u + .1 * (rnd(n, 5) - .5), face, r * .8, pt.inner, pivots, pt.sides, n, .0022);
       }
     }
   }

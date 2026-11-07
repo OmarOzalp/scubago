@@ -850,8 +850,8 @@
   "tasselled-wobbegong": {
     "status": "stylized-draft",
     "version": 2,
-    "bytes": 232888,
-    "triangles": 6977,
+    "bytes": 270732,
+    "triangles": 7918,
     "source": "Original procedural geometry and rig",
     "bones": 12,
     "clip": "Swim",

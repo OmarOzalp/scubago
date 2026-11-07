@@ -78,20 +78,21 @@ export function buildNurseShark() {
   });
   // Pectorals: a broad base, then a blade that sweeps back toward the tail to a sharp tip, the rear edge hollow.
   const pectorals = fins.paired({
-    rootS: .2, theta: 2.0, span: .135, droop: .42, sweep: .42, thickness: .019, stations: 9,
-    ...outline(.135, (t) => {
-      const lead = .012 + .1 * t ** 1.2, tip = .2;
-      return [lead, tip + (.135 - tip) * (1 - t) ** 1.8];
+    rootS: .2, theta: 2.0, span: .105, droop: .42, sweep: .36, thickness: .02, stations: 9,
+    ...outline(.105, (t) => {
+      // A wide base, the front edge sweeping back to a sharp tip, the rear edge hollow (falcate).
+      const lead = .008 + .15 * t ** 1.5;
+      return [lead, .16 + .0 * t - .022 * Math.sin(Math.PI * t) * (1 - .3 * t)];
     }, 0),
     bone: (left) => (left ? 'PectoralL' : 'PectoralR'),
     color: (_p, v, u, _left, face) => (face > 0 ? tone(u) : mix(FIN_UNDER, FIN_PALE, .25 * v)),
   });
   // Pelvic fins: the same shape, smaller.
   fins.paired({
-    rootS: .46, theta: 2.4, span: .082, droop: .4, sweep: .3, thickness: .014, stations: 5,
-    ...outline(.082, (t) => {
-      const lead = .008 + .06 * t ** 1.2, tip = .1;
-      return [lead, tip + (.085 - tip) * (1 - t) ** 1.8];
+    rootS: .46, theta: 2.4, span: .066, droop: .4, sweep: .3, thickness: .014, stations: 5,
+    ...outline(.066, (t) => {
+      const lead = .006 + .085 * t ** 1.5;
+      return [lead, .1 - .0 * t - .014 * Math.sin(Math.PI * t) * (1 - .3 * t)];
     }, 0),
     color: (_p, v, u, _left, face) => (face > 0 ? tone(u) : mix(FIN_UNDER, FIN_PALE, .25 * v)),
   });
@@ -102,7 +103,8 @@ export function buildNurseShark() {
     low: axis - .024, high: axis + .09, edges: [axis + .07],
     le: [[axis - .024, .665], [axis - .008, .68], [axis + .004, .715], [axis + .02, .79], [axis + .04, .875], [axis + .065, .945], [axis + .09, .995]],
     te: [[axis - .024, .75], [axis - .012, .8], [axis + .004, .885], [axis + .025, .945], [axis + .04, .92], [axis + .06, .975], [axis + .09, 1]],
-    thickness: (y) => .004 + .018 * Math.max(0, 1 - (y - axis + .024) / .114) ** 1.3,
+    // Broad enough from above (about .025 at the root, tapering) to read as a ribbon, not a needle.
+    thickness: (y) => .006 + .034 * Math.max(0, 1 - (y - axis + .024) / .114),
     upperPivot: .035, lowerPivot: .02, stations: 18,
     color: (p, y, u) => mix(mix(FIN, FIN_PALE, .25 + .2 * (1 - u)), EDGE, .25 * crisp(axis + .07, y, .004) + (p.y < axis ? .1 : 0)),
   });
