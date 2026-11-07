@@ -818,8 +818,8 @@
   "nurse-shark": {
     "status": "stylized-draft",
     "version": 2,
-    "bytes": 130820,
-    "triangles": 5604,
+    "bytes": 134500,
+    "triangles": 5788,
     "source": "Original procedural geometry and rig",
     "bones": 12,
     "clip": "Swim",
@@ -850,8 +850,8 @@
   "tasselled-wobbegong": {
     "status": "stylized-draft",
     "version": 2,
-    "bytes": 230772,
-    "triangles": 6970,
+    "bytes": 232888,
+    "triangles": 6977,
     "source": "Original procedural geometry and rig",
     "bones": 12,
     "clip": "Swim",

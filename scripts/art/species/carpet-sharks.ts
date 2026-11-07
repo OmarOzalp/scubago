@@ -244,9 +244,9 @@ export function finSurface(ctx: SharkContext, plan: FinPlan, left: boolean) {
 }
 
 /** A flat irregular polygon on a fin's upper face (a spot or a tile), `r` across in world units; skipped where it would hang over an edge. */
-export function finTile(ctx: SharkContext, fin: ReturnType<typeof finSurface>, a: number, u: number, r: number, color: RGB, sides = 6, jitter = .3, seed = 0) {
+export function finTile(ctx: SharkContext, fin: ReturnType<typeof finSurface>, a: number, u: number, r: number, color: RGB, sides = 6, jitter = .3, seed = 0, lift = .0012) {
   if (Math.min(u, 1 - u) * fin.chord(a) < r * 1.15 || a < .06 || a > .97) return;
-  const { mesh } = ctx, c = fin.at(a, u, .0012), w = fin.skin(c, a), spin = 6.28 * noise(seed * 3.1, 2);
+  const { mesh } = ctx, c = fin.at(a, u, lift), w = fin.skin(c, a), spin = 6.28 * noise(seed * 3.1, 2);
   mesh.begin();
   const centre = mesh.vertex(c, color, w, fin.up);
   const ring = Array.from({ length: sides }, (_, i) => {
@@ -262,9 +262,9 @@ export function finTile(ctx: SharkContext, fin: ReturnType<typeof finSurface>, a
 /** A flat polygon on the side of the tail fin at height `y` and chord fraction `u` (both faces, `face` +1 or -1), `r` across. */
 export function tailTile(
   ctx: SharkContext, le: (y: number) => number, te: (y: number) => number, thickness: (y: number) => number,
-  y: number, u: number, face: number, r: number, color: RGB, pivots: { axis: number; upper: number; lower: number }, sides = 6, seed = 0,
+  y: number, u: number, face: number, r: number, color: RGB, pivots: { axis: number; upper: number; lower: number }, sides = 6, seed = 0, lift = .0012,
 ) {
-  const s = le(y) + u * (te(y) - le(y)), p = new Vector3(face * (airfoil(u) * thickness(y) + .0012), y, ctx.z(s));
+  const s = le(y) + u * (te(y) - le(y)), p = new Vector3(face * (airfoil(u) * thickness(y) + lift), y, ctx.z(s));
   const n = new Vector3(face, 0, 0), { mesh } = ctx;
   let w = ctx.skin(s);
   w = blendSkins(w, { TailUpper: 1 }, smoothstep(pivots.upper - .02, pivots.upper + .07, y));

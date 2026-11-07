@@ -65,7 +65,7 @@ const HULL_ROWS: Record<MarineModel, readonly [number, number, number, number, n
   'loggerhead-turtle': [.18, .24, .1, .07, .18, .68, .68],
   'goliath-grouper': [.3, .2, .14, .22, .29, .38, 1.05],
   // The carpet sharks: low, broad bodies that lie on the bottom.
-  'nurse-shark': [.23, .31, .15, .16, .38, .53, 1.38],
+  'nurse-shark': [.23, .31, .15, .16, .42, .66, 1.38],
   'zebra-shark': [.17, .2, .1, .11, .31, .54, 1.37],
   'tasselled-wobbegong': [.06, .09, .08, .07, .17, .66, 1.01],
   lionfish: [.17, .2, .04, .09, .21, .3, .3],

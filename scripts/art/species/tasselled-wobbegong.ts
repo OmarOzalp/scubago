@@ -3,17 +3,19 @@
  * lies on the reef like a rug. A very broad, flat, rounded head, hung round the front and sides with a beard of
  * long, thin, branching skin filaments; a huge terminal mouth; small eyes close together on top of the head with a
  * spiracle behind each; broad, rounded pectoral and pelvic fins held out flat; two low dorsal fins set far
- * back and a short tail. Mid-brown netted with dark lines round pale cream cells, in broad dark saddles
- * across the back, the fins and filaments marked the same way; pale underneath.
+ * back and a short tail. A beige coat all over (body, tail and fins), with a mosaic of darker beige and brown
+ * squares, rectangles and irregular polygons laid on it like a shattered mirror, many of them brown outlines round a
+ * beige centre, and a few soft darker-beige saddles across the back; the filaments the same; pale underneath.
  */
 import { Vector3 } from 'three';
 import { SWIM_RIGS, type SharkRig } from '../../../src/lib/marine-rigs';
-import { clamp, hex, mix, noise, smoothstep, type RGB } from './kit';
+import { clamp, curve, hex, mix, noise, smoothstep, type RGB } from './kit';
 import { crisp, eyeball, markedFins, outline } from './reef-sharks';
-import { finSurface, finTile, frond, roundFin, slit, tile } from './carpet-sharks';
+import { finSurface, finTile, frond, roundFin, slit, tailTile, tile } from './carpet-sharks';
 import { sharkContext, type SharkDesign } from './shark';
 
-const CREAM = hex('#d9c797'), SAND = hex('#957b4a'), MID = hex('#5e4829'), GROUND = hex('#3a2a16'), TAN_DARK = hex('#6e5532'), DARK = hex('#2a1c0f'), SADDLE = hex('#34240f');
+// The coat: a beige ground (the beige of the old pale tiles), darker beige and brown for the mosaic laid on it.
+const CREAM = hex('#dcc99a'), BEIGE = hex('#c9b480'), BEIGE_DEEP = hex('#b39b68'), DBEIGE = hex('#a28858'), BROWN = hex('#6d5232'), DBROWN = hex('#4b3720'), SADDLE = hex('#a08658');
 const BELLY = hex('#e0d3b0'), FIN_UNDER = hex('#d8caa4');
 const GILL = hex('#4a3822'), MOUTH = hex('#2e2014'), LIP = hex('#6e5434');
 const EYE = hex('#0a0806'), IRIS = hex('#8a7a34'), LID = hex('#5a4528'), SPIRACLE = hex('#2e2214');
@@ -23,20 +25,17 @@ const rig = SWIM_RIGS['tasselled-wobbegong'] as SharkRig;
 /** Where the patterned back ends along the flank, over the edge of the flat body. */
 const boundary = (s: number) => 1.6 + .05 * noise(s * 9, 3);
 
-/** How far into one of the broad dark saddles a point is (0..1): irregular blotches across the back, fading out toward the flank. */
+/** How far into one of the broad, soft darker-beige saddles a point is (0..1): irregular blotches across the back, fading out toward the flank. */
 function saddleAt(s: number, x: number, seed = 0) {
   const blotch = noise(s * 7.5 + x * 4, 12 + seed) + .5 * noise(s * 19 - x * 13, 15 + seed);
-  return smoothstep(.0, .7, blotch) * smoothstep(.08, .3, 1 - Math.abs(x) / .135);
+  return smoothstep(.1, .8, blotch) * smoothstep(.08, .3, 1 - Math.abs(x) / .135);
 }
-/**
- * The wobbegong's coat between the tiles: the dark brown ground that shows through as the net (darker in the saddles).
- * The pale mosaic over it is geometry (`tile`), because a vertex colour cannot hold a thin line.
- */
+/** The beige ground, a little lighter and deeper from place to place, with the soft saddles. The mosaic over it is geometry (`tile`), because a vertex colour cannot hold a sharp edge. */
 function coatAt(s: number, x: number, seed: number): RGB {
-  const ground = mix(GROUND, MID, clamp(.3 + .3 * noise(s * 17 + x * 9, 9 + seed), 0, 1));
-  return mix(ground, SADDLE, .6 * saddleAt(s, x, seed));
+  const ground = mix(BEIGE, BEIGE_DEEP, clamp(.3 + .5 * noise(s * 13 + x * 9, 9 + seed), 0, 1));
+  return mix(ground, SADDLE, .55 * saddleAt(s, x, seed));
 }
-/** The coat averaged over a few samples round the point, so a vertex between two lines keeps a hint of both rather than aliasing. */
+/** The coat averaged over a few samples round the point, so a vertex between two edges keeps a hint of both rather than aliasing. */
 function coat(s: number, x: number, seed = 0, spread = .006): RGB {
   const samples: RGB[] = [coatAt(s, x, seed), coatAt(s + spread, x, seed), coatAt(s - spread, x, seed), coatAt(s, x + spread, seed), coatAt(s, x - spread, seed)];
   return [0, 1, 2].map((k) => samples.reduce((sum, c) => sum + c[k], 0) / samples.length) as RGB;
@@ -68,10 +67,10 @@ export function buildTasselledWobbegong() {
   const fins = markedFins(ctx);
   ctx.body();
 
-  /** A fin's own colour: the dark ground, the pale tiles laid on top; the underside plain. */
+  /** A fin's own colour: the beige ground, the mosaic laid on top; the underside plain. */
   const finCoat = (p: Vector3, face: number, rim: number): RGB => (face > 0
     ? mix(coat(.4 - p.z, p.x * .6 + p.y * .8, 4, .01), CREAM, .12 * rim)
-    : mix(FIN_UNDER, SAND, .3));
+    : mix(FIN_UNDER, BEIGE_DEEP, .3));
 
   // Two low, rounded dorsal fins set far back, and a small anal fin.
   const dorsal = fins.midline({
@@ -116,13 +115,14 @@ export function buildTasselledWobbegong() {
   });
   const axis = ctx.center(rig.joints[4]);
   // A short tail: a small lower lobe and an upper lobe about as long as the tail stock is deep.
+  const tailLe = [[axis - .04, .935], [axis - .03, .9], [axis - .012, .85], [axis + .004, .83], [axis + .025, .845], [axis + .06, .9], [axis + .08, .955], [axis + .088, .99]] as const;
+  const tailTe = [[axis - .04, .935], [axis - .03, .95], [axis - .012, .965], [axis + .01, .975], [axis + .04, .99], [axis + .07, .998], [axis + .088, 1]] as const;
+  const tailThickness = (y: number) => .004 + .016 * Math.max(0, 1 - Math.abs(y - axis - .01) / .075) ** 1.2;
   const tail = fins.caudal({
     low: axis - .04, high: axis + .088, edges: [axis + .06],
-    le: [[axis - .04, .935], [axis - .03, .9], [axis - .012, .85], [axis + .004, .83], [axis + .025, .845], [axis + .06, .9], [axis + .08, .955], [axis + .088, .99]],
-    te: [[axis - .04, .935], [axis - .03, .95], [axis - .012, .965], [axis + .01, .975], [axis + .04, .99], [axis + .07, .998], [axis + .088, 1]],
-    thickness: (y) => .004 + .016 * Math.max(0, 1 - Math.abs(y - axis - .01) / .075) ** 1.2,
+    le: tailLe, te: tailTe, thickness: tailThickness,
     upperPivot: .035, lowerPivot: .025, stations: 14,
-    color: (p, y) => (p.y < axis - .01 ? mix(SAND, DARK, .15) : mix(coat(.4 - p.z, p.y * 2.4, 5, .01), SADDLE, .25 * crisp(axis + .06, y, .004))),
+    color: (p, y) => mix(coat(.4 - p.z, p.y * 2.4, 5, .01), SADDLE, (p.y < axis - .01 ? .35 : 0) + .25 * crisp(axis + .06, y, .004)),
   });
 
   // The beard: long, thin, branching filaments hanging from the rim of the head, from the snout back to the
@@ -130,7 +130,7 @@ export function buildTasselledWobbegong() {
   const bw = (s: number) => (ctx.width(s + .004) - ctx.width(s - .004)) / .008;
   const up = new Vector3(0, 1, 0);
   // The colour follows the head's own pattern at the root, the tips paler.
-  const tint = (s: number, x: number) => mix(coat(s, x), MID, .2);
+  const tint = (s: number, x: number) => mix(coat(s, x), BROWN, .3);
   const pale = (c: RGB) => mix(c, CREAM, .7);
   let k = 0;
   for (const side of [1, -1]) {
@@ -163,29 +163,54 @@ export function buildTasselledWobbegong() {
     }
   }
 
-  // The pale mosaic of the coat: many irregular five- to seven-sided tiles in slightly different tans laid over the dark ground
-  // with small gaps between them (the gaps are the dark net), darker inside the saddles. Over the back, the tail stock and
-  // the fins.
-  const shade = (n: number, saddle: number): RGB => mix(mix(CREAM, SAND, clamp(.3 + .5 * (.5 + .5 * noise(n * 2.7, 3)), 0, 1)), TAN_DARK, .7 * saddle);
+  // The mosaic of the coat: flat squares, rectangles and irregular polygons of every size and angle laid on the beige ground like
+  // a shattered mirror: about a third brown outlines round a beige centre, the rest solid brown or darker beige, some
+  // touching, thicker in the soft saddles. Over the back, the tail stock, the fins and the tail.
+  const rnd = (i: number, k: number) => { const v = Math.sin(i * 127.1 + k * 311.7 + 17.3) * 43758.5453; return v - Math.floor(v); };
+  /** What patch number `i` is: its outer and inner colours (no inner for a solid patch), size, corner count and stretch. */
+  const patch = (i: number, saddle: number) => {
+    const kind = rnd(i, 1), sides = [4, 4, 4, 5, 5, 6, 7][Math.floor(rnd(i, 2) * 7)];
+    const size = (.011 + .02 * rnd(i, 5) ** 1.5) * (1 + .15 * saddle);
+    const ring = kind < .45;
+    const outer = ring ? mix(BROWN, DBROWN, rnd(i, 6) * .8) : kind < .6 ? mix(BROWN, DBROWN, rnd(i, 6) * .5) : mix(DBEIGE, BEIGE_DEEP, rnd(i, 6) * .7);
+    return { sides, size: ring ? size * 1.45 : size * (kind < .6 ? .75 : 1.1), outer, inner: ring ? mix(BEIGE, CREAM, rnd(i, 7) * .7) : null, stretch: .6 + 1.3 * rnd(i, 4), jitter: sides === 4 ? .2 : .4 };
+  };
   let n = 0;
   for (let s = .03; s < .8;) {
-    const f = clamp(ctx.width(s) / .13, .4, 1), arc = (ctx.width(s) + ctx.top(s)) * 1.05, count = Math.max(2, Math.round(arc / (.0325 * f)));
+    const f = clamp(ctx.width(s) / .13, .4, 1), arc = (ctx.width(s) + ctx.top(s)) * 1.05, count = Math.max(2, Math.round(arc / (.033 * f)));
     for (let i = 0; i < count; i++) {
       n++;
-      const t = (i + .5 + .5 * noise(n * 1.7, 4)) / count, theta = (-1 + 2 * t) * 1.5;
-      const ps = s + .008 * noise(n * 2.9, 6) + (i % 2 ? .014 * f : 0);
+      if (rnd(n, 9) < .1) continue;
+      const t = (i + .5 + .6 * (rnd(n, 10) - .5)) / count, theta = (-1 + 2 * t) * 1.5;
+      const ps = s + .01 * (rnd(n, 11) - .5) + (i % 2 ? .014 * f : 0);
       if ((Math.abs(ps - .088) < .02 && Math.abs(Math.abs(theta) - .5) < .22) || (Math.abs(ps - .122) < .022 && Math.abs(Math.abs(theta) - .58) < .25)) continue;
-      const x = ctx.raw(ps, theta).x;
-      tile(ctx, ps, theta, (.0178 + .004 * noise(n * 3.3, 8)) * f, shade(n, saddleAt(ps, x)), 5 + Math.floor(3 * (.5 + .5 * noise(n * 4.1, 9)) * .99), 1.05, .0009, .35, n);
+      const x = ctx.raw(ps, theta).x, pt = patch(n, saddleAt(ps, x));
+      tile(ctx, ps, theta, pt.size * f, pt.outer, pt.sides, pt.stretch, .0009, pt.jitter, n);
+      if (pt.inner) tile(ctx, ps, theta, pt.size * f * .7, pt.inner, pt.sides, pt.stretch, .0017, pt.jitter, n);
     }
-    s += .0285 * Math.max(.55, f);
+    s += .027 * Math.max(.55, f);
   }
   for (const [plan, left] of [[pectoralPlan, true], [pectoralPlan, false], [pelvicPlan, true], [pelvicPlan, false]] as const) {
     const fin = finSurface(ctx, plan, left);
-    for (let a = .1; a < .97; a += .12) {
-      for (let u = .12; u < .9; u += .14) {
+    for (let a = .1; a < .97; a += .13) {
+      for (let u = .12; u < .9; u += .16) {
         n++;
-        finTile(ctx, fin, a + .02 * noise(n, 2), u + .03 * noise(n, 5),   .0165 + .003 * noise(n * 3.3, 8), shade(n, saddleAt(.4 - fin.at(a, u).z, fin.at(a, u).x * .6) * .6), 5 + (n % 3), .3, n);
+        if (rnd(n, 9) < .2) continue;
+        const pt = patch(n, saddleAt(.4 - fin.at(a, u).z, fin.at(a, u).x * .6) * .6), r = pt.size * .85;
+        finTile(ctx, fin, a + .03 * (rnd(n, 2) - .5), u + .05 * (rnd(n, 5) - .5), r, pt.outer, pt.sides, pt.jitter, n);
+        if (pt.inner) finTile(ctx, fin, a + .03 * (rnd(n, 2) - .5), u + .05 * (rnd(n, 5) - .5), r * .7, pt.inner, pt.sides, pt.jitter, n, .0022);
+      }
+    }
+  }
+  const leOf = curve(tailLe), teOf = curve(tailTe), pivots = { axis, upper: .035, lower: .025 };
+  for (let y = axis - .03; y < axis + .08; y += .02) {
+    for (const face of [1, -1]) {
+      for (const u of [.28, .62]) {
+        n++;
+        if (rnd(n, 9) < .25) continue;
+        const pt = patch(n, 0), r = pt.size * .5;
+        tailTile(ctx, leOf, teOf, tailThickness, y + .008 * (rnd(n, 2) - .5), u + .1 * (rnd(n, 5) - .5), face, r, pt.outer, pivots, pt.sides, n);
+        if (pt.inner) tailTile(ctx, leOf, teOf, tailThickness, y + .008 * (rnd(n, 2) - .5), u + .1 * (rnd(n, 5) - .5), face, r * .7, pt.inner, pivots, pt.sides, n, .0022);
       }
     }
   }

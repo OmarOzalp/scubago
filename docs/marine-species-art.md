@@ -563,9 +563,9 @@ budgets, 8,000 triangles and 340 KB (`BUDGETS` in `scripts/verify-marine.mjs`); 
 
 | Species | Model | Motion | Triangles | GLB bytes |
 | --- | --- | --- | ---: | ---: |
-| Nurse shark | A thick, almost cylindrical, plain tan-brown body paler below with a very soft mottle; a broad, rounded, flat head with a small eye in a pale lid and a pale brow, a dark spiracle slit behind it, a pale-lipped mouth underneath with a fold running back from each corner and a short, thick, pale barbel at each nostril; five gill slits; broad, rounded pectorals; two backswept dorsal fins of nearly the same size set far back, the first over the pelvic fins; a small anal fin; a long, low, tapering tail (a quarter of the length) with a small notch near its tip and almost no lower lobe, joined to the body without a gap | Slow and sinuous: a long wave through the stout body behind a steady head (0.4 beats/s, the head following half the sway); lies on the sand for most of the time, the tail all but stopped, the pectorals laid flat and the head pumping at its gills | 5,604 | 130,820 |
+| Nurse shark | A thick, almost cylindrical, plain dark grey-brown body paler below with a very soft mottle; a flat, wedge-shaped head (from above the sides run straight in to a square-cut snout) with a small eye in a pale lid and a pale brow, a dark spiracle slit behind it, a pale-lipped mouth underneath with a fold running back from each corner and a short, thick, pale barbel at each nostril; five gill slits; pointed pectorals and pelvics swept back toward the tail; two pointed, backswept dorsal fins, the second a little smaller, set far back, the first over the pelvic fins; a small anal fin; a long, slender, tapering tail (a third of the length) sweeping up and back, with a small notch near its tip and almost no lower lobe, joined to the body without a gap | Slow and sinuous: a long wave through the stout body behind a steady head (0.4 beats/s, the head following half the sway); lies on the sand for most of the time, the tail all but stopped, the pectorals laid flat and the head pumping at its gills | 5,788 | 134,500 |
 | Zebra shark | A slender, pale tan adult covered in bold, round, dark brown spots (clear of the ridges and the whole gill-slit band, larger along the body than on the tail, and on the pectoral and pelvic fins and the tail too), with five ridges along it running from behind the head to the tail, a rounded snout with a short barbel at each nostril, small eyes with a large dark spiracle behind each, lips; a big, rounded first dorsal (mottled), a smaller second one and a small anal fin; broad, rounded, wing-like pectorals; a very long, thin tail, nearly half the length | One slow, wide wave down the long body and tail (0.36 beats/s, a long wavelength so the tail swings in a single whip); rests flat on the sand with its pectorals out, the tail barely stirring | 6,928 | 194,132 |
-| Tasselled wobbegong | The flattest of the three: a very broad, flat, rounded head and trunk with big, rounded, elliptical pectoral and pelvic fins set close along the body so that with the head they make one rounded rug, ringed round the snout and the sides of the head (forward of the pectorals only) by a beard of thin, branching strands (a main strand with two or three side strands, each a flat ribbon narrowing to a pale point, in two ragged rows of different lengths, with tufts under the chin), a huge terminal mouth, small eyes close together on top and a spiracle behind each; a dark brown ground tiled with many pale, irregular five- to seven-sided tiles in slightly different tans, with small gaps between them (the dark net), the tiles darker inside broad saddles; the tiles cover the back, the tail stock and the fins; pale below | Lies on the sand like a rug, the fringe resting on it; moving, it undulates like an eel (the tightest wave, 0.34 beats/s) with the broad head still and the whole trunk swaying; the slowest of the three and the longest rests | 6,970 | 230,772 |
+| Tasselled wobbegong | The flattest of the three: a very broad, flat, rounded head and trunk with big, rounded, elliptical pectoral and pelvic fins set close along the body so that with the head they make one rounded rug, ringed round the snout and the sides of the head (forward of the pectorals only) by a beard of thin, branching strands (a main strand with two or three side strands, each a flat ribbon narrowing to a pale point, in two ragged rows of different lengths, with tufts under the chin), a huge terminal mouth, small eyes close together on top and a spiracle behind each; a beige coat with a mosaic of darker beige and brown squares, rectangles and irregular polygons of mixed sizes and angles, many of them brown outlines round a beige centre, over soft darker-beige saddles; the mosaic covers the back, the tail stock, the tail and the fins; pale below | Lies on the sand like a rug, the fringe resting on it; moving, it undulates like an eel (the tightest wave, 0.34 beats/s) with the broad head still and the whole trunk swaying; the slowest of the three and the longest rests | 6,977 | 232,888 |
 
 Review notes. Studio renders of the actual assets (the app's lighting, side, top, three-quarter and head close-ups, swim poses
 and rest poses) were read against the iNaturalist photos: the nurse shark's rounded, blunt head and tiny eyes, its pointed,
@@ -615,6 +615,29 @@ zebra shark top, side and three-quarter, nurse shark side, three-quarter and hea
   halved so that they lie flat too.
 - Wobbegong swimming: the whole trunk now sways (root amplitude doubled) so it moves like an eel, not like a shark with a
   stiff body.
+
+Round 10 (owner's notes on the nurse shark and the wobbegong; the zebra shark's notes are in its own section). The reference
+for the nurse shark is the photo the app itself shows (`app-nurse.jpg`; the owner's "photo from December 24th" could not be
+identified), for the wobbegong the app's photo and two more from above and three-quarter. Sheets of render against photo were read
+for each step.
+
+- Nurse head: from above it is now a wedge, the sides running straight in from the gills to a snout cut off square (half width
+  .018 at the tip against .08 at the gills; a small flat cap, `frontDome`, rather than a point), and from the side the snout is
+  low and blunt (a boxier cross-section near the front).
+- Nurse colour: darker and less olive, a grey-brown (back #665c4b, flank #766b57, belly #c3b9a0, against the olive #8a7a56 and
+  #9d8c64), the fins darker, still paler below.
+- Nurse fins: the pectorals and pelvics are blades with a sharp tip sweeping back toward the tail and a hollow rear edge, lying
+  lower and further back; both dorsals and the anal fin are pointed and swept back (`pointFin` in nurse-shark.ts).
+- Nurse tail: the trunk is shorter (the dorsals, pelvics and anal fin moved forward a little, the body loft ends at .76 instead of
+  .8) and the tail starts at .665, a long, slender upper lobe a third of the length, higher and steeper, still with the notch near
+  its tip and no step at the join. The longer lever swings further, so the hull (`marine-bodies.ts`) grew from crest .38 and
+  width .53 to .42 and .66.
+- Wobbegong coat (shape, beard, fins and rig as before): the ground is beige and the pattern is darker beige and brown. About
+  45% of the patches are brown outlines round a beige centre (two `tile`s of the same shape, one inside the other), the rest solid
+  brown or darker beige, four to seven corners, stretched 0.6 to 1.9 times along or across the body, from small to large; they are
+  laid on the back, tail stock, fins (`finTile`) and both faces of the tail (`tailTile`), with soft darker-beige saddles on the
+  ground itself and the beard following the head's colour. `finTile` and `tailTile` gained an optional last parameter (`lift`,
+  default as before) so that an inner patch can sit above the outer one.
 
 Frame cost (SwiftShader, the island card 390 x 420 at DPR 2, one of each driven by its rig, 90 frames; a relative cost only, as the
 GPU is a software rasterizer): see the round's report. Triangles drawn for the three rose from 12,803 to about 19,600.

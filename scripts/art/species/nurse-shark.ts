@@ -10,14 +10,14 @@ import { Vector3 } from 'three';
 import { SWIM_RIGS, type SharkRig } from '../../../src/lib/marine-rigs';
 import { hex, mix, noise, smoothstep, type RGB } from './kit';
 import { crisp, eyeball, markedFins, outline, precaudalPits } from './reef-sharks';
-import { barbel, roundFin, slit } from './carpet-sharks';
+import { barbel, slit } from './carpet-sharks';
 import { sharkContext, type SharkDesign } from './shark';
 
-// Warm yellowish brown above, a paler golden flank, a cream belly.
-const BACK = hex('#8a7a56'), FLANK = hex('#9d8c64'), BELLY = hex('#d6cba9');
-const FIN = hex('#75653f'), FIN_PALE = hex('#8c7850'), FIN_UNDER = hex('#cdbd96'), EDGE = hex('#a58d62');
-const GILL = hex('#4a3a24'), MOUTH = hex('#4a3a28'), BARBEL = hex('#b49c6c'), BARBEL_TIP = hex('#cdb98a');
-const EYE = hex('#0a0a08'), IRIS = hex('#8a7a50'), LID = hex('#cfc3a0'), SPIRACLE = hex('#3a2e1c');
+// A dark grey-brown above (not olive), a touch warmer on the flank, a pale buff belly.
+const BACK = hex('#665c4b'), FLANK = hex('#766b57'), BELLY = hex('#c3b9a0');
+const FIN = hex('#554c3c'), FIN_PALE = hex('#6a604d'), FIN_UNDER = hex('#b3a98f'), EDGE = hex('#7e725b');
+const GILL = hex('#352b1d'), MOUTH = hex('#3c3023'), BARBEL = hex('#a89873'), BARBEL_TIP = hex('#c7b992');
+const EYE = hex('#0a0a08'), IRIS = hex('#7a6e4c'), LID = hex('#bdb398'), SPIRACLE = hex('#2e251a');
 
 const rig = SWIM_RIGS['nurse-shark'] as SharkRig;
 
@@ -31,17 +31,24 @@ const skinColor = (s: number, theta: number): RGB => {
 };
 
 export const NURSE_SHARK: SharkDesign = {
-  rig, nose: .4, bodyEnd: .8,
-  // A broad, flat head and a rounded snout, a thick round trunk, then a stout tail stock.
-  width: [[0, 0], [.003, .035], [.01, .054], [.024, .067], [.05, .076], [.09, .082], [.14, .081], [.2, .082], [.28, .08], [.36, .074], [.44, .064], [.52, .05], [.6, .037], [.68, .026], [.72, .019], [.8, .009]],
-  top: [[0, 0], [.004, .01], [.012, .02], [.026, .03], [.05, .041], [.09, .054], [.14, .064], [.2, .072], [.28, .076], [.36, .074], [.44, .067], [.52, .05], [.6, .037], [.68, .027], [.72, .021], [.8, .012]],
-  bottom: [[0, 0], [.004, .009], [.012, .017], [.026, .026], [.05, .036], [.09, .047], [.14, .057], [.2, .064], [.28, .068], [.36, .067], [.44, .061], [.52, .045], [.6, .032], [.68, .022], [.72, .017], [.8, .01]],
+  rig, nose: .4, bodyEnd: .76, frontDome: .006,
+  // From above the head is a wedge: the sides run straight in toward the snout, which is cut off square (a flat front the
+  // width of a hand), then a thick round trunk and a stock that thins early so the tail is long.
+  width: [[0, .018], [.006, .02], [.03, .03], [.06, .042], [.1, .058], [.14, .072], [.18, .08], [.2, .082], [.28, .08], [.36, .074], [.44, .064], [.5, .052], [.56, .04], [.62, .029], [.68, .02], [.72, .014], [.76, .008]],
+  top: [[0, .013], [.01, .02], [.03, .031], [.06, .042], [.1, .055], [.14, .064], [.2, .072], [.28, .076], [.36, .074], [.44, .067], [.5, .057], [.56, .045], [.62, .036], [.68, .028], [.72, .022], [.76, .014]],
+  bottom: [[0, .012], [.01, .018], [.03, .027], [.06, .037], [.1, .048], [.14, .057], [.2, .064], [.28, .068], [.36, .067], [.44, .061], [.5, .052], [.56, .04], [.62, .032], [.68, .025], [.72, .019], [.76, .012]],
   center: [[0, -.012], [.04, -.008], [.1, -.002], [.2, 0], [.4, .002], [.6, .004], [.8, .006]],
-  squareTop: [[0, 2.6], [.1, 2.5], [.25, 2.2], [.6, 2.1], [.8, 2]],
-  squareBottom: [[0, 2.8], [.1, 2.6], [.3, 2.4], [.6, 2.2], [.8, 2]],
+  squareTop: [[0, 3.4], [.06, 3], [.14, 2.5], [.25, 2.2], [.6, 2.1], [.76, 2]],
+  squareBottom: [[0, 3.4], [.06, 3], [.14, 2.7], [.3, 2.4], [.6, 2.2], [.76, 2]],
   rings: 62, columnsAbove: 10, columnsBelow: 6,
   boundary, boundaryGap: .03,
   paint: (s, theta) => skinColor(s, theta),
+};
+
+/** A pointed, swept-back fin outline for `outline()`: the leading edge sweeps back by `lean` to a sharp tip, the rear edge is hollow. */
+const pointFin = (centre: number, base: number, lean: number, hollow = 1.7) => (t: number): [number, number] => {
+  const start = centre - base / 2, tip = start + lean;
+  return [start + lean * t ** 1.25, tip + (centre + base / 2 - tip) * (1 - t) ** hollow];
 };
 
 export function buildNurseShark() {
@@ -54,50 +61,50 @@ export function buildNurseShark() {
 
   // The first dorsal: rounded, set well back over the pelvic fins; the second is a little smaller, close behind it.
   const dorsal = fins.midline({
-    ...outline(.1, roundFin(.445, .03, .092, 1.5, .016)),
-    height: .1, thickness: .02, bone: 'Dorsal', stations: 7,
+    ...outline(.108, pointFin(.425, .092, .05)),
+    height: .108, thickness: .02, bone: 'Dorsal', stations: 7,
     color: (_p, t, u) => mix(tone(u), EDGE, .25 * crisp(.88, t)),
   });
   fins.midline({
-    ...outline(.072, roundFin(.655, .024, .075, 1.5, .014), .008),
-    height: .075, thickness: .014, stations: 6,
+    ...outline(.076, pointFin(.612, .07, .036), .008),
+    height: .076, thickness: .014, stations: 6,
     color: (_p, t, u) => mix(tone(u), EDGE, .25 * crisp(.88, t)),
   });
   // A small anal fin, a little behind the second dorsal.
   fins.midline({
-    ...outline(.042, roundFin(.69, .012, .05, 2.2, .01), .008),
-    height: .042, thickness: .011, stations: 5, ventral: true,
+    ...outline(.044, pointFin(.642, .048, .022), .008),
+    height: .044, thickness: .011, stations: 5, ventral: true,
     color: (_p, _t, u) => mix(mix(FIN_UNDER, FIN_PALE, .3 * (1 - u)), tone(u), .35),
   });
-  // Broad, rounded pectorals: a wide base and a blunt, rounded tip.
+  // Pectorals: a broad base, then a blade that sweeps back toward the tail to a sharp tip, the rear edge hollow.
   const pectorals = fins.paired({
-    rootS: .2, theta: 2.0, span: .15, droop: .55, sweep: .14, thickness: .02, stations: 9,
-    ...outline(.15, (t) => {
-      const mid = .07 + .075 * t, half = .068 * Math.sqrt(Math.max(0, 1 - t ** 2));
-      return [mid - half, mid + half];
+    rootS: .2, theta: 2.0, span: .135, droop: .42, sweep: .42, thickness: .019, stations: 9,
+    ...outline(.135, (t) => {
+      const lead = .012 + .1 * t ** 1.2, tip = .2;
+      return [lead, tip + (.135 - tip) * (1 - t) ** 1.8];
     }, 0),
     bone: (left) => (left ? 'PectoralL' : 'PectoralR'),
     color: (_p, v, u, _left, face) => (face > 0 ? tone(u) : mix(FIN_UNDER, FIN_PALE, .25 * v)),
   });
-  // Big, rounded pelvic fins.
+  // Pelvic fins: the same shape, smaller.
   fins.paired({
-    rootS: .47, theta: 2.4, span: .075, droop: .5, sweep: .12, thickness: .014, stations: 5,
-    ...outline(.075, (t) => {
-      const front = .015 * t;
-      return [front, front + .085 * Math.sqrt(Math.max(0, 1 - t ** 2.4))];
+    rootS: .46, theta: 2.4, span: .082, droop: .4, sweep: .3, thickness: .014, stations: 5,
+    ...outline(.082, (t) => {
+      const lead = .008 + .06 * t ** 1.2, tip = .1;
+      return [lead, tip + (.085 - tip) * (1 - t) ** 1.8];
     }, 0),
     color: (_p, v, u, _left, face) => (face > 0 ? tone(u) : mix(FIN_UNDER, FIN_PALE, .25 * v)),
   });
   const axis = ctx.center(rig.joints[4]);
-  // The tail: a long, low upper lobe tapering away behind the body (about a quarter of the length) with a small notch near its
-  // tip and almost no lower lobe.
+  // The tail: a long, slender upper lobe sweeping up and back behind the body (about a third of the length) with a small notch
+  // near its tip and almost no lower lobe, the front edge running straight on from the belly.
   const tail = fins.caudal({
-    low: axis - .027, high: axis + .05, edges: [axis + .04],
-    le: [[axis - .027, .7], [axis - .01, .7], [axis, .705], [axis + .015, .77], [axis + .03, .85], [axis + .042, .93], [axis + .05, .99]],
-    te: [[axis - .027, .76], [axis - .015, .83], [axis, .95], [axis + .02, .978], [axis + .032, .955], [axis + .042, .99], [axis + .05, 1]],
-    thickness: (y) => .004 + .02 * Math.max(0, 1 - (y - axis + .027) / .077) ** 1.2,
-    upperPivot: .03, lowerPivot: .02, stations: 16,
-    color: (p, y, u) => mix(mix(FIN, FIN_PALE, .25 + .2 * (1 - u)), EDGE, .25 * crisp(axis + .04, y, .004) + (p.y < axis ? .1 : 0)),
+    low: axis - .024, high: axis + .09, edges: [axis + .07],
+    le: [[axis - .024, .665], [axis - .008, .68], [axis + .004, .715], [axis + .02, .79], [axis + .04, .875], [axis + .065, .945], [axis + .09, .995]],
+    te: [[axis - .024, .75], [axis - .012, .8], [axis + .004, .885], [axis + .025, .945], [axis + .04, .92], [axis + .06, .975], [axis + .09, 1]],
+    thickness: (y) => .004 + .018 * Math.max(0, 1 - (y - axis + .024) / .114) ** 1.3,
+    upperPivot: .035, lowerPivot: .02, stations: 18,
+    color: (p, y, u) => mix(mix(FIN, FIN_PALE, .25 + .2 * (1 - u)), EDGE, .25 * crisp(axis + .07, y, .004) + (p.y < axis ? .1 : 0)),
   });
 
   // Tiny eyes on the sides of the head, each with a spiracle just behind it.
@@ -127,7 +134,7 @@ export function buildNurseShark() {
       (t) => .0017 * Math.sin(Math.PI * (.12 + .76 * t)) ** .6, GILL, .001);
   }
 
-  precaudalPits(ctx, mix(BACK, FIN, .5), mix(BELLY, FIN, .35), .74);
+  precaudalPits(ctx, mix(BACK, FIN, .5), mix(BELLY, FIN, .35), .7);
 
   ctx.spineBones();
   bones.push(
