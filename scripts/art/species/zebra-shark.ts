@@ -52,7 +52,7 @@ export const ZEBRA_SHARK: SharkDesign = {
   squareBottom: [[0, 2], [.3, 2.15], [.88, 2]],
   // Ridges along the back (0 rad) and flanks (about 1 and 2 rad), from behind the head onto the tail stock: low, with a sharp crest.
   ridges: CRESTS.map((angle) => ({ angle, height: [[0, 0], [.1, 0], [.17, .0085], [.3, .0108], [.46, .0098], [.6, .0068], [.74, .0046], [.86, 0]] as [number, number][] })),
-  rings: 56, columnsAbove: 8, columnsBelow: 4,
+  rings: 54, columnsAbove: 8, columnsBelow: 4,
   boundary, boundaryGap: .03,
   paint: (s, theta) => skinColor(s, theta),
 };
@@ -88,30 +88,31 @@ export function buildZebraShark() {
   // base and the rear edge well behind it, then both narrow into the fin), set deep into the body.
   const pectoralPlan = {
     rootS: .19, theta: 2.0, span: .15, droop: .34, sweep: .1, thickness: .022, sink: .03,
-    ...outline(.15, (t) => {
-      const b = t * .15;
+    // The outline runs from the sunk origin to span + sink, so its tip is the fin's tip (no zero-width needle beyond it).
+    ...outline(.18, (T) => {
+      const b = T * .18, d = Math.max(0, b - .03), t = d / .15;
       const flare = .017 * Math.exp(-b / .018);
-      const front = .26 * b + 4.6 * b ** 3 - flare;
+      const front = .26 * d + 4.6 * d ** 3 - flare;
       return [front, front + flare + .12 * Math.sqrt(Math.max(0, 1 - t ** 2.2)) + .012 * Math.exp(-(((t - .1) / .1) ** 2)) + flare];
     }, 0),
     bone: (left: boolean) => (left ? 'PectoralL' : 'PectoralR'),
   };
   const pectorals = fins.paired({
-    ...pectoralPlan, stations: 8,
+    ...pectoralPlan, stations: 9,
     color: (p, v, u, _left, face) => (face > 0 ? rooted(tone(u, p.x, p.z), FLANK, v) : rooted(mix(FIN_UNDER, FIN_PALE, .25 * v), BELLY, v)),
   });
   // Pelvic fins, rounded and smaller, with the same wide root.
   const pelvicPlan = {
     rootS: .36, theta: 2.4, span: .062, droop: .5, sweep: .12, thickness: .014, sink: .024,
-    ...outline(.062, (t) => {
-      const b = t * .062;
+    ...outline(.086, (T) => {
+      const b = T * .086, d = Math.max(0, b - .024), t = d / .062;
       const flare = .007 * Math.exp(-b / .012);
       const front = .012 * t - flare;
       return [front, front + flare + .07 * Math.sqrt(Math.max(0, 1 - t ** 2.4)) + flare];
     }, 0),
   };
   fins.paired({
-    ...pelvicPlan, stations: 5,
+    ...pelvicPlan, stations: 6,
     color: (_p, v, u, _left, face) => (face > 0 ? rooted(tone(u), FLANK, v) : rooted(mix(FIN_UNDER, FIN_PALE, .25 * v), BELLY, v)),
   });
   const axis = ctx.center(rig.joints[4]);
@@ -120,7 +121,7 @@ export function buildZebraShark() {
   const a = axis;
   const tailLe = [[a - .016, .9], [a - .011, .82], [a - .005, .7], [a, .59], [a + .004, .52], [a + .012, .6], [a + .021, .72], [a + .03, .85], [a + .04, .95], [a + .046, .99]] as const;
   const tailTe = [[a - .016, .9], [a - .012, .93], [a - .004, .965], [a + .01, .988], [a + .028, .997], [a + .046, 1]] as const;
-  const tailThickness = (y: number) => .0021 + .0052 * Math.max(0, 1 - Math.abs(y - a - .014) / .06) ** 1.2;
+  const tailThickness = (y: number) => .0045 + .0125 * Math.max(0, 1 - Math.abs(y - a - .012) / .062) ** .9;
   const tail = fins.caudal({
     low: a - .016, high: a + .046, edges: [a + .036],
     le: tailLe, te: tailTe, thickness: tailThickness,
