@@ -142,11 +142,11 @@ describe('the animals step: picture cards', () => {
     expect(cards.every((card) => !/common|rare|epic|legendary/i.test(card.props.accessibilityLabel))).toBe(true);
   });
 
-  test('rarity is the colour of the card’s top edge', async () => {
+  test('rarity is the colour of the dot on the card’s tile', async () => {
     await goToAnimals();
     for (const card of checkboxes().slice(0, 4)) {
       const species = CATALOG.find((s) => s.commonName === card.props.accessibilityLabel);
-      expect(flat(card.props.style).borderTopColor).toBe(RARITY_COLOR[species.rarity]);
+      expect(flat(card.findByProps({ testID: 'rarity-dot' }).props.style).backgroundColor).toBe(RARITY_COLOR[species.rarity]);
     }
   });
 
@@ -158,7 +158,7 @@ describe('the animals step: picture cards', () => {
     const ticked = checkboxes().find((card) => card.props.accessibilityLabel === name);
     expect(ticked.props['aria-checked']).toBe(true);
     expect(ticked.props['aria-selected']).toBe(true);
-    expect(flat(ticked.props.style).borderWidth).toBe(2);
+    expect(ticked.findAllByProps({ testID: 'picked-tick' }).length).toBeGreaterThan(0);
     await press(ticked);
     expect(checkboxes().find((card) => card.props.accessibilityLabel === name).props['aria-checked']).toBe(false);
   });

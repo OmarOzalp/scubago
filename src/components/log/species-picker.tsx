@@ -1,20 +1,19 @@
 import { useMemo, useRef, useState } from 'react';
-import { FlatList, Pressable, ScrollView, StyleSheet, Text, View, type ListRenderItemInfo, type ViewInstance } from 'react-native';
+import { FlatList, Text, View, StyleSheet, type ListRenderItemInfo, type ViewInstance } from 'react-native';
 
 import { BottomBar } from '@/components/dive/bottom-bar';
-import { FormField } from '@/components/form-field';
 import { Icon } from '@/components/icon';
-import { Chip } from '@/components/journal/chip';
-import { PaperButton } from '@/components/journal/paper';
-import { OceanButton } from '@/components/ocean-button';
 import { SpeciesArt } from '@/components/species-art';
-import { CARD_GAP, onGridLayout, useCardGrid } from '@/components/species-card';
-import { ThemedText } from '@/components/themed-text';
-import { OnFill, Radius, Shadow, Spacing, Type } from '@/constants/theme';
+import { CARD_GAP, SpeciesCard, onGridLayout, useCardGrid } from '@/components/species-card';
+import { Button } from '@/components/ui/button';
+import { Chip, ChipRow } from '@/components/ui/chip';
+import { List, ListRow } from '@/components/ui/list';
+import { SearchField } from '@/components/ui/text-field';
+import { OnFill, Radius, Size, Space, TypeScale } from '@/constants/theme';
 import { DISMISS_ON_DRAG, useKeyboard } from '@/hooks/use-keyboard';
 import { useSchemeName, useTheme } from '@/hooks/use-theme';
 import { CATALOG, CATALOG_BY_ID, UNLISTED_ID, speciesForSighting } from '@/lib/catalog';
-import { CATEGORY_LABEL, CATEGORY_ORDER, RARITY_COLOR } from '@/lib/rarity';
+import { CATEGORY_LABEL, CATEGORY_ORDER } from '@/lib/rarity';
 import { searchSpecies } from '@/lib/text-search';
 import type { Category, DiveSite, Species } from '@/lib/types';
 
@@ -60,7 +59,8 @@ export function SpeciesPicker({
   const keyboard = useKeyboard(lift);
   const [query, setQuery] = useState('');
   const [category, setCategory] = useState<Category | null>(null);
-  const [inner, setInner] = useState(Math.max(0, 393 - 2 * Spacing.three));
+  const theme = useTheme();
+  const [inner, setInner] = useState(Math.max(0, 393 - 2 * Space.s4));
   const { columns, cardWidth } = useCardGrid(inner);
   const searching = query.trim().length > 0;
 
@@ -95,9 +95,12 @@ export function SpeciesPicker({
   const renderItem = ({ item }: ListRenderItemInfo<Row>) => {
     if (item.kind === 'heading') {
       return (
-        <ThemedText type="smallBold" accessibilityRole="header" accessibilityLiveRegion={item.key === 'h:none' ? 'polite' : undefined} themeColor="textSecondary" style={styles.groupTitle}>
+        <Text
+          accessibilityRole="header"
+          accessibilityLiveRegion={item.key === 'h:none' ? 'polite' : undefined}
+          style={[item.key === 'h:none' ? styles.none : styles.groupTitle, { color: item.key === 'h:none' ? theme.textSecondary : theme.text }]}>
           {item.title}
-        </ThemedText>
+        </Text>
       );
     }
     if (item.kind === 'else') {
@@ -106,7 +109,16 @@ export function SpeciesPicker({
     return (
       <View style={styles.cardRow}>
         {item.species.map((s) => (
-          <PickCard key={s.id} species={s} width={cardWidth} multi={multi} checked={selected.includes(s.id)} onPress={() => onToggle(s.id)} />
+          <SpeciesCard
+            key={s.id}
+            species={s}
+            width={cardWidth}
+            count={1}
+            role={multi ? 'checkbox' : 'button'}
+            selected={selected.includes(s.id)}
+            accessibilityLabel={s.commonName}
+            onPress={() => onToggle(s.id)}
+          />
         ))}
       </View>
     );
@@ -115,19 +127,16 @@ export function SpeciesPicker({
   return (
     <View ref={lift} collapsable={false} style={{ flex: 1, paddingBottom: keyboard.overlap }}>
       <View style={styles.top}>
-        <ThemedText type="heading" accessibilityRole="header">
+        <Text accessibilityRole="header" style={[styles.question, { color: theme.text }]}>
           What did you see?
-        </ThemedText>
-        <FormField
-          label="Search animals"
-          labelHidden
+        </Text>
+        <SearchField
+          accessibilityLabel="Search animals"
           value={query}
           onChangeText={setQuery}
           placeholder="Search: manta, nudibranch, turtle…"
-          autoCorrect={false}
-          returnKeyType="search"
         />
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.chipsScroll} contentContainerStyle={styles.chips} accessibilityLabel="Filter by group">
+        <ChipRow accessibilityLabel="Filter by group">
           {CATEGORY_ORDER.map((cat) => (
             <Chip
               key={cat}
@@ -137,13 +146,13 @@ export function SpeciesPicker({
               onPress={() => setCategory(category === cat ? null : cat)}
             />
           ))}
-        </ScrollView>
+        </ChipRow>
       </View>
       <FlatList
         data={rows}
         keyExtractor={(row) => row.key}
         renderItem={renderItem}
-        onLayout={onGridLayout((width) => setInner(width - 2 * Spacing.three))}
+        onLayout={onGridLayout((width) => setInner(width - 2 * Space.s4))}
         extraData={selected}
         keyboardShouldPersistTaps="handled"
         keyboardDismissMode={DISMISS_ON_DRAG}
@@ -154,44 +163,10 @@ export function SpeciesPicker({
       />
       {multi ? (
         <BottomBar keyboardOpen={keyboard.open}>
-          <OceanButton title={nextTitle(count)} onPress={onDone} disabled={count === 0 && !allowNone} />
+          <Button title={nextTitle(count)} onPress={onDone} disabled={count === 0 && !allowNone} />
         </BottomBar>
       ) : null}
     </View>
-  );
-}
-
-/** One animal: its drawing and common name, edged along the top in its rarity colour; a ring and a tick when chosen. */
-function PickCard({ species, width, multi, checked, onPress }: { species: Species; width: number; multi: boolean; checked: boolean; onPress: () => void }) {
-  const theme = useTheme();
-  const scheme = useSchemeName();
-  return (
-    <PaperButton
-      onPress={onPress}
-      accessibilityRole={multi ? 'checkbox' : 'button'}
-      aria-checked={multi ? checked : undefined}
-      aria-selected={checked}
-      accessibilityLabel={species.commonName}
-      style={[
-        styles.card,
-        {
-          width,
-          borderTopColor: RARITY_COLOR[species.rarity],
-          ...(checked ? { borderColor: theme.lagoon, borderWidth: 2, backgroundColor: `${theme.wash}40` } : null),
-        },
-      ]}>
-      <View style={styles.art}>
-        <SpeciesArt species={species} width={width * 0.78} />
-      </View>
-      <Text numberOfLines={2} style={[styles.name, { color: theme.text }]}>
-        {species.commonName}
-      </Text>
-      {checked ? (
-        <View style={[styles.tick, { backgroundColor: theme.lagoon }]} importantForAccessibility="no-hide-descendants" accessibilityElementsHidden>
-          <Icon name="check" size={14} color={OnFill[scheme].lagoon} weight="bold" />
-        </View>
-      ) : null}
-    </PaperButton>
   );
 }
 
@@ -201,56 +176,45 @@ function SomethingElse({ name, multi, checked, onPress }: { name: string; multi:
   const species = speciesForSighting({ speciesId: UNLISTED_ID, customName: name })!;
   const title = name ? `Something else: “${name}”` : 'Something else…';
   return (
-    <Pressable
-      onPress={onPress}
-      accessibilityRole={multi ? 'checkbox' : 'button'}
-      aria-checked={multi ? checked : undefined}
-      aria-selected={checked}
-      accessibilityLabel={`${title}. Not in the catalogue? Log it in your own words`}
-      style={({ pressed }) => [
-        styles.else,
-        {
-          backgroundColor: pressed ? theme.backgroundSelected : checked ? `${theme.wash}40` : theme.backgroundElement,
-          borderColor: checked ? theme.lagoon : theme.cardBorder,
-          boxShadow: Shadow[scheme].card,
-        },
-      ]}>
-      <View style={[styles.elseIcon, { backgroundColor: theme.backgroundSelected }]}>
-        <SpeciesArt species={species} width={44} />
-      </View>
-      <View style={{ flex: 1, gap: 1 }}>
-        <Text numberOfLines={2} style={[styles.elseTitle, { color: theme.text }]}>
-          {title}
-        </Text>
-        <ThemedText type="small" themeColor="textSecondary" numberOfLines={2}>
-          Not in the catalogue? Name it yourself
-        </ThemedText>
-      </View>
-      {multi ? (
-        <View
-          style={[styles.check, { borderColor: checked ? theme.lagoon : theme.rule, backgroundColor: checked ? theme.lagoon : theme.backgroundElement }]}
-          importantForAccessibility="no-hide-descendants"
-          accessibilityElementsHidden>
-          {checked ? <Icon name="check" size={16} color={OnFill[scheme].lagoon} weight="bold" /> : null}
-        </View>
-      ) : null}
-    </Pressable>
+    <List>
+      <ListRow
+        title={title}
+        titleLines={2}
+        subtitle="Not in the catalogue? Name it yourself"
+        subtitleLines={2}
+        accessibilityLabel={`${title}. Not in the catalogue? Log it in your own words`}
+        accessibilityRole={multi ? 'checkbox' : 'button'}
+        selected={checked}
+        leading={
+          <View style={[styles.elseIcon, { backgroundColor: theme.backgroundSelected }]}>
+            <SpeciesArt species={species} width={Size.thumb} />
+          </View>
+        }
+        trailing={
+          multi ? (
+            <View
+              style={[styles.check, { borderColor: checked ? theme.lagoon : theme.textTertiary, backgroundColor: checked ? theme.lagoon : 'transparent' }]}
+              importantForAccessibility="no-hide-descendants"
+              accessibilityElementsHidden>
+              {checked ? <Icon name="check" size={14} color={OnFill[scheme].lagoon} weight="bold" /> : null}
+            </View>
+          ) : (
+            'chevron'
+          )
+        }
+        onPress={onPress}
+      />
+    </List>
   );
 }
 
 const styles = StyleSheet.create({
-  top: { paddingHorizontal: Spacing.three, paddingTop: Spacing.three, paddingBottom: Spacing.two, gap: Spacing.two + 2 },
-  chipsScroll: { marginHorizontal: -Spacing.three, flexGrow: 0 },
-  chips: { gap: Spacing.two, paddingVertical: 2, paddingHorizontal: Spacing.three },
-  list: { paddingHorizontal: Spacing.three, paddingBottom: Spacing.three, gap: CARD_GAP },
-  groupTitle: { marginTop: Spacing.two },
+  top: { paddingHorizontal: Space.s4, paddingTop: Space.s4, paddingBottom: Space.s2, gap: Space.s3 },
+  question: { ...TypeScale.headline },
+  list: { paddingHorizontal: Space.s4, paddingBottom: Space.s4, gap: CARD_GAP },
+  groupTitle: { ...TypeScale.headline, marginTop: Space.s5 },
+  none: { ...TypeScale.callout, marginTop: Space.s2 },
   cardRow: { flexDirection: 'row', gap: CARD_GAP },
-  card: { borderTopWidth: 4, borderRadius: Radius.md, overflow: 'hidden', paddingBottom: 10 },
-  art: { height: 80, alignItems: 'center', justifyContent: 'center' },
-  name: { fontFamily: Type.bodyHeavy, fontSize: 15, lineHeight: 19, minHeight: 38, paddingHorizontal: 8 },
-  tick: { position: 'absolute', top: 6, right: 6, width: 24, height: 24, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
-  else: { flexDirection: 'row', alignItems: 'center', gap: 12, borderRadius: Radius.md, borderWidth: 1.5, padding: 10, paddingRight: 12, minHeight: 64 },
-  elseIcon: { width: 48, height: 48, borderRadius: Radius.sm, alignItems: 'center', justifyContent: 'center' },
-  elseTitle: { fontFamily: Type.bodyHeavy, fontSize: 15, lineHeight: 20 },
-  check: { width: 28, height: 28, borderRadius: Radius.xs, borderWidth: 1.5, alignItems: 'center', justifyContent: 'center' },
+  elseIcon: { width: Size.thumb, height: Size.thumb, borderRadius: Radius.sm, alignItems: 'center', justifyContent: 'center', overflow: 'hidden' },
+  check: { width: 24, height: 24, borderRadius: Radius.pill, borderWidth: 2, alignItems: 'center', justifyContent: 'center' },
 });

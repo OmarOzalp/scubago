@@ -3,11 +3,13 @@ import { Pressable, StyleSheet, View, type KeyboardTypeOptions, type TextInputIn
 
 import { DateField } from '@/components/date-field';
 import { ChoiceChips } from '@/components/dive/choice-chips';
-import { FormField } from '@/components/form-field';
-import { Icon, type IconName } from '@/components/icon';
+import { FieldLabel, FormField } from '@/components/form-field';
+import { Icon } from '@/components/icon';
 import { Disclosure } from '@/components/journal/disclosure';
 import { ThemedText } from '@/components/themed-text';
-import { Radius, Spacing, Type } from '@/constants/theme';
+import { Card } from '@/components/ui/card';
+import { List, ListRow } from '@/components/ui/list';
+import { Size, Space } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import type { DiveDraft, DraftField, TypedNumber } from '@/lib/dive-draft';
 import { airConsumption, CURRENTS, ENTRIES, formatDiveNumber, GASES, KINDS, parseNumber, SUITS, SURFACES, TANK_MATERIALS } from '@/lib/dives';
@@ -95,7 +97,7 @@ export function DiveForm({
   };
   // The fields' views, to take the diver to the one with a problem.
   const fields = useRef<Partial<Record<DraftField, ViewInstance | TextInputInstance | null>>>({});
-  const invalid = (key: DraftField) => (problem?.field === key ? { borderColor: theme.danger } : undefined);
+  const invalid = (key: DraftField) => problem?.field === key;
   const problemAt = (...keys: DraftField[]) =>
     problem && keys.includes(problem.field) ? (
       <ThemedText type="small" themeColor="danger" accessibilityLiveRegion="polite">
@@ -130,7 +132,7 @@ export function DiveForm({
       ref={(node) => {
         fields.current[key] = node;
       }}
-      style={invalid(key)}
+      invalid={invalid(key)}
       label={LABELS[key]}
       value={draft[key]}
       onChangeText={(text) => onChange({ [key]: text } as Partial<DiveDraft>)}
@@ -169,13 +171,13 @@ export function DiveForm({
             keyboardType="number-pad"
             inputMode="numeric"
             maxLength={6}
-            style={[styles.numberInput, invalid('number')]}
+            invalid={invalid('number')}
           />
           <FormField
             ref={(node) => {
               fields.current.timeIn = node;
             }}
-            style={invalid('timeIn')}
+            invalid={invalid('timeIn')}
             label="Time in"
             value={draft.timeIn}
             onChangeText={(timeIn) => onChange({ timeIn })}
@@ -227,7 +229,6 @@ export function DiveForm({
         placeholder="Drifted along the wall; turtles at the safety stop…"
         multiline
         maxLength={4000}
-        style={styles.notes}
       />
 
       {/* The animals' own notes, photo and privacy (the screen's), after the dive's own facts. */}
@@ -263,23 +264,16 @@ export function DiveForm({
         </>
       )}
 
-      <Pressable
-        onPress={() => setOpen((v) => !v)}
-        accessibilityRole="button"
-        aria-expanded={open}
-        style={({ pressed }) => [styles.more, { borderColor: theme.rule, backgroundColor: pressed ? theme.backgroundSelected : 'transparent' }]}>
-        <View style={styles.flex}>
-          <ThemedText type="smallBold" style={{ fontFamily: Type.bodyHeavy }}>
-            {open ? 'Fewer details' : 'More details'}
-          </ThemedText>
-          {!open ? (
-            <ThemedText type="small" themeColor="textSecondary">
-              {quick ? 'Notes, photo, who can see it, gear, buddy' : 'Conditions, gear, buddy, rating'}
-            </ThemedText>
-          ) : null}
-        </View>
-        <Icon name="chevronDown" size={16} color={theme.textSecondary} weight="bold" style={open ? styles.flip : undefined} />
-      </Pressable>
+      <List>
+        <ListRow
+          title={open ? 'Fewer details' : 'More details'}
+          subtitle={open ? undefined : quick ? 'Notes, photo, who can see it, gear, buddy' : 'Conditions, gear, buddy, rating'}
+          subtitleLines={2}
+          trailing={<Icon name="chevronDown" size={16} color={theme.textTertiary} weight="bold" style={open ? styles.flip : undefined} />}
+          expanded={open}
+          onPress={() => setOpen((v) => !v)}
+        />
+      </List>
 
       {open ? (
         <View style={styles.groups}>
@@ -385,13 +379,22 @@ const GAS_AND_GEAR: DraftField[] = ['o2Percent', 'tankL', 'weightKg', 'pressureS
  * shows the group again, open.
  */
 function FormGroup({ title, open = false, reveals = 0, children }: { title: string; open?: boolean; reveals?: number; children: ReactNode }) {
+  return <FormGroupBody key={reveals} title={title} defaultOpen={open || reveals > 0}>{children}</FormGroupBody>;
+}
+
+function FormGroupBody({ title, defaultOpen, children }: { title: string; defaultOpen: boolean; children: ReactNode }) {
   const theme = useTheme();
+  const [open, setOpen] = useState(defaultOpen);
   return (
-    <View style={[styles.groupBox, { borderColor: theme.rule }]}>
-      <Disclosure key={reveals} label={title} defaultOpen={open || reveals > 0}>
-        <View style={styles.groupFields}>{children}</View>
-      </Disclosure>
-    </View>
+    <Card padded={false} style={styles.clip}>
+      <ListRow
+        title={title}
+        trailing={<Icon name="chevronDown" size={16} color={theme.textTertiary} weight="bold" style={open ? styles.flip : undefined} />}
+        expanded={open}
+        onPress={() => setOpen((v) => !v)}
+      />
+      {open ? <View style={[styles.groupFields, { borderTopColor: theme.rule }]}>{children}</View> : null}
+    </Card>
   );
 }
 
@@ -405,30 +408,12 @@ function Pair({ children }: { children: ReactNode }) {
   return <View style={styles.pair}>{Array.isArray(children) ? children.map((c, i) => <View key={i} style={styles.flex}>{c}</View>) : children}</View>;
 }
 
-/** A titled section of the form: an icon, a heading and a rule under it. */
-export function Group({ title, icon, children }: { title: string; icon: IconName; children: ReactNode }) {
-  const theme = useTheme();
-  return (
-    <View style={styles.group}>
-      <View style={[styles.groupHead, { borderBottomColor: theme.rule }]}>
-        <Icon name={icon} size={18} color={theme.textSecondary} wash={theme.textSecondary} washOpacity={0.2} />
-        <ThemedText type="heading" accessibilityRole="header" style={styles.groupTitle}>
-          {title}
-        </ThemedText>
-      </View>
-      {children}
-    </View>
-  );
-}
-
 /** One to five stars; tap the chosen star again to clear the rating. */
 export function Rating({ value, onChange }: { value?: number; onChange: (value: number | undefined) => void }) {
   const theme = useTheme();
   return (
     <View style={styles.field}>
-      <ThemedText type="label" importantForAccessibility="no" accessibilityElementsHidden>
-        How was it?
-      </ThemedText>
+      <FieldLabel>How was it?</FieldLabel>
       <View style={styles.stars} accessibilityRole="radiogroup" accessibilityLabel="Rating">
         {[1, 2, 3, 4, 5].map((n) => {
           const on = value !== undefined && n <= value;
@@ -451,31 +436,15 @@ export function Rating({ value, onChange }: { value?: number; onChange: (value: 
 }
 
 const styles = StyleSheet.create({
-  form: { gap: Spacing.three + 2 },
-  field: { gap: 6 },
-  pair: { flexDirection: 'row', gap: Spacing.two + 4 },
+  form: { gap: Space.s4 },
+  field: { gap: Space.s2 },
+  pair: { flexDirection: 'row', gap: Space.s3 },
   flex: { flex: 1 },
-  numberInput: { fontFamily: Type.display, fontSize: 20 },
-  notes: { minHeight: 96, textAlignVertical: 'top' },
-  more: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-    minHeight: 56,
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-    borderWidth: 1.5,
-    borderStyle: 'dashed',
-    borderRadius: Radius.md,
-  },
+  clip: { overflow: 'hidden' },
   flip: { transform: [{ rotate: '180deg' }] },
-  groups: { gap: Spacing.two },
-  quickMore: { gap: Spacing.three + 2, paddingBottom: Spacing.two },
-  groupBox: { borderWidth: 1, borderRadius: Radius.md, paddingHorizontal: 14 },
-  groupFields: { gap: Spacing.three, paddingTop: 4, paddingBottom: 14 },
-  group: { gap: Spacing.three },
-  groupHead: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingBottom: 6, borderBottomWidth: 1 },
-  groupTitle: { fontSize: 19, lineHeight: 24 },
-  stars: { flexDirection: 'row', gap: 4 },
-  star: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center' },
+  groups: { gap: Space.s3 },
+  quickMore: { gap: Space.s4, paddingBottom: Space.s1 },
+  groupFields: { gap: Space.s4, padding: Space.s4, borderTopWidth: StyleSheet.hairlineWidth },
+  stars: { flexDirection: 'row', gap: Space.s1 },
+  star: { width: Size.hit, height: Size.hit, alignItems: 'center', justifyContent: 'center' },
 });

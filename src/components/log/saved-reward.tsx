@@ -1,25 +1,22 @@
 import { router, Stack } from 'expo-router';
 import { useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View, type ViewStyle } from 'react-native';
-import Animated, { useReducedMotion } from 'react-native-reanimated';
+import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import { BottomBar } from '@/components/dive/bottom-bar';
 import { Bookplate } from '@/components/dive/marks';
-import { Paper } from '@/components/journal/paper';
-import { NewBadge, Stamp } from '@/components/journal/stamp';
-import { OceanButton } from '@/components/ocean-button';
+import { Stamp } from '@/components/journal/stamp';
 import { NewBadgesCelebration } from '@/components/rewards/new-badges';
-import { SpeciesArt } from '@/components/species-art';
-import { CARD_GAP, onGridLayout, useCardGrid } from '@/components/species-card';
-import { ThemedText } from '@/components/themed-text';
-import { ThemedView } from '@/components/themed-view';
-import { Radius, Spacing, Type } from '@/constants/theme';
+import { CARD_GAP, SpeciesCard, onGridLayout, useCardGrid } from '@/components/species-card';
+import { Button } from '@/components/ui/button';
+import { Card } from '@/components/ui/card';
+import { ProgressBar } from '@/components/ui/progress';
+import { MaxContentWidth, Size, Space, TypeScale } from '@/constants/theme';
 import { useSchemeName, useTheme } from '@/hooks/use-theme';
 import { UNLISTED_ID } from '@/lib/catalog';
 import { formatDiveNumber, milestoneAt } from '@/lib/dives';
 import { leave } from '@/lib/leave';
 import { islandGrowth, rarityFind } from '@/lib/log-reward';
-import { RARITY_COLOR, RARITY_TEXT } from '@/lib/rarity';
+import { RARITY_TEXT } from '@/lib/rarity';
 import type { BadgeResult } from '@/lib/rewards';
 import type { Species } from '@/lib/types';
 
@@ -59,11 +56,12 @@ export function SavedReward({
   onLogMore?: () => void;
 }) {
   const theme = useTheme();
+  const scheme = useSchemeName();
   const { animals, newSpecies, count, siteName, dive, dexNumber } = result;
   const milestone = dive?.written ? milestoneAt(dive.number) : null;
   const growth = islandGrowth(dexNumber - newSpecies.length, dexNumber);
   const newIds = new Set(newSpecies.map((s) => s.id));
-  const [inner, setInner] = useState(393 - 2 * Spacing.three);
+  const [inner, setInner] = useState(393 - 2 * Space.s4);
   // Three across, two at large text sizes (as the picker does), so long names fit.
   const { cardWidth } = useCardGrid(Math.min(inner, 400));
 
@@ -76,10 +74,10 @@ export function SavedReward({
   const title = dive?.written ? 'Dive saved' : dive ? `Added to ${formatDiveNumber(dive.number)}` : 'Saved';
 
   return (
-    <ThemedView style={styles.container}>
+    <View style={[styles.container, { backgroundColor: theme.background }]}>
       {/* The form's own back arrow steps back through its steps; here the navigator's leaves. */}
       <Stack.Screen options={{ title: 'Saved', headerLeft: undefined }} />
-      <ScrollView contentContainerStyle={styles.scroll} onLayout={onGridLayout((width) => setInner(width - 2 * Spacing.three))}>
+      <ScrollView contentContainerStyle={styles.scroll} onLayout={onGridLayout((width) => setInner(width - 2 * Space.s4))}>
         <View style={styles.head}>
           <Stamp
             lines={dive?.written ? [formatDiveNumber(dive.number).toUpperCase(), siteName.toUpperCase().slice(0, 22)] : ['Logged', siteName.toUpperCase().slice(0, 22)]}
@@ -87,23 +85,32 @@ export function SavedReward({
             delay={150}
             rotate={-6}
           />
-          <ThemedText type="display" accessibilityRole="header" style={styles.center}>
+          <Text accessibilityRole="header" style={[TypeScale.hero, styles.center, { color: theme.text }]}>
             {title}
-          </ThemedText>
-          <ThemedText themeColor="textSecondary" style={styles.center}>
-            {siteName}
-          </ThemedText>
+          </Text>
+          <Text style={[TypeScale.body, styles.center, { color: theme.textSecondary }]}>{siteName}</Text>
         </View>
 
         {animals.length > 0 ? (
           <View style={styles.section}>
-            <ThemedText type="heading" accessibilityRole="header">
+            <Text accessibilityRole="header" style={[TypeScale.headline, { color: theme.text }]}>
               {animals.length === 1 ? 'You added' : `You added ${animals.length} animals`}
-            </ThemedText>
+            </Text>
             <View style={styles.grid}>
-              {animals.map((s) => (
-                <AnimalCard key={s.id} species={s} width={cardWidth} isNew={newIds.has(s.id)} />
-              ))}
+              {animals.map((s) => {
+                const find = s.id === UNLISTED_ID ? null : rarityFind(s.rarity);
+                return (
+                  <SpeciesCard
+                    key={s.id}
+                    species={s}
+                    width={cardWidth}
+                    count={1}
+                    isNew={newIds.has(s.id)}
+                    note={find ? { text: find, color: RARITY_TEXT[scheme][s.rarity] } : undefined}
+                    accessibilityLabel={`${s.commonName}${find ? `, ${find.toLowerCase()}` : ''}${newIds.has(s.id) ? ', new in your field guide' : ''}`}
+                  />
+                );
+              })}
             </View>
           </View>
         ) : null}
@@ -114,42 +121,20 @@ export function SavedReward({
 
         {count === 0 ? (
           <View style={styles.section}>
-            <ThemedText themeColor="textSecondary">No animals this time.</ThemedText>
-            {addWhatYouSaw ? <OceanButton title="Add what you saw" icon="plus" variant="secondary" onPress={addWhatYouSaw} style={styles.stretch} /> : null}
+            <Text style={[TypeScale.body, { color: theme.textSecondary }]}>No animals this time.</Text>
+            {addWhatYouSaw ? <Button title="Add what you saw" icon="plus" variant="secondary" onPress={addWhatYouSaw} /> : null}
           </View>
         ) : null}
       </ScrollView>
       <BottomBar maxWidth={440}>
-        <OceanButton title="Done" onPress={done} style={styles.stretch} />
-        <OceanButton title="See your island" variant="secondary" icon="home" onPress={() => router.dismissTo('/(tabs)')} style={styles.stretch} />
+        <Button title="Done" onPress={done} />
+        <Button title="See your island" variant="secondary" icon="home" onPress={() => router.dismissTo('/(tabs)')} />
         {onLogMore ? (
           <Pressable onPress={onLogMore} accessibilityRole="button" accessibilityLabel="Log another dive" style={({ pressed }) => [styles.link, { opacity: pressed ? 0.6 : 1 }]}>
-            <Text style={[styles.linkText, { color: theme.tint }]}>Log another dive</Text>
+            <Text style={[TypeScale.bodyStrong, { color: theme.tint }]}>Log another dive</Text>
           </Pressable>
         ) : null}
       </BottomBar>
-    </ThemedView>
-  );
-}
-
-/** One animal just added: its drawing, common name and rarity (said now), edged in the rarity colour; "New" when it is a first. */
-function AnimalCard({ species, width, isNew }: { species: Species; width: number; isNew: boolean }) {
-  const theme = useTheme();
-  const scheme = useSchemeName();
-  const find = species.id === UNLISTED_ID ? null : rarityFind(species.rarity);
-  return (
-    <View
-      accessible
-      accessibilityLabel={`${species.commonName}${find ? `, ${find.toLowerCase()}` : ''}${isNew ? ', new in your field guide' : ''}`}
-      style={[styles.card, { width, backgroundColor: theme.backgroundElement, borderColor: theme.cardBorder, borderTopColor: find ? RARITY_COLOR[species.rarity] : theme.cardBorder }]}>
-      <View style={styles.art}>
-        <SpeciesArt species={species} width={width * 0.78} />
-      </View>
-      <Text numberOfLines={2} style={[styles.name, { color: theme.text }]}>
-        {species.commonName}
-      </Text>
-      {find ? <Text style={[styles.find, { color: RARITY_TEXT[scheme][species.rarity] }]}>{find}</Text> : null}
-      {isNew ? <NewBadge style={styles.badge} /> : null}
     </View>
   );
 }
@@ -157,49 +142,25 @@ function AnimalCard({ species, width, isNew }: { species: Species; width: number
 /** "Your island grew: 2 more animals to the next level", with the bar filling to where it now is. */
 function IslandGrowth({ growth }: { growth: NonNullable<ReturnType<typeof islandGrowth>> }) {
   const theme = useTheme();
-  const reduced = useReducedMotion();
-  const to = `${Math.round(growth.fraction * 100)}%` as const;
-  const fill: ViewStyle = reduced
-    ? { width: to }
-    : ({
-        width: to,
-        animationName: { '0%': { width: `${Math.round(growth.from * 100)}%` }, '100%': { width: to } },
-        animationDuration: '700ms',
-        animationDelay: '350ms',
-        animationTimingFunction: 'ease-out',
-        animationFillMode: 'both',
-      } as ViewStyle);
   return (
-    <Paper style={styles.growth}>
-      <ThemedText type="smallBold" style={{ fontFamily: Type.bodyHeavy, fontSize: 16, lineHeight: 22 }} accessibilityLiveRegion="polite">
+    <Card style={styles.growth}>
+      <Text accessibilityLiveRegion="polite" style={[TypeScale.headline, { color: theme.text }]}>
         {growth.text}
-      </ThemedText>
-      {growth.unlock ? <ThemedText themeColor="textSecondary">{growth.unlock}</ThemedText> : null}
-      {growth.bar ? (
-        <View style={[styles.track, { backgroundColor: theme.backgroundSelected }]} accessibilityElementsHidden importantForAccessibility="no-hide-descendants">
-          <Animated.View style={[styles.fill, { backgroundColor: theme.lagoon }, fill]} />
-        </View>
-      ) : null}
-    </Paper>
+      </Text>
+      {growth.unlock ? <Text style={[TypeScale.callout, { color: theme.textSecondary }]}>{growth.unlock}</Text> : null}
+      {growth.bar ? <ProgressBar fraction={growth.fraction} accessibilityLabel="Progress to the next island level" max={100} now={Math.round(growth.fraction * 100)} /> : null}
+    </Card>
   );
 }
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  scroll: { padding: Spacing.three, paddingBottom: Spacing.four, gap: Spacing.four, width: '100%', maxWidth: 440, alignSelf: 'center' },
-  head: { alignItems: 'center', gap: Spacing.two, paddingTop: Spacing.two },
+  scroll: { padding: Space.s4, paddingBottom: Space.s6, gap: Space.s6, width: '100%', maxWidth: Math.min(440, MaxContentWidth), alignSelf: 'center' },
+  head: { alignItems: 'center', gap: Space.s2, paddingTop: Space.s2 },
   center: { textAlign: 'center' },
   stretch: { alignSelf: 'stretch' },
-  section: { gap: Spacing.three },
+  section: { gap: Space.s3 },
   grid: { flexDirection: 'row', flexWrap: 'wrap', gap: CARD_GAP },
-  card: { borderWidth: 1, borderTopWidth: 4, borderRadius: Radius.md, overflow: 'hidden', paddingBottom: 10 },
-  art: { height: 80, alignItems: 'center', justifyContent: 'center' },
-  name: { fontFamily: Type.bodyHeavy, fontSize: 15, lineHeight: 19, minHeight: 38, paddingHorizontal: 8 },
-  find: { fontFamily: Type.bodyHeavy, fontSize: 13, lineHeight: 16, paddingHorizontal: 8 },
-  badge: { position: 'absolute', top: 6, right: 6 },
-  link: { minHeight: 44, alignItems: 'center', justifyContent: 'center' },
-  linkText: { fontFamily: Type.bodyBold, fontSize: 15, lineHeight: 20 },
-  growth: { gap: Spacing.two + 2 },
-  track: { height: 10, borderRadius: 5, overflow: 'hidden' },
-  fill: { height: 10, borderRadius: 5 },
+  growth: { gap: Space.s2 },
+  link: { minHeight: Size.hit, alignItems: 'center', justifyContent: 'center' },
 });

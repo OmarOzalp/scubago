@@ -1,11 +1,13 @@
-import { Pressable, StyleSheet, Text, useWindowDimensions, View, type LayoutChangeEvent } from 'react-native';
+import type { ReactNode } from 'react';
+import { Pressable, StyleSheet, Text, useWindowDimensions, View, type LayoutChangeEvent, type PressableProps, type StyleProp, type ViewStyle } from 'react-native';
 
+import { Icon } from '@/components/icon';
 import { SpeciesArt } from '@/components/species-art';
 import { mix } from '@/components/ui/color';
 import { usePressScale } from '@/components/ui/press';
 import { continuous } from '@/components/ui/surface';
 import { Tag } from '@/components/ui/tag';
-import { Radius, Space, TypeScale } from '@/constants/theme';
+import { OnFill, Radius, Space, TypeScale } from '@/constants/theme';
 import { useSchemeName, useTheme } from '@/hooks/use-theme';
 import { RARITY_COLOR, RARITY_LABEL } from '@/lib/rarity';
 import type { Species } from '@/lib/types';
@@ -51,7 +53,16 @@ interface Props {
   isNew?: boolean;
   /** Lines the name may take before it ends in an ellipsis: 2, or 3 where the card is narrow (a long two-word name). */
   nameLines?: 2 | 3;
-  onPress: () => void;
+  /** Without it the card is a plain, read-only block (the animals just added on the saved screen). */
+  onPress?: () => void;
+  /** A card that picks (the Log flow's animals): `selected` rings the tile and ticks its corner. */
+  selected?: boolean;
+  /** How a screen reader takes it: a button (default), or a checkbox when several can be picked. */
+  role?: 'button' | 'checkbox';
+  /** Read in place of the default sentence ("Reef Manta Ray, uncommon, ...") when the card is for picking. */
+  accessibilityLabel?: string;
+  /** A line under the name in a colour of its own ("Rare find", in the rarity's text colour). */
+  note?: { text: string; color: string };
 }
 
 /** How strongly a seen species' tile takes its rarity colour, per scheme. */
@@ -63,9 +74,9 @@ const TINT = { light: 0.14, dark: 0.18 };
  * height so a grid's rows line up. Rarity is the small dot in the tile's corner and nothing else; the words
  * ("Rare, not seen yet", "seen 3 times") are in what a screen reader says.
  */
-export function SpeciesCard({ species, width, count, isNew = false, nameLines = 2, onPress }: Props) {
-  const theme = useTheme();
+export function SpeciesCard({ species, width, count, isNew = false, nameLines = 2, onPress, selected, role = 'button', accessibilityLabel, note }: Props) {
   const scheme = useSchemeName();
+  const theme = useTheme();
   const scale = usePressScale();
   const seen = count > 0;
   const rarity = RARITY_LABEL[species.rarity];
@@ -78,16 +89,51 @@ export function SpeciesCard({ species, width, count, isNew = false, nameLines = 
   // which reads as a tile still loading); the pencil outline on it is what says "not yet".
   const tile = seen ? mix(paper, colour, TINT[scheme]) : theme.backgroundElement;
   return (
-    <Pressable onPress={onPress} accessibilityRole="button" accessibilityLabel={label} style={({ pressed }) => [styles.card, { width }, scale(pressed)]}>
+    <Wrapper
+      onPress={onPress}
+      accessibilityRole={role}
+      aria-checked={role === 'checkbox' ? !!selected : undefined}
+      aria-selected={selected}
+      accessibilityLabel={accessibilityLabel ?? label}
+      style={({ pressed }: { pressed: boolean }) => [styles.card, { width }, onPress ? scale(pressed) : null]}>
       <View style={[styles.tile, { width, height: width, backgroundColor: tile }, !seen && { borderWidth: StyleSheet.hairlineWidth * 2, borderColor: theme.cardBorder }]}>
         <SpeciesArt species={species} width={Math.round(width * 0.86)} found={seen} paper={tile} />
         <View testID="rarity-dot" style={[styles.dot, { backgroundColor: colour, borderColor: tile }]} />
+        {selected ? (
+          <>
+            <View pointerEvents="none" style={[styles.ring, { borderColor: theme.lagoon }]} />
+            <View testID="picked-tick" aria-hidden pointerEvents="none" style={[styles.tick, { backgroundColor: theme.lagoon }]}>
+              <Icon name="check" size={14} color={OnFill[scheme].lagoon} weight="bold" />
+            </View>
+          </>
+        ) : null}
       </View>
       {isNew ? <Tag label="New" tone="sun" style={styles.new} /> : null}
-      <Text numberOfLines={nameLines} ellipsizeMode="tail" maxFontSizeMultiplier={1.5} style={[styles.name, { color: seen ? theme.text : theme.textSecondary }]}>
+      <Text numberOfLines={nameLines} ellipsizeMode="tail" maxFontSizeMultiplier={1.5} style={[styles.name, { color: seen || selected ? theme.text : theme.textSecondary }]}>
         {species.commonName}
       </Text>
-    </Pressable>
+      {note ? (
+        <Text numberOfLines={1} maxFontSizeMultiplier={1.5} style={[styles.note, { color: note.color }]}>
+          {note.text}
+        </Text>
+      ) : null}
+    </Wrapper>
+  );
+}
+
+/** A button when the card goes somewhere; a plain, readable block when it does not. */
+function Wrapper({ onPress, style, children, ...rest }: PressableProps & { style: (state: { pressed: boolean }) => StyleProp<ViewStyle> }) {
+  if (onPress) {
+    return (
+      <Pressable onPress={onPress} style={style} {...rest}>
+        {children}
+      </Pressable>
+    );
+  }
+  return (
+    <View accessible accessibilityLabel={rest.accessibilityLabel} style={style({ pressed: false })}>
+      {children as ReactNode}
+    </View>
   );
 }
 
@@ -111,11 +157,36 @@ const styles = StyleSheet.create({
     borderRadius: Radius.pill,
     borderWidth: 1.5,
   },
+  // A picked card: a 3 lagoon ring just inside the tile, and a tick on its top-right corner.
+  ring: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    borderWidth: 3,
+    borderRadius: Radius.md,
+    ...continuous,
+  },
+  tick: {
+    position: 'absolute',
+    top: Space.s2,
+    right: Space.s2,
+    width: 24,
+    height: 24,
+    borderRadius: Radius.pill,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   // Overlaps the tile's top-right corner.
   new: {
     position: 'absolute',
     top: -6,
     right: -4,
+  },
+  note: {
+    ...TypeScale.footnoteStrong,
+    marginTop: -Space.s1,
   },
   // Two lines are always kept, so every card in a grid is the same height.
   name: {

@@ -1,10 +1,11 @@
 import { useRef, useState } from 'react';
-import { Platform, Pressable, StyleSheet, View, type GestureResponderEvent, type LayoutChangeEvent } from 'react-native';
+import { Platform, StyleSheet, Text, View, type GestureResponderEvent, type LayoutChangeEvent } from 'react-native';
 import Svg, { Line, Path } from 'react-native-svg';
 
+import { FieldLabel } from '@/components/form-field';
 import { Icon } from '@/components/icon';
-import { ThemedText } from '@/components/themed-text';
-import { Radius } from '@/constants/theme';
+import { Button } from '@/components/ui/button';
+import { Radius, Space, TypeScale } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { isSignaturePath, SIGNATURE_BOX, signaturePath, strokesPath } from '@/lib/dives';
 
@@ -72,17 +73,10 @@ export function SignaturePad({
   return (
     <View style={styles.field}>
       <View style={styles.head}>
-        <ThemedText type="label" style={styles.flex}>
-          {label}
-        </ThemedText>
-        {strokes.length > 0 ? (
-          <Pressable onPress={clear} accessibilityRole="button" accessibilityLabel="Clear the signature" hitSlop={8} style={styles.clear}>
-            <Icon name="close" size={14} color={theme.tint} weight="bold" />
-            <ThemedText type="smallBold" themeColor="tint">
-              Clear
-            </ThemedText>
-          </Pressable>
-        ) : null}
+        <View style={styles.flex}>
+          <FieldLabel>{label}</FieldLabel>
+        </View>
+        {strokes.length > 0 ? <Button title="Clear" icon="close" variant="plain" size="md" accessibilityLabel="Clear the signature" onPress={clear} style={styles.clear} /> : null}
       </View>
       <View
         {...responder}
@@ -93,7 +87,7 @@ export function SignaturePad({
         accessibilityLabel={strokes.length ? `${label}: signed` : `${label}: empty. Sign with your finger in this box.`}
         style={[
           styles.pad,
-          { backgroundColor: theme.backgroundElement, borderColor: strokes.length ? theme.tint : theme.rule },
+          { backgroundColor: theme.backgroundElement, borderColor: strokes.length ? theme.tint : theme.cardBorder },
           // The browser mustn't scroll or select text while someone signs.
           Platform.OS === 'web' ? ({ touchAction: 'none', userSelect: 'none', cursor: 'crosshair' } as object) : null,
         ]}>
@@ -105,10 +99,8 @@ export function SignaturePad({
           </Svg>
           {strokes.length === 0 ? (
             <View style={styles.placeholder}>
-              <Icon name="signature" size={20} color={theme.textSecondary} wash={theme.textSecondary} washOpacity={0.15} />
-              <ThemedText type="small" themeColor="textSecondary">
-                Sign here
-              </ThemedText>
+              <Icon name="signature" size={20} color={theme.textSecondary} />
+              <Text style={[TypeScale.subhead, { color: theme.textSecondary }]}>Sign here</Text>
             </View>
           ) : null}
         </View>
@@ -131,14 +123,15 @@ export function SignatureView({ svg, height = 64, color }: { svg?: string; heigh
 }
 
 const styles = StyleSheet.create({
-  field: { gap: 6 },
+  field: { gap: Space.s2 },
   head: { flexDirection: 'row', alignItems: 'center', minHeight: 24 },
   flex: { flex: 1 },
-  clear: { flexDirection: 'row', alignItems: 'center', gap: 4, minHeight: 32 },
+  // A 44 button in a 24 line: it hangs over the line's top and bottom rather than making the line taller.
+  clear: { marginVertical: -Space.s3 },
   pad: {
     width: '100%',
     aspectRatio: SIGNATURE_BOX.width / SIGNATURE_BOX.height,
-    borderWidth: 1.5,
+    borderWidth: 1,
     borderRadius: Radius.md,
     overflow: 'hidden',
   },
@@ -151,7 +144,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     flexDirection: 'row',
-    gap: 6,
+    gap: Space.s2,
     paddingBottom: 18,
   },
 });

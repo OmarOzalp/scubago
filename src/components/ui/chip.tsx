@@ -18,6 +18,8 @@ export type ChipProps = {
   accessibilityHint?: string;
   testID?: string;
   onLayout?: (event: LayoutChangeEvent) => void;
+  /** `radio` or `checkbox` for a chip that is one choice of a field (read with its checked state); a plain button by default. */
+  role?: 'button' | 'radio' | 'checkbox';
   /**
    * Draw in this scheme whatever the phone's: for chips over a picture that has the same colours in both
    * (Home's islands over the scene's water).
@@ -29,7 +31,7 @@ export type ChipProps = {
  * The one chip: a 36 pill (44 to hit). Off: the surface colour with a hairline; on: filled with the ink
  * colour (navy in light, pale in dark) and the label reversed out of it.
  */
-export function Chip({ label, selected, onPress, count, dot, accessibilityLabel, accessibilityHint, testID, onLayout, scheme: fixed }: ChipProps) {
+export function Chip({ label, selected, onPress, count, dot, accessibilityLabel, accessibilityHint, testID, onLayout, role = 'button', scheme: fixed }: ChipProps) {
   const own = useTheme();
   const ownScheme = useSchemeName();
   const scheme = fixed ?? ownScheme;
@@ -41,9 +43,10 @@ export function Chip({ label, selected, onPress, count, dot, accessibilityLabel,
       onPress={onPress}
       onLayout={onLayout}
       testID={testID}
-      accessibilityRole="button"
-      aria-selected={selected}
-      accessibilityState={{ selected }}
+      accessibilityRole={role}
+      aria-selected={role === 'button' ? selected : undefined}
+      aria-checked={role === 'button' ? undefined : selected}
+      accessibilityState={role === 'button' ? { selected } : { checked: selected }}
       accessibilityLabel={accessibilityLabel}
       accessibilityHint={accessibilityHint}
       style={({ pressed }) => [styles.hit, scale(pressed)]}>

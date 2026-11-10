@@ -2,33 +2,35 @@ import * as ImagePicker from 'expo-image-picker';
 import { Image } from 'expo-image';
 import { Stack, router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View, type TextInputInstance, type ViewInstance } from 'react-native';
+import { Pressable, StyleSheet, Text, View, type TextInputInstance, type ViewInstance } from 'react-native';
 
 import { BottomBar } from '@/components/dive/bottom-bar';
 import { DateField } from '@/components/date-field';
 import { DiveForm } from '@/components/dive/dive-form';
 import { HeaderBack } from '@/components/dive/header-back';
-import { FormField } from '@/components/form-field';
+import { FieldLabel, FormField } from '@/components/form-field';
 import { Icon } from '@/components/icon';
-import { Paper } from '@/components/journal/paper';
 import { SavedReward, type LogResult } from '@/components/log/saved-reward';
 import { SpeciesPicker } from '@/components/log/species-picker';
-import { OceanButton } from '@/components/ocean-button';
 import { PrivacyFields } from '@/components/privacy-fields';
 import { formatDate } from '@/components/sighting-row';
 import { SitePicker } from '@/components/site-picker';
 import { SpeciesAvatar } from '@/components/species-avatar';
-import { ThemedText } from '@/components/themed-text';
-import { ThemedView } from '@/components/themed-view';
+import { Button } from '@/components/ui/button';
+import { Card } from '@/components/ui/card';
+import { IconButton } from '@/components/ui/icon-button';
+import { ListRow } from '@/components/ui/list';
+import { EmptyState, Notice } from '@/components/ui/notice';
+import { Screen } from '@/components/ui/screen';
 import { WhenReady } from '@/components/when-ready';
-import { OnFill, Radius, Spacing, Type } from '@/constants/theme';
+import { Radius, Size, Space, TypeScale } from '@/constants/theme';
 import { useDiscardGuard, useHardwareBack } from '@/hooks/use-discard-guard';
 import { DISMISS_ON_DRAG, useKeyboard } from '@/hooks/use-keyboard';
 import { useNewBadges } from '@/hooks/use-new-badges';
 import { usePhotoUrl } from '@/hooks/use-photo-url';
 import { useRewards } from '@/hooks/use-rewards';
 import { useScrollTo } from '@/hooks/use-scroll-to';
-import { useSchemeName, useTheme } from '@/hooks/use-theme';
+import { useTheme } from '@/hooks/use-theme';
 import { announce } from '@/lib/announce';
 import { CATALOG_BY_ID, UNLISTED_ID, UNLISTED_NAME_MAX, speciesForSighting } from '@/lib/catalog';
 import { carryOver, emptyDraft, fieldOfProblem, readDraft, type DiveDraft, type DraftField } from '@/lib/dive-draft';
@@ -50,10 +52,19 @@ const STEP_NAMES: Record<Step, string> = { site: 'Site', species: 'Animals', det
 const STEP_ORDER: Step[] = ['site', 'species', 'details'];
 const NAME_FIRST = 'Name the animal first';
 
-/** A name cut to fit its step, with room for the other two: "Hin Daeng & Hi…". */
+/** A name cut to fit its step, at a space, with room for the other two: "Hin Daeng…". A single long word is cut at the end. */
 function shortName(name: string, max = 14): string {
-  const letters = [...name.trim()];
-  return letters.length <= max ? letters.join('') : `${letters.slice(0, max - 1).join('').trimEnd()}…`;
+  const text = name.trim().replace(/\s+/g, ' ');
+  if ([...text].length <= max) return text;
+  let out = '';
+  for (const word of text.split(' ')) {
+    const next = out ? `${out} ${word}` : word;
+    if ([...next].length > max) break;
+    out = next;
+  }
+  // "Hin Daeng &" reads better as "Hin Daeng".
+  out = out.replace(/[\s&,·–-]+$/, '');
+  return out ? `${out}…` : `${[...text].slice(0, max - 1).join('').trimEnd()}…`;
 }
 
 /**
@@ -93,7 +104,6 @@ function LogSightingScreen() {
   // `then=page`: the page isn't underneath (this replaced its saved screen), so finishing opens it.
   const params = useLocalSearchParams<{ siteId?: string; speciesId?: string; edit?: string; dive?: string; then?: string }>();
   const theme = useTheme();
-  const scheme = useSchemeName();
   const sites = useAllSites();
   const siteById = useSiteById();
   const mySightings = useMySightings();
@@ -423,18 +433,18 @@ function LogSightingScreen() {
 
   if (params.edit && (!editing || !canEditSighting(editing, myUserId))) {
     return (
-      <ThemedView style={styles.centered}>
+      <Screen kind="modal">
         <Stack.Screen options={{ title: 'Edit sighting' }} />
-        <ThemedText>{editing ? 'You can only edit your own sightings.' : 'This sighting isn’t here any more.'}</ThemedText>
-      </ThemedView>
+        <EmptyState icon="logbook" title={editing ? 'You can only edit your own sightings.' : 'This sighting isn’t here any more.'} />
+      </Screen>
     );
   }
   if (params.dive && !page) {
     return (
-      <ThemedView style={styles.centered}>
+      <Screen kind="modal">
         <Stack.Screen options={{ title: 'Add to a page' }} />
-        <ThemedText>This page isn’t in your log any more.</ThemedText>
-      </ThemedView>
+        <EmptyState icon="logbook" title="This page isn’t in your log any more." />
+      </Screen>
     );
   }
 
@@ -457,6 +467,7 @@ function LogSightingScreen() {
 
   const stepIndex = STEP_ORDER.indexOf(step);
   const showDetails = step === 'details' && !!site && (chosen.length > 0 || newDive);
+  const visibleTo = backendEnabled && chosen.length > 0 ? privacySummary(privacy, { photo: chosen.length === 1 }) : null;
 
   // What was seen, together: notes about the animals, a photo, who can see it. The dive's own notes stay with the dive.
   const animalBlock =
@@ -469,45 +480,28 @@ function LogSightingScreen() {
           onChangeText={setNotes}
           multiline
           maxLength={NOTES_MAX}
-          style={styles.notes}
         />
 
         {chosen.length === 1 ? (
-          <View style={{ gap: 6 }}>
-            <ThemedText type="label" accessibilityRole="header">
-              Photo
-            </ThemedText>
+          <View style={styles.photo}>
+            <FieldLabel header>Photo</FieldLabel>
             {photoUri ? (
               <>
-                <Image
-                  source={photoPreview ? { uri: photoPreview } : undefined}
-                  style={[styles.photoPreview, { backgroundColor: theme.backgroundElement, borderColor: theme.cardBorder }]}
-                  contentFit="cover"
-                  accessibilityLabel={`Your photo of the ${chosen[0].commonName}`}
-                />
-                <Pressable onPress={() => setPhotoUri(undefined)} accessibilityRole="button" style={styles.textButton}>
-                  <Icon name="trash" size={16} color={theme.textSecondary} />
-                  <ThemedText type="smallBold" themeColor="textSecondary">
-                    Remove photo
-                  </ThemedText>
-                </Pressable>
+                <Image source={photoPreview ? { uri: photoPreview } : undefined} style={[styles.photoPreview, { backgroundColor: theme.backgroundSelected }]} contentFit="cover" accessibilityLabel={`Your photo of the ${chosen[0].commonName}`} />
+                <Button title="Remove photo" icon="trash" variant="plain" size="md" onPress={() => setPhotoUri(undefined)} style={styles.startAligned} />
               </>
             ) : (
               <>
-                <ThemedText type="small" themeColor="textSecondary">
-                  Sightings with a photo get a credibility badge.
-                </ThemedText>
+                <Text style={[TypeScale.subhead, { color: theme.textSecondary }]}>Sightings with a photo get a credibility badge.</Text>
                 <View style={styles.photoButtons}>
-                  <OceanButton title="Take photo" icon="camera" variant="secondary" onPress={() => pickPhoto('camera')} style={{ flex: 1 }} />
-                  <OceanButton title="Choose photo" icon="image" variant="secondary" onPress={() => pickPhoto('library')} style={{ flex: 1 }} />
+                  <Button title="Take photo" icon="camera" variant="secondary" size="md" onPress={() => pickPhoto('camera')} style={styles.flex} />
+                  <Button title="Choose photo" icon="image" variant="secondary" size="md" onPress={() => pickPhoto('library')} style={styles.flex} />
                 </View>
               </>
             )}
           </View>
         ) : (
-          <ThemedText type="caption" themeColor="textSecondary">
-            Add photos later, one per sighting.
-          </ThemedText>
+          <Text style={[TypeScale.subhead, { color: theme.textSecondary }]}>Add photos later, one per sighting.</Text>
         )}
 
         {/* Without a backend nothing leaves the phone, so there is nobody to keep it from. */}
@@ -527,58 +521,46 @@ function LogSightingScreen() {
       </View>
     ) : null;
 
+  // Several animals are one line of names and an Edit, not a row each: the card was a third of the screen.
+  const together = multi && chosen.length > 1;
+
   return (
-    <ThemedView style={styles.container}>
+    <View style={[styles.container, { backgroundColor: theme.background }]}>
       {/* Set in full: the new-species page turns the header twilight, and "Log more" comes back here. */}
       <Stack.Screen
         options={{
           title: editing ? 'Edit sighting' : page ? `Add to ${formatDiveNumber(page.number)}` : 'Log a dive',
           headerStyle: { backgroundColor: theme.background },
           headerTintColor: theme.text,
-          headerTitleStyle: { fontFamily: Type.display, fontSize: 19, color: theme.text },
+          headerTitleStyle: { fontFamily: TypeScale.headline.fontFamily, fontSize: TypeScale.headline.fontSize, color: theme.text },
           // Back goes back a step, and leaves only from the first.
           headerLeft: ({ tintColor }) => <HeaderBack onPress={goBack} label={previousStep ? `Back to ${STEP_NAMES[previousStep].toLowerCase()}` : 'Close'} tintColor={tintColor} />,
         }}
       />
-      {/* The three steps, numbered like the pages of a form: done ones ticked, the current one inked in. Out of the way while typing (it is a sixth of a small phone with the keyboard up), and when editing one sighting, which has no steps to take. */}
+      {/* The three steps: a segment each, filled as far as the diver has come, with the step's name (or what was chosen in it) under it. Out of the way while typing (it is a sixth of a small phone with the keyboard up), and when editing one sighting, which has no steps to take. */}
       {!keyboard.open && !editing && (
-        <View style={[styles.steps, { borderBottomColor: theme.rule }]} accessibilityRole="tablist" accessibilityLabel="Steps">
+        <View style={styles.steps} accessibilityRole="tablist" accessibilityLabel="Steps">
           {crumbs.map((c, i) => {
             const current = step === c.step;
             const done = i < stepIndex && (c.enabled || (c.step === 'site' && !!page));
             return (
-              <View key={c.step} style={styles.stepWrap}>
-                {i > 0 ? <View style={[styles.stepRule, { backgroundColor: i <= stepIndex ? theme.lagoon : theme.rule }]} /> : null}
-                <Pressable
-                  onPress={() => c.enabled && goTo(c.step)}
-                  disabled={!c.enabled}
-                  accessibilityRole="tab"
-                  accessibilityLabel={`Step ${i + 1}, ${STEP_NAMES[c.step]}${c.chosen ? `: ${c.chosen}` : ''}`}
-                  aria-selected={current}
-                  aria-disabled={!c.enabled}
-                  style={({ pressed }) => [styles.step, { opacity: pressed ? 0.6 : 1 }]}>
-                  <View
-                    style={[
-                      styles.stepDot,
-                      current
-                        ? { backgroundColor: theme.lagoon, borderColor: theme.lagoon }
-                        : done
-                          ? { backgroundColor: theme.backgroundElement, borderColor: theme.lagoon }
-                          : { backgroundColor: theme.backgroundElement, borderColor: theme.rule },
-                    ]}>
-                    {done ? (
-                      <Icon name="check" size={14} color={theme.tint} weight="bold" />
-                    ) : (
-                      <Text style={[styles.stepNumber, { color: current ? OnFill[scheme].lagoon : theme.textSecondary }]}>{i + 1}</Text>
-                    )}
-                  </View>
-                  <Text
-                    numberOfLines={1}
-                    style={[styles.stepLabel, { color: current ? theme.text : c.enabled || done ? theme.text : theme.textSecondary, fontFamily: current ? Type.bodyHeavy : Type.bodyBold }]}>
+              <Pressable
+                key={c.step}
+                onPress={() => c.enabled && goTo(c.step)}
+                disabled={!c.enabled}
+                accessibilityRole="tab"
+                accessibilityLabel={`Step ${i + 1}, ${STEP_NAMES[c.step]}${c.chosen ? `: ${c.chosen}` : ''}`}
+                aria-selected={current}
+                aria-disabled={!c.enabled}
+                style={({ pressed }) => [styles.step, { opacity: pressed ? 0.6 : 1 }]}>
+                <View style={[styles.segment, { backgroundColor: i <= stepIndex ? theme.lagoon : theme.backgroundSelected }]} />
+                <View style={styles.stepLabel}>
+                  {done ? <Icon name="check" size={14} color={theme.tint} weight="bold" /> : null}
+                  <Text numberOfLines={1} style={[current ? TypeScale.subheadStrong : TypeScale.subhead, styles.shrink, { color: current ? theme.text : c.enabled || done ? theme.text : theme.textSecondary }]}>
                     {c.chosen ? shortName(c.chosen) : STEP_NAMES[c.step]}
                   </Text>
-                </Pressable>
-              </View>
+                </View>
+              </Pressable>
             );
           })}
         </View>
@@ -600,146 +582,103 @@ function LogSightingScreen() {
         />
       )}
       {showDetails && (
-        <ScrollView
-          ref={scrollView}
+        <Screen
+          kind="modal"
+          scrollRef={scrollView}
           onScroll={onScroll}
           scrollEventThrottle={16}
-          contentContainerStyle={styles.details}
-          keyboardShouldPersistTaps="handled"
+          contentStyle={styles.details}
           keyboardDismissMode={DISMISS_ON_DRAG}
           automaticallyAdjustKeyboardInsets>
-          <Paper style={styles.sawCard}>
+          <Card padded={false} style={styles.clip}>
             <View style={styles.sawHeader}>
               {/* A new entry needs no eyebrow: the title ("Log a dive") and the step ("Details") already say it. */}
-              {editing || page ? <ThemedText type="label">{editing ? 'Logbook entry' : formatDiveNumber(page!.number)}</ThemedText> : null}
-              <ThemedText type="heading" accessibilityRole="header">
+              {editing || page ? <Text style={[TypeScale.footnoteStrong, { color: theme.textSecondary }]}>{editing ? 'Logbook entry' : formatDiveNumber(page!.number)}</Text> : null}
+              <Text accessibilityRole="header" style={[TypeScale.headline, { color: theme.text }]}>
                 {newDive ? `Dive at ${site.name}` : site.name}
-              </ThemedText>
-              {page ? (
-                <ThemedText type="small" themeColor="textSecondary">
-                  {formatDate(page.divedOn)} · the page sets the site and date.
-                </ThemedText>
-              ) : null}
+              </Text>
+              {page ? <Text style={[TypeScale.subhead, { color: theme.textSecondary }]}>{formatDate(page.divedOn)} · the page sets the site and date.</Text> : null}
+              {chosen.length === 0 ? <Text style={[TypeScale.subhead, { color: theme.textSecondary }]}>No animals on this page yet. You can add them now or later.</Text> : null}
             </View>
-            {chosen.length === 0 ? (
-              <ThemedText type="small" themeColor="textSecondary">
-                No animals on this page yet. You can add them now or later.
-              </ThemedText>
-            ) : null}
-            {/* Two animals or more are one line of names and an Edit, not a row each: the card was a third of the screen. */}
-            {multi && chosen.length > 1 ? (
-              <View style={styles.names}>
-                <ThemedText type="small" style={styles.flex}>
-                  {chosen.map((s) => s.commonName).join(', ')}
-                </ThemedText>
-                <Pressable
-                  onPress={() => goTo('species')}
-                  accessibilityRole="button"
-                  accessibilityLabel={`Edit the ${chosen.length} animals`}
-                  style={styles.textButton}>
-                  <Icon name="edit" size={16} color={theme.tint} weight="bold" />
-                  <ThemedText type="smallBold" themeColor="tint">
-                    Edit
-                  </ThemedText>
-                </Pressable>
+            {together ? (
+              <View style={[styles.names, { borderTopColor: theme.rule }]}>
+                <Text style={[TypeScale.callout, styles.flex, { color: theme.text }]}>{chosen.map((s) => s.commonName).join(', ')}</Text>
+                <Button title="Edit" icon="edit" variant="plain" size="md" accessibilityLabel={`Edit the ${chosen.length} animals`} onPress={() => goTo('species')} />
               </View>
             ) : null}
-            {(multi && chosen.length > 1 ? [] : chosen).map((s, i) => (
-              <View key={s.id} style={[styles.summary, i > 0 && { borderTopWidth: 1, borderTopColor: theme.rule }]}>
-                <SpeciesAvatar species={s} size={48} showRarityRing={false} />
-                <View style={{ flex: 1, gap: 3 }}>
-                  <ThemedText type="smallBold" numberOfLines={2} style={{ fontFamily: Type.bodyHeavy, fontSize: 15 }}>
-                    {s.commonName}
-                  </ThemedText>
-                </View>
-                {multi ? (
-                  <Pressable
-                    onPress={() => {
-                      const left = selected.filter((x) => x !== s.id);
-                      setSelected(left);
-                      if (left.length === 0 && !newDive) goTo('species');
-                    }}
-                    accessibilityRole="button"
-                    accessibilityLabel={`Remove ${s.commonName}`}
-                    hitSlop={8}
-                    style={({ pressed }) => [styles.iconButton, { backgroundColor: pressed ? theme.backgroundSelected : 'transparent' }]}>
-                    <Icon name="close" size={18} color={theme.textSecondary} weight="bold" />
-                  </Pressable>
-                ) : null}
-              </View>
-            ))}
-            {multi && chosen.length > 1 ? null : multi ? (
-              <Pressable onPress={() => goTo('species')} accessibilityRole="button" style={styles.textButton}>
-                <Icon name="plus" size={16} color={theme.tint} weight="bold" />
-                <ThemedText type="smallBold" themeColor="tint">
-                  {chosen.length === 0 ? 'Add what you saw' : 'Add another species'}
-                </ThemedText>
-              </Pressable>
+            {together
+              ? null
+              : chosen.map((s) => (
+                  <ListRow
+                    key={s.id}
+                    title={s.commonName}
+                    titleLines={2}
+                    separator
+                    inGroup
+                    leading={<SpeciesAvatar species={s} size={Size.thumb} showRarityRing={false} />}
+                    trailing={
+                      multi ? (
+                        <IconButton
+                          icon="close"
+                          on="bar"
+                          accessibilityLabel={`Remove ${s.commonName}`}
+                          onPress={() => {
+                            const left = selected.filter((x) => x !== s.id);
+                            setSelected(left);
+                            if (left.length === 0 && !newDive) goTo('species');
+                          }}
+                        />
+                      ) : (
+                        'none'
+                      )
+                    }
+                  />
+                ))}
+            {together ? null : multi ? (
+              <ListRow separator inGroup leading="plus" title={chosen.length === 0 ? 'Add what you saw' : 'Add another species'} onPress={() => goTo('species')} />
             ) : (
               // An edit has no step bar: the animal, and the site if it isn't a page's, are changed from here.
-              <View style={styles.changes}>
-                <Pressable onPress={() => goTo('species')} accessibilityRole="button" style={styles.textButton}>
-                  <Icon name="edit" size={16} color={theme.tint} weight="bold" />
-                  <ThemedText type="smallBold" themeColor="tint">
-                    Change the animal
-                  </ThemedText>
-                </Pressable>
-                {!page ? (
-                  <Pressable onPress={() => goTo('site')} accessibilityRole="button" style={styles.textButton}>
-                    <Icon name="pin" size={16} color={theme.tint} weight="bold" />
-                    <ThemedText type="smallBold" themeColor="tint">
-                      Change the site
-                    </ThemedText>
-                  </Pressable>
-                ) : null}
-              </View>
+              <>
+                <ListRow separator inGroup leading="edit" title="Change the animal" onPress={() => goTo('species')} />
+                {!page ? <ListRow separator inGroup leading="pin" title="Change the site" onPress={() => goTo('site')} /> : null}
+              </>
             )}
-          </Paper>
+          </Card>
 
           {unlisted ? (
-            <View style={styles.nameField}>
-              <FormField
-                ref={nameField}
-                label="What was it?"
-                // The reason is under the field, so the hint gives way to it.
-                hint={nameMissing ? undefined : 'Saved in your log. Doesn’t count towards your collection.'}
-                placeholder="e.g. Nudibranch I couldn’t identify"
-                value={customName}
-                onChangeText={setCustomName}
-                maxLength={UNLISTED_NAME_MAX}
-                style={nameMissing ? { borderColor: theme.danger } : undefined}
-              />
-              {nameMissing ? (
-                <ThemedText type="small" themeColor="danger" accessibilityLiveRegion="polite">
-                  {NAME_FIRST}
-                </ThemedText>
-              ) : null}
-            </View>
+            <FormField
+              ref={nameField}
+              label="What was it?"
+              // The reason is under the field, so the hint gives way to it.
+              hint={nameMissing ? undefined : 'Saved in your log. Doesn’t count towards your collection.'}
+              placeholder="e.g. Nudibranch I couldn’t identify"
+              value={customName}
+              onChangeText={setCustomName}
+              maxLength={UNLISTED_NAME_MAX}
+              invalid={nameMissing}
+            />
+          ) : null}
+          {nameMissing ? (
+            <Text accessibilityLiveRegion="polite" style={[TypeScale.subhead, styles.nameProblem, { color: theme.danger }]}>
+              {NAME_FIRST}
+            </Text>
           ) : null}
 
           {!newDive && !page ? (
-            <View style={{ gap: 6 }}>
-              <DateField
-                value={date}
-                onChange={(iso) => {
-                  setDate(iso);
-                  setDateTouched(true);
-                }}
-              />
-            </View>
+            <DateField
+              value={date}
+              onChange={(iso) => {
+                setDate(iso);
+                setDateTouched(true);
+              }}
+            />
           ) : null}
 
           {/* A new page puts the animals' notes, photo and privacy after the dive's own facts, inside the form; an edit has no dive facts, so they follow the card. */}
           {!newDive ? animalBlock : null}
 
           {losesVerification ? (
-            <Paper tone="sand" style={styles.warning}>
-              <Icon name="warning" size={20} wash={theme.sun} />
-              <ThemedText type="small" style={{ flex: 1 }}>
-                Changing the species, site or date removes this sighting’s verification. It can be confirmed again
-                afterwards.
-              </ThemedText>
-            </Paper>
+            <Notice icon="warning">Changing the species, site or date removes this sighting’s verification. It can be confirmed again afterwards.</Notice>
           ) : null}
 
           {newDive ? (
@@ -765,17 +704,15 @@ function LogSightingScreen() {
             />
           ) : null}
           {newDive && !dateTouched && date !== localIsoDate(new Date()) ? (
-            <ThemedText type="caption" themeColor="textSecondary" style={styles.dateNote}>
-              Dated the same day as your last log.
-            </ThemedText>
+            <Text style={[TypeScale.subhead, { color: theme.textSecondary }]}>Dated the same day as your last log.</Text>
           ) : null}
-        </ScrollView>
+        </Screen>
       )}
       {/* Pinned, like the species step's: the button is never at the end of a long page. */}
       {showDetails && (
         <BottomBar keyboardOpen={keyboard.open}>
           {/* What the last choice was, in plain sight: nothing goes private or public by surprise. */}
-          {backendEnabled && chosen.length > 0 ? (
+          {visibleTo ? (
             <Pressable
               onPress={() => {
                 // The choice is under "More details" on a new page: open it, then go there.
@@ -784,30 +721,22 @@ function LogSightingScreen() {
                 announce('Who can see this');
               }}
               accessibilityRole="button"
-              accessibilityLabel={`Who can see this: ${privacySummary(privacy, { photo: chosen.length === 1 })}. Change who can see this`}
+              accessibilityLabel={`Who can see this: ${visibleTo}. Change who can see this`}
               style={({ pressed }) => [styles.visibleTo, { opacity: pressed ? 0.6 : 1 }]}>
-              <Text style={[styles.visibleToText, { color: theme.textSecondary }]} numberOfLines={2}>
-                Who can see this: <Text style={{ fontFamily: Type.bodyHeavy, color: theme.text }}>{privacySummary(privacy, { photo: chosen.length === 1 })}</Text>
+              <Text style={[TypeScale.subhead, { color: theme.textSecondary }]} numberOfLines={2}>
+                Who can see this: <Text style={[TypeScale.subheadStrong, { color: theme.text }]}>{visibleTo}</Text>
                 {' · '}
-                <Text style={{ fontFamily: Type.bodyHeavy, color: theme.tint }}>change</Text>
+                <Text style={[TypeScale.subheadStrong, { color: theme.tint }]}>change</Text>
               </Text>
             </Pressable>
           ) : null}
           {error ? (
-            <ThemedText type="small" themeColor="danger" accessibilityLiveRegion="polite">
+            <Text accessibilityLiveRegion="polite" style={[TypeScale.subhead, { color: theme.danger }]}>
               {error}
-            </ThemedText>
+            </Text>
           ) : null}
-          <OceanButton
-            title={
-              saving
-                ? 'Saving…'
-                : editing
-                  ? 'Save changes'
-                  : newDive
-                    ? 'Save dive'
-                    : `Add to ${formatDiveNumber(page!.number)}`
-            }
+          <Button
+            title={saving ? 'Saving…' : editing ? 'Save changes' : newDive ? 'Save dive' : `Add to ${formatDiveNumber(page!.number)}`}
             variant={editing ? 'primary' : 'log'}
             icon={editing || saving ? undefined : 'stamp'}
             onPress={save}
@@ -815,7 +744,7 @@ function LogSightingScreen() {
           />
         </BottomBar>
       )}
-    </ThemedView>
+    </View>
   );
 }
 
@@ -840,42 +769,24 @@ function recentSpeciesIds(sightings: { speciesId: string; createdAt: string }[])
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  steps: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: Spacing.three,
-    paddingVertical: 6,
-    borderBottomWidth: 1,
-  },
-  stepWrap: { flexDirection: 'row', alignItems: 'center', flexShrink: 1, flexGrow: 1 },
-  stepRule: { width: 14, height: 2, borderRadius: 1, marginHorizontal: 4 },
-  step: { minHeight: 44, flexDirection: 'row', alignItems: 'center', gap: 6, flexShrink: 1 },
-  stepDot: { width: 24, height: 24, borderRadius: 12, borderWidth: 1.5, alignItems: 'center', justifyContent: 'center' },
-  stepNumber: { fontFamily: Type.display, fontSize: 13, lineHeight: 16 },
-  stepLabel: { fontSize: 14, lineHeight: 18, flexShrink: 1 },
-  details: { padding: Spacing.three, gap: Spacing.four, paddingBottom: Spacing.four, width: '100%', maxWidth: 720, alignSelf: 'center' },
-  sawCard: { gap: 4, paddingBottom: 8 },
-  nameField: { gap: 6 },
-  // A 44 pt strip to tap, the full width of the bar.
-  visibleTo: { minHeight: 44, justifyContent: 'center' },
-  animals: { gap: Spacing.three + 2 },
-  names: { flexDirection: 'row', alignItems: 'center', gap: Spacing.two },
   flex: { flex: 1 },
-  visibleToText: { fontFamily: Type.bodySemiBold, fontSize: 14, lineHeight: 19 },
-  sawHeader: { gap: 2, marginBottom: 8 },
-  summary: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-    paddingVertical: 10,
-  },
-  iconButton: { width: 44, height: 44, borderRadius: 22, alignItems: 'center', justifyContent: 'center' },
-  textButton: { alignSelf: 'flex-start', minHeight: 44, flexDirection: 'row', alignItems: 'center', gap: 6 },
-  changes: { flexDirection: 'row', flexWrap: 'wrap', columnGap: Spacing.four },
-  notes: { minHeight: 104, textAlignVertical: 'top' },
-  photoButtons: { flexDirection: 'row', gap: Spacing.two },
-  photoPreview: { width: '100%', height: 220, borderRadius: Radius.md, borderWidth: 1 },
-  warning: { flexDirection: 'row', alignItems: 'flex-start', gap: 10 },
-  centered: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: Spacing.three, padding: Spacing.four },
-  dateNote: { marginTop: -Spacing.three },
+  clip: { overflow: 'hidden' },
+  shrink: { flexShrink: 1 },
+  startAligned: { alignSelf: 'flex-start' },
+  // Three equal columns, each 44 to hit: the segment on top, the name under it.
+  steps: { flexDirection: 'row', gap: Space.s2, paddingHorizontal: Space.s4, paddingTop: Space.s1 },
+  step: { flex: 1, minHeight: Size.hit, gap: Space.s2, justifyContent: 'center' },
+  segment: { height: 4, borderRadius: Radius.pill },
+  stepLabel: { flexDirection: 'row', alignItems: 'center', gap: Space.s1 },
+  // The pinned bar holds the button, so the page needs no room of its own at the foot.
+  details: { paddingBottom: Space.s4 },
+  sawHeader: { gap: Space.s1, padding: Space.s4 },
+  names: { flexDirection: 'row', alignItems: 'center', gap: Space.s2, paddingLeft: Space.s4, paddingRight: Space.s2, borderTopWidth: StyleSheet.hairlineWidth },
+  nameProblem: { marginTop: -Space.s2 },
+  // A 44 pt strip to tap, the full width of the bar.
+  visibleTo: { minHeight: Size.hit, justifyContent: 'center' },
+  animals: { gap: Space.s4 },
+  photo: { gap: Space.s2 },
+  photoButtons: { flexDirection: 'row', gap: Space.s2 },
+  photoPreview: { width: '100%', height: 220, borderRadius: Radius.md },
 });

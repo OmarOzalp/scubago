@@ -1,5 +1,5 @@
-import { useState, type Ref } from 'react';
-import { Pressable, StyleSheet, Text, TextInput, View, type StyleProp, type TextInputInstance, type TextInputProps, type ViewStyle } from 'react-native';
+import { useState, type ReactNode, type Ref } from 'react';
+import { Pressable, StyleSheet, Text, TextInput, View, type StyleProp, type TextInputInstance, type TextInputProps, type TextStyle, type ViewStyle } from 'react-native';
 
 import { Icon } from '@/components/icon';
 import { continuous } from '@/components/ui/surface';
@@ -13,18 +13,34 @@ export type TextFieldProps = Omit<TextInputProps, 'style'> & {
   helper?: string;
   /** Under the field in the danger colour, in place of the helper; edges the field in danger too. */
   error?: string;
+  /** Edge the field in danger without a message of its own (the message is shown elsewhere, under a pair of fields). */
+  invalid?: boolean;
+  /** The label is only the field's accessible name: a heading above it already says what it is. */
+  labelHidden?: boolean;
+  /** At the right end of the label's line: a link that goes with the field. */
+  labelAccessory?: ReactNode;
+  /** Layout of the input itself (a taller box for notes). */
+  inputStyle?: StyleProp<TextStyle>;
   style?: StyleProp<ViewStyle>;
   ref?: Ref<TextInputInstance>;
 };
 
 /** A labelled text input: 52 tall, surface fill with a hairline, a 2px tint ring while focused. */
-export function TextField({ label, helper, error, style, onFocus, onBlur, multiline, ref, ...input }: TextFieldProps) {
+export function TextField({ label, helper, error, invalid, labelHidden, labelAccessory, inputStyle, style, onFocus, onBlur, multiline, ref, ...input }: TextFieldProps) {
   const theme = useTheme();
   const [focused, setFocused] = useState(false);
-  const edge = error ? theme.danger : focused ? theme.tint : theme.cardBorder;
+  const failed = !!error || !!invalid;
+  const edge = failed ? theme.danger : focused ? theme.tint : theme.cardBorder;
   return (
     <View style={[styles.field, style]}>
-      <Text style={[styles.label, { color: theme.textSecondary }]}>{label}</Text>
+      {labelHidden ? null : labelAccessory ? (
+        <View style={styles.labelRow}>
+          <Text style={[styles.label, { color: theme.textSecondary }]}>{label}</Text>
+          {labelAccessory}
+        </View>
+      ) : (
+        <Text style={[styles.label, { color: theme.textSecondary }]}>{label}</Text>
+      )}
       <TextInput
         ref={ref}
         accessibilityLabel={label}
@@ -47,8 +63,9 @@ export function TextField({ label, helper, error, style, onFocus, onBlur, multil
             backgroundColor: theme.backgroundElement,
             borderColor: edge,
             // A 1px border plus a 1px ring of the same colour: 2px, with nothing moving.
-            boxShadow: focused || error ? `0px 0px 0px 1px ${edge}` : undefined,
+            boxShadow: focused || failed ? `0px 0px 0px 1px ${edge}` : undefined,
           },
+          inputStyle,
         ]}
       />
       {error ? (
@@ -143,6 +160,12 @@ const styles = StyleSheet.create({
   },
   label: {
     ...TypeScale.footnoteStrong,
+  },
+  labelRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    columnGap: Space.s2,
   },
   input: {
     ...TypeScale.body,

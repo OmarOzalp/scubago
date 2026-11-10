@@ -2,20 +2,21 @@ import { Stack, router } from 'expo-router';
 import { useMemo, useState, type ReactNode } from 'react';
 import { Platform, Pressable, StyleSheet, Text, View, type AccessibilityActionEvent } from 'react-native';
 
+import { FactRow } from '@/components/dive/fact-row';
 import { Bookplate, CentreStamp } from '@/components/dive/marks';
 import { SignatureView } from '@/components/dive/signature';
 import { Icon, type IconName } from '@/components/icon';
-import { IconButton } from '@/components/journal/icon-button';
 import { Ledger, type LedgerItem } from '@/components/journal/ledger';
-import { Paper } from '@/components/journal/paper';
-import { SectionHeader } from '@/components/journal/screen';
-import { OceanButton } from '@/components/ocean-button';
-import { MoreMenu } from '@/components/ui/more-menu';
 import { ShareDiveButton } from '@/components/share/share-buttons';
 import { formatEntryDate, SightingRow } from '@/components/sighting-row';
 import { SyncLine, useSyncLineShown } from '@/components/sync-line';
-import { ThemedText } from '@/components/themed-text';
-import { Radius, Spacing, Type } from '@/constants/theme';
+import { Button } from '@/components/ui/button';
+import { Card } from '@/components/ui/card';
+import { IconButton } from '@/components/ui/icon-button';
+import { List } from '@/components/ui/list';
+import { MoreMenu } from '@/components/ui/more-menu';
+import { Section } from '@/components/ui/screen';
+import { Radius, Size, Space, TypeScale } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { announce } from '@/lib/announce';
 import { speciesForSighting, UNLISTED_ID } from '@/lib/catalog';
@@ -179,9 +180,8 @@ export function DivePage({
   const actions = (
     <>
       <ShareDiveButton variant="header" dive={dive} site={site} sightings={allSightings} />
-      <IconButton icon="edit" size={HEADER_BUTTON} accessibilityLabel="Edit page" onPress={edit} style={{ opacity: busy ? 0.4 : 1 }} />
+      <IconButton icon="edit" accessibilityLabel="Edit page" onPress={edit} disabled={busy} />
       <MoreMenu
-        size={HEADER_BUTTON}
         accessibilityLabel="More actions for this page"
         disabled={busy}
         items={[{ label: 'Delete page', icon: 'trash', destructive: true, onPress: () => void remove() }]}
@@ -209,20 +209,20 @@ export function DivePage({
           accessibilityLabel={`${pageLabel ? `${pageLabel}, ` : ''}Dive ${dive.number}, ${siteName}, ${formatEntryDate(dive.divedOn)}${times ? `, ${times}` : ''}`}
           accessibilityActions={turnActions.length ? turnActions : undefined}
           onAccessibilityAction={turnActions.length ? onTurnAction : undefined}>
-          <View style={[styles.numberBox, { borderColor: theme.text }]}>
-            <Text style={[styles.no, { color: theme.textSecondary }]}>NO.</Text>
-            <Text numberOfLines={1} adjustsFontSizeToFit style={[styles.number, { color: theme.text }]}>
+          <View style={[styles.numberBox, { backgroundColor: theme.backgroundSelected }]}>
+            <Text style={[TypeScale.stamp, { color: theme.textSecondary }]}>NO.</Text>
+            <Text numberOfLines={1} adjustsFontSizeToFit style={[TypeScale.figure, { color: theme.text }]}>
               {dive.number.toLocaleString('en')}
             </Text>
           </View>
           <View style={styles.flex}>
-            <ThemedText type="label">{formatEntryDate(dive.divedOn)}</ThemedText>
-            <ThemedText type="heading">{siteName}</ThemedText>
+            <Text style={[TypeScale.footnoteStrong, { color: theme.textSecondary }]}>{formatEntryDate(dive.divedOn)}</Text>
+            <Text style={[TypeScale.title, { color: theme.text }]}>{siteName}</Text>
             {times ? (
-              <ThemedText type="small" themeColor="textSecondary">
+              <Text style={[TypeScale.subhead, { color: theme.textSecondary }]}>
                 In {dive.timeIn}
                 {out ? ` · out ${out}` : ''}
-              </ThemedText>
+              </Text>
             ) : null}
           </View>
         </View>
@@ -232,9 +232,9 @@ export function DivePage({
           {site ? (
             <Pressable onPress={() => router.push(`/site/${site.id}`)} accessibilityRole="link" style={styles.siteLink}>
               <Icon name="pin" size={16} color={theme.tint} />
-              <ThemedText type="smallBold" themeColor="tint">
+              <Text style={[TypeScale.subheadStrong, { color: theme.tint }]}>
                 {site.region}, {site.country} ›
-              </ThemedText>
+              </Text>
             </Pressable>
           ) : (
             <View style={styles.flex} />
@@ -251,109 +251,88 @@ export function DivePage({
       ) : (
         <Pressable onPress={edit} accessibilityRole="link" accessibilityLabel="Add depth and time" style={styles.addLink}>
           <Icon name="plus" size={16} color={theme.tint} />
-          <ThemedText type="smallBold" themeColor="tint">
-            Add depth and time
-          </ThemedText>
+          <Text style={[TypeScale.subheadStrong, { color: theme.tint }]}>Add depth and time</Text>
         </Pressable>
       )}
 
       {facts.length > 0 || dive.rating ? (
-        <Paper padded={false}>
+        <Card padded={false}>
           {facts.map((f, i) => (
-            <View key={`${f.label}-${i}`} style={[styles.fact, i > 0 && { borderTopWidth: 1, borderTopColor: theme.rule }]}>
-              <Icon name={f.icon} size={18} color={theme.textSecondary} wash={theme.textSecondary} washOpacity={0.2} />
-              <ThemedText type="label" style={styles.factLabel}>
-                {f.label}
-              </ThemedText>
-              <ThemedText type="smallBold" style={styles.factValue}>
-                {f.value}
-              </ThemedText>
-            </View>
+            <FactRow key={`${f.label}-${i}`} icon={f.icon} label={f.label} separator={i > 0}>
+              {f.value}
+            </FactRow>
           ))}
           {dive.rating ? (
-            <View style={[styles.fact, facts.length > 0 && { borderTopWidth: 1, borderTopColor: theme.rule }]} accessible accessibilityLabel={`Rating: ${dive.rating} of 5 stars`}>
-              <Icon name="star" size={18} color={theme.textSecondary} wash={theme.textSecondary} washOpacity={0.2} />
-              <ThemedText type="label" style={styles.factLabel}>
-                Rating
-              </ThemedText>
+            <FactRow icon="star" label="Rating" separator={facts.length > 0} accessibilityLabel={`Rating: ${dive.rating} of 5 stars`}>
               <View style={styles.stars}>
                 {[1, 2, 3, 4, 5].map((n) => (
-                  <Icon key={n} name="star" size={18} color={n <= dive.rating! ? theme.text : theme.textSecondary} wash={n <= dive.rating! ? theme.sun : 'transparent'} washOpacity={n <= dive.rating! ? 1 : 0} weight={n <= dive.rating! ? 'duotone' : 'regular'} />
+                  <Icon key={n} name="star" size={18} color={n <= dive.rating! ? theme.text : theme.textTertiary} wash={n <= dive.rating! ? theme.sun : 'transparent'} washOpacity={n <= dive.rating! ? 1 : 0} weight={n <= dive.rating! ? 'duotone' : 'regular'} />
                 ))}
               </View>
-            </View>
+            </FactRow>
           ) : null}
-        </Paper>
+        </Card>
       ) : null}
 
       {dive.notes ? (
-        <Paper tone="sand">
-          <ThemedText type="label" style={styles.notesLabel}>
-            Notes
-          </ThemedText>
-          <ThemedText>{dive.notes}</ThemedText>
-        </Paper>
+        <Card style={styles.notes}>
+          <Text style={[TypeScale.footnoteStrong, { color: theme.textSecondary }]}>Notes</Text>
+          <Text style={[TypeScale.body, { color: theme.text }]}>{dive.notes}</Text>
+        </Card>
       ) : null}
 
-      <SectionHeader title="What you saw" />
-      {onPage.map((s) => {
-        const species = speciesForSighting(s);
-        if (!species) return null;
-        return <SightingRow key={s.id} sighting={s} species={species} site={site} detail={aboutAnimal(s, species)} pending={!!user && !s.synced} hideDate quiet onPress={() => router.push(`/sighting/${s.id}`)} />;
-      })}
-      {onPage.length === 0 ? (
-        <ThemedText type="small" themeColor="textSecondary">
-          Nothing logged on this dive yet.
-        </ThemedText>
-      ) : null}
-      <OceanButton title="Add what you saw" icon="plus" variant="secondary" onPress={() => router.push({ pathname: '/log/new', params: { dive: dive.id } })} />
+      <Section title="What you saw">
+        {onPage.length > 0 ? (
+          <List>
+            {onPage.map((s) => {
+              const species = speciesForSighting(s);
+              if (!species) return null;
+              return <SightingRow key={s.id} sighting={s} species={species} site={site} detail={aboutAnimal(s, species)} pending={!!user && !s.synced} hideDate quiet onPress={() => router.push(`/sighting/${s.id}`)} />;
+            })}
+          </List>
+        ) : (
+          <Text style={[TypeScale.subhead, { color: theme.textSecondary }]}>Nothing logged on this dive yet.</Text>
+        )}
+        <Button title="Add what you saw" icon="plus" variant="secondary" onPress={() => router.push({ pathname: '/log/new', params: { dive: dive.id } })} />
+      </Section>
 
-      <SectionHeader title="Buddy signature" />
-      {/* Signatures and the centre's stamp sit side by side at the foot of the page, as on paper. */}
-      <Paper style={styles.signed}>
-        {signatures.length === 0 && !dive.centreName ? (
-          <ThemedText type="small" themeColor="textSecondary">
-            No signatures yet.
-          </ThemedText>
-        ) : null}
-        {signatures.map((s, i) => (
-          <View key={`${s.name}-${s.at}`} style={[styles.signature, i > 0 && { borderTopWidth: 1, borderTopColor: theme.rule }]}>
-            <SignatureView svg={s.svg} height={56} />
-            <View style={[styles.signLine, { borderTopColor: theme.textSecondary }]}>
-              <ThemedText type="smallBold">{s.name}</ThemedText>
-              <ThemedText type="small" themeColor="textSecondary">
-                {s.role ? `${SIGNER_ROLE_LABEL[s.role]} · ` : ''}
-                {s.here ? 'signed on your phone' : 'signed from their own account'} · {formatTimestamp(s.at)}
-              </ThemedText>
+      <Section title="Buddy signature">
+        {/* Signatures and the centre's stamp sit together at the foot of the page, as on paper. */}
+        <Card style={styles.signed}>
+          {signatures.length === 0 && !dive.centreName ? <Text style={[TypeScale.subhead, { color: theme.textSecondary }]}>No signatures yet.</Text> : null}
+          {signatures.map((s, i) => (
+            <View key={`${s.name}-${s.at}`} style={[styles.signature, i > 0 && { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: theme.rule }]}>
+              <SignatureView svg={s.svg} height={56} />
+              <View style={[styles.signLine, { borderTopColor: theme.textTertiary }]}>
+                <Text style={[TypeScale.subheadStrong, { color: theme.text }]}>{s.name}</Text>
+                <Text style={[TypeScale.subhead, { color: theme.textSecondary }]}>
+                  {s.role ? `${SIGNER_ROLE_LABEL[s.role]} · ` : ''}
+                  {s.here ? 'signed on your phone' : 'signed from their own account'} · {formatTimestamp(s.at)}
+                </Text>
+              </View>
             </View>
-          </View>
-        ))}
-        {dive.centreName ? (
-          // The stamp says "not verified" on its face and in its label.
-          <View style={styles.stampRow}>
-            <CentreStamp name={dive.centreName} divedOn={dive.divedOn} number={dive.number} />
-          </View>
-        ) : null}
-        <OceanButton
-          title={signatures.length ? 'Add a signature' : 'Ask your buddy to sign this page'}
-          icon="signature"
-          variant="secondary"
-          onPress={() => router.push({ pathname: '/dive/sign', params: { id: dive.id } })}
-        />
-        {signatures.length === 0 ? (
-          <ThemedText type="small" themeColor="textSecondary">
-            Your buddy signs on your phone or from theirs. ScubaGo doesn’t check certifications.
-          </ThemedText>
-        ) : null}
-      </Paper>
+          ))}
+          {dive.centreName ? (
+            // The stamp says "not verified" on its face and in its label.
+            <View style={styles.stampRow}>
+              <CentreStamp name={dive.centreName} divedOn={dive.divedOn} number={dive.number} />
+            </View>
+          ) : null}
+          <Button
+            title={signatures.length ? 'Add a signature' : 'Ask your buddy to sign this page'}
+            icon="signature"
+            variant="secondary"
+            onPress={() => router.push({ pathname: '/dive/sign', params: { id: dive.id } })}
+          />
+          {signatures.length === 0 ? (
+            <Text style={[TypeScale.subhead, { color: theme.textSecondary }]}>Your buddy signs on your phone or from theirs. ScubaGo doesn’t check certifications.</Text>
+          ) : null}
+        </Card>
+      </Section>
 
       {colophon || syncShown ? (
         <View style={styles.colophon}>
-          {colophon ? (
-            <ThemedText type="caption" themeColor="textSecondary">
-              {colophon}
-            </ThemedText>
-          ) : null}
+          {colophon ? <Text style={[TypeScale.footnote, { color: theme.textSecondary }]}>{colophon}</Text> : null}
           <SyncLine item={dive} />
         </View>
       ) : null}
@@ -361,9 +340,9 @@ export function DivePage({
       {footer}
 
       {error ? (
-        <ThemedText type="small" themeColor="danger" accessibilityLiveRegion="polite" style={styles.center}>
+        <Text accessibilityLiveRegion="polite" style={[TypeScale.subhead, styles.center, { color: theme.danger }]}>
           {error}
-        </ThemedText>
+        </Text>
       ) : null}
     </>
   );
@@ -371,9 +350,6 @@ export function DivePage({
 
 /** "28" or "28.5". */
 const trim = (n: number) => (Number.isInteger(n) ? String(n) : n.toFixed(1));
-
-/** The width of a round button in the header, the height of a navigation bar. */
-const HEADER_BUTTON = 44;
 
 /**
  * What a row of "What you saw" says under the animal's name: how rare it is and what was written
@@ -389,26 +365,21 @@ const styles = StyleSheet.create({
   flex: { flex: 1 },
   center: { textAlign: 'center' },
   // The web's header has no margin at its right end (a phone's has its own).
-  headerActions: { flexDirection: 'row', alignItems: 'center', gap: Spacing.two, paddingRight: Platform.OS === 'web' ? Spacing.three : 0 },
-  headRow: { flexDirection: 'row', alignItems: 'flex-start', gap: Spacing.two },
-  head: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 14 },
-  // In the book, Share and Edit stand one above the other at the page's top corner, leaving the site its width.
+  headerActions: { flexDirection: 'row', alignItems: 'center', gap: Space.s2, paddingRight: Platform.OS === 'web' ? Space.s4 : 0 },
+  headRow: { flexDirection: 'row', alignItems: 'flex-start', gap: Space.s2 },
+  head: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: Space.s4 },
+  // In the book, Share and Edit stand at the page's top corner, leaving the site its width.
   // Beside the region when there is room, under it (at the right) when there is not: a link never breaks across two lines.
-  pageActions: { flexDirection: 'row', alignItems: 'center', gap: Spacing.two, marginLeft: 'auto' },
-  linkRow: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', columnGap: Spacing.two, marginTop: -6 },
-  addLink: { alignSelf: 'flex-start', minHeight: 44, flexDirection: 'row', alignItems: 'center', gap: 6 },
-  numberBox: { minWidth: 78, borderWidth: 1.5, borderRadius: Radius.md, paddingHorizontal: 8, paddingVertical: 6, alignItems: 'center' },
-  no: { fontFamily: Type.label, fontSize: 13, letterSpacing: 1 },
-  number: { fontFamily: Type.display, fontSize: 34, lineHeight: 40 },
-  siteLink: { minHeight: 44, flexDirection: 'row', alignItems: 'center', gap: 6 },
-  fact: { flexDirection: 'row', alignItems: 'center', gap: 8, minHeight: 48, paddingHorizontal: Spacing.three, paddingVertical: 8 },
-  factLabel: { minWidth: 92 },
-  factValue: { flex: 1, textAlign: 'right' },
-  stars: { flex: 1, flexDirection: 'row', justifyContent: 'flex-end', gap: 2 },
-  notesLabel: { marginBottom: 4 },
-  signed: { gap: Spacing.three },
-  signature: { gap: 2, paddingTop: 4 },
-  signLine: { borderTopWidth: 1, paddingTop: 4 },
-  stampRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.three, paddingVertical: 6 },
-  colophon: { gap: 4 },
+  pageActions: { flexDirection: 'row', alignItems: 'center', gap: Space.s2, marginLeft: 'auto' },
+  linkRow: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', columnGap: Space.s2, marginTop: -Space.s2 },
+  addLink: { alignSelf: 'flex-start', minHeight: Size.hit, flexDirection: 'row', alignItems: 'center', gap: Space.s2 },
+  numberBox: { minWidth: 76, borderRadius: Radius.md, paddingHorizontal: Space.s2, paddingVertical: Space.s2, alignItems: 'center' },
+  siteLink: { minHeight: Size.hit, flexDirection: 'row', alignItems: 'center', gap: Space.s2 },
+  stars: { flexDirection: 'row', gap: 2 },
+  notes: { gap: Space.s1 },
+  signed: { gap: Space.s3 },
+  signature: { gap: 2, paddingTop: Space.s1 },
+  signLine: { borderTopWidth: 1, paddingTop: Space.s1 },
+  stampRow: { flexDirection: 'row', alignItems: 'center', gap: Space.s3, paddingVertical: Space.s2 },
+  colophon: { gap: Space.s1 },
 });

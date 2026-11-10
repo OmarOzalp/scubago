@@ -1,13 +1,12 @@
 import { router } from 'expo-router';
 import { memo, useCallback, useDeferredValue, useLayoutEffect, useMemo, useRef, useState } from 'react';
-import { FlatList, Pressable, StyleSheet, Text, View, type ListRenderItemInfo } from 'react-native';
+import { FlatList, StyleSheet, Text, View, type ListRenderItemInfo } from 'react-native';
 
-import { FormField } from '@/components/form-field';
-import { Icon } from '@/components/icon';
-import { PaperButton } from '@/components/journal/paper';
 import { OsmCredit } from '@/components/site-list';
-import { ThemedText } from '@/components/themed-text';
-import { Radius, Spacing, Type } from '@/constants/theme';
+import { ListRow, type RowPosition } from '@/components/ui/list';
+import { SectionLink } from '@/components/ui/screen';
+import { SearchField } from '@/components/ui/text-field';
+import { Space, TypeScale } from '@/constants/theme';
 import { canonicalSiteId } from '@/data/sites';
 import { useTheme } from '@/hooks/use-theme';
 import { hasImportedSites } from '@/lib/site-clusters';
@@ -16,7 +15,7 @@ import { searchSites } from '@/lib/text-search';
 import type { DiveSite } from '@/lib/types';
 
 /** A line of the picker: a heading, or a site (the same site can be in "Recent" and in "All sites"). */
-type Row = { kind: 'header'; key: string; title: string } | { kind: 'site'; key: string; site: DiveSite; recent: boolean };
+type Row = { kind: 'header'; key: string; title: string } | { kind: 'site'; key: string; site: DiveSite; recent: boolean; position: RowPosition };
 
 /**
  * Choosing the dive site: a search, the diver's recent sites, then every site, and a way to add one
@@ -63,12 +62,14 @@ export function SitePicker({
     const recentIds = recentKey ? [...new Set(recentKey.split('\n').map(canonicalSiteId))] : [];
     const recent = recentIds.map((id) => byId.get(id)).filter((s): s is DiveSite => !!s);
     const out: Row[] = [];
+    // A group's rows draw its corners and hairlines: each row says where it sits in its group.
+    const place = (i: number, n: number): RowPosition => (n === 1 ? 'only' : i === 0 ? 'first' : i === n - 1 ? 'last' : 'middle');
     if (!searching && recent.length > 0) {
       out.push({ kind: 'header', key: 'header:recent', title: 'Recent' });
-      for (const site of recent) out.push({ kind: 'site', key: `recent:${site.id}`, site, recent: true });
+      recent.forEach((site, i) => out.push({ kind: 'site', key: `recent:${site.id}`, site, recent: true, position: place(i, recent.length) }));
       out.push({ kind: 'header', key: 'header:all', title: 'All sites' });
     }
-    for (const site of listed) out.push({ kind: 'site', key: site.id, site, recent: false });
+    listed.forEach((site, i) => out.push({ kind: 'site', key: site.id, site, recent: false, position: place(i, listed.length) }));
     return out;
   }, [recentKey, byId, searching, listed]);
 
@@ -88,44 +89,40 @@ export function SitePicker({
   const renderItem = useCallback(
     ({ item }: ListRenderItemInfo<Row>) =>
       item.kind === 'header' ? (
-        <ThemedText type="smallBold" themeColor="textSecondary" accessibilityRole="header" style={styles.groupLabel}>
+        <Text accessibilityRole="header" style={[styles.groupLabel, { color: theme.text }]}>
           {item.title}
-        </ThemedText>
+        </Text>
       ) : (
-        <SiteRow site={item.site} userId={userId} recent={item.recent} sharedName={sharedNames.has(item.site.name.toLowerCase())} onPick={handlePick} />
+        <SiteRow site={item.site} userId={userId} recent={item.recent} position={item.position} sharedName={sharedNames.has(item.site.name.toLowerCase())} onPick={handlePick} />
       ),
-    [userId, handlePick, sharedNames],
+    [userId, handlePick, sharedNames, theme.text],
   );
 
   return (
     <View style={styles.picker}>
       <View style={styles.search}>
-        <ThemedText type="heading" accessibilityRole="header">
+        <Text accessibilityRole="header" style={[styles.question, { color: theme.text }]}>
           Where did you dive?
-        </ThemedText>
-        <FormField
-          label="Where did you dive?"
-          labelHidden
+        </Text>
+        <SearchField
+          accessibilityLabel="Where did you dive?"
           value={query}
           onChangeText={setQuery}
           placeholder="Search sites, regions, countries…"
-          autoCorrect={false}
-          returnKeyType="search"
         />
         {/* Right under the search, where the diver is looking when the site isn't there, not at the end of a list of hundreds. */}
-        <Pressable
-          onPress={() => router.push({ pathname: '/add-site', params: { then: 'log', name: query.trim() } })}
-          accessibilityRole="button"
-          accessibilityLabel="Can’t find it? Add a dive site"
-          style={({ pressed }) => [styles.addSite, { opacity: pressed ? 0.6 : 1 }]}>
-          <Text style={[styles.addSiteText, { color: theme.tint }]}>Can’t find it? Add a dive site</Text>
-        </Pressable>
+        <View style={styles.addSite}>
+          <SectionLink
+            label="Can’t find it? Add a dive site"
+            role="button"
+            onPress={() => router.push({ pathname: '/add-site', params: { then: 'log', name: query.trim() } })}
+          />
+        </View>
       </View>
       <FlatList
         data={rows}
         keyExtractor={rowKey}
         renderItem={renderItem}
-        ItemSeparatorComponent={Separator}
         keyboardShouldPersistTaps="handled"
         initialNumToRender={12}
         maxToRenderPerBatch={12}
@@ -133,9 +130,9 @@ export function SitePicker({
         contentContainerStyle={styles.content}
         ListEmptyComponent={
           searching ? (
-            <ThemedText type="caption" themeColor="textSecondary" accessibilityLiveRegion="polite">
+            <Text accessibilityLiveRegion="polite" style={[styles.empty, { color: theme.textSecondary }]}>
               No site matches “{typed.trim()}”.
-            </ThemedText>
+            </Text>
           ) : undefined
         }
         ListFooterComponent={
@@ -158,67 +155,48 @@ export function shortRegion(region: string): string {
   return parts.length > 1 ? parts[parts.length - 1] : region;
 }
 
-function Separator() {
-  return <View style={styles.separator} />;
-}
-
 /** One site. It takes the site itself and a stable callback, so it is only rebuilt when its own site (or who is looking) changes. */
 const SiteRow = memo(function SiteRow({
   site,
   userId,
   recent,
+  position,
   sharedName,
   onPick,
 }: {
   site: DiveSite;
   userId: string | undefined;
   recent: boolean;
+  position: RowPosition;
   /** Another site has this name: show the whole place. */
   sharedName: boolean;
   onPick: (site: DiveSite) => void;
 }) {
-  const theme = useTheme();
   const addedBy = siteAddedBy(site, userId);
   const suffix = addedBy ? ` · added by ${addedBy}` : '';
   // The row says "Red Sea, Egypt"; "Marsa Alam & the south, Red Sea, Egypt" is still what a screen reader hears.
   const where = `${sharedName ? site.region : shortRegion(site.region)}, ${site.country}${suffix}`;
   return (
-    <PaperButton onPress={() => onPick(site)} accessibilityLabel={`${site.name}, ${site.region}, ${site.country}${suffix}`} style={styles.row}>
-      <View style={[styles.rowIcon, { backgroundColor: recent ? `${theme.wash}66` : theme.backgroundSelected }]}>
-        <Icon name={recent ? 'clock' : 'pin'} size={20} />
-      </View>
-      <View style={{ flex: 1, gap: 1 }}>
-        <Text numberOfLines={2} style={[styles.rowTitle, { color: theme.text }]}>
-          {site.name}
-        </Text>
-        <ThemedText type="small" themeColor="textSecondary" numberOfLines={2}>
-          {where}
-        </ThemedText>
-      </View>
-      <Icon name="chevronRight" size={16} color={theme.textSecondary} weight="bold" />
-    </PaperButton>
+    <ListRow
+      position={position}
+      leading={recent ? 'clock' : 'pin'}
+      title={site.name}
+      titleLines={2}
+      subtitle={where}
+      subtitleLines={2}
+      accessibilityLabel={`${site.name}, ${site.region}, ${site.country}${suffix}`}
+      onPress={() => onPick(site)}
+    />
   );
 });
 
 const styles = StyleSheet.create({
   picker: { flex: 1 },
-  search: { paddingHorizontal: Spacing.three, paddingTop: Spacing.three, paddingBottom: Spacing.one, gap: Spacing.two + 2 },
-  content: { paddingHorizontal: Spacing.three, paddingBottom: Spacing.three },
-  separator: { height: Spacing.two + 2 },
-  footer: { marginTop: Spacing.three + 2 },
-  // A 44 pt strip to tap: the words are one line, the hit area is the whole strip.
-  addSite: { alignSelf: 'flex-start', minHeight: 44, justifyContent: 'center' },
-  addSiteText: { fontFamily: Type.bodyBold, fontSize: 14, lineHeight: 19 },
-  groupLabel: { marginTop: Spacing.two },
-  row: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-    borderRadius: Radius.md,
-    padding: 10,
-    paddingRight: 12,
-    minHeight: 64,
-  },
-  rowIcon: { width: 40, height: 40, borderRadius: Radius.sm, alignItems: 'center', justifyContent: 'center' },
-  rowTitle: { fontFamily: Type.bodyHeavy, fontSize: 15, lineHeight: 20 },
+  search: { paddingHorizontal: Space.s4, paddingTop: Space.s4, paddingBottom: Space.s2, gap: Space.s3 },
+  content: { paddingHorizontal: Space.s4, paddingBottom: Space.s4 },
+  footer: { marginTop: Space.s4 },
+  question: { ...TypeScale.headline },
+  addSite: { alignSelf: 'flex-start' },
+  groupLabel: { ...TypeScale.headline, marginTop: Space.s6, marginBottom: Space.s3 },
+  empty: { ...TypeScale.callout },
 });

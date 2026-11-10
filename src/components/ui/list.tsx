@@ -24,13 +24,20 @@ export function List({ children, style }: ListProps) {
   const rows = Children.toArray(children).filter(isValidElement) as ReactElement<ListRowProps>[];
   return (
     <View style={[surface, styles.list, style]}>
-      {rows.map((row, index) => (row.type === ListRow ? cloneElement(row, { separator: index > 0, inGroup: true }) : row))}
+      {rows.map((row, index) => (isRow(row) ? cloneElement(row, { separator: index > 0, inGroup: true }) : row))}
     </View>
   );
 }
 
+/** A component that draws a ListRow inside (a sighting row) says so with `groupRow = true`, and a List hands it its place. */
+function isRow(element: ReactElement<ListRowProps>): boolean {
+  return element.type === ListRow || (element.type as { groupRow?: boolean }).groupRow === true;
+}
+
 export type ListRowProps = {
   title: string;
+  /** 2 for a name that may wrap at a space (a site, an animal); one line by default. */
+  titleLines?: 1 | 2;
   /** One or two lines under the title (subhead, secondary). */
   subtitle?: string;
   subtitleLines?: 1 | 2;
@@ -44,12 +51,16 @@ export type ListRowProps = {
   value?: string;
   /** The row is a switch: the whole row toggles it, and the switch only shows its state. */
   switchValue?: boolean;
+  /** Something under the subtitle (tags saying where a sighting stands). */
+  below?: ReactNode;
   onPress?: () => void;
-  accessibilityRole?: 'button' | 'link' | 'switch';
+  accessibilityRole?: 'button' | 'link' | 'switch' | 'checkbox' | 'radio';
   /** Defaults to "Title. Subtitle". */
   accessibilityLabel?: string;
   accessibilityHint?: string;
   accessibilityState?: AccessibilityState;
+  /** The row opens and closes something under it (a disclosure): read as expanded or collapsed. */
+  expanded?: boolean;
   /** Edged in the tint colour (the site whose card is open). */
   selected?: boolean;
   testID?: string;
@@ -64,8 +75,10 @@ export type ListRowProps = {
 /** The one row: leading tile, title (bodyStrong, one line), subtitle, trailing chevron, value or switch. 56 tall at least. */
 export function ListRow({
   title,
+  titleLines = 1,
   subtitle,
   subtitleLines = 1,
+  below,
   meta,
   leading,
   trailing,
@@ -76,6 +89,7 @@ export function ListRow({
   accessibilityLabel,
   accessibilityHint,
   accessibilityState,
+  expanded,
   selected = false,
   testID,
   separator = false,
@@ -105,7 +119,7 @@ export function ListRow({
       {showSeparator ? <View style={[styles.hairline, { left: inset, backgroundColor: theme.rule }]} /> : null}
       {lead}
       <View style={styles.text}>
-        <Text numberOfLines={1} maxFontSizeMultiplier={1.6} style={[styles.title, { color: theme.text }]}>
+        <Text numberOfLines={titleLines} maxFontSizeMultiplier={1.6} style={[styles.title, { color: theme.text }]}>
           {title}
         </Text>
         {subtitle ? (
@@ -118,6 +132,7 @@ export function ListRow({
             {meta.text}
           </Text>
         ) : null}
+        {below}
       </View>
       {value ? (
         <Text numberOfLines={1} style={[styles.value, { color: theme.textSecondary }]}>
@@ -143,7 +158,9 @@ export function ListRow({
       accessibilityRole={isSwitch ? 'switch' : (accessibilityRole ?? 'button')}
       accessibilityLabel={label}
       accessibilityHint={accessibilityHint}
-      accessibilityState={isSwitch ? { checked: switchValue, ...accessibilityState } : { selected: selected || undefined, ...accessibilityState }}
+      aria-checked={accessibilityRole === 'checkbox' || accessibilityRole === 'radio' ? selected : undefined}
+      aria-expanded={expanded}
+      accessibilityState={isSwitch ? { checked: switchValue, ...accessibilityState } : { selected: selected || undefined, expanded, ...accessibilityState }}
       style={({ pressed }) => [
         styles.row,
         grouped && [rowFill(theme), grouped],

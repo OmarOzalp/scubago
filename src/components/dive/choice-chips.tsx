@@ -1,16 +1,15 @@
-import { Pressable, StyleSheet, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 
-import { Icon } from '@/components/icon';
-import { ThemedText } from '@/components/themed-text';
-import { Radius, Type } from '@/constants/theme';
-import { useTheme } from '@/hooks/use-theme';
+import { FieldLabel } from '@/components/form-field';
+import { Chip } from '@/components/ui/chip';
+import { Space } from '@/constants/theme';
 
 type Option<T extends string> = { id: T; label: string };
 
 /**
- * A row of choices under a typewriter label. One choice (read as radio buttons; tap the chosen one
+ * A row of choices under a small label. One choice (read as radio buttons; tap the chosen one
  * again to clear it, since every field on a page is optional) or several (`multi`, checkboxes).
- * The chosen ones are inked in and ticked, so the choice isn't told by colour alone.
+ * The chosen ones are filled with the ink colour, as chips are everywhere.
  */
 export function ChoiceChips<T extends string>(
   props: { label: string; options: Option<T>[] } & (
@@ -18,7 +17,6 @@ export function ChoiceChips<T extends string>(
     | { multi: true; value: T[]; onChange: (value: T[]) => void }
   ),
 ) {
-  const theme = useTheme();
   const chosen = (id: T) => (props.multi ? props.value.includes(id) : props.value === id);
   const press = (id: T) => {
     if (props.multi) props.onChange(props.value.includes(id) ? props.value.filter((x) => x !== id) : [...props.value, id]);
@@ -26,48 +24,25 @@ export function ChoiceChips<T extends string>(
   };
   return (
     <View style={styles.field}>
-      <ThemedText type="label" importantForAccessibility="no" accessibilityElementsHidden>
-        {props.label}
-      </ThemedText>
+      <FieldLabel>{props.label}</FieldLabel>
       <View style={styles.row} accessibilityRole={props.multi ? undefined : 'radiogroup'} accessibilityLabel={props.label}>
-        {props.options.map((o) => {
-          const on = chosen(o.id);
-          return (
-            <Pressable
-              key={o.id}
-              onPress={() => press(o.id)}
-              accessibilityRole={props.multi ? 'checkbox' : 'radio'}
-              aria-checked={on}
-              accessibilityLabel={props.multi ? `${props.label}: ${o.label}` : o.label}
-              style={({ pressed }) => [
-                styles.chip,
-                {
-                  backgroundColor: on ? theme.text : pressed ? theme.backgroundSelected : theme.backgroundElement,
-                  borderColor: on ? theme.text : theme.rule,
-                },
-              ]}>
-              {on ? <Icon name="check" size={13} color={theme.background} weight="bold" /> : null}
-              <ThemedText type="smallBold" style={{ fontFamily: Type.bodyHeavy, color: on ? theme.background : theme.text }}>
-                {o.label}
-              </ThemedText>
-            </Pressable>
-          );
-        })}
+        {props.options.map((o) => (
+          <Chip
+            key={o.id}
+            role={props.multi ? 'checkbox' : 'radio'}
+            label={o.label}
+            selected={chosen(o.id)}
+            accessibilityLabel={props.multi ? `${props.label}: ${o.label}` : o.label}
+            onPress={() => press(o.id)}
+          />
+        ))}
       </View>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  field: { gap: 6 },
-  row: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-  chip: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 5,
-    minHeight: 44,
-    paddingHorizontal: 12,
-    borderRadius: Radius.sm,
-    borderWidth: 1.5,
-  },
+  field: { gap: Space.s1 },
+  // A chip is 36 to look at and 44 to hit: the 4 above and below it make the gap between rows.
+  row: { flexDirection: 'row', flexWrap: 'wrap', columnGap: Space.s2 },
 });

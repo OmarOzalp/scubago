@@ -1,22 +1,21 @@
 import { Stack, router, useLocalSearchParams } from 'expo-router';
 import { useState } from 'react';
-import { Platform, Pressable, ScrollView, Share, StyleSheet, Text, View } from 'react-native';
+import { Platform, Share, StyleSheet, Text, View } from 'react-native';
 import Svg, { Line } from 'react-native-svg';
 
 import { ChoiceChips } from '@/components/dive/choice-chips';
 import { SignaturePad, SignatureView } from '@/components/dive/signature';
 import { FormField } from '@/components/form-field';
-import { Icon } from '@/components/icon';
-import { Paper } from '@/components/journal/paper';
 import { Seal } from '@/components/journal/stamp';
-import { OceanButton } from '@/components/ocean-button';
-import { MoreMenu } from '@/components/ui/more-menu';
-import { Segmented } from '@/components/segmented';
 import { formatDate } from '@/components/sighting-row';
-import { ThemedText } from '@/components/themed-text';
-import { ThemedView } from '@/components/themed-view';
+import { Button } from '@/components/ui/button';
+import { Card } from '@/components/ui/card';
+import { MoreMenu } from '@/components/ui/more-menu';
+import { EmptyState, Notice } from '@/components/ui/notice';
+import { Screen } from '@/components/ui/screen';
+import { Segmented } from '@/components/ui/segmented';
 import { WhenReady } from '@/components/when-ready';
-import { Radius, Spacing, Type } from '@/constants/theme';
+import { Space, TypeScale } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { announce } from '@/lib/announce';
 import { confirmAction } from '@/lib/confirm';
@@ -64,27 +63,27 @@ function SignDiveScreen() {
 
   if (!dive) {
     return (
-      <ThemedView style={styles.centered}>
+      <Screen kind="modal">
         <Stack.Screen options={{ title: 'Buddy signature' }} />
-        <ThemedText>This page isn’t in your log any more.</ThemedText>
-      </ThemedView>
+        <EmptyState icon="logbook" title="This page isn’t in your log any more." />
+      </Screen>
     );
   }
   const siteName = siteById(dive.siteId)?.name ?? 'a dive site';
 
   if (done && dive.signature) {
     return (
-      <ThemedView style={styles.centered}>
+      <Screen kind="modal" contentStyle={styles.centered}>
         <Stack.Screen options={{ title: 'Signed' }} />
         <Seal label="Signed" size={104} rotate={-8} animate />
-        <ThemedText type="display" accessibilityRole="header" style={styles.center}>
+        <Text accessibilityRole="header" style={[TypeScale.display, styles.center, { color: theme.text }]}>
           {formatDiveNumber(dive.number)} is signed
-        </ThemedText>
-        <ThemedText themeColor="textSecondary" style={styles.center}>
+        </Text>
+        <Text style={[TypeScale.body, styles.center, { color: theme.textSecondary }]}>
           {dive.signature.name} signed your page at {siteName}.
-        </ThemedText>
-        <OceanButton title={then === 'page' ? 'Open the page' : 'Back to the page'} onPress={toPage} style={styles.stretch} />
-      </ThemedView>
+        </Text>
+        <Button title={then === 'page' ? 'Open the page' : 'Back to the page'} onPress={toPage} style={styles.stretch} />
+      </Screen>
     );
   }
 
@@ -121,90 +120,71 @@ function SignDiveScreen() {
   };
 
   return (
-    <ThemedView style={styles.container}>
+    <Screen kind="modal" scrollEnabled={!drawing}>
       <Stack.Screen options={{ title: 'Buddy signature' }} />
-      <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled" scrollEnabled={!drawing}>
-        <ThemedText type="small" themeColor="textSecondary">
-          Your buddy or guide signs this page, on this phone or on theirs.
-        </ThemedText>
-        {/* What is being signed, so the signer can check it. */}
-        <Paper style={styles.summary} raised>
-          <ThemedText type="label">{formatDate(dive.divedOn)}</ThemedText>
-          <ThemedText type="heading">
-            {formatDiveNumber(dive.number)} at {siteName}
-          </ThemedText>
-          <ThemedText type="small" themeColor="textSecondary">
-            {[dive.timeIn ? `In ${dive.timeIn}` : null, dive.maxDepthM !== undefined ? `${formatDepth(dive.maxDepthM)} deep` : null, dive.bottomTimeMin ? formatMinutes(dive.bottomTimeMin) : null, dive.buddyName ? `buddy ${dive.buddyName}` : null]
-              .filter(Boolean)
-              .join(' · ') || 'No depth or time written yet.'}
-          </ThemedText>
-        </Paper>
+      <Text style={[TypeScale.callout, { color: theme.textSecondary }]}>Your buddy or guide signs this page, on this phone or on theirs.</Text>
+      {/* What is being signed, so the signer can check it. */}
+      <Card style={styles.summary}>
+        <Text style={[TypeScale.footnoteStrong, { color: theme.textSecondary }]}>{formatDate(dive.divedOn)}</Text>
+        <Text style={[TypeScale.headline, { color: theme.text }]}>
+          {formatDiveNumber(dive.number)} at {siteName}
+        </Text>
+        <Text style={[TypeScale.subhead, { color: theme.textSecondary }]}>
+          {[dive.timeIn ? `In ${dive.timeIn}` : null, dive.maxDepthM !== undefined ? `${formatDepth(dive.maxDepthM)} deep` : null, dive.bottomTimeMin ? formatMinutes(dive.bottomTimeMin) : null, dive.buddyName ? `buddy ${dive.buddyName}` : null]
+            .filter(Boolean)
+            .join(' · ') || 'No depth or time written yet.'}
+        </Text>
+      </Card>
 
-        <Segmented<Way>
-          options={[
-            { value: 'here', label: 'On this phone' },
-            { value: 'code', label: 'From their phone' },
-          ]}
-          value={way}
-          onChange={setWay}
-          accessibilityLabel="How your buddy signs"
-        />
+      <Segmented<Way>
+        options={[
+          { value: 'here', label: 'On this phone' },
+          { value: 'code', label: 'From their phone' },
+        ]}
+        value={way}
+        onChange={setWay}
+        accessibilityLabel="How your buddy signs"
+      />
 
-        {way === 'here' ? (
-          dive.signature ? (
-            <Paper style={styles.stack}>
-              <SignatureView svg={dive.signature.svg} height={64} />
-              <View style={[styles.signLine, { borderTopColor: theme.textSecondary }]}>
-                <ThemedText type="smallBold">{dive.signature.name}</ThemedText>
-                <ThemedText type="small" themeColor="textSecondary">
-                  {dive.signature.role ? `${SIGNER_ROLE_LABEL[dive.signature.role]} · ` : ''}signed on your phone
-                </ThemedText>
-              </View>
-              <ThemedText type="small" themeColor="textSecondary">
-                A page holds one signature from your phone. To have someone else sign, remove this one, or send them a code to sign from their own phone.
-              </ThemedText>
-              <View style={styles.moreRow}>
-                <MoreMenu accessibilityLabel="More actions for this signature" items={[{ label: 'Remove this signature', icon: 'trash', destructive: true, onPress: () => void unsign() }]} />
-              </View>
-            </Paper>
-          ) : (
-            <View style={styles.stack}>
-              <View style={styles.note}>
-                <Icon name="buddies" size={20} wash={theme.sun} />
-                <ThemedText type="small" style={styles.flex}>
-                  Hand your phone to your buddy or guide. They write their name and sign below.
-                </ThemedText>
-              </View>
-              <FormField label="Their name" value={name} onChangeText={setName} placeholder="Name as they sign it" autoCapitalize="words" maxLength={80} />
-              <ChoiceChips label="On this dive they were" options={ROLE_OPTIONS} value={role} onChange={setRole} />
-              <SignaturePad onChange={setSvg} onDrawing={setDrawing} />
-              <ThemedText type="caption" themeColor="textSecondary">
-                What they say they were is shown as they wrote it; ScubaGo doesn’t check certifications.
-              </ThemedText>
-              {error ? (
-                <ThemedText type="small" themeColor="danger" accessibilityLiveRegion="polite">
-                  {error}
-                </ThemedText>
-              ) : null}
-              <OceanButton
-                title={saving ? 'Signing…' : 'Sign this page'}
-                icon={saving ? undefined : 'signature'}
-                variant="log"
-                onPress={() => void sign()}
-                disabled={saving || !name.trim() || !svg}
-              />
-              {!name.trim() || !svg ? (
-                <ThemedText type="small" themeColor="textSecondary" style={styles.center}>
-                  {!name.trim() ? 'Write their name' : 'Sign in the box'} to sign the page.
-                </ThemedText>
-              ) : null}
+      {way === 'here' ? (
+        dive.signature ? (
+          <Card style={styles.stack}>
+            <SignatureView svg={dive.signature.svg} height={64} />
+            <View style={[styles.signLine, { borderTopColor: theme.textTertiary }]}>
+              <Text style={[TypeScale.subheadStrong, { color: theme.text }]}>{dive.signature.name}</Text>
+              <Text style={[TypeScale.subhead, { color: theme.textSecondary }]}>
+                {dive.signature.role ? `${SIGNER_ROLE_LABEL[dive.signature.role]} · ` : ''}signed on your phone
+              </Text>
             </View>
-          )
+            <Text style={[TypeScale.subhead, { color: theme.textSecondary }]}>
+              A page holds one signature from your phone. To have someone else sign, remove this one, or send them a code to sign from their own phone.
+            </Text>
+            <View style={styles.moreRow}>
+              <MoreMenu accessibilityLabel="More actions for this signature" items={[{ label: 'Remove this signature', icon: 'trash', destructive: true, onPress: () => void unsign() }]} />
+            </View>
+          </Card>
         ) : (
-          <SendCode diveId={dive.id} number={dive.number} siteName={siteName} synced={dive.synced} syncError={dive.syncError} />
-        )}
-      </ScrollView>
-    </ThemedView>
+          <View style={styles.stack}>
+            <Notice icon="buddies">Hand your phone to your buddy or guide. They write their name and sign below.</Notice>
+            <FormField label="Their name" value={name} onChangeText={setName} placeholder="Name as they sign it" autoCapitalize="words" maxLength={80} />
+            <ChoiceChips label="On this dive they were" options={ROLE_OPTIONS} value={role} onChange={setRole} />
+            <SignaturePad onChange={setSvg} onDrawing={setDrawing} />
+            <Text style={[TypeScale.subhead, { color: theme.textSecondary }]}>What they say they were is shown as they wrote it; ScubaGo doesn’t check certifications.</Text>
+            {error ? (
+              <Text accessibilityLiveRegion="polite" style={[TypeScale.subhead, { color: theme.danger }]}>
+                {error}
+              </Text>
+            ) : null}
+            <Button title={saving ? 'Signing…' : 'Sign this page'} icon={saving ? undefined : 'signature'} variant="log" onPress={() => void sign()} disabled={saving || !name.trim() || !svg} />
+            {!name.trim() || !svg ? (
+              <Text style={[TypeScale.subhead, styles.center, { color: theme.textSecondary }]}>{!name.trim() ? 'Write their name' : 'Sign in the box'} to sign the page.</Text>
+            ) : null}
+          </View>
+        )
+      ) : (
+        <SendCode diveId={dive.id} number={dive.number} siteName={siteName} synced={dive.synced} syncError={dive.syncError} />
+      )}
+    </Screen>
   );
 }
 
@@ -221,18 +201,16 @@ function SendCode({ diveId, number, siteName, synced, syncError }: { diveId: str
 
   if (!client) {
     return (
-      <ThemedText type="small" themeColor="textSecondary">
+      <Text style={[TypeScale.subhead, { color: theme.textSecondary }]}>
         Signing from another phone needs ScubaGo accounts, and this build has no server to sign in to. Your buddy can sign on this phone instead.
-      </ThemedText>
+      </Text>
     );
   }
   if (!user) {
     return (
       <View style={styles.stack}>
-        <ThemedText type="small" themeColor="textSecondary">
-          Sign in to send a code: your buddy signs from their own account, so you both need one.
-        </ThemedText>
-        <OceanButton title="Sign in" icon="account" onPress={() => router.push('/auth')} />
+        <Text style={[TypeScale.subhead, { color: theme.textSecondary }]}>Sign in to send a code: your buddy signs from their own account, so you both need one.</Text>
+        <Button title="Sign in" icon="account" onPress={() => router.push('/auth')} />
       </View>
     );
   }
@@ -240,13 +218,8 @@ function SendCode({ diveId, number, siteName, synced, syncError }: { diveId: str
     const offline = !syncError || isConnectionProblem(syncError);
     return (
       <View style={styles.stack}>
-        <View style={styles.note}>
-          <Icon name="sync" size={18} color={theme.textSecondary} wash={theme.textSecondary} washOpacity={0.2} />
-          <ThemedText type="small" themeColor={offline ? 'textSecondary' : 'danger'} style={styles.flex}>
-            {offline ? 'Once this page has synced, you can make a code for it.' : `This page hasn’t synced: ${syncError!.replace(/\.$/, '')}.`}
-          </ThemedText>
-        </View>
-        <OceanButton title={syncing ? 'Syncing…' : 'Sync now'} icon="sync" variant="secondary" disabled={syncing} onPress={() => void requestSync()} />
+        <Notice icon="sync">{offline ? 'Once this page has synced, you can make a code for it.' : `This page hasn’t synced: ${syncError!.replace(/\.$/, '')}.`}</Notice>
+        <Button title={syncing ? 'Syncing…' : 'Sync now'} icon="sync" variant="secondary" disabled={syncing} onPress={() => void requestSync()} />
       </View>
     );
   }
@@ -281,48 +254,36 @@ function SendCode({ diveId, number, siteName, synced, syncError }: { diveId: str
     <View style={styles.stack}>
       {code ? (
         <>
-          <ThemedText type="small" themeColor="textSecondary">
-            Send this code to your buddy. In ScubaGo they go to Logbook → Buddy code, check the page and sign it.
-          </ThemedText>
-          <View style={[styles.ticket, { backgroundColor: theme.background, borderColor: theme.rule }]}>
-            <Text selectable accessibilityLabel={`Code ${code.code.split('').join(' ')}`} style={[styles.code, { color: theme.text }]}>
+          <Text style={[TypeScale.subhead, { color: theme.textSecondary }]}>Send this code to your buddy. In ScubaGo they go to Logbook → Buddy code, check the page and sign it.</Text>
+          <Card style={styles.ticket}>
+            <Text selectable accessibilityLabel={`Code ${code.code.split('').join(' ')}`} style={[TypeScale.ticket, styles.center, { color: theme.text }]}>
               {code.code}
             </Text>
-            <View aria-hidden>
+            <View aria-hidden style={styles.perforation}>
               <Svg width="100%" height={2}>
-                <Line x1="0" y1="1" x2="100%" y2="1" stroke={theme.rule} strokeWidth={1.5} strokeDasharray="5 4" />
+                <Line x1="0" y1="1" x2="100%" y2="1" stroke={theme.textTertiary} strokeWidth={1.5} strokeDasharray="5 4" />
               </Svg>
             </View>
-            <ThemedText type="small" themeColor="textSecondary" style={styles.center}>
+            <Text style={[TypeScale.subhead, styles.center, { color: theme.textSecondary }]}>
               Up to {code.maxUses} people can sign · valid until {new Date(code.expiresAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
-            </ThemedText>
-          </View>
-          <OceanButton title="Share code" icon="share" onPress={() => void share(code)} />
-          <OceanButton title={syncing ? 'Checking…' : 'Check for signatures'} icon="sync" variant="secondary" disabled={syncing} onPress={() => void requestSync()} />
-          <Pressable
-            onPress={() => void ask(code)}
-            disabled={busy}
-            accessibilityRole="button"
-            accessibilityHint="The code above stops working"
-            style={({ pressed }) => [styles.link, { opacity: busy ? 0.4 : pressed ? 0.6 : 1 }]}>
-            <Icon name="sync" size={16} color={theme.tint} />
-            <ThemedText type="smallBold" themeColor="tint">
-              {busy ? 'Making a new code…' : 'Make a new code'}
-            </ThemedText>
-          </Pressable>
+            </Text>
+          </Card>
+          <Button title="Share code" icon="share" onPress={() => void share(code)} />
+          <Button title={syncing ? 'Checking…' : 'Check for signatures'} icon="sync" variant="secondary" disabled={syncing} onPress={() => void requestSync()} />
+          <Button title={busy ? 'Making a new code…' : 'Make a new code'} icon="sync" variant="plain" size="md" disabled={busy} accessibilityHint="The code above stops working" onPress={() => void ask(code)} />
         </>
       ) : (
         <>
-          <ThemedText type="small" themeColor="textSecondary">
+          <Text style={[TypeScale.subhead, { color: theme.textSecondary }]}>
             Not together any more? Make a code and send it. Your buddy sees this page’s number, site and date before they sign, and their signature appears here when your log next syncs.
-          </ThemedText>
-          <OceanButton title={busy ? 'Making a code…' : 'Make a code'} icon="code" disabled={busy} onPress={() => void ask()} />
+          </Text>
+          <Button title={busy ? 'Making a code…' : 'Make a code'} icon="code" disabled={busy} onPress={() => void ask()} />
         </>
       )}
       {problem ? (
-        <ThemedText type="small" themeColor={problem.kind === 'offline' ? 'textSecondary' : 'danger'} accessibilityLiveRegion="polite">
+        <Text accessibilityLiveRegion="polite" style={[TypeScale.subhead, { color: problem.kind === 'offline' ? theme.textSecondary : theme.danger }]}>
           {problem.message}
-        </ThemedText>
+        </Text>
       ) : null}
     </View>
   );
@@ -330,17 +291,12 @@ function SendCode({ diveId, number, siteName, synced, syncError }: { diveId: str
 
 const styles = StyleSheet.create({
   moreRow: { alignItems: 'flex-end' },
-  container: { flex: 1 },
-  centered: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: Spacing.three, padding: Spacing.four },
-  content: { padding: Spacing.three, gap: Spacing.four, paddingBottom: Spacing.six, width: '100%', maxWidth: 720, alignSelf: 'center' },
+  centered: { flexGrow: 1, alignItems: 'center', justifyContent: 'center', gap: Space.s4 },
   center: { textAlign: 'center' },
   stretch: { alignSelf: 'stretch' },
-  flex: { flex: 1 },
   summary: { gap: 2 },
-  stack: { gap: Spacing.three },
-  note: { flexDirection: 'row', alignItems: 'flex-start', gap: 10 },
-  signLine: { borderTopWidth: 1, paddingTop: 4 },
-  ticket: { borderWidth: 1.5, borderRadius: Radius.md, paddingTop: Spacing.three, paddingBottom: 12, paddingHorizontal: Spacing.three, gap: 12, alignItems: 'center' },
-  code: { fontFamily: Type.label, fontSize: 26, lineHeight: 32, letterSpacing: 3, textAlign: 'center' },
-  link: { alignSelf: 'center', minHeight: 44, flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: Spacing.two },
+  stack: { gap: Space.s4 },
+  signLine: { borderTopWidth: 1, paddingTop: Space.s1 },
+  ticket: { gap: Space.s3, alignItems: 'center', paddingTop: Space.s5 },
+  perforation: { alignSelf: 'stretch' },
 });

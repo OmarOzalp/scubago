@@ -653,14 +653,14 @@ describe('the step bar', () => {
     expect(tabs()[2].text).toBe('Details');
   });
 
-  test('cuts a long name to about 14 characters, and says how many animals when there are several', async () => {
+  test('cuts a long name to about 14 characters, at a space, and says how many animals when there are several', async () => {
     await render();
     await pickSite();
     await press(await somethingElse());
     await press(byTitle('Next · 1 animal'));
     await typeInto('What was it?', 'A very long name for a nudibranch I could not identify at all, with a long description besides');
     await act(async () => { mockOptions.headerLeft({}).props.onPress(); });
-    expect(tabs()[1].text).toBe('A very long n…');
+    expect(tabs()[1].text).toBe('A very long…');
     expect(tabs()[1].label).toContain('A very long name for a nudibranch');
     const rows = checkboxes();
     await press(rows[0]);

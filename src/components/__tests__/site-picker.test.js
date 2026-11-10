@@ -4,8 +4,8 @@ import { FlatList, TextInput } from 'react-native';
 import { create } from 'react-test-renderer';
 import { router } from 'expo-router';
 import { shortRegion, SitePicker } from '../site-picker';
-import { FormField } from '@/components/form-field';
-import { PaperButton } from '@/components/journal/paper';
+import { ListRow } from '@/components/ui/list';
+import { SearchField } from '@/components/ui/text-field';
 import { OceanButton } from '@/components/ocean-button';
 import { SITES_BY_ID } from '@/data/sites';
 import { siteAddedBy } from '@/lib/site-details';
@@ -44,7 +44,7 @@ const render = async (over = {}) => {
   await act(async () => { root = create(<SitePicker {...props} />); });
   return props;
 };
-const rows = () => root.root.findAllByType(PaperButton);
+const rows = () => root.root.findAllByType(ListRow);
 const labels = () => rows().map((r) => r.props.accessibilityLabel);
 const type = async (text) => { await act(async () => root.root.findByType(TextInput).props.onChangeText(text)); };
 const data = () => root.root.findByType(FlatList).props.data;
@@ -123,8 +123,8 @@ test('recent sites come first, in the order given, under their own heading, and 
   expect(new Set(list.map((r) => r.key)).size).toBe(list.length);
   expect(text()).toContain('Recent');
   expect(text()).toContain('All sites');
-  const headers = root.root.findAll((n) => n.props.accessibilityRole === 'header' && n.props.type === 'smallBold');
-  expect(headers.map((h) => h.props.children)).toEqual(['Recent', 'All sites']);
+  const headers = root.root.findAll((n) => n.props.accessibilityRole === 'header' && n.type === 'Text');
+  expect(headers.map((h) => h.props.children).filter((t) => t !== 'Where did you dive?')).toEqual(['Recent', 'All sites']);
 
   await type('canyon 009');
   expect(data().every((r) => r.kind === 'site' && !r.recent)).toBe(true);
@@ -177,7 +177,7 @@ test('"Can’t find it? Add a dive site" is right under the search field, 44 poi
   await render();
   expect(root.root.findAllByType(OceanButton)).toHaveLength(0);
   // It is under the search field, in the same block, so it is in view with the search; the label line no longer holds it.
-  const field = root.root.findByType(FormField);
+  const field = root.root.findByType(SearchField);
   expect(field.props.labelAccessory).toBeUndefined();
   expect(field.findAll((n) => n === addSiteLink()).length).toBe(0);
   const block = field.parent;

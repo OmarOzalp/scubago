@@ -1,11 +1,12 @@
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 
 import { Icon } from '@/components/icon';
-import { Tag } from '@/components/journal/tag';
 import { SpeciesAvatar } from '@/components/species-avatar';
 import { StatusChip } from '@/components/status-chip';
-import { Radius, Shadow, Type } from '@/constants/theme';
-import { useSchemeName, useTheme } from '@/hooks/use-theme';
+import { List, ListRow } from '@/components/ui/list';
+import { Tag } from '@/components/ui/tag';
+import { Size, Space } from '@/constants/theme';
+import { useTheme } from '@/hooks/use-theme';
 import type { DiveSite, Sighting, Species } from '@/lib/types';
 import { STATUS_LABEL, isServerCatchingUp } from '@/lib/verification';
 
@@ -24,12 +25,14 @@ interface Props {
   /** Every row on the page is the diver's own, so "Only you" says nothing: it stays in the screen-reader label only. */
   quiet?: boolean;
   onPress?: () => void;
+  /** Set by List when the row is one of a group's. On its own the row is a card of one. */
+  separator?: boolean;
+  inGroup?: boolean;
 }
 
 /** One entry in a log: the species' plate, its name, where and when. */
-export function SightingRow({ sighting, species, site, showUsername = false, pending = false, hideDate = false, detail, quiet = false, onPress }: Props) {
+export function SightingRow({ sighting, species, site, showUsername = false, pending = false, hideDate = false, detail, quiet = false, onPress, separator, inGroup = false }: Props) {
   const theme = useTheme();
-  const scheme = useSchemeName();
   const showStatus = !!sighting.status && sighting.status !== 'unverified' && !pending;
   // Only the diver who logged a private sighting ever has it.
   const hidden = sighting.visibility === 'private';
@@ -51,47 +54,42 @@ export function SightingRow({ sighting, species, site, showUsername = false, pen
     [showUsername && !sighting.isDemo ? `@${sighting.username}` : null, site?.name, hideDate ? null : formatDate(sighting.sightedOn)]
       .filter(Boolean)
       .join(' · ');
-  return (
-    <Pressable
-      onPress={onPress}
-      disabled={!onPress}
-      accessibilityRole={onPress ? 'button' : undefined}
-      accessibilityLabel={label}
-      style={({ pressed }) => [
-        styles.row,
-        {
-          backgroundColor: pressed ? theme.backgroundSelected : theme.backgroundElement,
-          borderColor: theme.cardBorder,
-          boxShadow: Shadow[scheme].card,
-          transform: [{ translateY: pressed ? 1 : 0 }],
-        },
-      ]}>
-      <SpeciesAvatar species={species} size={52} showRarityRing />
-      <View style={styles.body}>
-        <Text numberOfLines={1} style={[styles.name, { color: theme.text }]}>
-          {species.commonName}
-        </Text>
-        {where ? (
-          <Text numberOfLines={1} style={[styles.where, { color: theme.textSecondary }]}>
-            {where}
-          </Text>
-        ) : null}
-        {sighting.isDemo || (hidden && !quiet) || showStatus || pending ? (
-          <View style={styles.tags}>
-            {/* Demo community data (local-only builds): never passed off as another diver's report. */}
-            {sighting.isDemo ? <Tag label="Example" small accessibilityLabel="Example data, not a real sighting" /> : null}
-            {hidden && !quiet ? <Tag label="Only you" small /> : null}
-            {/* Unverified is the usual case, so only the others are named here. */}
-            {showStatus ? <StatusChip status={sighting.status!} small /> : null}
-            {pending ? <Tag label={sighting.syncError && !isServerCatchingUp(sighting.syncError) ? 'Not synced' : 'Waiting to sync'} dashed small /> : null}
-          </View>
-        ) : null}
+  const tags =
+    sighting.isDemo || (hidden && !quiet) || showStatus || pending ? (
+      <View style={styles.tags}>
+        {/* Demo community data (local-only builds): never passed off as another diver's report. */}
+        {sighting.isDemo ? <Tag label="Example" accessibilityLabel="Example data, not a real sighting" /> : null}
+        {hidden && !quiet ? <Tag label="Only you" /> : null}
+        {/* Unverified is the usual case, so only the others are named here. */}
+        {showStatus ? <StatusChip status={sighting.status!} small /> : null}
+        {pending ? <Tag label={sighting.syncError && !isServerCatchingUp(sighting.syncError) ? 'Not synced' : 'Waiting to sync'} dashed /> : null}
       </View>
-      {sighting.photoUri ? <Icon name="camera" size={20} color={theme.textSecondary} /> : null}
-      {onPress ? <Icon name="chevronRight" size={18} color={theme.textSecondary} weight="bold" /> : null}
-    </Pressable>
+    ) : null;
+  const row = (
+    <ListRow
+      title={species.commonName}
+      titleLines={2}
+      subtitle={where || undefined}
+      below={tags}
+      accessibilityLabel={label}
+      separator={separator}
+      inGroup
+      leading={<SpeciesAvatar species={species} size={Size.thumb} showRarityRing />}
+      trailing={
+        sighting.photoUri ? (
+          <View style={styles.end}>
+            <Icon name="camera" size={20} color={theme.textSecondary} />
+            {onPress ? <Icon name="chevronRight" size={16} color={theme.textTertiary} weight="bold" /> : null}
+          </View>
+        ) : undefined
+      }
+      onPress={onPress}
+    />
   );
+  return inGroup ? row : <List>{row}</List>;
 }
+/** A List hands a SightingRow its place in the group, as it does a ListRow. */
+SightingRow.groupRow = true;
 
 export function formatDate(isoDate: string): string {
   const [y, m, d] = isoDate.split('-').map(Number);
@@ -118,33 +116,15 @@ export function formatEntryDate(isoDate: string, thisYear = new Date().getFullYe
 }
 
 const styles = StyleSheet.create({
-  row: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-    padding: 10,
-    paddingRight: 12,
-    borderRadius: Radius.md,
-    borderWidth: 1,
-  },
-  body: {
-    flex: 1,
-    gap: 2,
-  },
-  name: {
-    fontFamily: Type.bodyHeavy,
-    fontSize: 16,
-    lineHeight: 21,
-  },
-  where: {
-    fontFamily: Type.body,
-    fontSize: 14,
-    lineHeight: 19,
-  },
   tags: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 6,
-    marginTop: 3,
+    gap: Space.s2,
+    marginTop: Space.s1,
+  },
+  end: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Space.s3,
   },
 });

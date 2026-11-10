@@ -1,8 +1,8 @@
-import { forwardRef, useState, type ReactNode } from 'react';
-import { StyleSheet, TextInput, View, type TextInputInstance, type TextInputProps } from 'react-native';
+import { forwardRef } from 'react';
+import { Text, type TextInputInstance, type TextInputProps } from 'react-native';
 
-import { ThemedText } from '@/components/themed-text';
-import { Radius, Spacing, Type } from '@/constants/theme';
+import { TextField, type TextFieldProps } from '@/components/ui/text-field';
+import { TypeScale } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 
 type Props = TextInputProps & {
@@ -11,71 +11,27 @@ type Props = TextInputProps & {
   /** Stays visible below the field (e.g. "At least 6 characters"). */
   hint?: string;
   /** At the right end of the label's line: a link that goes with the field. */
-  labelAccessory?: ReactNode;
+  labelAccessory?: TextFieldProps['labelAccessory'];
   /** The label is only the field's accessible name: a heading above it already says what it is. */
   labelHidden?: boolean;
+  /** Edge the field in danger (its message is shown elsewhere). */
+  invalid?: boolean;
 };
 
 /**
- * A labelled text field: a typewriter label over a paper box that takes a lagoon edge while you type.
- * The label is visible and is the field's accessible name.
+ * A labelled text field: the design system's TextField under the name the forms already use. `style` is the
+ * input's (a taller box for notes); the label is visible and is the field's accessible name.
  */
-export const FormField = forwardRef<TextInputInstance, Props>(function FormField({ label, hint, labelAccessory, labelHidden = false, style, onFocus, onBlur, ...input }, ref) {
-  const theme = useTheme();
-  const [focused, setFocused] = useState(false);
-  return (
-    <View style={styles.field}>
-      {labelHidden ? null : labelAccessory ? (
-        <View style={styles.labelRow}>
-          <ThemedText type="label" importantForAccessibility="no" accessibilityElementsHidden>
-            {label}
-          </ThemedText>
-          {labelAccessory}
-        </View>
-      ) : (
-        <ThemedText type="label" importantForAccessibility="no" accessibilityElementsHidden>
-          {label}
-        </ThemedText>
-      )}
-      <TextInput
-        ref={ref}
-        accessibilityLabel={label}
-        accessibilityHint={hint}
-        placeholderTextColor={theme.textSecondary}
-        onFocus={(e) => {
-          setFocused(true);
-          onFocus?.(e);
-        }}
-        onBlur={(e) => {
-          setFocused(false);
-          onBlur?.(e);
-        }}
-        style={[
-          styles.input,
-          { backgroundColor: theme.backgroundElement, color: theme.text, borderColor: focused ? theme.tint : theme.rule },
-          style,
-        ]}
-        {...input}
-      />
-      {hint ? (
-        <ThemedText type="small" themeColor="textSecondary" importantForAccessibility="no" accessibilityElementsHidden>
-          {hint}
-        </ThemedText>
-      ) : null}
-    </View>
-  );
+export const FormField = forwardRef<TextInputInstance, Props>(function FormField({ hint, style, ...rest }, ref) {
+  return <TextField ref={ref} helper={hint} inputStyle={style as TextFieldProps['inputStyle']} {...rest} />;
 });
 
-const styles = StyleSheet.create({
-  field: { gap: 6 },
-  labelRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', columnGap: Spacing.two },
-  input: {
-    borderWidth: 1.5,
-    borderRadius: Radius.sm,
-    paddingHorizontal: Spacing.three - 2,
-    paddingVertical: Spacing.two + 2,
-    minHeight: 50,
-    fontSize: 16,
-    fontFamily: Type.body,
-  },
-});
+/** The small label above a group of controls (a field's own label style), read as a header when it names a group. */
+export function FieldLabel({ children, header = false }: { children: string; header?: boolean }) {
+  const theme = useTheme();
+  return (
+    <Text accessibilityRole={header ? 'header' : undefined} importantForAccessibility={header ? 'auto' : 'no'} accessibilityElementsHidden={!header} style={[TypeScale.footnoteStrong, { color: theme.textSecondary }]}>
+      {children}
+    </Text>
+  );
+}

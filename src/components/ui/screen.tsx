@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View, type ScrollViewProps, type StyleProp, type ViewStyle } from 'react-native';
+import type { Ref } from 'react';
+import { Pressable, ScrollView, StyleSheet, Text, View, type ScrollViewInstance, type ScrollViewProps, type StyleProp, type ViewStyle } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Icon } from '@/components/icon';
@@ -18,13 +19,15 @@ export type ScreenProps = Omit<ScrollViewProps, 'contentContainerStyle' | 'child
   scroll?: boolean;
   /** Extra layout for the column (the gutter, the 16 between blocks and the bottom room stay). */
   contentStyle?: StyleProp<ViewStyle>;
+  /** The scroll view itself, for a form that scrolls to a field. */
+  scrollRef?: Ref<ScrollViewInstance>;
 };
 
 /**
  * The page: the page colour, safe areas, a centred column 720 wide at most with the 16 gutter, and 16
  * between blocks (a Section adds 16 more above itself, so sections are 32 apart).
  */
-export function Screen({ children, kind = 'pushed', scroll = true, contentStyle, ...scrollProps }: ScreenProps) {
+export function Screen({ children, kind = 'pushed', scroll = true, contentStyle, scrollRef, ...scrollProps }: ScreenProps) {
   const theme = useTheme();
   const insets = useSafeAreaInsets();
   const top = kind === 'tab' ? insets.top + Space.s3 : kind === 'pushed' ? Space.s2 : Space.s4;
@@ -32,7 +35,7 @@ export function Screen({ children, kind = 'pushed', scroll = true, contentStyle,
   const column = [styles.column, { paddingTop: top, paddingBottom: bottom }, contentStyle];
   if (!scroll) return <View style={[styles.fill, { backgroundColor: theme.background }, column]}>{children}</View>;
   return (
-    <ScrollView keyboardShouldPersistTaps="handled" {...scrollProps} style={[styles.fill, { backgroundColor: theme.background }, scrollProps.style]} contentContainerStyle={column}>
+    <ScrollView ref={scrollRef} keyboardShouldPersistTaps="handled" {...scrollProps} style={[styles.fill, { backgroundColor: theme.background }, scrollProps.style]} contentContainerStyle={column}>
       {children}
     </ScrollView>
   );

@@ -3,14 +3,14 @@ import { useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 
 import { ChoiceChips } from '@/components/dive/choice-chips';
+import { FactRow } from '@/components/dive/fact-row';
 import { SignaturePad } from '@/components/dive/signature';
 import { FormField } from '@/components/form-field';
-import { Icon } from '@/components/icon';
-import { Paper } from '@/components/journal/paper';
-import { OceanButton } from '@/components/ocean-button';
 import { formatDate } from '@/components/sighting-row';
-import { ThemedText } from '@/components/themed-text';
-import { Radius, Spacing, Type } from '@/constants/theme';
+import { Button } from '@/components/ui/button';
+import { Card } from '@/components/ui/card';
+import { Notice } from '@/components/ui/notice';
+import { Radius, Space, TypeScale } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import {
   lookUpDiveCode,
@@ -89,62 +89,50 @@ export function RemoteSign({
   return (
     <>
       {/* The page from the diver's logbook, as they wrote it. */}
-      <Paper raised padded={false}>
+      <Card padded={false} level="raised">
         <View style={styles.head}>
-          <View style={[styles.numberBox, { borderColor: theme.text }]}>
-            <Text style={[styles.no, { color: theme.textSecondary }]}>NO.</Text>
-            <Text numberOfLines={1} adjustsFontSizeToFit style={[styles.number, { color: theme.text }]}>
+          <View style={[styles.numberBox, { backgroundColor: theme.backgroundSelected }]}>
+            <Text style={[TypeScale.stamp, { color: theme.textSecondary }]}>NO.</Text>
+            <Text numberOfLines={1} adjustsFontSizeToFit style={[TypeScale.figure, { color: theme.text }]}>
               {shown.number.toLocaleString('en')}
             </Text>
           </View>
           <View style={styles.flex}>
-            <ThemedText style={styles.site}>{siteName}</ThemedText>
-            <ThemedText type="small" themeColor="textSecondary">
-              From @{shown.owner}’s logbook
-            </ThemedText>
+            <Text style={[TypeScale.title, { color: theme.text }]}>{siteName}</Text>
+            <Text style={[TypeScale.subhead, { color: theme.textSecondary }]}>From @{shown.owner}’s logbook</Text>
           </View>
         </View>
-        <Fact icon="calendar" label="Date">
+        <FactRow icon="calendar" label="Date" separator labelWidth={64}>
           {formatDate(shown.divedOn)}
-        </Fact>
+        </FactRow>
         {facts.length ? (
-          <Fact icon="depth" label="Dive">
+          <FactRow icon="depth" label="Dive" separator labelWidth={64}>
             {facts.join(' · ')}
-          </Fact>
+          </FactRow>
         ) : null}
         {shown.buddyName ? (
-          <Fact icon="buddies" label="Buddy">
+          <FactRow icon="buddies" label="Buddy" separator labelWidth={64}>
             {shown.buddyName}
-          </Fact>
+          </FactRow>
         ) : null}
         {shown.centreName ? (
-          <Fact icon="stamp" label="Centre">
+          <FactRow icon="stamp" label="Centre" separator labelWidth={64}>
             {shown.centreName}
-          </Fact>
+          </FactRow>
         ) : null}
-      </Paper>
+      </Card>
 
       {shown.signed ? (
-        <Paper tone="sand" style={styles.note}>
-          <Icon name="checkCircle" size={22} color={theme.tint} />
-          <ThemedText style={styles.flex}>You’ve already signed this page.</ThemedText>
-        </Paper>
+        <Notice icon="checkCircle">You’ve already signed this page.</Notice>
       ) : (
         <>
-          <Paper tone="sand" style={styles.note}>
-            <Icon name="info" size={22} wash={theme.sun} />
-            <ThemedText type="small" style={styles.flex}>
-              Only sign if you were on this dive with @{shown.owner}. They’ll see your name, your signature and your username.
-            </ThemedText>
-          </Paper>
+          <Notice icon="info">Only sign if you were on this dive with @{shown.owner}. They’ll see your name, your signature and your username.</Notice>
           <View style={styles.stack}>
             <FormField label="Your name" value={name} onChangeText={setName} placeholder="As you sign it" autoCapitalize="words" maxLength={80} />
             <ChoiceChips label="On this dive you were" options={ROLE_OPTIONS} value={role} onChange={setRole} />
             <SignaturePad onChange={setSvg} onDrawing={onDrawing} label="Your signature" />
-            <ThemedText type="caption" themeColor="textSecondary">
-              ScubaGo doesn’t check certifications: what you say you were is shown as you wrote it.
-            </ThemedText>
-            <OceanButton
+            <Text style={[TypeScale.subhead, { color: theme.textSecondary }]}>ScubaGo doesn’t check certifications: what you say you were is shown as you wrote it.</Text>
+            <Button
               title={busy ? 'Signing…' : `Sign ${formatDiveNumber(shown.number)}`}
               icon={busy ? undefined : 'signature'}
               variant="log"
@@ -158,31 +146,9 @@ export function RemoteSign({
   );
 }
 
-function Fact({ icon, label, children }: { icon: 'calendar' | 'depth' | 'buddies' | 'stamp'; label: string; children: React.ReactNode }) {
-  const theme = useTheme();
-  return (
-    <View style={[styles.fact, { borderTopColor: theme.rule }]}>
-      <Icon name={icon} size={18} color={theme.textSecondary} wash={theme.textSecondary} washOpacity={0.2} />
-      <ThemedText type="label" style={styles.factLabel}>
-        {label}
-      </ThemedText>
-      <ThemedText type="smallBold" style={styles.factValue}>
-        {children}
-      </ThemedText>
-    </View>
-  );
-}
-
 const styles = StyleSheet.create({
   flex: { flex: 1 },
-  head: { flexDirection: 'row', alignItems: 'center', gap: 14, padding: Spacing.three },
-  numberBox: { minWidth: 70, borderWidth: 1.5, borderRadius: Radius.md, paddingHorizontal: 8, paddingVertical: 4, alignItems: 'center' },
-  no: { fontFamily: Type.label, fontSize: 13, letterSpacing: 1 },
-  number: { fontFamily: Type.display, fontSize: 28, lineHeight: 34 },
-  site: { fontFamily: Type.display, fontSize: 22, lineHeight: 28 },
-  fact: { flexDirection: 'row', alignItems: 'center', gap: 8, minHeight: 48, paddingHorizontal: Spacing.three, borderTopWidth: 1 },
-  factLabel: { minWidth: 56 },
-  factValue: { flex: 1, textAlign: 'right' },
-  note: { flexDirection: 'row', alignItems: 'flex-start', gap: 10 },
-  stack: { gap: Spacing.three },
+  head: { flexDirection: 'row', alignItems: 'center', gap: Space.s4, padding: Space.s4 },
+  numberBox: { minWidth: 72, borderRadius: Radius.md, paddingHorizontal: Space.s2, paddingVertical: Space.s2, alignItems: 'center' },
+  stack: { gap: Space.s4 },
 });

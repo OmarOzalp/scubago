@@ -3,9 +3,8 @@ import Animated from 'react-native-reanimated';
 
 import { Icon } from '@/components/icon';
 import { useStampIn } from '@/components/journal/stamp';
-import { ThemedText } from '@/components/themed-text';
-import { Radius, Type } from '@/constants/theme';
-import { useSchemeName, useTheme } from '@/hooks/use-theme';
+import { Radius, Space, TypeScale } from '@/constants/theme';
+import { useTheme } from '@/hooks/use-theme';
 import { formatDiveNumber, milestoneName } from '@/lib/dives';
 
 /** A small stable number from text, so a centre's stamp always lands the same way. */
@@ -63,21 +62,17 @@ export function CentreStamp({ name, divedOn, number, animate = false, style }: {
  */
 export function Bookplate({ at, siteName, style }: { at: number; siteName?: string; style?: StyleProp<ViewStyle> }) {
   const theme = useTheme();
-  const scheme = useSchemeName();
-  const paper = scheme === 'light' ? '#FFF3D1' : '#2B2A22';
   return (
     <View
       accessible
       accessibilityLabel={`Milestone: your ${milestoneName(at)} dive${siteName ? `, at ${siteName}` : ''}`}
-      style={[styles.plate, { backgroundColor: paper, borderColor: theme.text }, style]}>
+      style={[styles.plate, { backgroundColor: theme.sunSoft, borderColor: theme.text }, style]}>
       <View style={[styles.plateInner, { borderColor: theme.text }]}>
-        <ThemedText type="label">Dive {formatDiveNumber(at)}</ThemedText>
+        <Text style={[TypeScale.footnoteStrong, { color: theme.textSecondary }]}>Dive {formatDiveNumber(at)}</Text>
         <Icon name="medal" size={40} wash={theme.sun} washOpacity={0.9} />
         <Text style={[styles.plateTitle, { color: theme.text }]}>Your {milestoneName(at)} dive</Text>
         {siteName ? (
-          <ThemedText type="small" themeColor="textSecondary" style={styles.center}>
-            Logged at {siteName}
-          </ThemedText>
+          <Text style={[TypeScale.subhead, styles.center, { color: theme.textSecondary }]}>Logged at {siteName}</Text>
         ) : null}
       </View>
     </View>
@@ -86,13 +81,13 @@ export function Bookplate({ at, siteName, style }: { at: number; siteName?: stri
 
 const styles = StyleSheet.create({
   stamp: { borderWidth: 2, padding: 2, alignSelf: 'flex-start', maxWidth: 240 },
-  stampInner: { borderWidth: 1, paddingVertical: 8, alignItems: 'center', gap: 1 },
-  stampName: { fontFamily: Type.label, fontSize: 14, lineHeight: 17, letterSpacing: 1.2, textAlign: 'center' },
+  stampInner: { borderWidth: 1, paddingVertical: Space.s2, alignItems: 'center', gap: 1 },
+  stampName: { ...TypeScale.stamp, letterSpacing: 1.2, textAlign: 'center' },
   stampRule: { height: 1, alignSelf: 'stretch', marginVertical: 3, opacity: 0.8 },
-  stampLine: { fontFamily: Type.label, fontSize: 13, lineHeight: 15, letterSpacing: 1 },
-  stampSmall: { fontFamily: Type.label, fontSize: 13, lineHeight: 15, letterSpacing: 1.6, marginTop: 2 },
+  stampLine: { ...TypeScale.stamp },
+  stampSmall: { ...TypeScale.stamp, letterSpacing: 1.6, marginTop: 2 },
   plate: { borderWidth: 1.5, borderRadius: Radius.lg, padding: 5 },
-  plateInner: { borderWidth: 1, borderRadius: Radius.md, paddingVertical: 16, paddingHorizontal: 12, alignItems: 'center', gap: 6 },
-  plateTitle: { fontFamily: Type.displayItalic, fontSize: 26, lineHeight: 32, textAlign: 'center' },
+  plateInner: { borderWidth: 1, borderRadius: Radius.md, paddingVertical: Space.s4, paddingHorizontal: Space.s3, alignItems: 'center', gap: Space.s2 },
+  plateTitle: { ...TypeScale.title, textAlign: 'center' },
   center: { textAlign: 'center' },
 });

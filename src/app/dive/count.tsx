@@ -1,15 +1,13 @@
 import { Stack, router } from 'expo-router';
 import { useState } from 'react';
-import { ScrollView, StyleSheet, View } from 'react-native';
+import { Text } from 'react-native';
 
 import { FormField } from '@/components/form-field';
-import { Icon } from '@/components/icon';
-import { Paper } from '@/components/journal/paper';
-import { OceanButton } from '@/components/ocean-button';
-import { ThemedText } from '@/components/themed-text';
-import { ThemedView } from '@/components/themed-view';
+import { Button } from '@/components/ui/button';
+import { Notice } from '@/components/ui/notice';
+import { Screen } from '@/components/ui/screen';
 import { WhenReady } from '@/components/when-ready';
-import { Spacing } from '@/constants/theme';
+import { TypeScale } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { announce } from '@/lib/announce';
 import { formatDiveNumber, parseNumber } from '@/lib/dives';
@@ -62,52 +60,34 @@ function DivesBeforeScreen() {
   };
 
   return (
-    <ThemedView style={styles.container}>
+    <Screen kind="modal">
       <Stack.Screen options={{ title: 'Dives before ScubaGo' }} />
-      <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
-        <ThemedText>Say how many dives you logged before ScubaGo, so your pages carry your real numbers.</ThemedText>
-        <FormField
-          label="Dives logged before ScubaGo"
-          value={text}
-          onChangeText={(t) => setText(t.replace(/[^0-9]/g, ''))}
-          keyboardType="number-pad"
-          inputMode="numeric"
-          placeholder="0"
-          maxLength={5}
-          hint="Leave it at 0 if ScubaGo is your first log."
-        />
-        <Paper tone="sand" style={styles.row}>
-          <Icon name="logbook" size={20} wash={theme.sun} />
-          <View style={styles.flex}>
-            {!valid ? (
-              <ThemedText type="small">That isn’t a number of dives.</ThemedText>
-            ) : tooLow ? (
-              <ThemedText type="small" themeColor="danger">
-                That would number a page below No. 1. Your earliest page is {formatDiveNumber(lowest)}.
-              </ThemedText>
-            ) : (
-              <ThemedText type="small" accessibilityLiveRegion="polite">
-                {dives.length > 0 && delta !== 0
-                  ? `Every page moves by ${Math.abs(delta)} (${delta > 0 ? 'up' : 'down'}): your earliest becomes ${formatDiveNumber(lowest + delta)}, and your next dive is ${formatDiveNumber(nextAfter)}.`
-                  : `Your next dive is ${formatDiveNumber(nextAfter)}.`}
-              </ThemedText>
-            )}
-          </View>
-        </Paper>
-        {error ? (
-          <ThemedText type="small" themeColor="danger" accessibilityLiveRegion="polite">
-            {error}
-          </ThemedText>
-        ) : null}
-        <OceanButton title={saving ? 'Saving…' : 'Save'} onPress={() => void save()} disabled={saving || !valid || tooLow || delta === 0} />
-      </ScrollView>
-    </ThemedView>
+      <Text style={[TypeScale.body, { color: theme.text }]}>Say how many dives you logged before ScubaGo, so your pages carry your real numbers.</Text>
+      <FormField
+        label="Dives logged before ScubaGo"
+        value={text}
+        onChangeText={(t) => setText(t.replace(/[^0-9]/g, ''))}
+        keyboardType="number-pad"
+        inputMode="numeric"
+        placeholder="0"
+        maxLength={5}
+        hint="Leave it at 0 if ScubaGo is your first log."
+      />
+      <Notice icon="logbook">
+        {!valid
+          ? 'That isn’t a number of dives.'
+          : tooLow
+            ? `That would number a page below No. 1. Your earliest page is ${formatDiveNumber(lowest)}.`
+            : dives.length > 0 && delta !== 0
+              ? `Every page moves by ${Math.abs(delta)} (${delta > 0 ? 'up' : 'down'}): your earliest becomes ${formatDiveNumber(lowest + delta)}, and your next dive is ${formatDiveNumber(nextAfter)}.`
+              : `Your next dive is ${formatDiveNumber(nextAfter)}.`}
+      </Notice>
+      {error ? (
+        <Text accessibilityLiveRegion="polite" style={[TypeScale.subhead, { color: theme.danger }]}>
+          {error}
+        </Text>
+      ) : null}
+      <Button title={saving ? 'Saving…' : 'Save'} onPress={() => void save()} disabled={saving || !valid || tooLow || delta === 0} />
+    </Screen>
   );
 }
-
-const styles = StyleSheet.create({
-  container: { flex: 1 },
-  content: { padding: Spacing.three, gap: Spacing.four, paddingBottom: Spacing.six, width: '100%', maxWidth: 720, alignSelf: 'center' },
-  row: { flexDirection: 'row', alignItems: 'flex-start', gap: 10 },
-  flex: { flex: 1 },
-});

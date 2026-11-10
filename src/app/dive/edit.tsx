@@ -1,18 +1,18 @@
 import { Stack, router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { StyleSheet, Text, View } from 'react-native';
 
 import { BottomBar } from '@/components/dive/bottom-bar';
 import { DiveForm } from '@/components/dive/dive-form';
 import { HeaderBack } from '@/components/dive/header-back';
-import { Icon } from '@/components/icon';
-import { Paper } from '@/components/journal/paper';
-import { OceanButton } from '@/components/ocean-button';
+import { FieldLabel } from '@/components/form-field';
 import { SitePicker } from '@/components/site-picker';
-import { ThemedText } from '@/components/themed-text';
-import { ThemedView } from '@/components/themed-view';
+import { Button } from '@/components/ui/button';
+import { List, ListRow } from '@/components/ui/list';
+import { EmptyState, Notice } from '@/components/ui/notice';
+import { Screen } from '@/components/ui/screen';
 import { WhenReady } from '@/components/when-ready';
-import { Spacing, Type } from '@/constants/theme';
+import { Space, TypeScale } from '@/constants/theme';
 import { useDiscardGuard, useHardwareBack } from '@/hooks/use-discard-guard';
 import { DISMISS_ON_DRAG } from '@/hooks/use-keyboard';
 import { useScrollTo } from '@/hooks/use-scroll-to';
@@ -81,24 +81,23 @@ function EditDiveScreen() {
 
   if (!dive || !draft) {
     return (
-      <ThemedView style={styles.centered}>
+      <Screen kind="modal">
         <Stack.Screen options={{ title: 'Edit page' }} />
-        <ThemedText>This page isn’t in your log any more.</ThemedText>
-      </ThemedView>
+        <EmptyState icon="logbook" title="This page isn’t in your log any more." />
+      </Screen>
     );
   }
 
   const site = siteById(draft.siteId);
   if (picking) {
     return (
-      <ThemedView style={styles.container}>
+      <View style={[styles.container, { backgroundColor: theme.background }]}>
         <Stack.Screen
           options={{
             title: 'Choose the site',
             headerLeft: ({ tintColor }) => <HeaderBack onPress={() => setPicking(false)} label={`Back to ${formatDiveNumber(dive.number)}`} tintColor={tintColor} />,
           }}
         />
-        <View style={styles.pickerTop} />
         <SitePicker
           sites={sites}
           // The sites of the newest pages, as the logbook lists them (the store holds them as added, oldest first).
@@ -110,7 +109,7 @@ function EditDiveScreen() {
             announce(`Site: ${s.name}`);
           }}
         />
-      </ThemedView>
+      </View>
     );
   }
 
@@ -148,23 +147,22 @@ function EditDiveScreen() {
   };
 
   return (
-    <ThemedView style={styles.container}>
+    <View style={[styles.container, { backgroundColor: theme.background }]}>
       {/* The picker's own back arrow is gone again: the navigator's closes this screen. */}
       <Stack.Screen options={{ title: 'Edit page', headerLeft: undefined }} />
-      <ScrollView ref={scrollView} onScroll={onScroll} scrollEventThrottle={16} contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled" keyboardDismissMode={DISMISS_ON_DRAG} automaticallyAdjustKeyboardInsets>
+      <Screen kind="modal" scrollRef={scrollView} onScroll={onScroll} scrollEventThrottle={16} contentStyle={styles.content} keyboardDismissMode={DISMISS_ON_DRAG} automaticallyAdjustKeyboardInsets>
         <View style={styles.field}>
-          <ThemedText type="label">Site</ThemedText>
-          <Paper style={styles.siteRow}>
-            <Icon name="pin" size={20} />
-            <ThemedText style={[styles.flex, styles.siteName]} numberOfLines={2}>
-              {site?.name ?? 'Choose the site'}
-            </ThemedText>
-            <Pressable onPress={() => setPicking(true)} accessibilityRole="button" accessibilityLabel={`Change the site${site ? `, now ${site.name}` : ''}`} style={styles.change}>
-              <ThemedText type="smallBold" themeColor="tint">
-                Change
-              </ThemedText>
-            </Pressable>
-          </Paper>
+          <FieldLabel>Site</FieldLabel>
+          <List>
+            <ListRow
+              leading="pin"
+              title={site?.name ?? 'Choose the site'}
+              titleLines={2}
+              accessibilityLabel={`Change the site${site ? `, now ${site.name}` : ''}`}
+              trailing={<Text style={[TypeScale.subheadStrong, { color: theme.tint }]}>Change</Text>}
+              onPress={() => setPicking(true)}
+            />
+          </List>
         </View>
 
         <DiveForm
@@ -181,40 +179,30 @@ function EditDiveScreen() {
         />
 
         {moved && (onPage.length > 0 || signed) ? (
-          <Paper tone="sand" style={styles.warning}>
-            <Icon name="warning" size={20} wash={theme.sun} />
-            <ThemedText type="small" style={styles.flex}>
-              {onPage.length > 0
-                ? `The ${onPage.length === 1 ? 'sighting' : `${onPage.length} sightings`} on this page move with it to the new ${draft.siteId !== dive.siteId ? 'site' : 'day'}.`
-                : ''}
-              {confirmedOnPage > 0 ? ' Their buddy confirmations no longer apply and are cleared; they can be confirmed again.' : ''}
-              {signed ? `${onPage.length > 0 ? ' ' : ''}The signatures come off too: they were for the old ${draft.siteId !== dive.siteId ? 'site' : 'day'}. Your buddy can sign again.` : ''}
-            </ThemedText>
-          </Paper>
+          <Notice icon="warning">
+            {onPage.length > 0
+              ? `The ${onPage.length === 1 ? 'sighting' : `${onPage.length} sightings`} on this page move with it to the new ${draft.siteId !== dive.siteId ? 'site' : 'day'}.`
+              : ''}
+            {confirmedOnPage > 0 ? ' Their buddy confirmations no longer apply and are cleared; they can be confirmed again.' : ''}
+            {signed ? `${onPage.length > 0 ? ' ' : ''}The signatures come off too: they were for the old ${draft.siteId !== dive.siteId ? 'site' : 'day'}. Your buddy can sign again.` : ''}
+          </Notice>
         ) : null}
-
-      </ScrollView>
+      </Screen>
       <BottomBar>
         {error ? (
-          <ThemedText type="small" themeColor="danger" accessibilityLiveRegion="polite">
+          <Text accessibilityLiveRegion="polite" style={[TypeScale.subhead, { color: theme.danger }]}>
             {error}
-          </ThemedText>
+          </Text>
         ) : null}
-        <OceanButton title={saving ? 'Saving…' : 'Save changes'} onPress={() => void save()} disabled={saving} />
+        <Button title={saving ? 'Saving…' : 'Save changes'} onPress={() => void save()} disabled={saving} />
       </BottomBar>
-    </ThemedView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  centered: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: Spacing.four },
-  content: { padding: Spacing.three, gap: Spacing.four, paddingBottom: Spacing.four, width: '100%', maxWidth: 720, alignSelf: 'center' },
-  pickerTop: { height: Spacing.three },
-  field: { gap: 6 },
-  flex: { flex: 1 },
-  siteRow: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 8 },
-  siteName: { fontFamily: Type.bodyHeavy, fontSize: 16 },
-  change: { minHeight: 44, justifyContent: 'center', paddingHorizontal: 6 },
-  warning: { flexDirection: 'row', alignItems: 'flex-start', gap: 10 },
+  // The pinned bar holds the button, so the page needs no room of its own at the foot.
+  content: { paddingBottom: Space.s4 },
+  field: { gap: Space.s2 },
 });

@@ -1,13 +1,13 @@
 import { Stack, router, useLocalSearchParams } from 'expo-router';
 import { useMemo, useState } from 'react';
-import { Pressable, StyleSheet, View } from 'react-native';
+import { StyleSheet, Text, View } from 'react-native';
 
 import { DivePage } from '@/components/dive/dive-page';
 import { Icon } from '@/components/icon';
-import { Screen } from '@/components/journal/screen';
-import { Wash } from '@/components/journal/wash';
-import { ThemedText } from '@/components/themed-text';
-import { Radius, Spacing } from '@/constants/theme';
+import { Card } from '@/components/ui/card';
+import { EmptyState } from '@/components/ui/notice';
+import { Screen } from '@/components/ui/screen';
+import { Space, TypeScale } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { formatDiveNumber, neighbours } from '@/lib/dives';
 import { leave } from '@/lib/leave';
@@ -37,19 +37,10 @@ export default function DivePageScreen() {
   if (!dive && !ready) return <View style={[styles.flex, { backgroundColor: theme.background }]} />;
   if (!dive) {
     return (
-      <View style={[styles.missing, { backgroundColor: theme.background }]}>
+      <Screen contentStyle={styles.missing}>
         <Stack.Screen options={{ title: '' }} />
-        <View style={styles.missingArt}>
-          <Wash width={112} height={78} color={theme.wash} seed={31} style={StyleSheet.absoluteFill} />
-          <Icon name="logbook" size={40} />
-        </View>
-        <ThemedText type="heading" style={styles.center}>
-          This page isn’t in your log.
-        </ThemedText>
-        <ThemedText type="small" themeColor="textSecondary" style={styles.center}>
-          It may have been deleted, or it belongs to another diver.
-        </ThemedText>
-      </View>
+        <EmptyState icon="logbook" title="This page isn’t in your log." message="It may have been deleted, or it belongs to another diver." />
+      </Screen>
     );
   }
 
@@ -63,7 +54,7 @@ export default function DivePageScreen() {
         onDeleted={() => leave('/logbook')}
         footer={
           // Turning the pages: the one before (a lower number) on the left, the next on the right.
-          <View style={[styles.turn, { borderTopColor: theme.rule }]}>
+          <View style={styles.turn}>
             <TurnButton direction="older" dive={turn.older} siteName={siteById(turn.older?.siteId)?.name ?? ''} onPress={() => go(turn.older)} />
             <TurnButton direction="newer" dive={turn.newer} siteName={siteById(turn.newer?.siteId)?.name ?? ''} onPress={() => go(turn.newer)} />
           </View>
@@ -76,33 +67,28 @@ export default function DivePageScreen() {
 function TurnButton({ direction, dive, siteName, onPress }: { direction: 'older' | 'newer'; dive?: Dive; siteName: string; onPress: () => void }) {
   const theme = useTheme();
   const older = direction === 'older';
-  if (!dive) return <View style={styles.turnButton} />;
+  if (!dive) return <View style={styles.flex} />;
   return (
-    <Pressable
+    <Card
       onPress={onPress}
       accessibilityRole="link"
       accessibilityLabel={`${older ? 'Previous page' : 'Next page'}: dive ${dive.number}, ${siteName}`}
-      style={({ pressed }) => [styles.turnButton, styles.turnBorder, { backgroundColor: pressed ? theme.backgroundSelected : 'transparent', borderColor: theme.rule }]}>
+      style={[styles.flex, styles.turnButton]}>
       {older ? <Icon name="chevronLeft" size={16} color={theme.tint} weight="bold" /> : null}
       <View style={[styles.flex, { alignItems: older ? 'flex-start' : 'flex-end' }]}>
-        <ThemedText type="smallBold" themeColor="tint">
-          {formatDiveNumber(dive.number)}
-        </ThemedText>
-        <ThemedText type="small" themeColor="textSecondary" numberOfLines={1}>
+        <Text style={[TypeScale.subheadStrong, { color: theme.tint }]}>{formatDiveNumber(dive.number)}</Text>
+        <Text numberOfLines={2} style={[TypeScale.subhead, { color: theme.textSecondary, textAlign: older ? 'left' : 'right' }]}>
           {siteName}
-        </ThemedText>
+        </Text>
       </View>
       {older ? null : <Icon name="chevronRight" size={16} color={theme.tint} weight="bold" />}
-    </Pressable>
+    </Card>
   );
 }
 
 const styles = StyleSheet.create({
   flex: { flex: 1 },
-  center: { textAlign: 'center' },
-  missing: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: Spacing.two, padding: Spacing.four },
-  missingArt: { width: 112, height: 78, alignItems: 'center', justifyContent: 'center', marginBottom: Spacing.one },
-  turn: { flexDirection: 'row', gap: Spacing.two, borderTopWidth: 1, paddingTop: Spacing.three },
-  turnButton: { flex: 1, minHeight: 56, flexDirection: 'row', alignItems: 'center', gap: 6, borderRadius: Radius.md },
-  turnBorder: { borderWidth: 1, paddingHorizontal: 10 },
+  missing: { flexGrow: 1, justifyContent: 'center' },
+  turn: { flexDirection: 'row', gap: Space.s3 },
+  turnButton: { flexDirection: 'row', alignItems: 'center', gap: Space.s2, padding: Space.s3, minHeight: 56 },
 });

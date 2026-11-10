@@ -136,7 +136,7 @@ type TextToken = { fontFamily: string; fontSize: number; lineHeight: number; let
 const t = (fontFamily: string, fontSize: number, lineHeight: number, letterSpacing = 0): TextToken => ({ fontFamily, fontSize, lineHeight, letterSpacing });
 
 /**
- * The type scale: ten styles, nothing under 13. Serif for titles and figures, Figtree for the rest.
+ * The type scale: twelve styles, nothing under 13. Serif for titles and figures, Figtree for the rest.
  * `hero` is `display` at 1.4x, for reward and celebration screens only.
  */
 export const TypeScale = {
@@ -166,6 +166,10 @@ export const TypeScale = {
   footnote: t(Type.body, 13, 18),
   /** Chips, tags, tab labels, field labels. */
   footnoteStrong: t(Type.bodySemiBold, 13, 18, 0.1),
+  /** The typewriter face of a stamp or a page's "No." (Courier Prime): stamps and the logbook's numbering only. */
+  stamp: t(Type.label, 13, 18, 1),
+  /** A code to read out and send (a buddy code): the typewriter face, large and spaced. */
+  ticket: t(Type.label, 26, 32, 3),
 } as const;
 export type TypeName = keyof typeof TypeScale;
 
@@ -301,6 +305,9 @@ export const OnWater = {
   ink: '#1F4B40',
   veil: 'rgba(255, 255, 255, 0.72)',
 } as const;
+
+/** The dimmer behind a dialog (the calendar, a menu): ink at half strength, the same in both schemes. */
+export const Scrim = 'rgba(15, 27, 46, 0.5)';
 
 /** Height of the custom tab bar (above the home indicator). */
 export const TabBarHeight = 64;

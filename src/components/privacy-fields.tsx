@@ -1,9 +1,10 @@
 import { StyleSheet, View } from 'react-native';
 
+import { FieldLabel } from '@/components/form-field';
 import { Disclosure } from '@/components/journal/disclosure';
 import { Segmented } from '@/components/segmented';
 import { ThemedText } from '@/components/themed-text';
-import { Spacing } from '@/constants/theme';
+import { Space } from '@/constants/theme';
 import { privacyExplanation, type PrivacySettings } from '@/lib/privacy-choice';
 import type { Visibility } from '@/lib/types';
 
@@ -32,9 +33,7 @@ export function PrivacyFields({
   const shared = value.visibility === 'public';
   return (
     <View style={styles.section}>
-      <ThemedText type="label" accessibilityRole="header">
-        Who can see this
-      </ThemedText>
+      <FieldLabel header>Who can see this</FieldLabel>
       <Choice label={count > 1 ? 'Sightings' : 'Sighting'}>
         <Segmented
           kind="choice"
@@ -70,7 +69,7 @@ export function PrivacyFields({
       ) : null}
       {/* What the choice means waits behind a row: the "Visible to" line above Save already says what it is. */}
       <Disclosure label="What does this mean?" hint="Explains what other divers can see">
-        <ThemedText type="caption" themeColor="textSecondary">
+        <ThemedText type="callout" themeColor="textSecondary">
           {privacyExplanation(value, { photo, count })}
         </ThemedText>
       </Disclosure>
@@ -81,7 +80,7 @@ export function PrivacyFields({
 function Choice({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <View style={styles.choice}>
-      <ThemedText type="smallBold" style={styles.label} importantForAccessibility="no" accessibilityElementsHidden>
+      <ThemedText type="subheadStrong" style={styles.label} importantForAccessibility="no" accessibilityElementsHidden>
         {label}
       </ThemedText>
       <View style={styles.control}>{children}</View>
@@ -90,8 +89,8 @@ function Choice({ label, children }: { label: string; children: React.ReactNode 
 }
 
 const styles = StyleSheet.create({
-  section: { gap: Spacing.two },
-  choice: { flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: Spacing.two },
+  section: { gap: Space.s2 },
+  choice: { flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: Space.s2 },
   label: { minWidth: 72 },
   control: { flex: 1, minWidth: 200 },
 });

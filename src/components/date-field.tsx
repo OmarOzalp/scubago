@@ -1,9 +1,12 @@
 import { useState } from 'react';
-import { Modal, Pressable, StyleSheet, View } from 'react-native';
+import { Modal, Pressable, StyleSheet, Text, View } from 'react-native';
 
+import { FieldLabel } from '@/components/form-field';
 import { Icon, type IconName } from '@/components/icon';
-import { ThemedText } from '@/components/themed-text';
-import { OnFill, Radius, Shadow, Spacing } from '@/constants/theme';
+import { Button } from '@/components/ui/button';
+import { Chip } from '@/components/ui/chip';
+import { useSurface } from '@/components/ui/surface';
+import { OnFill, Radius, Scrim, Size, Space, TypeScale } from '@/constants/theme';
 import { useSchemeName, useTheme } from '@/hooks/use-theme';
 import { longDate, monthGrid } from '@/lib/calendar';
 import { localIsoDate, shiftIsoDate } from '@/lib/sighting-edit';
@@ -19,28 +22,22 @@ const WEEKDAYS = Array.from({ length: 7 }, (_, i) =>
  * and on the web.
  */
 export function DateField({ value, onChange, label = 'When' }: { value: string; onChange: (iso: string) => void; label?: string }) {
-  const theme = useTheme();
   const today = localIsoDate(new Date());
   const yesterday = shiftIsoDate(today, -1);
   const [open, setOpen] = useState(false);
 
   return (
     <View style={styles.field}>
-      <ThemedText type="label" accessibilityRole="header">
-        {label}
-      </ThemedText>
+      <FieldLabel header>{label}</FieldLabel>
       <View style={styles.row}>
-        <QuickDate label="Today" selected={value === today} onPress={() => onChange(today)} />
-        <QuickDate label="Yesterday" selected={value === yesterday} onPress={() => onChange(yesterday)} />
-        <Pressable
+        <Chip role="radio" label="Today" selected={value === today} onPress={() => onChange(today)} />
+        <Chip role="radio" label="Yesterday" selected={value === yesterday} onPress={() => onChange(yesterday)} />
+        <Chip
+          label={longDate(value)}
+          selected={value !== today && value !== yesterday}
           onPress={() => setOpen(true)}
-          accessibilityRole="button"
           accessibilityLabel={`Date: ${longDate(value, 'long')}. Choose another date`}
-          style={({ pressed }) => [styles.pick, { backgroundColor: pressed ? theme.backgroundSelected : theme.backgroundElement, borderColor: theme.rule }]}>
-          <Icon name="calendar" size={18} />
-          <ThemedText type="smallBold">{longDate(value)}</ThemedText>
-          <Icon name="chevronDown" size={14} color={theme.textSecondary} weight="bold" />
-        </Pressable>
+        />
       </View>
       {open ? (
         <Calendar
@@ -57,24 +54,6 @@ export function DateField({ value, onChange, label = 'When' }: { value: string; 
   );
 }
 
-function QuickDate({ label, selected, onPress }: { label: string; selected: boolean; onPress: () => void }) {
-  const theme = useTheme();
-  return (
-    <Pressable
-      onPress={onPress}
-      accessibilityRole="radio"
-      aria-checked={selected}
-      style={[
-        styles.quick,
-        { backgroundColor: selected ? theme.text : theme.backgroundElement, borderColor: selected ? theme.text : theme.rule },
-      ]}>
-      <ThemedText type="smallBold" style={{ color: selected ? theme.background : theme.text }}>
-        {label}
-      </ThemedText>
-    </Pressable>
-  );
-}
-
 function Calendar({
   value,
   max,
@@ -88,6 +67,7 @@ function Calendar({
 }) {
   const theme = useTheme();
   const scheme = useSchemeName();
+  const sheet = useSurface('raised', Radius.xl);
   const [y0, m0] = value.split('-').map(Number);
   const [cursor, setCursor] = useState({ year: y0, month: m0 - 1 });
   const maxMonth = max.slice(0, 7);
@@ -112,23 +92,23 @@ function Calendar({
       <Pressable style={styles.backdrop} onPress={onClose} accessibilityLabel="Close the calendar" accessibilityRole="button">
         {/* A Pressable that does nothing keeps taps inside the card from closing it. */}
         <Pressable
-          style={[styles.card, { backgroundColor: theme.backgroundElement, borderColor: theme.cardBorder, boxShadow: Shadow[scheme].raised }]}
+          style={[sheet, styles.card]}
           onPress={() => undefined}
           accessible={false}>
           <View style={styles.header}>
             <NavButton icon="yearBack" a11y="Previous year" onPress={() => move(-12)} />
             <NavButton icon="chevronLeft" a11y="Previous month" onPress={() => move(-1)} />
-            <ThemedText type="heading" style={styles.title} accessibilityRole="header" accessibilityLiveRegion="polite">
+            <Text style={[styles.title, { color: theme.text }]} accessibilityRole="header" accessibilityLiveRegion="polite">
               {title}
-            </ThemedText>
+            </Text>
             <NavButton icon="chevronRight" a11y="Next month" onPress={() => move(1)} disabled={atMax} />
             <NavButton icon="yearForward" a11y="Next year" onPress={() => move(12)} disabled={atMax} />
           </View>
           <View style={styles.grid} importantForAccessibility="no" accessibilityElementsHidden>
             {WEEKDAYS.map((d, i) => (
-              <ThemedText key={i} type="label" style={styles.weekday}>
+              <Text key={i} style={[styles.weekday, { color: theme.textSecondary }]}>
                 {d}
-              </ThemedText>
+              </Text>
             ))}
           </View>
           <View style={styles.grid}>
@@ -145,22 +125,13 @@ function Calendar({
                   accessibilityLabel={longDate(iso, 'long')}
                   aria-selected={selected}
                   aria-disabled={future}
-                  style={[styles.day, selected && { backgroundColor: theme.lagoon, borderRadius: Radius.sm }, iso === max && !selected && { borderWidth: 1.5, borderColor: theme.rule, borderRadius: Radius.sm }]}>
-                  <ThemedText
-                    type={selected ? 'smallBold' : 'small'}
-                    themeColor={future ? 'textSecondary' : 'text'}
-                    style={[selected && { color: OnFill[scheme].lagoon }, future && { opacity: 0.5 }]}>
-                    {Number(iso.slice(8))}
-                  </ThemedText>
+                  style={[styles.day, selected && { backgroundColor: theme.lagoon, borderRadius: Radius.sm }, iso === max && !selected && { backgroundColor: theme.backgroundSelected, borderRadius: Radius.sm }]}>
+                  <Text style={[selected ? styles.dayStrong : styles.dayText, { color: selected ? OnFill[scheme].lagoon : future ? theme.textTertiary : theme.text }]}>{Number(iso.slice(8))}</Text>
                 </Pressable>
               );
             })}
           </View>
-          <Pressable onPress={onClose} accessibilityRole="button" style={styles.cancel}>
-            <ThemedText type="smallBold" themeColor="textSecondary">
-              Cancel
-            </ThemedText>
-          </Pressable>
+          <Button title="Cancel" variant="plain" size="md" onPress={onClose} style={styles.cancel} />
         </Pressable>
       </Pressable>
     </Modal>
@@ -183,32 +154,18 @@ function NavButton({ icon, a11y, onPress, disabled = false }: { icon: IconName; 
 }
 
 const styles = StyleSheet.create({
-  field: { gap: 6 },
-  row: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.two, alignItems: 'center' },
-  quick: {
-    minHeight: 44,
-    paddingHorizontal: 14,
-    borderRadius: Radius.sm,
-    borderWidth: 1.5,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  pick: {
-    minHeight: 44,
-    paddingHorizontal: 14,
-    borderRadius: Radius.sm,
-    borderWidth: 1.5,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  backdrop: { flex: 1, backgroundColor: 'rgba(15, 27, 46, 0.55)', justifyContent: 'center', padding: Spacing.three },
-  card: { borderRadius: Radius.xl, borderWidth: 1, padding: Spacing.three, gap: Spacing.two, maxWidth: 420, width: '100%', alignSelf: 'center' },
+  field: { gap: Space.s2 },
+  // The chips are 44 to hit and 36 to look at: the 8 between rows shows as the 8 between columns.
+  row: { flexDirection: 'row', flexWrap: 'wrap', columnGap: Space.s2, alignItems: 'center' },
+  backdrop: { flex: 1, backgroundColor: Scrim, justifyContent: 'center', padding: Space.s4 },
+  card: { padding: Space.s4, gap: Space.s2, maxWidth: 420, width: '100%', alignSelf: 'center' },
   header: { flexDirection: 'row', alignItems: 'center' },
-  title: { flex: 1, textAlign: 'center' },
-  nav: { minWidth: 44, minHeight: 44, alignItems: 'center', justifyContent: 'center' },
+  title: { ...TypeScale.headline, flex: 1, textAlign: 'center' },
+  nav: { minWidth: Size.hit, minHeight: Size.hit, alignItems: 'center', justifyContent: 'center' },
   grid: { flexDirection: 'row', flexWrap: 'wrap' },
-  weekday: { width: '14.2857%', textAlign: 'center' },
-  day: { width: '14.2857%', minHeight: 44, alignItems: 'center', justifyContent: 'center' },
-  cancel: { alignSelf: 'center', minHeight: 44, justifyContent: 'center', paddingHorizontal: Spacing.three },
+  weekday: { ...TypeScale.footnoteStrong, width: '14.2857%', textAlign: 'center' },
+  day: { width: '14.2857%', minHeight: Size.hit, alignItems: 'center', justifyContent: 'center' },
+  dayText: { ...TypeScale.subhead },
+  dayStrong: { ...TypeScale.subheadStrong },
+  cancel: { alignSelf: 'center' },
 });
