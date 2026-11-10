@@ -19,11 +19,9 @@ export type TextFieldProps = Omit<TextInputProps, 'style'> & {
   labelHidden?: boolean;
   /** At the right end of the label's line: a link that goes with the field. */
   labelAccessory?: ReactNode;
-  /** Layout of the input itself (a taller box for notes). */
+  /** The input's own layout or text look: a taller box for notes, or bigger, centred text for a code. */
   inputStyle?: StyleProp<TextStyle>;
   style?: StyleProp<ViewStyle>;
-  /** The typed text's own look, for a field that holds something other than a sentence (a code: bigger, centred). */
-  inputStyle?: StyleProp<TextStyle>;
   ref?: Ref<TextInputInstance>;
 };
 
