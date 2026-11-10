@@ -14,7 +14,7 @@ jest.mock('../three/warm-up', () => ({ WarmUp: (props) => <warm {...props} /> })
 jest.mock('../three/use-marine-models', () => ({ useMarineModels: jest.fn() }));
 jest.mock('@/hooks/use-scene-active', () => ({ useSceneActive: () => true, useSceneVisible: () => true }));
 jest.mock('../three/scene-camera', () => ({ SceneCamera: () => null }));
-jest.mock('../three/scene-performance', () => ({ ScenePerformance: () => null }));
+jest.mock('../three/scene-performance', () => ({ ScenePerformance: () => null, FrameReport: () => null }));
 jest.mock('../three/sanctuary-environment', () => ({
   SanctuaryEnvironment: ({ children, islands, ready }) => <environment data-ready={ready}>{children}{islands?.map((island) => <island key={island.key} data-habitat={island.habitat}>{island.content}{island.small}</island>)}</environment>,
 }));

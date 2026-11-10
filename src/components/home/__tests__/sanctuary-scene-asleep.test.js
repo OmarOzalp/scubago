@@ -18,7 +18,7 @@ jest.mock('../three/scene-canvas', () => ({ SceneCanvas: ({ children, frameloop 
 jest.mock('../three/warm-up', () => ({ WarmUp: (props) => <warm {...props} /> }));
 jest.mock('../three/use-marine-models', () => ({ useMarineModels: jest.fn() }));
 jest.mock('../three/scene-camera', () => ({ SceneCamera: () => null }));
-jest.mock('../three/scene-performance', () => ({ ScenePerformance: () => null }));
+jest.mock('../three/scene-performance', () => ({ ScenePerformance: () => null, FrameReport: () => null }));
 jest.mock('../three/sanctuary-environment', () => ({ SanctuaryEnvironment: ({ children, ready }) => <environment data-ready={ready}>{children}</environment> }));
 const mockInvalidate = jest.fn();
 jest.mock('@react-three/fiber', () => ({

@@ -18,7 +18,7 @@ jest.mock('../three/scene-canvas', () => ({ SceneCanvas: ({ children }) => <>{ch
 jest.mock('../three/warm-up', () => ({ WarmUp: () => null }));
 jest.mock('../three/use-marine-models', () => ({ useMarineModels: jest.fn() }));
 jest.mock('../three/scene-camera', () => ({ SceneCamera: () => null }));
-jest.mock('../three/scene-performance', () => ({ ScenePerformance: () => null }));
+jest.mock('../three/scene-performance', () => ({ ScenePerformance: () => null, FrameReport: () => null }));
 jest.mock('../three/sanctuary-environment', () => ({ SanctuaryEnvironment: ({ children }) => <environment>{children}</environment> }));
 jest.mock('@react-three/fiber', () => ({
   useFrame: jest.fn(),
@@ -75,7 +75,8 @@ test('a picture of the opening view is taken once all in view is built, at twice
   expect(captureScene).not.toHaveBeenCalled();
   await wait(200);
   expect(captureScene).toHaveBeenCalledTimes(1);
-  expect(captureScene).toHaveBeenCalledWith('explorer', { width: 780, height: 1688 }, 10000);
+  // (without what moves: the picture is shown over a live scene whose animals are elsewhere by then)
+  expect(captureScene).toHaveBeenCalledWith('explorer', { width: 780, height: 1688, stillOnly: true }, 10000);
   expect(rememberExplorerPicture).toHaveBeenCalledWith('file:///cache/GLView/explorer.png', KEY);
   // Once for each view while the explorer is up.
   await wait(10000);
