@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
 import { Animated, BackHandler, Platform, Pressable, StyleSheet, Text, useWindowDimensions, View, type LayoutChangeEvent, type ViewInstance } from 'react-native';
 import { Gesture, GestureDetector, GestureHandlerRootView, type GestureTouchEvent } from 'react-native-gesture-handler';
 import { useReducedMotion } from 'react-native-reanimated';
@@ -51,7 +51,7 @@ const HINT_MS = 7000;
  */
 export default function ExploreScreen() {
   const insets = useSafeAreaInsets();
-  const full = useWindowDimensions();
+  const full = useWindowSize();
   const mine = useMySightings();
   const owner = useMyUserId();
   const ready = useAppStore((s) => s.ready);
@@ -224,6 +224,20 @@ export default function ExploreScreen() {
     {focused && <Hint small={small} bottom={insets.bottom + 26} reduced={reduced} />}
   </GestureHandlerRootView>;
 }
+
+/**
+ * The window's size. On the web a page opened at /explore is rendered ahead as HTML with a window of 0 x 0, and hydrating it keeps the
+ * HTML's style when the first render on the page gives another size (React does not patch styles while hydrating): the explorer stayed 0 x 0,
+ * a blank page with only its buttons, for good. So while hydrating it gives what the HTML had, and React renders again with the real size
+ * straight after (a store whose server snapshot differs from the client's). On a phone, and on the web after a tap, it is the size at once.
+ */
+function useWindowSize() {
+  const window = useWindowDimensions();
+  const hydrated = useSyncExternalStore(noSubscription, () => true, () => false);
+  return hydrated ? window : NO_SIZE;
+}
+const noSubscription = () => () => {};
+const NO_SIZE = { width: 0, height: 0 };
 
 /** What to do with the scene when asked to look at it: `await`ed by nobody, so a plain function. */
 const inspect = (model: MarineModel) => router.push({ pathname: '/inspect', params: { model, preview: '1' } });
