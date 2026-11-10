@@ -4,6 +4,7 @@ import type { Group } from 'three';
 import type { IslandShape } from '@/lib/island-outline';
 import { GROUP_BUDGET, groupSizes } from '@/lib/marine-groups';
 import { createMarineMotion, MOVEMENT, type MarineMember, type MarineMotion } from '@/lib/marine-motion';
+import { runSliced } from '@/lib/slices';
 import type { OceanIsland } from '@/lib/seabed';
 import type { WaterExtent } from '@/lib/seabed-lattice';
 import { oceanScale, worldFor } from '@/lib/steering';
@@ -70,13 +71,17 @@ const MOVING = { hideInPicture: true };
  * it used to appear at once: a short fade up out of the blue, where it is, rather than the slower rise of one arriving late on a first visit.
  */
 export const QUICK_EMERGE_SECONDS = .6;
+/** How long (ms) after the next species is known its water is begun ahead (the first turn is 18 s or more after a scene starts), and the slices. */
+const PREPARE_AFTER_MS = 4000, PREPARE_SLICE_MS = 6;
 
 /**
  * The animals and the tuna school. A species that swims in a group (marine-groups.ts) is drawn as
  * several animals, all opening its one page; `onSchoolPress` makes the school one tap target too.
  */
-export function MarineSwimmers({ residents, models, active, level = 1, school = false, onSchoolPress, schoolSpecies = [], arrivals, tapScale, shape = 'reef', world, unseen = false }: {
+export function MarineSwimmers({ residents, models, active, level = 1, school = false, onSchoolPress, schoolSpecies = [], arrivals, tapScale, shape = 'reef', world, unseen = false, upcoming }: {
   residents: Resident[]; models: MarineModels; active: boolean; level?: number; onSchoolPress?: () => void;
+  /** The species that comes on at this island's next turn, if any: its water is worked out ahead (`prepare`). */
+  upcoming?: { model: MarineMember['model']; speciesId: string } | null;
   /** The scene isn't on show yet (Home's picture of it still covers it): an animal joining is simply there, rather than swimming in. */
   unseen?: boolean;
   /** The island they swim around (its own outline and size). */
@@ -174,6 +179,18 @@ export function MarineSwimmers({ residents, models, active, level = 1, school = 
   // How far the explorer's water reaches changes with its window, never the animals.
   const reach = JSON.stringify(world?.reach ?? null);
   useEffect(() => { motion.setReach(JSON.parse(reach) ?? undefined); }, [motion, reach]);
+  // The species whose turn comes next on this island: its water (the fields of where its body fits, the costly part of joining) is worked
+  // out ahead, a few milliseconds at a time and a little after the scene has settled, so that its turn costs no long task. (Should the
+  // turn come first, it is worked out as it joins, as it always was.)
+  const nextModel = upcoming?.model, nextSpecies = upcoming?.speciesId;
+  useEffect(() => {
+    if (!nextModel || !nextSpecies) return;
+    let stopped = false;
+    const wait = setTimeout(() => {
+      runSliced(motion.prepare({ model: nextModel, speciesId: nextSpecies }), { slice: PREPARE_SLICE_MS, stop: () => stopped }).catch(() => {});
+    }, PREPARE_AFTER_MS);
+    return () => { stopped = true; clearTimeout(wait); };
+  }, [motion, nextModel, nextSpecies]);
 
   // A new tuna logged while the scene was away: the school steps out of sight to arrive.
   useEffect(() => {

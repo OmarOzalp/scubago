@@ -1,6 +1,7 @@
 import type { ShoreField } from './island-outline';
 import { OCEAN } from './ocean';
 import { FIELD_GRID, type Seabed } from './seabed';
+import { finish, type Steps } from './slices';
 import type { MarineModel } from './swimming';
 
 /**
@@ -201,8 +202,13 @@ export function tooShallow(seabed: Seabed, coast: ShoreField, hull: Hull, margin
  * there is no steeper than it lies along) is open water without judging each heading. Most of the ocean is such water.
  */
 export function tooShallowCells(seabed: Seabed, coast: ShoreField, hull: Hull, margin: number, tilt = 0, steepest = Infinity, poke = POKE) {
+  return finish(tooShallowSteps(seabed, coast, hull, margin, tilt, steepest, poke));
+}
+
+/** `tooShallowCells` a few rows of the grid at a time (slices.ts), for working it out ahead in slices. */
+export function* tooShallowSteps(seabed: Seabed, coast: ShoreField, hull: Hull, margin: number, tilt = 0, steepest = Infinity, poke = POKE): Steps<Uint8Array> {
   const { judge, top, rise, reach } = shallowJudge(seabed, hull, margin, tilt, steepest, poke), { columns, rows, step, x0, z0 } = FIELD_GRID;
-  const along = coastAt(coast), cells = new Uint8Array(columns * rows);
+  const along = coasts.get(coast) ?? (yield* coastSteps(coast)), cells = new Uint8Array(columns * rows);
   // (a level body's: one on its side is judged in full everywhere; a hair's slack for the grid's rounding)
   const range = !tilt && seabed.solidAround ? seabed.solidAround(reach) : null, room = top - rise - margin - 1e-6, keel = hull.keel + margin;
   for (let j = 0, n = 0; j < rows; j++) {
@@ -211,19 +217,20 @@ export function tooShallowCells(seabed: Seabed, coast: ShoreField, hull: Hull, m
       if (range && range.high[n] <= room && range.high[n] - range.low[n] <= steepest - 1e-6) cells[n] = seabed.floor(x, z) + keel > top ? 1 : 0;
       else cells[n] = judge(x, z, along[2 * n], along[2 * n + 1]) ? 1 : 0;
     }
+    if (j % ROWS_A_STEP === ROWS_A_STEP - 1) yield;
   }
   return cells;
 }
+/** Rows of the grid worked out between two steps (a few milliseconds of an interpreter's time for the biggest bodies). */
+const ROWS_A_STEP = 6;
 
 /** The coast's direction (its normal: nx, nz) at each cell of the fields' grid, for each steering field (one per island and level). */
 const coasts = new WeakMap<ShoreField, Float64Array>();
-function coastAt(coast: ShoreField) {
-  let along = coasts.get(coast);
-  if (along) return along;
-  const { columns, rows, step, x0, z0 } = FIELD_GRID;
-  along = new Float64Array(columns * rows * 2);
+function* coastSteps(coast: ShoreField): Steps<Float64Array> {
+  const { columns, rows, step, x0, z0 } = FIELD_GRID, along = new Float64Array(columns * rows * 2);
   for (let j = 0, n = 0; j < rows; j++) {
     for (let i = 0; i < columns; i++, n++) { const shore = coast.island(x0 + i * step, z0 + j * step); along[2 * n] = shore.nx; along[2 * n + 1] = shore.nz; }
+    if (j % (2 * ROWS_A_STEP) === 2 * ROWS_A_STEP - 1) yield;
   }
   coasts.set(coast, along);
   return along;

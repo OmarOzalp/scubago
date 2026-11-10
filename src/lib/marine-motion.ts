@@ -1,12 +1,13 @@
 import { breachFlight, breachHeight, DOLPHIN_BREACH, type BreachConfig, type BreachStage } from './breach';
 import { KELP } from './kelp';
 import { createShoreField, type IslandShape, type ShoreField, type ShoreSample } from './island-outline';
-import { hullOf, hullTop, landReach, lowestMiddle, marginOf, POKE, shallowClearOf, stanceOf, tooShallowCells, type Hull, type Stance } from './marine-bodies';
+import { hullOf, hullTop, landReach, lowestMiddle, marginOf, POKE, shallowClearOf, stanceOf, tooShallowSteps, type Hull, type Stance } from './marine-bodies';
 import { followerLane, GROUP_STYLES, type GroupStyle } from './marine-groups';
 import { OCEAN } from './ocean';
 import { DIVE_DEPTH, sampleDive, surfaceShift, SWIM_LEVEL } from './ocean-depth';
 import { createReefLife, isReefModel, REEF_THREAT, type MarineHabitat, type ReefVisitor } from './reef-life';
 import { SCHOOL_SHELF, shelfWater, type ShelfInput } from './shelf-water';
+import { finish, type Steps } from './slices';
 import { avoidShallows, createSeabed, edgeSide, FIELD_GRID, openedCells, SURFACE_Y, type OceanIsland, type Seabed, type Shallows } from './seabed';
 import type { WaterExtent } from './seabed-lattice';
 import { apparentShift, clamp, ease, frame, OCEAN_GROWTH, roamFor, smoothstep, TAU, variation, viewBounds, viewHeight, WORLD, worldFor, wrap, type World } from './steering';
@@ -771,14 +772,17 @@ function spread(m: Movement, style: GroupStyle, followers: number): Movement {
   return { ...m, halfWidth: m.halfWidth + .7 * across, halfLength: m.halfLength + .5 * behind, islandClearance: m.islandClearance + .25 * across };
 }
 
-/** Which side of the edge of the water too shallow for a body each place is (seabed.ts, `edgeSide`), kept with the seabed by the body's key. */
-const sides = new WeakMap<Seabed, Map<string, (x: number, z: number) => number>>();
-function sidesOf(seabed: Seabed, key: string, cells: () => Uint8Array) {
-  let kept = sides.get(seabed);
-  if (!kept) sides.set(seabed, kept = new Map());
-  let side = kept.get(key);
-  if (!side) kept.set(key, side = edgeSide(cells()));
-  return side;
+/**
+ * What is kept with a seabed of each body's water, by the body's key: which side of the edge of the water too shallow for it each place is
+ * (seabed.ts, `edgeSide`), and the field of the water it keeps to (`free`).
+ */
+const bodyFields = new WeakMap<Seabed, Map<string, { side?: (x: number, z: number) => number; free?: Shallows }>>();
+function keptFor(seabed: Seabed, key: string) {
+  let bodies = bodyFields.get(seabed);
+  if (!bodies) bodyFields.set(seabed, bodies = new Map());
+  let store = bodies.get(key);
+  if (!store) bodies.set(key, store = {});
+  return store;
 }
 
 /**
@@ -848,29 +852,52 @@ export function createMarineMotion(everyMember: readonly MarineMember[], level =
    */
   type Water = { field: ShoreField; factor: number; free: Shallows; offset: number };
   const waters = new Map<string, Water>();
-  function waterFor(islandClearance: number, roamInner: number, tilt: number, hull: Hull, margin: number, stance: Stance, fit?: ShelfInput['fit']): Water {
-    const steepest = stance.kind === 'bottom' ? STEEPEST_BOTTOM : Infinity, clear = shallowClearOf(hull) * KEEP_OFF_SHALLOWS;
-    const key = `${hull.keel},${hull.wing},${hull.nose},${hull.tail},${hull.crest},${hull.width},${hull.length},${margin},${tilt},${steepest}`, id = `${key}|${islandClearance}|${roamInner}|${fit?.ring}|${current}`, kept = waters.get(id);
-    if (kept) return kept;
+  /**
+   * What a body's water is at this level whatever room it keeps (`waterSteps`): how much wider than the usual its ocean is, and the field
+   * of the water it keeps to. Worked out at once when a body needs it, or ahead, a slice at a time (`prepare`), for one about to join.
+   * (`generation` counts the seabeds: a step left from before a new one finishes into nothing.)
+   */
+  type Base = { factor: number; free: Shallows };
+  const bases = new Map<string, Base>(), making = new Map<string, Steps<void>>();
+  let generation = 0;
+  const keyOf = (hull: Hull, margin: number, tilt: number, steepest: number) => `${hull.keel},${hull.wing},${hull.nose},${hull.tail},${hull.crest},${hull.width},${hull.length},${margin},${tilt},${steepest}`;
+  function* waterSteps(id: string, key: string, hull: Hull, margin: number, tilt: number, steepest: number, fit: ShelfInput['fit']): Steps<void> {
+    const bed = seabed, coast = field, level = current, made = generation, store = keptFor(bed, key);
     // The places too shallow for the body, judged where it is drawn (nearer the viewer than the map: shallows are judged there).
     // (worked out for the whole grid at once, the first time a body of this size is seen on this seabed: and only which side of their edge
     // a place is, which is all that is asked of them, not how far)
-    const shallows = sidesOf(seabed, key, () => tooShallowCells(seabed, field, hull, margin, tilt, steepest));
-    const shallow = (x: number, z: number) => shallows(x, z - SHALLOWS_SHIFT) < 0, shelf = shelfWater({ world: worldFor(current), fit, shallow });
+    if (!store.side) { const cells = yield* tooShallowSteps(bed, coast, hull, margin, tilt, steepest); store.side ??= edgeSide(cells); yield; }
+    const side = store.side, shallow = (x: number, z: number) => side(x, z - SHALLOWS_SHIFT) < 0;
+    const shelf = shelfWater({ world: worldFor(level), fit, shallow });
     // A thin streak of them is no shore (one cell of the field's grid: where the coast's direction turns between two of the field's
     // cells, a body heading along it swings its tail over a slope at one and not the next): the places too shallow are opened by that much,
     // so that what the steering follows is the water's shape, not its specks. (A body passing one is held clear of the bottom as always.)
-    let open: Uint8Array | null = null;
-    const free = seabed.distanceTo(`${key}|free`, (x, z, n) => {
-      if (!open) {
-        const { columns, rows, step, x0, z0 } = FIELD_GRID, seen = new Uint8Array(columns * rows);
-        for (let j = 0, k = 0; j < rows; j++) for (let i = 0; i < columns; i++, k++) seen[k] = shallow(x0 + i * step, z0 + j * step) ? 1 : 0;
-        open = openedCells(seen);
-      }
-      return open[n] === 1;
-    });
+    if (!store.free) {
+      yield;
+      const { columns, rows, step, x0, z0 } = FIELD_GRID, seen = new Uint8Array(columns * rows);
+      for (let j = 0, k = 0; j < rows; j++) for (let i = 0; i < columns; i++, k++) seen[k] = shallow(x0 + i * step, z0 + j * step) ? 1 : 0;
+      const open = openedCells(seen);
+      yield;
+      store.free ??= bed.distanceTo(`${key}|free`, (_x, _z, n) => open[n] === 1);
+    }
+    if (made === generation) bases.set(id, { factor: shelf.factor, free: store.free });
+    making.delete(id);
+  }
+  /** Its water's steps (the same ones for everyone who asks while they run), or null once it is known. */
+  function stepsFor(hull: Hull, margin: number, tilt: number, stance: Stance, fit?: ShelfInput['fit']) {
+    const steepest = stance.kind === 'bottom' ? STEEPEST_BOTTOM : Infinity, key = keyOf(hull, margin, tilt, steepest), id = `${key}|${fit?.ring}|${current}|${generation}`;
+    if (bases.has(id)) return { id, steps: null };
+    let steps = making.get(id);
+    if (!steps) making.set(id, steps = waterSteps(id, key, hull, margin, tilt, steepest, fit));
+    return { id, steps };
+  }
+  function waterFor(islandClearance: number, roamInner: number, tilt: number, hull: Hull, margin: number, stance: Stance, fit?: ShelfInput['fit']): Water {
+    const { id: base, steps } = stepsFor(hull, margin, tilt, stance, fit), id = `${base}|${islandClearance}|${roamInner}`, kept = waters.get(id);
+    if (kept) return kept;
+    if (steps) finish(steps);
+    const { factor, free } = bases.get(base)!;
     // (the room it keeps off the shallows is steering's: they count that much nearer than they are)
-    const offset = islandClearance + roamInner - clear, water = { field: avoidShallows(field, free, offset), factor: shelf.factor, free, offset };
+    const offset = islandClearance + roamInner - shallowClearOf(hull) * KEEP_OFF_SHALLOWS, water = { field: avoidShallows(field, free, offset), factor, free, offset };
     waters.set(id, water);
     return water;
   }
@@ -981,7 +1008,7 @@ export function createMarineMotion(everyMember: readonly MarineMember[], level =
   /** The bottom is another (a new level, or a wider sea): its shallows move, so every animal's water is found again, and it looks at once at what is under it. */
   function rebuild() {
     seabed = bake();
-    waters.clear();
+    waters.clear(); bases.clear(); making.clear(); generation++;
     for (const a of everyone) {
       const water = waterFor(a.m.islandClearance, a.m.roam[0], a.m.tilt, a.hull, a.margin, a.stance);
       Object.assign(a, own(a, water)); a.factor = water.factor;
@@ -2272,6 +2299,16 @@ export function createMarineMotion(everyMember: readonly MarineMember[], level =
      * in its own way, its group with it, to a place round the island away from the others, and joins its way round. `waiting`, it waits
      * out of sight until `arrive()` brings it in. Nobody else is moved. False if its lane is taken.
      */
+    /**
+     * Work out ahead the water of a species about to join (its body's fields, the costly part of joining), a few milliseconds at a time:
+     * run it with slices.ts `runSliced` well before `add`, and the animal joins without a long task. Nothing to do for one whose water is
+     * known, or a reef animal (reef-life.ts keeps them).
+     */
+    *prepare(member: Pick<MarineMember, 'model' | 'speciesId'>): Steps<void> {
+      if (onReef(member as MarineMember)) return;
+      const hull = hullOf(member.model), { steps } = stepsFor(hull, marginOf(hull), MOVEMENT[member.model].tilt, stanceOf(member.model, member.speciesId));
+      if (steps) yield* steps;
+    },
     add(member: MarineMember, how: { aspect?: number; instant?: boolean; waiting?: boolean } = {}) {
       if (byLane.has(member.lane) || reef?.get(member.lane)) return false;
       if (onReef(member) && isReefModel(member.model)) {

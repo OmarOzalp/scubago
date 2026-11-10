@@ -311,10 +311,13 @@ export function SanctuaryScene({ habitat, level, residents, islands, paused = fa
   const onIsland = swimmers.filter((s) => !s.leaving).length;
   const school = lineups.some((lineup) => lineup.school);
   // The models of everyone in the scene, and of whoever comes on at each island's next turn (loaded ahead of it).
-  const upNext = preview ? [] : turns.flatMap((lineup, i) => {
-    const turn = takeTurn(lineup, places[i].residents, i === 0 ? moments?.featured ?? NONE : NONE);
-    return turn === lineup ? [] : [turn.shown[turn.shown.length - 1].model];
+  // (each island's: its swimming works out the newcomer's water ahead too)
+  const comingNext = turns.map((lineup, i) => {
+    if (preview) return null;
+    const turn = takeTurn(lineup, places[i].residents, i === 0 ? moments?.featured ?? NONE : NONE), next = turn.shown[turn.shown.length - 1];
+    return turn === lineup ? null : { model: next.model, speciesId: next.species.id };
   });
+  const upNext = comingNext.flatMap((next) => (next ? [next.model] : []));
   const shownModels = (preview ? visitors : swimmers.filter((s) => !s.leaving)).map((s) => s.model);
   const requested = loading ? [] : [...shownModels, ...upNext];
   const loaded = useMarineModels(requested), { failed, retry } = loaded;
@@ -505,7 +508,7 @@ export function SanctuaryScene({ habitat, level, residents, islands, paused = fa
   const sceneIslands: SceneIsland[] = lineups.map(({ place, swimmers: here, schoolSpecies, school: schooling }, i) => ({
     key: place.key, habitat: place.habitat, x: place.x, z: place.z,
     content: <>
-      {!loading && <MarineSwimmers models={models ?? NO_MODELS} active={active} unseen={picture.unseen} level={level} tapScale={explorer?.tapScale} shape={shapeFor(place.habitat)}
+      {!loading && <MarineSwimmers models={models ?? NO_MODELS} active={active} unseen={picture.unseen} level={level} tapScale={explorer?.tapScale} shape={shapeFor(place.habitat)} upcoming={comingNext[i]}
         world={places.length > 1 ? { islands: places.map(({ x, z, habitat: shores }) => ({ x, z, habitat: shores })), index: i, reach: explorer?.reach } : undefined}
         residents={preview
           ? (i === 0 ? visitors.map((s) => ({ ...s, id: s.model, onPress: () => onInspect(s.model) })) : [])
