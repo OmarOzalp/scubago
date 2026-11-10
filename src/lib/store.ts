@@ -37,6 +37,7 @@ import { errorMessage } from '@/lib/sync';
 import { createSyncScheduler } from '@/lib/sync-scheduler';
 import { syncNow } from '@/lib/sync-service';
 import type { Dive, DiveFields, DiveSignature, DiveSite, Sighting } from '@/lib/types';
+import { perfMark } from './perf-report';
 
 /** The device owner until real auth exists. */
 export const LOCAL_USER_ID = 'local';
@@ -236,6 +237,7 @@ export const useAppStore = create<StoreState>((set, get) => {
         return;
       }
       set({ ...forViewer(local, ownerId()), ready: true, storageProblem: null });
+      perfMark('store-ready');
       // Sightings from before the dive log become past pages (once; new sightings always have a page).
       try {
         await bindLoose();

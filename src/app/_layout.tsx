@@ -71,10 +71,8 @@ export default function RootLayout() {
   useEffect(() => {
     init();
   }, [init]);
-  // Launch milestones for the performance report.
-  const ready = useAppStore((s) => s.ready);
+  // A launch milestone for the performance report (the store marks its own, store.ts: the layout does not re-render for it).
   useEffect(() => { if (fontsLoaded || fontError) perfMark('fonts-ready'); }, [fontsLoaded, fontError]);
-  useEffect(() => { if (ready) perfMark('store-ready'); }, [ready]);
 
   const base = scheme === 'dark' ? DarkTheme : DefaultTheme;
   const navTheme = {
