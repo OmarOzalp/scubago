@@ -3,6 +3,7 @@ import { Animated, Platform, StyleSheet, View } from 'react-native';
 import { useFrame, useThree } from '@react-three/fiber';
 import { SceneCanvas as Canvas } from './three/scene-canvas';
 import { useSceneQuality } from './three/scene-quality';
+import { WATER } from './three/sanctuary-environment';
 import { SceneBoundary, SceneUnavailable } from './scene-boundary';
 import { SceneCamera } from './three/scene-camera';
 import { IslandPerfBadge } from './island-perf-badge';
@@ -230,7 +231,7 @@ const HOLD_MAX_MS = 1500;
  * canvas, or Expo GL's view, until its next frame is presented) keeps the island it leaves. Once the new island is whole, or after
  * HOLD_MAX_MS, it lets go and R3F draws again.
  */
-function HoldDrawing({ stager, island, onDone }: { stager: Stager; island: string; onDone: () => void }) {
+export function HoldDrawing({ stager, island, onDone }: { stager: Stager; island: string; onDone: () => void }) {
   const invalidate = useThree((state) => state.invalidate);
   const state = useRef({ frames: 0, start: 0, done: false });
   const latest = useRef(onDone);
@@ -254,6 +255,30 @@ function HoldDrawing({ stager, island, onDone }: { stager: Stager; island: strin
     if (value.frames > 2 && !stager.pending(island, [STAGE.coast, STAGE.props])) finish();
     else if (performance.now() - value.start > HOLD_MAX_MS) finish();
   }, 1);
+  return null;
+}
+
+/** How long at most the explorer's first open keeps its veil (ms), however long its islands take to build. */
+const VEIL_MAX_MS = 8000;
+/** How long the veil takes to fade (ms; at once with Reduce Motion). */
+const VEIL_FADE_MS = 400;
+
+/**
+ * In the canvas: calls `onWhole` once the islands `inView()` names have their coasts and what grows on them built (the first frames, which come
+ * before the islands have said what they have to build, are not counted), or after VEIL_MAX_MS. It draws as usual (the veil is a view over it).
+ */
+export function IslandsWhole({ stager, inView, onWhole }: { stager: Stager; inView: () => readonly string[]; onWhole: () => void }) {
+  const state = useRef({ frames: 0, start: 0, done: false });
+  const latest = useRef({ inView, onWhole });
+  useEffect(() => { latest.current = { inView, onWhole }; });
+  useFrame(() => {
+    const value = state.current;
+    if (value.done) return;
+    if (!value.start) value.start = performance.now();
+    value.frames++;
+    const whole = value.frames > 2 && latest.current.inView().every((island) => !stager.pending(island, [STAGE.coast, STAGE.props]));
+    if (whole || performance.now() - value.start > VEIL_MAX_MS) { value.done = true; latest.current.onWhole(); }
+  });
   return null;
 }
 
@@ -343,6 +368,10 @@ export function SanctuaryScene({ habitat, level, residents, islands, paused = fa
   // (and the canvas keeps the island it leaves until the new one is whole: HoldDrawing)
   const [seenHabitat, setSeenHabitat] = useState(habitat);
   const [holding, setHolding] = useState<string | null>(null);
+  // The explorer's first open with no picture kept of its view: a veil of the sea's colour over the islands in view until they are whole (their
+  // places in the water were empty, the paper showing through, for a second or two while their coasts built), then it fades.
+  const [veil, setVeil] = useState<'on' | 'fading' | 'off'>(() => (explorer ? 'on' : 'off'));
+  const [veilOpacity] = useState(() => new Animated.Value(1));
   if (seenHabitat !== habitat) {
     setSeenHabitat(habitat);
     setHolding(card && shownOnce ? habitat : null);
@@ -401,24 +430,31 @@ export function SanctuaryScene({ habitat, level, residents, islands, paused = fa
   useEffect(() => {
     if (card && picture.live && !loading) void preloadSeabedBakes(level, [habitat], EXPLORER_REACH);
   }, [card, picture.live, loading, level, habitat]);
-  // ...and a picture of it, a few seconds after it is on show with all its animals (once for each island and level while the card is up).
+  // ...and a picture of it, a few seconds after it is on show (once for each island and level while the card is up). The picture leaves out what
+  // moves (stillOnly), so it waits for the island to be whole, not for every animal: it used to wait for three seconds in which no animal's model
+  // was loading, which a collection with discoveries still arriving one after another seldom had (the picture was then not replaced, in about
+  // half of the measured visits; with nothing arriving, every time).
   const pictured = useRef(new Set<string>());
   // (the canvas's size, for the picture's)
   const size = useRef({ width: 0, height: 0 });
   const scene = `${level}|${habitat}`;
   useEffect(() => {
-    if (!home || !picture.live || !everyoneIn || loading || !active || pictured.current.has(scene)) return;
-    const timer = setTimeout(() => {
+    if (!home || !picture.live || loading || !active || pictured.current.has(scene)) return;
+    let timer: ReturnType<typeof setTimeout>;
+    const take = () => {
       const { width, height } = size.current;
       if (width < 1 || height < 1) return;
+      // (its coast and what grows on it still building: look again in a second)
+      if (stager.pending(habitat, [STAGE.coast, STAGE.props])) { timer = setTimeout(take, 1000); return; }
       pictured.current.add(scene);
       void captureScene('home', { width: Math.round(width * 2), height: Math.round(height * 2), stillOnly: true }).then(async (uri) => {
         if (!uri) return;
         try { await rememberHomePicture(uri, level, habitat); } finally { releaseSnapshot(uri); }
       });
-    }, PICTURE_AFTER_MS);
+    };
+    timer = setTimeout(take, PICTURE_AFTER_MS);
     return () => clearTimeout(timer);
-  }, [home, picture.live, everyoneIn, loading, active, scene, level, habitat]);
+  }, [home, picture.live, loading, active, scene, level, habitat, stager]);
   // The explorer's, of its opening view, once all in view is built and the view is where it opened: unless one was shown and was good.
   const [pictureLoaded, setPictureLoaded] = useState(false);
   useEffect(() => {
@@ -468,6 +504,18 @@ export function SanctuaryScene({ habitat, level, residents, islands, paused = fa
   const completeNow = useRef(complete);
   useEffect(() => { completeNow.current = complete; });
   useEffect(() => { if (home && complete && visible) perfMark('home-animals'); }, [home, complete, visible]);
+  // The "New" tag goes with its animal: only over the island the animal lives on (an island switched to on Home is another), and not over
+  // the picture that stands in for the scene at launch (it has no animals) or the frame held during a switch.
+  const tagged = moments?.tag?.speciesId;
+  const tagShown = !!tagged && !preview && !picture.unseen && holding === null && places[0].residents.some((r) => r.species.id === tagged);
+  // (a picture kept of the view covers the build itself: no veil then, and none once the explorer has been built)
+  if (veil === 'on' && (picture.picture || staged.done)) setVeil('off');
+  useEffect(() => {
+    if (veil !== 'fading') return;
+    const fade = Animated.timing(veilOpacity, { toValue: 0, duration: active ? VEIL_FADE_MS : 0, useNativeDriver: Platform.OS !== 'web' });
+    fade.start(({ finished }) => { if (finished) setVeil('off'); });
+    return () => fade.stop();
+  }, [veil, picture.picture, staged.done, veilOpacity, active]);
   const fallback = <IslandScene habitat={habitat} level={level} residents={residents} paused={paused} />;
   const frame = explorer ? styles.fill : styles.scene;
   if (failed) return <View style={frame}><SceneUnavailable onRetry={retry}>{fallback}</SceneUnavailable></View>;
@@ -523,6 +571,10 @@ export function SanctuaryScene({ habitat, level, residents, islands, paused = fa
         {/* The Share button's picture of the card (and the explorer's of its opening view). A paused island can still be photographed; one that is still for Reduce Motion is not. */}
         <SnapshotRegistrar name={explorer ? 'explorer' : 'home'} ready={visible && !loading && (active || paused || oceanPaused)} />
         <Wake visible={visible} />
+        {veil === 'on' && explorer && seabedReady && !loading && <IslandsWhole stager={stager} onWhole={() => setVeil('fading')} inView={() => {
+          const { order, near } = explorer.near?.() ?? { order: places.map((place) => place.key), near: places.length };
+          return order.slice(0, Math.max(1, near));
+        }} />}
         {holding === habitat && <HoldDrawing stager={stager} island={habitat} onDone={() => setHolding(null)} />}
         <FirstFrame mark={marks.frame} episode={episode} complete={() => completeNow.current && stager.getState().done} />
         <FrameReport name={explorer ? 'explorer' : 'home'} />
@@ -544,8 +596,9 @@ export function SanctuaryScene({ habitat, level, residents, islands, paused = fa
       </Canvas>
       </View>
     </SceneBoundary>
+    {veil !== 'off' && !picture.picture && <Animated.View pointerEvents="none" style={[StyleSheet.absoluteFill, { backgroundColor: WATER[habitat], opacity: veilOpacity }]} />}
     {picture.picture && <InstantPicture uri={picture.picture} opacity={picture.opacity} onError={picture.onError} onLoad={() => { setPictureLoaded(true); perfReport.step(episode, 'picture'); }} />}
-    {!!label && <NewTag label={label} x={tag.x} y={tag.y} inView={tag.inView} visible={!!moments?.tag && !preview}
+    {!!label && <NewTag label={label} x={tag.x} y={tag.y} inView={tag.inView} visible={tagShown}
       onWidth={(width) => { layout.current.tag = width; }} />}
     {moments?.banner && <LevelUpBanner {...moments.banner} still={!active} />}
     {!!note && <DiscoveryNote text={note} visible={!!moments?.note} still={!active} />}

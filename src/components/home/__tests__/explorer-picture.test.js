@@ -19,7 +19,7 @@ jest.mock('../three/warm-up', () => ({ WarmUp: () => null }));
 jest.mock('../three/use-marine-models', () => ({ useMarineModels: jest.fn() }));
 jest.mock('../three/scene-camera', () => ({ SceneCamera: () => null }));
 jest.mock('../three/scene-performance', () => ({ ScenePerformance: () => null, FrameReport: () => null }));
-jest.mock('../three/sanctuary-environment', () => ({ SanctuaryEnvironment: ({ children }) => <environment>{children}</environment> }));
+jest.mock('../three/sanctuary-environment', () => ({ WATER: {}, SanctuaryEnvironment: ({ children }) => <environment>{children}</environment> }));
 jest.mock('@react-three/fiber', () => ({
   useFrame: jest.fn(),
   useThree: (select) => select({ size: { width: 390, height: 844 }, invalidate: () => {}, camera: {}, get: () => ({ gl: {}, scene: {}, camera: {} }) }),

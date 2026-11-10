@@ -16,7 +16,7 @@ jest.mock('../three/warm-up', () => ({ WarmUp: () => null }));
 jest.mock('../three/use-marine-models', () => ({ useMarineModels: jest.fn() }));
 jest.mock('../three/scene-camera', () => ({ SceneCamera: () => null }));
 jest.mock('../three/scene-performance', () => ({ ScenePerformance: () => null, FrameReport: () => null }));
-jest.mock('../three/sanctuary-environment', () => ({ SanctuaryEnvironment: ({ children }) => <environment>{children}</environment> }));
+jest.mock('../three/sanctuary-environment', () => ({ WATER: {}, SanctuaryEnvironment: ({ children }) => <environment>{children}</environment> }));
 const mockRenderer = { gl: { render: jest.fn() }, scene: { name: 'scene' }, camera: { name: 'camera' } };
 jest.mock('@react-three/fiber', () => ({
   useFrame: jest.fn(),
