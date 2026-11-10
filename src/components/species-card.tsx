@@ -101,7 +101,7 @@ const styles = StyleSheet.create({
     left: Space.s2,
     width: 10,
     height: 10,
-    borderRadius: 5,
+    borderRadius: Radius.pill,
     borderWidth: 1.5,
   },
   // Overlaps the tile's top-right corner.
