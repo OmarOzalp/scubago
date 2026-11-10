@@ -60,8 +60,8 @@ export function AnimatedMarine({ model, gltf, lane, active, inspect = false, pop
   model: MarineModel; gltf: GLTF; lane: number; active: boolean; inspect?: boolean; population?: number; motion?: MarineMotion; onPress?: () => void;
   /** How much farther the camera has pulled back (the ocean's scale), so tap targets keep their size on screen. */
   tapScale?: number;
-  /** Come into view emerging from the deep, head first, where it is (it joined a scene already on show): never popping in. */
-  emerge?: boolean;
+  /** Come into view emerging from the deep, head first, where it is (it joined a scene already on show): never popping in. A number is how long it takes (s). */
+  emerge?: boolean | number;
 }) {
   // The island's water (absent in the close-up), so the animal tints and refracts with the same waves.
   const ocean = useContext(OceanContext), marks = useContext(SceneMarksContext);
@@ -101,7 +101,7 @@ export function AnimatedMarine({ model, gltf, lane, active, inspect = false, pop
   // Whether it is on screen: off it, its skeleton rests and it isn't drawn (the swimming goes on, so it is where it should be when it comes back).
   const seen = useRef(true);
   // (emerging: how far through, 0 to 1, as the scene's time goes on; decided as it mounts)
-  const emerging = useRef({ on: emerge, time: 0 });
+  const emerging = useRef({ on: emerge !== false, time: 0, seconds: typeof emerge === 'number' ? emerge : EMERGE_SECONDS });
 
   useEffect(() => {
     if (swimRig) return;
@@ -157,7 +157,7 @@ export function AnimatedMarine({ model, gltf, lane, active, inspect = false, pop
       // Emerging, it rises out of the deep blue head first, as from a dive (and its own dive takes over once deeper than that).
       const rise = emerging.current;
       if (rise.on) rise.time += dt;
-      const deep = rise.on ? 1 - Math.min(1, rise.time / EMERGE_SECONDS) : 0;
+      const deep = rise.on ? 1 - Math.min(1, rise.time / rise.seconds) : 0;
       if (rise.on && deep <= 0) rise.on = false;
       underwater?.setDepth(Math.max(dive.depth, deep), deep > dive.depth || dive.surfacing);
       // Reef animals: a color state, and how much of it is out of sight in its den.

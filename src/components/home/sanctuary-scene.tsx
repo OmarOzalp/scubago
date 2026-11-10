@@ -356,7 +356,7 @@ export function SanctuaryScene({ habitat, level, residents, islands, paused = fa
       const { width, height } = size.current;
       if (width < 1 || height < 1) return;
       pictured.current.add(scene);
-      void captureScene('home', { width: Math.round(width * 2), height: Math.round(height * 2) }).then(async (uri) => {
+      void captureScene('home', { width: Math.round(width * 2), height: Math.round(height * 2), stillOnly: true }).then(async (uri) => {
         if (!uri) return;
         try { await rememberHomePicture(uri, level, habitat); } finally { releaseSnapshot(uri); }
       });
@@ -374,7 +374,7 @@ export function SanctuaryScene({ habitat, level, residents, islands, paused = fa
       if (width < 1 || height < 1 || !opening()) return;
       pictured.current.add(viewKey);
       // (nobody waits for it, as Share does for Home's: the whole screen's size of the whole archipelago's water may take a slow GPU longer than that)
-      void captureScene('explorer', { width: Math.round(width * 2), height: Math.round(height * 2) }, EXPLORER_CAPTURE_TIMEOUT_MS).then(async (uri) => {
+      void captureScene('explorer', { width: Math.round(width * 2), height: Math.round(height * 2), stillOnly: true }, EXPLORER_CAPTURE_TIMEOUT_MS).then(async (uri) => {
         if (!uri) return;
         try { await rememberExplorerPicture(uri, viewKey); markOnce('scubago:explorer-picture'); } finally { releaseSnapshot(uri); }
       });

@@ -35,6 +35,24 @@ export interface SnapshotRequest {
   height: number;
   /** Web only: how much more of the world than the scene's own view to show (1.25: a quarter wider and taller; 1 or unset: the same). */
   widen?: number;
+  /**
+   * Leave out what moves (objects marked `userData.hideInPicture`: the animals, the tuna school, the splashes). The picture kept for the next
+   * launch is shown over a live scene whose animals are elsewhere by then: without them it hands over to the live scene with no animal jumping.
+   */
+  stillOnly?: boolean;
+}
+
+/** Hides every object of `scene` marked `userData.hideInPicture` while `draw` runs, and shows them again after. */
+export function withoutMoving<T>(scene: unknown, stillOnly: boolean | undefined, draw: () => T): T {
+  const root = scene as { traverse?: (visit: (object: { visible: boolean; userData?: Record<string, unknown> }) => void) => void };
+  if (!stillOnly || typeof root?.traverse !== 'function') return draw();
+  const hidden: { visible: boolean }[] = [];
+  root.traverse((object) => { if (object.userData?.hideInPicture === true && object.visible) { object.visible = false; hidden.push(object); } });
+  try {
+    return draw();
+  } finally {
+    for (const object of hidden) object.visible = true;
+  }
 }
 
 /** What a scene registers: its picture as an image URI (`file://`, `data:` or `blob:`), or null. */
@@ -255,7 +273,7 @@ async function captureWeb({ gl, scene, camera }: FrameTarget, request: SnapshotR
     gl.setSize(width, height, false);
     view.zoom = was.zoom / widen;
     view.updateProjectionMatrix();
-    gl.render(scene, camera);
+    withoutMoving(scene, request.stillOnly, () => gl.render(scene, camera));
     draw.drawImage(canvas, crop.x, crop.y, crop.width, crop.height, 0, 0, crop.width, crop.height);
   } finally {
     view.zoom = was.zoom;
@@ -285,9 +303,18 @@ async function captureNative({ gl, scene, camera }: FrameTarget, request: Snapsh
   const { drawingBufferWidth: bufferWidth, drawingBufferHeight: bufferHeight } = context;
   if (!whole(bufferWidth) || !whole(bufferHeight)) return null;
 
-  gl.render(scene, camera);
   const rect = cropRect(bufferWidth, bufferHeight, request.width / request.height);
-  const shot = await deps.takeSnapshot(context, { format: 'png', compress: 1, flip: false, rect });
+  // Without what moves, the frame is drawn by three.js's own render, which R3F's does not present (its own ends the frame with endFrameEXP): the
+  // picture is read from the buffer it was drawn into, and the screen goes on showing the last frame until the next, drawn with everything.
+  // (the snapshot is queued on the GL thread behind this draw, before the next frame's, so it reads this one)
+  const present = !request.stillOnly;
+  const plain = (Object.getPrototypeOf(gl) as FrameRenderer).render;
+  const pending = withoutMoving(scene, request.stillOnly, () => {
+    if (present || typeof plain !== 'function') gl.render(scene, camera);
+    else plain.call(gl, scene, camera);
+    return deps.takeSnapshot(context, { format: 'png', compress: 1, flip: false, rect });
+  });
+  const shot = await pending;
   const uri = typeof shot.uri === 'string' ? shot.uri : shot.localUri;
   if (typeof uri !== 'string' || !uri) return null;
   // Its own file, for `releaseSnapshot` to delete.

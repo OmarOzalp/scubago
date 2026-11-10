@@ -266,6 +266,24 @@ describe('on iOS and Android', () => {
     });
   });
 
+  it('still only: draws without what moves through three.js’s own render (not presented), reads it, and shows the animals again', async () => {
+    const calls: string[] = [];
+    const animal = { visible: true, userData: { hideInPicture: true } }, island = { visible: true, userData: { hideInPicture: false } }, diving = { visible: false, userData: { hideInPicture: true } };
+    const scene = { traverse: (visit: (o: typeof animal) => void) => [island, animal, diving].forEach(visit) };
+    // R3F's native renderer: its own `render` presents the frame; the prototype's draws without presenting.
+    const proto = { render: jest.fn(() => { calls.push(`draw animal:${animal.visible} island:${island.visible}`); }) };
+    const gl = Object.assign(Object.create(proto), {
+      domElement: {}, render: jest.fn(() => void calls.push('present')), getContext: () => context, getSize: jest.fn(), getPixelRatio: () => 3, setPixelRatio: jest.fn(), setSize: jest.fn(),
+    }) as FrameTarget['gl'];
+    const deps: NativeDeps = { takeSnapshot: jest.fn(async () => { calls.push(`snapshot animal:${animal.visible}`); return { uri: 'file:///cache/GLView/still.png', localUri: '', width: 840, height: 393 }; }) };
+    expect(await captureFrame({ gl, scene, camera: {} }, { ...request, stillOnly: true }, deps)).toBe('file:///cache/GLView/still.png');
+    // The snapshot is queued right behind the draw without the animal; the screen never shows a frame without it.
+    expect(calls).toEqual(['draw animal:false island:true', 'snapshot animal:false']);
+    expect(animal.visible).toBe(true);
+    expect(diving.visible).toBe(false);
+    expect(gl.render).not.toHaveBeenCalled();
+  });
+
   it('leaves the camera and the renderer’s size alone (nothing on screen changes)', async () => {
     const { target, deps, gl } = native();
     await captureFrame(target, { ...request, widen: 1.25 }, deps);

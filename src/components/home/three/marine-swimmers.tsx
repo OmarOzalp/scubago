@@ -61,6 +61,12 @@ export type Arrivals = {
 };
 
 const scratch = { x: 0, y: 0 };
+const MOVING = { hideInPicture: true };
+/**
+ * How long (s) an animal takes to come into view on an island built before (the pill switched back, the explorer showing an island seen on Home), where
+ * it used to appear at once: a short fade up out of the blue, where it is, rather than the slower rise of one arriving late on a first visit.
+ */
+export const QUICK_EMERGE_SECONDS = .6;
 
 /**
  * The animals and the tuna school. A species that swims in a group (marine-groups.ts) is drawn as
@@ -116,7 +122,7 @@ export function MarineSwimmers({ residents, models, active, level = 1, school = 
     // A new tuna brings the whole school in, from out of sight (only ever before the scene is shown).
     if (holdable) motion.holdSchool(aspect);
     // Those on the island whose models are still loading (`late`), and those of them that came on show emerging (`emerging`, their lanes).
-    return { motion, joined, late: new Set<string>(), emerging: new Set<number>(), plan };
+    return { motion, joined, late: new Set<string>(), emerging: new Set<number>(), quick: new Set<number>(), plan };
   };
   // One simulation for the scene's life (a school of tuna swims with them, src/lib/tuna-school.ts). Species come and go
   // in it one at a time, the others carrying on as they were: one whose turn ends swims off out of the view, the next
@@ -124,10 +130,10 @@ export function MarineSwimmers({ residents, models, active, level = 1, school = 
   // the ocean around the same animals rather than starting over. The school joining (a tuna logged) or leaving (its last
   // sighting deleted) starts one again, and so does another island (Home's card shows one island at a time).
   const [simulation, setSimulation] = useState(() => ({ school, shape, places, ...start() }));
-  let { motion, joined, late, emerging, plan } = simulation;
+  let { motion, joined, late, emerging, quick, plan } = simulation;
   if (simulation.school !== school || simulation.shape !== shape || simulation.places !== places) {
-    ({ motion, joined, late, emerging, plan } = start());
-    setSimulation({ school, shape, places, motion, joined, late, emerging, plan });
+    ({ motion, joined, late, emerging, quick, plan } = start());
+    setSimulation({ school, shape, places, motion, joined, late, emerging, quick, plan });
   }
   // Bring the simulation in step with who is on the island (applying the same changes twice changes nothing).
   const wanted = new Map(residents.filter((r) => models[r.model]).map((r) => [r.id, r]));
@@ -153,8 +159,9 @@ export function MarineSwimmers({ residents, models, active, level = 1, school = 
     plan.delete(id);
     const held = waiting.includes(id), lateModel = late.delete(id) && !held, still = !!arrivals?.instant || !active || unseen;
     motion.add({ model: r.model, lane: r.lane, group, speciesId: id }, { aspect, waiting: held, instant: still || lateModel });
-    if (lateModel && !still && !seen) emerging.add(r.lane);
-    perfReport.count(`${reportAs}: animals ${still ? 'joined unseen or still' : held ? 'waiting to arrive' : !lateModel ? 'swam in' : seen ? 'appeared at once (pop)' : 'rose into view'}`);
+    // (on an island built before, quickly: the island is there at once, and its animals should be nearly so)
+    if (lateModel && !still) { emerging.add(r.lane); if (seen) quick.add(r.lane); }
+    perfReport.count(`${reportAs}: animals ${still ? 'joined unseen or still' : held ? 'waiting to arrive' : !lateModel ? 'swam in' : seen ? 'faded into view' : 'rose into view'}`);
     joined.set(id, { lane: r.lane, model: r.model, group, leaving: false });
   }
   // An animal that has swum off is taken out of the scene's list.
@@ -249,16 +256,20 @@ export function MarineSwimmers({ residents, models, active, level = 1, school = 
   const { morays, octopuses, anemones } = motion.reef?.counts ?? { morays: 0, octopuses: 0, anemones: 0 };
   return <>
     <group ref={origin} />
+    {/* What moves is left out of the picture kept for the next launch (scene-snapshot.ts, stillOnly): it would be elsewhere by the time the live scene takes over. */}
+    <group userData={MOVING}>
     {motion.swimmers.map((swimmer) => {
       const resident = byLane.get(swimmer.leader);
       return resident && models[swimmer.model] && <AnimatedMarine key={`${resident.id}:${swimmer.index}`}
         model={swimmer.model} lane={swimmer.lane} gltf={models[swimmer.model]!}
-        active={active} population={residents.length} motion={motion} onPress={resident.onPress} tapScale={taps} emerge={emerging.has(swimmer.leader)} />;
+        active={active} population={residents.length} motion={motion} onPress={resident.onPress} tapScale={taps}
+        emerge={emerging.has(swimmer.leader) ? (quick.has(swimmer.leader) ? QUICK_EMERGE_SECONDS : true) : false} />;
     })}
-    {morays + octopuses > 0 && <ReefRocks level={level} morays={morays} octopuses={octopuses} shape={shape} />}
-    {anemones > 0 && <ReefAnemones level={level} count={anemones} shape={shape} />}
     <MarineSplashes motion={motion} lite={lite} />
     {motion.school && <TunaSchoolMesh school={motion.school} onPress={onSchoolPress} />}
+    </group>
+    {morays + octopuses > 0 && <ReefRocks level={level} morays={morays} octopuses={octopuses} shape={shape} />}
+    {anemones > 0 && <ReefAnemones level={level} count={anemones} shape={shape} />}
     {MarineDebug && <MarineDebug motion={motion} />}
   </>;
 }
