@@ -119,27 +119,29 @@ export default function AddSiteScreen() {
         placeholder="e.g. Shark Point"
         error={problem?.field === 'name' ? problem.message : undefined}
       />
-      <View style={styles.where}>
-        <Icon name="pin" size={20} color={theme.textSecondary} />
-        <ThemedText type="subhead" themeColor="textSecondary" style={styles.flex}>
-          In a maps app, hold a spot and copy its numbers.
-        </ThemedText>
+      <View style={styles.coordinates}>
+        <View style={styles.where}>
+          <Icon name="pin" size={20} color={theme.textSecondary} />
+          <ThemedText type="subhead" themeColor="textSecondary" style={styles.flex}>
+            In a maps app, hold a spot and copy its numbers.
+          </ThemedText>
+        </View>
+        <TextField
+          ref={coordinatesField}
+          label="Coordinates (required)"
+          value={coordinates}
+          onChangeText={(text) => {
+            setCoordinates(text);
+            if (problem?.field === 'coordinates') setProblem(null);
+          }}
+          keyboardType="numbers-and-punctuation"
+          autoCorrect={false}
+          autoCapitalize="none"
+          placeholder="e.g. 7.81, 98.54"
+          helper={coordinatesHelper}
+          error={problem?.field === 'coordinates' ? problem.message : undefined}
+        />
       </View>
-      <TextField
-        ref={coordinatesField}
-        label="Coordinates (required)"
-        value={coordinates}
-        onChangeText={(text) => {
-          setCoordinates(text);
-          if (problem?.field === 'coordinates') setProblem(null);
-        }}
-        keyboardType="numbers-and-punctuation"
-        autoCorrect={false}
-        autoCapitalize="none"
-        placeholder="e.g. 7.81, 98.54"
-        helper={coordinatesHelper}
-        error={problem?.field === 'coordinates' ? problem.message : undefined}
-      />
       <View style={styles.rowFields}>
         <TextField label="Region" value={region} onChangeText={setRegion} placeholder="e.g. Phuket" style={styles.flex} />
         <TextField label="Country" value={country} onChangeText={setCountry} placeholder="e.g. Thailand" style={styles.flex} />
@@ -167,9 +169,10 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'flex-start',
     gap: Space.s2,
-    // Closer to the coordinates it explains than to the name above.
-    marginTop: Space.s2,
-    marginBottom: -Space.s3,
+  },
+  // The hint belongs to the field below it: 8 between them, the screen's 16 above the pair.
+  coordinates: {
+    gap: Space.s2,
   },
   rowFields: {
     flexDirection: 'row',
