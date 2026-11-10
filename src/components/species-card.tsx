@@ -53,7 +53,7 @@ interface Props {
 }
 
 /** How strongly a seen species' tile takes its rarity colour, per scheme. */
-const TINT = { light: 0.14, dark: 0.12 };
+const TINT = { light: 0.14, dark: 0.18 };
 
 /**
  * A species in a grid: its drawing on a square tile (seen: a soft tint of its rarity colour; still to find:
@@ -69,7 +69,10 @@ export function SpeciesCard({ species, width, count, isNew = false, onPress }: P
   const rarity = RARITY_LABEL[species.rarity];
   const colour = RARITY_COLOR[species.rarity];
   const label = `${species.commonName}, ${rarity.toLowerCase()}, ${seen ? (count > 1 ? `seen ${count} times` : 'seen once') : 'not seen yet'}${isNew ? ', new' : ''}`;
-  const tile = seen ? mix(theme.backgroundElement, colour, TINT[scheme]) : theme.backgroundSelected;
+  // The plates are drawn in ink for paper: at night a seen species still sits on a pale tile (a muted one, so it
+  // doesn't glare), or a dark animal like a manta would vanish into the navy. Still to find stays sunken.
+  const paper = scheme === 'dark' ? mix(theme.text, theme.backgroundElement, 0.3) : theme.backgroundElement;
+  const tile = seen ? mix(paper, colour, TINT[scheme]) : theme.backgroundSelected;
   return (
     <Pressable onPress={onPress} accessibilityRole="button" accessibilityLabel={label} style={({ pressed }) => [styles.card, { width }, scale(pressed)]}>
       <View style={[styles.tile, { width, height: width, backgroundColor: tile }]}>
