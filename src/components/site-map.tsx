@@ -6,7 +6,8 @@ import { Icon } from '@/components/icon';
 import { longDate, plural } from '@/components/rewards/format';
 import { stampLook } from '@/components/rewards/stamp-look';
 import { OsmCredit } from '@/components/site-list';
-import { OnFill, Radius, Shadow, Type } from '@/constants/theme';
+import { useSurface } from '@/components/ui/surface';
+import { OnFill, Radius, Space, TypeScale } from '@/constants/theme';
 import { useSchemeName, useTheme } from '@/hooks/use-theme';
 import { boundsToRegion, clusterSites, hasImportedSites, spreadStackedSites, type MapRegion, type SiteBounds, type SiteCluster } from '@/lib/site-clusters';
 import type { PassportStamp } from '@/lib/rewards';
@@ -75,6 +76,7 @@ export const SiteMap = memo(function SiteMap({ sites, highlightedSiteIds, highli
   const mapRef = useRef<MapView>(null);
   const theme = useTheme();
   const scheme = useSchemeName();
+  const surface = useSurface('card', Radius.md);
   // A few degrees across at the least, so the sites round it show too, not only the one.
   const [start] = useState<MapRegion>(() => (startAt ? boundsToRegion(startAt, { minDelta: START_DELTA }) : INITIAL_REGION));
   const [region, setRegion] = useState<MapRegion>(start);
@@ -203,7 +205,7 @@ export const SiteMap = memo(function SiteMap({ sites, highlightedSiteIds, highli
           <View
             accessibilityElementsHidden
             importantForAccessibility="no-hide-descendants"
-            style={[styles.legend, { pointerEvents: 'none', backgroundColor: theme.backgroundElement, borderColor: theme.cardBorder, boxShadow: Shadow[scheme].card }]}>
+            style={[surface, styles.legend, { pointerEvents: 'none' }]}>
             <View style={styles.key}>
               <View style={[styles.dot, { backgroundColor: theme.coral, borderColor: theme.text }]} />
               <Text numberOfLines={1} style={[styles.keyText, { color: theme.text }]}>{highlightLabel}</Text>
@@ -454,33 +456,30 @@ const styles = StyleSheet.create({
     alignItems: 'flex-start',
     gap: 6,
   },
+  // A key over the map: the card surface (a shadow, or a hairline in dark), never both.
   legend: {
     flexDirection: 'row',
     alignItems: 'center',
     maxWidth: '100%',
-    gap: 12,
-    borderWidth: 1,
-    borderRadius: Radius.sm,
-    paddingHorizontal: 10,
-    paddingVertical: 6,
+    gap: Space.s3,
+    paddingHorizontal: Space.s3,
+    paddingVertical: Space.s2,
   },
   key: {
     flexDirection: 'row',
     alignItems: 'center',
     flexShrink: 1,
-    gap: 6,
+    gap: Space.s2,
   },
   dot: {
     width: 10,
     height: 10,
-    borderRadius: 5,
+    borderRadius: Radius.pill,
     borderWidth: 1,
   },
   keyText: {
+    ...TypeScale.footnoteStrong,
     flexShrink: 1,
-    fontFamily: Type.bodyBold,
-    fontSize: 13,
-    lineHeight: 16,
   },
   halo: {
     alignItems: 'center',
@@ -492,9 +491,7 @@ const styles = StyleSheet.create({
     borderWidth: 2.5,
   },
   count: {
-    fontFamily: Type.display,
-    fontSize: 15,
-    lineHeight: 18,
+    ...TypeScale.subheadStrong,
     textAlign: 'center',
     includeFontPadding: false,
   },

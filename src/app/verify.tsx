@@ -1,19 +1,22 @@
 import { Image } from 'expo-image';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useState } from 'react';
-import { Pressable, StyleSheet, TextInput, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 
 import { RemoteSign } from '@/components/dive/remote-sign';
-import { Icon, type IconName } from '@/components/icon';
-import { Paper } from '@/components/journal/paper';
-import { Screen } from '@/components/journal/screen';
+import { Icon } from '@/components/icon';
 import { Seal } from '@/components/journal/stamp';
-import { Wash } from '@/components/journal/wash';
-import { OceanButton } from '@/components/ocean-button';
 import { formatDate } from '@/components/sighting-row';
 import { SpeciesAvatar } from '@/components/species-avatar';
 import { ThemedText } from '@/components/themed-text';
-import { Radius, Spacing, Type } from '@/constants/theme';
+import { Button } from '@/components/ui/button';
+import { Card } from '@/components/ui/card';
+import { IconTile, ListRow } from '@/components/ui/list';
+import { Notice } from '@/components/ui/notice';
+import { Screen } from '@/components/ui/screen';
+import { Segmented } from '@/components/ui/segmented';
+import { TextField } from '@/components/ui/text-field';
+import { Radius, Space, TypeScale } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { announce } from '@/lib/announce';
 import { CATALOG_BY_ID } from '@/lib/catalog';
@@ -51,7 +54,6 @@ export default function VerifyScreen() {
   const user = useAppStore((s) => s.user);
   const siteById = useSiteById();
   const [code, setCode] = useState(() => formatCode(typeof params.code === 'string' ? params.code : ''));
-  const [focused, setFocused] = useState(false);
   const [preview, setPreview] = useState<CodePreview | null>(null);
   const [role, setRole] = useState<VerifierRole>('buddy');
   const [busy, setBusy] = useState(false);
@@ -64,8 +66,8 @@ export default function VerifyScreen() {
   const [drawing, setDrawing] = useState(false);
 
   if (!client) {
-    return <Screen contentStyle={styles.centred}>
-      <Emblem icon="verified" />
+    return <Screen kind="modal" contentStyle={styles.centred}>
+      <IconTile icon="verified" size={56} />
       <ThemedText style={styles.center}>Buddy verification needs a ScubaGo account, and this build has no server to sign in to.</ThemedText>
     </Screen>;
   }
@@ -135,27 +137,27 @@ export default function VerifyScreen() {
   const diveSiteName = divePreview ? (siteById(divePreview.siteId)?.name ?? divePreview.siteName ?? 'a dive site') : '';
 
   if (signedDive && divePreview) {
-    return <Screen contentStyle={styles.centred}>
+    return <Screen kind="modal" contentStyle={styles.centred}>
       <Seal label="Signed" size={104} rotate={-8} animate />
-      <ThemedText type="display" style={styles.center} accessibilityRole="header">Thanks for signing</ThemedText>
+      <ThemedText type="title" style={styles.center} accessibilityRole="header">Thanks for signing</ThemedText>
       <ThemedText style={styles.center}>
         {`Your signature is on @${divePreview.owner}’s ${formatDiveNumber(divePreview.number)} at ${diveSiteName}. It appears in their logbook when it next syncs.`}
       </ThemedText>
-      <OceanButton title="Done" onPress={close} style={styles.stretch} />
+      <Button title="Done" onPress={close} style={styles.stretch} />
     </Screen>;
   }
 
   if (answered && preview) {
     const confirmed = answered.decision === 'saw_it';
-    return <Screen contentStyle={styles.centred}>
+    return <Screen kind="modal" contentStyle={styles.centred}>
       {/* Their answer has just gone in: a "yes" is sealed (stamped in, unless Reduce Motion is on). */}
-      {confirmed ? <Seal label="Confirmed" size={104} rotate={-8} animate /> : <Emblem icon="checkCircle" />}
-      <ThemedText type="display" style={styles.center} accessibilityRole="header">{confirmed ? 'Thanks for confirming' : 'Thanks for answering'}</ThemedText>
+      {confirmed ? <Seal label="Confirmed" size={104} rotate={-8} animate /> : <IconTile icon="checkCircle" size={56} />}
+      <ThemedText type="title" style={styles.center} accessibilityRole="header">{confirmed ? 'Thanks for confirming' : 'Thanks for answering'}</ThemedText>
       <ThemedText style={styles.center}>
         {`Your answer is on @${preview.owner}’s ${speciesName} sighting`}
         {answered.status ? `, which now shows “${STATUS_LABEL[answered.status]}”.` : '.'}
       </ThemedText>
-      <OceanButton title="Done" onPress={close} style={styles.stretch} />
+      <Button title="Done" onPress={close} style={styles.stretch} />
     </Screen>;
   }
 
@@ -163,23 +165,18 @@ export default function VerifyScreen() {
   const photoUri = user && preview ? previewPhoto(preview, user.id) : undefined;
 
   return (
-    <Screen scrollEnabled={!drawing}>
+    <Screen kind="modal" scrollEnabled={!drawing}>
       <View style={styles.intro}>
-        <Emblem icon="verified" />
-        <ThemedText type="small" themeColor="textSecondary" style={styles.center}>
+        <IconTile icon="verified" size={56} />
+        <ThemedText type="callout" themeColor="textSecondary" style={styles.center}>
           A buddy code lets you confirm what your buddy logged. Enter the one they sent you.
         </ThemedText>
       </View>
 
-      {/* The code, typed in typewriter letters on a ticket. */}
-      <Paper raised={!preview} style={styles.ticket}>
-        <View style={styles.ticketLabel}>
-          <Icon name="code" size={18} color={theme.textSecondary} wash={theme.textSecondary} washOpacity={0.2} />
-          <ThemedText type="label" importantForAccessibility="no" accessibilityElementsHidden>
-            Code from your buddy
-          </ThemedText>
-        </View>
-        <TextInput
+      {/* The code, big and spaced so it can be checked against the message it came in. */}
+      <Card style={styles.ticket}>
+        <TextField
+          label="Code from your buddy"
           value={code}
           onChangeText={(text) => {
             setCode(formatCode(text));
@@ -187,10 +184,7 @@ export default function VerifyScreen() {
             setDivePreview(null);
             setProblem(null);
           }}
-          onFocus={() => setFocused(true)}
-          onBlur={() => setFocused(false)}
           placeholder="XXXXX-XXXXX"
-          placeholderTextColor={theme.textSecondary}
           autoCapitalize="characters"
           autoCorrect={false}
           autoComplete="off"
@@ -199,34 +193,20 @@ export default function VerifyScreen() {
           onSubmitEditing={() => {
             if (user && isCompleteCode(code) && !busy) void lookUp();
           }}
-          accessibilityLabel="Code from your buddy"
-          style={[
-            styles.code,
-            {
-              backgroundColor: theme.background,
-              color: theme.text,
-              borderColor: focused || complete ? theme.tint : theme.rule,
-              borderStyle: focused || complete ? 'solid' : 'dashed',
-            },
-          ]}
+          inputStyle={styles.code}
         />
 
         {!user ? (
           <View style={styles.stack}>
-            <ThemedText type="small" themeColor="textSecondary">
+            <ThemedText type="subhead" themeColor="textSecondary">
               Sign in first: your buddy will see your username next to your answer.
             </ThemedText>
-            <OceanButton title="Sign in" icon="account" onPress={() => router.push('/auth')} />
+            <Button title="Sign in" icon="account" onPress={() => router.push('/auth')} />
           </View>
         ) : !preview && !divePreview ? (
-          <OceanButton
-            title={busy ? 'Looking it up…' : 'Look it up'}
-            icon="search"
-            disabled={busy || !complete}
-            onPress={() => void lookUp()}
-          />
+          <Button title={busy ? 'Looking it up…' : 'Look it up'} icon="search" disabled={busy || !complete} onPress={() => void lookUp()} />
         ) : null}
-      </Paper>
+      </Card>
 
       {user && divePreview ? (
         <RemoteSign
@@ -243,84 +223,51 @@ export default function VerifyScreen() {
 
       {user && preview ? (
         <>
-          {/* What the buddy logged, as a page from their logbook. */}
-          <Paper raised padded={false}>
+          {/* What the buddy logged, as a card from their logbook. */}
+          <Card padded={false}>
             <View style={styles.previewHead}>
               {species ? <SpeciesAvatar species={species} size={64} showRarityRing /> : null}
               <View style={styles.flex}>
-                <ThemedText style={styles.speciesName}>{speciesName}</ThemedText>
-                <ThemedText type="small" themeColor="textSecondary">Logged by @{preview.owner}</ThemedText>
+                <ThemedText type="title" numberOfLines={2}>{speciesName}</ThemedText>
+                <ThemedText type="subhead" themeColor="textSecondary">Logged by @{preview.owner}</ThemedText>
               </View>
             </View>
-            <Fact icon="pin" label="Site">{siteName}</Fact>
-            <Fact icon="calendar" label="Date">{formatDate(preview.sightedOn)}</Fact>
+            <Fact icon="pin" label="Site" value={siteName} />
+            <Fact icon="calendar" label="Date" value={formatDate(preview.sightedOn)} />
             {preview.notes || photoUri ? (
               <View style={[styles.previewFoot, { borderTopColor: theme.rule }]}>
-                {preview.notes ? <ThemedText type="caption">“{preview.notes}”</ThemedText> : null}
+                {preview.notes ? <ThemedText type="callout">“{preview.notes}”</ThemedText> : null}
                 {photoUri ? <Image source={{ uri: photoUri }} style={styles.photo} contentFit="cover" accessibilityLabel={`Photo by @${preview.owner}`} /> : null}
               </View>
             ) : null}
-          </Paper>
+          </Card>
 
           {preview.answered ? (
-            <Paper tone="sand" style={styles.noteCard}>
-              <Icon name="checkCircle" size={22} color={theme.tint} />
-              <ThemedText style={styles.flex}>
-                You’ve already answered: you said you {preview.answered === 'saw_it' ? 'saw it too' : preview.answered === 'did_not_see' ? 'didn’t see it' : 'weren’t on this dive'}.
-              </ThemedText>
-            </Paper>
+            <Notice icon="checkCircle">
+              You’ve already answered: you said you {preview.answered === 'saw_it' ? 'saw it too' : preview.answered === 'did_not_see' ? 'didn’t see it' : 'weren’t on this dive'}.
+            </Notice>
           ) : (
             <>
-              <Paper tone="sand" style={styles.noteCard}>
-                <Icon name="info" size={22} wash={theme.sun} />
-                <ThemedText type="small" style={styles.flex}>
-                  Only say yes if you saw it yourself on this dive. @{preview.owner} will see your answer and your
-                  username.
-                </ThemedText>
-              </Paper>
+              <Notice>
+                Only say yes if you saw it yourself on this dive. @{preview.owner} will see your answer and your username.
+              </Notice>
               <View style={styles.stack}>
-                <ThemedText type="label">On this dive, you were…</ThemedText>
-                <View style={styles.roles} accessibilityRole="radiogroup" accessibilityLabel="On this dive, you were">
-                  {ROLES.map((r) => {
-                    const selected = r === role;
-                    return (
-                      <Pressable
-                        key={r}
-                        onPress={() => setRole(r)}
-                        accessibilityRole="radio"
-                        aria-checked={selected}
-                        style={({ pressed }) => [
-                          styles.role,
-                          {
-                            backgroundColor: selected ? theme.text : pressed ? theme.backgroundSelected : theme.backgroundElement,
-                            borderColor: selected ? theme.text : theme.rule,
-                          },
-                        ]}>
-                        {/* A tick as well as the ink, so the choice isn't told by colour alone. */}
-                        {selected ? <Icon name="check" size={14} color={theme.background} weight="bold" /> : null}
-                        <ThemedText type="smallBold" style={{ fontFamily: Type.bodyHeavy, color: selected ? theme.background : theme.text }}>
-                          {ROLE_LABEL[r]}
-                        </ThemedText>
-                      </Pressable>
-                    );
-                  })}
-                </View>
-                <ThemedText type="caption" themeColor="textSecondary">
+                <ThemedText type="subheadStrong">On this dive, you were…</ThemedText>
+                <Segmented
+                  kind="choice"
+                  accessibilityLabel="On this dive, you were"
+                  options={ROLES.map((r) => ({ value: r, label: ROLE_LABEL[r] }))}
+                  value={role}
+                  onChange={setRole}
+                />
+                <ThemedText type="footnote" themeColor="textSecondary">
                   Shown as what you said. ScubaGo doesn’t check it.
                 </ThemedText>
               </View>
               <View style={styles.stack}>
-                <OceanButton title="Yes, I saw it too" icon="check" disabled={busy} onPress={() => void answer('saw_it')} />
-                <OceanButton title="No, I didn’t see it" icon="close" variant="secondary" disabled={busy} onPress={() => void answer('did_not_see')} />
-                <Pressable
-                  onPress={() => void answer('was_not_there')}
-                  disabled={busy}
-                  accessibilityRole="button"
-                  style={({ pressed }) => [styles.link, { opacity: busy ? 0.4 : pressed ? 0.6 : 1 }]}>
-                  <ThemedText type="smallBold" themeColor="textSecondary">
-                    I wasn’t on this dive
-                  </ThemedText>
-                </Pressable>
+                <Button title="Yes, I saw it too" icon="check" disabled={busy} onPress={() => void answer('saw_it')} />
+                <Button title="No, I didn’t see it" icon="close" variant="secondary" disabled={busy} onPress={() => void answer('did_not_see')} />
+                <Button title="I wasn’t on this dive" variant="plain" size="md" disabled={busy} onPress={() => void answer('was_not_there')} />
               </View>
             </>
           )}
@@ -329,35 +276,17 @@ export default function VerifyScreen() {
 
       {problem ? (
         <View style={styles.problem}>
-          <Icon name="warning" size={20} color={theme.danger} wash={theme.danger} washOpacity={0.2} />
-          <ThemedText type="small" themeColor="danger" accessibilityLiveRegion="polite" style={styles.flex}>{problem}</ThemedText>
+          <Icon name="warning" size={20} color={theme.danger} />
+          <ThemedText type="subhead" themeColor="danger" accessibilityLiveRegion="polite" style={styles.flex}>{problem}</ThemedText>
         </View>
       ) : null}
     </Screen>
   );
 }
 
-/** A large icon on a watercolour wash, heading the screen. */
-function Emblem({ icon }: { icon: IconName }) {
-  const theme = useTheme();
-  return (
-    <View style={styles.emblem}>
-      <Wash width={112} height={78} color={theme.wash} seed={59} style={StyleSheet.absoluteFill} />
-      <Icon name={icon} size={42} />
-    </View>
-  );
-}
-
-/** A ruled line of the preview: an icon, a typewriter label, and the value on the right. */
-function Fact({ icon, label, children }: { icon: IconName; label: string; children: React.ReactNode }) {
-  const theme = useTheme();
-  return (
-    <View style={[styles.fact, { borderTopColor: theme.rule }]}>
-      <Icon name={icon} size={18} color={theme.textSecondary} wash={theme.textSecondary} washOpacity={0.2} />
-      <ThemedText type="label" style={styles.factLabel}>{label}</ThemedText>
-      <ThemedText type="smallBold" style={styles.factValue}>{children}</ThemedText>
-    </View>
-  );
+/** A line of the preview: an icon tile, what it is, and the value. */
+function Fact({ icon, label, value }: { icon: 'pin' | 'calendar'; label: string; value: string }) {
+  return <ListRow separator leading={icon} title={value} titleLines={2} subtitle={label} accessibilityLabel={`${label}: ${value}`} />;
 }
 
 /** Their photo, if it's one ScubaGo stored for them (never an arbitrary URL). */
@@ -381,106 +310,44 @@ const styles = StyleSheet.create({
     flexGrow: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    paddingHorizontal: Spacing.four,
+    paddingHorizontal: Space.s4,
   },
   intro: {
     alignItems: 'center',
-    gap: 10,
-    paddingHorizontal: Spacing.two,
-  },
-  emblem: {
-    width: 112,
-    height: 78,
-    alignItems: 'center',
-    justifyContent: 'center',
+    gap: Space.s3,
+    paddingHorizontal: Space.s2,
   },
   ticket: {
-    gap: 12,
-  },
-  ticketLabel: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
+    gap: Space.s4,
   },
   code: {
-    fontFamily: Type.label,
-    fontSize: 28,
+    ...TypeScale.figure,
     letterSpacing: 3,
     textAlign: 'center',
     minHeight: 64,
-    paddingVertical: Spacing.three,
-    paddingHorizontal: Spacing.two,
-    borderWidth: 1.5,
-    borderRadius: Radius.md,
   },
   stack: {
-    gap: 10,
+    gap: Space.s3,
   },
   previewHead: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 14,
-    padding: Spacing.three,
-  },
-  speciesName: {
-    fontFamily: Type.display,
-    fontSize: 22,
-    lineHeight: 28,
-  },
-  fact: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    minHeight: 48,
-    paddingHorizontal: Spacing.three,
-    borderTopWidth: 1,
-  },
-  factLabel: {
-    minWidth: 44,
-  },
-  factValue: {
-    flex: 1,
-    textAlign: 'right',
+    gap: Space.s4,
+    padding: Space.s4,
   },
   previewFoot: {
-    gap: 10,
-    padding: Spacing.three,
-    borderTopWidth: 1,
+    gap: Space.s3,
+    padding: Space.s4,
+    borderTopWidth: StyleSheet.hairlineWidth,
   },
   photo: {
     width: '100%',
     height: 200,
     borderRadius: Radius.md,
   },
-  noteCard: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    gap: 10,
-  },
-  roles: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: Spacing.two,
-  },
-  role: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    borderWidth: 1.5,
-    borderRadius: Radius.sm,
-    paddingHorizontal: 14,
-    minHeight: 44,
-  },
-  link: {
-    alignSelf: 'center',
-    paddingVertical: Spacing.two,
-    paddingHorizontal: Spacing.three,
-    minHeight: 44,
-    justifyContent: 'center',
-  },
   problem: {
     flexDirection: 'row',
     alignItems: 'flex-start',
-    gap: 8,
+    gap: Space.s2,
   },
 });

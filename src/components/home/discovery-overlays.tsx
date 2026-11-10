@@ -1,6 +1,9 @@
 import { useEffect, useState } from 'react';
 import { AccessibilityInfo, Animated, StyleSheet, Text, View } from 'react-native';
 
+import { continuous } from '@/components/ui/surface';
+import { Elevation, OnWater, Radius, Space, TypeScale } from '@/constants/theme';
+
 /** Fade (and, with motion, slide) in and out as `visible` changes; the view stays mounted. */
 function useShown(visible: boolean, still: boolean) {
   const [shown] = useState(() => new Animated.Value(0));
@@ -12,7 +15,7 @@ function useShown(visible: boolean, still: boolean) {
   return shown;
 }
 
-/** Across the top of the island: "Island Level 4 — New Growth Unlocked", and what the level brings. */
+/** Across the top of the island: "Island level 4. New growth unlocked.", and what the level brings. */
 export function LevelUpBanner({ level, reward, visible, still }: { level: number; reward: string; visible: boolean; still: boolean }) {
   const shown = useShown(visible, still);
   useEffect(() => {
@@ -22,7 +25,7 @@ export function LevelUpBanner({ level, reward, visible, still }: { level: number
     opacity: shown,
     transform: still ? [] : [{ translateY: shown.interpolate({ inputRange: [0, 1], outputRange: [-14, 0] }) }],
   }]}>
-    <Text style={styles.bannerTitle}>Island Level {level} — New Growth Unlocked</Text>
+    <Text style={styles.bannerTitle}>Island level {level}. New growth unlocked.</Text>
     <Text style={styles.bannerDetail}>{reward}</Text>
   </Animated.View>;
 }
@@ -62,23 +65,27 @@ export function NewTag({ label, x, y, inView, visible, onWidth }: {
   </Animated.View>;
 }
 
+// Over the island's own water (the same in both schemes): a near-opaque white panel, dark-green ink.
 const styles = StyleSheet.create({
   banner: {
-    position: 'absolute', top: 8, left: 16, right: 16, alignItems: 'center', gap: 2,
-    paddingVertical: 10, paddingHorizontal: 14, borderRadius: 16, backgroundColor: 'rgba(255,255,255,.9)',
+    position: 'absolute', top: Space.s2, left: Space.s4, right: Space.s4, alignItems: 'center', gap: 2,
+    paddingVertical: Space.s3, paddingHorizontal: Space.s4, borderRadius: Radius.md, ...continuous,
+    backgroundColor: OnWater.panel, boxShadow: Elevation.light.raised,
   },
-  bannerTitle: { color: '#254C40', fontSize: 14, fontWeight: '600', letterSpacing: -.2, textAlign: 'center' },
-  bannerDetail: { color: '#3F5A4D', fontSize: 13, textAlign: 'center' },
+  bannerTitle: { ...TypeScale.subheadStrong, color: OnWater.ink, textAlign: 'center' },
+  bannerDetail: { ...TypeScale.footnote, color: OnWater.inkSoft, textAlign: 'center' },
   note: {
-    position: 'absolute', bottom: 12, left: 16, right: 16, alignItems: 'center',
-    paddingVertical: 8, paddingHorizontal: 12, borderRadius: 14, backgroundColor: 'rgba(255,255,255,.88)',
+    position: 'absolute', bottom: Space.s3, left: Space.s4, right: Space.s4, alignItems: 'center',
+    paddingVertical: Space.s2, paddingHorizontal: Space.s3, borderRadius: Radius.md, ...continuous,
+    backgroundColor: OnWater.panel, boxShadow: Elevation.light.card,
   },
-  noteText: { color: '#254C40', fontSize: 13, textAlign: 'center' },
+  noteText: { ...TypeScale.footnote, color: OnWater.ink, textAlign: 'center' },
   tag: {
-    position: 'absolute', left: 0, top: 0, maxWidth: 200, flexDirection: 'row', alignItems: 'center', gap: 5,
-    paddingVertical: 4, paddingHorizontal: 9, borderRadius: 12, backgroundColor: 'rgba(255,255,255,.92)',
+    position: 'absolute', left: 0, top: 0, maxWidth: 200, flexDirection: 'row', alignItems: 'center', gap: Space.s1,
+    paddingVertical: Space.s1, paddingHorizontal: Space.s2, borderRadius: Radius.pill,
+    backgroundColor: OnWater.panel, boxShadow: Elevation.light.card,
   },
-  tagDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: '#E07A3F' },
-  tagText: { color: '#254C40', fontSize: 13, flexShrink: 1 },
-  tagNew: { fontWeight: '700', color: '#B45A28' },
+  tagDot: { width: Space.s2, height: Space.s2, borderRadius: Radius.pill, backgroundColor: OnWater.accent },
+  tagText: { ...TypeScale.footnote, color: OnWater.ink, flexShrink: 1 },
+  tagNew: { ...TypeScale.footnoteStrong, color: OnWater.accent },
 });

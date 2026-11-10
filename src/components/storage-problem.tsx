@@ -1,12 +1,10 @@
 import { useState } from 'react';
 import { Platform, StyleSheet, View } from 'react-native';
 
-import { Icon } from '@/components/icon';
-import { Paper } from '@/components/journal/paper';
-import { Wash } from '@/components/journal/wash';
-import { OceanButton } from '@/components/ocean-button';
+import { ProblemPanel } from '@/components/error-screen';
 import { ThemedText } from '@/components/themed-text';
-import { Spacing } from '@/constants/theme';
+import { Button } from '@/components/ui/button';
+import { Space } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { useAppStore } from '@/lib/store';
 
@@ -28,26 +26,21 @@ export function StorageProblem() {
   };
   return (
     <View style={[StyleSheet.absoluteFill, styles.cover, { backgroundColor: theme.background }]}>
-      <Paper raised style={styles.card}>
-        <View style={styles.art}>
-          <Wash width={112} height={78} color={theme.wash} seed={11} style={StyleSheet.absoluteFill} />
-          <Icon name={busy ? 'logbook' : 'warning'} size={40} />
-        </View>
-        <ThemedText type="heading" accessibilityRole="header" style={styles.center}>
-          {busy ? 'ScubaGo is open in another tab' : 'Your log couldn’t be opened'}
-        </ThemedText>
-        <ThemedText type="small" themeColor="textSecondary" style={styles.center} accessibilityLiveRegion="polite">
-          {busy
+      <ProblemPanel
+        icon={busy ? 'logbook' : 'warning'}
+        title={busy ? 'ScubaGo is open in another tab' : 'Your log couldn’t be opened'}
+        message={
+          busy
             ? 'Your log can only be open in one tab at a time, which keeps it safe. Close the other tab, then try again here.'
-            : `Nothing has been lost, but the app couldn’t read it just now (${problem}). Try again, or restart the app.`}
-        </ThemedText>
-        <OceanButton title={trying ? 'Trying…' : 'Try again'} icon="sync" onPress={retry} disabled={trying} style={styles.button} />
+            : `Nothing has been lost, but the app couldn’t read it just now (${problem}). Try again, or restart the app.`
+        }>
+        <Button title={trying ? 'Trying…' : 'Try again'} icon="sync" onPress={retry} disabled={trying} style={styles.button} />
         {busy && Platform.OS === 'web' ? (
-          <ThemedText type="caption" themeColor="textSecondary" style={styles.center}>
+          <ThemedText type="footnote" themeColor="textSecondary" style={styles.center}>
             Or reload this page once the other tab is closed.
           </ThemedText>
         ) : null}
-      </Paper>
+      </ProblemPanel>
     </View>
   );
 }
@@ -56,26 +49,14 @@ const styles = StyleSheet.create({
   cover: {
     alignItems: 'center',
     justifyContent: 'center',
-    padding: Spacing.four,
+    padding: Space.s6,
     zIndex: 10,
-  },
-  card: {
-    width: '100%',
-    maxWidth: 420,
-    alignItems: 'center',
-    gap: Spacing.three,
-    paddingVertical: Spacing.four,
-  },
-  art: {
-    width: 112,
-    height: 78,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  center: {
-    textAlign: 'center',
   },
   button: {
     alignSelf: 'stretch',
+    marginTop: Space.s2,
+  },
+  center: {
+    textAlign: 'center',
   },
 });

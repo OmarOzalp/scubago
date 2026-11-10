@@ -2,10 +2,10 @@ import { memo, useCallback, useEffect, useMemo, useState, type ReactNode } from 
 import { FlatList, Pressable, StyleSheet, Text, View, type ListRenderItemInfo } from 'react-native';
 
 import { Icon, type IconName } from '@/components/icon';
-import { Paper } from '@/components/journal/paper';
-import { OceanButton } from '@/components/ocean-button';
 import { SpeciesAvatar } from '@/components/species-avatar';
 import { ThemedText } from '@/components/themed-text';
+import { Button } from '@/components/ui/button';
+import { Card } from '@/components/ui/card';
 import { Radius, Size, Space, TypeScale } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { announce } from '@/lib/announce';
@@ -115,16 +115,16 @@ export function SearchPanel({
 
   if (!results) {
     return (
-      <Paper raised padded={false} style={[styles.panel, { maxHeight }]}>
+      <Card level="raised" padded={false} style={[styles.panel, { maxHeight }]}>
         <Suggestions onTry={onTry} />
-      </Paper>
+      </Card>
     );
   }
 
   if (results.sections.length === 0) {
     const typed = results.query.trim();
     return (
-      <Paper raised padded={false} style={[styles.panel, { maxHeight }]}>
+      <Card level="raised" padded={false} style={[styles.panel, { maxHeight }]}>
         <View style={styles.empty}>
           <ThemedText type="bodyStrong" accessibilityLiveRegion="polite">
             Nothing matches “{typed}”.
@@ -132,14 +132,14 @@ export function SearchPanel({
           <ThemedText type="subhead" themeColor="textSecondary">
             Try a dive site, a place like the Red Sea, or an animal.
           </ThemedText>
-          <OceanButton title={`Add “${typed}” as a dive site`} icon="addSite" variant="secondary" onPress={() => onAddSite(typed)} />
+          <Button title={`Add “${typed}” as a dive site`} icon="addSite" variant="secondary" onPress={() => onAddSite(typed)} />
         </View>
-      </Paper>
+      </Card>
     );
   }
 
   return (
-    <Paper raised padded={false} style={[styles.panel, { maxHeight }]}>
+    <Card level="raised" padded={false} style={[styles.panel, { maxHeight }]}>
       <FlatList
         data={rows}
         renderItem={renderItem}
@@ -150,7 +150,7 @@ export function SearchPanel({
         maxToRenderPerBatch={12}
         windowSize={7}
       />
-    </Paper>
+    </Card>
   );
 }
 

@@ -92,6 +92,7 @@
     "preset": "jest-expo",
     "moduleNameMapper": {
       "\\.bin$": "<rootDir>/src/test-support/bin-asset.js",
+      "^@/global\\.css$": "<rootDir>/src/test-support/empty-module.js",
       "^@react-native-async-storage/async-storage$": "@react-native-async-storage/async-storage/jest/async-storage-mock",
       "^@/assets/(.*)$": "<rootDir>/assets/$1",
       "^@/(.*)$": "<rootDir>/src/$1"

@@ -14,6 +14,7 @@ jest.mock('expo-router', () => ({
   useLocalSearchParams: () => mockParams,
 }));
 jest.mock('@/global.css', () => ({}));
+jest.mock('react-native-safe-area-context', () => ({ useSafeAreaInsets: () => ({ top: 0, bottom: 0, left: 0, right: 0 }) }));
 jest.mock('@/lib/site-added', () => ({ notifySiteAdded: jest.fn() }));
 jest.mock('@/lib/store', () => ({ useAppStore: (select) => select({ addSite: (...args) => mockAddSite(...args) }) }));
 

@@ -2,6 +2,7 @@ import { Pressable, StyleSheet, View } from 'react-native';
 
 import { Icon } from '@/components/icon';
 import { ThemedText } from '@/components/themed-text';
+import { Space } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { useAppStore } from '@/lib/store';
 import { isConnectionProblem, isServerCatchingUp } from '@/lib/verification';
@@ -24,13 +25,13 @@ export function SyncLine({ item }: { item: { synced: boolean; syncError?: string
   const backendEnabled = useAppStore((s) => s.backendEnabled);
   const syncing = useAppStore((s) => s.syncing);
   const requestSync = useAppStore((s) => s.requestSync);
-  const quiet = { color: theme.textSecondary, wash: theme.textSecondary, washOpacity: 0.2 };
+  const quiet = { color: theme.textSecondary };
 
   if (!backendEnabled) {
     return (
       <View style={styles.syncRow}>
         <Icon name="check" size={16} {...quiet} />
-        <ThemedText type="small" themeColor="textSecondary">Saved on this device.</ThemedText>
+        <ThemedText type="subhead" themeColor="textSecondary">Saved on this device.</ThemedText>
       </View>
     );
   }
@@ -39,7 +40,7 @@ export function SyncLine({ item }: { item: { synced: boolean; syncError?: string
     return (
       <View style={styles.syncRow}>
         <Icon name="checkCircle" size={16} color={theme.tint} />
-        <ThemedText type="small" themeColor="textSecondary">Backed up to your account</ThemedText>
+        <ThemedText type="subhead" themeColor="textSecondary">Backed up to your account</ThemedText>
       </View>
     );
   }
@@ -47,7 +48,7 @@ export function SyncLine({ item }: { item: { synced: boolean; syncError?: string
     return (
       <View style={styles.syncRow}>
         <Icon name="sync" size={16} {...quiet} />
-        <ThemedText type="small" themeColor="textSecondary">Saved on this device. It will sync as soon as the server is ready.</ThemedText>
+        <ThemedText type="subhead" themeColor="textSecondary">Saved on this device. It will sync as soon as the server is ready.</ThemedText>
       </View>
     );
   }
@@ -56,16 +57,16 @@ export function SyncLine({ item }: { item: { synced: boolean; syncError?: string
     return (
       <View style={styles.syncBlock}>
         <View style={styles.syncRow}>
-          <Icon name={offline ? 'sync' : 'warning'} size={16} color={offline ? theme.textSecondary : theme.danger} wash={offline ? theme.textSecondary : theme.danger} washOpacity={0.2} />
-          <ThemedText type="small" themeColor={offline ? 'textSecondary' : 'danger'} style={styles.flex}>
+          <Icon name={offline ? 'sync' : 'warning'} size={16} color={offline ? theme.textSecondary : theme.danger} />
+          <ThemedText type="subhead" themeColor={offline ? 'textSecondary' : 'danger'} style={styles.flex}>
             {offline
               ? 'Waiting for a connection. It will sync when you’re back online.'
               : `Couldn’t sync: ${item.syncError.replace(/\.$/, '')}. It will retry automatically.`}
           </ThemedText>
         </View>
-        <Pressable onPress={() => void requestSync()} accessibilityRole="button" style={[styles.syncRow, styles.inlineLink]}>
+        <Pressable onPress={() => void requestSync()} accessibilityRole="button" style={({ pressed }) => [styles.syncRow, styles.inlineLink, { opacity: pressed ? 0.6 : 1 }]}>
           <Icon name="sync" size={16} color={theme.tint} />
-          <ThemedText type="smallBold" themeColor="tint">
+          <ThemedText type="subheadStrong" themeColor="tint">
             Retry now
           </ThemedText>
         </Pressable>
@@ -75,7 +76,7 @@ export function SyncLine({ item }: { item: { synced: boolean; syncError?: string
   return (
     <View style={styles.syncRow}>
       <Icon name="sync" size={16} {...quiet} />
-      <ThemedText type="small" themeColor="textSecondary">
+      <ThemedText type="subhead" themeColor="textSecondary">
         {syncing ? 'Syncing…' : 'Saved on this device, waiting to sync.'}
       </ThemedText>
     </View>
@@ -85,6 +86,6 @@ export function SyncLine({ item }: { item: { synced: boolean; syncError?: string
 const styles = StyleSheet.create({
   flex: { flex: 1 },
   syncBlock: { gap: 2 },
-  syncRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  syncRow: { flexDirection: 'row', alignItems: 'center', gap: Space.s2 },
   inlineLink: { minHeight: 44 },
 });

@@ -3,10 +3,11 @@ import { Modal, Platform, Pressable, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Icon, type IconName } from '@/components/icon';
-import { IconButton } from '@/components/journal/icon-button';
 import { ThemedText } from '@/components/themed-text';
-import { Radius, Spacing } from '@/constants/theme';
-import { useTheme } from '@/hooks/use-theme';
+import { IconButton } from '@/components/ui/icon-button';
+import { continuous } from '@/components/ui/surface';
+import { Elevation, Radius, Scrim, Size, Space } from '@/constants/theme';
+import { useSchemeName, useTheme } from '@/hooks/use-theme';
 
 export type MoreMenuItem = {
   label: string;
@@ -24,16 +25,17 @@ export type MoreMenuItem = {
 export function MoreMenu({
   items,
   accessibilityLabel = 'More actions',
-  size = 44,
   disabled = false,
 }: {
   items: MoreMenuItem[];
   accessibilityLabel?: string;
+  /** No longer used: every icon button is one size. */
   size?: number;
   disabled?: boolean;
 }) {
   const [open, setOpen] = useState(false);
   const theme = useTheme();
+  const scheme = useSchemeName();
   const insets = useSafeAreaInsets();
   const choose = (item: MoreMenuItem) => {
     setOpen(false);
@@ -44,11 +46,10 @@ export function MoreMenu({
     <>
       <IconButton
         icon="more"
-        size={size}
         accessibilityLabel={accessibilityLabel}
         accessibilityHint="Opens a menu"
         onPress={() => !disabled && setOpen(true)}
-        style={{ opacity: disabled ? 0.4 : 1 }}
+        disabled={disabled}
       />
       {open ? (
         <Modal visible transparent animationType="fade" onRequestClose={() => setOpen(false)} statusBarTranslucent>
@@ -60,8 +61,9 @@ export function MoreMenu({
                 styles.sheet,
                 {
                   backgroundColor: theme.backgroundElement,
-                  borderColor: theme.cardBorder,
-                  paddingBottom: Math.max(insets.bottom, Spacing.three),
+                  boxShadow: Elevation[scheme].raised,
+                  ...(Elevation[scheme].cardBorder ? { borderWidth: 1, borderColor: theme.cardBorder } : null),
+                  paddingBottom: Math.max(insets.bottom, Space.s4),
                 },
               ]}
             >
@@ -78,8 +80,10 @@ export function MoreMenu({
                     },
                   ]}
                 >
-                  {item.icon ? <Icon name={item.icon} size={20} color={item.destructive ? theme.danger : theme.text} /> : null}
-                  <ThemedText themeColor={item.destructive ? 'danger' : 'text'}>{item.label}</ThemedText>
+                  {item.icon ? <Icon name={item.icon} size={Size.icon} color={item.destructive ? theme.danger : theme.text} /> : null}
+                  <ThemedText type="bodyStrong" themeColor={item.destructive ? 'danger' : 'text'}>
+                    {item.label}
+                  </ThemedText>
                 </Pressable>
               ))}
               <Pressable
@@ -95,7 +99,9 @@ export function MoreMenu({
                   },
                 ]}
               >
-                <ThemedText themeColor="textSecondary">Cancel</ThemedText>
+                <ThemedText type="bodyStrong" themeColor="textSecondary">
+                  Cancel
+                </ThemedText>
               </Pressable>
             </View>
           </View>
@@ -107,28 +113,30 @@ export function MoreMenu({
 
 const styles = StyleSheet.create({
   root: { flex: 1, justifyContent: 'flex-end', alignItems: 'center' },
-  scrim: { backgroundColor: 'rgba(11, 27, 46, 0.45)' },
+  scrim: { backgroundColor: Scrim },
   sheet: {
     width: '100%',
     maxWidth: 560,
     borderTopLeftRadius: Radius.xl,
     borderTopRightRadius: Radius.xl,
-    borderWidth: 1,
-    paddingTop: Spacing.two,
-    paddingHorizontal: Spacing.two,
+    ...continuous,
+    paddingTop: Space.s2,
+    paddingHorizontal: Space.s2,
   },
   row: {
-    minHeight: 52,
+    minHeight: Size.rowMin,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: Spacing.two + 4,
-    paddingHorizontal: Spacing.three,
+    gap: Space.s3,
+    paddingHorizontal: Space.s4,
     borderRadius: Radius.md,
+    ...continuous,
   },
+  // The way out: set off by a hairline, square so the line runs the sheet's width.
   cancel: {
-    borderTopWidth: 1,
+    borderTopWidth: StyleSheet.hairlineWidth,
     justifyContent: 'center',
     borderRadius: 0,
-    marginTop: Spacing.one,
+    marginTop: Space.s1,
   },
 });

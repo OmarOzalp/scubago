@@ -15,7 +15,8 @@ jest.mock('expo-web-browser', () => ({
 
 let root;
 const textOf = () => root.root.findAll((n) => typeof n.children?.[0] === 'string' && typeof n.type === 'string').map((n) => n.children.join('')).join(' | ');
-const link = (label) => root.root.findAll((n) => typeof n.props.onPress === 'function' && n.props.accessibilityLabel === label);
+// One tappable per link: the ListRow element carries the same props as the Pressable it draws, so count only the latter.
+const link = (label) => root.root.findAll((n) => typeof n.props.onPress === 'function' && n.props.accessibilityLabel === label && n.type?.name !== 'ListRow');
 
 beforeEach(() => { global.IS_REACT_ACT_ENVIRONMENT = true; openBrowserAsync.mockClear(); });
 afterEach(async () => { if (root) await act(async () => root.unmount()); root = null; });

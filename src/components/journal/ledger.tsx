@@ -1,7 +1,7 @@
 import { StyleSheet, Text, View } from 'react-native';
 
-import { Paper } from '@/components/journal/paper';
-import { Type } from '@/constants/theme';
+import { Card } from '@/components/ui/card';
+import { Space, TypeScale } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 
 export interface LedgerItem {
@@ -28,7 +28,7 @@ export function Ledger({ items, bare = false }: { items: LedgerItem[]; bare?: bo
           key={item.label}
           accessible
           accessibilityLabel={item.accessibilityLabel ?? `${item.value}${item.unit ? ` ${item.unit}` : ''} ${item.label}`}
-          style={[styles.cell, index > 0 && { borderLeftWidth: 1, borderLeftColor: theme.rule }]}>
+          style={[styles.cell, index > 0 && { borderLeftWidth: StyleSheet.hairlineWidth, borderLeftColor: theme.rule }]}>
           {/* A name (a species, say) is set smaller and may take two lines, so it isn't cut short. A long figure
               ("4h 57m") stays on one line, shrinking to fit where it can: wrapped, it took a third line of the cell. */}
           <Text
@@ -51,13 +51,13 @@ export function Ledger({ items, bare = false }: { items: LedgerItem[]; bare?: bo
       ))}
     </View>
   );
-  return bare ? row : <Paper style={styles.paper}>{row}</Paper>;
+  return bare ? row : <Card padded={false} style={styles.card}>{row}</Card>;
 }
 
 const styles = StyleSheet.create({
-  paper: {
-    paddingVertical: 14,
-    paddingHorizontal: 6,
+  card: {
+    paddingVertical: Space.s4,
+    paddingHorizontal: Space.s2,
   },
   row: {
     flexDirection: 'row',
@@ -65,28 +65,23 @@ const styles = StyleSheet.create({
   cell: {
     flex: 1,
     alignItems: 'center',
-    paddingHorizontal: 6,
+    paddingHorizontal: Space.s2,
     gap: 2,
   },
   value: {
-    fontFamily: Type.display,
-    fontSize: 26,
-    lineHeight: 32,
+    ...TypeScale.figure,
   },
   word: {
-    fontSize: 16,
-    lineHeight: 19,
-    minHeight: 32,
+    ...TypeScale.bodyStrong,
+    minHeight: TypeScale.figure.lineHeight,
     textAlign: 'center',
     textAlignVertical: 'center',
   },
   unit: {
-    fontSize: 14,
+    ...TypeScale.subhead,
   },
   label: {
-    fontFamily: Type.bodySemiBold,
-    fontSize: 13,
-    lineHeight: 16,
+    ...TypeScale.footnoteStrong,
     textAlign: 'center',
   },
 });

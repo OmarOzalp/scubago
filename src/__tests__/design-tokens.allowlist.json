@@ -1,11 +1,4 @@
 {
-  "auth, help, credits, verify, add-site, inspect and explorer chrome": [
-    "app/(tabs)/explore.tsx",
-    "app/+html.tsx",
-    "app/credits.tsx",
-    "app/inspect.tsx",
-    "app/verify.tsx"
-  ],
   "log flow, dive and sighting": [
     "app/dive/edit.tsx",
     "app/dive/sign.tsx",
@@ -29,12 +22,5 @@
     "components/sightings/species-records.tsx",
     "components/sightings/states.tsx",
     "components/site-picker.tsx"
-  ],
-  "shared components": [
-    "components/home/discovery-overlays.tsx",
-    "components/home/scene-boundary.tsx",
-    "components/journal/ledger.tsx",
-    "components/journal/link-row.tsx",
-    "components/site-map.tsx"
   ]
 }

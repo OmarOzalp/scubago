@@ -1,19 +1,18 @@
 import * as Linking from 'expo-linking';
 import { router } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
-import { ActivityIndicator, Platform, Pressable, StyleSheet, View, type TextInputInstance } from 'react-native';
+import { ActivityIndicator, Platform, StyleSheet, View, type TextInputInstance } from 'react-native';
 
-import { FormField } from '@/components/form-field';
-import { Icon, type IconName } from '@/components/icon';
-import { LinkRow } from '@/components/journal/link-row';
-import { Paper } from '@/components/journal/paper';
-import { Screen, ScreenHeader } from '@/components/journal/screen';
-import { Wash } from '@/components/journal/wash';
-import { OceanButton } from '@/components/ocean-button';
-import { MoreMenu } from '@/components/ui/more-menu';
-import { Segmented } from '@/components/segmented';
+import { Icon } from '@/components/icon';
 import { ThemedText } from '@/components/themed-text';
-import { Spacing } from '@/constants/theme';
+import { Button } from '@/components/ui/button';
+import { Card } from '@/components/ui/card';
+import { IconTile, List, ListRow } from '@/components/ui/list';
+import { MoreMenu } from '@/components/ui/more-menu';
+import { Screen, ScreenTitle } from '@/components/ui/screen';
+import { Segmented } from '@/components/ui/segmented';
+import { TextField } from '@/components/ui/text-field';
+import { Size, Space } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { announce } from '@/lib/announce';
 import {
@@ -43,16 +42,6 @@ type Mode = 'sign-in' | 'create' | 'reset-request' | 'reset-sent' | 'reset-code'
 /** Reset links already used in this session (on the web, the address keeps the link's fragment). */
 const finishedRecoveryLinks = new Set<string>();
 
-/** The picture beside each step's title. */
-const MODE_ICON: Record<Mode, IconName> = {
-  'sign-in': 'account',
-  create: 'logbook',
-  'reset-request': 'key',
-  'reset-sent': 'email',
-  'reset-code': 'email',
-  'reset-new': 'lock',
-};
-
 export default function AuthScreen() {
   const user = useAppStore((s) => s.user);
   const client = getSupabase();
@@ -64,11 +53,13 @@ export default function AuthScreen() {
 
   if (!client) {
     return (
-      <Screen>
-        <Paper style={styles.centred}>
-          <WashIcon icon="sync" width={120} height={84} size={44} />
-          <ThemedText style={styles.centreText}>Backup isn&apos;t available in this build. Everything is saved on this phone.</ThemedText>
-        </Paper>
+      <Screen kind="modal">
+        <Card style={styles.centred}>
+          <IconTile icon="sync" size={56} />
+          <ThemedText type="callout" themeColor="textSecondary" style={styles.centreText}>
+            Backup isn&apos;t available in this build. Everything is saved on this phone.
+          </ThemedText>
+        </Card>
         <AccountRows buddy={false} />
       </Screen>
     );
@@ -123,30 +114,31 @@ function Account({ username }: { username: string }) {
   };
 
   return (
-    <Screen>
-      {/* The account, like the name plate inside a logbook's cover. */}
-      <Paper raised style={styles.centred}>
-        <WashIcon icon="account" width={120} height={84} size={44} />
+    <Screen kind="modal">
+      <Card style={styles.centred}>
+        <IconTile icon="account" size={56} />
         <View style={styles.nameplate}>
-          <ThemedText type="label">Signed in as</ThemedText>
-          <ThemedText type="display" accessibilityRole="header" style={styles.centreText}>
+          <ThemedText type="footnoteStrong" themeColor="textSecondary">
+            Signed in as
+          </ThemedText>
+          <ThemedText type="title" accessibilityRole="header" style={styles.centreText}>
             @{username}
           </ThemedText>
         </View>
-        <ThemedText type="small" themeColor="textSecondary" style={styles.centreText}>
+        <ThemedText type="callout" themeColor="textSecondary" style={styles.centreText}>
           Your sightings back up automatically and follow you to any device.
         </ThemedText>
         {pending.count > 0 ? (
           <View style={styles.pending}>
             <Icon name="sync" size={18} color={theme.textSecondary} />
-            <ThemedText type="small" themeColor="textSecondary" style={styles.pendingText}>
+            <ThemedText type="subhead" themeColor="textSecondary" style={styles.pendingText}>
               {pending.count} {pending.count === 1 ? 'change is' : 'changes are'} waiting to sync.
             </ThemedText>
           </View>
         ) : null}
-      </Paper>
+      </Card>
       <AccountRows buddy />
-      <OceanButton title="Sign out" variant="secondary" icon="signOut" disabled={busy} onPress={signOut} />
+      <Button title="Sign out" variant="secondary" icon="signOut" disabled={busy} onPress={signOut} />
       {error ? <ErrorNote message={error} /> : null}
       {busy ? (
         <View style={styles.spinner}>
@@ -305,13 +297,15 @@ function SignInForm({ url }: { url: string | null }) {
             : 'Sign in';
 
   return (
-    <Screen>
-      <ScreenHeader title={title} accessory={<WashIcon icon={MODE_ICON[mode]} />} />
-      <ThemedText themeColor="textSecondary" style={styles.intro}>
-        {intro}
-      </ThemedText>
+    <Screen kind="modal">
+      <View style={styles.head}>
+        <ScreenTitle title={title} />
+        <ThemedText type="callout" themeColor="textSecondary">
+          {intro}
+        </ThemedText>
+      </View>
 
-      <Paper raised style={styles.form}>
+      <Card style={styles.form}>
         {!resetting ? (
           <Segmented
             accessibilityLabel="Account"
@@ -326,7 +320,7 @@ function SignInForm({ url }: { url: string | null }) {
         {linkError && mode === 'sign-in' ? <ErrorNote message={linkError} /> : null}
 
         {mode !== 'reset-new' && mode !== 'reset-sent' ? (
-          <FormField
+          <TextField
             label="Email"
             placeholder="you@example.com"
             autoCapitalize="none"
@@ -342,7 +336,7 @@ function SignInForm({ url }: { url: string | null }) {
           />
         ) : null}
         {mode === 'reset-code' ? (
-          <FormField
+          <TextField
             ref={codeRef}
             label="Code from the email"
             placeholder="123456"
@@ -356,10 +350,10 @@ function SignInForm({ url }: { url: string | null }) {
           />
         ) : null}
         {mode !== 'reset-request' && mode !== 'reset-sent' ? (
-          <FormField
+          <TextField
             ref={passwordRef}
             label={mode === 'reset-code' || mode === 'reset-new' ? 'New password' : 'Password'}
-            hint={mode === 'sign-in' ? undefined : `At least ${MIN_PASSWORD_LENGTH} characters`}
+            helper={mode === 'sign-in' ? undefined : `At least ${MIN_PASSWORD_LENGTH} characters`}
             secureTextEntry
             autoCapitalize="none"
             autoCorrect={false}
@@ -372,7 +366,7 @@ function SignInForm({ url }: { url: string | null }) {
           />
         ) : null}
         {choosingPassword ? (
-          <FormField
+          <TextField
             ref={confirmRef}
             label="Type the password again"
             secureTextEntry
@@ -394,22 +388,22 @@ function SignInForm({ url }: { url: string | null }) {
             <ActivityIndicator color={theme.tint} accessibilityLabel="Working" />
           </View>
         ) : (
-          <OceanButton title={action} onPress={submit} variant={mode === 'reset-sent' ? 'secondary' : 'primary'} />
+          <Button title={action} onPress={submit} variant={mode === 'reset-sent' ? 'secondary' : 'primary'} />
         )}
 
         <View style={styles.links}>
-          {mode === 'sign-in' ? <TextButton label="Forgot your password?" onPress={() => switchMode('reset-request')} /> : null}
-          {mode === 'reset-sent' ? <TextButton label="The email has a code instead" onPress={() => switchMode('reset-code')} /> : null}
-          {mode === 'reset-code' ? <TextButton label="Send a new link or code" onPress={() => switchMode('reset-request')} /> : null}
-          {resetting && mode !== 'reset-new' ? <TextButton label="Back to sign in" onPress={() => switchMode('sign-in')} /> : null}
+          {mode === 'sign-in' ? <Button variant="plain" size="md" title="Forgot your password?" onPress={() => switchMode('reset-request')} /> : null}
+          {mode === 'reset-sent' ? <Button variant="plain" size="md" title="The email has a code instead" onPress={() => switchMode('reset-code')} /> : null}
+          {mode === 'reset-code' ? <Button variant="plain" size="md" title="Send a new link or code" onPress={() => switchMode('reset-request')} /> : null}
+          {resetting && mode !== 'reset-new' ? <Button variant="plain" size="md" title="Back to sign in" onPress={() => switchMode('sign-in')} /> : null}
         </View>
-      </Paper>
+      </Card>
 
       {/* Profiles hold only a generated username (diver-…); the email stays with the sign-in service. */}
       {!resetting ? (
         <View style={styles.privacy}>
-          <Icon name="lock" size={16} color={theme.textSecondary} wash={theme.textSecondary} washOpacity={0.2} style={styles.privacyIcon} />
-          <ThemedText type="caption" themeColor="textSecondary" style={styles.privacyText}>
+          <Icon name="lock" size={16} color={theme.textSecondary} />
+          <ThemedText type="footnote" themeColor="textSecondary" style={styles.privacyText}>
             Other divers see your username, never your email.
           </ThemedText>
         </View>
@@ -426,29 +420,16 @@ function SignInForm({ url }: { url: string | null }) {
 function AccountRows({ buddy }: { buddy: boolean }) {
   const divesBefore = useDivesBefore();
   return (
-    <View style={styles.rows}>
-      <LinkRow
-        icon="logbook"
+    <List>
+      <ListRow
+        leading="logbook"
         title="Dives before ScubaGo"
-        detail={divesBefore > 0 ? `${divesBefore.toLocaleString('en')} logged elsewhere` : undefined}
+        subtitle={divesBefore > 0 ? `${divesBefore.toLocaleString('en')} logged elsewhere` : undefined}
         accessibilityHint="Numbers your pages after the dives you logged elsewhere"
         onPress={() => router.push('/dive/count')}
       />
-      {buddy ? (
-        <LinkRow icon="verified" title="Buddy code" detail="Confirm a buddy’s sighting or dive" role="link" onPress={() => router.push('/verify')} />
-      ) : null}
-    </View>
-  );
-}
-
-/** An icon on a watercolour wash: the picture beside a title. Decorative. */
-function WashIcon({ icon, width = 76, height = 60, size = 32 }: { icon: IconName; width?: number; height?: number; size?: number }) {
-  const theme = useTheme();
-  return (
-    <View style={{ width, height, alignItems: 'center', justifyContent: 'center' }}>
-      <Wash width={width} height={height} color={theme.wash} seed={23} style={StyleSheet.absoluteFill} />
-      <Icon name={icon} size={size} wash={theme.lagoon} washOpacity={0.3} />
-    </View>
+      {buddy ? <ListRow leading="verified" title="Buddy code" subtitle="Confirm a buddy’s sighting or dive" accessibilityRole="link" onPress={() => router.push('/verify')} /> : null}
+    </List>
   );
 }
 
@@ -457,56 +438,36 @@ function ErrorNote({ message }: { message: string }) {
   const theme = useTheme();
   return (
     <View style={styles.error}>
-      <Icon name="warning" size={18} color={theme.danger} wash={theme.danger} washOpacity={0.15} style={styles.errorIcon} />
-      <ThemedText type="small" themeColor="danger" accessibilityLiveRegion="polite" style={styles.errorText}>
+      <Icon name="warning" size={18} color={theme.danger} style={styles.errorIcon} />
+      <ThemedText type="subhead" themeColor="danger" accessibilityLiveRegion="polite" style={styles.errorText}>
         {message}
       </ThemedText>
     </View>
   );
 }
 
-function TextButton({ label, onPress }: { label: string; onPress: () => void }) {
-  return (
-    <Pressable onPress={onPress} accessibilityRole="button" style={({ pressed }) => [styles.textButton, { opacity: pressed ? 0.6 : 1 }]}>
-      <ThemedText type="smallBold" themeColor="tint">
-        {label}
-      </ThemedText>
-    </Pressable>
-  );
-}
-
 const styles = StyleSheet.create({
-  rows: {
-    gap: 12,
-  },
-  intro: {
-    marginTop: -8,
+  head: {
+    gap: Space.s2,
   },
   form: {
-    gap: Spacing.three,
+    gap: Space.s4,
   },
   spinner: {
-    minHeight: 48,
+    minHeight: Size.buttonLg,
     alignItems: 'center',
     justifyContent: 'center',
   },
+  // The plain buttons sit close under the main one, centred.
   links: {
     alignItems: 'center',
-    marginTop: -Spacing.two,
+    marginTop: -Space.s2,
   },
   moreRow: { alignItems: 'center' },
-  textButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    alignSelf: 'center',
-    gap: 6,
-    minHeight: 44,
-    paddingHorizontal: Spacing.two,
-  },
   error: {
     flexDirection: 'row',
     alignItems: 'flex-start',
-    gap: 8,
+    gap: Space.s2,
   },
   errorIcon: {
     marginTop: 1,
@@ -518,11 +479,8 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 8,
-    paddingHorizontal: Spacing.two,
-  },
-  privacyIcon: {
-    marginTop: 1,
+    gap: Space.s2,
+    paddingHorizontal: Space.s2,
   },
   privacyText: {
     flexShrink: 1,
@@ -530,8 +488,8 @@ const styles = StyleSheet.create({
   },
   centred: {
     alignItems: 'center',
-    gap: 12,
-    paddingVertical: Spacing.four,
+    gap: Space.s3,
+    paddingVertical: Space.s6,
   },
   centreText: {
     textAlign: 'center',
@@ -544,7 +502,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 6,
+    gap: Space.s2,
   },
   pendingText: {
     flexShrink: 1,

@@ -3,8 +3,10 @@ import { useEffect, useState } from 'react';
 import { Pressable, StyleSheet } from 'react-native';
 
 import { Icon } from '@/components/icon';
-import { Paper } from '@/components/journal/paper';
 import { ThemedText } from '@/components/themed-text';
+import { Card } from '@/components/ui/card';
+import { IconButton } from '@/components/ui/icon-button';
+import { Size, Space } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 
 const DISMISSED_KEY = 'scubago.backupRowDismissed.v1';
@@ -66,20 +68,18 @@ export function useBackupRowDismissed(now: () => number = Date.now): { dismissed
 export function BackupRow({ text, onBackup, onDismiss }: { text: string; onBackup: () => void; onDismiss: () => void }) {
   const theme = useTheme();
   return (
-    <Paper padded={false} style={styles.row}>
+    <Card padded={false} style={styles.row}>
       <Pressable onPress={onBackup} accessibilityRole="button" accessibilityLabel={`${text}. Back up my log`} style={({ pressed }) => [styles.main, { opacity: pressed ? 0.6 : 1 }]}>
         <Icon name="info" size={20} color={theme.textSecondary} />
-        <ThemedText type="small" numberOfLines={2} style={styles.text}>
+        <ThemedText type="subhead" numberOfLines={2} style={styles.text}>
           {text}
         </ThemedText>
-        <ThemedText type="smallBold" themeColor="tint">
+        <ThemedText type="subheadStrong" themeColor="tint">
           Back up
         </ThemedText>
       </Pressable>
-      <Pressable onPress={onDismiss} accessibilityRole="button" accessibilityLabel="Dismiss this reminder for a week" style={({ pressed }) => [styles.close, { opacity: pressed ? 0.6 : 1 }]}>
-        <Icon name="close" size={16} weight="bold" />
-      </Pressable>
-    </Paper>
+      <IconButton icon="close" on="bar" onPress={onDismiss} accessibilityLabel="Dismiss this reminder for a week" />
+    </Card>
   );
 }
 
@@ -87,22 +87,17 @@ const styles = StyleSheet.create({
   row: {
     flexDirection: 'row',
     alignItems: 'center',
+    paddingRight: Space.s1,
   },
   main: {
     flex: 1,
-    minHeight: 48,
+    minHeight: Size.rowMin,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
-    paddingLeft: 12,
+    gap: Space.s3,
+    paddingLeft: Space.s4,
   },
   text: {
     flex: 1,
-  },
-  close: {
-    width: 44,
-    minHeight: 48,
-    alignItems: 'center',
-    justifyContent: 'center',
   },
 });

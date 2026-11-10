@@ -15,6 +15,8 @@ import '@/global.css';
 
 import { Platform } from 'react-native';
 
+import { PageColor } from '@/constants/page-color';
+
 export const Colors = {
   light: {
     // ── Page, surfaces and ink ────────────────────────────────────────────────────────────────
@@ -25,7 +27,7 @@ export const Colors = {
     /** Placeholders, chevrons, disabled (2.9 / 3.2): never essential text. */
     textTertiary: '#8792A2',
     /** The page: cool sea mist. */
-    background: '#F3F6F8',
+    background: PageColor.light,
     /** Cards, rows, inputs, bars. */
     backgroundElement: '#FFFFFF',
     /** Pressed and selected; sunken fills (search, segmented track, art tiles). */
@@ -71,7 +73,7 @@ export const Colors = {
     textSecondary: '#A9BBCD',
     /** (5.7 / 5.0) */
     textTertiary: '#7F92A8',
-    background: '#0B1524',
+    background: PageColor.dark,
     backgroundElement: '#132238',
     backgroundSelected: '#1B2E49',
     cardBorder: '#22344D',
@@ -304,6 +306,12 @@ export const Motion = {
 export const OnWater = {
   ink: '#1F4B40',
   veil: 'rgba(255, 255, 255, 0.72)',
+  /** A control or toast drawn over the water (the explorer's buttons, a level-up note): nearly opaque, so its text reads on any water. */
+  panel: 'rgba(255, 255, 255, 0.92)',
+  /** The dark-green ink's quiet partner, for a second line on a panel. */
+  inkSoft: '#3F5F55',
+  /** The warm accent of a "New" mark on a panel (text and dot). */
+  accent: '#B45A28',
 } as const;
 
 /** The dimmer behind a dialog (the calendar, a menu): ink at half strength, the same in both schemes. */

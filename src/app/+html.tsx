@@ -1,6 +1,8 @@
 import { ScrollViewStyleReset, useServerDocumentContext } from 'expo-router/html';
 import type { PropsWithChildren } from 'react';
 
+import { PageColor } from '@/constants/page-color';
+
 // The HTML shell for the web build (`npx expo export --platform web`). Besides
 // Expo's defaults it adds what a phone needs to install ScubaGo from the
 // browser as a home-screen web app: a full-screen launch, the app icon, and
@@ -27,8 +29,8 @@ export default function Root({ children }: PropsWithChildren) {
         <meta name="mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-status-bar-style" content="default" />
-        <meta name="theme-color" media="(prefers-color-scheme: light)" content="#FBF6EC" />
-        <meta name="theme-color" media="(prefers-color-scheme: dark)" content="#0F1B2E" />
+        <meta name="theme-color" media="(prefers-color-scheme: light)" content={PageColor.light} />
+        <meta name="theme-color" media="(prefers-color-scheme: dark)" content={PageColor.dark} />
         <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
         <link rel="manifest" href="/manifest.webmanifest" />
 
@@ -45,5 +47,5 @@ export default function Root({ children }: PropsWithChildren) {
 }
 
 const responsiveBackground = `
-body { background-color: #FBF6EC; }
-@media (prefers-color-scheme: dark) { body { background-color: #0F1B2E; } }`;
+body { background-color: ${PageColor.light}; }
+@media (prefers-color-scheme: dark) { body { background-color: ${PageColor.dark}; } }`;

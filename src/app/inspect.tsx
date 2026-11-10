@@ -6,21 +6,23 @@ import { useLocalSearchParams } from 'expo-router';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { AnimatedMarine } from '@/components/home/three/animated-marine';
-import { SanctuaryEnvironment } from '@/components/home/three/sanctuary-environment';
+import { SanctuaryEnvironment, WATER } from '@/components/home/three/sanctuary-environment';
 import { useMarineModels } from '@/components/home/three/use-marine-models';
-import { Spacing } from '@/constants/theme';
+import { OnWater, Radius, Space } from '@/constants/theme';
+import { useTheme } from '@/hooks/use-theme';
 import { useSceneActive } from '@/hooks/use-scene-active';
 import { inspectionModel, MARINE_ART } from '@/lib/marine-art';
 
 /** A closer look at one of the swimming rigs, turning slowly in open water. */
 export default function InspectScreen() {
+  const theme = useTheme();
   const params = useLocalSearchParams<{ model?: string; species?: string; preview?: string }>();
   const model = inspectionModel(params);
   const about = model ? MARINE_ART[model] : null;
   const active = useSceneActive();
   const { models, failed, retry } = useMarineModels(model ? [model] : []);
 
-  if (!model || !about) return <ThemedView style={styles.root}><ThemedText style={styles.caption}>No swimming model is available for this selection.</ThemedText></ThemedView>;
+  if (!model || !about) return <ThemedView style={styles.root}><ThemedText style={styles.empty}>No swimming model is available for this selection.</ThemedText></ThemedView>;
 
   return <ThemedView style={styles.root}>
     <View style={styles.stage}>
@@ -33,22 +35,24 @@ export default function InspectScreen() {
         <AnimatedMarine model={model} gltf={models[model]!} lane={0} active={active} inspect />
       </Canvas></View></SceneBoundary> : failed
         ? <SceneUnavailable onRetry={retry} />
-        : <ActivityIndicator color="#356D60" style={styles.center} accessibilityLabel="Loading the 3D model" />}
+        : <ActivityIndicator color={OnWater.ink} style={styles.center} accessibilityLabel="Loading the 3D model" />}
     </View>
-    <View style={styles.caption}>
-      <ThemedText type="subtitle">{about.name}</ThemedText>
-      <ThemedText type="small" themeColor="textSecondary">
+    <View style={[styles.caption, { backgroundColor: theme.background }]}>
+      <ThemedText type="title" accessibilityRole="header">{about.name}</ThemedText>
+      <ThemedText type="callout" themeColor="textSecondary">
         {about.caption}
       </ThemedText>
-      {params.preview === '1' && <ThemedText type="smallBold" themeColor="textSecondary">Preview only. Nothing in your collection changes.</ThemedText>}
+      {params.preview === '1' && <ThemedText type="footnoteStrong" themeColor="textSecondary">Preview only. Nothing in your collection changes.</ThemedText>}
     </View>
   </ThemedView>;
 }
 
 const styles = StyleSheet.create({
   root: { flex: 1 },
-  stage: { flex: 1, backgroundColor: '#aadbd2' },
+  stage: { flex: 1, backgroundColor: WATER.lagoon },
   canvas: { flex: 1 },
   center: { flex: 1, textAlign: 'center', alignSelf: 'center', justifyContent: 'center', paddingTop: 120 },
-  caption: { padding: Spacing.four, gap: Spacing.two },
+  // The caption is a sheet over the foot of the water: page colour, big top corners.
+  caption: { padding: Space.s6, gap: Space.s2, marginTop: -Radius.xl, borderTopLeftRadius: Radius.xl, borderTopRightRadius: Radius.xl },
+  empty: { padding: Space.s6 },
 });

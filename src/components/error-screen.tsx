@@ -1,18 +1,40 @@
 import { router, type ErrorBoundaryProps } from 'expo-router';
-import { useEffect } from 'react';
+import { useEffect, type ReactNode } from 'react';
 import { ScrollView, StyleSheet, View } from 'react-native';
 
-import { Icon } from '@/components/icon';
-import { Paper } from '@/components/journal/paper';
-import { Wash } from '@/components/journal/wash';
-import { OceanButton } from '@/components/ocean-button';
+import type { IconName } from '@/components/icon';
 import { ThemedText } from '@/components/themed-text';
-import { Spacing } from '@/constants/theme';
+import { Button } from '@/components/ui/button';
+import { IconTile } from '@/components/ui/list';
+import { Space } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 
 /**
+ * The page shown when the app cannot draw itself (a failed screen, a log that cannot be opened): the page
+ * colour, one centred column (an icon tile, a headline, a line of what it means), and its actions as
+ * `children`. It does not depend on the app's navigator or safe-area provider, so it can stand when they
+ * have failed.
+ */
+export function ProblemPanel({ icon, title, message, children }: { icon: IconName; title: string; message: string; children?: ReactNode }) {
+  return (
+    <View style={styles.panel}>
+      <IconTile icon={icon} size={56} />
+      <View style={styles.text}>
+        <ThemedText type="title" accessibilityRole="header" style={styles.center}>
+          {title}
+        </ThemedText>
+        <ThemedText type="callout" themeColor="textSecondary" style={styles.center} accessibilityLiveRegion="polite">
+          {message}
+        </ThemedText>
+      </View>
+      {children}
+    </View>
+  );
+}
+
+/**
  * What a screen shows when something in it fails while drawing, instead of a red screen or the app
- * closing: a calm card that says the log is safe, with "Try again" (and, inside the app's navigator,
+ * closing: a calm page that says the log is safe, with "Try again" (and, inside the app's navigator,
  * a way home). The error's own words sit at the foot in small print, so it can be reported.
  *
  * `whole`: the app itself failed (the root layout), so there is no navigator to go home with.
@@ -25,25 +47,20 @@ export function ErrorScreen({ error, retry, whole = false }: ErrorBoundaryProps 
   const detail = (error?.message || String(error ?? '')).slice(0, 300);
   return (
     <ScrollView style={{ backgroundColor: theme.background }} contentContainerStyle={styles.page}>
-      <Paper raised style={styles.card}>
-        <View style={styles.art}>
-          <Wash width={112} height={78} color={theme.wash} seed={17} style={StyleSheet.absoluteFill} />
-          <Icon name="logbook" size={40} />
+      <ProblemPanel
+        icon="warning"
+        title={whole ? 'ScubaGo hit a snag' : 'This page hit a snag'}
+        message={`Your log is safe: nothing has been lost. Try again${whole ? ', or close and reopen the app' : ', or head back to your home'}.`}>
+        <View style={styles.actions}>
+          <Button title="Try again" icon="sync" onPress={() => void retry()} />
+          {whole ? null : <Button title="Back to my home" variant="secondary" icon="home" onPress={() => router.replace('/')} />}
         </View>
-        <ThemedText type="heading" accessibilityRole="header" style={styles.center}>
-          {whole ? 'ScubaGo hit a snag' : 'This page hit a snag'}
-        </ThemedText>
-        <ThemedText type="small" themeColor="textSecondary" style={styles.center} accessibilityLiveRegion="polite">
-          Your log is safe: nothing has been lost. Try again{whole ? ', or close and reopen the app' : ', or head back to your home'}.
-        </ThemedText>
-        <OceanButton title="Try again" icon="sync" onPress={() => void retry()} style={styles.stretch} />
-        {whole ? null : <OceanButton title="Back to my home" variant="secondary" icon="home" onPress={() => router.replace('/')} style={styles.stretch} />}
         {detail ? (
-          <ThemedText type="caption" themeColor="textSecondary" selectable style={styles.center}>
+          <ThemedText type="footnote" themeColor="textSecondary" selectable style={styles.center}>
             {detail}
           </ThemedText>
         ) : null}
-      </Paper>
+      </ProblemPanel>
     </ScrollView>
   );
 }
@@ -63,25 +80,24 @@ const styles = StyleSheet.create({
     flexGrow: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    padding: Spacing.four,
+    padding: Space.s6,
   },
-  card: {
+  panel: {
     width: '100%',
     maxWidth: 420,
     alignItems: 'center',
-    gap: Spacing.three,
-    paddingVertical: Spacing.four,
+    gap: Space.s4,
   },
-  art: {
-    width: 112,
-    height: 78,
+  text: {
     alignItems: 'center',
-    justifyContent: 'center',
+    gap: Space.s2,
+  },
+  actions: {
+    alignSelf: 'stretch',
+    gap: Space.s3,
+    marginTop: Space.s2,
   },
   center: {
     textAlign: 'center',
-  },
-  stretch: {
-    alignSelf: 'stretch',
   },
 });

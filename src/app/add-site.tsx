@@ -1,14 +1,13 @@
 import { router, useLocalSearchParams } from 'expo-router';
 import { useRef, useState } from 'react';
-import { ScrollView, StyleSheet, View, type TextInputInstance } from 'react-native';
+import { StyleSheet, View, type TextInputInstance } from 'react-native';
 
-import { FormField } from '@/components/form-field';
 import { Icon } from '@/components/icon';
-import { Paper } from '@/components/journal/paper';
-import { OceanButton } from '@/components/ocean-button';
 import { ThemedText } from '@/components/themed-text';
-import { ThemedView } from '@/components/themed-view';
-import { MaxContentWidth, Spacing } from '@/constants/theme';
+import { Button } from '@/components/ui/button';
+import { Screen } from '@/components/ui/screen';
+import { TextField } from '@/components/ui/text-field';
+import { Space } from '@/constants/theme';
 import { DISMISS_ON_DRAG } from '@/hooks/use-keyboard';
 import { useTheme } from '@/hooks/use-theme';
 import { announce } from '@/lib/announce';
@@ -94,115 +93,90 @@ export default function AddSiteScreen() {
     }
   };
 
-  return (
-    <ThemedView style={{ flex: 1 }}>
-      <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled" keyboardDismissMode={DISMISS_ON_DRAG} automaticallyAdjustKeyboardInsets>
-        <ThemedText type="caption" themeColor="textSecondary">
-          Missing a site? Add it to your map.
-        </ThemedText>
+  const coordinatesHelper =
+    problem?.field === 'coordinates'
+      ? undefined
+      : place.problem === undefined
+        ? // What was read, said back, so a missing minus sign shows before it is saved.
+          `That is ${describeCoordinates(place)}.`
+        : // Until what was typed reads as a pair (or says what is wrong), a nudge; then it gives way.
+          'Latitude first, then longitude.';
 
-        <View style={styles.field}>
-          <FormField
-            ref={nameField}
-            label="Site name (required)"
-            value={name}
-            onChangeText={(text) => {
-              setName(text);
-              if (problem?.field === 'name') setProblem(null);
-            }}
-            placeholder="e.g. Shark Point"
-            style={problem?.field === 'name' ? { borderColor: theme.danger } : undefined}
-          />
-          {problem?.field === 'name' ? (
-            <ThemedText type="small" themeColor="danger" accessibilityLiveRegion="polite">
-              {problem.message}
-            </ThemedText>
-          ) : null}
-        </View>
-        <Paper style={styles.card}>
-          <View style={styles.where}>
-            <Icon name="pin" size={20} wash={theme.coral} />
-            <ThemedText type="small" themeColor="textSecondary" style={{ flex: 1 }}>
-              In a maps app, hold a spot and copy its numbers.
-            </ThemedText>
-          </View>
-          <View style={styles.field}>
-            <FormField
-              ref={coordinatesField}
-              label="Coordinates (required)"
-              value={coordinates}
-              onChangeText={(text) => {
-                setCoordinates(text);
-                if (problem?.field === 'coordinates') setProblem(null);
-              }}
-              keyboardType="numbers-and-punctuation"
-              autoCorrect={false}
-              autoCapitalize="none"
-              placeholder="e.g. 7.81, 98.54"
-              // Until what was typed reads as a pair (or says what is wrong), a nudge; then it gives way.
-              hint={place.problem !== undefined && problem?.field !== 'coordinates' ? 'Latitude first, then longitude.' : undefined}
-              style={problem?.field === 'coordinates' ? { borderColor: theme.danger } : undefined}
-            />
-            {problem?.field === 'coordinates' ? (
-              <ThemedText type="small" themeColor="danger" accessibilityLiveRegion="polite">
-                {problem.message}
-              </ThemedText>
-            ) : place.problem === undefined ? (
-              // What was read, said back, so a missing minus sign shows before it is saved.
-              <ThemedText type="small" themeColor="textSecondary" accessibilityLiveRegion="polite">
-                That is {describeCoordinates(place)}.
-              </ThemedText>
-            ) : null}
-          </View>
-        </Paper>
-        <View style={styles.rowFields}>
-          <View style={{ flex: 1 }}>
-            <FormField label="Region" value={region} onChangeText={setRegion} placeholder="e.g. Phuket" />
-          </View>
-          <View style={{ flex: 1 }}>
-            <FormField label="Country" value={country} onChangeText={setCountry} placeholder="e.g. Thailand" />
-          </View>
-        </View>
-        <FormField label="Description" value={blurb} onChangeText={setBlurb} multiline placeholder="e.g. A sloping reef where leopard sharks rest on the sand" style={styles.multiline} />
-        {error ? (
-          <ThemedText type="small" themeColor="danger" accessibilityLiveRegion="polite">
-            {error}
-          </ThemedText>
-        ) : null}
-        {/* From the log flow the new site goes straight back to it; from Explore, adding is the point, and logging a dive there is the other choice. */}
-        <OceanButton title={saving ? 'Saving…' : 'Add site'} icon={saving ? undefined : 'addSite'} onPress={() => void save(false)} disabled={saving} />
-        {params.then !== 'log' ? <OceanButton title="Add and log a dive" variant="secondary" onPress={() => void save(true)} disabled={saving} /> : null}
-      </ScrollView>
-    </ThemedView>
+  return (
+    <Screen kind="modal" keyboardDismissMode={DISMISS_ON_DRAG} automaticallyAdjustKeyboardInsets>
+      <ThemedText type="callout" themeColor="textSecondary">
+        Missing a site? Add it to your map.
+      </ThemedText>
+
+      <TextField
+        ref={nameField}
+        label="Site name (required)"
+        value={name}
+        onChangeText={(text) => {
+          setName(text);
+          if (problem?.field === 'name') setProblem(null);
+        }}
+        placeholder="e.g. Shark Point"
+        error={problem?.field === 'name' ? problem.message : undefined}
+      />
+      <View style={styles.where}>
+        <Icon name="pin" size={20} color={theme.textSecondary} />
+        <ThemedText type="subhead" themeColor="textSecondary" style={styles.flex}>
+          In a maps app, hold a spot and copy its numbers.
+        </ThemedText>
+      </View>
+      <TextField
+        ref={coordinatesField}
+        label="Coordinates (required)"
+        value={coordinates}
+        onChangeText={(text) => {
+          setCoordinates(text);
+          if (problem?.field === 'coordinates') setProblem(null);
+        }}
+        keyboardType="numbers-and-punctuation"
+        autoCorrect={false}
+        autoCapitalize="none"
+        placeholder="e.g. 7.81, 98.54"
+        helper={coordinatesHelper}
+        error={problem?.field === 'coordinates' ? problem.message : undefined}
+      />
+      <View style={styles.rowFields}>
+        <TextField label="Region" value={region} onChangeText={setRegion} placeholder="e.g. Phuket" style={styles.flex} />
+        <TextField label="Country" value={country} onChangeText={setCountry} placeholder="e.g. Thailand" style={styles.flex} />
+      </View>
+      <TextField label="Description" value={blurb} onChangeText={setBlurb} multiline placeholder="e.g. A sloping reef where leopard sharks rest on the sand" />
+      {error ? (
+        <ThemedText type="subhead" themeColor="danger" accessibilityLiveRegion="polite">
+          {error}
+        </ThemedText>
+      ) : null}
+      {/* From the log flow the new site goes straight back to it; from Explore, adding is the point, and logging a dive there is the other choice. */}
+      <View style={styles.actions}>
+        <Button title={saving ? 'Saving…' : 'Add site'} icon={saving ? undefined : 'addSite'} onPress={() => void save(false)} disabled={saving} />
+        {params.then !== 'log' ? <Button title="Add and log a dive" variant="secondary" onPress={() => void save(true)} disabled={saving} /> : null}
+      </View>
+    </Screen>
   );
 }
 
 const styles = StyleSheet.create({
-  content: {
-    padding: Spacing.three,
-    paddingBottom: Spacing.five,
-    gap: Spacing.three + 2,
-    width: '100%',
-    maxWidth: MaxContentWidth,
-    alignSelf: 'center',
-  },
-  card: {
-    gap: Spacing.three,
-  },
-  field: {
-    gap: 6,
+  flex: {
+    flex: 1,
   },
   where: {
     flexDirection: 'row',
     alignItems: 'flex-start',
-    gap: 8,
+    gap: Space.s2,
+    // Closer to the coordinates it explains than to the name above.
+    marginTop: Space.s2,
+    marginBottom: -Space.s3,
   },
   rowFields: {
     flexDirection: 'row',
-    gap: Spacing.two,
+    gap: Space.s3,
   },
-  multiline: {
-    minHeight: 80,
-    textAlignVertical: 'top',
+  actions: {
+    gap: Space.s3,
+    marginTop: Space.s2,
   },
 });

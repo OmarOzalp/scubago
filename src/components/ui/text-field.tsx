@@ -22,6 +22,8 @@ export type TextFieldProps = Omit<TextInputProps, 'style'> & {
   /** Layout of the input itself (a taller box for notes). */
   inputStyle?: StyleProp<TextStyle>;
   style?: StyleProp<ViewStyle>;
+  /** The typed text's own look, for a field that holds something other than a sentence (a code: bigger, centred). */
+  inputStyle?: StyleProp<TextStyle>;
   ref?: Ref<TextInputInstance>;
 };
 

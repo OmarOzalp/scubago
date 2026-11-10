@@ -1,9 +1,6 @@
-import { StyleSheet, View } from 'react-native';
-
-import { Icon, type IconName } from '@/components/icon';
-import { Paper } from '@/components/journal/paper';
-import { Screen, ScreenHeader } from '@/components/journal/screen';
-import { ThemedText } from '@/components/themed-text';
+import { type IconName } from '@/components/icon';
+import { List, ListRow } from '@/components/ui/list';
+import { Screen, ScreenTitle } from '@/components/ui/screen';
 
 /** The help page: ScubaGo's own ideas in a line each. Dive terms are not explained: divers know them. */
 export const HELP_ITEMS: { icon: IconName; title: string; body: string }[] = [
@@ -18,26 +15,12 @@ export const HELP_ITEMS: { icon: IconName; title: string; body: string }[] = [
 export default function HelpScreen() {
   return (
     <Screen>
-      <ScreenHeader title="How ScubaGo works" />
-      <Paper style={styles.card}>
+      <ScreenTitle title="How ScubaGo works" />
+      <List>
         {HELP_ITEMS.map((item) => (
-          <View key={item.title} style={styles.item} accessible accessibilityLabel={`${item.title}. ${item.body}`}>
-            <Icon name={item.icon} size={24} />
-            <View style={styles.text}>
-              <ThemedText type="smallBold">{item.title}</ThemedText>
-              <ThemedText type="small" themeColor="textSecondary">
-                {item.body}
-              </ThemedText>
-            </View>
-          </View>
+          <ListRow key={item.title} leading={item.icon} title={item.title} subtitle={item.body} subtitleLines={3} trailing="none" />
         ))}
-      </Paper>
+      </List>
     </Screen>
   );
 }
-
-const styles = StyleSheet.create({
-  card: { gap: 18 },
-  item: { flexDirection: 'row', gap: 14, alignItems: 'flex-start' },
-  text: { flex: 1, gap: 2 },
-});

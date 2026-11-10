@@ -144,6 +144,7 @@ export default function DesignGallery() {
           <SearchField value="" onPress={() => {}} placeholder="Search dive sites or animals" />
           <TextField label="Dive site name" value={name} onChangeText={setName} placeholder="e.g. Blue Corner" helper="As the dive centre calls it." />
           <TextField label="Depth (m)" value="140" onChangeText={() => {}} error="Deeper than recreational limits: check the number." />
+          <TextField label="Code from your buddy" value="K7M2Q-9XH4D" onChangeText={() => {}} inputStyle={{ ...TypeScale.figure, textAlign: 'center', letterSpacing: 3 }} />
         </Section>
 
         <Section title="Tags and progress">
@@ -192,6 +193,7 @@ export default function DesignGallery() {
               onPress={() => {}}
             />
             <ListRow leading="pin" title="Abu Dabbab Ithnain, a site with a long name that wraps at a space" titleLines={2} subtitle="Red Sea, Egypt" below={<Tag label="Waiting to sync" dashed />} expanded={false} onPress={() => {}} />
+            <ListRow leading="info" title="Creative Commons Attribution 4.0 International" titleLines={2} trailing="none" subtitle="A row that explains: its title wraps to two lines and its line of text to as many as four, never cut inside a word." subtitleLines={3} />
             <ListRow leading="pin" title="Richelieu Rock" subtitle="Andaman Sea, Thailand" meta={{ text: 'Stamped 4 Nov 2026 · 2 visits', color: theme.stamp }} selected onPress={() => {}} />
           </List>
         </Section>

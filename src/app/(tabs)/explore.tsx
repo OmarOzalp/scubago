@@ -12,7 +12,7 @@ import { WATER } from '@/components/home/three/sanctuary-environment';
 import { tapScaleAt } from '@/components/home/three/tap-target';
 import { useTip } from '@/components/home/use-tip';
 import { Icon, type IconName } from '@/components/icon';
-import { Type } from '@/constants/theme';
+import { Elevation, OnWater, Radius, Size, Space, TypeScale } from '@/constants/theme';
 import { useHomePreferences } from '@/hooks/use-home-preferences';
 import { CATALOG_BY_ID } from '@/lib/catalog';
 import { createExplorer, EXPLORER, explorerViewKey, islandsByView, waterReach } from '@/lib/explorer-view';
@@ -24,7 +24,7 @@ import { useAppStore, useMySightings, useMyUserId } from '@/lib/store';
 import type { MarineModel } from '@/lib/swimming';
 
 /** Ink on the island's water (the scene's own colours, the same in both schemes). */
-const ON_WATER = '#1F4B40';
+const ON_WATER = OnWater.ink;
 /** How to look about, shown when the explorer opens: the first three times, then never (the switcher says how to sail between islands). */
 const MEET = 'Tap an animal to meet it.';
 const LOOK = 'Pinch to zoom, drag to look around.';
@@ -176,7 +176,7 @@ export default function ExploreScreen() {
   const button = (icon: IconName, label: string, onPress: () => void) => (
     <Pressable key={label} accessibilityRole="button" accessibilityLabel={label} onPress={onPress} hitSlop={6}
       style={({ pressed }) => [styles.button, { opacity: pressed ? 0.7 : 1 }]}>
-      <Icon name={icon} size={22} color={ON_WATER} wash="#FFFFFF" washOpacity={0.6} weight="bold" />
+      <Icon name={icon} size={22} color={ON_WATER} weight="bold" />
     </Pressable>
   );
 
@@ -187,7 +187,7 @@ export default function ExploreScreen() {
         {mounted && scene}
       </View>
     </GestureDetector>
-    <View style={[styles.top, { paddingTop: insets.top + 10 }]} pointerEvents="box-none">
+    <View style={[styles.top, { paddingTop: insets.top + Space.s3 }]} pointerEvents="box-none">
       {button('close', 'Close the explorer', close)}
       {/* The island in view, by its name alone; with several islands it is the switcher (tap for the list). A very long name is cut short with an ellipsis rather than run on into the buttons either side. */}
       {places.length > 1
@@ -216,7 +216,7 @@ export default function ExploreScreen() {
         </Pressable>;
       })}
     </View>}
-    <View style={[styles.controls, { paddingBottom: insets.bottom + 18, paddingRight: insets.right + 14 }]} pointerEvents="box-none">
+    <View style={[styles.controls, { paddingBottom: insets.bottom + Space.s5, paddingRight: insets.right + Space.s4 }]} pointerEvents="box-none">
       {button('plus', 'Zoom in', () => explorer.zoomBy(EXPLORER.step))}
       {button('minus', 'Zoom out', () => explorer.zoomBy(1 / EXPLORER.step))}
       {button('locate', 'Show the whole ocean', () => explorer.showAll())}
@@ -287,20 +287,21 @@ function Hint({ small, bottom, reduced }: { small: string; bottom: number; reduc
 const styles = StyleSheet.create({
   root: { position: 'absolute', top: 0, left: 0 },
   fill: { flex: 1 },
-  top: { position: 'absolute', top: 0, left: 0, right: 0, paddingHorizontal: 14, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8 },
-  spacer: { width: 44 },
-  pill: { flexShrink: 1, minWidth: 0, paddingHorizontal: 12, paddingVertical: 6, borderRadius: 14, backgroundColor: 'rgba(255,255,255,0.55)' },
-  switcher: { minHeight: 44, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, paddingHorizontal: 14 },
+  top: { position: 'absolute', top: 0, left: 0, right: 0, paddingHorizontal: Space.s4, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: Space.s2 },
+  spacer: { width: Size.hit },
+  // Everything drawn over the water is one near-opaque panel in the water's own ink, lifted by a soft shadow (no border).
+  pill: { flexShrink: 1, minWidth: 0, minHeight: Size.hit, justifyContent: 'center', paddingHorizontal: Space.s4, borderRadius: Radius.pill, backgroundColor: OnWater.panel, boxShadow: Elevation.light.card },
+  switcher: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: Space.s2 },
   pillName: { flexShrink: 1 },
-  list: { position: 'absolute', alignSelf: 'center', minWidth: 220, maxWidth: '90%', paddingVertical: 4, borderRadius: 18, backgroundColor: 'rgba(255,255,255,0.92)', borderWidth: 1, borderColor: 'rgba(31,75,64,0.18)' },
-  row: { minHeight: 44, flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 16 },
+  list: { position: 'absolute', alignSelf: 'center', minWidth: 240, maxWidth: '90%', paddingVertical: Space.s1, borderRadius: Radius.lg, backgroundColor: OnWater.panel, boxShadow: Elevation.light.raised },
+  row: { minHeight: Size.hit, flexDirection: 'row', alignItems: 'center', gap: Space.s3, paddingVertical: Space.s2, paddingHorizontal: Space.s4 },
   rowText: { flex: 1, minWidth: 0 },
-  habitatText: { color: ON_WATER, opacity: 0.75, fontSize: 13, fontFamily: Type.body },
-  dot: { width: 8, height: 8, borderRadius: 4 },
-  islandText: { color: ON_WATER, fontSize: 16, fontFamily: Type.bodySemiBold },
-  pillText: { color: ON_WATER, fontSize: 17, lineHeight: 24, fontFamily: Type.display },
-  controls: { position: 'absolute', right: 0, bottom: 0, gap: 10 },
-  button: { width: 44, height: 44, borderRadius: 22, backgroundColor: 'rgba(255,255,255,0.7)', borderWidth: 1, borderColor: 'rgba(31,75,64,0.18)', alignItems: 'center', justifyContent: 'center' },
-  hint: { position: 'absolute', left: 16, right: 76, alignItems: 'center' },
-  hintText: { color: ON_WATER, fontSize: 14, lineHeight: 20, fontFamily: Type.bodySemiBold, textAlign: 'center', backgroundColor: 'rgba(255,255,255,0.55)', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 14, overflow: 'hidden' },
+  habitatText: { ...TypeScale.footnote, color: OnWater.inkSoft },
+  dot: { width: Space.s2, height: Space.s2, borderRadius: Radius.pill },
+  islandText: { ...TypeScale.bodyStrong, color: ON_WATER },
+  pillText: { ...TypeScale.headline, color: ON_WATER },
+  controls: { position: 'absolute', right: 0, bottom: 0, gap: Space.s3 },
+  button: { width: Size.hit, height: Size.hit, borderRadius: Radius.pill, backgroundColor: OnWater.panel, boxShadow: Elevation.light.card, alignItems: 'center', justifyContent: 'center' },
+  hint: { position: 'absolute', left: Space.s4, right: 76, alignItems: 'center' },
+  hintText: { ...TypeScale.subheadStrong, color: ON_WATER, textAlign: 'center', backgroundColor: OnWater.veil, paddingHorizontal: Space.s3, paddingVertical: Space.s2, borderRadius: Radius.md, overflow: 'hidden' },
 });

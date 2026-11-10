@@ -195,6 +195,19 @@ describe('Fields', () => {
     expect(open).toHaveBeenCalled();
   });
 
+  test('a row wraps its title and its line of text to the lines it is given, and a field takes a look for what it holds', async () => {
+    await render(
+      <>
+        <ListRow title="Creative Commons Attribution 4.0 International" titleLines={2} subtitle="A long line" subtitleLines={3} trailing="none" />
+        <TextField label="Code" value="" onChangeText={() => {}} inputStyle={{ textAlign: 'center' }} />
+      </>,
+    );
+    const lines = root.root.findAll((n) => n.type === 'Text' && typeof n.props.numberOfLines === 'number').map((n) => n.props.numberOfLines);
+    expect(lines).toEqual([2, 3]);
+    const input = root.root.findAll((n) => n.type === 'TextInput')[0];
+    expect([input.props.style].flat(3).some((style) => style?.textAlign === 'center')).toBe(true);
+  });
+
   test('a text field is named by its label, and an error is announced', async () => {
     await render(<TextField label="Depth (m)" value="140" onChangeText={() => {}} error="Too deep" />);
     expect(root.root.findAll((n) => n.props.accessibilityLabel === 'Depth (m)').length).toBeGreaterThan(0);

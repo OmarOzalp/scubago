@@ -35,7 +35,9 @@ phone is in. Look at it, light and dark, before and after changing a primitive.
 | `Size` | `hit` 44, `buttonLg` 52, `buttonMd` 44, `input` 52, `chip` 36, `rowMin` 56, `iconButton` 40, `iconTile` 40, `thumb` 44, `icon` 22, `iconBar` 24. |
 | `Elevation[scheme]` | `card` and `raised` shadows (`raised` for what floats: the Log button, sheets, a card over the map). |
 | `Motion` | `press` 120 ms, `standard` 200 ms, the easing, and the 0.98 press scale. |
-| `OnWater` | Ink and veil for text over the island scene's own water (the same in both schemes). |
+| `OnWater` | What is drawn over the island scene's own water (the same in both schemes): `ink` and `inkSoft` for text, `veil` for a one-time tip, `panel` for a control or toast (the explorer's buttons and island list, the level-up note, the "New" tag), `accent` for the warm "New" mark. A panel is lifted by `Elevation.light` and has no border. |
+| `Scrim` | The dim behind a sheet or dialog (the More menu). |
+| `PageColor` | The page colour on its own (`src/constants/page-color.ts`), so the web's HTML shell paints it before the app starts. |
 
 `ThemedText` takes the scale's names (`<ThemedText type="headline">`). The old names still compile and
 draw as v2 styles: `small` = subhead, `smallBold` = subheadStrong, `heading` = headline, `caption` =
@@ -53,13 +55,13 @@ typed, named for screen readers, 44 to hit, and drawn for light and dark.
 | `ScreenTitle` | `title`, `subtitle?`, `actions?` (IconButtons), `accessory?` (beside the title) | A screen's `display` title; actions centre on its first line. A pushed page prints it 8 under the bar. |
 | `Section` | `title`, `action?` `{ label, onPress, accessibilityLabel? }`, `accessory?`, `flush?` | A headline over content, 12 above it, 32 from what came before (`flush` drops the extra 16). |
 | `Card` | `padded`, `level` `'card' \| 'raised'`, `onPress?`, a11y props, `style` | The one card. With `onPress` it is one button and scales to 0.98. |
-| `List`, `ListRow` | Row: `title`, `subtitle?`, `subtitleLines`, `meta?` `{ text, color }`, `leading?` (icon name for a 40 tile, or a 44 thumbnail node), `trailing?` (`'chevron'` default, `'none'`, a node), `value?`, `switchValue?`, `onPress`, `selected`, `position?`, `titleLines?` (2 lets a name wrap at a space), `below?` (tags or lines under the subtitle), `expanded?` (a disclosure row), `accessibilityRole` may be `checkbox` or `radio` | One grouped card of rows with inset hairlines. Replaces "a bordered card per row". In a FlatList give each row its `position` (`first`/`middle`/`last`/`only`). A switch row is one switch. |
+| `List`, `ListRow` | Row: `title`, `subtitle?`, `subtitleLines` (1 to 4: a row that explains), `meta?` `{ text, color }`, `leading?` (icon name for a 40 tile, or a 44 thumbnail node), `trailing?` (`'chevron'` default, `'none'`, a node), `value?`, `switchValue?`, `onPress`, `selected`, `position?`, `titleLines?` (2 lets a name or a link's title wrap at a space), `below?` (tags or lines under the subtitle), `expanded?` (a disclosure row), `accessibilityRole` may be `checkbox` or `radio` | One grouped card of rows with inset hairlines. Replaces "a bordered card per row". In a FlatList give each row its `position` (`first`/`middle`/`last`/`only`). A switch row is one switch. |
 | `IconTile` | `icon`, `tone` `'lagoon' \| 'coral' \| 'sun' \| 'neutral'`, `size` | The 40 tile at the start of a row (soft fill, icon in tint). |
 | `Button` | `title`, `onPress`, `variant` `'primary' \| 'log' \| 'secondary' \| 'plain' \| 'destructive' \| 'destructivePlain'`, `size` `'lg' \| 'md'`, `icon?`, `loading?`, `disabled?` | The one button family. `log` only for logging a dive. Stretches in a column, sizes to its label in a row. |
 | `IconButton` | `icon`, `onPress`, `accessibilityLabel` (required), `on` `'page' \| 'bar'`, `disabled?` | 40 round, 44 to hit. `page`: white with a card shadow; `bar`: plain, on a bar or a card. |
 | `Chip`, `ChipRow` | Chip: `label`, `selected`, `onPress`, `count?`, `dot?`, `scheme?`, `role?` (`radio` / `checkbox` for a field's choices). Row: `accessibilityLabel`, `fade?`, `centered?`, `ref` | The one chip (pill 36; selected is filled with the ink colour). A ChipRow scrolls sideways to the screen's edges with a soft fade. |
 | `Segmented` | `options`, `value`, `onChange`, `accessibilityLabel`, `kind` `'tabs' \| 'choice'` | Sunken track, white thumb. |
-| `TextField` | `label`, `helper?`, `error?`, `invalid?` (danger edge, message shown elsewhere), `labelHidden?`, `labelAccessory?`, `inputStyle?`, TextInput props | Label above, 52 high, tint ring while focused, error announced. |
+| `TextField` | `label`, `helper?`, `error?`, `invalid?` (danger edge, message shown elsewhere), `labelHidden?`, `labelAccessory?`, `inputStyle?` (the typed text's look: a code, big and centred), TextInput props | Label above, 52 high, tint ring while focused, error announced. |
 | `SearchField` | `value`, `onChangeText`, `placeholder`, `onSubmit?`, `onCancel?`, `onPress?` (a button that opens the search) | Sunken, no border, magnifier, a clear button once something is typed. |
 | `Tag` | `label`, `tone` `'neutral' \| 'lagoon' \| 'coral' \| 'sun' \| 'danger'`, or `color` + `text` (rarity), `dashed?` | A 24 pill naming a state. "New" is `tone="sun"`. |
 | `ProgressBar`, `ProgressRing` | `fraction`, `accessibilityLabel`, `max`, `now` (bar); `label?` (ring) | 6 high, turquoise on a sunken track. |
@@ -76,7 +78,7 @@ frame), `usePressScale()` (press feedback for a custom pressable), `continuous` 
 The old journal pieces (`journal/chip`, `journal/tag`, `journal/progress-bar`, `journal/icon-button`,
 `journal/paper`, `ocean-button`, `segmented`, `NewBadge`, `journal/tab-bar`) now draw as the primitives
 above, so unmigrated screens already lose border-plus-shadow cards and outlined buttons. Don't use them in
-new code; `LinkRow` and `ScreenHeader`/`SectionHeader` still exist for unmigrated screens.
+new code; `LinkRow` (now a one-row `List`), `Ledger` and `ScreenHeader`/`SectionHeader` still exist for unmigrated screens.
 
 ## How to build (or migrate) a screen
 

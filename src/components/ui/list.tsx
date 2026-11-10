@@ -36,11 +36,11 @@ function isRow(element: ReactElement<ListRowProps>): boolean {
 
 export type ListRowProps = {
   title: string;
-  /** 2 for a name that may wrap at a space (a site, an animal); one line by default. */
+  /** The title wraps to two lines where it must (a long name, a link's title); one by default. */
   titleLines?: 1 | 2;
-  /** One or two lines under the title (subhead, secondary). */
+  /** One or two lines under the title (subhead, secondary); up to four for a row that explains something (the help page). */
   subtitle?: string;
-  subtitleLines?: 1 | 2;
+  subtitleLines?: 1 | 2 | 3 | 4;
   /** A further short line in a colour of its own (a passport stamp's date, in stamp red). */
   meta?: { text: string; color: string };
   /** An icon tile (40) by icon name, or your own node (a 44 thumbnail). */
