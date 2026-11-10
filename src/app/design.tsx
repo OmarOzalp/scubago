@@ -191,6 +191,7 @@ export default function DesignGallery() {
               subtitleLines={2}
               onPress={() => {}}
             />
+            <ListRow leading="pin" title="Abu Dabbab Ithnain, a site with a long name that wraps at a space" titleLines={2} subtitle="Red Sea, Egypt" below={<Tag label="Waiting to sync" dashed />} expanded={false} onPress={() => {}} />
             <ListRow leading="pin" title="Richelieu Rock" subtitle="Andaman Sea, Thailand" meta={{ text: 'Stamped 4 Nov 2026 · 2 visits', color: theme.stamp }} selected onPress={() => {}} />
           </List>
         </Section>
@@ -209,6 +210,12 @@ export default function DesignGallery() {
             {species.map((s, i) => (
               <SpeciesCard key={s.id} species={s} width={cardWidth} count={i % 2 === 0 ? i + 1 : 0} isNew={i === 0} onPress={() => {}} />
             ))}
+          </View>
+          {/* A card that picks (the Log flow's animals): selected rings the tile and ticks its corner; a note says what is new about it. */}
+          <View style={styles.grid}>
+            <SpeciesCard species={species[1]} width={cardWidth} count={1} role="checkbox" selected onPress={() => {}} />
+            <SpeciesCard species={species[2]} width={cardWidth} count={1} role="checkbox" selected={false} onPress={() => {}} />
+            <SpeciesCard species={species[3]} width={cardWidth} count={1} isNew note={{ text: 'Rare find', color: theme.tint }} />
           </View>
         </Section>
 

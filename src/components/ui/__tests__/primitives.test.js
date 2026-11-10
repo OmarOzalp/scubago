@@ -294,3 +294,43 @@ describe('SpeciesCard', () => {
     expect(StyleSheet.flatten(name.props.style).minHeight).toBe(2 * StyleSheet.flatten(name.props.style).lineHeight);
   });
 });
+
+describe('options added for the Log flow', () => {
+  const shark = CATALOG_BY_ID.get('brownbanded-bamboo-shark');
+  test('a SpeciesCard that picks is a checkbox with a ring and a tick once selected, and reads its own label', async () => {
+    await render(<SpeciesCard species={shark} width={110} count={1} role="checkbox" selected accessibilityLabel={shark.commonName} onPress={() => {}} />);
+    const card = byLabel(shark.commonName);
+    expect(card.props.accessibilityRole).toBe('checkbox');
+    expect(card.props['aria-checked']).toBe(true);
+    expect(root.root.findAll((n) => n.props.testID === 'picked-tick' && typeof n.type === 'string')).toHaveLength(1);
+  });
+
+  test('a SpeciesCard with no handler is a plain block: not a button, with its note under the name', async () => {
+    await render(<SpeciesCard species={shark} width={110} count={1} note={{ text: 'Rare find', color: '#000' }} />);
+    expect(pressables()).toHaveLength(0);
+    expect(texts()).toContain('Rare find');
+  });
+
+  test('a ListRow can wrap its title to two lines, carry something under the subtitle, and say it is expanded', async () => {
+    await render(<ListRow title="A long name" titleLines={2} subtitle="Where" below={<Tag label="Waiting to sync" />} expanded onPress={() => {}} />);
+    const title = root.root.findAll((n) => n.type === 'Text' && n.props.children === 'A long name')[0];
+    expect(title.props.numberOfLines).toBe(2);
+    expect(texts()).toContain('Waiting to sync');
+    expect(pressables()[0].props['aria-expanded']).toBe(true);
+  });
+
+  test('a Chip can be a radio or a checkbox, and a TextField can be marked invalid without a message or hide its label', async () => {
+    await render(
+      <>
+        <Chip role="radio" label="Calm" selected onPress={() => {}} />
+        <TextField label="Search" labelHidden invalid value="" onChangeText={() => {}} />
+      </>,
+    );
+    expect(pressables()[0].props.accessibilityRole).toBe('radio');
+    expect(pressables()[0].props['aria-checked']).toBe(true);
+    expect(texts()).not.toContain('Search');
+    const input = root.root.findAll((n) => n.type === 'TextInput')[0];
+    expect(input.props.accessibilityLabel).toBe('Search');
+    expect(StyleSheet.flatten(input.props.style).borderColor).toBeDefined();
+  });
+});
