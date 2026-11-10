@@ -1105,3 +1105,66 @@ On a phone to check (Expo Go, iPhone 15 or newer): open the explorer and close i
 its animals, with no picture and no blank frame. If a reopened explorer comes back black, or builds again as it did on the first open, the GL context did not survive
 the tab being detached: set `EXPO_PUBLIC_EXPLORER_KEEP=0` and say so. For memory, shake the phone and choose Show Performance Monitor: it shows RAM (the app's footprint, in MB), the JS heap and the UI and JS frame rates;
 read RAM at Home alone, after opening the explorer once, and after opening and closing it a few times (it should stay level, about 50-100 MB above Home alone, not climb). To send the memory warning from a simulator: Debug > Simulate Memory Warning; the explorer should then build afresh at its next open.
+
+## What the phone measures, and three things fixed from the filmstrips (10 November 2026)
+
+The owner still saw, on an iPhone 15 or newer in Expo Go: a slow first open, animals or islands popping in, and choppy movement. Every
+number before this section is from this container (a web build drawn by SwiftShader, or `node --jitless`), never from a phone. So this
+round first makes the phone report its own numbers, then fixes what the filmstrips here showed.
+
+### The performance report (`/perf`)
+
+- `src/lib/perf-report.ts` (pure, tested) keeps, always and cheaply (a number in a map, a number in a ring buffer): JS start (the root
+  layout's first import, `src/lib/perf-start.ts`), fonts ready, the store ready, Home's kept picture shown, Home's first frame, first animal,
+  all its animals present and fully built, and the explorer's first frame and build; every explorer open and every island switch on Home,
+  each timed from its start to its picture, first frame, first animal and done; for each scene the last 240 frames (fps, slow frames,
+  p50/p95/max frame time, JS ms per frame, draw calls, triangles) against its target rate, quality tier, pixels per point and the quality
+  governor's level, with stalls over 250 ms counted apart; and how each animal came on (rose into view, faded into view, swam in, joined
+  unseen, or appeared at once).
+- `src/app/perf.tsx` shows it in plain rows with **Copy report** (web) or **Share report** (a phone's share sheet, whose Copy action puts it on
+  the clipboard: there is no clipboard module installed). Its first line says whether the JS is a development build. Nothing links to it yet.
+- **Development builds.** In Expo Go started with plain `npx expo start` the JS is a development bundle: unminified, React's development
+  checks, and expo-router's development check (`validateRouteTreeExports` in `getRoutesCore.js`, run only when `NODE_ENV` is `development`)
+  loads every route module at start-up, so all of three.js, the scenes and the species data are evaluated before the first screen, where a
+  release build loads a route when it is shown. That alone can explain a slow first open. To measure: `npx expo start --no-dev --minify`.
+
+### Measured on the web, and fixed
+
+Chromium, SwiftShader, a 390 x 844 phone-sized window; a collection of 62 species on five islands (level 6) logged through the app's own store;
+filmstrips from the browser's screencast (every frame it produced, with its timestamp), the app's marks on the same clock. Before = the branch
+tip f49a873, after = this round. The browser cache is disabled in every run: a profile that had loaded one build's scripts before keeps V8's
+code cache for them, which made the old build look 0.7-1 s quicker to its first frame at 4x than the same build fresh (three runs each: the
+kept picture at 1955 / 2235 / 2130 ms before and 1839 / 2242 / 2088 ms after, CPU 4x slower).
+
+| Symptom | Cause, from the evidence | Fix | Before | After |
+| --- | --- | --- | --- | --- |
+| The explorer opened at `/explore` shows a blank page (web) | The page rendered ahead as HTML has a 0 x 0 window; hydrating keeps that style, so the explorer's root stayed 0 x 0 (the canvas's ancestors measured 0 x 0 after 8 s) | `useWindowSize` in explore.tsx: a store whose server snapshot is 0 x 0, so React renders again with the real size | no frame in 12 s | first frame 757 ms, first animal 4.4 s (1x) |
+| Animals jump at launch | Home's kept picture shows each animal where it was in another session; the live scene's animals are elsewhere: frozen for 4 s, then a cross-fade in which they jump (the manta from the right edge to the top left) | Pictures are kept without what moves (`stillOnly`, `userData.hideInPicture`): the island shows at once, the animals come in where they really are | animals jump | no animal in the picture; they fade or rise in place |
+| Animals pop in on an island seen before | Joining an island built before (a pill switched back, the explorer showing Home's island) took the "simply there" path | `QUICK_EMERGE_SECONDS` (0.6 s): they fade up out of the blue where they are | 26 at Home, 8 in the explorer appeared at once (same scenario, the report's counts) | 0; 26 and 8 faded in |
+| An island switched to on Home is a hole, then pops in | The new sea is drawn at once with the island's place empty (the card's paper through it, or a blank card) until its coast and what grows on it are built | `HoldDrawing`: a priority-1 useFrame that draws nothing keeps the last frame until the island is whole (1.5 s at most) | blank and holed card for about 0.75 s (4x slower CPU; measured on this round's build without the hold) | the island left stays until the new one is whole |
+| Choppy movement | Not measurable here (the frame is SwiftShader's). JS per frame in the explorer, V8, 1x: mean 12.7 ms, p95 21.5 ms (a CPU profile: three.js's renderer about half, the swimming's step about a third); Home 3-4 ms. An interpreter (Hermes) is several times slower, so the explorer under a finger (60 a second, 16.7 ms) is likely over budget on a phone: to be confirmed by the report | A quality governor (`src/lib/quality-governor.ts`, `three/governor.tsx`) steps the drawing buffer 2 -> 1.75 -> 1.5 -> 1.25 pixels a point after two 2 s windows with over a fifth of the frames late, and back up after five clean ones (doubling after each flap); nothing judged while building, hidden, still or behind a picture | Home, SwiftShader: frame p50 217 / 199 ms | 168 / 172 ms (it stepped to 1.25 within 20 s; two runs each) |
+
+Filmstrips and data are in the round's measuring folder (`loop11/render/film`, `report`, `steady`, `turns`): `base-pic-handoff.png` (the jump),
+`ho-base-x4-sheet.png` / `ho-fin2-x4-sheet.png` (the launch before and after), `sw-fin2-x4-sheet.png` / `sw-fin3-x4-sheet.png` (the switch),
+`ex-base-x1-sheet.png` / `ex-fin3-x1-sheet.png` (the explorer at its address).
+
+Checked and not a cause here: an animal's turn (a newcomer joining, its swimming's distance fields worked out for a new body) gives a main-thread
+task of 58-156 ms at 4x slower CPU in the explorer, no worse than the tasks between turns (up to 181 ms).
+
+Unchanged: verify:swim 0 clipped, 0 on land, 0 grazing; verify:ocean-packs, verify:meshes identical; verify:marine, verify:underwater and
+`scripts/verify-warm-up.mjs` pass. Where the look changes: the picture at launch has no animals (they come in over the cross-fade, or rise if
+their models load later); on a phone that is slow to keep up, the governor makes the scene softer.
+
+### Limits and what is next
+
+- None of this is a phone number. The report is how to get them: a release-mode run (`--no-dev --minify`) and a development run, Home left for
+  a minute, the explorer opened twice, two pills tapped, then Share report.
+- The governor lowers resolution only, which helps a phone short of GPU time. If the report shows JS per frame near the frame time (JS-bound),
+  resolution does not help: the next steps then are the swimming's step and three.js's per-object work in the explorer.
+- On a phone the still picture is drawn with three.js's own `render` (not R3F's, which presents) and read by `takeSnapshotAsync` queued
+  behind it; that order is expo-gl's GL queue, not tried on a device. Changing the GL view's size (the governor) resizes its buffers in
+  `layoutSubviews`; also not tried on a device. `EXPO_PUBLIC_QUALITY_GOVERNOR=0` turns the governor off.
+- Not done: the explorer's first open with no kept picture still shows its islands' places empty for a second or two while their coasts
+  build; the "New" tag can show over the picture before its animal is there; detail by zoom (cheaper stand-ins for the six 8,000-triangle
+  models when small, cheaper far ocean); the kept picture is sometimes not replaced in a session (seen in both builds, in about half of the
+  runs; not looked into).
