@@ -35,7 +35,8 @@ export function ProblemPanel({ icon, title, message, children }: { icon: IconNam
 /**
  * What a screen shows when something in it fails while drawing, instead of a red screen or the app
  * closing: a calm page that says the log is safe, with "Try again" (and, inside the app's navigator,
- * a way home). The error's own words sit at the foot in small print, so it can be reported.
+ * a way home). The error's own words ("Cannot read properties of undefined") are for the developer: they
+ * sit at the foot in small print in development builds only, never in front of a diver.
  *
  * `whole`: the app itself failed (the root layout), so there is no navigator to go home with.
  */
@@ -55,7 +56,7 @@ export function ErrorScreen({ error, retry, whole = false }: ErrorBoundaryProps 
           <Button title="Try again" icon="sync" onPress={() => void retry()} />
           {whole ? null : <Button title="Back to my home" variant="secondary" icon="home" onPress={() => router.replace('/')} />}
         </View>
-        {detail ? (
+        {__DEV__ && detail ? (
           <ThemedText type="footnote" themeColor="textSecondary" selectable style={styles.center}>
             {detail}
           </ThemedText>

@@ -45,6 +45,18 @@ describe('the error screen', () => {
     expect(router.replace).toHaveBeenCalledWith('/');
   });
 
+  test('in a release build the error’s own words are not shown to the diver', async () => {
+    const dev = global.__DEV__;
+    global.__DEV__ = false;
+    try {
+      await act(async () => { root = create(<ScreenError error={new Error('Cannot read properties of undefined (reading name)')} retry={jest.fn(async () => undefined)} />); });
+      expect(texts().join(' ')).not.toMatch(/Cannot read properties/);
+      expect(texts()).toContain('This page hit a snag');
+    } finally {
+      global.__DEV__ = dev;
+    }
+  });
+
   test('the app failing as a whole has no navigator to go home with: only Try again', async () => {
     await act(async () => { root = create(<AppError error={new Error('boom')} retry={jest.fn(async () => undefined)} />); });
     expect(texts()).toContain('ScubaGo hit a snag');

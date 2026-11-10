@@ -32,7 +32,7 @@ export function StorageProblem() {
         message={
           busy
             ? 'Your log can only be open in one tab at a time, which keeps it safe. Close the other tab, then try again here.'
-            : `Nothing has been lost, but the app couldn’t read it just now (${problem}). Try again, or restart the app.`
+            : `Nothing has been lost, but the app couldn’t read it just now${__DEV__ ? ` (${problem})` : ''}. Try again, or restart the app.`
         }>
         <Button title={trying ? 'Trying…' : 'Try again'} icon="sync" onPress={retry} disabled={trying} style={styles.button} />
         {busy && Platform.OS === 'web' ? (
