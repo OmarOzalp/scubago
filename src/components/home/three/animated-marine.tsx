@@ -17,6 +17,7 @@ import { sampleDive } from '@/lib/ocean-depth';
 import type { GLTF } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { clone } from 'three/examples/jsm/utils/SkeletonUtils.js';
 import { advanceSwimTime, sampleSwimPath, type MarineModel } from '@/lib/swimming';
+import type { Steps } from '@/lib/slices';
 
 const SIZE: Record<MarineModel, number> = MARINE_SIZE;
 // The source shark cycle is fast; slower playback gives it a relaxed cruising gait. Species clips
@@ -56,6 +57,19 @@ const CLOSE_UP: Partial<Record<MarineModel, Partial<SwimDrive>>> = {
 /** How long an animal takes to emerge from the deep where it is (s), when it comes on show late (its model just loaded). */
 const EMERGE_SECONDS = 1.6;
 
+/**
+ * Measure ahead, on a clone of its own that is then let go, what an animal of this model measures as it mounts: where along its body
+ * each vertex is (prepareUnderwater) and its body's box for a tap target (tapTarget, which skins every vertex), both kept for every
+ * clone of the parsed model. In two steps (slices.ts), each a short task under an interpreter rather than both in the task that mounts it.
+ */
+export function* measureMarine(model: MarineModel, gltf: GLTF): Steps<void> {
+  const probe = clone(gltf.scene), underwater = prepareUnderwater(probe, undefined, false, reefLook(model), gltf.scene);
+  underwater.dispose();
+  yield;
+  tapTarget(probe, SIZE[model], 1, TAP_SHAPES[model], gltf.scene);
+  disposeSkeletons(probe);
+}
+
 export function AnimatedMarine({ model, gltf, lane, active, inspect = false, population = 1, motion, onPress, tapScale = 1, emerge = false }: {
   model: MarineModel; gltf: GLTF; lane: number; active: boolean; inspect?: boolean; population?: number; motion?: MarineMotion; onPress?: () => void;
   /** How much farther the camera has pulled back (the ocean's scale), so tap targets keep their size on screen. */
@@ -75,7 +89,7 @@ export function AnimatedMarine({ model, gltf, lane, active, inspect = false, pop
       // Reef animals are tapped by a simple shape (TAP_SHAPES), never by testing every arm.
       if (object instanceof Mesh && reef) object.raycast = () => {};
     });
-    return { instance: scene, underwater: inspect ? null : prepareUnderwater(scene, ocean ?? undefined, lite, reef) };
+    return { instance: scene, underwater: inspect ? null : prepareUnderwater(scene, ocean ?? undefined, lite, reef, gltf.scene) };
   }, [gltf.scene, inspect, ocean, lite, model]);
   useEffect(() => () => underwater?.dispose(), [underwater]);
   // The clone's own skeletons (and their bone textures on the GPU) go with it.

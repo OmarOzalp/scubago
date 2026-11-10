@@ -9,7 +9,7 @@ import type { OceanIsland } from '@/lib/seabed';
 import type { WaterExtent } from '@/lib/seabed-lattice';
 import { oceanScale, worldFor } from '@/lib/steering';
 import type { MarineModels } from './marine-loader';
-import { AnimatedMarine } from './animated-marine';
+import { AnimatedMarine, measureMarine } from './animated-marine';
 import { KELP_MOVERS, KelpMoversContext, setKelpMover } from './kelp-movers';
 import { MarineSplashes } from './marine-splashes';
 import { projectPoint } from './project-point';
@@ -180,17 +180,19 @@ export function MarineSwimmers({ residents, models, active, level = 1, school = 
   const reach = JSON.stringify(world?.reach ?? null);
   useEffect(() => { motion.setReach(JSON.parse(reach) ?? undefined); }, [motion, reach]);
   // The species whose turn comes next on this island: its water (the fields of where its body fits, the costly part of joining) is worked
-  // out ahead, a few milliseconds at a time and a little after the scene has settled, so that its turn costs no long task. (Should the
-  // turn come first, it is worked out as it joins, as it always was.)
-  const nextModel = upcoming?.model, nextSpecies = upcoming?.speciesId;
+  // out ahead, and what its model measures as an animal of it mounts, a few milliseconds at a time and a little after the scene has settled,
+  // so that its turn costs no long task. (Should the turn come first, it is all worked out as it joins, as it always was.)
+  const nextModel = upcoming?.model, nextSpecies = upcoming?.speciesId, nextGltf = nextModel ? models[nextModel] : undefined;
   useEffect(() => {
     if (!nextModel || !nextSpecies) return;
     let stopped = false;
-    const wait = setTimeout(() => {
-      runSliced(motion.prepare({ model: nextModel, speciesId: nextSpecies }), { slice: PREPARE_SLICE_MS, stop: () => stopped }).catch(() => {});
-    }, PREPARE_AFTER_MS);
+    const ahead = function* () {
+      yield* motion.prepare({ model: nextModel, speciesId: nextSpecies });
+      if (nextGltf) { yield; yield* measureMarine(nextModel, nextGltf); }
+    };
+    const wait = setTimeout(() => { runSliced(ahead(), { slice: PREPARE_SLICE_MS, stop: () => stopped }).catch(() => {}); }, PREPARE_AFTER_MS);
     return () => { stopped = true; clearTimeout(wait); };
-  }, [motion, nextModel, nextSpecies]);
+  }, [motion, nextModel, nextSpecies, nextGltf]);
 
   // A new tuna logged while the scene was away: the school steps out of sight to arrive.
   useEffect(() => {

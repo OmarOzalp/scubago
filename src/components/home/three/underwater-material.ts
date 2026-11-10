@@ -60,8 +60,14 @@ export const FLOOR_BIAS = 1;
  * `lite` (software-rendered GPUs) measures depth from the calm surface level with
  * no wave math per vertex, and lays the surface's tint over the animal here,
  * because the lite ocean has no separate surface layer drawn on top.
+ *
+ * With the parsed model a clone came from as `source`, where along its body each vertex is (and its average shade) is measured once
+ * for every clone of it (`measured`): under an interpreter that is most of the cost of an animal joining a scene.
  */
-export function prepareUnderwater(instance: Object3D, ocean: OceanUniforms = createOceanUniforms(), lite = false, reef?: ReefLook) {
+/** Each parsed model's measures (see prepareUnderwater's `source`): its average shade, and where along its body each vertex of each mesh is. */
+const measured = new WeakMap<object, { luma: number; colors: number; along: Float32Array[] }>();
+
+export function prepareUnderwater(instance: Object3D, ocean: OceanUniforms = createOceanUniforms(), lite = false, reef?: ReefLook, source?: object) {
   const depth = { value: 0 };
   const surfacing = { value: 0 };
   // Reef animals only: in-den cut (from the tail, from the head), color state (brightness, saturation, contrast, its average), depth bias, seabed tint.
@@ -77,12 +83,14 @@ export function prepareUnderwater(instance: Object3D, ocean: OceanUniforms = cre
   const point = new Vector3();
   let tail = Infinity, head = -Infinity;
   instance.updateMatrixWorld(true);
+  const known = source ? measured.get(source) : undefined;
   instance.traverse((object) => {
     // Checked by flag, not instanceof, so meshes built by another copy of three.js qualify too
     // (the Node verification scripts load one for the asset loader and one for this module).
     if (!(object as Mesh).isMesh) return;
     const mesh = object as Mesh;
     meshes.push(mesh);
+    if (known) return;
     const positions = mesh.geometry.attributes.position;
     for (let i = 0; i < positions.count; i++) {
       point.fromBufferAttribute(positions, i).applyMatrix4(mesh.matrixWorld);
@@ -92,16 +100,22 @@ export function prepareUnderwater(instance: Object3D, ocean: OceanUniforms = cre
     const color = mesh.geometry.attributes.color;
     if (reef && color) for (let i = 0; i < color.count; i++) { luma += .2126 * color.getX(i) + .7152 * color.getY(i) + .0722 * color.getZ(i); colors++; }
   });
+  if (known) ({ luma, colors } = known);
   if (colors) tone.value.w = luma / colors;
-  for (const object of meshes) {
+  const alongs: Float32Array[] = [];
+  meshes.forEach((object, m) => {
     const geometry = object.geometry.clone();
     geometries.push(geometry);
     const positions = geometry.attributes.position;
-    const along = new Float32Array(positions.count);
-    for (let i = 0; i < positions.count; i++) {
-      point.fromBufferAttribute(positions, i).applyMatrix4(object.matrixWorld);
-      along[i] = (point.z - tail) / Math.max(head - tail, .0001);
+    let along = known?.along[m];
+    if (!along) {
+      along = new Float32Array(positions.count);
+      for (let i = 0; i < positions.count; i++) {
+        point.fromBufferAttribute(positions, i).applyMatrix4(object.matrixWorld);
+        along[i] = (point.z - tail) / Math.max(head - tail, .0001);
+      }
     }
+    alongs.push(along);
     geometry.setAttribute('diveAlong', new Float32BufferAttribute(along, 1));
     object.geometry = geometry;
     const own = (source: Material) => {
@@ -152,7 +166,8 @@ varying float submersion;\nvarying float vOceanDepth;\nvarying float vOceanHaze;
     };
     object.material = Array.isArray(object.material) ? object.material.map(own) : own(object.material);
     object.renderOrder = 1;
-  }
+  });
+  if (source && !known) measured.set(source, { luma, colors, along: alongs });
   return {
     depth, surfacing, setDepth: (value: number, rising = false) => { depth.value = value; surfacing.value = rising ? 1 : 0; },
     /** Reef animals: how much of it is inside a den, from the tail and from the head (shares of its length). */

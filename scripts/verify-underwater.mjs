@@ -38,6 +38,14 @@ const loadModel = async (name) => {
 
 for (const name of MODELS) {
   const source = await loadModel(name);
+  // Measured once for the parsed model (`source`) and then kept: a clone given the kept measures has exactly what one measured itself has.
+  {
+    const own = clone(source.scene), firstKept = clone(source.scene), secondKept = clone(source.scene);
+    prepareUnderwater(own, ocean); prepareUnderwater(firstKept, ocean, false, undefined, source.scene); prepareUnderwater(secondKept, ocean, false, undefined, source.scene);
+    const alongs = (root) => { const out = []; root.traverse((object) => { if (object instanceof Mesh) out.push([...object.geometry.attributes.diveAlong.array]); }); return out; };
+    assert.deepEqual(alongs(firstKept), alongs(own), `${name}: measured for the model is not what a clone measures`);
+    assert.deepEqual(alongs(secondKept), alongs(own), `${name}: the kept measures are not what a clone measures`);
+  }
   const a = clone(source.scene), b = clone(source.scene);
   const first = prepareUnderwater(a, ocean), second = prepareUnderwater(b, ocean);
   first.setDepth(.5, true);

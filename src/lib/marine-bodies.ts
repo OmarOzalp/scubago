@@ -222,7 +222,7 @@ export function* tooShallowSteps(seabed: Seabed, coast: ShoreField, hull: Hull, 
   return cells;
 }
 /** Rows of the grid worked out between two steps (a few milliseconds of an interpreter's time for the biggest bodies). */
-const ROWS_A_STEP = 6;
+const ROWS_A_STEP = 2;
 
 /** The coast's direction (its normal: nx, nz) at each cell of the fields' grid, for each steering field (one per island and level). */
 const coasts = new WeakMap<ShoreField, Float64Array>();
