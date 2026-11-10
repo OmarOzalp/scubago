@@ -264,7 +264,7 @@ test('copy budget: besides the species, the page says at most 100 words (a tab s
 // The bug: covered by a species page, the guide (hidden by the web) measured 0 wide and drew all 120 cards
 // narrower than nothing: "<svg> attribute width: A negative value is not valid (-5.46)", 120 times.
 test('covered by another screen (measured 0 wide), the guide keeps its cards as they were; a real width still counts', async () => {
-  const widthOfACard = () => StyleSheet.flatten(cards()[0].props.style).width;
+  const widthOfACard = () => { const s = cards()[0].props.style; return StyleSheet.flatten(typeof s === 'function' ? s({ pressed: false }) : s).width; };
   await render();
   const grid = root.root.findAll((n) => n.type === 'View' && typeof n.props.onLayout === 'function')[0];
   const layout = (width) => act(async () => grid.props.onLayout({ nativeEvent: { layout: { x: 0, y: 0, width, height: 900 } } }));
@@ -278,7 +278,7 @@ test('covered by another screen (measured 0 wide), the guide keeps its cards as 
 });
 
 test('three cards a row at the normal text size and two at 150%, so a name at that size has room', async () => {
-  const widthOfACard = () => StyleSheet.flatten(cards()[0].props.style).width;
+  const widthOfACard = () => { const s = cards()[0].props.style; return StyleSheet.flatten(typeof s === 'function' ? s({ pressed: false }) : s).width; };
   const window = Dimensions.get('window');
   try {
     Dimensions.set({ window: { ...window, fontScale: 1 } });

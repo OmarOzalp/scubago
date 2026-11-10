@@ -1,31 +1,23 @@
 import { router, useLocalSearchParams } from 'expo-router';
 import { useCallback, useDeferredValue, useMemo, useState } from 'react';
-import {
-  Platform,
-  Pressable,
-  StyleSheet,
-  Text,
-  useWindowDimensions,
-  View,
-  type ViewStyle,
-} from 'react-native';
+import { Platform, StyleSheet, Text, useWindowDimensions, View, type ViewStyle } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { boundsOfSites, buildPlaces, searchExplore, type Place } from '@/components/explore/search';
 import { FilterChip, SearchBar } from '@/components/explore/search-bar';
 import { SearchPanel } from '@/components/explore/search-panel';
-import { Icon } from '@/components/icon';
-import { Chip } from '@/components/journal/chip';
-import { IconButton } from '@/components/journal/icon-button';
-import { Paper } from '@/components/journal/paper';
-import { ScreenHeader } from '@/components/journal/screen';
-import { Wash } from '@/components/journal/wash';
-import { OceanButton } from '@/components/ocean-button';
 import { SiteList } from '@/components/site-list';
 import { SiteMap, type MapFocus } from '@/components/site-map';
 import { SpeciesAvatar } from '@/components/species-avatar';
 import { ThemedText } from '@/components/themed-text';
-import { MaxContentWidth, Radius, Spacing, TabBarOverhang, Type } from '@/constants/theme';
+import { Button } from '@/components/ui/button';
+import { Card } from '@/components/ui/card';
+import { Chip } from '@/components/ui/chip';
+import { IconButton } from '@/components/ui/icon-button';
+import { IconTile } from '@/components/ui/list';
+import { ScreenTitle } from '@/components/ui/screen';
+import { useSurface } from '@/components/ui/surface';
+import { MaxContentWidth, Radius, Space, TabBarOverhang, TypeScale } from '@/constants/theme';
 import { canonicalSiteId } from '@/data/sites';
 import { useRewards } from '@/hooks/use-rewards';
 import { useTheme } from '@/hooks/use-theme';
@@ -34,7 +26,6 @@ import { confirmAction } from '@/lib/confirm';
 import { sortDives } from '@/lib/dives';
 import { useAllSites, useAppStore, useMyDives, useMyUserId, useSiteById } from '@/lib/store';
 import type { DiveSite, Species } from '@/lib/types';
-import { hashSeed } from '@/lib/wash';
 
 /** How many sightings of an animal are the diver's own and how many are other divers'. */
 type Seen = { mine: number; others: number };
@@ -57,6 +48,7 @@ type Show = 'all' | 'dived';
  */
 export default function ExploreScreen() {
   const theme = useTheme();
+  const surface = useSurface();
   const insets = useSafeAreaInsets();
   const { height: windowHeight } = useWindowDimensions();
   const allSites = useAllSites();
@@ -245,13 +237,22 @@ export default function ExploreScreen() {
   return (
     <View style={[styles.container, { backgroundColor: theme.background }]}>
       {/* The page's head: title, the add-site and list buttons, then the search, and under it the filter it has set. */}
-      <View style={[styles.column, styles.header, { paddingTop: insets.top + Spacing.four }]}>
-        <ScreenHeader
+      <View style={[styles.column, styles.header, { paddingTop: insets.top + Space.s3 }]}>
+        <ScreenTitle
           title="Sites"
-          accessory={
+          actions={
             // Adding a site without the long-press, which VoiceOver and the web app can't do; and the list view.
-            <View style={styles.tools}>
-              <AddSiteButton onPress={() => router.push('/add-site')} />
+            <>
+              <Button
+                title="Add site"
+                icon="addSite"
+                variant="secondary"
+                size="md"
+                accessibilityLabel="Add site"
+                accessibilityHint="Adds a dive site to the map"
+                onPress={() => router.push('/add-site')}
+                style={styles.addSite}
+              />
               {Platform.OS !== 'web' ? (
                 <IconButton
                   icon={listView ? 'map' : 'list'}
@@ -259,7 +260,7 @@ export default function ExploreScreen() {
                   accessibilityLabel={listView ? 'Show the map' : 'Show sites as a list'}
                 />
               ) : null}
-            </View>
+            </>
           }
         />
 
@@ -292,11 +293,7 @@ export default function ExploreScreen() {
           />
         ) : placeFilter ? (
           <FilterChip
-            leading={
-              <View style={[styles.placeTile, { backgroundColor: theme.backgroundSelected }]}>
-                <Icon name="map" size={22} wash={theme.coral} washOpacity={0.45} />
-              </View>
-            }
+            leading={<IconTile icon="map" tone="coral" />}
             title={placeFilter.name}
             subtitle={`${filtered} ${filtered === 1 ? 'dive site' : 'dive sites'} · ${placeFilter.detail}`}
             accessibilityLabel={`Showing the dive sites in ${placeFilter.name}: ${filtered} sites. Clear`}
@@ -309,17 +306,13 @@ export default function ExploreScreen() {
         {listView && Platform.OS !== 'web' ? (
           <SiteList sites={sites} highlightedSiteIds={highlightedSiteIds} onSelectSite={selectSite} reveal={focus} selectedSiteId={selectedSiteId} stamps={stamps} />
         ) : mapShown ? (
-          // The chart, mounted like the island on Home: a fine ink frame inside a raised sheet. It stops
-          // short of the tab bar so the raised "Log dive" button never covers it.
+          // The chart, on a card of its own (radius lg). It stops short of the tab bar so the raised
+          // "Log dive" button never covers it.
           <View style={[styles.column, styles.mapArea]}>
-            <Paper raised padded={false} style={styles.mapSheet}>
-              <View style={[styles.mount, { borderColor: theme.text }]}>
-                <View style={[styles.chart, { backgroundColor: theme.backgroundSelected }]}>
-                  {map}
-                  {card}
-                </View>
-              </View>
-            </Paper>
+            <View style={[surface, styles.chart, { backgroundColor: theme.backgroundSelected }]}>
+              {map}
+              {card}
+            </View>
           </View>
         ) : (
           map
@@ -336,7 +329,7 @@ export default function ExploreScreen() {
       </View>
 
       {searching ? (
-        <View style={[styles.overlay, { top: barBottom + 6, pointerEvents: 'box-none' }]}>
+        <View style={[styles.overlay, { top: barBottom + Space.s2, pointerEvents: 'box-none' }]}>
           <View style={[styles.column, { pointerEvents: 'box-none' }]}>
             <SearchPanel
               results={results}
@@ -357,25 +350,6 @@ export default function ExploreScreen() {
   );
 }
 
-/** Adding a site, in words as well as a picture: a bare pin with a plus is not something everyone reads. */
-function AddSiteButton({ onPress }: { onPress: () => void }) {
-  const theme = useTheme();
-  return (
-    <Pressable
-      onPress={onPress}
-      accessibilityRole="button"
-      accessibilityLabel="Add site"
-      accessibilityHint="Adds a dive site to the map"
-      style={({ pressed }) => [
-        styles.addSite,
-        { borderColor: theme.rule, backgroundColor: pressed ? theme.backgroundSelected : theme.backgroundElement },
-      ]}>
-      <Icon name="addSite" size={22} />
-      <Text style={[styles.addSiteText, { color: theme.text }]}>Add site</Text>
-    </Pressable>
-  );
-}
-
 /** The site you tapped: where it is, what's been seen there, and the way to its page or to log here. */
 function SiteCard({
   site,
@@ -390,27 +364,18 @@ function SiteCard({
 }) {
   const theme = useTheme();
   return (
-    <Paper raised style={[styles.card, style]}>
+    <Card level="raised" style={[styles.card, style]}>
       <View style={styles.cardHeader}>
-        <View style={styles.cardPin}>
-          <Wash width={44} height={38} color={theme.wash} seed={hashSeed(site.id)} style={StyleSheet.absoluteFill} />
-          <Icon name="pin" size={22} wash={theme.coral} washOpacity={0.45} />
-        </View>
+        <IconTile icon="pin" />
         <View style={styles.cardTitles}>
-          <ThemedText type="label" numberOfLines={1}>
-            {site.region}, {site.country}
-          </ThemedText>
-          <ThemedText type="heading" numberOfLines={2} accessibilityRole="header">
+          <Text numberOfLines={2} accessibilityRole="header" style={[TypeScale.headline, { color: theme.text }]}>
             {site.name}
-          </ThemedText>
+          </Text>
+          <Text numberOfLines={1} style={[TypeScale.footnote, { color: theme.textSecondary }]}>
+            {site.region}, {site.country}
+          </Text>
         </View>
-        <Pressable onPress={onClose} accessibilityRole="button" accessibilityLabel="Close" style={styles.closeButton}>
-          {({ pressed }) => (
-            <View style={[styles.closeCircle, { backgroundColor: pressed ? theme.rule : theme.backgroundSelected }]}>
-              <Icon name="close" size={16} weight="bold" />
-            </View>
-          )}
-        </Pressable>
+        <IconButton icon="close" on="bar" onPress={onClose} accessibilityLabel="Close" style={styles.close} />
       </View>
 
       {topSpecies.length > 0 ? (
@@ -420,39 +385,41 @@ function SiteCard({
               key={species.id}
               accessible
               accessibilityLabel={`${species.commonName}, ${whose({ mine, others })}`}
-              style={[styles.speciesChip, { backgroundColor: theme.background, borderColor: theme.rule }]}>
+              style={[styles.speciesChip, { backgroundColor: theme.backgroundSelected }]}>
               <SpeciesAvatar species={species} size={28} />
-              <Text numberOfLines={1} style={[styles.chipName, { color: theme.text }]}>
+              <Text numberOfLines={1} style={[TypeScale.footnoteStrong, styles.chipName, { color: theme.text }]}>
                 {species.commonName}
               </Text>
-              <Text style={[styles.chipCount, { color: theme.textSecondary }]}>{whose({ mine, others })}</Text>
+              <Text style={[TypeScale.footnote, { color: theme.textSecondary }]}>{whose({ mine, others })}</Text>
             </View>
           ))}
         </View>
       ) : (
-        <ThemedText type="caption" themeColor="textSecondary">
+        <ThemedText type="callout" themeColor="textSecondary">
           No sightings here yet.
         </ThemedText>
       )}
 
       <View style={styles.cardButtons}>
-        <OceanButton
+        <Button
           title="Details"
           variant="secondary"
+          size="md"
           onPress={() => router.push(`/site/${site.id}`)}
           accessibilityLabel={`Details about ${site.name}`}
           style={styles.detailsButton}
         />
         {/* Coral, as logging is everywhere else. */}
-        <OceanButton
+        <Button
           title="Log a dive here"
           variant="log"
+          size="md"
           onPress={() => router.push({ pathname: '/log/new', params: { siteId: site.id } })}
           accessibilityLabel={`Log a dive here, at ${site.name}`}
           style={styles.logButton}
         />
       </View>
-    </Paper>
+    </Card>
   );
 }
 
@@ -465,79 +432,30 @@ const styles = StyleSheet.create({
     width: '100%',
     maxWidth: MaxContentWidth,
     alignSelf: 'center',
-    paddingHorizontal: Spacing.three,
+    paddingHorizontal: Space.s4,
   },
+  // Title, search and filter: 16 apart, as on every screen.
   header: {
-    gap: 14,
-    paddingBottom: 14,
+    gap: Space.s4,
+    paddingBottom: Space.s4,
   },
   showRow: {
     flexDirection: 'row',
-    gap: 8,
-  },
-  tools: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: Spacing.two,
+    gap: Space.s2,
+    marginVertical: -Space.s1,
   },
   addSite: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    minHeight: 46,
-    paddingLeft: 12,
-    paddingRight: 16,
-    borderRadius: 23,
-    borderWidth: 1.5,
-  },
-  addSiteText: {
-    fontFamily: Type.bodyHeavy,
-    fontSize: 14,
-    lineHeight: 20,
-  },
-  closeCircle: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  // Where an animal has its plate in the filter chip, a place has a tile of paper with a map on it.
-  placeTile: {
-    width: 38,
-    height: 38,
-    borderRadius: Radius.sm,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  closeButton: {
-    minHeight: 44,
-    minWidth: 44,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginTop: -6,
-    marginRight: -8,
+    paddingHorizontal: Space.s4,
   },
   body: {
     flex: 1,
   },
   mapArea: {
     flex: 1,
-    paddingBottom: TabBarOverhang + Spacing.two,
-  },
-  mapSheet: {
-    flex: 1,
-    padding: 6,
-  },
-  mount: {
-    flex: 1,
-    borderWidth: 1,
-    borderRadius: Radius.md + 4,
-    padding: 3,
+    paddingBottom: TabBarOverhang + Space.s2,
   },
   chart: {
     flex: 1,
-    borderRadius: Radius.md,
     overflow: 'hidden',
   },
   overlay: {
@@ -547,35 +465,31 @@ const styles = StyleSheet.create({
   },
   cardOnMap: {
     position: 'absolute',
-    left: 8,
-    right: 8,
-    bottom: 8,
+    left: Space.s2,
+    right: Space.s2,
+    bottom: Space.s2,
   },
   cardOverlay: {
     position: 'absolute',
     left: 0,
     right: 0,
-    bottom: TabBarOverhang + Spacing.two,
+    bottom: TabBarOverhang + Space.s2,
   },
   card: {
-    gap: 12,
-    padding: 14,
+    gap: Space.s3,
+    borderRadius: Radius.xl,
   },
   cardHeader: {
     flexDirection: 'row',
-    alignItems: 'flex-start',
-    gap: 10,
-  },
-  cardPin: {
-    width: 44,
-    height: 38,
     alignItems: 'center',
-    justifyContent: 'center',
-    marginTop: 2,
+    gap: Space.s3,
   },
   cardTitles: {
     flex: 1,
-    gap: 1,
+    gap: 2,
+  },
+  close: {
+    marginRight: -Space.s2,
   },
   chipsRow: {
     flexDirection: 'row',
@@ -587,33 +501,24 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 6,
     maxWidth: '100%',
-    borderWidth: 1,
-    borderRadius: Radius.sm,
+    borderRadius: Radius.pill,
     padding: 3,
-    paddingRight: 10,
+    paddingRight: Space.s3,
   },
   chipName: {
     flexShrink: 1,
-    fontFamily: Type.bodyBold,
-    fontSize: 13,
-    lineHeight: 18,
-  },
-  chipCount: {
-    fontFamily: Type.bodyHeavy,
-    fontSize: 13,
-    lineHeight: 18,
   },
   cardButtons: {
     flexDirection: 'row',
-    gap: Spacing.two,
+    gap: Space.s2,
   },
   detailsButton: {
     flex: 1,
-    paddingHorizontal: 12,
+    paddingHorizontal: Space.s3,
   },
   // Wider than "Details", so "Log a dive here" stays on one line on a phone.
   logButton: {
     flex: 1.6,
-    paddingHorizontal: 12,
+    paddingHorizontal: Space.s3,
   },
 });

@@ -5,7 +5,7 @@ import { create } from 'react-test-renderer';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { SiteList, siteWhere } from '../site-list';
 import { SiteMap } from '../site-map.web';
-import { PaperButton } from '@/components/journal/paper';
+import { ListRow } from '@/components/ui/list';
 
 // The theme module imports the web stylesheet, which Jest can't parse.
 jest.mock('@/global.css', () => ({}));
@@ -22,7 +22,7 @@ let root;
 beforeEach(async () => { global.IS_REACT_ACT_ENVIRONMENT = true; await AsyncStorage.clear(); });
 afterEach(async () => { if (root) await act(async () => root.unmount()); root = null; });
 
-const rows = () => root.root.findAllByType(PaperButton);
+const rows = () => root.root.findAllByType(ListRow);
 const text = () => root.root.findAll((n) => typeof n.children?.[0] === 'string').map((n) => n.children.join('')).join(' | ');
 
 test('a list of 600 sites builds only the rows near the top, and says how many there are', async () => {
@@ -57,7 +57,7 @@ test('on the web the map is this list, with a short note that closes for good', 
   await render();
   expect(text()).toContain('The map is in the iOS and Android apps.');
   expect(rows().length).toBeGreaterThan(5);
-  const close = root.root.findAll((n) => n.props.accessibilityLabel === 'Close this note' && typeof n.props.onPress === 'function')[0];
+  const close = root.root.findAll((n) => n.props.accessibilityLabel === 'Close this note' && typeof n.props.onPress === 'function' && typeof n.props.style === 'function')[0];
   expect(StyleSheet.flatten(close.props.style({ pressed: false })).height).toBeGreaterThanOrEqual(44);
   await act(async () => close.props.onPress());
   expect(text()).not.toContain('iOS and Android');

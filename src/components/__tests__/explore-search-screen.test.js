@@ -373,8 +373,8 @@ test('screen readers get the section names as headings, every row is a 44-point 
   expect(headings()).toHaveLength(2);
   // The Pressables themselves (the row components pass their props on to one), but not the page's own buttons.
   const rows = allPressables().filter((p) => p.props.accessibilityRole === 'button' && !/^(Add site|Show sites|Show the map)/.test(p.props.accessibilityLabel) && (typeof p.props.style === 'function' || p.props.style));
-  // 4 sites, 3 animals, "Show all 6 animals", the search's own Cancel.
-  expect(rows).toHaveLength(9);
+  // 4 sites, 3 animals, "Show all 6 animals", the search's own Clear and Cancel.
+  expect(rows).toHaveLength(10);
   for (const row of rows) {
     const style = StyleSheet.flatten(typeof row.props.style === 'function' ? row.props.style({ pressed: false }) : row.props.style);
     expect(style.minHeight ?? 0).toBeGreaterThanOrEqual(44);

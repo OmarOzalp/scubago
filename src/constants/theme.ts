@@ -289,6 +289,15 @@ export const Motion = {
   pressScale: 0.98,
 } as const;
 
+/**
+ * Over the island scene's own water (the same in both schemes, src/components/home/three): dark green ink,
+ * and the pale veil a one-time tip sits on.
+ */
+export const OnWater = {
+  ink: '#1F4B40',
+  veil: 'rgba(255, 255, 255, 0.72)',
+} as const;
+
 /** Height of the custom tab bar (above the home indicator). */
 export const TabBarHeight = 64;
 /** How far the raised "Log dive" button reaches above the tab bar: tab screens leave this much room. */

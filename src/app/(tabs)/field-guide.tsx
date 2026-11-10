@@ -1,17 +1,16 @@
 import { router, useLocalSearchParams } from 'expo-router';
 import { useMemo, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 
-import { Icon } from '@/components/icon';
-import { Chip } from '@/components/journal/chip';
-import { Screen, SectionHeader } from '@/components/journal/screen';
 import { useRewards } from '@/hooks/use-rewards';
 import { BadgesTab, SetsTab } from '@/components/rewards/collection-tabs';
-import { Segmented } from '@/components/segmented';
 import { CARD_GAP, onGridLayout, SpeciesCard, useCardGrid } from '@/components/species-card';
 import { ThemedText } from '@/components/themed-text';
-import { Radius, Spacing, Type } from '@/constants/theme';
-import { useTheme } from '@/hooks/use-theme';
+import { Chip, ChipRow } from '@/components/ui/chip';
+import { Screen, ScreenTitle, Section } from '@/components/ui/screen';
+import { Segmented } from '@/components/ui/segmented';
+import { SearchField } from '@/components/ui/text-field';
+import { Space } from '@/constants/theme';
 import { CATALOG, CATALOG_BY_ID } from '@/lib/catalog';
 import { deriveDex } from '@/lib/dex';
 import { CATEGORY_LABEL, CATEGORY_ORDER, rarityRank } from '@/lib/rarity';
@@ -55,9 +54,7 @@ export default function FieldGuideScreen() {
 function Heading({ view, onView, title }: { view: View_; onView: (v: View_) => void; title: string }) {
   return (
     <>
-      <ThemedText type="display" accessibilityRole="header">
-        {title}
-      </ThemedText>
+      <ScreenTitle title={title} />
       <Segmented accessibilityLabel="Show" value={view} onChange={onView} options={VIEWS} />
     </>
   );
@@ -71,7 +68,7 @@ function OtherView({ view, onView }: { view: View_; onView: (v: View_) => void }
       ? `${collections.filter((c) => c.completed).length} of ${collections.length} sets complete`
       : `${badges.filter((b) => b.earned).length} of ${badges.length} badges`;
   return (
-    <Screen tab>
+    <Screen kind="tab">
       <Heading view={view} onView={onView} title={title} />
       {view === 'sets' ? <SetsTab /> : <BadgesTab />}
     </Screen>
@@ -126,17 +123,12 @@ function AnimalsView({ view, onView }: { view: View_; onView: (v: View_) => void
   };
 
   return (
-    <Screen tab keyboardDismissMode="on-drag">
+    <Screen kind="tab" keyboardDismissMode="on-drag">
       <Heading view={view} onView={onView} title={`${dex.length} of ${CATALOG.length} species`} />
 
       <View style={styles.controls}>
-        <SearchField value={query} onChange={setQuery} />
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          accessibilityLabel="Filter animals"
-          style={styles.chipsScroll}
-          contentContainerStyle={styles.chips}>
+        <SearchField value={query} onChangeText={setQuery} placeholder="Search by name" accessibilityLabel="Search the field guide" />
+        <ChipRow accessibilityLabel="Filter animals">
           {/* One row: Seen, All, then the groups. A chip that is on turns off (to All) when it is tapped again. */}
           <Chip label="Seen" selected={filter === 'seen'} onPress={() => setFilter(filter === 'seen' ? 'all' : 'seen')} />
           <Chip label="All" selected={filter === 'all'} onPress={() => setFilter('all')} />
@@ -149,18 +141,18 @@ function AnimalsView({ view, onView }: { view: View_; onView: (v: View_) => void
               onPress={() => setFilter(filter === cat ? 'all' : cat)}
             />
           ))}
-        </ScrollView>
+        </ChipRow>
       </View>
 
       {dex.length === 0 && !narrowed ? (
-        <ThemedText type="small" themeColor="textSecondary">
+        <ThemedText type="subhead" themeColor="textSecondary">
           Animals you log appear here.
         </ThemedText>
       ) : null}
 
       {/* Said aloud as it changes, so someone who can't see the grid hears what the filters did. */}
       {narrowed ? (
-        <ThemedText type="caption" themeColor="textSecondary" accessibilityLiveRegion="polite">
+        <ThemedText type="footnote" themeColor="textSecondary" accessibilityLiveRegion="polite">
           {listedCount === 0 ? emptyMessage(typed, filter) : `Showing ${listedCount} of ${CATALOG.length} species`}
         </ThemedText>
       ) : null}
@@ -171,17 +163,17 @@ function AnimalsView({ view, onView }: { view: View_; onView: (v: View_) => void
           // The count is of the whole group, not of what the filters leave of it.
           const seenCount = species.filter((s) => dexById.has(s.id)).length;
           return (
-            <View key={cat} style={styles.section}>
-              <SectionHeader
-                title={CATEGORY_LABEL[cat]}
-                accessory={
-                  <ThemedText type="small" themeColor="textSecondary" accessibilityLabel={`${seenCount} of ${species.length} seen`}>
-                    {seenCount} of {species.length}
-                  </ThemedText>
-                }
-              />
+            <Section
+              key={cat}
+              flush
+              title={CATEGORY_LABEL[cat]}
+              accessory={
+                <ThemedText type="footnote" themeColor="textSecondary" accessibilityLabel={`${seenCount} of ${species.length} seen`}>
+                  {seenCount} of {species.length}
+                </ThemedText>
+              }>
               <View style={styles.grid}>{listed.map(card)}</View>
-            </View>
+            </Section>
           );
         })}
       </View>
@@ -195,86 +187,21 @@ function emptyMessage(typed: string, filter: Filter): string {
   return 'You haven’t seen any of these yet. Log a dive and the ones you meet show up here.';
 }
 
-/** A search box over the species: a magnifier, the field, and a button to clear it (44pt, since the field is small). */
-function SearchField({ value, onChange }: { value: string; onChange: (text: string) => void }) {
-  const theme = useTheme();
-  const [focused, setFocused] = useState(false);
-  return (
-    <View style={[styles.search, { backgroundColor: theme.backgroundElement, borderColor: focused ? theme.tint : theme.rule }]}>
-      <Icon name="search" size={20} color={focused ? theme.tint : theme.textSecondary} />
-      <TextInput
-        value={value}
-        onChangeText={onChange}
-        onFocus={() => setFocused(true)}
-        onBlur={() => setFocused(false)}
-        accessibilityLabel="Search the field guide"
-        placeholder="Search by name"
-        placeholderTextColor={theme.textSecondary}
-        autoCapitalize="none"
-        autoCorrect={false}
-        returnKeyType="search"
-        style={[styles.searchInput, { color: theme.text }]}
-      />
-      {value ? (
-        <Pressable
-          onPress={() => onChange('')}
-          accessibilityRole="button"
-          accessibilityLabel="Clear search"
-          style={({ pressed }) => [styles.clear, { opacity: pressed ? 0.6 : 1 }]}>
-          <Icon name="close" size={16} color={theme.textSecondary} weight="bold" />
-        </Pressable>
-      ) : null}
-    </View>
-  );
-}
-
 const styles = StyleSheet.create({
-  // The search and the chips belong together, so they sit closer than the page's other blocks.
+  // The search and the chips belong together: 12 apart, closer than the page's other blocks (the chips' 44 hit area takes 4 of it).
   controls: {
-    gap: 10,
+    gap: Space.s2,
   },
-  search: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-    minHeight: 50,
-    paddingLeft: 14,
-    paddingRight: 4,
-    borderRadius: Radius.md,
-    borderWidth: 1.5,
-  },
-  searchInput: {
-    flex: 1,
-    minHeight: 48,
-    fontFamily: Type.body,
-    fontSize: 16,
-    // The box round it takes the lagoon edge while typing, which is its focus ring: the web's own
-    // would draw a second, black one inside it.
-    outlineWidth: 0,
-  },
-  clear: {
-    width: 44,
-    height: 44,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  chipsScroll: {
-    marginHorizontal: -Spacing.three,
-    flexGrow: 0,
-  },
-  chips: {
-    gap: 8,
-    paddingHorizontal: Spacing.three,
-  },
+  // Sections 32 apart; a group's title 12 above its cards.
   sections: {
-    gap: 18,
+    gap: Space.s8,
+    marginTop: Space.s2,
   },
-  section: {
-    gap: 14,
-  },
+  // 12 across; 16 down, since each card ends in a line of text.
   grid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: CARD_GAP,
+    columnGap: CARD_GAP,
+    rowGap: Space.s4,
   },
 });

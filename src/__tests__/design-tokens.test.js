@@ -81,7 +81,19 @@ describe('design tokens', () => {
   });
 
   test('the migrated screens and their components are off the allowlist', () => {
-    const migrated = ['app/(tabs)/_layout.tsx', 'app/_layout.tsx', 'app/design.tsx', 'components/species-card.tsx', 'components/journal/tab-bar.tsx'];
+    const migrated = [
+      'app/_layout.tsx',
+      'app/(tabs)/_layout.tsx',
+      'app/(tabs)/index.tsx',
+      'app/(tabs)/field-guide.tsx',
+      'app/(tabs)/map.tsx',
+      'app/you.tsx',
+      'app/design.tsx',
+      'components/species-card.tsx',
+      'components/site-list.tsx',
+      'components/explore/search-bar.tsx',
+      'components/home/home-editor.tsx',
+    ];
     expect(migrated.filter((file) => listed.has(file))).toEqual([]);
   });
 });

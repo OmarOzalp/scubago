@@ -1,19 +1,17 @@
 import { memo, useCallback, useEffect, useMemo, useRef } from 'react';
-import { FlatList, Pressable, StyleSheet, Text, View, type ListRenderItemInfo, type StyleProp, type ViewStyle } from 'react-native';
+import { FlatList, StyleSheet, View, type ListRenderItemInfo, type StyleProp, type ViewStyle } from 'react-native';
 
 import { ExternalLink } from '@/components/external-link';
-import { Icon } from '@/components/icon';
-import { Paper, PaperButton } from '@/components/journal/paper';
-import { Wash } from '@/components/journal/wash';
 import { longDate, plural } from '@/components/rewards/format';
 import { ThemedText } from '@/components/themed-text';
-import { MaxContentWidth, Radius, Spacing, TabBarOverhang, Type } from '@/constants/theme';
+import { IconTile, ListRow, type RowPosition } from '@/components/ui/list';
+import { Notice } from '@/components/ui/notice';
+import { MaxContentWidth, Radius, Space, TabBarOverhang, TypeScale } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { hasImportedSites } from '@/lib/site-clusters';
 import { OSM_ATTRIBUTION } from '@/lib/site-import';
 import type { PassportStamp } from '@/lib/rewards';
 import type { DiveSite } from '@/lib/types';
-import { hashSeed } from '@/lib/wash';
 
 /** OpenStreetMap's own page on how its data may be used and credited. */
 export const OSM_COPYRIGHT_URL = 'https://www.openstreetmap.org/copyright';
@@ -90,7 +88,7 @@ export const SiteList = memo(function SiteList({
    * would fly to the site the search picked. Compared by identity.
    */
   reveal?: { siteId: string | null } | null;
-  /** The site whose card is open: its row is edged in coral. */
+  /** The site whose card is open: its row is edged in the tint colour. */
   selectedSiteId?: string | null;
   /** The sites the diver has dived: their rows wear a stamp and say when they first dived there and how often. */
   stamps?: ReadonlyMap<string, PassportStamp>;
@@ -143,8 +141,9 @@ export const SiteList = memo(function SiteList({
   }, []);
 
   const renderItem = useCallback(
-    ({ item }: ListRenderItemInfo<DiveSite>) => (
+    ({ item, index }: ListRenderItemInfo<DiveSite>) => (
       <SiteRow
+        position={positionOf(index, visible.length)}
         id={item.id}
         name={item.name}
         region={item.region}
@@ -155,7 +154,7 @@ export const SiteList = memo(function SiteList({
         onSelect={onSelectSite}
       />
     ),
-    [onSelectSite, selectedSiteId, sharedNames, stamps],
+    [onSelectSite, selectedSiteId, sharedNames, stamps, visible.length],
   );
 
   return (
@@ -165,39 +164,26 @@ export const SiteList = memo(function SiteList({
       onScrollToIndexFailed={handleScrollFailed}
       keyExtractor={siteKey}
       renderItem={renderItem}
-      ItemSeparatorComponent={Separator}
       initialNumToRender={12}
       maxToRenderPerBatch={12}
       windowSize={7}
       style={[styles.list, { backgroundColor: theme.background }]}
-      contentContainerStyle={[styles.content, { paddingTop: topInset + Spacing.one }]}
+      contentContainerStyle={[styles.content, { paddingTop: topInset + Space.s1 }]}
       ListHeaderComponent={
         <View style={styles.header}>
           {note ? (
-            <Paper tone="sand" style={styles.note}>
-              <Icon name="map" size={22} wash={theme.sun} />
-              <ThemedText type="small" style={{ flex: 1 }}>
-                {note}
-              </ThemedText>
-              {onDismissNote ? (
-                <Pressable
-                  onPress={onDismissNote}
-                  accessibilityRole="button"
-                  accessibilityLabel="Close this note"
-                  style={({ pressed }) => [styles.noteClose, pressed && { backgroundColor: theme.backgroundSelected }]}>
-                  <Icon name="close" size={16} color={theme.textSecondary} weight="bold" />
-                </Pressable>
-              ) : null}
-            </Paper>
+            <Notice icon="map" onDismiss={onDismissNote}>
+              {note}
+            </Notice>
           ) : null}
-          <ThemedText type="small" themeColor="textSecondary">
+          <ThemedText type="footnote" themeColor="textSecondary">
             {plural(visible.length, 'site')}
             {stamped > 0 ? ` · ${stamped} stamped` : ''}
           </ThemedText>
         </View>
       }
       ListEmptyComponent={
-        <ThemedText type="caption" themeColor="textSecondary" style={styles.empty}>
+        <ThemedText type="callout" themeColor="textSecondary" style={styles.empty}>
           No dive sites to show for this species yet.
         </ThemedText>
       }
@@ -213,8 +199,10 @@ function stampLine(stamp?: PassportStamp): string | undefined {
 
 const siteKey = (site: DiveSite) => site.id;
 
-function Separator() {
-  return <View style={styles.separator} />;
+/** Where a row sits in the one grouped card the list draws, row by row (a windowed list can't be wrapped in a card). */
+function positionOf(index: number, count: number): RowPosition {
+  if (count === 1) return 'only';
+  return index === 0 ? 'first' : index === count - 1 ? 'last' : 'middle';
 }
 
 /** One site. Takes plain values and a stable callback, so a row is only rebuilt when its own site changes. */
@@ -226,6 +214,7 @@ const SiteRow = memo(function SiteRow({
   full,
   selected,
   stampLine,
+  position,
   onSelect,
 }: {
   id: string;
@@ -237,36 +226,22 @@ const SiteRow = memo(function SiteRow({
   selected: boolean;
   /** Set when the diver has dived here. */
   stampLine?: string;
+  position: RowPosition;
   onSelect: (siteId: string) => void;
 }) {
   const theme = useTheme();
-  const seed = useMemo(() => hashSeed(id), [id]);
   return (
-    <PaperButton
+    <ListRow
+      position={position}
+      leading={stampLine ? <IconTile icon="stamp" tone="coral" /> : <IconTile icon="pin" />}
+      title={name}
+      subtitle={siteWhere(region, country, full)}
+      meta={stampLine ? { text: stampLine, color: theme.stamp } : undefined}
+      selected={selected}
       onPress={() => onSelect(id)}
       accessibilityLabel={`${name}, ${region}, ${country}${stampLine ? `. ${stampLine}` : ''}`}
       accessibilityState={{ selected }}
-      style={selected ? [styles.row, { borderColor: theme.coral, boxShadow: `0px 0px 0px 1px ${theme.coral}` }] : styles.row}>
-      {/* Each site gets its own watercolour blob behind the pin, so the list isn't one repeated mark. */}
-      <View style={styles.pin}>
-        <Wash width={46} height={38} color={theme.wash} seed={seed} style={StyleSheet.absoluteFill} />
-        {stampLine ? <Icon name="stamp" size={24} color={theme.stamp} /> : <Icon name="pin" size={22} wash={theme.coral} washOpacity={0.45} />}
-      </View>
-      <View style={styles.body}>
-        <Text numberOfLines={2} style={[styles.name, { color: theme.text }]}>
-          {name}
-        </Text>
-        <Text numberOfLines={1} style={[styles.where, { color: theme.textSecondary }]}>
-          {siteWhere(region, country, full)}
-        </Text>
-        {stampLine ? (
-          <Text numberOfLines={1} style={[styles.where, { color: theme.stamp }]}>
-            {stampLine}
-          </Text>
-        ) : null}
-      </View>
-      <Icon name="chevronRight" size={18} color={theme.textSecondary} weight="bold" />
-    </PaperButton>
+    />
   );
 });
 
@@ -278,88 +253,40 @@ const styles = StyleSheet.create({
     width: '100%',
     maxWidth: MaxContentWidth,
     alignSelf: 'center',
-    paddingHorizontal: Spacing.three,
+    paddingHorizontal: Space.s4,
     // Room for the raised "Log dive" button under the last row.
-    paddingBottom: TabBarOverhang + Spacing.five,
+    paddingBottom: TabBarOverhang + Space.s8,
   },
   header: {
-    gap: 12,
-    marginBottom: 12,
-  },
-  separator: {
-    height: 10,
-  },
-  note: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    paddingVertical: 4,
-    paddingLeft: 12,
-    paddingRight: 4,
-  },
-  noteClose: {
-    width: 44,
-    height: 44,
-    borderRadius: Radius.sm,
-    alignItems: 'center',
-    justifyContent: 'center',
+    gap: Space.s3,
+    marginBottom: Space.s3,
   },
   empty: {
     textAlign: 'center',
-    paddingVertical: Spacing.four,
+    paddingVertical: Space.s6,
   },
   footerCredit: {
-    marginTop: Spacing.three,
+    marginTop: Space.s4,
   },
   creditOnMap: {
     alignSelf: 'flex-start',
     minHeight: 28,
     justifyContent: 'center',
-    paddingHorizontal: 8,
+    paddingHorizontal: Space.s2,
     borderWidth: 1,
-    borderRadius: Radius.xs,
+    borderRadius: Radius.sm,
   },
   creditInList: {
     alignItems: 'center',
-    paddingVertical: Spacing.one,
+    paddingVertical: Space.s1,
   },
   creditText: {
-    fontFamily: Type.bodyBold,
-    fontSize: 13,
-    lineHeight: 15,
+    ...TypeScale.footnoteStrong,
     textDecorationLine: 'underline',
   },
-  // Padding is part of a link's hit area: 15 + 2 x 15 is 45 tall under a list.
+  // Padding is part of a link's hit area: 18 + 2 x 15 is 48 tall under a list.
   creditTextInList: {
     paddingVertical: 15,
-    paddingHorizontal: 8,
-  },
-  row: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-    minHeight: 64,
-    paddingVertical: 10,
-    paddingHorizontal: 12,
-  },
-  pin: {
-    width: 46,
-    height: 38,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  body: {
-    flex: 1,
-    gap: 1,
-  },
-  name: {
-    fontFamily: Type.display,
-    fontSize: 17,
-    lineHeight: 22,
-  },
-  where: {
-    fontFamily: Type.body,
-    fontSize: 14,
-    lineHeight: 19,
+    paddingHorizontal: Space.s2,
   },
 });

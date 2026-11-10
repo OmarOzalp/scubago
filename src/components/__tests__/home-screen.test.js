@@ -367,7 +367,7 @@ describe('a diver with animals', () => {
 // screen (25 on a first run); the island's own scene and the species plates are pictures with names, counted apart.
 const words = (list) => list.join(' ').match(/[\p{L}\p{N}][\p{L}\p{N}'’.,%/-]*/gu)?.length ?? 0;
 const chrome = () => {
-  const plates = root.root.findAll((n) => n.props.horizontal === true && n.props.contentContainerStyle && StyleSheet.flatten(n.props.contentContainerStyle).paddingVertical === 2 && StyleSheet.flatten(n.props.contentContainerStyle).gap === 10);
+  const plates = root.root.findAll((n) => n.props.horizontal === true && n.props.testID === 'newest-animals');
   const inPlates = new Set(plates.flatMap((p) => p.findAll((n) => typeof n.children?.[0] === 'string')));
   return root.root.findAll((n) => typeof n.children?.[0] === 'string' && !inPlates.has(n)).map((n) => n.children.join(''));
 };

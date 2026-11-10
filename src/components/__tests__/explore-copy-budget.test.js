@@ -61,7 +61,8 @@ const flat = (n) => (typeof n === 'string' ? n : n.children.map(flat).join(''));
 const words = (s) => (s.match(/[\p{L}\p{N}][\p{L}\p{N}'’.,%/-]*/gu) || []).length;
 const texts = () => root.root.findAll((n) => n.type === 'Text').map(flat);
 const label = (n) => n.props.accessibilityLabel ?? '';
-const button = (name) => root.root.findAll((n) => typeof n.props.onPress === 'function' && label(n) === name)[0];
+// The pressable that carries the role (a component passes its label on to it).
+const button = (name) => root.root.findAll((n) => typeof n.props.onPress === 'function' && label(n) === name && n.props.accessibilityRole)[0];
 const box = (node) => StyleSheet.flatten(typeof node.props.style === 'function' ? node.props.style({ pressed: false }) : node.props.style);
 
 test('the tab says "Sites" once, with no eyebrow over it, and the page\'s own words are the title, the button and the search (at most 10 words)', async () => {

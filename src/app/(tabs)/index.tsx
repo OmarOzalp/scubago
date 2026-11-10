@@ -7,15 +7,17 @@ import { useTip } from '@/components/home/use-tip';
 import { SanctuaryScene } from '@/components/home/sanctuary-scene';
 import { WATER } from '@/components/home/three/sanctuary-environment';
 import { Icon } from '@/components/icon';
-import { IconButton } from '@/components/journal/icon-button';
 import { Disclosure } from '@/components/journal/disclosure';
-import { ProgressBar } from '@/components/journal/progress-bar';
-import { Screen, ScreenHeader, SectionHeader } from '@/components/journal/screen';
-import { OceanButton } from '@/components/ocean-button';
 import { ShareArchipelagoButton } from '@/components/share/share-buttons';
-import { SpeciesCard } from '@/components/species-card';
+import { CARD_GAP, SpeciesCard } from '@/components/species-card';
 import { ThemedText } from '@/components/themed-text';
-import { Spacing, Type } from '@/constants/theme';
+import { Button } from '@/components/ui/button';
+import { Card } from '@/components/ui/card';
+import { Chip, ChipRow } from '@/components/ui/chip';
+import { IconButton } from '@/components/ui/icon-button';
+import { ProgressBar } from '@/components/ui/progress';
+import { Screen, ScreenTitle, Section } from '@/components/ui/screen';
+import { OnWater, Radius, Size, Space, TypeScale } from '@/constants/theme';
 import { useDiscoveryMoments } from '@/hooks/use-discovery-moments';
 import { useHomePreferences } from '@/hooks/use-home-preferences';
 import { useSceneActive } from '@/hooks/use-scene-active';
@@ -29,13 +31,13 @@ import { macroResidents } from '@/lib/macro-life';
 import { captureScene, HERO_SNAPSHOT } from '@/lib/scene-snapshot';
 import { noneSwim, type MarineModel } from '@/lib/swimming';
 
-/** Ink on the island's water (the scene's own colours, the same in both schemes). */
-const ON_WATER = '#1F4B40';
 /** The one-time tip over the island (use-tip.ts): stored once it has been shown, and taken down after this long. */
 const HOME_TIP_KEY = 'scubago.homeTipSeen.v1';
 const HOME_TIP_MS = 10000;
 /** How many of the newest animals Home shows (the field guide has them all). */
 const NEWEST = 8;
+/** A newest animal's card: three and a bit across a phone, so the row says it scrolls. */
+const RESIDENT_WIDTH = 104;
 
 /** The share card's hero: a fresh picture of the island as it is on this card, or null (the card then draws its illustration). */
 const captureHeroSnapshot = () => captureScene('home', HERO_SNAPSHOT);
@@ -113,20 +115,19 @@ export default function HomeScreen() {
   // Home's island is named by the diver (a pencil beside the title renames it); any other island is named for its habitat.
   const title = island === HOME_ISLAND ? saved.preferences.name : islandName;
   return <View style={[styles.root, { backgroundColor: theme.background }]}>
-    <Screen tab>
-      <View style={styles.header}>
-        <View style={styles.titles}>
-          <ThemedText type="display" accessibilityRole="header" numberOfLines={2} style={styles.title}>{title}</ThemedText>
-          {island === HOME_ISLAND && <Pressable accessibilityRole="button" accessibilityLabel="Rename your island" onPress={() => !loading && setEditing(true)} hitSlop={4}
-            style={({ pressed }) => [styles.pencil, { opacity: loading ? 0.4 : pressed ? 0.6 : 1 }]}>
-            <Icon name="edit" size={20} color={theme.textSecondary} />
-          </Pressable>}
-        </View>
-        <View style={styles.headerButtons}>
+    <Screen kind="tab">
+      <ScreenTitle
+        title={title}
+        numberOfLines={2}
+        accessory={island === HOME_ISLAND && <Pressable accessibilityRole="button" accessibilityLabel="Rename your island" onPress={() => !loading && setEditing(true)}
+          style={({ pressed }) => [styles.pencil, { opacity: loading ? 0.4 : pressed ? 0.6 : 1 }]}>
+          <Icon name="edit" size={20} color={theme.textTertiary} />
+        </Pressable>}
+        actions={<>
           {!loading && <ShareArchipelagoButton name={saved.preferences.name} sightings={mine} dives={dives} ownerId={owner} captureSnapshot={captureHeroSnapshot} />}
           <IconButton icon="account" accessibilityLabel="You" onPress={() => router.push('/you')} />
-        </View>
-      </View>
+        </>}
+      />
 
       {/* The island, as big as the page is wide: tap it (or an animal on it) to explore. */}
       <View style={[styles.hero, { backgroundColor: WATER[habitat] }]}>
@@ -140,10 +141,10 @@ export default function HomeScreen() {
           {/* How to look around, said once over the island's water, where the animals are (it takes no room of its own). */}
           {tip.show && <View style={styles.tip} pointerEvents="none"><Text style={styles.tipText}>Tap an animal to meet it.</Text></View>}
           {loading ? <Text style={styles.sceneHint}> </Text> : sceneNote ? <Text style={styles.sceneHint}>{sceneNote}</Text> : null}
-          {first && <OceanButton title="Log your first dive" variant="log" icon="plus" onPress={() => router.push('/log/new')} style={styles.firstDive} />}
+          {first && <Button title="Log your first dive" variant="log" icon="plus" onPress={() => router.push('/log/new')} style={styles.firstDive} />}
           {/* The archipelago so far: an island's pill shows it in the card; with only Home's, there is nothing to choose. */}
           {!loading && count > 0 && (islands.length > 1
-            ? <IslandPills pills={pills} chosen={island} onChoose={setChosen} including={including} />
+            ? <IslandPills pills={pills} chosen={island} onChoose={setChosen} including={including} water={WATER[habitat]} />
             : <View style={styles.areas} accessible accessibilityLabel={`${pills[0].name}, ${pills[0].count} species${including}`}>
               <View style={[styles.areaDot, { backgroundColor: pills[0].color }]} />
               <Text style={styles.areaName}>{pills[0].name}</Text>
@@ -154,14 +155,14 @@ export default function HomeScreen() {
 
       <View style={styles.progress}>
         {loading ? (
-          <ThemedText type="small" themeColor="textSecondary">Loading your discoveries…</ThemedText>
+          <ThemedText type="subhead" themeColor="textSecondary">Loading your discoveries…</ThemedText>
         ) : (
           <>
             {/* The progress line is the way to the islands: which have risen, who lives there. */}
-            <Pressable accessibilityRole="link" accessibilityLabel={`${more}. Your islands`} accessibilityHint="Opens your islands" onPress={() => router.push('/rewards/islands')} style={styles.progressLink}>
+            <Card onPress={() => router.push('/rewards/islands')} accessibilityRole="link" accessibilityLabel={`${more}. Your islands`} accessibilityHint="Opens your islands" style={styles.progressCard}>
               <View style={styles.progressText}>
-                <ThemedText type="smallBold" style={{ flex: 1 }}>{more}</ThemedText>
-                <Icon name="chevronRight" size={16} color={theme.textSecondary} weight="bold" />
+                <Text style={[TypeScale.subheadStrong, styles.flex, { color: theme.text }]}>{more}</Text>
+                <Icon name="chevronRight" size={16} color={theme.textTertiary} weight="bold" />
               </View>
               <ProgressBar
                 fraction={home.fraction}
@@ -169,27 +170,23 @@ export default function HomeScreen() {
                 max={home.next?.at ?? count}
                 now={count}
               />
-            </Pressable>
+            </Card>
             {/* When nothing here can be seen swimming, what does swim, for anyone who wonders. */}
             {count > 0 && none && small === 0 && <Disclosure label="What swims here?" hint="Shows which animals the island draws">
-              <ThemedText type="small" themeColor="textSecondary">Sharks, rays, reef fish and some turtles, dolphins and octopuses swim here. The rest live in your field guide.</ThemedText>
+              <ThemedText type="subhead" themeColor="textSecondary">Sharks, rays, reef fish and some turtles, dolphins and octopuses swim here. The rest live in your field guide.</ThemedText>
             </Disclosure>}
           </>
         )}
       </View>
-      {!!saved.error && !editing && <ThemedText type="small" themeColor="danger" accessibilityRole="alert" accessibilityLiveRegion="polite">{saved.error}</ThemedText>}
+      {!!saved.error && !editing && <ThemedText type="subhead" themeColor="danger" accessibilityRole="alert" accessibilityLiveRegion="polite">{saved.error}</ThemedText>}
 
       {/* Nothing here until the first animal: the island above has already said it is empty. */}
-      {count > 0 && <>
-        <SectionHeader
-          title="New on your island"
-          accessory={<Pressable accessibilityRole="link" accessibilityLabel="Your field guide" onPress={() => router.push('/field-guide')} style={styles.textButton}><ThemedText type="smallBold" themeColor="tint">Field guide ›</ThemedText></Pressable>}
-        />
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.residentsScroll} contentContainerStyle={styles.residents}>
-          {newest.map((entry) => <SpeciesCard key={entry.species.id} species={entry.species} width={124} count={entry.count} onPress={() => router.push(`/species/${entry.species.id}`)} />)}
+      {count > 0 && <Section title="New on your island" action={{ label: 'Field guide', accessibilityLabel: 'Your field guide', onPress: () => router.push('/field-guide') }}>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} testID="newest-animals" style={styles.residentsScroll} contentContainerStyle={styles.residents}>
+          {newest.map((entry) => <SpeciesCard key={entry.species.id} species={entry.species} width={RESIDENT_WIDTH} count={entry.count} onPress={() => router.push(`/species/${entry.species.id}`)} />)}
         </ScrollView>
-        {milestoneLine && <ThemedText type="small" themeColor="textSecondary" style={styles.milestone}>{milestoneLine}</ThemedText>}
-      </>}
+        {milestoneLine && <ThemedText type="footnote" themeColor="textSecondary" style={styles.milestone}>{milestoneLine}</ThemedText>}
+      </Section>}
     </Screen>
     {editing && <HomeEditor key={owner} preferences={saved.preferences} saving={saved.saving} error={saved.error} onSave={saved.save} onClose={() => setEditing(false)} />}
   </View>;
@@ -215,7 +212,7 @@ type Pill = { id: IslandId; name: string; color: string; count: number };
  * be five, and wrapping them took the card's height), and brings the chosen island's pill to the
  * middle, as a new discovery arrives at its island without the diver touching a pill.
  */
-function IslandPills({ pills, chosen, onChoose, including }: { pills: Pill[]; chosen: IslandId; onChoose: (id: IslandId) => void; including: string }) {
+function IslandPills({ pills, chosen, onChoose, including, water }: { pills: Pill[]; chosen: IslandId; onChoose: (id: IslandId) => void; including: string; water: string }) {
   const scroll = useRef<ScrollViewInstance>(null);
   const spots = useRef(new Map<IslandId, { x: number; width: number }>());
   const [width, setWidth] = useState(0);
@@ -223,51 +220,41 @@ function IslandPills({ pills, chosen, onChoose, including }: { pills: Pill[]; ch
     const spot = spots.current.get(chosen);
     if (spot && width > 0) scroll.current?.scrollTo({ x: Math.max(0, spot.x + spot.width / 2 - width / 2), animated: true });
   }, [chosen, width]);
-  return <ScrollView ref={scroll} horizontal showsHorizontalScrollIndicator={false} onLayout={(e) => setWidth(e.nativeEvent.layout.width)} style={styles.pillsScroll} contentContainerStyle={styles.pills}>
+  return <ChipRow ref={scroll} centered fade={water} onLayout={(e) => setWidth(e.nativeEvent.layout.width)} style={styles.pills}>
     {pills.map((pill) => {
       const selected = pill.id === chosen;
-      return <Pressable key={pill.id} accessibilityRole="button" accessibilityState={{ selected }}
+      return <Chip key={pill.id} label={pill.name} dot={pill.color} count={pill.count > 0 ? pill.count : undefined} selected={selected}
         accessibilityLabel={`${pill.name}${pill.count ? `, ${pill.count} species` : ''}${pill.id === HOME_ISLAND ? including : ''}. ${selected ? 'Showing this island' : 'Show this island'}`}
         onLayout={(e) => { spots.current.set(pill.id, { x: e.nativeEvent.layout.x, width: e.nativeEvent.layout.width }); }}
-        onPress={() => onChoose(pill.id)} style={({ pressed }) => [styles.island, selected && styles.islandChosen, { opacity: pressed ? 0.7 : 1 }]}>
-        <View style={[styles.areaDot, { backgroundColor: pill.color }]} />
-        <Text style={styles.areaName}>{pill.name}</Text>
-        {pill.count > 0 && <Text style={styles.areaCount}>{pill.count}</Text>}
-      </Pressable>;
+        onPress={() => onChoose(pill.id)} />;
     })}
-  </ScrollView>;
+  </ChipRow>;
 }
 
 const styles = StyleSheet.create({
   root: { flex: 1 },
-  headerButtons: { flexDirection: 'row', gap: 8 },
-  header: { flexDirection: 'row', alignItems: 'center', gap: 12 },
-  titles: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 2 },
-  title: { flexShrink: 1 },
-  pencil: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center' },
+  flex: { flex: 1 },
+  // The pencil belongs to the title: 44 to hit, drawn small and quiet beside it.
+  pencil: { width: Size.hit, height: Size.hit, alignItems: 'center', justifyContent: 'center', marginVertical: -4 },
   // As wide as the page: no frame round the island.
-  hero: { marginHorizontal: -Spacing.three, overflow: 'hidden' },
-  heroFooter: { paddingHorizontal: 16, paddingBottom: 20, gap: 4, alignItems: 'center' },
-  sceneHint: { color: ON_WATER, fontSize: 14, lineHeight: 20, fontFamily: Type.body, textAlign: 'center', marginTop: 2 },
+  hero: { marginHorizontal: -Space.s4, overflow: 'hidden' },
+  heroFooter: { paddingHorizontal: Space.s4, paddingBottom: Space.s5, gap: Space.s1, alignItems: 'center' },
+  sceneHint: { ...TypeScale.subhead, color: OnWater.ink, textAlign: 'center', marginTop: 2 },
   // Over the island's water just above its name, like the explorer's hint; it takes no room, so nothing moves when it goes.
   tip: { position: 'absolute', top: -44, left: 0, right: 0, alignItems: 'center' },
-  tipText: { color: ON_WATER, fontSize: 14, lineHeight: 20, fontFamily: Type.bodySemiBold, textAlign: 'center', backgroundColor: 'rgba(255,255,255,0.65)', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 14, overflow: 'hidden' },
-  firstDive: { alignSelf: 'stretch', marginTop: 14 },
+  tipText: { ...TypeScale.subheadStrong, color: OnWater.ink, textAlign: 'center', backgroundColor: OnWater.veil, paddingHorizontal: Space.s3, paddingVertical: 6, borderRadius: Radius.pill, overflow: 'hidden' },
+  firstDive: { alignSelf: 'stretch', marginTop: Space.s3 },
   // Only Home's island so far: its name and count as plain text, since there is nothing to choose.
-  areas: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, marginTop: 10 },
-  // Pills, an island each, are what can be tapped; anything with no border is only said.
-  pillsScroll: { alignSelf: 'stretch', flexGrow: 0, marginHorizontal: -16, marginTop: 10 },
-  pills: { flexGrow: 1, justifyContent: 'center', gap: 8, paddingHorizontal: 16 },
-  island: { flexDirection: 'row', alignItems: 'center', gap: 6, minHeight: 44, paddingHorizontal: 14, borderRadius: 22, backgroundColor: 'rgba(255,255,255,0.55)', borderWidth: 1, borderColor: 'rgba(31,75,64,0.18)' },
-  islandChosen: { backgroundColor: '#FFFFFF', borderColor: ON_WATER, borderWidth: 1.5 },
-  areaDot: { width: 8, height: 8, borderRadius: 4 },
-  areaName: { color: ON_WATER, fontSize: 13, fontFamily: Type.bodySemiBold },
-  areaCount: { color: ON_WATER, fontSize: 13, fontFamily: Type.bodyHeavy },
-  progress: { gap: 8 },
+  areas: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, marginTop: Space.s2, minHeight: Size.chip },
+  pills: { alignSelf: 'stretch', marginTop: Space.s2 },
+  areaDot: { width: 8, height: 8, borderRadius: Radius.pill },
+  areaName: { ...TypeScale.footnoteStrong, color: OnWater.ink },
+  areaCount: { ...TypeScale.footnote, color: OnWater.ink },
+  progress: { gap: Space.s2 },
+  progressCard: { gap: Space.s3, minHeight: Size.hit },
   progressText: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  progressLink: { gap: 8, minHeight: 44, justifyContent: 'center' },
-  textButton: { minHeight: 44, justifyContent: 'center' },
-  residentsScroll: { marginHorizontal: -Spacing.three, flexGrow: 0 },
-  residents: { gap: 10, paddingHorizontal: Spacing.three, paddingVertical: 2 },
+  // The cards reach the screen's edges as they scroll; 8 above them leaves room for a "New" tag over a tile's corner.
+  residentsScroll: { marginHorizontal: -Space.s4, flexGrow: 0 },
+  residents: { gap: CARD_GAP, paddingHorizontal: Space.s4, paddingTop: Space.s2 },
   milestone: { textAlign: 'center' },
 });

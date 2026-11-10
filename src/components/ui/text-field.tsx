@@ -193,6 +193,7 @@ const styles = StyleSheet.create({
   clear: {
     width: Size.hit,
     height: Size.hit,
+    minHeight: Size.hit,
     alignItems: 'center',
     justifyContent: 'center',
   },
