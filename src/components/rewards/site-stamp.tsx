@@ -3,7 +3,7 @@ import Animated from 'react-native-reanimated';
 
 import { useStampIn } from '@/components/journal/stamp';
 import { longDate, plural, stampDate } from '@/components/rewards/format';
-import { Radius, Size, Space, Type, TypeScale } from '@/constants/theme';
+import { Radius, Size, Space, TypeScale } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import type { PassportStamp } from '@/lib/rewards';
 import { stampLook } from '@/components/rewards/stamp-look';
@@ -53,7 +53,7 @@ export function SiteStamp({ stamp, animate = false, delay = 0, onPress }: { stam
 }
 
 // The stamp keeps its typewriter look (Courier, stamp ink): it is a drawn thing, not interface text.
-const typed = { ...TypeScale.footnoteStrong, fontFamily: Type.label };
+const typed = { ...TypeScale.stamp };
 
 const styles = StyleSheet.create({
   press: {

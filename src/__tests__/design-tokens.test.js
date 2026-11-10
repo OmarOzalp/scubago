@@ -5,7 +5,8 @@ import path from 'node:path';
 /**
  * Design system v2 (docs/design.md): a screen or component takes every size and colour from the tokens
  * (src/constants/theme.ts) or a primitive (src/components/ui). It never writes its own font size, font
- * family, corner radius, hex colour or shadow.
+ * family, font weight, corner radius, hex or rgba/hsla colour or shadow, and does not reach for the raw
+ * `Type.` families.
  *
  * Files not yet migrated are listed in design-tokens.allowlist.json, by area. The list only shrinks: a
  * listed file that no longer breaks a rule must come off it (this test says so), and a file that is not
@@ -25,6 +26,8 @@ const EXEMPT = [
   /^components\/rewards\/(emblem|badge-medal|palette|stamp-look)\.tsx?$/,
   /^components\/journal\/(stamp|wash)\.tsx$/,
   /^components\/animated-icon/,
+  // The type primitive itself: it maps the scale to text styles.
+  /^components\/themed-text\.tsx$/,
 ];
 
 const RULES = [
@@ -33,6 +36,12 @@ const RULES = [
   { name: 'radius', re: /\b\w*[rR]adius:\s*\d/ },
   { name: 'hex colour', re: /['"`]#[0-9a-fA-F]{3}(?:[0-9a-fA-F]{3})?(?:[0-9a-fA-F]{2})?\b/ },
   { name: 'boxShadow', re: /\bboxShadow:\s*['"`]/ },
+  // A colour written as a function ("rgba(0,0,0,.4)") instead of a token (Colors, Scrim, OnWater, OnFill).
+  { name: 'rgba/hsla colour', re: /['"`][^'"`\n]*\b(?:rgba?|hsla?)\(/ },
+  // The weight comes with the type token (TypeScale); a screen does not set its own.
+  { name: 'fontWeight', re: /\bfontWeight\b/ },
+  // The font families (`Type.display` ...) are for the primitives and the theme; a screen takes a TypeScale style.
+  { name: 'direct Type. font family', re: /(?<![\w.])Type\.[a-zA-Z]+\b/ },
 ];
 
 function* files(dir) {
@@ -70,7 +79,7 @@ const listed = new Set(Object.values(allowlist).flat());
 describe('design tokens', () => {
   const found = scan();
 
-  test('no file outside the allowlist writes its own font size, font family, radius, hex colour or shadow', () => {
+  test('no file outside the allowlist writes its own font size, font family, weight, radius, colour or shadow', () => {
     const offenders = [...found.entries()].filter(([file]) => !listed.has(file)).flatMap(([, hits]) => hits.slice(0, 5));
     expect(offenders).toEqual([]);
   });
@@ -96,5 +105,16 @@ describe('design tokens', () => {
       'components/home/home-editor.tsx',
     ];
     expect(migrated.filter((file) => listed.has(file))).toEqual([]);
+  });
+
+  test('the rules catch what they are for (and let tokens through)', () => {
+    const caught = (line) => RULES.filter((rule) => rule.re.test(line)).map((rule) => rule.name);
+    expect(caught("backgroundColor: 'rgba(0, 20, 30, .55)'")).toContain('rgba/hsla colour');
+    expect(caught('borderColor: `hsla(200, 50%, 50%, 0.3)`')).toContain('rgba/hsla colour');
+    expect(caught("fontWeight: '700'")).toContain('fontWeight');
+    expect(caught('fontFamily: Type.label')).toContain('direct Type. font family');
+    expect(caught("fontFamily: 'Courier'")).toContain('fontFamily');
+    expect(caught('...TypeScale.stamp, color: theme.text, borderRadius: Radius.md')).toEqual([]);
+    expect(caught('const rgbaCount = 3; // not a colour string')).toEqual([]);
   });
 });

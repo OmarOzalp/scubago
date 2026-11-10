@@ -7,7 +7,7 @@ import { type Leaf, leafAnnouncement } from '@/components/logbook/book';
 import { SpeciesAvatar } from '@/components/species-avatar';
 import { ThemedText } from '@/components/themed-text';
 import { IconButton } from '@/components/ui/icon-button';
-import { MaxContentWidth, Radius, Space, Type, TypeScale } from '@/constants/theme';
+import { MaxContentWidth, Radius, Space, TypeScale } from '@/constants/theme';
 import { continuous } from '@/components/ui/surface';
 import { useTheme } from '@/hooks/use-theme';
 import { milestoneAt, signaturesOf } from '@/lib/dives';
@@ -232,7 +232,7 @@ const styles = StyleSheet.create({
   },
   rule: { position: 'absolute', top: 0, right: 0, left: Space.s4, height: StyleSheet.hairlineWidth },
   margin: { width: 40, alignItems: 'center' },
-  no: { ...TypeScale.footnoteStrong, fontFamily: Type.label, letterSpacing: 1 },
+  no: { ...TypeScale.stamp },
   number: { ...TypeScale.title },
   body: { flex: 1, gap: BODY_GAP },
   titleLine: { flexDirection: 'row', alignItems: 'center', gap: Space.s2 },
