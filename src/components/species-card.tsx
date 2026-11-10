@@ -49,6 +49,8 @@ interface Props {
   count: number;
   /** First seen recently: a "New" tag on the tile. */
   isNew?: boolean;
+  /** Lines the name may take before it ends in an ellipsis: 2, or 3 where the card is narrow (a long two-word name). */
+  nameLines?: 2 | 3;
   onPress: () => void;
 }
 
@@ -61,7 +63,7 @@ const TINT = { light: 0.14, dark: 0.18 };
  * height so a grid's rows line up. Rarity is the small dot in the tile's corner and nothing else; the words
  * ("Rare, not seen yet", "seen 3 times") are in what a screen reader says.
  */
-export function SpeciesCard({ species, width, count, isNew = false, onPress }: Props) {
+export function SpeciesCard({ species, width, count, isNew = false, nameLines = 2, onPress }: Props) {
   const theme = useTheme();
   const scheme = useSchemeName();
   const scale = usePressScale();
@@ -82,7 +84,7 @@ export function SpeciesCard({ species, width, count, isNew = false, onPress }: P
         <View testID="rarity-dot" style={[styles.dot, { backgroundColor: colour, borderColor: tile }]} />
       </View>
       {isNew ? <Tag label="New" tone="sun" style={styles.new} /> : null}
-      <Text numberOfLines={2} ellipsizeMode="tail" maxFontSizeMultiplier={1.5} style={[styles.name, { color: seen ? theme.text : theme.textSecondary }]}>
+      <Text numberOfLines={nameLines} ellipsizeMode="tail" maxFontSizeMultiplier={1.5} style={[styles.name, { color: seen ? theme.text : theme.textSecondary }]}>
         {species.commonName}
       </Text>
     </Pressable>

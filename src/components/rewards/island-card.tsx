@@ -120,7 +120,7 @@ export function IslandCard({
             {island.next.map((target) => {
               const species = CATALOG_BY_ID.get(target.speciesId);
               if (!species) return null;
-              return <SpeciesCard key={target.speciesId} species={species} width={targetWidth} count={0} onPress={() => onOpenSpecies?.(target.speciesId)} />;
+              return <SpeciesCard key={target.speciesId} species={species} width={targetWidth} count={0} nameLines={3} onPress={() => onOpenSpecies?.(target.speciesId)} />;
             })}
           </View>
         </View>

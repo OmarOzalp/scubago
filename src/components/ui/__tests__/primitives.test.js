@@ -273,4 +273,24 @@ describe('SpeciesCard', () => {
     expect(style.minHeight).toBe(2 * style.lineHeight);
     expect(style.fontSize).toBe(14);
   });
+
+  test('an animal still to find sits on a white surface with a hairline (never a grey fill); a seen one is tinted and has no edge', async () => {
+    await render(<SpeciesCard species={shark} width={110} count={0} onPress={() => {}} />);
+    const tile = (r) => r.root.findAll((n) => typeof n.type === 'string' && n.props.style && StyleSheet.flatten(n.props.style).height === 110 && StyleSheet.flatten(n.props.style).width === 110)[0];
+    const unseen = StyleSheet.flatten(tile(root).props.style);
+    expect(unseen.backgroundColor).toBe('#FFFFFF');
+    expect(unseen.borderWidth).toBeGreaterThan(0);
+    await act(async () => root.unmount());
+    await render(<SpeciesCard species={shark} width={110} count={1} onPress={() => {}} />);
+    const seen = StyleSheet.flatten(tile(root).props.style);
+    expect(seen.backgroundColor).not.toBe('#FFFFFF');
+    expect(seen.borderWidth ?? 0).toBe(0);
+  });
+
+  test('a narrow card can let a long name take a third line', async () => {
+    await render(<SpeciesCard species={shark} width={100} count={0} nameLines={3} onPress={() => {}} />);
+    const name = root.root.findAll((n) => n.type === 'Text' && n.props.children === shark.commonName)[0];
+    expect(name.props.numberOfLines).toBe(3);
+    expect(StyleSheet.flatten(name.props.style).minHeight).toBe(2 * StyleSheet.flatten(name.props.style).lineHeight);
+  });
 });

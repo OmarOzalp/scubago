@@ -66,7 +66,7 @@ typed, named for screen readers, 44 to hit, and drawn for light and dark.
 | `Notice` | `children`, `icon?`, `onDismiss?` | A banner on sunSoft that the diver can close. |
 | `EmptyState` | `icon`, `title`, `message?`, `action?` | A 56 tile, a headline, one line, one button. No dashed boxes. |
 | `TabBar` | (expo-router's tab bar props) | White bar, hairline, 24 icons, selected in tint with a filled icon, the raised coral Log circle. |
-| `SpeciesCard` (`src/components/species-card.tsx`) | `species`, `width`, `count`, `isNew?`, `onPress` | A square art tile (seen: soft rarity tint; still to find: sunken, pencil outline), the rarity dot, a "New" tag on the corner, and the name in two lines that never break inside a word. Grids use `useCardGrid` and `CARD_GAP`. |
+| `SpeciesCard` (`src/components/species-card.tsx`) | `species`, `width`, `count`, `isNew?`, `nameLines?`, `onPress` | A square art tile (seen: soft rarity tint, full art; still to find: a white surface with a hairline and the pencil outline, never a grey fill, which reads as loading), the rarity dot, a "New" tag on the corner, and the name in two lines (`nameLines={3}` in a narrow card) that never break inside a word. Grids use `useCardGrid` and `CARD_GAP`. |
 
 Helpers: `useSurface()` (the card surface as a style, for a surface that isn't a Card, such as the map's
 frame), `usePressScale()` (press feedback for a custom pressable), `continuous` (iOS squircle corners).
