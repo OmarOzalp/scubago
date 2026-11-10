@@ -4,6 +4,7 @@ import { isDevice } from 'expo-device';
 import { Canvas, useFrame, useThree } from '@react-three/fiber/native';
 import { AMBIENT_FPS, FramePacer, FrameRateContext } from './frame-pacer';
 import { ProgramKeeper } from './program-keeper';
+import { CanvasDprContext } from './scene-performance';
 import { sceneQuality, SceneQualityContext } from './scene-quality';
 
 /**
@@ -73,7 +74,7 @@ export function SceneCanvas({ style, children, frameloop = 'always', fps = AMBIE
       transform: [{ scale: 1 / scale }],
     }}>
       <FrameRateContext.Provider value={paced ? fps : 60}>
-        <SceneQualityContext.Provider value={sceneQuality(!isDevice)}>{children}</SceneQualityContext.Provider>
+        <SceneQualityContext.Provider value={sceneQuality(!isDevice)}><CanvasDprContext.Provider value={scale * PixelRatio.get()}>{children}</CanvasDprContext.Provider></SceneQualityContext.Provider>
       </FrameRateContext.Provider>
       {!isDevice && <SimulatorFrames active={frameloop === 'always'} />}
       {paced && <FramePacer fps={fps} />}

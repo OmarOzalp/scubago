@@ -1,3 +1,5 @@
+// First: the moment the app's own JavaScript starts, for the performance report (src/app/perf.tsx).
+import '@/lib/perf-start';
 import { CourierPrime_700Bold } from '@expo-google-fonts/courier-prime/700Bold';
 import { Figtree_500Medium } from '@expo-google-fonts/figtree/500Medium';
 import { Figtree_600SemiBold } from '@expo-google-fonts/figtree/600SemiBold';
@@ -20,6 +22,7 @@ import { StorageProblem } from '@/components/storage-problem';
 import { Colors, TypeScale } from '@/constants/theme';
 import { useSchemeName } from '@/hooks/use-theme';
 import { leave } from '@/lib/leave';
+import { perfMark } from '@/lib/perf-report';
 import { useAppStore } from '@/lib/store';
 
 // Nothing to do if the splash can't be held (it then hides by itself): never an unhandled rejection at start-up.
@@ -68,6 +71,10 @@ export default function RootLayout() {
   useEffect(() => {
     init();
   }, [init]);
+  // Launch milestones for the performance report.
+  const ready = useAppStore((s) => s.ready);
+  useEffect(() => { if (fontsLoaded || fontError) perfMark('fonts-ready'); }, [fontsLoaded, fontError]);
+  useEffect(() => { if (ready) perfMark('store-ready'); }, [ready]);
 
   const base = scheme === 'dark' ? DarkTheme : DefaultTheme;
   const navTheme = {

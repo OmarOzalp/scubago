@@ -7,7 +7,8 @@ import { FLOOR_BIAS, prepareUnderwater, type ReefLook } from './underwater-mater
 import { attachSwimRig, swimDrive } from './swim-rig-driver';
 import { MARINE_SIZE, TAP_SHAPES, TAP_SLOP, tapTarget } from './tap-target';
 import { disposeSkeletons } from './skeleton-dispose';
-import { markOnce, SceneMarksContext } from './scene-marks';
+import { EXPLORER_MARKS, markOnce, SceneMarksContext } from './scene-marks';
+import { perfReport } from '@/lib/perf-report';
 import { freezeMatrices } from './static-matrix';
 import { onScreen } from './view-cull';
 import { MOVEMENT, type MarineMotion } from '@/lib/marine-motion';
@@ -151,7 +152,7 @@ export function AnimatedMarine({ model, gltf, lane, active, inspect = false, pop
       }
       v.y = y;
       group.current.visible = dive.visible && seen.current;
-      if (group.current.visible) markOnce(marks.animal);
+      if (group.current.visible) { markOnce(marks.animal); perfReport.step(marks === EXPLORER_MARKS ? 'explorer' : 'switch', 'animal'); }
       group.current.position.set(pose.x, y, pose.z);
       // Emerging, it rises out of the deep blue head first, as from a dive (and its own dive takes over once deeper than that).
       const rise = emerging.current;

@@ -1,4 +1,5 @@
 import { createContext } from 'react';
+import { perfMark, type Milestone } from '@/lib/perf-report';
 
 /**
  * Timing marks for how soon the island is on screen, each made once per launch with the User Timing API
@@ -15,11 +16,18 @@ export type SceneMark =
   | 'scubago:explorer-frame' | 'scubago:explorer-animal' | 'scubago:explorer-built' | 'scubago:explorer-picture';
 
 const made = new Set<SceneMark>();
+/** The marks the performance report (src/lib/perf-report.ts) keeps as launch milestones. */
+const MILESTONE: Partial<Record<SceneMark, Milestone>> = {
+  'scubago:picture': 'home-picture', 'scubago:scene-frame': 'home-frame', 'scubago:first-animal': 'home-first-animal', 'scubago:scene-built': 'home-built',
+  'scubago:explorer-frame': 'explorer-frame', 'scubago:explorer-built': 'explorer-built',
+};
 const waiting = new Map<SceneMark, (() => void)[]>();
 
 export function markOnce(name: SceneMark) {
   if (made.has(name)) return;
   made.add(name);
+  const milestone = MILESTONE[name];
+  if (milestone) perfMark(milestone);
   try {
     globalThis.performance?.mark?.(name);
   } catch {

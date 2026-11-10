@@ -6,7 +6,8 @@ import { useSceneQuality } from './three/scene-quality';
 import { SceneBoundary, SceneUnavailable } from './scene-boundary';
 import { SceneCamera } from './three/scene-camera';
 import { IslandPerfBadge } from './island-perf-badge';
-import { IslandPerfProbe, ScenePerformance } from './three/scene-performance';
+import { FrameReport, IslandPerfProbe, ScenePerformance } from './three/scene-performance';
+import { perfMark, perfReport, type EpisodeKind } from '@/lib/perf-report';
 import { EXPLORER_MARKS, HOME_MARKS, markOnce, markStep, SceneMarksContext, whenMarked, type SceneMark } from './three/scene-marks';
 import { createStager } from './three/stager';
 import { WarmUp, type WarmUpOptions } from './three/warm-up';
@@ -207,9 +208,13 @@ function Wake({ visible }: { visible: boolean }) {
   return null;
 }
 
-/** Marks the scene's first drawn frame (scene-marks.ts). */
-function FirstFrame({ mark }: { mark: SceneMark }) {
-  useFrame(() => markOnce(mark));
+/** Marks the scene's first drawn frame (scene-marks.ts), and for the performance report the first frame and the completion of an open or a switch. */
+function FirstFrame({ mark, episode, complete }: { mark: SceneMark; episode: EpisodeKind; complete: () => boolean }) {
+  useFrame(() => {
+    markOnce(mark);
+    perfReport.step(episode, 'frame');
+    if (perfReport.waiting(episode, 'complete') && complete()) perfReport.step(episode, 'complete');
+  });
   return null;
 }
 
@@ -283,6 +288,14 @@ export function SanctuaryScene({ habitat, level, residents, islands, paused = fa
   useEffect(() => { stager.setFocus(explorer?.near); }, [stager, explorer?.near]);
   const staged = useSyncExternalStore(stager.subscribe, stager.getState, stager.getState);
   useEffect(() => { if (staged.done) markOnce(marks.built); }, [staged.done, marks]);
+  // For the performance report (src/lib/perf-report.ts): an island switch on Home's card is timed from the switch to the scene built with all its animals.
+  const episode: EpisodeKind = explorer ? 'explorer' : 'switch';
+  const switched = useRef(habitat);
+  useEffect(() => {
+    if (!card || switched.current === habitat) return;
+    switched.current = habitat;
+    perfReport.begin('switch', habitat);
+  }, [card, habitat]);
   // The shader programs for what the scene may come to show are linked while the phone is idle (see Warm). Home's card: for every island the collection has, once its
   // first animal has been on show (as the explorer's ocean is made ahead, ocean-ahead.ts). The explorer: for every island once it is all built (measured: warming the
   // islands in view under the picture delayed the first animal by about 2 s on the web, its stand-ins not matching all the programs the scene then makes; EXPO_PUBLIC_EXPLORER_WARM=view does).
@@ -394,6 +407,11 @@ export function SanctuaryScene({ habitat, level, residents, islands, paused = fa
     tag: moments.tag ? { speciesId: moments.tag.speciesId, anchor } : null,
   } : undefined;
 
+  // Built, with everyone the scene asked for: the end of an open or a switch, and on Home's own island the "all its animals" milestone.
+  const complete = !loading && seabedReady && staged.done && (failed || everyoneIn);
+  const completeNow = useRef(complete);
+  useEffect(() => { completeNow.current = complete; });
+  useEffect(() => { if (home && complete && visible) perfMark('home-animals'); }, [home, complete, visible]);
   const fallback = <IslandScene habitat={habitat} level={level} residents={residents} paused={paused} />;
   const frame = explorer ? styles.fill : styles.scene;
   if (failed) return <View style={frame}><SceneUnavailable onRetry={retry}>{fallback}</SceneUnavailable></View>;
@@ -449,7 +467,8 @@ export function SanctuaryScene({ habitat, level, residents, islands, paused = fa
         {/* The Share button's picture of the card (and the explorer's of its opening view). A paused island can still be photographed; one that is still for Reduce Motion is not. */}
         <SnapshotRegistrar name={explorer ? 'explorer' : 'home'} ready={visible && !loading && (active || paused || oceanPaused)} />
         <Wake visible={visible} />
-        <FirstFrame mark={marks.frame} />
+        <FirstFrame mark={marks.frame} episode={episode} complete={() => completeNow.current && stager.getState().done} />
+        <FrameReport name={explorer ? 'explorer' : 'home'} />
         <FrameWatch watching={picture.watching} onDrawn={picture.onDrawn} />
         {__DEV__ && <ScenePerformance ready={!!models && !loading} active={active} />}
         {ISLAND_PERF && <IslandPerfProbe />}
@@ -467,7 +486,7 @@ export function SanctuaryScene({ habitat, level, residents, islands, paused = fa
       </Canvas>
       </View>
     </SceneBoundary>
-    {picture.picture && <InstantPicture uri={picture.picture} opacity={picture.opacity} onError={picture.onError} onLoad={() => setPictureLoaded(true)} />}
+    {picture.picture && <InstantPicture uri={picture.picture} opacity={picture.opacity} onError={picture.onError} onLoad={() => { setPictureLoaded(true); perfReport.step(episode, 'picture'); }} />}
     {!!label && <NewTag label={label} x={tag.x} y={tag.y} inView={tag.inView} visible={!!moments?.tag && !preview}
       onWidth={(width) => { layout.current.tag = width; }} />}
     {moments?.banner && <LevelUpBanner {...moments.banner} still={!active} />}

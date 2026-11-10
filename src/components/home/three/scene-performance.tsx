@@ -1,6 +1,7 @@
-import { useEffect, useRef, useState } from 'react';
+import { createContext, useContext, useEffect, useRef, useState } from 'react';
 import { addAfterEffect, useFrame, useThree } from '@react-three/fiber';
 import { islandFrameStats, slowFrameMs } from '@/lib/frame-stats';
+import { perfReport } from '@/lib/perf-report';
 import { useFrameRate } from './frame-pacer';
 import { useSceneQuality } from './scene-quality';
 
@@ -23,6 +24,40 @@ export function ScenePerformance({ ready, active }: { ready: boolean; active: bo
     if (delta > late) value.slow++;
     if (value.frames === 122) console.info(`[island] 120 JS frames: ${Math.round(120 / value.seconds)}fps scheduled (not display FPS); ${value.slow} frames over ${Math.round(late * 1000)}ms; ${gl.info.render.calls} draw calls; ${gl.info.render.triangles} triangles; ${gl.info.programs?.length ?? '?'} shader programs`);
   });
+  return null;
+}
+
+/** Drawing-buffer pixels per point of a canvas whose resolution is set by its layout (a phone's: scene-canvas.native.tsx); null where three.js's pixel ratio says it. */
+export const CanvasDprContext = createContext<number | null>(null);
+
+/**
+ * Feeds the performance report (src/lib/perf-report.ts) with every frame this canvas draws: ms since its last frame, the JS time from the
+ * first frame callback until three.js has issued its draw calls, and the renderer's counts; and `onFrame` (the quality governor) with the
+ * same interval. Two clock reads and a few numbers written a frame: it is always on. A canvas asleep draws nothing and feeds nothing; the
+ * first frame after a pause is a stall, which the report counts apart.
+ */
+export function FrameReport({ name, onFrame, level = 0, levelName = 'full' }: { name: string; onFrame?: (intervalMs: number, jsMs: number) => void; level?: number; levelName?: string }) {
+  const gl = useThree((state) => state.gl);
+  const fps = useFrameRate(), quality = useSceneQuality(), canvasDpr = useContext(CanvasDprContext);
+  const dpr = Math.round((canvasDpr ?? gl.getPixelRatio()) * 100) / 100;
+  useEffect(() => { perfReport.info(name, { fps, quality, dpr, level, levelName }); }, [name, fps, quality, dpr, level, levelName]);
+  const timing = useRef({ start: 0, last: 0 });
+  const latest = useRef(onFrame);
+  useEffect(() => { latest.current = onFrame; });
+  useFrame(() => { timing.current.start = performance.now(); }, -1000);
+  // (after effects are global to every canvas: only the one whose frame this was has its start set)
+  useEffect(() => addAfterEffect(() => {
+    const value = timing.current;
+    if (!value.start) return;
+    const now = performance.now(), js = now - value.start;
+    value.start = 0;
+    if (value.last) {
+      const interval = now - value.last;
+      perfReport.frame(name, interval, js, gl.info.render.calls, gl.info.render.triangles);
+      latest.current?.(interval, js);
+    }
+    value.last = now;
+  }), [gl, name]);
   return null;
 }
 

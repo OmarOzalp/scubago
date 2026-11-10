@@ -19,6 +19,8 @@ import { STAGE } from './stager';
 import { SeenContext, useSteps } from './staging';
 import { TunaSchoolMesh } from './tuna-school-mesh';
 import { onScreen } from './view-cull';
+import { EXPLORER_MARKS, SceneMarksContext } from './scene-marks';
+import { perfReport } from '@/lib/perf-report';
 
 /** Tuning overlay (EXPO_PUBLIC_MARINE_DEBUG=1, then restart Metro with --clear), loaded only when switched on. */
 const MarineDebug: ComponentType<{ motion: MarineMotion }> | null =
@@ -83,6 +85,8 @@ export function MarineSwimmers({ residents, models, active, level = 1, school = 
   const lite = useSceneQuality() === 'lite';
   // On an island built before (built-islands.ts) the animals that join as their steps open are simply there, as under a picture, not rising out of the deep.
   const seen = useContext(SeenContext);
+  // (the performance report counts how animals come on: at once while on show is a pop)
+  const reportAs = useContext(SceneMarksContext) === EXPLORER_MARKS ? 'explorer' : 'home';
   const size = useThree((state) => state.size), invalidate = useThree((state) => state.invalidate);
   const aspect = size.width / Math.max(1, size.height);
   // Group members come from a budget of their own, smaller where the GPU is emulated.
@@ -150,6 +154,7 @@ export function MarineSwimmers({ residents, models, active, level = 1, school = 
     const held = waiting.includes(id), lateModel = late.delete(id) && !held, still = !!arrivals?.instant || !active || unseen;
     motion.add({ model: r.model, lane: r.lane, group, speciesId: id }, { aspect, waiting: held, instant: still || lateModel });
     if (lateModel && !still && !seen) emerging.add(r.lane);
+    perfReport.count(`${reportAs}: animals ${still ? 'joined unseen or still' : held ? 'waiting to arrive' : !lateModel ? 'swam in' : seen ? 'appeared at once (pop)' : 'rose into view'}`);
     joined.set(id, { lane: r.lane, model: r.model, group, leaving: false });
   }
   // An animal that has swum off is taken out of the scene's list.

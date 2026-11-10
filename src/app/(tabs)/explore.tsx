@@ -18,6 +18,7 @@ import { CATALOG_BY_ID } from '@/lib/catalog';
 import { createExplorer, EXPLORER, explorerViewKey, islandsByView, waterReach } from '@/lib/explorer-view';
 import { AREAS, foundIslands, HOME_ISLAND, ISLAND_PLACES, ISLANDS, isIsland, islandResidents } from '@/lib/archipelago';
 import { deriveHome } from '@/lib/home';
+import { perfReport } from '@/lib/perf-report';
 import { macroResidents } from '@/lib/macro-life';
 import { useAppStore, useMySightings, useMyUserId } from '@/lib/store';
 import type { MarineModel } from '@/lib/swimming';
@@ -99,7 +100,10 @@ export default function ExploreScreen() {
   // Opened again (it was kept): on the island asked for this time, the whole ocean in view, as when it opens for the first time.
   const asked = useRef(opening);
   useEffect(() => { asked.current = opening; });
-  useFocusEffect(useCallback(() => { explorer.reopen(asked.current); }, [explorer]));
+  // (each open is timed for the performance report, from here to its first frame and to all built: src/lib/perf-report.ts)
+  const openedOn = useRef(places[opening]?.key ?? HOME_ISLAND);
+  useEffect(() => { openedOn.current = places[opening]?.key ?? HOME_ISLAND; });
+  useFocusEffect(useCallback(() => { perfReport.begin('explorer', openedOn.current); explorer.reopen(asked.current); }, [explorer]));
   // Where it was opened from (the route's `from`, as of this open): closing goes back there.
   useEffect(() => { rememberOrigin(params.from); }, [params.from]);
   const close = useCallback(() => closeExplorer(), []);
