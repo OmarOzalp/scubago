@@ -25,7 +25,8 @@ export type CardProps = {
 export function Card({ children, padded = true, level = 'card', onPress, accessibilityRole, accessibilityLabel, accessibilityHint, accessibilityState, testID, style }: CardProps) {
   const surface = useSurface(level);
   const scale = usePressScale();
-  const box: ViewStyle = { ...surface, padding: padded ? Space.s4 : 0 };
+  // No `padding: 0` for a bare card: on the web that shorthand beats the card's own paddingVertical/paddingTop.
+  const box: ViewStyle = padded ? { ...surface, padding: Space.s4 } : surface;
   if (!onPress) {
     return (
       <View testID={testID} accessibilityLabel={accessibilityLabel} accessibilityRole={accessibilityRole} style={[box, style]}>
