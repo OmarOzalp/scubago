@@ -126,5 +126,8 @@ export function FrameWatch({ watching, onDrawn }: { watching: boolean; onDrawn: 
 export function InstantPicture({ uri, opacity, onError, onLoad }: { uri: string | ImageSourcePropType; opacity: Animated.Value; onError: () => void; onLoad?: () => void }) {
   const source: ImageSourcePropType = typeof uri === 'string' ? { uri } : uri;
   return <Animated.Image source={source} onError={onError} onLoad={() => { markOnce('scubago:picture'); onLoad?.(); }} accessible={false} accessibilityElementsHidden importantForAccessibility="no-hide-descendants"
-    pointerEvents="none" resizeMode="stretch" style={[StyleSheet.absoluteFill, { opacity }]} />;
+    pointerEvents="none" resizeMode="stretch" style={[StyleSheet.absoluteFill, styles.fill, { opacity }]} />;
 }
+
+// (a bundled picture comes with a size of its own, which would otherwise be its size on the card: on the web it was drawn at its pixels)
+const styles = StyleSheet.create({ fill: { width: '100%', height: '100%' } });
