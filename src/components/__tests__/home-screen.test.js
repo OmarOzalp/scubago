@@ -93,6 +93,9 @@ describe('the islands under the island’s art', () => {
     expect(buttons('Rename your island')).toHaveLength(1);
     await press(buttons('Kelp Forest')[0]);
     expect(buttons('Kelp Forest')[0].props.accessibilityLabel).toBe('Kelp Forest, 2 species. Showing this island');
+    // The title changes as the card's picture does: while the island it leaves is still on the card, it is still named.
+    expect(texts()).toContain('Kai’s Atoll');
+    await act(async () => { mockScene.onShown(mockScene.habitat); });
     expect(texts()).not.toContain('Kai’s Atoll');
     expect(buttons('Rename your island')).toHaveLength(0);
     // The island is named in the title instead, and the Open Ocean's species are Home's, not here.

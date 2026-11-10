@@ -83,7 +83,6 @@ export default function HomeScreen() {
   // The shores of every island so far, for the card to have their shader programs ready before the pills visit them (warm-up.tsx).
   const shores = useMemo(() => islands.map((id) => ISLANDS[id]), [islands]);
   const here = useMemo(() => islandResidents(home.residents, island), [home.residents, island]);
-  const islandName = AREAS.find((a) => a.id === island)!.name;
   const loading = !ready || saved.loading || moments.loading;
   // Once the island is on show and the phone is idle, the explorer's ocean is made ready (ocean-ahead.ts), so opening it finds it there.
   useOceanAhead(home.level, islands, !loading && count > 0);
@@ -113,13 +112,16 @@ export default function HomeScreen() {
   // The newest animals first (the collection itself, rarest first, is the field guide's).
   const newest = useMemo(() => [...home.residents].sort((a, b) => b.firstSeenOn.localeCompare(a.firstSeenOn)).slice(0, NEWEST), [home.residents]);
   // Home's island is named by the diver (a pencil beside the title renames it); any other island is named for its habitat.
-  const title = island === HOME_ISLAND ? saved.preferences.name : islandName;
+  // (the island the card shows: on a switch to one still to build, the title changes as its picture does, not before: SanctuaryScene's onShown)
+  const [drawn, setDrawn] = useState<string>(habitat);
+  const titled = drawn === habitat ? island : islands.find((id) => ISLANDS[id] === drawn) ?? island;
+  const title = titled === HOME_ISLAND ? saved.preferences.name : AREAS.find((a) => a.id === titled)!.name;
   return <View style={[styles.root, { backgroundColor: theme.background }]}>
     <Screen kind="tab">
       <ScreenTitle
         title={title}
         numberOfLines={2}
-        accessory={island === HOME_ISLAND && <Pressable accessibilityRole="button" accessibilityLabel="Rename your island" onPress={() => !loading && setEditing(true)}
+        accessory={titled === HOME_ISLAND && <Pressable accessibilityRole="button" accessibilityLabel="Rename your island" onPress={() => !loading && setEditing(true)}
           style={({ pressed }) => [styles.pencil, { opacity: loading ? 0.4 : pressed ? 0.6 : 1 }]}>
           <Icon name="edit" size={20} color={theme.textTertiary} />
         </Pressable>}
@@ -132,7 +134,7 @@ export default function HomeScreen() {
       {/* The island, as big as the page is wide: tap it (or an animal on it) to explore. */}
       <View style={[styles.hero, { backgroundColor: WATER[habitat] }]}>
         <View>
-          <SanctuaryScene habitat={habitat} level={moments.level} residents={here} loading={loading} paused={editing || loading} onInspect={inspect} onOpen={swimming ? explore : undefined} warm={shores}
+          <SanctuaryScene habitat={habitat} level={moments.level} residents={here} loading={loading} paused={editing || loading} onInspect={inspect} onOpen={swimming ? explore : undefined} warm={shores} onShown={setDrawn}
             moments={{ featured: moments.featured, waiting: moments.waiting, now: moments.now, onArrived: moments.onArrived, tag: moments.tag, banner: moments.banner, note: moments.note, busy: moments.busy }} />
           {/* A screen reader can't tap the picture of the island: the whole island is one button for it. */}
           {swimming && screenReader && <Pressable accessibilityRole="button" accessibilityLabel="Explore your islands" onPress={explore} style={StyleSheet.absoluteFill} />}

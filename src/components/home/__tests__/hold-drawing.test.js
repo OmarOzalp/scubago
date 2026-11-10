@@ -47,7 +47,7 @@ afterEach(async () => { if (root) await act(async () => root.unmount()); root = 
 
 test('HoldDrawing takes over the drawing (priority 1, drawing nothing) until the island it waits for is whole', async () => {
   const pending = new Set(['mangrove']), stager = fakeStager(pending), onDone = jest.fn();
-  await act(async () => { root = create(<HoldDrawing stager={stager} island="mangrove" onDone={onDone} />); });
+  await act(async () => { root = create(<HoldDrawing stager={stager} island="mangrove" ready onDone={onDone} />); });
   expect(latest().priority).toBe(1);
   // The first frames come before the island's parts have said what they have to build: never done on them, even with nothing pending.
   pending.clear();
@@ -68,11 +68,33 @@ test('HoldDrawing takes over the drawing (priority 1, drawing nothing) until the
 
 test('HoldDrawing lets go after 1.5 s however long the island takes, even with no frames coming', async () => {
   const onDone = jest.fn();
-  await act(async () => { root = create(<HoldDrawing stager={fakeStager(new Set(['kelp']))} island="kelp" onDone={onDone} />); });
+  await act(async () => { root = create(<HoldDrawing stager={fakeStager(new Set(["kelp"]))} island="kelp" ready onDone={onDone} />); });
   await act(async () => { jest.advanceTimersByTime(1400); });
   expect(onDone).not.toHaveBeenCalled();
   await act(async () => { jest.advanceTimersByTime(200); });
   expect(onDone).toHaveBeenCalledTimes(1);
+});
+
+test('HoldDrawing waits for the island’s seabed first (nothing of it is pending before), up to 4 s in all', async () => {
+  const stager = fakeStager(new Set()), onDone = jest.fn();
+  await act(async () => { root = create(<HoldDrawing stager={stager} island="kelp" ready={false} onDone={onDone} />); });
+  // Its seabed is still loading: nothing pending, and still held, frame after frame, past the 1.5 s of building.
+  for (let i = 0; i < 6; i++) await frame();
+  await act(async () => { jest.advanceTimersByTime(2000); });
+  expect(onDone).not.toHaveBeenCalled();
+  // The seabed arrives: the island's parts get their frames to say what they build, and with nothing left it lets go.
+  await act(async () => { root.update(<HoldDrawing stager={stager} island="kelp" ready onDone={onDone} />); });
+  await frame(); await frame();
+  expect(onDone).not.toHaveBeenCalled();
+  await frame();
+  expect(onDone).toHaveBeenCalledTimes(1);
+  // A seabed that never comes: let go at 4 s.
+  const late = jest.fn();
+  await act(async () => { root.update(<HoldDrawing stager={stager} island="volcanic" ready={false} onDone={late} key="other" />); });
+  await act(async () => { jest.advanceTimersByTime(3900); });
+  expect(late).not.toHaveBeenCalled();
+  await act(async () => { jest.advanceTimersByTime(200); });
+  expect(late).toHaveBeenCalledTimes(1);
 });
 
 test('the canvas governor: its level is the canvas’s, and GovernorHold stops it judging', async () => {

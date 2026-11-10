@@ -219,8 +219,11 @@ function Wake({ visible }: { visible: boolean }) {
   return null;
 }
 
-/** How long at most an island switch keeps the last picture of the island it leaves (ms), however long the next one takes to build. */
-const HOLD_MAX_MS = 1500;
+/**
+ * How long at most an island switch keeps the last picture of the island it leaves (ms), however long the next one takes to build once its
+ * seabed is there (`HOLD_MAX_MS`), and in all, with its seabed still to load (`HOLD_LONGEST_MS`).
+ */
+const HOLD_MAX_MS = 1500, HOLD_LONGEST_MS = 4000;
 
 /**
  * Keeps the canvas showing its last drawn frame while the island switched to on Home's card has its coast and what grows on it still to build
@@ -228,9 +231,11 @@ const HOLD_MAX_MS = 1500;
  * the card's paper through the water, for as long as the coast took to build: hundreds of ms on a phone. A useFrame of positive priority
  * takes over the drawing from R3F, and this one draws nothing: the frame loop, the swimming and the building go on, and the screen (a browser's
  * canvas, or Expo GL's view, until its next frame is presented) keeps the island it leaves. Once the new island is whole, or after
- * HOLD_MAX_MS, it lets go and R3F draws again.
+ * HOLD_MAX_MS, it lets go and R3F draws again. Until the island's seabed is there (`ready`: an island not visited before loads its bake as it is
+ * switched to) nothing of it has even begun to build, so nothing is pending: it holds for that too (the card was a flat block of the water's
+ * colour meanwhile), up to HOLD_LONGEST_MS.
  */
-export function HoldDrawing({ stager, island, onDone }: { stager: Stager; island: string; onDone: () => void }) {
+export function HoldDrawing({ stager, island, ready, onDone }: { stager: Stager; island: string; ready: boolean; onDone: () => void }) {
   const invalidate = useThree((state) => state.invalidate);
   const state = useRef({ frames: 0, start: 0, done: false });
   const latest = useRef(onDone);
@@ -242,12 +247,17 @@ export function HoldDrawing({ stager, island, onDone }: { stager: Stager; island
     invalidate();
   }, [invalidate]);
   useEffect(() => {
-    const timer = setTimeout(finish, HOLD_MAX_MS);
+    const timer = setTimeout(finish, HOLD_LONGEST_MS);
     return () => clearTimeout(timer);
   }, [finish]);
+  useEffect(() => {
+    if (!ready) return;
+    const timer = setTimeout(finish, HOLD_MAX_MS);
+    return () => clearTimeout(timer);
+  }, [finish, ready]);
   useFrame(() => {
     const value = state.current;
-    if (value.done) return;
+    if (value.done || !ready) return;
     if (!value.start) value.start = performance.now();
     value.frames++;
     // (the first frames come before the island's parts have said what they have to build)
@@ -267,8 +277,13 @@ function FirstFrame({ mark, episode, complete }: { mark: SceneMark; episode: Epi
   return null;
 }
 
-export function SanctuaryScene({ habitat, level, residents, islands, paused = false, loading = false, onInspect, onOpen, moments, explorer, warm }: {
+export function SanctuaryScene({ habitat, level, residents, islands, paused = false, loading = false, onInspect, onOpen, moments, explorer, warm, onShown }: {
   habitat: Habitat; level: number; residents: DexEntry[]; paused?: boolean; loading?: boolean; onInspect: (model: MarineModel) => void;
+  /**
+   * Told which island's habitat the card shows: at once, or, on a switch to an island still to build, when the canvas lets go of the one it
+   * leaves (HoldDrawing), so that what is said over the card (its title) changes with the picture rather than before it.
+   */
+  onShown?: (habitat: Habitat) => void;
   /**
    * The shores of every island the collection has (Home's card shows one at a time, from the pills): once Home's island has been on show with its animals
    * and the phone is idle, the shader programs each of them needs are linked, so a first visit to another links none. Defaults to the island shown.
@@ -350,6 +365,9 @@ export function SanctuaryScene({ habitat, level, residents, islands, paused = fa
     setSeenHabitat(habitat);
     setHolding(card && shownOnce ? habitat : null);
   }
+  const shownNow = holding === habitat ? null : habitat, told = useRef(onShown);
+  useEffect(() => { told.current = onShown; });
+  useEffect(() => { if (shownNow) told.current?.(shownNow); }, [shownNow]);
   useEffect(() => {
     if (!card || switched.current === habitat) return;
     switched.current = habitat;
@@ -404,6 +422,12 @@ export function SanctuaryScene({ habitat, level, residents, islands, paused = fa
   useEffect(() => {
     if (card && picture.live && !loading) void preloadSeabedBakes(level, [habitat], EXPLORER_REACH);
   }, [card, picture.live, loading, level, habitat]);
+  // ...and, once the card has been idle a while, every other island's seabed at this level, so a pill's first visit finds its own there (it was
+  // loaded as the pill was tapped, and the card kept the island it left, or showed only the water's colour, until it came).
+  const otherShores = card ? (warm ?? []).filter((shore) => shore !== habitat).join() : '';
+  useEffect(() => {
+    if (idle && otherShores) void preloadSeabedBakes(level, otherShores.split(',') as Habitat[]);
+  }, [idle, otherShores, level]);
   // ...and a picture of it, a few seconds after it is on show (once for each island and level while the card is up). The picture leaves out what
   // moves (stillOnly), so it waits for the island to be whole, not for every animal: it used to wait for three seconds in which no animal's model
   // was loading, which a collection with discoveries still arriving one after another seldom had (the picture was then not replaced, in about
@@ -537,7 +561,7 @@ export function SanctuaryScene({ habitat, level, residents, islands, paused = fa
         {/* The Share button's picture of the card (and the explorer's of its opening view). A paused island can still be photographed; one that is still for Reduce Motion is not. */}
         <SnapshotRegistrar name={explorer ? 'explorer' : 'home'} ready={visible && !loading && (active || paused || oceanPaused)} />
         <Wake visible={visible} />
-        {holding === habitat && <HoldDrawing stager={stager} island={habitat} onDone={() => setHolding(null)} />}
+        {holding === habitat && <HoldDrawing stager={stager} island={habitat} ready={seabedReady} onDone={() => setHolding(null)} />}
         <FirstFrame mark={marks.frame} episode={episode} complete={() => completeNow.current && stager.getState().done} />
         <FrameReport name={explorer ? 'explorer' : 'home'} />
         <GovernorHold hold={!visible || !active || loading || !staged.done || picture.unseen} />
