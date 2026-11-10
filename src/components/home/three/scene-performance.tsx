@@ -4,7 +4,6 @@ import { islandFrameStats, slowFrameMs } from '@/lib/frame-stats';
 import { perfReport } from '@/lib/perf-report';
 import { useGovernor } from './governor';
 import { useFrameRate } from './frame-pacer';
-import { GOVERNOR_LEVELS } from '@/lib/quality-governor';
 import { useSceneQuality } from './scene-quality';
 
 /** Development-only JS frame timing; Expo GL may present later on its native queue. */
@@ -41,9 +40,9 @@ export const CanvasDprContext = createContext<number | null>(null);
 export function FrameReport({ name }: { name: string }) {
   const gl = useThree((state) => state.gl);
   const governor = useGovernor();
-  const [level, setLevel] = useState(() => governor?.level() ?? 0);
-  useEffect(() => governor?.subscribe((value) => { setLevel(value); perfReport.count(`${name}: quality governor to ${governor.current().name}`); }), [governor, name]);
-  const levelName = governor ? GOVERNOR_LEVELS[level].name : 'off';
+  const [levelName, setLevelName] = useState(() => governor?.describe() ?? 'off');
+  const level = (governor?.level() ?? 0) + 10 * (governor?.jsLevel() ?? 0);
+  useEffect(() => governor?.subscribe(() => { setLevelName(governor.describe()); perfReport.count(`${name}: quality governor to ${governor.describe()}`); }), [governor, name]);
   const fps = useFrameRate(), quality = useSceneQuality(), canvasDpr = useContext(CanvasDprContext);
   const dpr = Math.round((canvasDpr ?? gl.getPixelRatio()) * 100) / 100;
   useEffect(() => { perfReport.info(name, { fps, quality, dpr, level, levelName }); }, [name, fps, quality, dpr, level, levelName]);
@@ -58,7 +57,7 @@ export function FrameReport({ name }: { name: string }) {
     if (value.last) {
       const interval = now - value.last;
       perfReport.frame(name, interval, js, gl.info.render.calls, gl.info.render.triangles);
-      governor?.frame(interval, fps);
+      governor?.frame(interval, fps, js);
     }
     value.last = now;
   }), [gl, name, governor, fps]);

@@ -107,7 +107,9 @@ const points = new Float64Array(7 * 3);
 export function surveyScene(scene: SurveyScene, seconds: number, every = .5): Record<string, Survey> {
   const members: MarineMember[] = scene.models.map((model, lane) => ({ model, lane, group: groupOf(model), speciesId: scene.species?.[lane] }));
   const world = scene.explorer ? archipelago(scene.shape, scene.explorer === true ? undefined : scene.explorer) : undefined;
-  const motion = createMarineMotion(scene.oneByOne ? [] : members, scene.level, { shape: scene.shape, seed: scene.seed ?? 0, school: scene.school ?? false, world });
+  // (SWIM_CADENCE=30: the swimming at half the steps a second, the quality governor's lever for a phone short of JavaScript time)
+  const cadence = Number(process.env.SWIM_CADENCE) || undefined;
+  const motion = createMarineMotion(scene.oneByOne ? [] : members, scene.level, { shape: scene.shape, seed: scene.seed ?? 0, school: scene.school ?? false, world, cadence });
   if (scene.oneByOne) for (const member of members) motion.add(member, { instant: true });
   // What the animals steer by, and the drawing it is judged against (the same island, level and neighbors).
   let land = shorePolygons(scene.level, 24, scene.shape), seabed: Seabed = createSeabed(scene.level, scene.shape, world), drawn = drawnSeabed(scene.level, scene.shape, world);

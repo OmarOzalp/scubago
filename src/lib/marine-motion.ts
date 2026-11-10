@@ -532,8 +532,12 @@ const CROWD_EASE = 1 / 20;
 
 /** The surge's direction (see Movement.sway and kelp.ts). */
 const SWAY_FLOW = { x: Math.cos(KELP.current), z: Math.sin(KELP.current) };
-/** Simulation step (s): fixed, so a 20 fps simulator and a 60 fps phone move animals identically. */
-const STEP = 1 / 60;
+/**
+ * Simulation steps a second: fixed, so a 20 fps simulator and a 60 fps phone move animals identically. A motion can be asked for half as
+ * many (`cadence: 30`, `setCadence`): the quality governor's lever for a phone whose JavaScript cannot keep up (the swimming is about half
+ * of the explorer's frame there), checked by `SWIM_CADENCE=30 npm run verify:swim`. What is drawn is interpolated between steps either way.
+ */
+export const MOTION_CADENCE = 60;
 /** How far ahead (s) animals look for another animal crossing their path, and for one they will pass. */
 const LOOKAHEAD = 3, LANE_LOOKAHEAD = 14;
 /**
@@ -596,8 +600,6 @@ const LOOK_AHEAD = [1.2, 2.6] as const;
 const ENVELOPE_FALL = .3, ENVELOPE_FALL_BOTTOM = 1;
 /** How long (s) before an animal returns from a dive (see ocean-depth.ts) the others start making room for it. */
 const SURFACING_LEAD = 6;
-/** The tuna school steps every other simulation step (30 Hz, interpolated like the animals): smooth for small fish, half the cost. */
-const SCHOOL_STEP = STEP * 2;
 /** Islets are small sandbars without a wet-sand fringe: animals keep just their footprint plus this much (units) clear of them. */
 const ISLET_MARGIN = .25;
 /** The calm surface as a height above the swimming level, like the animals' heights here (see ocean-depth.ts). */
@@ -798,7 +800,11 @@ export function createMarineMotion(everyMember: readonly MarineMember[], level =
   world?: { islands: readonly OceanIsland[]; index: number; reach?: WaterExtent };
   /** The bottom they swim over instead of the island's (the tests': a flat one to see how an animal moves by itself, a rough one to see it never clip). */
   seabed?: Seabed;
+  /** Simulation steps a second (MOTION_CADENCE unless given; 30 halves the work). */
+  cadence?: number;
 } = {}) {
+  /** The simulation's step (s), and the tuna school's: it steps every other step (interpolated like the animals): smooth for small fish, half the cost. */
+  let STEP = 1 / (options.cadence ?? MOTION_CADENCE), SCHOOL_STEP = STEP * 2;
   const shape = options.shape ?? 'reef';
   let field = createShoreField(level, shape), current = level;
   // The bottom they swim over (seabed.ts), baked once per island and level.
@@ -2349,6 +2355,15 @@ export function createMarineMotion(everyMember: readonly MarineMember[], level =
       reach = next;
       rebuild();
     },
+    /** Steps a second from now on (MOTION_CADENCE or 30): what is still to step is carried over in time, so nothing jumps. */
+    setCadence(cadence: number) {
+      const next = 1 / cadence;
+      if (next === STEP) return;
+      // (the school's progress between its own steps is kept as a share of its step)
+      STEP = next; SCHOOL_STEP = STEP * 2; schoolTick = 0;
+      accumulator = Math.min(accumulator, STEP * .999);
+    },
+    cadence: () => Math.round(1 / STEP),
     step(delta: number, active: boolean) {
       if (!active) return;
       // A long background frame never teleports the school: at most 0.05 s is simulated per frame.

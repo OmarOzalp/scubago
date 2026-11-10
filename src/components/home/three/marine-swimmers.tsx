@@ -21,6 +21,7 @@ import { TunaSchoolMesh } from './tuna-school-mesh';
 import { onScreen } from './view-cull';
 import { EXPLORER_MARKS, SceneMarksContext } from './scene-marks';
 import { perfReport } from '@/lib/perf-report';
+import { useGovernor } from './governor';
 
 /** Tuning overlay (EXPO_PUBLIC_MARINE_DEBUG=1, then restart Metro with --clear), loaded only when switched on. */
 const MarineDebug: ComponentType<{ motion: MarineMotion }> | null =
@@ -32,6 +33,8 @@ const MarineDebug: ComponentType<{ motion: MarineMotion }> | null =
  * leaps and how many swim in each group differ each visit.
  */
 const SEED = Math.random();
+/** Simulation steps a second, forced (EXPO_PUBLIC_MOTION_CADENCE=30, restart Metro with --clear): for measuring; otherwise the quality governor's. */
+const FORCED_CADENCE = Number(process.env.EXPO_PUBLIC_MOTION_CADENCE) || 0;
 /** For reviewing leaps: EXPO_PUBLIC_DOLPHIN_LEAPS=1 (restart Metro with --clear) makes every breath with room for one a leap. */
 const LEAP = process.env.EXPO_PUBLIC_DOLPHIN_LEAPS === '1' ? 1 : undefined;
 
@@ -206,7 +209,10 @@ export function MarineSwimmers({ residents, models, active, level = 1, school = 
   const camera = useThree((state) => state.camera);
   const origin = useRef<Group>(null), middle = useMemo(() => ({ x: 0, y: 0, z: 0 }), []);
   const inView = useRef(true);
+  // The quality governor's JavaScript ladder may ask the swimming for half the steps a second (quality-governor.ts).
+  const governor = useGovernor();
   useFrame((_, delta) => {
+    motion.setCadence(FORCED_CADENCE || (governor?.jsCurrent().cadence ?? 60));
     if (origin.current) {
       const at = origin.current.matrixWorld.elements;
       middle.x = at[12]; middle.y = at[13]; middle.z = at[14];

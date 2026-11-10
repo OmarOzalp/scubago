@@ -1,5 +1,5 @@
 import { describe, expect, it } from '@jest/globals';
-import { createGovernor, GOVERNOR_LEVELS } from '../quality-governor';
+import { createGovernor, GOVERNOR_LEVELS, JS_LEVELS } from '../quality-governor';
 
 /** Feed `seconds` of frames at `fps` asked, each `ms` apart, with every `missEvery`-th frame late (0: none). */
 const feed = (g: ReturnType<typeof createGovernor>, seconds: number, fps: number, ms: number, missEvery = 0, lateMs = 3 * ms) => {
@@ -80,10 +80,55 @@ describe('quality governor', () => {
 
   it('tells listeners when the level changes', () => {
     const g = createGovernor(), seen: number[] = [];
-    const stop = g.subscribe((level) => seen.push(level));
+    const stop = g.subscribe(() => seen.push(g.level()));
     feed(g, 4.2, 30, 60);
     stop();
     feed(g, 4.2, 30, 60);
     expect(seen).toEqual([1]);
+  });
+});
+
+describe('quality governor: the JavaScript ladder', () => {
+  /** `seconds` of frames `ms` apart whose JavaScript took `jsMs` each. */
+  const feedJs = (g: ReturnType<typeof createGovernor>, seconds: number, fps: number, ms: number, jsMs: number) => {
+    for (let t = 0; t < seconds * 1000; t += ms) g.frame(ms, fps, jsMs);
+  };
+
+  it('late frames whose JavaScript took most of the frame step the swimming down, not the resolution', () => {
+    const g = createGovernor();
+    feedJs(g, 4.2, 30, 60, 45);
+    expect(g.jsLevel()).toBe(1);
+    expect(g.level()).toBe(0);
+    expect(g.jsCurrent().cadence).toBe(30);
+    expect(g.describe()).toBe('swimming at 30 steps');
+    feedJs(g, 4.2, 30, 60, 45);
+    expect(g.jsCurrent().touchFps).toBe(30);
+    expect(g.describe()).toBe('steady 30 fps');
+  });
+
+  it('late frames with little JavaScript are the GPU’s: the resolution steps', () => {
+    const g = createGovernor();
+    feedJs(g, 4.2, 30, 60, 6);
+    expect(g.level()).toBe(1);
+    expect(g.jsLevel()).toBe(0);
+  });
+
+  it('with its own ladder at the end, a bound frame steps the other', () => {
+    const g = createGovernor();
+    feedJs(g, 13, 30, 60, 45);
+    expect(g.jsLevel()).toBe(JS_LEVELS.length - 1);
+    expect(g.level()).toBeGreaterThan(0);
+  });
+
+  it('steps back up the latest step first, after the same long run of headroom', () => {
+    const g = createGovernor();
+    feedJs(g, 4.2, 30, 60, 6); // resolution down
+    feedJs(g, 4.2, 30, 60, 45); // then the swimming
+    expect([g.level(), g.jsLevel()]).toEqual([1, 1]);
+    feedJs(g, 12, 30, 33.4, 10);
+    expect([g.level(), g.jsLevel()]).toEqual([1, 0]);
+    feedJs(g, 12, 30, 33.4, 10);
+    expect([g.level(), g.jsLevel()]).toEqual([0, 0]);
+    expect(g.changes().map((c) => c.ladder)).toEqual(['gpu', 'js', 'js', 'gpu']);
   });
 });
