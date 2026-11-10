@@ -17,7 +17,7 @@ import { AppError, ScreenError } from '@/components/error-screen';
 import { HeaderBack } from '@/components/dive/header-back';
 import { startHome } from '@/components/home/home-start';
 import { StorageProblem } from '@/components/storage-problem';
-import { Colors, Type } from '@/constants/theme';
+import { Colors, TypeScale } from '@/constants/theme';
 import { useSchemeName } from '@/hooks/use-theme';
 import { leave } from '@/lib/leave';
 import { useAppStore } from '@/lib/store';
@@ -94,7 +94,8 @@ export default function RootLayout() {
           headerShadowVisible: false,
           headerStyle: { backgroundColor: colors.background },
           headerTintColor: colors.text,
-          headerTitleStyle: { fontFamily: Type.display, fontSize: 19, color: colors.text },
+          // A bar title (a modal's) is a headline in Figtree; a pushed page prints its own display title under the bar instead.
+          headerTitleStyle: { fontFamily: TypeScale.headline.fontFamily, fontSize: TypeScale.headline.fontSize, color: colors.text },
           headerBackButtonDisplayMode: 'minimal',
           // On a phone the system's own back button is 44 pt. The web's is 30 pt, so there it is drawn at 44 (HeaderBack).
           ...(Platform.OS === 'web'
@@ -127,6 +128,8 @@ export default function RootLayout() {
         <Stack.Screen name="rewards/islands" options={{ title: '' }} />
         <Stack.Screen name="rewards/[badge]" options={{ title: '', headerTitle: '' }} />
         <Stack.Screen name="rewards/collections/[id]" options={{ title: '', headerTitle: '' }} />
+        {/* The design system's gallery: not linked from the app (docs/design.md). */}
+        <Stack.Screen name="design" options={{ title: 'Design', headerTitle: '' }} />
       </Stack>
       <StorageProblem />
     </ThemeProvider>

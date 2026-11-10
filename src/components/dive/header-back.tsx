@@ -17,7 +17,7 @@ export function HeaderBack({ onPress, label, tintColor }: { onPress: () => void;
       accessibilityLabel={label}
       hitSlop={4}
       style={({ pressed }) => [styles.button, { opacity: pressed ? 0.6 : 1 }]}>
-      <Icon name="back" size={24} color={tintColor ?? theme.text} weight="regular" />
+      <Icon name="chevronLeft" size={24} color={tintColor ?? theme.text} weight="regular" />
     </Pressable>
   );
 }
