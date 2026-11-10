@@ -321,8 +321,8 @@ const styles = StyleSheet.create({
     gap: Space.s4,
   },
   code: {
-    ...TypeScale.figure,
-    letterSpacing: 3,
+    // The code reads as it does where it was made (the ticket on the buddy's page): typewriter letters.
+    ...TypeScale.ticket,
     textAlign: 'center',
     minHeight: 64,
   },
