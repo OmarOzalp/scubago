@@ -7,7 +7,7 @@ import { setOceanPaused, useOceanPaused } from '@/lib/ocean-pause';
 import { useAppStore, useDivesBefore, usePendingChanges } from '@/lib/store';
 
 /**
- * You: the account and sync, the dives from before ScubaGo, the one setting, help and credits: one grouped
+ * You: the account and sync, the dives from before ScubaGo, the one setting, help, credits and the performance report: one grouped
  * list, reached from the button at the top of Home. Everything here works without an account.
  */
 export default function YouScreen() {
@@ -43,6 +43,7 @@ export default function YouScreen() {
         <ListRow leading="waves" title="Animate the ocean" switchValue={!paused} onPress={() => setOceanPaused(!paused)} />
         <ListRow leading="info" title="How ScubaGo works" onPress={() => router.push('/help')} />
         <ListRow leading="everyone" title="Data & credits" accessibilityRole="link" onPress={() => router.push('/credits')} />
+        <ListRow leading="gauge" title="Performance report" onPress={() => router.push('/perf')} />
       </List>
       {user && pending.count > 0 ? <SyncLine item={{ synced: false, syncError: syncProblem ?? undefined }} /> : null}
     </Screen>

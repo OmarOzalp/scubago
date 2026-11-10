@@ -4,9 +4,12 @@ import Constants, { ExecutionEnvironment } from 'expo-constants';
 import * as Device from 'expo-device';
 import { Stack } from 'expo-router';
 
-import { PaperButton } from '@/components/journal/paper';
-import { Screen, ScreenHeader, SectionHeader } from '@/components/journal/screen';
 import { ThemedText } from '@/components/themed-text';
+import { Button } from '@/components/ui/button';
+import { Card } from '@/components/ui/card';
+import { Notice } from '@/components/ui/notice';
+import { Screen, ScreenTitle, Section } from '@/components/ui/screen';
+import { Space } from '@/constants/theme';
 import { buildLine, formatReport, perfReport, reportSections, type ReportEnv } from '@/lib/perf-report';
 
 /** Where the JavaScript runs: Expo Go, a development build or a standalone (store or TestFlight) build. */
@@ -33,7 +36,7 @@ function startup(): ReportEnv['startup'] {
 /**
  * Performance report: what this phone measured this session (how soon the app and its islands came up, each explorer open and island switch,
  * the frame rate and frame times of each scene, whether the JavaScript is a development build), as plain rows and as one text block to send.
- * Nothing links here yet (the You screen will); `/perf` opens it. Reading it costs nothing until it is opened.
+ * Reached from the You screen. Reading it costs nothing until it is opened.
  */
 export default function PerfScreen() {
   const window = useWindowDimensions();
@@ -65,31 +68,36 @@ export default function PerfScreen() {
   return (
     <Screen>
       <Stack.Screen options={{ title: 'Performance report', headerTitle: '' }} />
-      <ScreenHeader title="Performance report" />
-      <ThemedText type="label">{buildLine(env)}</ThemedText>
-      <PaperButton onPress={send} accessibilityLabel={canCopy ? 'Copy report' : 'Share report'} style={styles.button}>
-        <ThemedText type="smallBold">{canCopy ? 'Copy report' : 'Share report'}</ThemedText>
-      </PaperButton>
-      {!!sent && <ThemedText type="small">{sent}</ThemedText>}
+      <ScreenTitle title="Performance report" subtitle={buildLine(env)} />
+      {__DEV__ ? (
+        <Notice icon="info">
+          This is a development run, which is much slower than the released app. For real numbers, start it with
+          “npx expo start --no-dev --minify”.
+        </Notice>
+      ) : null}
+      <Button title={canCopy ? 'Copy report' : 'Share report'} icon="share" onPress={send} />
+      {sent ? <ThemedText type="footnote" themeColor="textSecondary" accessibilityLiveRegion="polite">{sent}</ThemedText> : null}
       {reportSections(perfReport, env).map((section) => (
-        <View key={section.title} style={styles.section}>
-          <SectionHeader title={section.title} />
-          {section.rows.map(([label, value], i) => (
-            <View key={`${label}-${i}`} style={styles.row}>
-              <ThemedText type="small" style={styles.label}>{label}</ThemedText>
-              <ThemedText type="small" style={styles.value} selectable>{value}</ThemedText>
+        <Section key={section.title} title={section.title}>
+          <Card>
+            <View style={styles.rows}>
+              {section.rows.map(([label, value], i) => (
+                <View key={`${label}-${i}`} style={styles.row}>
+                  <ThemedText type="subhead" themeColor="textSecondary" style={styles.label}>{label}</ThemedText>
+                  <ThemedText type="subhead" style={styles.value} selectable>{value}</ThemedText>
+                </View>
+              ))}
             </View>
-          ))}
-        </View>
+          </Card>
+        </Section>
       ))}
     </Screen>
   );
 }
 
 const styles = StyleSheet.create({
-  button: { marginTop: 12, paddingVertical: 12, paddingHorizontal: 16, alignItems: 'center' },
-  section: { marginTop: 20, gap: 4 },
-  row: { flexDirection: 'row', gap: 12 },
+  rows: { gap: Space.s2 },
+  row: { flexDirection: 'row', gap: Space.s3 },
   label: { flex: 1 },
   value: { flex: 1.3, textAlign: 'right' },
 });
