@@ -63,6 +63,55 @@ export function Cover({ dives }: { dives: Dive[] }) {
   const totals = useMemo(() => logTotals(dives), [dives]);
   const lifetime = Math.max(totals.lifetime, divesBefore);
 
+  const badgesRow =
+    dives.length > 0 ? (
+      <ListRow
+        key="badges"
+        leading="medal"
+        title="Badges"
+        subtitle={rewards.ready ? rewardsLine : undefined}
+        accessibilityRole="link"
+        onPress={() => router.navigate({ pathname: '/field-guide', params: { view: 'badges' } })}
+      />
+    ) : null;
+  const syncRow =
+    pending.count > 0 ? (
+      <ListRow
+        key="sync"
+        leading="sync"
+        title={syncing ? 'Syncing…' : `${pending.count} ${pending.count === 1 ? 'change' : 'changes'} waiting to sync`}
+        subtitle={!syncing && (syncProblem || pending.failing > 0) ? 'Will retry automatically' : undefined}
+        trailing={syncing ? 'none' : <Text style={[TypeScale.subheadStrong, { color: theme.tint }]}>Sync now</Text>}
+        accessibilityHint="Tries to sync now"
+        onPress={() => void requestSync()}
+      />
+    ) : null;
+  // Signed out, the log lives only in this phone's storage: say so in one line, once there is something to lose.
+  const backupShown = backendEnabled && !user && (dives.length > 0 || mySightings.length > 0) && !backup.dismissed;
+  const backupRow = backupShown ? (
+    <BackupRow
+      text={
+        dives.length > 0
+          ? `${dives.length} ${dives.length === 1 ? 'page' : 'pages'} only on this phone`
+          : `${mySightings.length} ${mySightings.length === 1 ? 'sighting' : 'sightings'} only on this phone`
+      }
+      onBackup={() => router.push('/auth')}
+      onDismiss={backup.dismiss}
+    />
+  ) : null;
+  const linkRows = backupRow ? (
+    <>
+      {badgesRow ? <List>{badgesRow}</List> : null}
+      {backupRow}
+      {syncRow ? <List>{syncRow}</List> : null}
+    </>
+  ) : badgesRow || syncRow ? (
+    <List>
+      {badgesRow}
+      {syncRow}
+    </List>
+  ) : null;
+
   return (
     <View style={styles.cover}>
       <View style={styles.middle}>
@@ -80,44 +129,9 @@ export function Cover({ dives }: { dives: Dive[] }) {
         />
       ) : null}
 
-      {/* Nothing to show until there is a first dive: badges and stamps start with it. */}
-      {dives.length > 0 ? (
-        <List>
-          <ListRow
-            leading="medal"
-            title="Badges"
-            subtitle={rewards.ready ? rewardsLine : undefined}
-            accessibilityRole="link"
-            onPress={() => router.navigate({ pathname: '/field-guide', params: { view: 'badges' } })}
-          />
-        </List>
-      ) : null}
-
-      {/* Signed out, the log lives only in this phone's storage: say so in one line, once there is something to lose. */}
-      {backendEnabled && !user && (dives.length > 0 || mySightings.length > 0) && !backup.dismissed ? (
-        <BackupRow
-          text={
-            dives.length > 0
-              ? `${dives.length} ${dives.length === 1 ? 'page' : 'pages'} only on this phone`
-              : `${mySightings.length} ${mySightings.length === 1 ? 'sighting' : 'sightings'} only on this phone`
-          }
-          onBackup={() => router.push('/auth')}
-          onDismiss={backup.dismiss}
-        />
-      ) : null}
-
-      {pending.count > 0 ? (
-        <List>
-          <ListRow
-            leading="sync"
-            title={syncing ? 'Syncing…' : `${pending.count} ${pending.count === 1 ? 'change' : 'changes'} waiting to sync`}
-            subtitle={!syncing && (syncProblem || pending.failing > 0) ? 'Will retry automatically' : undefined}
-            trailing={syncing ? 'none' : <Text style={[TypeScale.subheadStrong, { color: theme.tint }]}>Sync now</Text>}
-            accessibilityHint="Tries to sync now"
-            onPress={() => void requestSync()}
-          />
-        </List>
-      ) : null}
+      {/* Nothing to show until there is a first dive: badges and stamps start with it. Links that sit next to each
+          other (Badges, and the waiting-to-sync row when no backup note is between them) are one List. */}
+      {linkRows}
     </View>
   );
 }

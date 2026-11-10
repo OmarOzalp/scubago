@@ -90,14 +90,10 @@ export function BadgeDetailView({
         </Card>
       ) : null}
 
-      {collectionId && onOpenCollection ? (
+      {(collectionId && onOpenCollection) || (badge.kind === 'place' && onOpenPassport) ? (
         <List>
-          <ListRow leading="fieldGuide" title="See the collection" onPress={() => onOpenCollection(collectionId)} />
-        </List>
-      ) : null}
-      {badge.kind === 'place' && onOpenPassport ? (
-        <List>
-          <ListRow leading="stamp" title="See your stamps" onPress={onOpenPassport} />
+          {collectionId && onOpenCollection ? <ListRow leading="fieldGuide" title="See the collection" onPress={() => onOpenCollection(collectionId)} /> : null}
+          {badge.kind === 'place' && onOpenPassport ? <ListRow leading="stamp" title="See your stamps" onPress={onOpenPassport} /> : null}
         </List>
       ) : null}
       {!badge.earned && badge.kind !== 'collection' && onLog ? <Button title="Log a dive" variant="log" icon="plus" onPress={onLog} /> : null}
