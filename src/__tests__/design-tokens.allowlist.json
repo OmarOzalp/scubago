@@ -30,29 +30,11 @@
     "components/sightings/states.tsx",
     "components/site-picker.tsx"
   ],
-  "species, site, rewards and logbook pages": [
-    "app/site/[id].tsx",
-    "app/species/[id].tsx",
-    "components/logbook/book-bar.tsx",
-    "components/logbook/contents.tsx",
-    "components/logbook/cover.tsx",
-    "components/logbook/sheet.tsx",
-    "components/rewards/badge-detail.tsx",
-    "components/rewards/badge-ladder.tsx",
-    "components/rewards/badge-tile.tsx",
-    "components/rewards/collection-card.tsx",
-    "components/rewards/collection-detail.tsx",
-    "components/rewards/island-card.tsx",
-    "components/rewards/new-badges.tsx",
-    "components/rewards/passport-view.tsx",
-    "components/rewards/site-stamp.tsx"
-  ],
   "shared components": [
     "components/home/discovery-overlays.tsx",
     "components/home/scene-boundary.tsx",
     "components/journal/ledger.tsx",
     "components/journal/link-row.tsx",
-    "components/site-map.tsx",
-    "components/species-photo.tsx"
+    "components/site-map.tsx"
   ]
 }

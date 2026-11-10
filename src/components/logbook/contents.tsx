@@ -1,4 +1,4 @@
-import { FlatList, Modal, Platform, Pressable, StyleSheet, Text, useWindowDimensions, View, type TextStyle } from 'react-native';
+import { FlatList, Modal, Platform, Pressable, StyleSheet, Text, useWindowDimensions, View, type ViewStyle } from 'react-native';
 import { useReducedMotion } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -6,7 +6,9 @@ import { Icon } from '@/components/icon';
 import { type Leaf, leafAnnouncement } from '@/components/logbook/book';
 import { SpeciesAvatar } from '@/components/species-avatar';
 import { ThemedText } from '@/components/themed-text';
-import { MaxContentWidth, Spacing, Type } from '@/constants/theme';
+import { IconButton } from '@/components/ui/icon-button';
+import { MaxContentWidth, Radius, Space, Type, TypeScale } from '@/constants/theme';
+import { continuous } from '@/components/ui/surface';
 import { useTheme } from '@/hooks/use-theme';
 import { milestoneAt, signaturesOf } from '@/lib/dives';
 import type { Dive, Species } from '@/lib/types';
@@ -17,8 +19,6 @@ function contentsDate(isoDate: string, thisYear = new Date().getFullYear()): str
   return new Date(Date.UTC(y, m - 1, d)).toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: y === thisYear ? undefined : 'numeric', timeZone: 'UTC' });
 }
 
-/** Dots from the site to the date, as in the contents of a book. Decorative: the row's label says it all. */
-const LEADERS = '· '.repeat(80);
 /**
  * Every row is the same height (a line for the site and date, a line for the animals), scaled with the
  * text size, so the list knows where each one is: it opens at the open page and draws only the rows in
@@ -29,16 +29,14 @@ export function contentsRowHeight(fontScale: number): number {
   const body = SITE_LINE * fontScale + BODY_GAP + Math.max(AVATAR_LINE, SITE_LINE * fontScale);
   return Math.ceil(Math.max(margin, body) + 2 * ROW_PADDING);
 }
-const NUMBER_LABEL_LINE = 15;
-const NUMBER_LINE = 26;
-const SITE_LINE = 20;
-const BODY_GAP = 6;
+const NUMBER_LABEL_LINE = TypeScale.footnoteStrong.lineHeight;
+const NUMBER_LINE = TypeScale.title.lineHeight;
+const SITE_LINE = TypeScale.bodyStrong.lineHeight;
+const BODY_GAP = Space.s1;
 const AVATAR_LINE = 28;
-const ROW_PADDING = 10;
+const ROW_PADDING = Space.s3;
 /** Rows above the open page's that are in view when the contents open. */
 const ROWS_ABOVE = 3;
-/** The web ends a one-line text cut short with "…"; the dots just stop. */
-const clip = (Platform.OS === 'web' ? { textOverflow: 'clip' } : {}) as TextStyle;
 
 /**
  * The book's contents: the cover, then every page in the order you turn them, each a row with its
@@ -76,18 +74,12 @@ export function Contents({
   return (
     // A sheet over the book (on iPhone, swiped down to close, like any sheet).
     <Modal visible animationType={reduced ? 'none' : 'slide'} presentationStyle="pageSheet" allowSwipeDismissal onRequestClose={onClose}>
-      <View style={[styles.screen, { backgroundColor: theme.background, paddingTop: Platform.OS === 'ios' ? Spacing.four : insets.top + Spacing.three }]}>
+      <View style={[styles.screen, { backgroundColor: theme.background, paddingTop: Platform.OS === 'ios' ? Space.s4 : insets.top + Space.s3 }]}>
         <View style={styles.header}>
           <ThemedText type="display" accessibilityRole="header" style={styles.flex}>
             Contents
           </ThemedText>
-          <Pressable
-            onPress={onClose}
-            accessibilityRole="button"
-            accessibilityLabel="Close"
-            style={({ pressed }) => [styles.close, { borderColor: theme.rule, backgroundColor: pressed ? theme.backgroundSelected : theme.backgroundElement }]}>
-            <Icon name="close" size={20} weight="bold" />
-          </Pressable>
+          <IconButton icon="close" accessibilityLabel="Close" onPress={onClose} />
         </View>
         <FlatList
           data={rows}
@@ -97,12 +89,13 @@ export function Contents({
           initialNumToRender={14}
           // Rows drawn ahead: about five screens either way (a fast fling on the web can outrun a narrow window).
           windowSize={11}
-          contentContainerStyle={[styles.list, { paddingBottom: insets.bottom + Spacing.five }]}
+          contentContainerStyle={[styles.list, { paddingBottom: insets.bottom + Space.s6 }]}
           renderItem={({ item, index }) => (
             <ContentsRow
               leaf={item}
               height={rowHeight}
               current={index === current}
+              position={rows.length === 1 ? 'only' : index === 0 ? 'first' : index === rows.length - 1 ? 'last' : 'middle'}
               siteName={item.kind === 'page' ? siteName(item.dive.siteId) : ''}
               species={item.kind === 'page' ? (speciesByDive.get(item.dive.id) ?? []) : []}
               pending={item.kind === 'page' && pending(item.dive)}
@@ -120,6 +113,7 @@ function ContentsRow({
   leaf,
   height,
   current,
+  position,
   siteName,
   species,
   pending,
@@ -129,6 +123,7 @@ function ContentsRow({
   leaf: Leaf;
   height: number;
   current: boolean;
+  position: 'only' | 'first' | 'middle' | 'last';
   siteName: string;
   species: Species[];
   pending: boolean;
@@ -136,13 +131,20 @@ function ContentsRow({
   onPress: () => void;
 }) {
   const theme = useTheme();
+  const top = position === 'only' || position === 'first' ? Radius.lg : 0;
+  const bottom = position === 'only' || position === 'last' ? Radius.lg : 0;
+  const corners: ViewStyle = { borderTopLeftRadius: top, borderTopRightRadius: top, borderBottomLeftRadius: bottom, borderBottomRightRadius: bottom, ...continuous };
   const rowStyle = ({ pressed }: { pressed: boolean }) => [
     styles.row,
-    { height, borderBottomColor: theme.rule, backgroundColor: pressed || current ? theme.backgroundSelected : 'transparent' },
+    corners,
+    { height, backgroundColor: pressed || current ? theme.backgroundSelected : theme.backgroundElement },
   ];
+  // The hairline above each row but the first, inset to where its text starts.
+  const rule = position === 'first' || position === 'only' ? null : <View pointerEvents="none" style={[styles.rule, { backgroundColor: theme.rule }]} />;
   if (leaf.kind !== 'page') {
     return (
       <Pressable onPress={onPress} accessibilityRole="button" accessibilityLabel={label} accessibilityState={{ selected: current }} style={rowStyle}>
+        {rule}
         <View style={styles.margin}>
           <Icon name="logbook" size={22} color={theme.textSecondary} />
         </View>
@@ -166,6 +168,7 @@ function ContentsRow({
     .join(', ');
   return (
     <Pressable onPress={onPress} accessibilityRole="button" accessibilityLabel={fullLabel} accessibilityState={{ selected: current }} style={rowStyle}>
+      {rule}
       <View style={styles.margin}>
         <Text style={[styles.no, { color: theme.textSecondary }]}>NO.</Text>
         <Text numberOfLines={1} adjustsFontSizeToFit style={[styles.number, { color: theme.text }]}>
@@ -177,9 +180,6 @@ function ContentsRow({
           <Text numberOfLines={1} style={[styles.site, styles.shrink, { color: theme.text }]}>
             {siteName}
           </Text>
-          <Text numberOfLines={1} ellipsizeMode="clip" style={[styles.leaders, clip, { color: theme.textSecondary }]}>
-            {LEADERS}
-          </Text>
           <Text numberOfLines={1} style={[styles.date, { color: theme.textSecondary }]}>
             {contentsDate(dive.divedOn)}
           </Text>
@@ -187,20 +187,20 @@ function ContentsRow({
         {/* The animals' line is there even when empty, so every row is one height. */}
         <View style={styles.subLine}>
           {shown.map((s, i) => (
-            <View key={`${s.id}-${i}`} style={[styles.avatar, i > 0 && styles.overlap, { borderColor: current ? theme.backgroundSelected : theme.background }]}>
+            <View key={`${s.id}-${i}`} style={[styles.avatar, i > 0 && styles.overlap, { borderColor: current ? theme.backgroundSelected : theme.backgroundElement }]}>
               <SpeciesAvatar species={s} size={24} />
             </View>
           ))}
           {species.length > shown.length ? (
-            <ThemedText type="small" themeColor="textSecondary" style={styles.more}>
+            <ThemedText type="subhead" themeColor="textSecondary" style={styles.more}>
               +{species.length - shown.length}
             </ThemedText>
           ) : null}
           <View style={styles.marks}>
-            {milestone ? <Icon name="medal" size={16} wash={theme.sun} washOpacity={0.9} /> : null}
+            {milestone ? <Icon name="medal" size={16} color={theme.tint} /> : null}
             {signed ? <Icon name="signature" size={16} color={theme.textSecondary} /> : null}
             {dive.centreName ? <Icon name="stamp" size={16} color={theme.stamp} /> : null}
-            {pending ? <Icon name="sync" size={14} color={theme.textSecondary} /> : null}
+            {pending ? <Icon name="sync" size={16} color={theme.textSecondary} /> : null}
           </View>
         </View>
       </View>
@@ -214,36 +214,34 @@ const styles = StyleSheet.create({
   header: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
+    gap: Space.s3,
     width: '100%',
     maxWidth: MaxContentWidth,
     alignSelf: 'center',
-    paddingHorizontal: Spacing.three,
-    paddingBottom: Spacing.two,
+    paddingHorizontal: Space.s4,
+    paddingBottom: Space.s3,
   },
-  close: { width: 44, height: 44, borderRadius: 22, borderWidth: 1.5, alignItems: 'center', justifyContent: 'center' },
-  list: { width: '100%', maxWidth: MaxContentWidth, alignSelf: 'center', paddingHorizontal: Spacing.two },
+  list: { width: '100%', maxWidth: MaxContentWidth, alignSelf: 'center', paddingHorizontal: Space.s4 },
   row: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 10,
+    gap: Space.s3,
     overflow: 'hidden',
     paddingVertical: ROW_PADDING,
-    paddingHorizontal: Spacing.two,
-    borderBottomWidth: StyleSheet.hairlineWidth,
+    paddingHorizontal: Space.s4,
   },
-  margin: { width: 48, alignItems: 'center' },
-  no: { fontFamily: Type.label, fontSize: 13, lineHeight: NUMBER_LABEL_LINE, letterSpacing: 1 },
-  number: { fontFamily: Type.display, fontSize: 22, lineHeight: NUMBER_LINE },
+  rule: { position: 'absolute', top: 0, right: 0, left: Space.s4, height: StyleSheet.hairlineWidth },
+  margin: { width: 40, alignItems: 'center' },
+  no: { ...TypeScale.footnoteStrong, fontFamily: Type.label, letterSpacing: 1 },
+  number: { ...TypeScale.title },
   body: { flex: 1, gap: BODY_GAP },
-  titleLine: { flexDirection: 'row', alignItems: 'flex-end', gap: 6 },
-  site: { fontFamily: Type.bodyHeavy, fontSize: 15, lineHeight: SITE_LINE },
-  shrink: { flexShrink: 1 },
-  leaders: { flex: 1, minWidth: 16, fontSize: 13, lineHeight: 20, opacity: 0.55 },
-  date: { flexShrink: 0, fontFamily: Type.label, fontSize: 13, lineHeight: 20, letterSpacing: 0.6 },
+  titleLine: { flexDirection: 'row', alignItems: 'center', gap: Space.s2 },
+  site: { ...TypeScale.bodyStrong },
+  shrink: { flexShrink: 1, flexGrow: 1 },
+  date: { ...TypeScale.footnote, flexShrink: 0 },
   subLine: { minHeight: AVATAR_LINE, flexDirection: 'row', alignItems: 'center' },
-  avatar: { borderWidth: 2, borderRadius: 14 },
+  avatar: { borderWidth: 2, borderRadius: Radius.pill },
   overlap: { marginLeft: -7 },
-  more: { marginLeft: 6 },
-  marks: { flexDirection: 'row', alignItems: 'center', gap: 8, marginLeft: 'auto', paddingLeft: 8 },
+  more: { marginLeft: Space.s2 },
+  marks: { flexDirection: 'row', alignItems: 'center', gap: Space.s2, marginLeft: 'auto', paddingLeft: Space.s2 },
 });

@@ -1,9 +1,9 @@
-import { Pressable, StyleSheet, View, type AccessibilityActionEvent } from 'react-native';
+import { StyleSheet, View, type AccessibilityActionEvent } from 'react-native';
 
-import { Icon } from '@/components/icon';
 import { ThemedText } from '@/components/themed-text';
-import { Spacing } from '@/constants/theme';
-import { useTheme } from '@/hooks/use-theme';
+import { Button } from '@/components/ui/button';
+import { IconButton } from '@/components/ui/icon-button';
+import { Size, Space } from '@/constants/theme';
 
 /**
  * Above the book: the Contents button, and the page count between a turn back and a turn on. The
@@ -30,27 +30,15 @@ export function BookBar({
   /** Absent while there are no pages to list. */
   onContents?: () => void;
 }) {
-  const theme = useTheme();
   const onAction = (e: AccessibilityActionEvent) => {
     if (e.nativeEvent.actionName === 'increment' && canOn) onOn();
     if (e.nativeEvent.actionName === 'decrement' && canBack) onBack();
   };
   return (
     <View style={styles.bar}>
-      {onContents ? (
-        <Pressable
-          onPress={onContents}
-          accessibilityRole="button"
-          accessibilityHint="Lists every page"
-          style={({ pressed }) => [styles.contents, { borderColor: theme.rule, backgroundColor: pressed ? theme.backgroundSelected : theme.backgroundElement }]}>
-          <Icon name="list" size={18} color={theme.text} />
-          <ThemedText type="smallBold">Contents</ThemedText>
-        </Pressable>
-      ) : (
-        <View />
-      )}
+      {onContents ? <Button title="Contents" variant="secondary" size="md" icon="list" accessibilityHint="Lists every page" onPress={onContents} /> : <View />}
       <View style={styles.turner}>
-        <TurnArrow direction="back" enabled={canBack} onPress={onBack} />
+        <IconButton icon="chevronLeft" accessibilityLabel="Previous page" disabled={!canBack} onPress={onBack} />
         <View
           accessible
           accessibilityRole="adjustable"
@@ -62,29 +50,13 @@ export function BookBar({
           ]}
           onAccessibilityAction={onAction}
           style={styles.count}>
-          <ThemedText type="label" numberOfLines={1}>
+          <ThemedText type="footnoteStrong" themeColor="textSecondary" numberOfLines={1}>
             {count}
           </ThemedText>
         </View>
-        <TurnArrow direction="on" enabled={canOn} onPress={onOn} />
+        <IconButton icon="chevronRight" accessibilityLabel="Next page" disabled={!canOn} onPress={onOn} />
       </View>
     </View>
-  );
-}
-
-function TurnArrow({ direction, enabled, onPress }: { direction: 'back' | 'on'; enabled: boolean; onPress: () => void }) {
-  const theme = useTheme();
-  return (
-    <Pressable
-      onPress={onPress}
-      disabled={!enabled}
-      accessibilityRole="button"
-      accessibilityLabel={direction === 'back' ? 'Previous page' : 'Next page'}
-      accessibilityState={{ disabled: !enabled }}
-      hitSlop={4}
-      style={({ pressed }) => [styles.arrow, { opacity: enabled ? (pressed ? 0.5 : 1) : 0.3 }]}>
-      <Icon name={direction === 'back' ? 'chevronLeft' : 'chevronRight'} size={20} color={theme.text} weight="bold" />
-    </Pressable>
   );
 }
 
@@ -94,34 +66,19 @@ const styles = StyleSheet.create({
     flexWrap: 'wrap',
     alignItems: 'center',
     justifyContent: 'space-between',
-    rowGap: Spacing.one,
-    columnGap: Spacing.two,
-    paddingHorizontal: Spacing.three,
-    paddingBottom: Spacing.two,
-  },
-  contents: {
-    minHeight: 44,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    paddingHorizontal: 14,
-    borderWidth: 1.5,
-    borderRadius: 22,
+    rowGap: Space.s1,
+    columnGap: Space.s2,
+    paddingHorizontal: Space.s4,
+    paddingBottom: Space.s2,
   },
   turner: {
     flexDirection: 'row',
     alignItems: 'center',
     marginLeft: 'auto',
   },
-  arrow: {
-    width: 44,
-    height: 44,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
   count: {
     minWidth: 64,
-    minHeight: 44,
+    minHeight: Size.hit,
     alignItems: 'center',
     justifyContent: 'center',
   },

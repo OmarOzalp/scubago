@@ -97,7 +97,7 @@ const styles = StyleSheet.create({
   line: {
     position: 'absolute',
     height: 2,
-    borderRadius: 1,
+    borderRadius: Radius.pill,
   },
   rung: {
     flex: 1,

@@ -20,14 +20,14 @@ import { BlankPage } from '@/components/logbook/blank-page';
 import { type Leaf, keepPlace, leafAnnouncement, openingIndex, pageCount, indexOfKey } from '@/components/logbook/book';
 import { BookBar } from '@/components/logbook/book-bar';
 import { Contents } from '@/components/logbook/contents';
-import { DESK, Sheet } from '@/components/logbook/sheet';
-import { MaxContentWidth, Spacing, TabBarOverhang } from '@/constants/theme';
-import { useSchemeName } from '@/hooks/use-theme';
+import { Sheet } from '@/components/logbook/sheet';
+import { MaxContentWidth, Size, Space, TabBarOverhang } from '@/constants/theme';
+import { useTheme } from '@/hooks/use-theme';
 import { announce } from '@/lib/announce';
 import type { Dive, Species } from '@/lib/types';
 
 /** Room at each side of a page, for its edge and shadow. */
-const SIDE = 12;
+const SIDE = Space.s3;
 
 /** How far either side of the open page a page is drawn in full; a little further, its blank sheet. */
 const LIVE_PAGES = 1;
@@ -63,7 +63,7 @@ export function Book({
   pending: (dive: Dive) => boolean;
 }) {
   const insets = useSafeAreaInsets();
-  const scheme = useSchemeName();
+  const theme = useTheme();
   const reduced = useReducedMotion();
   const window = useWindowDimensions();
   // The room for the pages, measured; the window's width (and a guess at the height) until then.
@@ -180,7 +180,7 @@ export function Book({
   };
 
   return (
-    <View style={[styles.desk, { backgroundColor: DESK[scheme], paddingTop: insets.top + Spacing.two }]}>
+    <View style={[styles.desk, { backgroundColor: theme.desk, paddingTop: insets.top + Space.s2 }]}>
       {loading ? (
         <View style={styles.barRoom} />
       ) : (
@@ -307,7 +307,7 @@ const styles = StyleSheet.create({
   desk: { flex: 1 },
   pages: { flex: 1 },
   // The bar's height while the log loads, so the pages don't move down when it comes.
-  barRoom: { height: 44 + Spacing.two },
+  barRoom: { height: Size.hit + Space.s2 },
   leaf: {
     flex: 1,
     width: '100%',
@@ -316,8 +316,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: SIDE,
     paddingTop: 2,
     // Clear of the raised "Log dive" button, so the whole page, foot and all, shows above the tab bar.
-    paddingBottom: TabBarOverhang + 10,
+    paddingBottom: TabBarOverhang + Space.s3,
   },
-  sheetContent: { flexGrow: 1, gap: 18, padding: Spacing.three, paddingBottom: Spacing.four },
+  sheetContent: { flexGrow: 1, gap: Space.s4, padding: Space.s4, paddingBottom: Space.s6 },
   offscreen: { position: 'absolute', width: 1, height: 1, overflow: 'hidden', left: -10000, top: 0 },
 });

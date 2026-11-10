@@ -1,18 +1,11 @@
 import type { ReactNode } from 'react';
 import { StyleSheet, View, type StyleProp, type ViewStyle } from 'react-native';
 
+import { continuous } from '@/components/ui/surface';
+import { Elevation, Radius } from '@/constants/theme';
 import { useSchemeName, useTheme } from '@/hooks/use-theme';
 
-/** The desk the book lies on: a shade under the paper, so a page's edge and shadow show against it. */
-export const DESK = { light: '#ECE3D0', dark: '#09121F' } as const;
-
-/** A page's soft shadow: flat paper lifted a little off the desk (no curl). */
-const SHEET_SHADOW = {
-  light: '0px 1px 2px rgba(74, 52, 16, 0.12), 0px 10px 24px -10px rgba(74, 52, 16, 0.32)',
-  dark: '0px 1px 2px rgba(0, 0, 0, 0.45), 0px 12px 26px -10px rgba(0, 0, 0, 0.75)',
-} as const;
-
-const CORNER = 8;
+const CORNER = Radius.md;
 /** How far each page under this one shows past its edge. */
 const EDGE_STEP = 3;
 
@@ -22,9 +15,9 @@ export function edgeCount(pages: number): number {
 }
 
 /**
- * One leaf of the book: a sheet of paper with a soft shadow, and the edges of the pages under it
- * showing at the side where there are more (older pages to the left, newer to the right). The cover
- * is bound in the twilight blue. The children scroll inside the sheet.
+ * One leaf of the book: a sheet in the page colour with a soft shadow (a hairline at night), and the
+ * edges of the pages under it showing at the side where there are more (older pages to the left, newer
+ * to the right). The cover is bound in the twilight blue. The children scroll inside the sheet.
  */
 export function Sheet({
   children,
@@ -43,8 +36,9 @@ export function Sheet({
 }) {
   const theme = useTheme();
   const scheme = useSchemeName();
+  const e = Elevation[scheme];
   const paper = cover ? theme.twilight : theme.background;
-  const edge = { backgroundColor: theme.background, borderColor: theme.cardBorder };
+  const edge = { backgroundColor: theme.backgroundElement, borderColor: theme.cardBorder };
   const edges = (side: 'left' | 'right', n: number) =>
     Array.from({ length: edgeCount(n) }, (_, i) => {
       const out = EDGE_STEP * (edgeCount(n) - i);
@@ -57,7 +51,7 @@ export function Sheet({
         {edges('left', before)}
         {edges('right', after)}
       </View>
-      <View style={[styles.sheet, { backgroundColor: paper, borderColor: cover ? theme.twilight : theme.cardBorder, boxShadow: SHEET_SHADOW[scheme] }]}>
+      <View style={[styles.sheet, { backgroundColor: paper }, e.cardBorder ? { borderWidth: 1, borderColor: theme.cardBorder } : { boxShadow: e.raised }]}>
         <View style={styles.clip}>{children}</View>
       </View>
     </View>
@@ -71,17 +65,19 @@ const styles = StyleSheet.create({
   edge: {
     position: 'absolute',
     width: 40,
-    borderWidth: 1,
+    borderWidth: StyleSheet.hairlineWidth * 2,
     borderRadius: CORNER,
+    ...continuous,
   },
   sheet: {
     flex: 1,
-    borderWidth: 1,
     borderRadius: CORNER,
+    ...continuous,
   },
   clip: {
     flex: 1,
-    borderRadius: CORNER - 1,
+    borderRadius: CORNER,
+    ...continuous,
     overflow: 'hidden',
   },
 });

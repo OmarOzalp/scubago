@@ -58,6 +58,8 @@ export const Colors = {
     stamp: '#B8371F',
     /** The soft colour inside icons and art tiles. */
     wash: '#9FE3DA',
+    /** The surface the Logbook's book lies on: a shade under the page, so a sheet's edge and shadow show. */
+    desk: '#E4EAEF',
     /** Errors and destructive actions (6.1 / 6.6; 5.8 on dangerSoft). */
     danger: '#B42318',
     dangerSoft: '#FDECEA',
@@ -94,6 +96,8 @@ export const Colors = {
     /** (8.0 / 7.0) */
     stamp: '#FF8A75',
     wash: '#1F6F6A',
+    /** The Logbook's desk: deeper than the page. */
+    desk: '#070E19',
     /** (8.0 / 7.0; 6.5 on dangerSoft) */
     danger: '#FF8A7A',
     dangerSoft: '#3D1F1F',

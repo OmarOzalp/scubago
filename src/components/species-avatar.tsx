@@ -1,8 +1,10 @@
 import { View } from 'react-native';
 
 import { SpeciesArt } from '@/components/species-art';
+import { mix } from '@/components/ui/color';
+import { continuous } from '@/components/ui/surface';
 import { Radius } from '@/constants/theme';
-import { useTheme } from '@/hooks/use-theme';
+import { useSchemeName, useTheme } from '@/hooks/use-theme';
 import { RARITY_COLOR } from '@/lib/rarity';
 import { artFor } from '@/lib/species-art';
 import type { Species } from '@/lib/types';
@@ -12,15 +14,19 @@ interface Props {
   size?: number;
   /** Edge the plate in the species' rarity colour (the field guide and pickers). */
   showRarityRing?: boolean;
-  /** A species still to find: a pencil outline on bare paper. */
+  /** A species still to find: a pencil outline on a white tile. */
   muted?: boolean;
 }
 
-/** A small field-guide plate: the species' drawing on a pale wash of its colour. Decorative. */
+/** A small field-guide plate: the species' drawing on a pale tint of its colour (still to find: white with a hairline). Decorative. */
 export function SpeciesAvatar({ species, size = 48, showRarityRing = false, muted = false }: Props) {
   const theme = useTheme();
+  const scheme = useSchemeName();
   const { wash } = artFor(species);
-  const paper = muted ? theme.backgroundElement : `${wash}26`;
+  // Plates are inked for paper: at night a seen species still sits on a pale, muted tile.
+  const base = scheme === 'dark' ? mix(theme.text, theme.backgroundElement, 0.3) : theme.backgroundElement;
+  const paper = muted ? theme.backgroundElement : mix(base, wash, 0.15);
+  const ring = showRarityRing && !muted;
   return (
     <View
       accessibilityElementsHidden
@@ -29,14 +35,14 @@ export function SpeciesAvatar({ species, size = 48, showRarityRing = false, mute
         width: size,
         height: size,
         borderRadius: Math.min(Radius.md, size * 0.28),
+        ...continuous,
         backgroundColor: paper,
-        borderWidth: showRarityRing ? 2 : 1,
-        borderColor: showRarityRing && !muted ? RARITY_COLOR[species.rarity] : theme.cardBorder,
+        ...(ring ? { borderWidth: 2, borderColor: RARITY_COLOR[species.rarity] } : muted ? { borderWidth: 1, borderColor: theme.cardBorder } : null),
         alignItems: 'center',
         justifyContent: 'center',
         overflow: 'hidden',
       }}>
-      <SpeciesArt species={species} width={size * 0.86} found={!muted} paper={muted ? theme.backgroundElement : undefined} />
+      <SpeciesArt species={species} width={size * 0.86} found={!muted} paper={paper} />
     </View>
   );
 }
