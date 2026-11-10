@@ -226,18 +226,18 @@ test('on the Home card, a tap anywhere no animal takes opens the island full scr
   expect(root.root.findAll((node) => node.type === 'mesh' && typeof node.props.onClick === 'function')).toHaveLength(0);
 });
 
-test('each animal joins as soon as its own model is loaded, emerging from the deep where it is; the scene never waits for the slowest', async () => {
+test('each animal joins as soon as its own model is loaded, emerging from the deep where it is; the scene never waits for the slowest (no picture: a level the bundled one is not of)', async () => {
   const residents = [logged('great-white-shark', 'shark'), logged('reef-manta', 'ray')];
   useMarineModels.mockReturnValue({ models: null, failed: false, retry: jest.fn() });
-  await act(async () => { root = create(<SanctuaryScene {...props} residents={residents} />); });
+  await act(async () => { root = create(<SanctuaryScene {...props} level={2} residents={residents} />); });
   // The ocean is there, with no animal yet.
   expect(root.root.findAllByType('environment')).toHaveLength(1);
   expect(root.root.findAllByType('swimmer')).toHaveLength(0);
   useMarineModels.mockReturnValue({ models: { 'reef-manta': {} }, failed: false, retry: jest.fn() });
-  await act(async () => root.update(<SanctuaryScene {...props} residents={residents} />));
+  await act(async () => root.update(<SanctuaryScene {...props} level={2} residents={residents} />));
   expect(root.root.findAllByType('swimmer').map((s) => s.props.model)).toEqual(['reef-manta']);
   useMarineModels.mockReturnValue({ models: { 'reef-manta': {}, 'great-white-shark': {} }, failed: false, retry: jest.fn() });
-  await act(async () => root.update(<SanctuaryScene {...props} residents={residents} />));
+  await act(async () => root.update(<SanctuaryScene {...props} level={2} residents={residents} />));
   const swimmers = root.root.findAllByType('swimmer');
   expect(swimmers.map((s) => s.props.model).sort()).toEqual(['great-white-shark', 'reef-manta']);
   // The scene was on show: each comes into view at its place on the island, rising out of the deep blue (never popping in,
@@ -246,6 +246,24 @@ test('each animal joins as soon as its own model is loaded, emerging from the de
     expect(swimmer.props.motion.arrival(swimmer.props.lane)?.stage ?? 'arrived').toBe('arrived');
     expect(swimmer.props.emerge).toBe(true);
   }
+});
+
+test('a first launch (nothing kept) opens on the bundled picture of Home’s island at the first level; at another level, or another island, on none', async () => {
+  const { STARTER_PICTURE } = require('../home-start');
+  const starter = () => root.root.findAll((node) => node.props.source === STARTER_PICTURE.source && typeof node.type === 'string');
+  useMarineModels.mockReturnValue({ models: {}, failed: false, retry: jest.fn() });
+  // Still reading the collection: the level is not known, and a first launch's is the first.
+  await act(async () => { root = create(<SanctuaryScene {...props} loading />); });
+  expect(starter()).toHaveLength(1);
+  expect(starter()[0].props.pointerEvents).toBe('none');
+  await act(async () => root.update(<SanctuaryScene {...props} />));
+  expect(starter()).toHaveLength(1);
+  await act(async () => root.unmount());
+  await act(async () => { root = create(<SanctuaryScene {...props} level={3} />); });
+  expect(starter()).toHaveLength(0);
+  await act(async () => root.unmount());
+  await act(async () => { root = create(<SanctuaryScene {...props} habitat="kelp" />); });
+  expect(starter()).toHaveLength(0);
 });
 
 const PICTURE = 'file:///documents/home-island-1.png';

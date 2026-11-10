@@ -97,7 +97,7 @@ test('Home’s picture stays up until everything in view is built, and the anima
 
 test('with no picture kept, an animal whose step comes while the scene is on show rises out of the deep where it is, as one whose model came late does', async () => {
   useMarineModels.mockReturnValue({ models, failed: false, retry: jest.fn() });
-  await act(async () => { root = create(<SanctuaryScene {...props} residents={residents} />); });
+  await act(async () => { root = create(<SanctuaryScene {...props} level={2} residents={residents} />); });
   for (let i = 0; i < 8; i++) await step();
   const joined = root.root.findAllByType('swimmer');
   expect(joined.length).toBeGreaterThanOrEqual(3);

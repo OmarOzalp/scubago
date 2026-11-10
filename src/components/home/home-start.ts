@@ -1,6 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useSyncExternalStore } from 'react';
-import { Platform } from 'react-native';
+import { Platform, type ImageSourcePropType } from 'react-native';
 import type { Habitat } from '@/lib/home';
 import type { MarineModel } from '@/lib/swimming';
 
@@ -99,6 +99,14 @@ export function rememberHomeScene(level: number, habitat: Habitat, models: reado
   if (was && was.level === level && was.habitat === habitat && was.models.join() === sorted.join()) return;
   store({ level, habitat, models: sorted, picture: was?.picture, ...(was?.views ? { views: was.views } : {}) });
 }
+
+/**
+ * What Home's card shows at a first launch, before its live scene has drawn itself and before any picture of it has been kept: a picture of
+ * the very scene a new install first sees (Home's island at the first level; pictures leave out the animals), bundled with the app
+ * (scripts/make-starter-picture.mjs makes it from a web export). Without it the card was a flat block of the water's colour for a second or
+ * more, then the island with its lagoon empty while what grows on it built.
+ */
+export const STARTER_PICTURE = { level: 1, habitat: 'island' as Habitat, source: require('../../../assets/images/starter-island.jpg') as ImageSourcePropType }; // eslint-disable-line @typescript-eslint/no-require-imports
 
 /** The picture kept for this island and level, if any. */
 export const pictureFor = (scene: HomeScene | null | undefined, level: number, habitat: Habitat) =>

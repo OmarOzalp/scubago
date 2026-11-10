@@ -1,8 +1,8 @@
 import { useContext, useEffect, useRef, useState } from 'react';
-import { AccessibilityInfo, Animated, StyleSheet } from 'react-native';
+import { AccessibilityInfo, Animated, StyleSheet, type ImageSourcePropType } from 'react-native';
 import { useFrame, useThree } from '@react-three/fiber';
 import type { Habitat } from '@/lib/home';
-import { explorerPictureFor, pictureFor, useHomeScene } from './home-start';
+import { explorerPictureFor, pictureFor, STARTER_PICTURE, useHomeScene } from './home-start';
 import { markOnce } from './three/scene-marks';
 import { StagerContext } from './three/staging';
 
@@ -44,8 +44,12 @@ export function useInstantPicture({ enabled, level, habitat, loading, armed, exp
   const reduced = useReduceMotion();
   // While the collection is still being read the level isn't known yet: the kept picture's is the best guess. The explorer's view
   // is known once the screen has been measured.
-  const find = () => (!scene ? null : explorer ? (explorer.key ? explorerPictureFor(scene, explorer.key) : null)
-    : pictureFor(scene, loading ? scene.picture?.level ?? level : level, habitat));
+  // With none kept of Home's island at the first level (a first launch: nothing at all is kept, so the level is the first), the bundled one.
+  const find = (): string | ImageSourcePropType | null => {
+    if (scene === undefined || explorer) return !scene || !explorer ? null : explorer.key ? explorerPictureFor(scene, explorer.key) : null;
+    const at = loading ? scene?.picture?.level ?? scene?.level ?? STARTER_PICTURE.level : level;
+    return pictureFor(scene, at, habitat) ?? (at === STARTER_PICTURE.level && habitat === STARTER_PICTURE.habitat ? STARTER_PICTURE.source : null);
+  };
   const unknown = scene === undefined || (!!explorer && explorer.key === null);
   // The picture this card opened with (decided once: it is never shown again once the live scene is).
   const [phase, setPhase] = useState<'deciding' | 'picture' | 'fading' | 'live'>(() => (!enabled ? 'live' : unknown ? 'deciding' : find() ? 'picture' : 'live'));
@@ -64,6 +68,8 @@ export function useInstantPicture({ enabled, level, habitat, loading, armed, exp
     const timer = setTimeout(() => setDrawn(true), longest);
     return () => clearTimeout(timer);
   }, [phase, longest]);
+  // (the bundled picture is of the first level: a collection that turns out to be at another goes to its live scene at once)
+  if (!drawn && phase === 'picture' && shown === STARTER_PICTURE.source && !loading && level !== STARTER_PICTURE.level) setDrawn(true);
   if (drawn && phase === 'picture') setPhase('fading');
   if (drawn && phase === 'deciding') setPhase('live');
   useEffect(() => {
@@ -117,7 +123,8 @@ export function FrameWatch({ watching, onDrawn }: { watching: boolean; onDrawn: 
 }
 
 /** The picture over the card's scene: no taps, nothing to say to a screen reader (the scene says it). */
-export function InstantPicture({ uri, opacity, onError, onLoad }: { uri: string; opacity: Animated.Value; onError: () => void; onLoad?: () => void }) {
-  return <Animated.Image source={{ uri }} onError={onError} onLoad={() => { markOnce('scubago:picture'); onLoad?.(); }} accessible={false} accessibilityElementsHidden importantForAccessibility="no-hide-descendants"
+export function InstantPicture({ uri, opacity, onError, onLoad }: { uri: string | ImageSourcePropType; opacity: Animated.Value; onError: () => void; onLoad?: () => void }) {
+  const source: ImageSourcePropType = typeof uri === 'string' ? { uri } : uri;
+  return <Animated.Image source={source} onError={onError} onLoad={() => { markOnce('scubago:picture'); onLoad?.(); }} accessible={false} accessibilityElementsHidden importantForAccessibility="no-hide-descendants"
     pointerEvents="none" resizeMode="stretch" style={[StyleSheet.absoluteFill, { opacity }]} />;
 }
