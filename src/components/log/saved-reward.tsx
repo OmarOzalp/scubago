@@ -84,6 +84,7 @@ export function SavedReward({
             animate
             delay={150}
             rotate={-6}
+            style={styles.stampCentre}
           />
           <Text accessibilityRole="header" style={[TypeScale.hero, styles.center, { color: theme.text }]}>
             {title}
@@ -148,7 +149,7 @@ function IslandGrowth({ growth }: { growth: NonNullable<ReturnType<typeof island
         {growth.text}
       </Text>
       {growth.unlock ? <Text style={[TypeScale.callout, { color: theme.textSecondary }]}>{growth.unlock}</Text> : null}
-      {growth.bar ? <ProgressBar fraction={growth.fraction} accessibilityLabel="Progress to the next island level" max={100} now={Math.round(growth.fraction * 100)} /> : null}
+      {growth.bar ? <ProgressBar fraction={growth.fraction} from={growth.from} accessibilityLabel="Progress to the next island level" max={100} now={Math.round(growth.fraction * 100)} /> : null}
     </Card>
   );
 }
@@ -158,6 +159,8 @@ const styles = StyleSheet.create({
   scroll: { padding: Space.s4, paddingBottom: Space.s6, gap: Space.s6, width: '100%', maxWidth: Math.min(440, MaxContentWidth), alignSelf: 'center' },
   head: { alignItems: 'center', gap: Space.s2, paddingTop: Space.s2 },
   center: { textAlign: 'center' },
+  // The stamp's own alignSelf is flex-start: centre it over the title.
+  stampCentre: { alignSelf: 'center' },
   stretch: { alignSelf: 'stretch' },
   section: { gap: Space.s3 },
   grid: { flexDirection: 'row', flexWrap: 'wrap', gap: CARD_GAP },
