@@ -223,7 +223,8 @@ function IslandPills({ pills, chosen, onChoose, including, water }: { pills: Pil
   return <ChipRow ref={scroll} centered fade={water} onLayout={(e) => setWidth(e.nativeEvent.layout.width)} style={styles.pills}>
     {pills.map((pill) => {
       const selected = pill.id === chosen;
-      return <Chip key={pill.id} label={pill.name} dot={pill.color} count={pill.count > 0 ? pill.count : undefined} selected={selected}
+      // Over the scene's water, which is the same in both schemes: the chips are drawn light in both.
+      return <Chip key={pill.id} scheme="light" label={pill.name} dot={pill.color} count={pill.count > 0 ? pill.count : undefined} selected={selected}
         accessibilityLabel={`${pill.name}${pill.count ? `, ${pill.count} species` : ''}${pill.id === HOME_ISLAND ? including : ''}. ${selected ? 'Showing this island' : 'Show this island'}`}
         onLayout={(e) => { spots.current.set(pill.id, { x: e.nativeEvent.layout.x, width: e.nativeEvent.layout.width }); }}
         onPress={() => onChoose(pill.id)} />;

@@ -92,6 +92,7 @@ describe('design tokens', () => {
       'components/species-card.tsx',
       'components/site-list.tsx',
       'components/explore/search-bar.tsx',
+      'components/explore/search-panel.tsx',
       'components/home/home-editor.tsx',
     ];
     expect(migrated.filter((file) => listed.has(file))).toEqual([]);

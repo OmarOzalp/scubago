@@ -6,7 +6,7 @@ import { Paper } from '@/components/journal/paper';
 import { OceanButton } from '@/components/ocean-button';
 import { SpeciesAvatar } from '@/components/species-avatar';
 import { ThemedText } from '@/components/themed-text';
-import { Radius, Type } from '@/constants/theme';
+import { Radius, Size, Space, TypeScale } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { announce } from '@/lib/announce';
 import type { DiveSite, Species } from '@/lib/types';
@@ -126,10 +126,10 @@ export function SearchPanel({
     return (
       <Paper raised padded={false} style={[styles.panel, { maxHeight }]}>
         <View style={styles.empty}>
-          <ThemedText type="small" accessibilityLiveRegion="polite">
+          <ThemedText type="bodyStrong" accessibilityLiveRegion="polite">
             Nothing matches “{typed}”.
           </ThemedText>
-          <ThemedText type="caption" themeColor="textSecondary">
+          <ThemedText type="subhead" themeColor="textSecondary">
             Try a dive site, a place like the Red Sea, or an animal.
           </ThemedText>
           <OceanButton title={`Add “${typed}” as a dive site`} icon="addSite" variant="secondary" onPress={() => onAddSite(typed)} />
@@ -192,7 +192,7 @@ const SectionHeading = memo(function SectionHeading({
       ) : (
         // The old search's question stays as the animals' subtitle. The heading's label says it all.
         <ThemedText
-          type="caption"
+          type="footnote"
           themeColor="textSecondary"
           numberOfLines={1}
           accessibilityElementsHidden
@@ -313,7 +313,7 @@ function ResultRow({
           {title}
         </Text>
         {italicSubtitle ? (
-          <ThemedText type="caption" themeColor="textSecondary" numberOfLines={1} style={styles.rowSub}>
+          <ThemedText type="scientific" themeColor="textSecondary" numberOfLines={1}>
             {subtitle}
           </ThemedText>
         ) : (
@@ -396,7 +396,7 @@ function Suggestions({ onTry }: { onTry: (query: string) => void }) {
             <Text numberOfLines={1} style={[styles.rowTitle, { color: theme.text }]}>
               {example.query}
             </Text>
-            <ThemedText type="caption" themeColor="textSecondary" numberOfLines={1} style={styles.rowSub}>
+            <ThemedText type="scientific" themeColor="textSecondary" numberOfLines={1}>
               {example.note}
             </ThemedText>
           </View>
@@ -415,21 +415,20 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    gap: 12,
+    gap: Space.s3,
     minHeight: 32,
-    paddingHorizontal: 14,
-    paddingTop: 12,
-    paddingBottom: 4,
+    paddingHorizontal: Space.s4,
+    paddingTop: Space.s3,
+    paddingBottom: Space.s1,
   },
   headingNote: {
+    ...TypeScale.footnote,
     flexShrink: 1,
-    fontSize: 14,
-    lineHeight: 18,
   },
   // 44 points to press, in a heading that is 32 high.
   fewer: {
-    minHeight: 44,
-    minWidth: 44,
+    minHeight: Size.hit,
+    minWidth: Size.hit,
     marginVertical: -6,
     justifyContent: 'center',
     alignItems: 'flex-end',
@@ -437,53 +436,45 @@ const styles = StyleSheet.create({
   row: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
-    minHeight: 56,
-    paddingHorizontal: 14,
-    paddingVertical: 8,
+    gap: Space.s3,
+    minHeight: Size.rowMin,
+    paddingHorizontal: Space.s4,
+    paddingVertical: Space.s2,
   },
   rowText: {
     flex: 1,
   },
   rowTitle: {
-    fontFamily: Type.bodyHeavy,
-    fontSize: 15,
-    lineHeight: 20,
-  },
-  rowSub: {
-    fontSize: 14,
-    lineHeight: 19,
+    ...TypeScale.bodyStrong,
   },
   rowWhere: {
-    fontFamily: Type.body,
-    fontSize: 14,
-    lineHeight: 19,
+    ...TypeScale.subhead,
   },
   tile: {
-    width: 40,
-    height: 40,
+    width: Size.iconTile,
+    height: Size.iconTile,
     borderRadius: Radius.sm,
     alignItems: 'center',
     justifyContent: 'center',
   },
+  // Lined up with the rows' text, after the 40 tile.
   more: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    minHeight: 44,
-    paddingLeft: 66,
-    paddingRight: 14,
-    borderTopWidth: 1,
+    minHeight: Size.hit,
+    paddingLeft: Space.s4 + Size.iconTile + Space.s3,
+    paddingRight: Space.s4,
+    borderTopWidth: StyleSheet.hairlineWidth,
   },
   moreText: {
-    fontFamily: Type.bodyBold,
-    fontSize: 14,
+    ...TypeScale.subheadStrong,
   },
   flipped: {
     transform: [{ rotate: '180deg' }],
   },
   empty: {
-    gap: 8,
-    padding: 16,
+    gap: Space.s2,
+    padding: Space.s4,
   },
 });

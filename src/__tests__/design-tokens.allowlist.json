@@ -48,7 +48,6 @@
     "components/rewards/site-stamp.tsx"
   ],
   "shared components": [
-    "components/explore/search-panel.tsx",
     "components/home/discovery-overlays.tsx",
     "components/home/scene-boundary.tsx",
     "components/journal/ledger.tsx",

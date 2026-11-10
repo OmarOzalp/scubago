@@ -3,7 +3,7 @@ import { Pressable, ScrollView, StyleSheet, Text, View, type LayoutChangeEvent, 
 import Svg, { Defs, LinearGradient, Rect, Stop } from 'react-native-svg';
 
 import { usePressScale } from '@/components/ui/press';
-import { OnFill, Radius, Size, Space, TypeScale } from '@/constants/theme';
+import { Colors, OnFill, Radius, Size, Space, TypeScale } from '@/constants/theme';
 import { useSchemeName, useTheme } from '@/hooks/use-theme';
 
 export type ChipProps = {
@@ -18,15 +18,22 @@ export type ChipProps = {
   accessibilityHint?: string;
   testID?: string;
   onLayout?: (event: LayoutChangeEvent) => void;
+  /**
+   * Draw in this scheme whatever the phone's: for chips over a picture that has the same colours in both
+   * (Home's islands over the scene's water).
+   */
+  scheme?: 'light' | 'dark';
 };
 
 /**
  * The one chip: a 36 pill (44 to hit). Off: the surface colour with a hairline; on: filled with the ink
  * colour (navy in light, pale in dark) and the label reversed out of it.
  */
-export function Chip({ label, selected, onPress, count, dot, accessibilityLabel, accessibilityHint, testID, onLayout }: ChipProps) {
-  const theme = useTheme();
-  const scheme = useSchemeName();
+export function Chip({ label, selected, onPress, count, dot, accessibilityLabel, accessibilityHint, testID, onLayout, scheme: fixed }: ChipProps) {
+  const own = useTheme();
+  const ownScheme = useSchemeName();
+  const scheme = fixed ?? ownScheme;
+  const theme = fixed ? Colors[fixed] : own;
   const scale = usePressScale();
   const ink = selected ? OnFill[scheme].ink : theme.text;
   return (

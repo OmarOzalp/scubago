@@ -53,7 +53,7 @@ interface Props {
 }
 
 /** How strongly a seen species' tile takes its rarity colour, per scheme. */
-const TINT = { light: 0.14, dark: 0.16 };
+const TINT = { light: 0.14, dark: 0.12 };
 
 /**
  * A species in a grid: its drawing on a square tile (seen: a soft tint of its rarity colour; still to find:

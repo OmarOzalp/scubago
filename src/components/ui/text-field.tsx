@@ -152,6 +152,8 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     paddingHorizontal: 14,
     outlineWidth: 0,
+    // 'solid' at 0 wide: the web's own 'auto' focus ring ignores the width and would draw inside the field's ring.
+    outlineStyle: 'solid',
   },
   multiline: {
     minHeight: 104,
@@ -189,6 +191,8 @@ const styles = StyleSheet.create({
     flex: 1,
     minHeight: Size.hit,
     outlineWidth: 0,
+    // 'solid' at 0 wide: the web's own 'auto' focus ring ignores the width and would draw inside the field's ring.
+    outlineStyle: 'solid',
   },
   clear: {
     width: Size.hit,
