@@ -564,7 +564,7 @@ export function SanctuaryScene({ habitat, level, residents, islands, paused = fa
         {holding === habitat && <HoldDrawing stager={stager} island={habitat} ready={seabedReady} onDone={() => setHolding(null)} />}
         <FirstFrame mark={marks.frame} episode={episode} complete={() => completeNow.current && stager.getState().done} />
         <FrameReport name={explorer ? 'explorer' : 'home'} />
-        <GovernorHold hold={!visible || !active || loading || !staged.done || picture.unseen} />
+        <GovernorHold hold={!visible || !active || loading || !staged.done || picture.unseen || holding !== null} />
         <FrameWatch watching={picture.watching} onDrawn={picture.onDrawn} />
         {__DEV__ && <ScenePerformance ready={!!models && !loading} active={active} />}
         {ISLAND_PERF && <IslandPerfProbe />}
