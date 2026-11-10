@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react'
 import { AccessibilityInfo, ActivityIndicator, Modal, StyleSheet, View, useWindowDimensions, type LayoutChangeEvent, type ViewInstance } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { OceanButton } from '@/components/ocean-button';
+import { Button } from '@/components/ui/button';
 import { ThemedText } from '@/components/themed-text';
 import { MaxContentWidth, Radius, Shadow } from '@/constants/theme';
 import { useSchemeName, useTheme } from '@/hooks/use-theme';
@@ -196,7 +196,7 @@ function PreviewBody({ onClose, reduced, title, cardLabel, children, fileName, r
             </ThemedText>
           ) : null}
           {busy && !reduced ? <ActivityIndicator color={theme.tint} accessibilityLabel="Making your picture" /> : null}
-          <OceanButton
+          <Button
             title={shareTitle}
             icon="share"
             disabled={busy || !ready}
@@ -205,7 +205,7 @@ function PreviewBody({ onClose, reduced, title, cardLabel, children, fileName, r
             onPress={() => void run('share')}
           />
           {api.canSaveCard ? (
-            <OceanButton
+            <Button
               title="Download"
               icon="download"
               variant="secondary"
@@ -214,7 +214,7 @@ function PreviewBody({ onClose, reduced, title, cardLabel, children, fileName, r
               onPress={() => void run('save')}
             />
           ) : null}
-          <OceanButton title="Close" variant="quiet" accessibilityLabel="Close the preview" onPress={onClose} />
+          <Button title="Close" variant="quiet" accessibilityLabel="Close the preview" onPress={onClose} />
         </View>
       </View>
     </View>

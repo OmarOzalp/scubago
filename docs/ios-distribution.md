@@ -319,7 +319,7 @@ What's in the repo for this:
   also has its own pre-rendered page, so its HTML matches what the app draws (no hydration
   warning); the rewrites cover ids the build can't know, such as sites divers add.
 - `src/app/+html.tsx` and `public/`: the home-screen name, icon and full-screen settings.
-- `src/app/(tabs)/_layout.tsx`: one tab bar drawn by the app (`src/components/journal/tab-bar.tsx`),
+- `src/app/(tabs)/_layout.tsx`: one tab bar drawn by the app (`src/components/ui/tab-bar.tsx`),
   the same on the web, iOS and Android.
 - `npm run build:web`: builds into `dist/`. It refuses to build without the Supabase settings, or if
   a secret key is set (see `check:env`).

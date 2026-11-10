@@ -8,7 +8,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { StyleSheet, Switch, View } from 'react-native';
 
 import { IconButton } from '@/components/journal/icon-button';
-import { OceanButton } from '@/components/ocean-button';
+import { Button } from '@/components/ui/button';
 import { cardFileName } from '@/components/share/card-spec';
 import { ThemedText } from '@/components/themed-text';
 import { useTheme } from '@/hooks/use-theme';
@@ -97,7 +97,7 @@ export function ShareDiscoveryButton({
   if (!data) return null;
   return (
     <>
-      <OceanButton
+      <Button
         title="Share this discovery"
         variant="secondary"
         icon="share"
@@ -159,7 +159,7 @@ export function ShareDiveButton({
       {variant === 'header' ? (
         <IconButton icon="share" size={44} accessibilityLabel="Share this page" accessibilityHint="Shows a picture of this logbook page to share" onPress={show} />
       ) : (
-        <OceanButton title="Share this page" variant="secondary" icon="share" accessibilityHint="Shows a picture of this logbook page to share" onPress={show} />
+        <Button title="Share this page" variant="secondary" icon="share" accessibilityHint="Shows a picture of this logbook page to share" onPress={show} />
       )}
       <SharePreview
         visible={open}

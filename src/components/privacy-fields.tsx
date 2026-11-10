@@ -2,7 +2,7 @@ import { StyleSheet, View } from 'react-native';
 
 import { FieldLabel } from '@/components/form-field';
 import { Disclosure } from '@/components/journal/disclosure';
-import { Segmented } from '@/components/segmented';
+import { Segmented } from '@/components/ui/segmented';
 import { ThemedText } from '@/components/themed-text';
 import { Space } from '@/constants/theme';
 import { privacyExplanation, type PrivacySettings } from '@/lib/privacy-choice';

@@ -6,7 +6,7 @@ import { router } from 'expo-router';
 import { shortRegion, SitePicker } from '../site-picker';
 import { ListRow } from '@/components/ui/list';
 import { SearchField } from '@/components/ui/text-field';
-import { OceanButton } from '@/components/ocean-button';
+import { Button } from '@/components/ui/button';
 import { SITES_BY_ID } from '@/data/sites';
 import { siteAddedBy } from '@/lib/site-details';
 import { searchSites } from '@/lib/text-search';
@@ -175,7 +175,7 @@ test('"Add a dive site" carries what was typed', async () => {
 
 test('"Can’t find it? Add a dive site" is right under the search field, 44 points tall, and not at the end of the list', async () => {
   await render();
-  expect(root.root.findAllByType(OceanButton)).toHaveLength(0);
+  expect(root.root.findAllByType(Button)).toHaveLength(0);
   // It is under the search field, in the same block, so it is in view with the search; the label line no longer holds it.
   const field = root.root.findByType(SearchField);
   expect(field.props.labelAccessory).toBeUndefined();

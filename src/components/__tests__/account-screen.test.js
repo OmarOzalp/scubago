@@ -5,7 +5,7 @@ import { router } from 'expo-router';
 import AuthScreen from '@/app/auth';
 
 jest.mock('@/global.css', () => ({}));
-jest.mock('expo-router', () => ({ router: { push: jest.fn(), back: jest.fn(), canGoBack: () => true, replace: jest.fn() } }));
+jest.mock('expo-router', () => ({ router: { push: jest.fn(), back: jest.fn(), canGoBack: () => true, replace: jest.fn() }, Stack: { Screen: ({ options }) => (options?.headerRight ? options.headerRight() : null) } }));
 jest.mock('expo-linking', () => ({ useLinkingURL: () => null, createURL: (path) => `scubago://${path}` }));
 jest.mock('react-native-safe-area-context', () => ({ useSafeAreaInsets: () => ({ top: 0, bottom: 0, left: 0, right: 0 }) }));
 jest.mock('react-native-reanimated', () => ({ __esModule: true, useReducedMotion: () => true, default: { View: require('react-native').View } }));
@@ -40,6 +40,13 @@ describe('the setup rows that moved here from the Logbook', () => {
     expect(router.push).toHaveBeenLastCalledWith('/dive/count');
     await act(async () => button('Buddy code. Confirm a buddy’s sighting or dive')[0].props.onPress());
     expect(router.push).toHaveBeenLastCalledWith('/verify');
+  });
+
+  test('signed in: Delete account is the bar’s “More account actions” menu, not a loose button under Sign out', async () => {
+    mockUser = { id: 'u1', username: 'diver-ab12' };
+    await render();
+    expect(button('More account actions').length).toBeGreaterThan(0);
+    expect(texts()).not.toContain('Delete account');
   });
 
   test('the dives before ScubaGo are a status on the row, once there are some, and nothing when there are none', async () => {

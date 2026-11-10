@@ -75,10 +75,10 @@ The Log flow's own pieces (`src/components/dive/`): `BottomBar` (the pinned acti
 Helpers: `useSurface()` (the card surface as a style, for a surface that isn't a Card, such as the map's
 frame), `usePressScale()` (press feedback for a custom pressable), `continuous` (iOS squircle corners).
 
-The old journal pieces (`journal/chip`, `journal/tag`, `journal/progress-bar`, `journal/icon-button`,
-`journal/paper`, `ocean-button`, `segmented`, `NewBadge`, `journal/tab-bar`) now draw as the primitives
-above, so unmigrated screens already lose border-plus-shadow cards and outlined buttons. Don't use them in
-new code; `LinkRow` (now a one-row `List`), `Ledger` and `ScreenHeader`/`SectionHeader` still exist for unmigrated screens.
+The old journal pieces (`journal/chip`, `journal/tag`, `journal/progress-bar`, `journal/paper`, `journal/screen`
+(`ScreenHeader`/`SectionHeader`), `journal/link-row`, `journal/tab-bar`, `ocean-button`, the old `segmented`) are gone:
+every screen builds from the primitives above. `journal/icon-button`, `Ledger`, `Disclosure`, the stamp and `NewBadge`
+remain, as drawn pieces of the logbook rather than shared controls.
 
 ## How to build (or migrate) a screen
 

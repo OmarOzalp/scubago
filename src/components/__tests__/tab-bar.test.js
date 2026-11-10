@@ -2,7 +2,7 @@ import { afterEach, beforeEach, expect, jest, test } from '@jest/globals';
 import React, { act } from 'react';
 import { create } from 'react-test-renderer';
 import { router } from 'expo-router';
-import { JournalTabBar } from '@/components/journal/tab-bar';
+import { TabBar as JournalTabBar } from '@/components/ui/tab-bar';
 import { Colors } from '@/constants/theme';
 
 jest.mock('@/global.css', () => ({}));

@@ -3,7 +3,7 @@ import React, { act } from 'react';
 import { StyleSheet } from 'react-native';
 import { create } from 'react-test-renderer';
 
-import { Chip } from '@/components/journal/chip';
+import { Chip } from '@/components/ui/chip';
 
 // The theme module imports the web stylesheet, which Jest can't parse.
 jest.mock('@/global.css', () => ({}));
