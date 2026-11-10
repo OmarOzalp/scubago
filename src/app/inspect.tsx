@@ -1,3 +1,4 @@
+import { useSyncExternalStore } from 'react';
 import { ActivityIndicator, Platform, StyleSheet, View } from 'react-native';
 import { SceneCanvas as Canvas } from '@/components/home/three/scene-canvas';
 import { SceneBoundary, SceneUnavailable } from '@/components/home/scene-boundary';
@@ -13,6 +14,8 @@ import { useTheme } from '@/hooks/use-theme';
 import { useSceneActive } from '@/hooks/use-scene-active';
 import { inspectionModel, MARINE_ART } from '@/lib/marine-art';
 
+const noSubscription = () => () => undefined;
+
 /** A closer look at one of the swimming rigs, turning slowly in open water. */
 export default function InspectScreen() {
   const theme = useTheme();
@@ -21,7 +24,12 @@ export default function InspectScreen() {
   const about = model ? MARINE_ART[model] : null;
   const active = useSceneActive();
   const { models, failed, retry } = useMarineModels(model ? [model] : []);
+  // On the web this page is pre-rendered as HTML at build time, when it has no ?species= or ?model=, so the HTML says "No swimming
+  // model". The first client render does have them, and React rejects the mismatch (error #418). While hydrating, draw what the HTML
+  // had (an empty page); the real page follows at once.
+  const hydrated = useSyncExternalStore(noSubscription, () => true, () => false);
 
+  if (!hydrated) return <ThemedView style={styles.root} />;
   if (!model || !about) return <ThemedView style={styles.root}><ThemedText style={styles.empty}>No swimming model is available for this selection.</ThemedText></ThemedView>;
 
   return <ThemedView style={styles.root}>
