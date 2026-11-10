@@ -197,7 +197,7 @@ export default function SightingDetailScreen() {
         <SpeciesAvatar species={species} size={84} showRarityRing={!unlisted} />
         <View style={styles.speciesText}>
           <Text style={[styles.speciesName, { color: theme.text }]}>{species.commonName}</Text>
-          <ThemedText type="caption" themeColor="textSecondary">
+          <ThemedText type="scientific" themeColor="textSecondary">
             {species.scientificName}
           </ThemedText>
           {unlisted ? null : (

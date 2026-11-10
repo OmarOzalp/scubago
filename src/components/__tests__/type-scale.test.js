@@ -13,9 +13,18 @@ describe('the type scale', () => {
     expect(Math.min(...sizes)).toBeGreaterThanOrEqual(13);
   });
 
-  test('a label is a normal-case title, not small capitals', () => {
+  test('a label is a normal-case title, not small capitals: footnoteStrong, tracked no more than the scale says', () => {
     expect(TextStyles.label.textTransform).toBeUndefined();
-    expect(TextStyles.label.letterSpacing ?? 0).toBe(0);
+    expect(TextStyles.label).toEqual(TextStyles.footnoteStrong);
+    expect(TextStyles.label.letterSpacing ?? 0).toBeLessThanOrEqual(0.1);
+  });
+
+  test('the old names are drawn as styles of the v2 scale, and only titles and figures are serif', () => {
+    expect(TextStyles.small).toEqual(TextStyles.subhead);
+    expect(TextStyles.heading).toEqual(TextStyles.headline);
+    expect(TextStyles.default).toEqual(TextStyles.body);
+    const serif = Object.entries(TextStyles).filter(([, s]) => /^Fraunces/.test(s.fontFamily)).map(([name]) => name).sort();
+    expect(serif).toEqual(['display', 'figure', 'hero', 'number', 'scientific', 'subtitle', 'title']);
   });
 });
 

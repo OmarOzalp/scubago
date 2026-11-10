@@ -1,116 +1,40 @@
 import { StyleSheet, Text, type TextProps } from 'react-native';
 
-import { ThemeColor, Type } from '@/constants/theme';
+import { ThemeColor, Type, TypeScale, type TypeName } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 
+/**
+ * The old type names, kept so unmigrated screens compile, each drawn as a style of the v2 scale
+ * (docs/design.md): `small` is subhead, `heading` is headline, `caption` is callout (no italic: that is
+ * for scientific names, `scientific`), `label` is footnoteStrong in the secondary colour, `number` is figure.
+ */
+type OldName = 'default' | 'small' | 'smallBold' | 'subtitle' | 'link' | 'linkPrimary' | 'code' | 'heading' | 'caption' | 'label' | 'number';
+
 export type ThemedTextProps = TextProps & {
-  type?:
-    | 'default'
-    | 'title'
-    | 'small'
-    | 'smallBold'
-    | 'subtitle'
-    | 'link'
-    | 'linkPrimary'
-    | 'code'
-    /** Fraunces: a screen's title. */
-    | 'display'
-    /** Fraunces: a section's title. */
-    | 'heading'
-    /** Fraunces italic: captions and scientific names. */
-    | 'caption'
-    /** Figtree semibold, normal case: a field's or a row's label. */
-    | 'label'
-    /** Fraunces: a figure in a ledger (dives, depth, species). */
-    | 'number';
+  type?: TypeName | OldName;
   themeColor?: ThemeColor;
 };
 
-export function ThemedText({ style, type = 'default', themeColor, ...rest }: ThemedTextProps) {
+export function ThemedText({ style, type = 'body', themeColor, ...rest }: ThemedTextProps) {
   const theme = useTheme();
-
-  return (
-    <Text
-      style={[
-        { color: theme[themeColor ?? (type === 'label' ? 'textSecondary' : 'text')] },
-        styles[type],
-        style,
-      ]}
-      {...rest}
-    />
-  );
+  const quiet = type === 'label';
+  return <Text style={[{ color: theme[themeColor ?? (quiet ? 'textSecondary' : type === 'linkPrimary' ? 'tint' : 'text')] }, styles[type], style]} {...rest} />;
 }
 
-/** The same styles, for places that render their own <Text>. */
+/** The same styles, for places that render their own <Text>: the v2 scale, then the old names mapped onto it. */
 export const TextStyles = StyleSheet.create({
-  default: {
-    fontFamily: Type.body,
-    fontSize: 16,
-    lineHeight: 24,
-  },
-  small: {
-    fontFamily: Type.body,
-    fontSize: 14,
-    lineHeight: 20,
-  },
-  smallBold: {
-    fontFamily: Type.bodyBold,
-    fontSize: 14,
-    lineHeight: 20,
-  },
-  title: {
-    fontFamily: Type.display,
-    fontSize: 40,
-    lineHeight: 46,
-    letterSpacing: -0.4,
-  },
-  subtitle: {
-    fontFamily: Type.display,
-    fontSize: 28,
-    lineHeight: 34,
-    letterSpacing: -0.2,
-  },
-  display: {
-    fontFamily: Type.display,
-    fontSize: 34,
-    lineHeight: 40,
-    letterSpacing: -0.3,
-  },
-  heading: {
-    fontFamily: Type.display,
-    fontSize: 21,
-    lineHeight: 27,
-  },
-  caption: {
-    fontFamily: Type.displayItalic,
-    fontSize: 15,
-    lineHeight: 21,
-  },
-  label: {
-    fontFamily: Type.bodySemiBold,
-    fontSize: 13,
-    lineHeight: 18,
-  },
-  number: {
-    fontFamily: Type.display,
-    fontSize: 28,
-    lineHeight: 32,
-  },
-  link: {
-    fontFamily: Type.bodyBold,
-    lineHeight: 30,
-    fontSize: 14,
-  },
-  linkPrimary: {
-    fontFamily: Type.bodyBold,
-    lineHeight: 30,
-    fontSize: 14,
-    color: '#0E6F78',
-  },
-  code: {
-    fontFamily: Type.label,
-    fontSize: 13,
-  },
+  ...TypeScale,
+  default: TypeScale.body,
+  small: TypeScale.subhead,
+  smallBold: TypeScale.subheadStrong,
+  subtitle: TypeScale.title,
+  heading: TypeScale.headline,
+  caption: TypeScale.callout,
+  label: TypeScale.footnoteStrong,
+  number: TypeScale.figure,
+  link: TypeScale.subheadStrong,
+  linkPrimary: TypeScale.subheadStrong,
+  code: { ...TypeScale.footnote, fontFamily: Type.label },
 });
 
 const styles = TextStyles;

@@ -219,7 +219,7 @@ export default function SpeciesDetailScreen() {
           <ThemedText type="display" accessibilityRole="header" style={styles.center}>
             {species.commonName}
           </ThemedText>
-          <ThemedText type="caption" themeColor="textSecondary" style={styles.center}>
+          <ThemedText type="scientific" themeColor="textSecondary" style={styles.center}>
             {species.scientificName}
           </ThemedText>
           {/* The tag and the row that opens where it comes from, side by side. All of it is still here, with the link to Data & credits. */}
