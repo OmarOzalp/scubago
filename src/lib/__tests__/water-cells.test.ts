@@ -3,6 +3,8 @@ import { createShoreField, type IslandShape } from '../island-outline';
 import { hullOf, marginOf, tooShallow, tooShallowCells } from '../marine-bodies';
 import { MOVEMENT, STEEPEST_BOTTOM } from '../marine-motion';
 import { createSeabed, edgeSide, FIELD_GRID, openedCells } from '../seabed';
+import { SCHOOL_SHELF, shelfWater } from '../shelf-water';
+import { frame, TAU, worldFor, type World } from '../steering';
 
 // The animals' water worked out a cheaper way (a whole grid at once, only the sign where only the sign is asked, the thin streaks opened
 // without two more fields) gives exactly what it gave before: the same cells too shallow, the same side of their edge, the same opening.
@@ -39,4 +41,40 @@ test('the opening of places that are everywhere, or nowhere, is nothing', () => 
   expect(openedCells(new Uint8Array(columns * rows).fill(1)).some((c) => c === 1)).toBe(false);
   expect(openedCells(new Uint8Array(columns * rows)).some((c) => c === 1)).toBe(false);
   expect(edgeSide(new Uint8Array(columns * rows).fill(1))(0, 0)).toBe(1e3);
+});
+
+// The shelf as it was worked out before: every direction looked along out from the island's middle to the edge of the ocean.
+function shelfBefore(world: World, shallow: (x: number, z: number) => boolean, fit?: { ring: number; reach: number; cut: number }) {
+  const cut = (w: World, width: number) => {
+    let count = 0;
+    for (let k = 0; k < 72; k++) {
+      const ux = Math.cos(k * TAU / 72), uz = Math.sin(k * TAU / 72);
+      let run = 0, longest = 0;
+      for (let r = .5; r < 14 && frame(ux * r, uz * r, w).edge <= 1 - .02; r += .05) { if (shallow(ux * r, uz * r)) run = 0; else longest = Math.max(longest, run += .05); }
+      if (longest < width) count++;
+    }
+    return count;
+  };
+  const ring = fit?.ring ?? .4, reach = fit?.reach ?? 1.15, allowed = 72 * (fit?.cut ?? .05);
+  let factor = 1, count = cut(world, ring);
+  while (factor < reach && count > allowed) { factor = Math.min(reach, factor + .05); count = cut({ x: world.x * factor, z: world.z * factor }, ring); }
+  return factor;
+}
+
+test('the ocean a big body keeps to on a wide shelf is as it was', () => {
+  let wider = 0;
+  for (const [shape, level] of [['reef', 6], ['reef', 4], ['reef', 1], ['kelp', 6], ['wreck', 5]] as [IslandShape, number][]) {
+    const seabed = createSeabed(level, shape), field = createShoreField(level, shape);
+    for (const model of ['whale-shark', 'reef-manta', 'humpback-whale', 'grey-reef-shark', 'leatherback-turtle'] as const) {
+      const hull = hullOf(model), side = edgeSide(tooShallowCells(seabed, field, hull, marginOf(hull), 0, Infinity));
+      const shallow = (x: number, z: number) => side(x, z - .4) < 0;
+      for (const fit of [undefined, SCHOOL_SHELF]) {
+        const factor = shelfWater({ world: worldFor(level), shallow, fit }).factor;
+        expect(factor).toBe(shelfBefore(worldFor(level), shallow, fit));
+        if (factor > 1) wider++;
+      }
+    }
+  }
+  // (some of them are given a wider ocean, so that way is checked too)
+  expect(wider).toBeGreaterThan(2);
 });

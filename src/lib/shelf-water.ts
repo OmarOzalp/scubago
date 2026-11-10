@@ -50,20 +50,28 @@ export type ShelfWater = {
   factor: number;
 };
 
+/** The distances looked at along each direction (units from the island's middle), and the directions. */
+const ALONG = (() => { const at: number[] = []; for (let r = .5; r < 14; r += .05) at.push(r); return Float64Array.from(at); })();
+const DIRECTIONS = Array.from({ length: RAYS }, (_, k) => [Math.cos(k * TAU / RAYS), Math.sin(k * TAU / RAYS)] as const);
+
 /**
  * How many of the directions (of `RAYS`, round the island) have no stretch of `width` of the water the body fits in inside the ocean
- * `world` (the shelf reaches the edge of the view there).
+ * `world` (the shelf reaches the edge of the view there). `shallow(k, s)`: whether the place `ALONG[s]` out along direction `k` is too
+ * shallow for it. Each direction is looked along from where the ocean ends inward, until a stretch wide enough is found (the open sea is
+ * usually the first), rather than out from the island's middle across the island, the lagoon and the reef: the same stretches either way.
  */
-function cutDirections(world: World, shallow: ShelfInput['shallow'], width: number) {
+function cutDirections(world: World, shallow: (k: number, s: number) => boolean, width: number) {
   let count = 0;
   for (let k = 0; k < RAYS; k++) {
-    const ux = Math.cos(k * TAU / RAYS), uz = Math.sin(k * TAU / RAYS);
-    let run = 0, longest = 0;
-    // (looked along only until a stretch wide enough is found: the rest of the way cannot cut it off)
-    for (let r = .5; r < 14 && longest < width && edgeOf(ux * r, uz * r, world) <= 1 - HOLD; r += .05) {
-      if (shallow(ux * r, uz * r)) run = 0; else longest = Math.max(longest, run += .05);
+    const [ux, uz] = DIRECTIONS[k];
+    // Where the ocean ends along it: the first place past its bound (the bound only grows outward).
+    let lo = 0, hi = ALONG.length;
+    while (lo < hi) { const s = (lo + hi) >> 1; if (edgeOf(ux * ALONG[s], uz * ALONG[s], world) <= 1 - HOLD) lo = s + 1; else hi = s; }
+    let run = 0, open = false;
+    for (let s = lo - 1; s >= 0 && !open; s--) {
+      if (shallow(k, s)) run = 0; else open = (run += .05) >= width;
     }
-    if (longest < width) count++;
+    if (!open) count++;
   }
   return count;
 }
@@ -80,10 +88,17 @@ function edgeOf(x: number, z: number, world: World) {
  */
 export function shelfWater({ world, shallow, fit }: ShelfInput): ShelfWater {
   const ring = fit?.ring ?? RING, reach = fit?.reach ?? REACH, allowed = RAYS * (fit?.cut ?? CUT);
-  let factor = 1, count = cutDirections(world, shallow, ring);
+  // (each place judged once, however many oceans are tried: 0 not yet, 1 open, 2 too shallow)
+  const seen = new Uint8Array(RAYS * ALONG.length);
+  const judged = (k: number, s: number) => {
+    const n = k * ALONG.length + s;
+    if (!seen[n]) { const [ux, uz] = DIRECTIONS[k]; seen[n] = shallow(ux * ALONG[s], uz * ALONG[s]) ? 2 : 1; }
+    return seen[n] === 2;
+  };
+  let factor = 1, count = cutDirections(world, judged, ring);
   while (factor < reach && count > allowed) {
     factor = Math.min(reach, factor + .05);
-    count = cutDirections({ x: world.x * factor, z: world.z * factor }, shallow, ring);
+    count = cutDirections({ x: world.x * factor, z: world.z * factor }, judged, ring);
   }
   return { factor };
 }

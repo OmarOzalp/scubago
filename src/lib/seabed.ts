@@ -223,28 +223,42 @@ function distanceToMask(inside: Uint8Array, columns: number, rows: number) {
   return grid;
 }
 
+/** The baked grid's nodes taken three by three each way (`BLOCK`): each block's highest and lowest, for `solidRange`. */
+const BLOCK = 3, BLOCK_COLUMNS = Math.ceil(COLUMNS / BLOCK), BLOCK_ROWS = Math.ceil(ROWS / BLOCK);
+function blockRange(grid: Float32Array) {
+  const high = new Float32Array(BLOCK_COLUMNS * BLOCK_ROWS).fill(-Infinity), low = new Float32Array(BLOCK_COLUMNS * BLOCK_ROWS).fill(Infinity);
+  for (let j = 0; j < ROWS; j++) {
+    const row = ((j / BLOCK) | 0) * BLOCK_COLUMNS;
+    for (let i = 0; i < COLUMNS; i++) {
+      const h = grid[j * COLUMNS + i], b = row + ((i / BLOCK) | 0);
+      if (h > high[b]) high[b] = h;
+      if (h < low[b]) low[b] = h;
+    }
+  }
+  return { high, low };
+}
+
 /**
  * The highest and lowest of a baked grid (`grid`, read as `lookup` reads it: bilinear between its nodes, held at its edge) within `reach`
- * of each cell of the fields' grid: over the nodes that any point that near can be read from (a node to spare each way), a row's range
- * across first and then down the rows (`Seabed.solidAround`).
+ * of each cell of the fields' grid: over the blocks of nodes (`blocks`, `blockRange`) holding every node that any point that near can be
+ * read from (a node to spare each way), a row of blocks' range across first and then down the rows (`Seabed.solidAround`).
  */
-function solidRange(grid: Float32Array, reach: number) {
+function solidRange(blocks: { high: Float32Array; low: Float32Array }, reach: number) {
   const { columns: fc, rows: fr, step: fs } = FIELD_GRID;
-  // The nodes a cell's points are read from, across (i) and down (j).
+  // The blocks holding the nodes a cell's points are read from, across (i) and down (j).
   const span = (centre: number, size: number) => {
     const lo = Math.floor((centre - reach) / STEP) - 1, hi = Math.floor((centre + reach) / STEP) + 2;
-    return [Math.min(Math.max(0, lo), size - 2), Math.max(Math.min(size - 1, hi), 1)];
+    return [(Math.min(Math.max(0, lo), size - 2) / BLOCK) | 0, (Math.max(Math.min(size - 1, hi), 1) / BLOCK) | 0];
   };
   const across = Array.from({ length: fc }, (_, i) => span(i * fs, COLUMNS)), down = Array.from({ length: fr }, (_, j) => span(j * fs, ROWS));
-  // Each row of nodes' range over each cell's columns.
-  const rowHigh = new Float32Array(ROWS * fc), rowLow = new Float32Array(ROWS * fc);
-  for (let j = 0; j < ROWS; j++) {
-    const row = j * COLUMNS;
+  const rowHigh = new Float32Array(BLOCK_ROWS * fc), rowLow = new Float32Array(BLOCK_ROWS * fc);
+  for (let b = 0; b < BLOCK_ROWS; b++) {
+    const row = b * BLOCK_COLUMNS;
     for (let c = 0; c < fc; c++) {
       const [i0, i1] = across[c];
       let high = -Infinity, low = Infinity;
-      for (let i = i0; i <= i1; i++) { const h = grid[row + i]; if (h > high) high = h; if (h < low) low = h; }
-      rowHigh[j * fc + c] = high; rowLow[j * fc + c] = low;
+      for (let i = i0; i <= i1; i++) { const h = blocks.high[row + i], l = blocks.low[row + i]; if (h > high) high = h; if (l < low) low = l; }
+      rowHigh[b * fc + c] = high; rowLow[b * fc + c] = low;
     }
   }
   const high = new Float32Array(fc * fr), low = new Float32Array(fc * fr);
@@ -548,12 +562,13 @@ export function createSeabed(level: number, shape: IslandShape = 'reef', among?:
       // (kept by reach rounded up to a quarter unit: a little more reach only ever widens the range)
       const reach = Math.ceil(around * 4 - 1e-9) / 4, kept = ranges.get(reach);
       if (kept) return kept;
-      const made = solidRange(solid, reach);
+      const made = solidRange(blocks ??= blockRange(solid), reach);
       ranges.set(reach, made);
       return made;
     },
   };
   const ranges = new Map<number, { high: Float32Array; low: Float32Array }>();
+  let blocks: { high: Float32Array; low: Float32Array } | null = null;
   seabeds.set(key, seabed);
   if (seabeds.size > KEPT) seabeds.delete(seabeds.keys().next().value!);
   return seabed;

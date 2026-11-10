@@ -251,6 +251,8 @@ function shallowJudge(seabed: Seabed, hull: Hull, margin: number, tilt: number, 
   // its fin tips) with only its nose's and tail's depths swapped: the bottom is read under them once.
   const end = .75 * hull.length, side = .85 * hull.width, mid = (hull.keel + hull.wing) / 2, { keel, wing, nose, tail } = hull;
   const headings = headingsFor(Math.max(end, side));
+  // (each heading's turn, its cosine and sine, worked out once)
+  const turns = Array.from({ length: headings }, (_, k) => SWING * (2 * k / (headings - 1) - 1)), cosines = turns.map(Math.cos), sines = turns.map(Math.sin);
   const judge = (x: number, z: number, snx: number, snz: number) => {
     // Its heading along the coast: along is (-nz, nx), across (nx, nz); and turned either way by `SWING`, as lanes and turns have it (a wing
     // sweeping round over a crest that it clears when abreast of it).
@@ -258,7 +260,7 @@ function shallowJudge(seabed: Seabed, hull: Hull, margin: number, tilt: number, 
     const f0 = solid(x, z), fm = Math.max(f0 + keel, seabed.floor(x, z) + keel) + margin;
     if (fm > top) return true;
     for (let k = 0; k < headings; k++) {
-      const turn = SWING * (2 * k / (headings - 1) - 1), c = Math.cos(turn), q = Math.sin(turn);
+      const turn = turns[k], c = cosines[k], q = sines[k];
       const ax = -snz * c + snx * q, az = snx * c + snz * q, nx = snx * c - -snz * q, nz = snz * c - snx * q;
       const fn = solid(x + ax * end, z + az * end), ft = solid(x - ax * end, z - az * end);
       const fa = solid(x + nx * side / 2, z + nz * side / 2), fb = solid(x - nx * side / 2, z - nz * side / 2);
