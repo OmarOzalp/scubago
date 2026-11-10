@@ -3,8 +3,8 @@ import React, { act } from 'react';
 import { create } from 'react-test-renderer';
 
 /**
- * HoldDrawing (an island switch on Home keeps the island it leaves until the next is whole) and IslandsWhole (the explorer's veil lifts
- * once the islands in view are whole), driven frame by frame; and the canvas's quality governor as SceneCanvas uses it.
+ * HoldDrawing (an island switch on Home keeps the island it leaves until the next is whole), driven frame by frame; and the canvas's
+ * quality governor as SceneCanvas uses it.
  */
 const mockFrames = [];
 const mockInvalidate = jest.fn();
@@ -31,7 +31,7 @@ jest.mock('../island-scene', () => ({ IslandScene: () => null }));
 jest.mock('../three/seabed-files', () => ({ SEABED_FILES: {} }));
 jest.mock('expo-router', () => ({ router: { push: jest.fn() } }));
 
-const { HoldDrawing, IslandsWhole } = require('../sanctuary-scene');
+const { HoldDrawing } = require('../sanctuary-scene');
 const { STAGE } = require('../three/stager');
 const { GovernorHold, GovernorContext, useCanvasGovernor } = require('../three/governor');
 
@@ -73,21 +73,6 @@ test('HoldDrawing lets go after 1.5 s however long the island takes, even with n
   expect(onDone).not.toHaveBeenCalled();
   await act(async () => { jest.advanceTimersByTime(200); });
   expect(onDone).toHaveBeenCalledTimes(1);
-});
-
-test('IslandsWhole draws as usual (priority 0) and says so once every island in view is whole', async () => {
-  const pending = new Set(['reef', 'kelp']), onWhole = jest.fn();
-  let inView = ['reef'];
-  await act(async () => { root = create(<IslandsWhole stager={fakeStager(pending)} inView={() => inView} onWhole={onWhole} />); });
-  expect(latest().priority).toBe(0);
-  await frame(); await frame(); await frame();
-  pending.delete('reef');
-  inView = ['reef', 'kelp'];
-  await frame();
-  expect(onWhole).not.toHaveBeenCalled();
-  pending.delete('kelp');
-  await frame();
-  expect(onWhole).toHaveBeenCalledTimes(1);
 });
 
 test('the canvas governor: its level is the canvas’s, and GovernorHold stops it judging', async () => {
