@@ -175,7 +175,7 @@ function SignDiveScreen() {
                 {error}
               </Text>
             ) : null}
-            <Button title={saving ? 'Signing…' : 'Sign this page'} icon={saving ? undefined : 'signature'} variant="log" onPress={() => void sign()} disabled={saving || !name.trim() || !svg} />
+            <Button title={saving ? 'Signing…' : 'Sign this page'} icon={saving ? undefined : 'signature'} onPress={() => void sign()} disabled={saving || !name.trim() || !svg} />
             {!name.trim() || !svg ? (
               <Text style={[TypeScale.subhead, styles.center, { color: theme.textSecondary }]}>{!name.trim() ? 'Write their name' : 'Sign in the box'} to sign the page.</Text>
             ) : null}
