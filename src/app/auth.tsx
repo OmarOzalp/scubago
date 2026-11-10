@@ -1,5 +1,5 @@
 import * as Linking from 'expo-linking';
-import { router } from 'expo-router';
+import { router, Stack } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Platform, StyleSheet, View, type TextInputInstance } from 'react-native';
 
@@ -115,6 +115,14 @@ function Account({ username }: { username: string }) {
 
   return (
     <Screen kind="modal">
+      {/* The rare, permanent action waits in the bar's "…", as on a dive's page, not loose under Sign out. */}
+      <Stack.Screen
+        options={{
+          headerRight: busy
+            ? undefined
+            : () => <MoreMenu accessibilityLabel="More account actions" items={[{ label: 'Delete account', icon: 'trash', destructive: true, onPress: () => void removeAccount() }]} />,
+        }}
+      />
       <Card style={styles.centred}>
         <IconTile icon="account" size={56} />
         <View style={styles.nameplate}>
@@ -144,11 +152,7 @@ function Account({ username }: { username: string }) {
         <View style={styles.spinner}>
           <ActivityIndicator color={theme.tint} accessibilityLabel="Deleting your account" />
         </View>
-      ) : (
-        <View style={styles.moreRow}>
-          <MoreMenu accessibilityLabel="More account actions" items={[{ label: 'Delete account', icon: 'trash', destructive: true, onPress: () => void removeAccount() }]} />
-        </View>
-      )}
+      ) : null}
     </Screen>
   );
 }
@@ -463,7 +467,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginTop: -Space.s2,
   },
-  moreRow: { alignItems: 'center' },
   error: {
     flexDirection: 'row',
     alignItems: 'flex-start',
