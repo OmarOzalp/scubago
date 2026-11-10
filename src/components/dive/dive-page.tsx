@@ -322,6 +322,7 @@ export function DivePage({
             title={signatures.length ? 'Add a signature' : 'Ask your buddy to sign this page'}
             icon="signature"
             variant="secondary"
+            style={styles.signButton}
             onPress={() => router.push({ pathname: '/dive/sign', params: { id: dive.id } })}
           />
           {signatures.length === 0 ? (
@@ -378,6 +379,8 @@ const styles = StyleSheet.create({
   stars: { flexDirection: 'row', gap: 2 },
   notes: { gap: Space.s1 },
   signed: { gap: Space.s3 },
+  // On a logbook page the card is narrow: less padding so "Ask your buddy to sign this page" stays on one line at 393.
+  signButton: { paddingHorizontal: Space.s3 },
   signature: { gap: 2, paddingTop: Space.s1 },
   signLine: { borderTopWidth: 1, paddingTop: Space.s1 },
   stampRow: { flexDirection: 'row', alignItems: 'center', gap: Space.s3, paddingVertical: Space.s2 },
