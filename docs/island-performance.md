@@ -1230,3 +1230,83 @@ zoom; the turn's long task; startup trims.
 To read in the phone report: the first line (a development build is much slower); "Scene: explorer" JS per frame against its frame time
 (JS near the frame time: the phone is JavaScript-bound, and the governor should show "swimming at 30 steps"); the counts "quality governor to
 ..." (which ladder it used, and whether it flapped); stalls over 250 ms; the explorer's open and Home's switches (frame and done).
+
+## An animal's turn without a stall, the switch without a blank, a first launch with its island (10 November 2026, round 3)
+
+All numbers here are from this container: Chromium with V8's JIT off (`--no-opt --no-maglev --no-sparkplug --no-turbofan`, the stand-in for
+Hermes), SwiftShader, the heavy collection (62 species, five islands, level 6) unless said, the browser cache off; or `node --jitless`. None
+is a phone number.
+
+### The water an animal swims in, worked out for less and ahead of its turn
+
+What each animal body cost (`waterFor`, marine-motion.ts): the cells of a 64 x 58 grid too shallow for it (`tooShallow` asked at every cell:
+the coast's direction there, then up to nine headings of six bottom lookups), four distance fields over that grid (the shallows, then two more
+to open their thin streaks, then the water it keeps to), and the shelf (72 rays walked out from the island's middle, up to four times). About
+100 ms a body under `node --jitless`, 85-190 ms in the browser's interpreter, in one task at each turn, and 1.0 s of a launch.
+
+Same answers for less (each checked against the old way in `water-cells.test.ts`; the swimming's fingerprints over every island shape at levels
+1, 3 and 6 are identical, and verify:swim's whole report is the same line for line at 60 and at 30 steps):
+- the cells are judged for the whole grid at once (`tooShallowCells`): the coast's direction per cell once per island (`coastAt`), and a cell
+  where even the highest bottom within the body's reach leaves it under the surface (`Seabed.solidAround`, from 3 x 3 blocks of the baked grid)
+  is open water without judging each heading;
+- only the sign of the shallows' field was ever read, so it is found from the eight cells round each one (`edgeSide`), not a distance field;
+- the thin streaks are opened by one cell directly (`openedCells`: the old threshold of a cell and a half on two fields is exactly that);
+- a shelf ray is looked along from where the ocean ends inward until a wide enough stretch is found, each place judged once however many
+  oceans are tried.
+
+And ahead (`motion.prepare`, run in slices of about 6 ms with `runSliced`): each island's next species is already known (its model was loaded
+ahead of its turn); four seconds after it is, its water is worked out a few rows at a time, then its model's measures as an animal of it mounts
+(where along its body each vertex is for the dive fade, `prepareUnderwater`'s `source`; its body's box for a tap target), on a clone of its own,
+kept for every clone (verify:underwater checks the kept measures equal a clone's own). Should the turn come first it is all worked out as it
+joins, as before.
+
+Measured (explorer at rest 150 s after it is built, JIT off; every main-thread task from Chromium's trace, each with the CPU profile's samples
+in it; two runs each, alternating; `loop11/render3/tasks`):
+
+| | before | after |
+| --- | ---: | ---: |
+| Turns whose task was over 50 ms | 9 of 9, 9 of 9 | 0, 0 |
+| ... those tasks | 111-234 ms (the water 84-189 ms of each) | none; the longest task with any of a turn's work in it 38 / 46 ms (the 46 is a model measured ahead; a join itself at most 22 ms) |
+| Water in 150 s, in all | 1071 / 1128 ms | 311 / 275 ms (and 178 / 167 ms of models measured ahead) |
+
+Startup (Home, from navigation to "built", JIT off, small window, CPU profile; two runs each): the water 1032 / 1003 ms before, 345 / 343 ms
+after; joining in all (`add`, what the brief calls starting the swimming) 1073 / 1038 ms before, 384 / 398 ms after; "built" at 4.36 / 4.37 s
+before, 3.71 / 4.10 s after. With the reef-only profile: the water 612 / 625 ms before, 176 / 206 ms after. Under `node --jitless`, an animal
+joining with its water prepared takes 4-9 ms (99-136 ms before); the prepared slices are 7-8 ms at most.
+
+### The blank card on an island switch
+
+The cause, from the evidence: a switch to an island not visited before loads that island's seabed as it is tapped (the request goes out with
+the tap, `mangrove-6....bin` in `film/sw-base-x4c.json`); until it is there the scene draws only the water's colour, nothing of the island has
+begun to build, nothing is pending, and the hold that keeps the island being left (HoldDrawing) let go after two frames. Filmed with that load
+made 0.8 s slower (`film/sw-base-x4-slow-sheet.png`, 4x CPU): the card is the water's flat colour from 0.84 to 1.24 s, then the island with
+its places empty until 1.8 s. A second, rarer cause, filmed at rest (`film/sw-b-x1`): the quality governor resizing the canvas clears it, and
+in SwiftShader's slow frames the cleared card shows until the next.
+
+Fixed: the hold waits for the seabed too (4 s at most in all, 1.5 s once it is there); every island's seabed is loaded ahead once the card is
+idle; the governor does not resize the canvas during a hold; the title changes when the card's picture does (`onShown`), not when the pill is
+tapped. Filmed after, at 1x and 4x, with and without the slowed load (`film/sw-b-x1`, `sw-b-x4`, `sw-b-x1-slow`, `sw-b-x4-slow`): the island
+left stays until the new one is whole, no blank frame and no empty island; the two-line title ("Mangroves & Seagrass") comes with the new
+picture (one screencast frame after it at 4x). The cross-fade was not done: on a phone it needs a picture of the frame being left, read back
+from the GL view at the tap (`takeSnapshotAsync`: a long task exactly when the switch should feel quick), or both islands drawn at once.
+
+### Nothing off screen pays (checked; nothing changed)
+
+Explorer at rest, JIT off, small window, one run each: at the default zoom JS a frame mean / p50 / p95 38 / 35 / 58 ms, of which the
+swimming's step is half (1452 ms of 20 s); zoomed in on one island (six zoom-ins) 6.1 / 5.5 / 10.8 ms, the step 325 ms. What is off screen
+already costs nothing: an island whose water is out of view does not step its swimming (they rest where they are and go on from there), an
+animal off screen has its skeleton and matrices frozen and is not drawn, and three.js stops at its group. At the default zoom every island is in
+view: what is left is the visible animals' own swimming (the steering's shore lookups) and three.js's render. Updating tiny animals' rigs
+less often would save about 1 ms a frame there (rigs and bones are about 5% of the frame) and was not done.
+
+### A first launch opens on its island
+
+A new install's Home showed a flat block of the water's colour with "Loading your discoveries..." and then the island with its lagoon empty
+while what grows on it built (`film/first-b-x4-sheet.png`: flat to 2.9 s, empty until 4.2 s at 4x). Now a 38 KB picture of that very scene
+(Home's island at the first level; `assets/images/starter-island.jpg`, made from a web export by `scripts/make-starter-picture.mjs`; the scene
+is the same in light and dark) stands in, as a kept picture does, and cross-fades to the live scene once it has drawn itself whole
+(`film/first-d2-x1`, `first-d2-x4`): the picture from 2.06 s at 4x (0.73 s at 1x), the live scene behind it, no empty lagoon and no jump. What is
+still flat at 4x before 2 s is the web's page rendered ahead of its scripts; a phone has no such page. Used only where nothing is kept for
+Home's island at the first level; a collection that turns out to be at another level goes live at once.
+
+Not done: a designed arrival for the explorer's first open (its islands' places are empty while their coasts build, as before).
