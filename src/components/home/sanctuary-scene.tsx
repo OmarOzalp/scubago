@@ -10,7 +10,7 @@ import { FrameReport, IslandPerfProbe, ScenePerformance } from './three/scene-pe
 import { GovernorHold } from './three/governor';
 import { perfMark, perfReport, type EpisodeKind } from '@/lib/perf-report';
 import { EXPLORER_MARKS, HOME_MARKS, markOnce, markStep, SceneMarksContext, whenMarked, type SceneMark } from './three/scene-marks';
-import { createStager } from './three/stager';
+import { createStager, STAGE, type Stager } from './three/stager';
 import { WarmUp, type WarmUpOptions } from './three/warm-up';
 import { StagingProvider } from './three/staging';
 import { router } from 'expo-router';
@@ -209,6 +209,44 @@ function Wake({ visible }: { visible: boolean }) {
   return null;
 }
 
+/** How long at most an island switch keeps the last picture of the island it leaves (ms), however long the next one takes to build. */
+const HOLD_MAX_MS = 1500;
+
+/**
+ * Keeps the canvas showing its last drawn frame while the island switched to on Home's card has its coast and what grows on it still to build
+ * (a first visit: an island built before is there in the first frame). Drawn meanwhile, the card showed the island's place in the sea as a hole,
+ * the card's paper through the water, for as long as the coast took to build: hundreds of ms on a phone. A useFrame of positive priority
+ * takes over the drawing from R3F, and this one draws nothing: the frame loop, the swimming and the building go on, and the screen (a browser's
+ * canvas, or Expo GL's view, until its next frame is presented) keeps the island it leaves. Once the new island is whole, or after
+ * HOLD_MAX_MS, it lets go and R3F draws again.
+ */
+function HoldDrawing({ stager, island, onDone }: { stager: Stager; island: string; onDone: () => void }) {
+  const invalidate = useThree((state) => state.invalidate);
+  const state = useRef({ frames: 0, start: 0, done: false });
+  const latest = useRef(onDone);
+  useEffect(() => { latest.current = onDone; });
+  const finish = useCallback(() => {
+    if (state.current.done) return;
+    state.current.done = true;
+    latest.current();
+    invalidate();
+  }, [invalidate]);
+  useEffect(() => {
+    const timer = setTimeout(finish, HOLD_MAX_MS);
+    return () => clearTimeout(timer);
+  }, [finish]);
+  useFrame(() => {
+    const value = state.current;
+    if (value.done) return;
+    if (!value.start) value.start = performance.now();
+    value.frames++;
+    // (the first frames come before the island's parts have said what they have to build)
+    if (value.frames > 2 && !stager.pending(island, [STAGE.coast, STAGE.props])) finish();
+    else if (performance.now() - value.start > HOLD_MAX_MS) finish();
+  }, 1);
+  return null;
+}
+
 /** Marks the scene's first drawn frame (scene-marks.ts), and for the performance report the first frame and the completion of an open or a switch. */
 function FirstFrame({ mark, episode, complete }: { mark: SceneMark; episode: EpisodeKind; complete: () => boolean }) {
   useFrame(() => {
@@ -292,6 +330,13 @@ export function SanctuaryScene({ habitat, level, residents, islands, paused = fa
   // For the performance report (src/lib/perf-report.ts): an island switch on Home's card is timed from the switch to the scene built with all its animals.
   const episode: EpisodeKind = explorer ? 'explorer' : 'switch';
   const switched = useRef(habitat);
+  // (and the canvas keeps the island it leaves until the new one is whole: HoldDrawing)
+  const [seenHabitat, setSeenHabitat] = useState(habitat);
+  const [holding, setHolding] = useState<string | null>(null);
+  if (seenHabitat !== habitat) {
+    setSeenHabitat(habitat);
+    setHolding(card && shownOnce ? habitat : null);
+  }
   useEffect(() => {
     if (!card || switched.current === habitat) return;
     switched.current = habitat;
@@ -468,6 +513,7 @@ export function SanctuaryScene({ habitat, level, residents, islands, paused = fa
         {/* The Share button's picture of the card (and the explorer's of its opening view). A paused island can still be photographed; one that is still for Reduce Motion is not. */}
         <SnapshotRegistrar name={explorer ? 'explorer' : 'home'} ready={visible && !loading && (active || paused || oceanPaused)} />
         <Wake visible={visible} />
+        {holding === habitat && <HoldDrawing stager={stager} island={habitat} onDone={() => setHolding(null)} />}
         <FirstFrame mark={marks.frame} episode={episode} complete={() => completeNow.current && stager.getState().done} />
         <FrameReport name={explorer ? 'explorer' : 'home'} />
         <GovernorHold hold={!visible || !active || loading || !staged.done || picture.unseen} />
