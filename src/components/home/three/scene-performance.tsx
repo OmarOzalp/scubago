@@ -2,7 +2,9 @@ import { createContext, useContext, useEffect, useRef, useState } from 'react';
 import { addAfterEffect, useFrame, useThree } from '@react-three/fiber';
 import { islandFrameStats, slowFrameMs } from '@/lib/frame-stats';
 import { perfReport } from '@/lib/perf-report';
+import { useGovernor } from './governor';
 import { useFrameRate } from './frame-pacer';
+import { GOVERNOR_LEVELS } from '@/lib/quality-governor';
 import { useSceneQuality } from './scene-quality';
 
 /** Development-only JS frame timing; Expo GL may present later on its native queue. */
@@ -32,18 +34,20 @@ export const CanvasDprContext = createContext<number | null>(null);
 
 /**
  * Feeds the performance report (src/lib/perf-report.ts) with every frame this canvas draws: ms since its last frame, the JS time from the
- * first frame callback until three.js has issued its draw calls, and the renderer's counts; and `onFrame` (the quality governor) with the
- * same interval. Two clock reads and a few numbers written a frame: it is always on. A canvas asleep draws nothing and feeds nothing; the
+ * first frame callback until three.js has issued its draw calls, and the renderer's counts; and the canvas's quality governor (governor.tsx)
+ * with the same interval. Two clock reads and a few numbers written a frame: it is always on. A canvas asleep draws nothing and feeds nothing; the
  * first frame after a pause is a stall, which the report counts apart.
  */
-export function FrameReport({ name, onFrame, level = 0, levelName = 'full' }: { name: string; onFrame?: (intervalMs: number, jsMs: number) => void; level?: number; levelName?: string }) {
+export function FrameReport({ name }: { name: string }) {
   const gl = useThree((state) => state.gl);
+  const governor = useGovernor();
+  const [level, setLevel] = useState(() => governor?.level() ?? 0);
+  useEffect(() => governor?.subscribe((value) => { setLevel(value); perfReport.count(`${name}: quality governor to ${governor.current().name}`); }), [governor, name]);
+  const levelName = governor ? GOVERNOR_LEVELS[level].name : 'off';
   const fps = useFrameRate(), quality = useSceneQuality(), canvasDpr = useContext(CanvasDprContext);
   const dpr = Math.round((canvasDpr ?? gl.getPixelRatio()) * 100) / 100;
   useEffect(() => { perfReport.info(name, { fps, quality, dpr, level, levelName }); }, [name, fps, quality, dpr, level, levelName]);
   const timing = useRef({ start: 0, last: 0 });
-  const latest = useRef(onFrame);
-  useEffect(() => { latest.current = onFrame; });
   useFrame(() => { timing.current.start = performance.now(); }, -1000);
   // (after effects are global to every canvas: only the one whose frame this was has its start set)
   useEffect(() => addAfterEffect(() => {
@@ -54,10 +58,10 @@ export function FrameReport({ name, onFrame, level = 0, levelName = 'full' }: { 
     if (value.last) {
       const interval = now - value.last;
       perfReport.frame(name, interval, js, gl.info.render.calls, gl.info.render.triangles);
-      latest.current?.(interval, js);
+      governor?.frame(interval, fps);
     }
     value.last = now;
-  }), [gl, name]);
+  }), [gl, name, governor, fps]);
   return null;
 }
 

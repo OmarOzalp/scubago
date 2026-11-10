@@ -5,6 +5,7 @@ import { Canvas, useFrame, useThree } from '@react-three/fiber/native';
 import { AMBIENT_FPS, FramePacer, FrameRateContext } from './frame-pacer';
 import { ProgramKeeper } from './program-keeper';
 import { CanvasDprContext } from './scene-performance';
+import { GovernorContext, useCanvasGovernor } from './governor';
 import { sceneQuality, SceneQualityContext } from './scene-quality';
 
 /**
@@ -58,7 +59,9 @@ function SimulatorFrames({ active }: { active: boolean }) {
  */
 export function SceneCanvas({ style, children, frameloop = 'always', fps = AMBIENT_FPS, ...props }: ComponentProps<typeof Canvas> & { fps?: number }) {
   const [size, setSize] = useState({ width: 0, height: 0 });
-  const scale = Math.min(1, (isDevice ? 2 : 1) / PixelRatio.get());
+  // Two pixels a point on a phone, or fewer while the quality governor finds the phone cannot keep up (governor.tsx).
+  const { governor, level } = useCanvasGovernor();
+  const scale = Math.min(1, (isDevice ? level.dpr : 1) / PixelRatio.get());
   const paced = isDevice && frameloop === 'always' && fps < 60;
   return <View style={[styles.container, style]} onLayout={({ nativeEvent: { layout } }) => {
     setSize((previous) => previous.width === layout.width && previous.height === layout.height
@@ -74,7 +77,7 @@ export function SceneCanvas({ style, children, frameloop = 'always', fps = AMBIE
       transform: [{ scale: 1 / scale }],
     }}>
       <FrameRateContext.Provider value={paced ? fps : 60}>
-        <SceneQualityContext.Provider value={sceneQuality(!isDevice)}><CanvasDprContext.Provider value={scale * PixelRatio.get()}>{children}</CanvasDprContext.Provider></SceneQualityContext.Provider>
+        <SceneQualityContext.Provider value={sceneQuality(!isDevice)}><CanvasDprContext.Provider value={scale * PixelRatio.get()}><GovernorContext.Provider value={isDevice ? governor : null}>{children}</GovernorContext.Provider></CanvasDprContext.Provider></SceneQualityContext.Provider>
       </FrameRateContext.Provider>
       {!isDevice && <SimulatorFrames active={frameloop === 'always'} />}
       {paced && <FramePacer fps={fps} />}

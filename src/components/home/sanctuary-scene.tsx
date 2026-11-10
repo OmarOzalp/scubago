@@ -7,6 +7,7 @@ import { SceneBoundary, SceneUnavailable } from './scene-boundary';
 import { SceneCamera } from './three/scene-camera';
 import { IslandPerfBadge } from './island-perf-badge';
 import { FrameReport, IslandPerfProbe, ScenePerformance } from './three/scene-performance';
+import { GovernorHold } from './three/governor';
 import { perfMark, perfReport, type EpisodeKind } from '@/lib/perf-report';
 import { EXPLORER_MARKS, HOME_MARKS, markOnce, markStep, SceneMarksContext, whenMarked, type SceneMark } from './three/scene-marks';
 import { createStager } from './three/stager';
@@ -469,6 +470,7 @@ export function SanctuaryScene({ habitat, level, residents, islands, paused = fa
         <Wake visible={visible} />
         <FirstFrame mark={marks.frame} episode={episode} complete={() => completeNow.current && stager.getState().done} />
         <FrameReport name={explorer ? 'explorer' : 'home'} />
+        <GovernorHold hold={!visible || !active || loading || !staged.done || picture.unseen} />
         <FrameWatch watching={picture.watching} onDrawn={picture.onDrawn} />
         {__DEV__ && <ScenePerformance ready={!!models && !loading} active={active} />}
         {ISLAND_PERF && <IslandPerfProbe />}
