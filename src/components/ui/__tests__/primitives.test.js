@@ -347,3 +347,18 @@ describe('options added for the Log flow', () => {
     expect(StyleSheet.flatten(input.props.style).borderColor).toBeDefined();
   });
 });
+
+describe('Notice tone', () => {
+  const noticeStyle = () => StyleSheet.flatten(root.root.findAll((n) => n.type === 'View' && StyleSheet.flatten(n.props.style)?.minHeight === Size.rowMin)[0].props.style);
+  const textColor = () => StyleSheet.flatten(root.root.findAll((n) => n.type === 'Text')[0].props.style).color;
+
+  test('a note is sunSoft with ink text; danger is dangerSoft with danger text', async () => {
+    await render(<Notice>Your next dive is No. 1.</Notice>);
+    const note = { fill: noticeStyle().backgroundColor, ink: textColor() };
+    await act(async () => root.unmount());
+    await render(<Notice tone="danger">That would number a page below No. 1.</Notice>);
+    const danger = { fill: noticeStyle().backgroundColor, ink: textColor() };
+    expect(danger.fill).not.toBe(note.fill);
+    expect(danger.ink).not.toBe(note.ink);
+  });
+});

@@ -160,7 +160,7 @@ const styles = StyleSheet.create({
   head: { alignItems: 'center', gap: Space.s2, paddingTop: Space.s2 },
   center: { textAlign: 'center' },
   // The stamp's own alignSelf is flex-start: centre it over the title.
-  stampCentre: { alignSelf: 'center' },
+  stampCentre: { alignSelf: 'center', marginBottom: Space.s2 },
   stretch: { alignSelf: 'stretch' },
   section: { gap: Space.s3 },
   grid: { flexDirection: 'row', flexWrap: 'wrap', gap: CARD_GAP },
