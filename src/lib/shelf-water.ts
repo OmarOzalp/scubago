@@ -1,4 +1,4 @@
-import { frame, TAU, type World } from './steering';
+import { TAU, type World } from './steering';
 
 /**
  * The biggest animals on an island with a wide shelf. At the Coral Reef the water a whale shark, a manta, a leatherback (and from the
@@ -59,12 +59,19 @@ function cutDirections(world: World, shallow: ShelfInput['shallow'], width: numb
   for (let k = 0; k < RAYS; k++) {
     const ux = Math.cos(k * TAU / RAYS), uz = Math.sin(k * TAU / RAYS);
     let run = 0, longest = 0;
-    for (let r = .5; r < 14 && frame(ux * r, uz * r, world).edge <= 1 - HOLD; r += .05) {
+    // (looked along only until a stretch wide enough is found: the rest of the way cannot cut it off)
+    for (let r = .5; r < 14 && longest < width && edgeOf(ux * r, uz * r, world) <= 1 - HOLD; r += .05) {
       if (shallow(ux * r, uz * r)) run = 0; else longest = Math.max(longest, run += .05);
     }
     if (longest < width) count++;
   }
   return count;
+}
+
+/** `frame(x, z, world).edge`, worked out the same way, without the rest. */
+function edgeOf(x: number, z: number, world: World) {
+  const u = x / world.x, v = z / world.z, u2 = u * u, v2 = v * v, u4 = u2 * u2, v4 = v2 * v2;
+  return Math.pow(u4 * u2 + v4 * v2, 1 / 6);
 }
 
 /**

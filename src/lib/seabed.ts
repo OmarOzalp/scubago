@@ -144,6 +144,11 @@ const STEP = .1;
 const COLUMNS = Math.ceil(2 * REACH.x / STEP) + 1, ROWS = Math.ceil(2 * REACH.z / STEP) + 1;
 /** Grid spacing (units) of the fields that steer animals away from water too shallow for them: they only steer, so a coarser grid will do. */
 const FIELD_STEP = .25;
+/**
+ * The grid those fields are found on (the same for every seabed): `blocked` is asked at (x0 + i * step, z0 + j * step), row by row, and
+ * told the cell's number (j * columns + i), so a caller that has worked out a whole grid of answers at once can hand them over.
+ */
+export const FIELD_GRID = { step: FIELD_STEP, columns: Math.ceil(2 * REACH.x / FIELD_STEP) + 1, rows: Math.ceil(2 * REACH.z / FIELD_STEP) + 1, x0: -REACH.x, z0: -REACH.z };
 
 /**
  * How far (units) a point is from places an animal cannot be (negative inside them), and the direction away
@@ -178,7 +183,13 @@ export type Seabed = {
    * crest, the shelf, a sandbar or the wreck, for a body too big to be there. Looked up on a grid of its
    * own (a quarter unit: it only steers), found once for each `key`.
    */
-  distanceTo(key: string, blocked: (x: number, z: number) => boolean): Shallows;
+  distanceTo(key: string, blocked: (x: number, z: number, cell: number) => boolean): Shallows;
+  /**
+   * For each cell of the fields' grid (`FIELD_GRID`), the highest and the lowest the bottom with the big things on it (`solid`) is anywhere
+   * within `reach` (units) of the cell's middle, as `solid` reads it there (it may say a little more than that, never less): what a body
+   * that reaches no farther from its middle can be over. Kept, for a few reaches, as long as the seabed is.
+   */
+  solidAround?(reach: number): { high: Float32Array; low: Float32Array };
   /** The deepest the bottom goes anywhere on the grid (world y): the most water any animal can have under it. */
   deepest: number;
   /** The level it was made for. */
@@ -210,6 +221,98 @@ function distanceToMask(inside: Uint8Array, columns: number, rows: number) {
   for (let y = 0; y < rows; y++) pass(columns, (x) => grid[y * columns + x], (x, value) => { grid[y * columns + x] = value; });
   for (let i = 0; i < grid.length; i++) grid[i] = Math.sqrt(grid[i]);
   return grid;
+}
+
+/**
+ * The highest and lowest of a baked grid (`grid`, read as `lookup` reads it: bilinear between its nodes, held at its edge) within `reach`
+ * of each cell of the fields' grid: over the nodes that any point that near can be read from (a node to spare each way), a row's range
+ * across first and then down the rows (`Seabed.solidAround`).
+ */
+function solidRange(grid: Float32Array, reach: number) {
+  const { columns: fc, rows: fr, step: fs } = FIELD_GRID;
+  // The nodes a cell's points are read from, across (i) and down (j).
+  const span = (centre: number, size: number) => {
+    const lo = Math.floor((centre - reach) / STEP) - 1, hi = Math.floor((centre + reach) / STEP) + 2;
+    return [Math.min(Math.max(0, lo), size - 2), Math.max(Math.min(size - 1, hi), 1)];
+  };
+  const across = Array.from({ length: fc }, (_, i) => span(i * fs, COLUMNS)), down = Array.from({ length: fr }, (_, j) => span(j * fs, ROWS));
+  // Each row of nodes' range over each cell's columns.
+  const rowHigh = new Float32Array(ROWS * fc), rowLow = new Float32Array(ROWS * fc);
+  for (let j = 0; j < ROWS; j++) {
+    const row = j * COLUMNS;
+    for (let c = 0; c < fc; c++) {
+      const [i0, i1] = across[c];
+      let high = -Infinity, low = Infinity;
+      for (let i = i0; i <= i1; i++) { const h = grid[row + i]; if (h > high) high = h; if (h < low) low = h; }
+      rowHigh[j * fc + c] = high; rowLow[j * fc + c] = low;
+    }
+  }
+  const high = new Float32Array(fc * fr), low = new Float32Array(fc * fr);
+  for (let r = 0; r < fr; r++) {
+    const [j0, j1] = down[r];
+    for (let c = 0; c < fc; c++) {
+      let hi = -Infinity, lo = Infinity;
+      for (let j = j0; j <= j1; j++) { const h = rowHigh[j * fc + c], l = rowLow[j * fc + c]; if (h > hi) hi = h; if (l < lo) lo = l; }
+      high[r * fc + c] = hi; low[r * fc + c] = lo;
+    }
+  }
+  return { high, low };
+}
+
+/**
+ * A grid of places (`cells`, on `FIELD_GRID`; 1 where they are) without its thin streaks: opened by one cell, kept only where all eight
+ * cells round a cell are in it too, and then grown back by one cell. It is what was found before with two fields (each place more than
+ * a cell and a half inside the places, then everywhere within a cell and a half of those): the eight cells round one are the only ones
+ * nearer than that. None at all if every cell is in them (no field can be found of places that are everywhere).
+ */
+export function openedCells(cells: Uint8Array) {
+  const { columns, rows } = FIELD_GRID, count = columns * rows;
+  const core = new Uint8Array(count), out = new Uint8Array(count);
+  let all = true;
+  for (let n = 0; n < count; n++) if (!cells[n]) { all = false; break; }
+  if (all) return out;
+  // (each of the eight round it that is on the grid)
+  const around = (i: number, j: number, grid: Uint8Array, want: number) => {
+    for (let b = Math.max(0, j - 1); b <= Math.min(rows - 1, j + 1); b++) {
+      for (let a = Math.max(0, i - 1); a <= Math.min(columns - 1, i + 1); a++) if (grid[b * columns + a] === want) return true;
+    }
+    return false;
+  };
+  for (let j = 0, n = 0; j < rows; j++) for (let i = 0; i < columns; i++, n++) core[n] = cells[n] && !around(i, j, cells, 0) ? 1 : 0;
+  for (let j = 0, n = 0; j < rows; j++) for (let i = 0; i < columns; i++, n++) out[n] = core[n] || around(i, j, core, 1) ? 1 : 0;
+  return out;
+}
+
+/**
+ * Which side of the edge of some places (`cells`, on `FIELD_GRID`; 1 where they are) a point is: below 0 inside them, as the field
+ * `distanceTo` finds for them says, for a good deal less. That field is read between the four cells round a point, and only its sign is
+ * wanted: where the four are all in the places or all out of them, any distances of that sign give it; where they are not, each of them
+ * has one of the other kind among the eight cells round it, which is as near as any other can be, so its distance is found there.
+ */
+export function edgeSide(cells: Uint8Array): (x: number, z: number) => number {
+  const { columns, rows, step, x0, z0 } = FIELD_GRID, count = columns * rows, signed = new Float32Array(count);
+  let free = 0;
+  for (let n = 0; n < count; n++) if (!cells[n]) free++;
+  // (as distanceTo has it: no field of places that are everywhere)
+  if (!free) return () => 1e3;
+  const FAR = 1e3, DIAGONAL = Math.sqrt(2);
+  for (let j = 0, n = 0; j < rows; j++) {
+    for (let i = 0; i < columns; i++, n++) {
+      const kind = cells[n], left = i > 0, right = i < columns - 1, up = j > 0, down = j < rows - 1;
+      let d = FAR;
+      if ((left && cells[n - 1] !== kind) || (right && cells[n + 1] !== kind) || (up && cells[n - columns] !== kind) || (down && cells[n + columns] !== kind)) d = 1;
+      else if ((left && up && cells[n - columns - 1] !== kind) || (right && up && cells[n - columns + 1] !== kind) || (left && down && cells[n + columns - 1] !== kind) || (right && down && cells[n + columns + 1] !== kind)) d = DIAGONAL;
+      signed[n] = (kind ? -(d - .5) : d - .5) * step;
+    }
+  }
+  return (x: number, z: number) => {
+    let u = (x - x0) / step, v = (z - z0) / step;
+    u = u < 0 ? 0 : u > columns - 1 - 1e-6 ? columns - 1 - 1e-6 : u;
+    v = v < 0 ? 0 : v > rows - 1 - 1e-6 ? rows - 1 - 1e-6 : v;
+    const i = u | 0, j = v | 0, fu = u - i, fv = v - j, k = j * columns + i;
+    const near = signed[k] + (signed[k + 1] - signed[k]) * fu, far = signed[k + columns] + (signed[k + columns + 1] - signed[k + columns]) * fu;
+    return near + (far - near) * fv;
+  };
 }
 
 /** Seabeds kept (each is a few hundred kilobytes): the island on screen, its levels as it grows, and a few to swipe back to. */
@@ -382,12 +485,12 @@ export function createSeabed(level: number, shape: IslandShape = 'reef', among?:
       let found = sampled.get(name);
       if (!found) {
         // The places blocked and the places not, each cell's distance to the other kind, on a grid of its own.
-        const step = FIELD_STEP, columns = Math.ceil(2 * REACH.x / step) + 1, rows = Math.ceil(2 * REACH.z / step) + 1;
+        const { step, columns, rows } = FIELD_GRID;
         const no = new Uint8Array(columns * rows), yes = new Uint8Array(columns * rows);
         let free = 0;
         for (let j = 0; j < rows; j++) {
           for (let i = 0; i < columns; i++) {
-            const is = blocked(-REACH.x + i * step, -REACH.z + j * step), n = j * columns + i;
+            const n = j * columns + i, is = blocked(-REACH.x + i * step, -REACH.z + j * step, n);
             no[n] = is ? 1 : 0; yes[n] = is ? 0 : 1;
             if (!is) free++;
           }
@@ -441,7 +544,16 @@ export function createSeabed(level: number, shape: IslandShape = 'reef', among?:
       }
       return found;
     },
+    solidAround(around) {
+      // (kept by reach rounded up to a quarter unit: a little more reach only ever widens the range)
+      const reach = Math.ceil(around * 4 - 1e-9) / 4, kept = ranges.get(reach);
+      if (kept) return kept;
+      const made = solidRange(solid, reach);
+      ranges.set(reach, made);
+      return made;
+    },
   };
+  const ranges = new Map<number, { high: Float32Array; low: Float32Array }>();
   seabeds.set(key, seabed);
   if (seabeds.size > KEPT) seabeds.delete(seabeds.keys().next().value!);
   return seabed;

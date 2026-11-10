@@ -1,6 +1,6 @@
 import type { ShoreField } from './island-outline';
 import { OCEAN } from './ocean';
-import type { Seabed } from './seabed';
+import { FIELD_GRID, type Seabed } from './seabed';
 import type { MarineModel } from './swimming';
 
 /**
@@ -190,6 +190,50 @@ const headingsFor = (reach: number) => Math.min(MOST_HEADINGS, 2 * Math.max(1, M
  * from the lowest of the seven places to the highest) is too shallow too: a bottom-dweller lies along the bottom.
  */
 export function tooShallow(seabed: Seabed, coast: ShoreField, hull: Hull, margin: number, tilt = 0, steepest = Infinity, poke = POKE) {
+  const { judge } = shallowJudge(seabed, hull, margin, tilt, steepest, poke);
+  return (x: number, z: number) => { const shore = coast.island(x, z); return judge(x, z, shore.nx, shore.nz); };
+}
+
+/**
+ * `tooShallow` for every cell of the steering fields' grid at once (seabed.ts, `FIELD_GRID`; 1 where it is too shallow), with exactly its
+ * answers, for less: the coast's direction at each cell is looked up once for every body (`coastAt`), and a cell where even the highest
+ * the bottom is anywhere under the body's reach (`solidAround`) leaves all of it under the surface (and, for a bottom-dweller, the bottom
+ * there is no steeper than it lies along) is open water without judging each heading. Most of the ocean is such water.
+ */
+export function tooShallowCells(seabed: Seabed, coast: ShoreField, hull: Hull, margin: number, tilt = 0, steepest = Infinity, poke = POKE) {
+  const { judge, top, rise, reach } = shallowJudge(seabed, hull, margin, tilt, steepest, poke), { columns, rows, step, x0, z0 } = FIELD_GRID;
+  const along = coastAt(coast), cells = new Uint8Array(columns * rows);
+  // (a level body's: one on its side is judged in full everywhere; a hair's slack for the grid's rounding)
+  const range = !tilt && seabed.solidAround ? seabed.solidAround(reach) : null, room = top - rise - margin - 1e-6, keel = hull.keel + margin;
+  for (let j = 0, n = 0; j < rows; j++) {
+    for (let i = 0; i < columns; i++, n++) {
+      const x = x0 + i * step, z = z0 + j * step;
+      if (range && range.high[n] <= room && range.high[n] - range.low[n] <= steepest - 1e-6) cells[n] = seabed.floor(x, z) + keel > top ? 1 : 0;
+      else cells[n] = judge(x, z, along[2 * n], along[2 * n + 1]) ? 1 : 0;
+    }
+  }
+  return cells;
+}
+
+/** The coast's direction (its normal: nx, nz) at each cell of the fields' grid, for each steering field (one per island and level). */
+const coasts = new WeakMap<ShoreField, Float64Array>();
+function coastAt(coast: ShoreField) {
+  let along = coasts.get(coast);
+  if (along) return along;
+  const { columns, rows, step, x0, z0 } = FIELD_GRID;
+  along = new Float64Array(columns * rows * 2);
+  for (let j = 0, n = 0; j < rows; j++) {
+    for (let i = 0; i < columns; i++, n++) { const shore = coast.island(x0 + i * step, z0 + j * step); along[2 * n] = shore.nx; along[2 * n + 1] = shore.nz; }
+  }
+  coasts.set(coast, along);
+  return along;
+}
+
+/**
+ * What `tooShallow` judges at a place, given the coast's direction there (nx, nz): and the surface it must keep under (`top`), the most any
+ * of it is above the bottom under it (`rise`, level) and the farthest from its middle it is judged over (`reach`).
+ */
+function shallowJudge(seabed: Seabed, hull: Hull, margin: number, tilt: number, steepest: number, poke: number) {
   // A body taller than the deepest water (the sunfish): it fits where the water is deepest, with whatever of it stands out.
   const deepest = lowestMiddle({ floor: () => seabed.deepest }, hull, margin, 0, 0, 0, 0, tilt) + DEEP_SLACK;
   const top = Math.max(OCEAN.surfaceLevel - hullTop(hull, 0, tilt) * (1 - poke), deepest);
@@ -197,24 +241,25 @@ export function tooShallow(seabed: Seabed, coast: ShoreField, hull: Hull, margin
     // A body lying on its side lies with its keel toward the open sea, whichever way round it goes (marine-motion.ts, `tiltOf`): heading along the
     // coast with the shore on its right, tilted by `tilt`, or the mirror of that going the other way, over the same seven places.
     const solid = { floor: seabed.solid }, cos = Math.cos(tilt), below = Math.max(hull.keel * cos, -hull.crest * cos);
-    return (x: number, z: number) => {
-      const shore = coast.island(x, z), along = Math.atan2(-shore.nz, shore.nx);
+    const judge = (x: number, z: number, nx: number, nz: number) => {
+      const along = Math.atan2(-nz, nx);
       return lowestMiddle(solid, hull, margin, x, z, along, 0, tilt) > top || seabed.floor(x, z) + below + margin > top;
     };
+    return { judge, top, rise: Infinity, reach: Infinity };
   }
   // Level, going either way round it is over the same seven places (its middle, nose and tail, halfway out each side, and
   // its fin tips) with only its nose's and tail's depths swapped: the bottom is read under them once.
   const end = .75 * hull.length, side = .85 * hull.width, mid = (hull.keel + hull.wing) / 2, { keel, wing, nose, tail } = hull;
   const headings = headingsFor(Math.max(end, side));
-  return (x: number, z: number) => {
+  const judge = (x: number, z: number, snx: number, snz: number) => {
     // Its heading along the coast: along is (-nz, nx), across (nx, nz); and turned either way by `SWING`, as lanes and turns have it (a wing
     // sweeping round over a crest that it clears when abreast of it).
-    const shore = coast.island(x, z), solid = seabed.solid;
+    const solid = seabed.solid;
     const f0 = solid(x, z), fm = Math.max(f0 + keel, seabed.floor(x, z) + keel) + margin;
     if (fm > top) return true;
     for (let k = 0; k < headings; k++) {
       const turn = SWING * (2 * k / (headings - 1) - 1), c = Math.cos(turn), q = Math.sin(turn);
-      const ax = -shore.nz * c + shore.nx * q, az = shore.nx * c + shore.nz * q, nx = shore.nx * c - -shore.nz * q, nz = shore.nz * c - shore.nx * q;
+      const ax = -snz * c + snx * q, az = snx * c + snz * q, nx = snx * c - -snz * q, nz = snz * c - snx * q;
       const fn = solid(x + ax * end, z + az * end), ft = solid(x - ax * end, z - az * end);
       const fa = solid(x + nx * side / 2, z + nz * side / 2), fb = solid(x - nx * side / 2, z - nz * side / 2);
       const fc = solid(x + nx * side, z + nz * side), fd = solid(x - nx * side, z - nz * side);
@@ -225,6 +270,7 @@ export function tooShallow(seabed: Seabed, coast: ShoreField, hull: Hull, margin
     }
     return false;
   };
+  return { judge, top, rise: Math.max(keel, mid, wing, nose, tail), reach: Math.max(end, side) };
 }
 
 /** The height of the highest part of a hull above its middle once pitched and rolled (units), for staying under the surface. */

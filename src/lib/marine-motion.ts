@@ -1,13 +1,13 @@
 import { breachFlight, breachHeight, DOLPHIN_BREACH, type BreachConfig, type BreachStage } from './breach';
 import { KELP } from './kelp';
 import { createShoreField, type IslandShape, type ShoreField, type ShoreSample } from './island-outline';
-import { hullOf, hullTop, landReach, lowestMiddle, marginOf, POKE, shallowClearOf, stanceOf, tooShallow, type Hull, type Stance } from './marine-bodies';
+import { hullOf, hullTop, landReach, lowestMiddle, marginOf, POKE, shallowClearOf, stanceOf, tooShallowCells, type Hull, type Stance } from './marine-bodies';
 import { followerLane, GROUP_STYLES, type GroupStyle } from './marine-groups';
 import { OCEAN } from './ocean';
 import { DIVE_DEPTH, sampleDive, surfaceShift, SWIM_LEVEL } from './ocean-depth';
 import { createReefLife, isReefModel, REEF_THREAT, type MarineHabitat, type ReefVisitor } from './reef-life';
 import { SCHOOL_SHELF, shelfWater, type ShelfInput } from './shelf-water';
-import { avoidShallows, createSeabed, SURFACE_Y, type OceanIsland, type Seabed, type Shallows } from './seabed';
+import { avoidShallows, createSeabed, edgeSide, FIELD_GRID, openedCells, SURFACE_Y, type OceanIsland, type Seabed, type Shallows } from './seabed';
 import type { WaterExtent } from './seabed-lattice';
 import { apparentShift, clamp, ease, frame, OCEAN_GROWTH, roamFor, smoothstep, TAU, variation, viewBounds, viewHeight, WORLD, worldFor, wrap, type World } from './steering';
 import type { MarineModel } from './swimming';
@@ -547,8 +547,8 @@ const LOOKAHEAD = 3, LANE_LOOKAHEAD = 14;
  * the shallows at the frame's bound (`HOLD_GIVE`).
  */
 const KEEP_OFF_SHALLOWS = .6, SHALLOWS_SHIFT = .4;
-/** The narrowest (half-width, units) a place too shallow for a body is to count as shore to it (see `waterFor`). */
-const SPECK = .25;
+// (The narrowest a place too shallow for a body is to count as shore to it is one cell of the steering fields' grid, a quarter unit: see
+// `waterFor` and seabed.ts, `openedCells`.)
 /** The steepest bottom (units under its body, nose to wingtip) a bottom-dweller lies along: it keeps off steeper slopes. */
 export const STEEPEST_BOTTOM = .35;
 /** How quickly (per step) the room an animal has to sink on a dive follows the bottom, and its body's pitch follows its path. */
@@ -771,6 +771,16 @@ function spread(m: Movement, style: GroupStyle, followers: number): Movement {
   return { ...m, halfWidth: m.halfWidth + .7 * across, halfLength: m.halfLength + .5 * behind, islandClearance: m.islandClearance + .25 * across };
 }
 
+/** Which side of the edge of the water too shallow for a body each place is (seabed.ts, `edgeSide`), kept with the seabed by the body's key. */
+const sides = new WeakMap<Seabed, Map<string, (x: number, z: number) => number>>();
+function sidesOf(seabed: Seabed, key: string, cells: () => Uint8Array) {
+  let kept = sides.get(seabed);
+  if (!kept) sides.set(seabed, kept = new Map());
+  let side = kept.get(key);
+  if (!side) kept.set(key, side = edgeSide(cells()));
+  return side;
+}
+
 /**
  * A small shared simulation (see docs/marine-navigation.md). Each animal blends a few steering
  * influences into one desired direction: roaming along the coast at its own distance offshore,
@@ -843,13 +853,22 @@ export function createMarineMotion(everyMember: readonly MarineMember[], level =
     const key = `${hull.keel},${hull.wing},${hull.nose},${hull.tail},${hull.crest},${hull.width},${hull.length},${margin},${tilt},${steepest}`, id = `${key}|${islandClearance}|${roamInner}|${fit?.ring}|${current}`, kept = waters.get(id);
     if (kept) return kept;
     // The places too shallow for the body, judged where it is drawn (nearer the viewer than the map: shallows are judged there).
-    const shallows = seabed.distanceTo(key, tooShallow(seabed, field, hull, margin, tilt, steepest));
+    // (worked out for the whole grid at once, the first time a body of this size is seen on this seabed: and only which side of their edge
+    // a place is, which is all that is asked of them, not how far)
+    const shallows = sidesOf(seabed, key, () => tooShallowCells(seabed, field, hull, margin, tilt, steepest));
     const shallow = (x: number, z: number) => shallows(x, z - SHALLOWS_SHIFT) < 0, shelf = shelfWater({ world: worldFor(current), fit, shallow });
-    // A thin streak of them is no shore (`SPECK`: where the coast's direction turns between two of the field's cells, a body heading along it
-    // swings its tail over a slope at one and not the next): the places too shallow are opened by that much, so that what the steering
-    // follows is the water's shape, not its specks. (A body passing one is held clear of the bottom as always.)
-    const raw = seabed.distanceTo(`${key}|raw`, shallow), core = seabed.distanceTo(`${key}|core`, (x, z) => raw(x, z) < -SPECK);
-    const free = seabed.distanceTo(`${key}|free`, (x, z) => core(x, z) < SPECK);
+    // A thin streak of them is no shore (one cell of the field's grid: where the coast's direction turns between two of the field's
+    // cells, a body heading along it swings its tail over a slope at one and not the next): the places too shallow are opened by that much,
+    // so that what the steering follows is the water's shape, not its specks. (A body passing one is held clear of the bottom as always.)
+    let open: Uint8Array | null = null;
+    const free = seabed.distanceTo(`${key}|free`, (x, z, n) => {
+      if (!open) {
+        const { columns, rows, step, x0, z0 } = FIELD_GRID, seen = new Uint8Array(columns * rows);
+        for (let j = 0, k = 0; j < rows; j++) for (let i = 0; i < columns; i++, k++) seen[k] = shallow(x0 + i * step, z0 + j * step) ? 1 : 0;
+        open = openedCells(seen);
+      }
+      return open[n] === 1;
+    });
     // (the room it keeps off the shallows is steering's: they count that much nearer than they are)
     const offset = islandClearance + roamInner - clear, water = { field: avoidShallows(field, free, offset), factor: shelf.factor, free, offset };
     waters.set(id, water);
