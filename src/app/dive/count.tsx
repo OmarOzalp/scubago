@@ -73,7 +73,7 @@ function DivesBeforeScreen() {
         maxLength={5}
         hint="Leave it at 0 if ScubaGo is your first log."
       />
-      <Notice icon="logbook">
+      <Notice icon="logbook" tone={tooLow || !valid ? 'danger' : 'note'}>
         {!valid
           ? 'That isn’t a number of dives.'
           : tooLow

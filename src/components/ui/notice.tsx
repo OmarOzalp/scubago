@@ -13,6 +13,8 @@ export type NoticeProps = {
   /** One or two plain sentences. */
   children: ReactNode;
   icon?: IconName;
+  /** `note` (default): sunSoft, for something to know. `danger`: dangerSoft with danger-coloured text, for something that stops the action. */
+  tone?: 'note' | 'danger';
   /** Shows a close button (44 to hit). */
   onDismiss?: () => void;
   dismissLabel?: string;
@@ -20,12 +22,14 @@ export type NoticeProps = {
 };
 
 /** A banner the diver can close: sunSoft fill, radius md, an icon, callout text. */
-export function Notice({ children, icon = 'info', onDismiss, dismissLabel = 'Close this note', style }: NoticeProps) {
+export function Notice({ children, icon = 'info', tone = 'note', onDismiss, dismissLabel = 'Close this note', style }: NoticeProps) {
   const theme = useTheme();
+  const danger = tone === 'danger';
+  const ink = danger ? theme.danger : theme.text;
   return (
-    <View style={[styles.notice, { backgroundColor: theme.sunSoft }, style]}>
-      <Icon name={icon} size={Size.icon} color={theme.text} />
-      <Text style={[styles.text, { color: theme.text }]}>{children}</Text>
+    <View style={[styles.notice, { backgroundColor: danger ? theme.dangerSoft : theme.sunSoft }, style]}>
+      <Icon name={icon} size={Size.icon} color={ink} />
+      <Text style={[styles.text, { color: ink }]}>{children}</Text>
       {onDismiss ? <IconButton icon="close" on="bar" onPress={onDismiss} accessibilityLabel={dismissLabel} /> : null}
     </View>
   );
