@@ -116,11 +116,16 @@ function useLineups(places: readonly ScenePlace[], featured: readonly string[], 
   const latest = useRef({ places, featured, ready, kept });
   useEffect(() => { latest.current = { places, featured, ready, kept }; });
   const clocks = useRef(new Map<string, { shown: number; due: number }>());
+  // An animal leaving counts its seconds down every second, but nothing on screen changes until it is gone: the lineups aged since the
+  // state last changed are kept here, not set, so the scene is not rendered again every second (with an animal leaving somewhere most of
+  // the time, the explorer's whole tree was: a measured 7 ms of a frame on average under an interpreter).
+  const aged = useRef<{ from: ReadonlyMap<string, Lineup>; value: ReadonlyMap<string, Lineup> } | null>(null);
   useEffect(() => {
     if (!run) return;
     const timer = setInterval(() => {
-      const { places: islands, featured: keep, ready: loaded, kept: lineups } = latest.current;
-      let changed = false;
+      const { places: islands, featured: keep, ready: loaded, kept: state } = latest.current;
+      const lineups = aged.current?.from === state ? aged.current.value : state;
+      let changed = false, shown = false;
       const next = new Map(lineups);
       islands.forEach((place, i) => {
         const was = lineups.get(place.key);
@@ -137,9 +142,14 @@ function useLineups(places: readonly ScenePlace[], featured: readonly string[], 
             clock.shown = 0; clock.due = turnAfter(i, turn.turns);
           }
         }
-        if (lineup !== was) { next.set(place.key, lineup); changed = true; }
+        if (lineup !== was) {
+          next.set(place.key, lineup); changed = true;
+          // (who is on the island, or who is still leaving it, is what the scene draws)
+          if (lineup.shown !== was.shown || lineup.leaving.length !== was.leaving.length) shown = true;
+        }
       });
-      if (changed) { latest.current.kept = next; setKept(next); }
+      if (shown) { aged.current = null; latest.current.kept = next; setKept(next); }
+      else if (changed) aged.current = { from: state, value: next };
     }, 1000);
     return () => clearInterval(timer);
   }, [run]);
