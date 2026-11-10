@@ -2,6 +2,7 @@ import { memo, useCallback, useEffect, useMemo, useState, type ReactNode } from 
 import { FlatList, Pressable, StyleSheet, Text, View, type ListRenderItemInfo } from 'react-native';
 
 import { Icon, type IconName } from '@/components/icon';
+import { IconTile } from '@/components/ui/list';
 import { SpeciesAvatar } from '@/components/species-avatar';
 import { ThemedText } from '@/components/themed-text';
 import { Button } from '@/components/ui/button';
@@ -227,7 +228,7 @@ const MatchRow = memo(function MatchRow({
       <ResultRow
         first={first}
         ruled={ruled}
-        leading={<Tile icon="pin" />}
+        leading={<IconTile icon="pin" />}
         title={site.name}
         subtitle={`${site.region}, ${site.country}`}
         trailing="chevronRight"
@@ -244,7 +245,7 @@ const MatchRow = memo(function MatchRow({
       <ResultRow
         first={first}
         ruled={ruled}
-        leading={<Tile icon="map" />}
+        leading={<IconTile icon="map" />}
         title={place.name}
         subtitle={`${place.detail} · ${sites}`}
         trailing="chevronRight"
@@ -327,21 +328,9 @@ function ResultRow({
         name={trailing}
         size={trailing === 'pin' ? 18 : 16}
         color={theme.textSecondary}
-        weight={trailing === 'pin' ? 'duotone' : 'bold'}
-        wash={trailing === 'pin' ? theme.coral : undefined}
-        washOpacity={0.35}
+        weight={trailing === 'pin' ? 'regular' : 'bold'}
       />
     </Pressable>
-  );
-}
-
-/** The 40-point square a dive site or place sits in, where an animal has its plate. */
-function Tile({ icon }: { icon: IconName }) {
-  const theme = useTheme();
-  return (
-    <View style={[styles.tile, { backgroundColor: theme.backgroundSelected }]}>
-      <Icon name={icon} size={20} />
-    </View>
   );
 }
 
@@ -391,7 +380,7 @@ function Suggestions({ onTry }: { onTry: (query: string) => void }) {
             i > 0 && { borderTopWidth: 1, borderTopColor: theme.rule },
             pressed && { backgroundColor: theme.backgroundSelected },
           ]}>
-          <Tile icon={EXAMPLE_ICONS[example.kind]} />
+          <IconTile icon={EXAMPLE_ICONS[example.kind]} />
           <View style={styles.rowText}>
             <Text numberOfLines={1} style={[styles.rowTitle, { color: theme.text }]}>
               {example.query}
@@ -449,13 +438,6 @@ const styles = StyleSheet.create({
   },
   rowWhere: {
     ...TypeScale.subhead,
-  },
-  tile: {
-    width: Size.iconTile,
-    height: Size.iconTile,
-    borderRadius: Radius.sm,
-    alignItems: 'center',
-    justifyContent: 'center',
   },
   // Lined up with the rows' text, after the 40 tile.
   more: {
