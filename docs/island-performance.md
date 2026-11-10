@@ -1168,3 +1168,65 @@ their models load later); on a phone that is slow to keep up, the governor makes
   build; the "New" tag can show over the picture before its animal is there; detail by zoom (cheaper stand-ins for the six 8,000-triangle
   models when small, cheaper far ocean); the kept picture is sometimes not replaced in a session (seen in both builds, in about half of the
   runs; not looked into).
+
+### Phase 2: the explorer's JavaScript with no JIT (10 November 2026, later)
+
+A phone runs Hermes, which has no JIT, so the explorer's frame JavaScript was measured with V8's JavaScript tiers off (Chromium with
+`--js-flags=--no-opt --no-maglev --no-sparkplug --no-turbofan`, its interpreter only; `--jitless` itself also turns WebAssembly off,
+and the web build's SQLite then never opens). The heavy collection (62 species, five islands, level 6), the browser cache off, the
+explorer at rest after it is built, every requestAnimationFrame callback timed (R3F's loop: the useFrame callbacks and three.js's
+render). Two measuring traps found on the way: the GL-timing shim used by earlier harnesses wraps every GL call in JavaScript, which
+inflates an interpreter's frames (removed for these runs), and the frame rate in SwiftShader (about one frame a second) leaves 20 to 60
+frames a run, so every figure below is from repeated, alternating runs.
+
+| | JIT (V8) | interpreter |
+| --- | ---: | ---: |
+| Home at rest: JS a frame, mean / p50 / p95 | | 7.7 / 7.0 / 12.9 ms |
+| Explorer at rest: JS a frame, mean / p50 / p95 | 12.8 / 11.5 / 26 ms | 47-58 / 43-46 / 78-122 ms |
+| Explorer under a finger (dragging) | | 64 / 71 / 123 ms |
+
+Where the explorer's frame goes, interpreter, CPU profile, per frame: the swimming's step 27 ms (of it the steering about 8: shore-distance
+lookups), three.js's render 18-27 ms (projecting objects, setting programs and uniforms, matrices), plus React work outside the frames:
+an animal's turn (its water's distance fields, worked out for a new body: about 150-300 ms in one task) and, before the fix below, the
+whole scene re-rendered once a second.
+
+What was cut, measured the same way (explorer at rest, small window so more frames, two runs each, alternating):
+
+| Change | before | after |
+| --- | ---: | ---: |
+| The swimming at 30 steps a second (`setCadence`, the governor's JavaScript ladder; verify:swim at 30 steps: 0 clipped, 0 on land, 0 grazing) | p50 44.7 / 41.6, mean 46.8 / 51.0 ms | p50 30.7 / 29.3, mean 32.0 / 31.4 ms |
+| ... the swimming's own share of a frame (profile) | 27.2 ms | 15.3 ms |
+| No re-render every second while an animal leaves (React work a second) | 14 / 11 ms | 5 / 8 ms |
+| Bones marked not visible, so three.js's walk skips them (tried) | p50 44.7 / 41.6 | 46.3 / 43.4: no measurable change, not kept |
+| Faster distance transform (closures inlined; tried, node --jitless) | start 2151 ms | 2076-2304 ms: noise, not kept |
+
+The 30 steps are not the default: the governor takes them on a phone whose late frames are the JavaScript's (mean JS over 60% of the frame
+time), then a steady 30 frames a second under a finger, and the report says so ("governor ... swimming at 30 steps"). With them the
+explorer's frame is about 30 ms of interpreter JavaScript: inside a 30-a-second budget at p50, not at p95 (52-70 ms, the frames with a turn
+or a mount). The target of a 25 ms p95 is not met.
+
+Where the explorer's triangles come from (341,375 at the default zoom): the 57 animal models average 3,988 triangles (the two carpet sharks
+7,900, six over 4,700), and the explorer shows about 50-60 animals, so roughly 200-240 thousand are the animals, each 10-20 points long at
+that zoom; the rest are the islands and the sea. Stand-ins with fewer triangles when an animal is small would cut GPU vertex work, not
+JavaScript: not done.
+
+Startup with the interpreter (the reef profile returning, small window): the kept picture at 1.0-2.2 s, the scene's first frame 0.1 s later,
+the first animal at 4.0-9.0 s, everything built at 5.3 s. Of the 4.8 s of JavaScript to "built": the swimming's start 1.47 s (31%; each animal's
+water, its distance fields), drawing the first frames 0.61 s, the Home cards' species plates 0.44 s, measuring the animals' bodies for their tap
+targets (skinning every vertex) 0.34 s, unpacking the shipped meshes 0.23 s, navigation and route loading about 0.3 s. Nothing of it was
+trimmed here; the swimming's start is the one to take next (its fields could be worked out ahead in slices, or kept).
+
+Also in this phase: the New tag shows only over the island its animal lives on, and not over the launch picture or a held frame; Home's kept
+picture no longer waits for three seconds with no model loading (with discoveries arriving it was replaced in about half the visits, with
+none arriving in 3 of 3; it leaves out the animals, so it waits for the island to be whole); a veil over the explorer's first build was tried
+and taken out (the screen was a plain colour from 1.0 to 4.3 s where without it the reef is on screen at 2.0 s and the last empty island
+place fills at 2.8 s, at 1x).
+
+Not done: a designed arrival for the explorer's first build (the sea would have to stand in for an island not built yet); the island
+switch's cross-fade, and the title changing at the swap rather than before; on the design-system build a filmed switch at 4x showed the card
+blank for a few frames during the hold rather than the island it left (sw-p2c-x4 in the measuring folder; not looked into); stand-ins by
+zoom; the turn's long task; startup trims.
+
+To read in the phone report: the first line (a development build is much slower); "Scene: explorer" JS per frame against its frame time
+(JS near the frame time: the phone is JavaScript-bound, and the governor should show "swimming at 30 steps"); the counts "quality governor to
+..." (which ladder it used, and whether it flapped); stalls over 250 ms; the explorer's open and Home's switches (frame and done).
