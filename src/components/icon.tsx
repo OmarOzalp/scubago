@@ -1,7 +1,8 @@
 /**
- * ScubaGo's icons: Phosphor (MIT), drawn in its duotone weight. The outline is in ink and a soft
- * colour wash fills part of each icon, like a field-guide sketch with watercolour. Each icon is
- * imported on its own so only the ones used here are bundled.
+ * ScubaGo's icons: Phosphor (MIT), in its regular weight (design system v2): 22 in rows and buttons,
+ * 24 in the tab bar and headers; a selected tab uses `fill`. `duotone` (an ink outline with a soft wash
+ * inside) is still there for the places that ask for it. Each icon is imported on its own so only the
+ * ones used here are bundled.
  */
 import { View, type ColorValue, type StyleProp, type ViewStyle } from 'react-native';
 
@@ -174,13 +175,13 @@ interface Props {
   wash?: string;
   /** How strong the wash is (0–1). */
   washOpacity?: number;
-  /** 'duotone' (default) for most places; 'bold' where an icon must read at a glance on a fill. */
+  /** 'regular' (default); 'fill' for a selected tab; 'bold' where an icon must read at a glance on a fill. */
   weight?: 'duotone' | 'regular' | 'bold' | 'fill';
   style?: StyleProp<ViewStyle>;
 }
 
 /** Decorative by default: the label next to an icon (or the button around it) says what it means. */
-export function Icon({ name, size = 22, color, wash, washOpacity = 0.55, weight = 'duotone', style }: Props) {
+export function Icon({ name, size = 22, color, wash, washOpacity = 0.55, weight = 'regular', style }: Props) {
   const theme = useTheme();
   const Component = ICONS[name];
   const ink = (color as string | undefined) ?? theme.text;

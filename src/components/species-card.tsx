@@ -1,15 +1,17 @@
-import { StyleSheet, Text, useWindowDimensions, View, type LayoutChangeEvent } from 'react-native';
+import { Pressable, StyleSheet, Text, useWindowDimensions, View, type LayoutChangeEvent } from 'react-native';
 
-import { PaperButton } from '@/components/journal/paper';
-import { NewBadge } from '@/components/journal/stamp';
 import { SpeciesArt } from '@/components/species-art';
-import { Radius, Type } from '@/constants/theme';
-import { useTheme } from '@/hooks/use-theme';
+import { mix } from '@/components/ui/color';
+import { usePressScale } from '@/components/ui/press';
+import { continuous } from '@/components/ui/surface';
+import { Tag } from '@/components/ui/tag';
+import { Radius, Space, TypeScale } from '@/constants/theme';
+import { useSchemeName, useTheme } from '@/hooks/use-theme';
 import { RARITY_COLOR, RARITY_LABEL } from '@/lib/rarity';
 import type { Species } from '@/lib/types';
 
-/** The space between cards, across and down. */
-export const CARD_GAP = 10;
+/** The space between cards, across and down (the design system's 12 between siblings). */
+export const CARD_GAP = Space.s3;
 
 /**
  * How the cards of a grid sit in a column `inner` points wide: three a row on a phone, two when the
@@ -45,75 +47,72 @@ interface Props {
   width: number;
   /** Times seen; 0 for a species still to find. */
   count: number;
-  /** First seen recently: a "New" ribbon. */
+  /** First seen recently: a "New" tag on the tile. */
   isNew?: boolean;
   onPress: () => void;
 }
 
+/** How strongly a seen species' tile takes its rarity colour, per scheme. */
+const TINT = { light: 0.14, dark: 0.16 };
+
 /**
- * A page of the field guide: the species' drawing and its name, edged along the top in the
- * rarity colour (the only place the card shows rarity; the word is on the animal's own page). A species still to find is a pencil sketch with no caption: its dashed plate and
- * paler name say so, the rarity colour on its top edge is a hint of what to hunt for, and the words
- * ("Rare, not seen yet") are in what a screen reader says.
+ * A species in a grid: its drawing on a square tile (seen: a soft tint of its rarity colour; still to find:
+ * the sunken fill with a faint pencil outline), and its name under it, two lines at most, always the same
+ * height so a grid's rows line up. Rarity is the small dot in the tile's corner and nothing else; the words
+ * ("Rare, not seen yet", "seen 3 times") are in what a screen reader says.
  */
 export function SpeciesCard({ species, width, count, isNew = false, onPress }: Props) {
   const theme = useTheme();
-    const seen = count > 0;
+  const scheme = useSchemeName();
+  const scale = usePressScale();
+  const seen = count > 0;
   const rarity = RARITY_LABEL[species.rarity];
-  const label = `${species.commonName}, ${rarity.toLowerCase()}, ${
-    seen ? (count > 1 ? `seen ${count} times` : 'seen once') : 'not seen yet'
-  }${isNew ? ', new' : ''}`;
+  const colour = RARITY_COLOR[species.rarity];
+  const label = `${species.commonName}, ${rarity.toLowerCase()}, ${seen ? (count > 1 ? `seen ${count} times` : 'seen once') : 'not seen yet'}${isNew ? ', new' : ''}`;
+  const tile = seen ? mix(theme.backgroundElement, colour, TINT[scheme]) : theme.backgroundSelected;
   return (
-    <PaperButton onPress={onPress} accessibilityLabel={label} style={[styles.card, { width, borderTopColor: RARITY_COLOR[species.rarity] }]}>
-      <View style={styles.art}>
-        <SpeciesArt species={species} width={width * 0.78} found={seen} />
+    <Pressable onPress={onPress} accessibilityRole="button" accessibilityLabel={label} style={({ pressed }) => [styles.card, { width }, scale(pressed)]}>
+      <View style={[styles.tile, { width, height: width, backgroundColor: tile }]}>
+        <SpeciesArt species={species} width={Math.round(width * 0.86)} found={seen} paper={tile} />
+        <View testID="rarity-dot" style={[styles.dot, { backgroundColor: colour, borderColor: tile }]} />
       </View>
-      <View style={styles.text}>
-        <Text numberOfLines={2} style={[styles.name, { color: seen ? theme.text : theme.textSecondary }]}>
-          {species.commonName}
-        </Text>
-        {count > 1 ? (
-          <Text numberOfLines={1} style={[styles.times, { color: theme.textSecondary }]}>
-            {`×${count}`}
-          </Text>
-        ) : null}
-      </View>
-      {isNew ? <NewBadge style={styles.badge} /> : null}
-    </PaperButton>
+      {isNew ? <Tag label="New" tone="sun" style={styles.new} /> : null}
+      <Text numberOfLines={2} ellipsizeMode="tail" maxFontSizeMultiplier={1.5} style={[styles.name, { color: seen ? theme.text : theme.textSecondary }]}>
+        {species.commonName}
+      </Text>
+    </Pressable>
   );
 }
 
 const styles = StyleSheet.create({
   card: {
-    borderTopWidth: 4,
-    borderRadius: Radius.md,
-    overflow: 'hidden',
-    paddingBottom: 10,
+    gap: Space.s2,
   },
-  art: {
-    height: 80,
+  tile: {
+    borderRadius: Radius.md,
+    ...continuous,
     alignItems: 'center',
     justifyContent: 'center',
+    overflow: 'hidden',
   },
-  text: {
-    paddingHorizontal: 8,
-    gap: 2,
-  },
-  // 15 is the floor for a name that is the content; two lines, so the long ones ("Whitetip Reef Shark") still show.
-  name: {
-    fontFamily: Type.bodyHeavy,
-    fontSize: 15,
-    lineHeight: 19,
-    minHeight: 38,
-  },
-  times: {
-    fontFamily: Type.bodyHeavy,
-    fontSize: 13,
-    lineHeight: 15,
-  },
-  badge: {
+  dot: {
     position: 'absolute',
-    top: 6,
-    right: 6,
+    top: Space.s2,
+    left: Space.s2,
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    borderWidth: 1.5,
+  },
+  // Overlaps the tile's top-right corner.
+  new: {
+    position: 'absolute',
+    top: -6,
+    right: -4,
+  },
+  // Two lines are always kept, so every card in a grid is the same height.
+  name: {
+    ...TypeScale.subheadStrong,
+    minHeight: 2 * TypeScale.subheadStrong.lineHeight,
   },
 });

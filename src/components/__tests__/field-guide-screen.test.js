@@ -5,6 +5,7 @@ import { create } from 'react-test-renderer';
 import { router } from 'expo-router';
 
 import FieldGuideScreen from '@/app/(tabs)/field-guide';
+import { CARD_GAP } from '@/components/species-card';
 import { CATALOG } from '@/lib/catalog';
 import { CATEGORY_LABEL, RARITY_COLOR } from '@/lib/rarity';
 import { searchSpecies } from '@/lib/text-search';
@@ -213,7 +214,7 @@ test('a group chip that is on turns off (to All) when tapped again', async () =>
   expect(chip('All').props['aria-selected']).toBe(true);
 });
 
-test('no card prints its rarity: the top edge is its colour, a species still to find has a paler name, and a screen reader still hears the words', async () => {
+test('no card prints its rarity: a small dot is its colour, a species still to find has a paler name, and a screen reader still hears the words', async () => {
   await render();
   // Not one "Not seen yet" on the page (it was on 117 cards), but each card says it to a screen reader.
   expect(textOf()).not.toContain('Not seen yet');
@@ -222,22 +223,25 @@ test('no card prints its rarity: the top edge is its colour, a species still to 
   const tiger = CATALOG.find((s) => s.id === 'tiger-shark');
   const card = unseen.find((c) => label(c).startsWith(`${tiger.commonName},`));
   expect(label(card)).toBe(`${tiger.commonName}, ${tiger.rarity.toLowerCase()}, not seen yet`);
-  // The rarity colour on the card's top edge is the hunting hint; it is the same colour a seen card of the rarity has.
-  const edge = (c) => StyleSheet.flatten(typeof c.props.style === 'function' ? c.props.style({ pressed: false }) : c.props.style).borderTopColor;
-  expect(edge(card)).toBe(RARITY_COLOR[tiger.rarity]);
+  // The rarity dot on the tile is the hunting hint; it is the same colour a seen card of the rarity has. No coloured edge.
+  const dot = (c) => StyleSheet.flatten(c.findAll((n) => n.props.testID === 'rarity-dot' && typeof n.type === 'string')[0].props.style).backgroundColor;
+  const edge = (c) => StyleSheet.flatten(typeof c.props.style === 'function' ? c.props.style({ pressed: false }) : c.props.style).borderTopWidth ?? 0;
+  expect(dot(card)).toBe(RARITY_COLOR[tiger.rarity]);
+  expect(edge(card)).toBe(0);
   const seenCard = cards().find((c) => label(c).startsWith('Grey Reef Shark,'));
-  expect(edge(seenCard)).toBe(RARITY_COLOR[CATALOG.find((s) => s.id === 'grey-reef-shark').rarity]);
-  // Rarity is the card's edge alone: no card, seen or not, prints the word.
+  expect(dot(seenCard)).toBe(RARITY_COLOR[CATALOG.find((s) => s.id === 'grey-reef-shark').rarity]);
+  // Rarity is the dot alone: no card, seen or not, prints the word.
   const rarityWords = new Set(['Common', 'Uncommon', 'Rare', 'Epic', 'Legendary']);
   expect(textOf().split(' | ').filter((t) => rarityWords.has(t.replace(/\s+×\d+$/, '')))).toHaveLength(0);
 });
 
-test('species names are 15 points, two lines allowed, on a card the diver can read at a large text size', async () => {
+test('species names are 14 points (subheadStrong in the scale), two lines allowed and always kept, so the cards of a row are one height', async () => {
   await render();
   const name = root.root.findAll((n) => n.type === 'Text' && flat(n) === 'Nurse Shark')[0];
   const style = StyleSheet.flatten(name.props.style);
-  expect(style.fontSize).toBe(15);
+  expect(style.fontSize).toBe(14);
   expect(name.props.numberOfLines).toBe(2);
+  expect(name.props.ellipsizeMode).toBe('tail');
   expect(style.minHeight).toBeGreaterThanOrEqual(2 * style.lineHeight);
 });
 
@@ -270,7 +274,7 @@ test('covered by another screen (measured 0 wide), the guide keeps its cards as 
   await layout(5);
   expect(widthOfACard()).toBeGreaterThanOrEqual(0);
   await layout(600);
-  expect(widthOfACard()).toBe(Math.floor((600 - 10 * 3) / 4));
+  expect(widthOfACard()).toBe(Math.floor((600 - CARD_GAP * 3) / 4));
 });
 
 test('three cards a row at the normal text size and two at 150%, so a name at that size has room', async () => {
@@ -279,11 +283,11 @@ test('three cards a row at the normal text size and two at 150%, so a name at th
   try {
     Dimensions.set({ window: { ...window, fontScale: 1 } });
     await render();
-    expect(widthOfACard()).toBe(Math.floor((358 - 10 * 2) / 3));
+    expect(widthOfACard()).toBe(Math.floor((358 - CARD_GAP * 2) / 3));
     await act(async () => root.unmount());
     Dimensions.set({ window: { ...window, fontScale: 1.5 } });
     await render();
-    expect(widthOfACard()).toBe(Math.floor((358 - 10) / 2));
+    expect(widthOfACard()).toBe(Math.floor((358 - CARD_GAP) / 2));
   } finally {
     Dimensions.set({ window });
   }

@@ -3,7 +3,7 @@ import React, { act } from 'react';
 import { create } from 'react-test-renderer';
 import { router } from 'expo-router';
 import { JournalTabBar } from '@/components/journal/tab-bar';
-import { Type } from '@/constants/theme';
+import { Colors } from '@/constants/theme';
 
 jest.mock('@/global.css', () => ({}));
 jest.mock('expo-router', () => ({ router: { push: jest.fn() } }));
@@ -33,15 +33,18 @@ test('the tabs read Home, Sites, Log, Logbook, Field guide, and the explorer has
   expect(labels()).toEqual(['Home', 'Sites', 'Log', 'Logbook', 'Field guide']);
 });
 
-test('Log is a button that opens the log, and its label is not drawn like the selected tab', async () => {
+test('Log is a button that opens the log, and its label is not drawn like the selected tab (tint), but like the others', async () => {
   await render(0);
   const log = root.root.findAll((n) => n.props.accessibilityLabel === 'Log a dive' && typeof n.props.onPress === 'function')[0];
   expect(log.props.accessibilityRole).toBe('button');
   await act(async () => log.props.onPress());
   expect(router.push).toHaveBeenCalledWith('/log/new');
-  expect(style('Home').fontFamily).toBe(Type.bodyHeavy);
-  expect(style('Log').fontFamily).not.toBe(Type.bodyHeavy);
-  expect(style('Log').fontFamily).toBe(style('Sites').fontFamily);
+  expect(style('Home').color).toBe(Colors.light.tint);
+  expect(style('Log').color).not.toBe(Colors.light.tint);
+  expect(style('Log').color).toBe(style('Sites').color);
+  expect(style('Log').fontFamily).toBe(style('Home').fontFamily);
+  // Every label is 13 (footnoteStrong): the selected one is told apart by colour and its filled icon.
+  for (const t of ['Home', 'Sites', 'Log', 'Logbook', 'Field guide']) expect(style(t).fontSize).toBe(13);
 });
 
 test('no bar over the explorer', async () => {

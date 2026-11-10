@@ -13,7 +13,7 @@ import Svg, { Circle, Defs, LinearGradient, Path, RadialGradient, Rect, Stop } f
 
 import { Wash } from '@/components/journal/wash';
 import { mix } from '@/lib/art-color';
-import { Colors, Type } from '@/constants/theme';
+import { Type } from '@/constants/theme';
 import { PAPER as PLATE_PAPER } from '@/lib/plates';
 import { RARITY_COLOR, RARITY_LABEL, RARITY_ORDER, RARITY_TEXT } from '@/lib/rarity';
 import type { Rarity } from '@/lib/types';
@@ -21,26 +21,27 @@ import { seededRandom } from '@/lib/wash';
 
 import { CARD_SIZE } from './card-spec';
 
-const L = Colors.light;
-
-/** The card's fixed colours: Reef Journal's paper scheme, whatever the phone is set to. */
+/**
+ * The card's fixed colours: the share cards keep their own artwork (the Reef Journal paper scheme), whatever
+ * the app's theme becomes and whatever the phone is set to.
+ */
 export const CARD_COLORS = {
-  paper: L.background,
-  sheet: L.backgroundElement,
+  paper: '#FBF6EC',
+  sheet: '#FFFDF8',
   sand: '#FFF3D1',
   sandEdge: '#EED9AE',
-  ink: L.text,
-  soft: L.textSecondary,
-  rule: L.rule,
+  ink: '#1D2B45',
+  soft: '#5A6070',
+  rule: '#E3D7BF',
   ruleFaint: '#EFE6D2',
-  lagoon: L.lagoon,
-  tint: L.tint,
-  turquoise: L.turquoise,
-  coral: L.coral,
-  sun: L.sun,
-  stamp: L.stamp,
-  wash: L.wash,
-  twilight: L.twilight,
+  lagoon: '#0E7C86',
+  tint: '#0E6F78',
+  turquoise: '#2EC4B6',
+  coral: '#FF7A59',
+  sun: '#FFC94A',
+  stamp: '#B8371F',
+  wash: '#9FE3DA',
+  twilight: '#23306B',
   /** The paper the species plates are tinted against. */
   plate: PLATE_PAPER,
 } as const;

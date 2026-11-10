@@ -1,15 +1,17 @@
-import { Pressable, type StyleProp, type ViewStyle } from 'react-native';
+import type { StyleProp, ViewStyle } from 'react-native';
 
-import { Icon, type IconName } from '@/components/icon';
-import { useTheme } from '@/hooks/use-theme';
+import type { IconName } from '@/components/icon';
+import { IconButton as UiIconButton } from '@/components/ui/icon-button';
 
-/** A round paper button holding one icon. `accessibilityLabel` says what it does. */
+/**
+ * The old round button, drawn as the design system's IconButton (src/components/ui/icon-button.tsx): a 40
+ * circle, 44 to hit. `size` is no longer used (every icon button is one size); new code imports the ui one.
+ */
 export function IconButton({
   icon,
   onPress,
   accessibilityLabel,
   accessibilityHint,
-  size = 46,
   role = 'button',
   style,
 }: {
@@ -21,28 +23,5 @@ export function IconButton({
   role?: 'button' | 'link';
   style?: StyleProp<ViewStyle>;
 }) {
-  const theme = useTheme();
-  return (
-    <Pressable
-      onPress={onPress}
-      accessibilityRole={role}
-      accessibilityLabel={accessibilityLabel}
-      accessibilityHint={accessibilityHint}
-      style={({ pressed }) => [
-        {
-          width: size,
-          height: size,
-          borderRadius: size / 2,
-          borderWidth: 1.5,
-          borderColor: theme.rule,
-          backgroundColor: pressed ? theme.backgroundSelected : theme.backgroundElement,
-          alignItems: 'center',
-          justifyContent: 'center',
-        },
-        style,
-      ]}>
-      {/* The three dots stand plain, in ink: a wash behind them would only look like a stain. */}
-      {icon === 'more' ? <Icon name={icon} size={Math.round(size * 0.5)} wash="transparent" washOpacity={0} weight="bold" /> : <Icon name={icon} size={Math.round(size * 0.5)} />}
-    </Pressable>
-  );
+  return <UiIconButton icon={icon} onPress={onPress} accessibilityLabel={accessibilityLabel} accessibilityHint={accessibilityHint} role={role} style={style} />;
 }

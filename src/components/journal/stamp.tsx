@@ -3,6 +3,7 @@ import { Text, View, type StyleProp, type ViewStyle } from 'react-native';
 import Animated, { useReducedMotion } from 'react-native-reanimated';
 
 import { Icon } from '@/components/icon';
+import { Tag } from '@/components/ui/tag';
 import { Type } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 
@@ -107,12 +108,7 @@ export function Seal({ label = 'Verified', color, rotate = 10, animate = false, 
   );
 }
 
-/** A small "NEW" ribbon for things the diver hasn't had before. */
+/** A small "New" tag for things the diver hasn't had before: the design system's sun Tag. */
 export function NewBadge({ label = 'New', style }: { label?: string; style?: StyleProp<ViewStyle> }): ReactNode {
-  const theme = useTheme();
-  return (
-    <View style={[{ backgroundColor: theme.sun, borderColor: theme.text, borderWidth: 1.5, borderRadius: 8, paddingHorizontal: 7, paddingVertical: 1 }, style]}>
-      <Text style={{ fontFamily: Type.bodyHeavy, fontSize: 13, lineHeight: 16, color: '#1D2B45', letterSpacing: 0.5 }}>{label.toUpperCase()}</Text>
-    </View>
-  );
+  return <Tag label={label} tone="sun" style={style} />;
 }
