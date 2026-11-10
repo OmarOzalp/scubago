@@ -57,7 +57,7 @@ const TINT = { light: 0.14, dark: 0.18 };
 
 /**
  * A species in a grid: its drawing on a square tile (seen: a soft tint of its rarity colour; still to find:
- * the sunken fill with a faint pencil outline), and its name under it, two lines at most, always the same
+ * a white surface with a hairline and a pencil outline), and its name under it, two lines at most, always the same
  * height so a grid's rows line up. Rarity is the small dot in the tile's corner and nothing else; the words
  * ("Rare, not seen yet", "seen 3 times") are in what a screen reader says.
  */
@@ -72,10 +72,12 @@ export function SpeciesCard({ species, width, count, isNew = false, onPress }: P
   // The plates are drawn in ink for paper: at night a seen species still sits on a pale tile (a muted one, so it
   // doesn't glare), or a dark animal like a manta would vanish into the navy. Still to find stays sunken.
   const paper = scheme === 'dark' ? mix(theme.text, theme.backgroundElement, 0.3) : theme.backgroundElement;
-  const tile = seen ? mix(paper, colour, TINT[scheme]) : theme.backgroundSelected;
+  // Seen: the soft tint of its rarity colour. Still to find: a plain white surface with a hairline (never a grey fill,
+  // which reads as a tile still loading); the pencil outline on it is what says "not yet".
+  const tile = seen ? mix(paper, colour, TINT[scheme]) : theme.backgroundElement;
   return (
     <Pressable onPress={onPress} accessibilityRole="button" accessibilityLabel={label} style={({ pressed }) => [styles.card, { width }, scale(pressed)]}>
-      <View style={[styles.tile, { width, height: width, backgroundColor: tile }]}>
+      <View style={[styles.tile, { width, height: width, backgroundColor: tile }, !seen && { borderWidth: StyleSheet.hairlineWidth * 2, borderColor: theme.cardBorder }]}>
         <SpeciesArt species={species} width={Math.round(width * 0.86)} found={seen} paper={tile} />
         <View testID="rarity-dot" style={[styles.dot, { backgroundColor: colour, borderColor: tile }]} />
       </View>

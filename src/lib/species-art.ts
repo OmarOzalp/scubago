@@ -365,7 +365,7 @@ export interface ComposedArt {
 }
 
 /** Pencil for species still to find. */
-export const PENCIL = { light: '#9C9381', dark: '#6F829A' };
+export const PENCIL = { light: '#7D7563', dark: '#8497AE' };
 
 /**
  * Everything to draw for a species at a given on-screen width. Found: painted, with fine detail on

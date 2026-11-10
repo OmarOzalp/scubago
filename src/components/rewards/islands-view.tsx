@@ -1,5 +1,6 @@
 import { StyleSheet, View } from 'react-native';
 
+import { Space } from '@/constants/theme';
 import { IslandCard } from '@/components/rewards/island-card';
 import type { IslandResult } from '@/lib/rewards';
 
@@ -25,6 +26,6 @@ export function IslandsView({
 
 const styles = StyleSheet.create({
   view: {
-    gap: 16,
+    gap: Space.s4,
   },
 });

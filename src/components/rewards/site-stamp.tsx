@@ -3,7 +3,7 @@ import Animated from 'react-native-reanimated';
 
 import { useStampIn } from '@/components/journal/stamp';
 import { longDate, plural, stampDate } from '@/components/rewards/format';
-import { Type } from '@/constants/theme';
+import { Radius, Size, Space, Type, TypeScale } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import type { PassportStamp } from '@/lib/rewards';
 import { stampLook } from '@/components/rewards/stamp-look';
@@ -36,10 +36,10 @@ export function SiteStamp({ stamp, animate = false, delay = 0, onPress }: { stam
       <Animated.View
         style={[
           styles.outer,
-          { borderColor: ink, borderRadius: look.oval ? 54 : 10 },
+          { borderColor: ink, borderRadius: look.oval ? Radius.pill : Radius.sm },
           animate ? motion : { transform: [{ rotate: `${look.rotate}deg` }] },
         ]}>
-        <View style={[styles.inner, { borderColor: ink, borderRadius: look.oval ? 50 : 7, paddingHorizontal: look.oval ? 16 : 10 }]}>
+        <View style={[styles.inner, { borderColor: ink, borderRadius: look.oval ? Radius.pill : Radius.sm - 3, paddingHorizontal: look.oval ? Space.s4 : Space.s3 - 2 }]}>
           <Text numberOfLines={3} style={[styles.name, { color: ink }]}>
             {stamp.siteName.toUpperCase()}
           </Text>
@@ -52,12 +52,15 @@ export function SiteStamp({ stamp, animate = false, delay = 0, onPress }: { stam
   );
 }
 
+// The stamp keeps its typewriter look (Courier, stamp ink): it is a drawn thing, not interface text.
+const typed = { ...TypeScale.footnoteStrong, fontFamily: Type.label };
+
 const styles = StyleSheet.create({
   press: {
     alignSelf: 'center',
-    minHeight: 44,
+    minHeight: Size.hit,
     maxWidth: '100%',
-    padding: 6,
+    padding: Space.s2 - 2,
   },
   outer: {
     borderWidth: 2,
@@ -65,15 +68,13 @@ const styles = StyleSheet.create({
   },
   inner: {
     borderWidth: 1,
-    paddingVertical: 8,
+    paddingVertical: Space.s2,
     alignItems: 'center',
     gap: 1,
     minWidth: 112,
   },
   name: {
-    fontFamily: Type.label,
-    fontSize: 13,
-    lineHeight: 16,
+    ...typed,
     letterSpacing: 1,
     textAlign: 'center',
   },
@@ -84,15 +85,11 @@ const styles = StyleSheet.create({
     opacity: 0.8,
   },
   line: {
-    fontFamily: Type.label,
-    fontSize: 13,
-    lineHeight: 15,
+    ...typed,
     letterSpacing: 1,
   },
   small: {
-    fontFamily: Type.label,
-    fontSize: 13,
-    lineHeight: 15,
+    ...typed,
     letterSpacing: 1.4,
   },
 });

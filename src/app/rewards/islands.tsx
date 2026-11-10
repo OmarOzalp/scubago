@@ -2,9 +2,10 @@ import { router } from 'expo-router';
 import { StyleSheet, View } from 'react-native';
 
 import { Disclosure } from '@/components/journal/disclosure';
-import { Screen, ScreenHeader } from '@/components/journal/screen';
 import { IslandsView } from '@/components/rewards/islands-view';
 import { ThemedText } from '@/components/themed-text';
+import { Screen, ScreenTitle } from '@/components/ui/screen';
+import { Space } from '@/constants/theme';
 import { WhenReady } from '@/components/when-ready';
 import { useRewards } from '@/hooks/use-rewards';
 import { ORIGIN } from '@/components/home/explorer-origin';
@@ -24,11 +25,10 @@ function IslandsScreen() {
   const raised = islands.filter((i) => i.unlocked).length;
   return (
     <Screen>
-      <ScreenHeader title="Your islands" />
-      <ThemedText type="small" themeColor="textSecondary">{`${raised} of ${islands.length} raised`}</ThemedText>
+      <ScreenTitle title="Your islands" subtitle={`${raised} of ${islands.length} raised`} />
       <View style={styles.about}>
         <Disclosure label="About islands" hint="Shows what raises an island">
-          <ThemedText type="small" themeColor="textSecondary">
+          <ThemedText type="subhead" themeColor="textSecondary">
             Your home island is always there. Every other island rises with the first animal you log from its habitat.
           </ThemedText>
         </Disclosure>
@@ -47,6 +47,6 @@ function IslandsScreen() {
 const styles = StyleSheet.create({
   // The row is 44 points to hit; its margins take back the room it does not draw in.
   about: {
-    marginVertical: -8,
+    marginVertical: -Space.s2,
   },
 });

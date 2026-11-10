@@ -1,16 +1,11 @@
 import { Stack, router, useLocalSearchParams } from 'expo-router';
-import { StyleSheet, View } from 'react-native';
 
-import { Icon } from '@/components/icon';
-import { Screen } from '@/components/journal/screen';
-import { Wash } from '@/components/journal/wash';
 import { BadgeDetailView } from '@/components/rewards/badge-detail';
 import { ladderOf } from '@/components/rewards/badge-groups';
-import { ThemedText } from '@/components/themed-text';
-import { ThemedView } from '@/components/themed-view';
+import { EmptyState } from '@/components/ui/notice';
+import { Screen } from '@/components/ui/screen';
 import { WhenReady } from '@/components/when-ready';
 import { useRewards } from '@/hooks/use-rewards';
-import { useTheme } from '@/hooks/use-theme';
 import { BADGES } from '@/lib/rewards';
 
 /** The web build pre-renders a page for every badge. */
@@ -30,17 +25,12 @@ export default function BadgeRoute() {
 function BadgeScreen() {
   const { badge: id } = useLocalSearchParams<{ badge: string }>();
   const { badges } = useRewards();
-  const theme = useTheme();
   const badge = badges.find((b) => b.id === id);
   if (!badge) {
     return (
-      <ThemedView style={styles.missing}>
-        <View style={styles.missingArt}>
-          <Wash width={120} height={84} color={theme.wash} seed={31} style={StyleSheet.absoluteFill} />
-          <Icon name="medal" size={40} />
-        </View>
-        <ThemedText type="heading">Badge not found.</ThemedText>
-      </ThemedView>
+      <Screen>
+        <EmptyState icon="medal" title="Badge not found." />
+      </Screen>
     );
   }
   return (
@@ -60,8 +50,3 @@ function BadgeScreen() {
     </>
   );
 }
-
-const styles = StyleSheet.create({
-  missing: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 12 },
-  missingArt: { width: 120, height: 84, alignItems: 'center', justifyContent: 'center' },
-});

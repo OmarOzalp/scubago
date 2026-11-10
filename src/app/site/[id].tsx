@@ -5,16 +5,15 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { ExternalLink } from '@/components/external-link';
 import { Icon, type IconName } from '@/components/icon';
 import { Disclosure } from '@/components/journal/disclosure';
-import { LinkRow } from '@/components/journal/link-row';
-import { Paper } from '@/components/journal/paper';
-import { Screen, SectionHeader } from '@/components/journal/screen';
-import { Wash } from '@/components/journal/wash';
-import { OceanButton } from '@/components/ocean-button';
 import { SiteSightingsSection } from '@/components/sightings/site-sightings-section';
 import { formatDate, SightingRow } from '@/components/sighting-row';
-import { cardWidthFor, onGridLayout, SpeciesCard } from '@/components/species-card';
+import { CARD_GAP, onGridLayout, SpeciesCard, useCardGrid } from '@/components/species-card';
 import { ThemedText } from '@/components/themed-text';
-import { Radius, Type } from '@/constants/theme';
+import { Button } from '@/components/ui/button';
+import { List, ListRow } from '@/components/ui/list';
+import { EmptyState } from '@/components/ui/notice';
+import { Screen, ScreenTitle, Section } from '@/components/ui/screen';
+import { Size, Space, TypeScale } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { regionPath } from '@/data/regions';
 import { canonicalSiteId, SITES } from '@/data/sites';
@@ -24,7 +23,6 @@ import { formatDepth, formatDiveNumber, formatMinutes, sortDives } from '@/lib/d
 import { siteAddedBy, siteFacts, siteSourceList } from '@/lib/site-details';
 import { useAppStore, useMyDives, useMySightings, useSiteById } from '@/lib/store';
 import type { Dive, Species } from '@/lib/types';
-import { hashSeed } from '@/lib/wash';
 
 /** An icon for each of the facts siteFacts() can give. */
 const FACT_ICON: Record<string, IconName> = {
@@ -34,11 +32,10 @@ const FACT_ICON: Record<string, IconName> = {
   Access: 'boat',
 };
 
-const GAP = 10;
 /** The diver's own dives here that are listed before "Show all": a site they know well has many. */
 const DIVES_SHOWN = 5;
 
-/** A dive site's page in the journal: its facts ruled off like a log entry, what lives there, and who saw what. */
+/** A dive site's page: its facts, what lives there, and who saw what. */
 /**
  * The web build pre-renders a page for every curated site, so each one's HTML matches what the app
  * draws for it. Sites divers add aren't known at build time: they share the generic page.
@@ -96,15 +93,13 @@ export default function SiteDetailScreen() {
     [mySightings],
   );
 
+  const { cardWidth } = useCardGrid(inner);
+
   if (!site) {
     return (
-      <View style={[styles.missing, { backgroundColor: theme.background }]}>
-        <View style={styles.missingArt}>
-          <Wash width={120} height={84} color={theme.wash} seed={23} style={StyleSheet.absoluteFill} />
-          <Icon name="pin" size={40} />
-        </View>
-        <ThemedText type="heading">Site not found.</ThemedText>
-      </View>
+      <Screen kind="pushed">
+        <EmptyState icon="pin" title="Site not found." />
+      </Screen>
     );
   }
 
@@ -122,105 +117,80 @@ export default function SiteDetailScreen() {
   // Every sighting here is the diver's own: "@you" and "Only you" on each row would say nothing.
   const mineIds = new Set(mySightings.map((s) => s.id));
   const allMine = siteSightings.every((s) => mineIds.has(s.id));
-  // Three plates a row on a phone, more on a wide screen.
-  const columns = Math.max(3, Math.min(6, Math.floor(inner / 150)));
-  const cardWidth = cardWidthFor(inner, columns);
 
   return (
     <>
       {/* The title stays for the browser tab; the header shows only the back arrow, as the page names itself below. */}
       <Stack.Screen options={{ title: site.name, headerTitle: '' }} />
       <Screen>
-        {/* The page's head: the site's name, where it is, and its own watercolour. */}
+        {/* The page's head: the site's name, where it is, and what the diver has here. */}
         <View style={styles.head}>
-          <View style={styles.headText}>
-            <ThemedText type="display" accessibilityRole="header">
-              {site.name}
+          <ScreenTitle title={site.name} />
+          <View style={styles.place}>
+            <Icon name="pin" size={16} color={theme.textSecondary} style={styles.placeIcon} />
+            <ThemedText type="subhead" themeColor="textSecondary" style={styles.flex}>
+              {regionPath(site.regionId) ?? site.region}, {site.country}
+              {addedBy ? ` · added by ${addedBy}` : ''}
             </ThemedText>
-            <View style={styles.place}>
-              <Icon name="pin" size={16} color={theme.textSecondary} wash={theme.coral} washOpacity={0.4} style={styles.placeIcon} />
-              <ThemedText type="small" themeColor="textSecondary" style={{ flex: 1 }}>
-                {regionPath(site.regionId) ?? site.region}, {site.country}
-                {addedBy ? ` · added by ${addedBy}` : ''}
-              </ThemedText>
-            </View>
-            {keyFacts ? (
-              <ThemedText type="smallBold" accessibilityLabel={keyFacts}>
-                {keyFacts}
-              </ThemedText>
-            ) : null}
           </View>
-          <View style={styles.headArt}>
-            <Wash width={84} height={64} color={theme.wash} seed={hashSeed(site.id)} style={StyleSheet.absoluteFill} />
-            <Icon name="waves" size={34} />
-          </View>
+          {keyFacts ? (
+            <ThemedText type="subheadStrong" accessibilityLabel={keyFacts}>
+              {keyFacts}
+            </ThemedText>
+          ) : null}
         </View>
 
         <ThemedText>{site.blurb}</ThemedText>
 
-        {/* The log entry: what's known about the site, one ruled line each, with the totals at the foot. */}
+        {/* What's known about the site, one row each. Only facts with a source are ever filled in (src/data/__tests__/integrity.test.ts). */}
         {hasNotes ? (
-        <Paper style={styles.entry}>
-          {/* Only facts with a source are ever filled in (src/data/__tests__/integrity.test.ts). */}
-          {facts.map((fact, index) => (
-            <View
-              key={fact.label}
-              accessible
-              accessibilityLabel={`${fact.label} ${fact.value}`}
-              style={[styles.fact, index > 0 && { borderTopWidth: 1, borderTopColor: theme.rule }]}>
-              <Icon name={FACT_ICON[fact.label] ?? 'info'} size={20} />
-              <ThemedText type="label" style={styles.factLabel}>
-                {fact.label}
-              </ThemedText>
-              <Text style={[styles.factValue, { color: theme.text }]}>{fact.value}</Text>
-            </View>
-          ))}
-          {site.conditions ? (
-            <View style={[styles.conditions, facts.length > 0 && { borderTopWidth: 1, borderTopColor: theme.rule }]}>
-              <View style={styles.conditionsTitle}>
-                <Icon name="current" size={20} />
-                <ThemedText type="label">Conditions</ThemedText>
+          <List>
+            {facts.map((fact) => (
+              <ListRow
+                key={fact.label}
+                leading={FACT_ICON[fact.label] ?? 'info'}
+                title={fact.label}
+                value={fact.value}
+                trailing="none"
+                accessibilityLabel={`${fact.label} ${fact.value}`}
+              />
+            ))}
+            {site.conditions ? (
+              <View style={[styles.conditions, facts.length > 0 && { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: theme.rule }]}>
+                <ThemedText type="footnoteStrong" themeColor="textSecondary">
+                  Conditions
+                </ThemedText>
+                <ThemedText type="callout">{site.conditions}</ThemedText>
               </View>
-              <ThemedText type="small" themeColor="textSecondary">
-                {site.conditions}
-              </ThemedText>
-            </View>
-          ) : null}
-        </Paper>
+            ) : null}
+          </List>
         ) : null}
 
         {/* Right under the facts, so it is there on the first screen and not after the lists. */}
-        <OceanButton
-          title="Log a dive here"
-          variant="log"
-          icon="plus"
-          onPress={() => router.push({ pathname: '/log/new', params: { siteId: site.id } })}
-        />
+        <Button title="Log a dive here" variant="log" icon="plus" onPress={() => router.push({ pathname: '/log/new', params: { siteId: site.id } })} />
 
         {divesHere.length > 0 ? (
-          <View style={styles.section}>
-            <SectionHeader title="Your dives here" />
-            <View style={styles.rows}>
+          <Section title="Your dives here">
+            <List>
               {(allDives ? divesHere : divesHere.slice(0, DIVES_SHOWN)).map((dive) => (
-                <LinkRow
+                <ListRow
                   key={dive.id}
-                  icon="logbook"
+                  leading="logbook"
                   title={`${formatDiveNumber(dive.number)} · ${formatDate(dive.divedOn)}`}
-                  detail={diveFacts(dive, sightingsByDive.get(dive.id) ?? 0)}
-                  role="link"
+                  subtitle={diveFacts(dive, sightingsByDive.get(dive.id) ?? 0) || undefined}
+                  accessibilityRole="link"
                   onPress={() => router.push(`/dive/${dive.id}`)}
                 />
               ))}
-            </View>
+            </List>
             {divesHere.length > DIVES_SHOWN && !allDives ? (
-              <OceanButton title={`Show all ${divesHere.length} dives here`} variant="quiet" onPress={() => setAllDives(true)} />
+              <Button title={`Show all ${divesHere.length} dives here`} variant="plain" size="md" onPress={() => setAllDives(true)} />
             ) : null}
-          </View>
+          </Section>
         ) : null}
 
         {notable.length > 0 ? (
-          <View style={styles.section}>
-            <SectionHeader title="What divers see here" />
+          <Section title="What divers see here">
             <View style={styles.grid} onLayout={onGridLayout(setInner)}>
               {notable.map((species) => (
                 <SpeciesCard
@@ -232,7 +202,7 @@ export default function SiteDetailScreen() {
                 />
               ))}
             </View>
-          </View>
+          </Section>
         ) : null}
 
         {/* What public records place here: kept apart from the page's own ScubaGo sightings, and the
@@ -245,8 +215,7 @@ export default function SiteDetailScreen() {
 
         {/* Nothing logged here yet: no empty box, the button above is the next step. */}
         {siteSightings.length > 0 ? (
-          <View style={styles.section}>
-            <SectionHeader title="Recent sightings" />
+          <Section title="Recent sightings">
             <View style={styles.rows}>
               {siteSightings.slice(0, 30).map((s) => {
                 const species = speciesForSighting(s);
@@ -263,15 +232,14 @@ export default function SiteDetailScreen() {
                 );
               })}
             </View>
-          </View>
+          </Section>
         ) : null}
 
         {sources.length > 0 ? (
-          <View style={[styles.sources, { borderTopColor: theme.rule }]}>
-            <ThemedText type="label">Sources</ThemedText>
-            <ThemedText type="small" themeColor="textSecondary">
+          <Section title="Sources">
+            <ThemedText type="subhead" themeColor="textSecondary">
               {sources.map((source, i) => (
-                <ThemedText key={source.source} type="small" themeColor="textSecondary">
+                <ThemedText key={source.source} type="subhead" themeColor="textSecondary">
                   {i > 0 ? ' · ' : ''}
                   {source.url ? (
                     <ExternalLink href={source.url} style={[styles.link, { color: theme.tint }]}>
@@ -284,16 +252,10 @@ export default function SiteDetailScreen() {
                 </ThemedText>
               ))}
             </ThemedText>
-            <Pressable
-              onPress={() => router.push('/credits')}
-              accessibilityRole="link"
-              accessibilityLabel="Data and credits"
-              style={styles.creditsLink}>
-              <ThemedText type="small" themeColor="textSecondary" style={styles.creditsText}>
-                Data & credits
-              </ThemedText>
+            <Pressable onPress={() => router.push('/credits')} accessibilityRole="link" accessibilityLabel="Data and credits" style={styles.creditsLink}>
+              <Text style={[TypeScale.subheadStrong, { color: theme.tint }]}>Data & credits</Text>
             </Pressable>
-          </View>
+          </Section>
         ) : null}
       </Screen>
     </>
@@ -312,100 +274,39 @@ function diveFacts(dive: Dive, sightings: number): string {
 }
 
 const styles = StyleSheet.create({
-  missing: {
+  flex: {
     flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 12,
-    padding: 24,
-  },
-  missingArt: {
-    width: 120,
-    height: 84,
-    alignItems: 'center',
-    justifyContent: 'center',
   },
   head: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    gap: 12,
-  },
-  headText: {
-    flex: 1,
-    gap: 2,
+    gap: Space.s2,
   },
   place: {
     flexDirection: 'row',
     alignItems: 'flex-start',
-    gap: 6,
-    marginTop: 4,
+    gap: Space.s2,
   },
   placeIcon: {
     marginTop: 2,
   },
-  headArt: {
-    width: 84,
-    height: 64,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginTop: 8,
-  },
-  entry: {
-    paddingVertical: 4,
-  },
-  fact: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-    minHeight: 48,
-    paddingVertical: 10,
-  },
-  factLabel: {
-    minWidth: 64,
-  },
-  factValue: {
-    flex: 1,
-    textAlign: 'right',
-    fontFamily: Type.bodyBold,
-    fontSize: 15,
-    lineHeight: 20,
-  },
   conditions: {
-    gap: 6,
-    paddingVertical: 12,
-  },
-  conditionsTitle: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-  },
-  section: {
-    gap: 14,
+    gap: Space.s1,
+    padding: Space.s4,
   },
   grid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: GAP,
+    gap: CARD_GAP,
   },
   rows: {
-    gap: 8,
-  },
-  sources: {
-    borderTopWidth: 1,
-    paddingTop: 14,
-    marginTop: 4,
-    gap: 4,
+    gap: Space.s2,
   },
   link: {
-    fontFamily: Type.bodyBold,
+    ...TypeScale.subheadStrong,
     textDecorationLine: 'underline',
   },
   creditsLink: {
-    minHeight: 44,
+    minHeight: Size.hit,
     alignSelf: 'flex-start',
     justifyContent: 'center',
-  },
-  creditsText: {
-    textDecorationLine: 'underline',
   },
 });

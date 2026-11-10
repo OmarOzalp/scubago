@@ -5,11 +5,6 @@ import { Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { Icon } from '@/components/icon';
 import { Disclosure } from '@/components/journal/disclosure';
-import { Paper, PaperButton } from '@/components/journal/paper';
-import { Screen, SectionHeader } from '@/components/journal/screen';
-import { Wash } from '@/components/journal/wash';
-import { OceanButton } from '@/components/ocean-button';
-import { MoreMenu } from '@/components/ui/more-menu';
 import { RarityChip } from '@/components/rarity-chip';
 import { ShareDiscoveryButton } from '@/components/share/share-buttons';
 import { shortPhotoCredit } from '@/components/sightings/format';
@@ -19,19 +14,28 @@ import { SpeciesRecordsSection } from '@/components/sightings/species-records';
 import { formatDate, SightingRow } from '@/components/sighting-row';
 import { SpeciesArt } from '@/components/species-art';
 import { ThemedText } from '@/components/themed-text';
-import { Radius, Spacing, Type } from '@/constants/theme';
+import { Button } from '@/components/ui/button';
+import { Card } from '@/components/ui/card';
+import { mix } from '@/components/ui/color';
+import { EmptyState } from '@/components/ui/notice';
+import { IconTile, List, ListRow } from '@/components/ui/list';
+import { MoreMenu } from '@/components/ui/more-menu';
+import { Screen, Section } from '@/components/ui/screen';
+import { Tag } from '@/components/ui/tag';
+import { Radius, Size, Space, TypeScale } from '@/constants/theme';
 import { canonicalSiteId } from '@/data/sites';
 import { useSchemeName, useTheme } from '@/hooks/use-theme';
 import { announce } from '@/lib/announce';
 import { CATALOG, CATALOG_BY_ID } from '@/lib/catalog';
 import { confirmAction } from '@/lib/confirm';
-import { CATEGORY_LABEL } from '@/lib/rarity';
+import { CATEGORY_LABEL, RARITY_COLOR } from '@/lib/rarity';
 import { rarityObservedNote, realRarityEntry } from '@/lib/real-rarity';
-import { darken, lighten } from '@/lib/art-color';
-import { artFor } from '@/lib/species-art';
 import { useAllSites, useAppStore, useMyUserId, useSiteById } from '@/lib/store';
 import { speciesMarineModel } from '@/lib/swimming';
 import type { DiveSite, Species } from '@/lib/types';
+
+/** How strongly the hero's mat takes the species' rarity colour (the same as its tile in a grid). */
+const MAT_TINT = { light: 0.14, dark: 0.18 };
 
 /**
  * A species' page in the field guide: its plate, what it is, and the diver's own record of it (each of
@@ -96,20 +100,13 @@ export default function SpeciesDetailScreen() {
 
   if (!species) {
     return (
-      <View style={[styles.missing, { backgroundColor: theme.background }]}>
-        <View style={styles.missingArt}>
-          <Wash width={112} height={78} color={theme.wash} seed={31} style={StyleSheet.absoluteFill} />
-          <Icon name="fieldGuide" size={40} />
-        </View>
-        <ThemedText type="heading" style={styles.center}>
-          Species not found.
-        </ThemedText>
-      </View>
+      <Screen kind="pushed">
+        <EmptyState icon="fieldGuide" title="Species not found." />
+      </Screen>
     );
   }
 
   const seen = mine.length > 0;
-  const { wash, seed } = artFor(species);
   const artWidth = Math.min(380, Math.round(plateWidth * 0.8));
   const artHeight = Math.round(artWidth * 0.64);
   const oldestFirst = [...mine].sort((a, b) => a.sightedOn.localeCompare(b.sightedOn) || a.createdAt.localeCompare(b.createdAt));
@@ -124,6 +121,9 @@ export default function SpeciesDetailScreen() {
   const rarityEntry = realRarityEntry(species.id);
   const observedNote = rarityEntry ? rarityObservedNote(rarityEntry) : undefined;
   const newestFirst = [...mine].sort((a, b) => b.sightedOn.localeCompare(a.sightedOn) || b.createdAt.localeCompare(a.createdAt));
+  // A species seen is on a soft tint of its rarity colour, as its tile in a grid; one still to find is on the page's own colour.
+  const paper = scheme === 'dark' ? mix(theme.text, theme.backgroundElement, 0.3) : theme.backgroundElement;
+  const mat = seen ? mix(paper, RARITY_COLOR[species.rarity], MAT_TINT[scheme]) : theme.background;
 
   const removeLog = async () => {
     setBusy(true);
@@ -151,6 +151,7 @@ export default function SpeciesDetailScreen() {
     });
     if (ok) await removeLog();
   };
+  const logIt = () => router.push({ pathname: '/log/new', params: { speciesId: species.id } });
 
   return (
     <Screen>
@@ -173,46 +174,27 @@ export default function SpeciesDetailScreen() {
         }}
       />
 
-      {/* The plate: painted once the diver has seen one, a pencil sketch until then. */}
-      <Paper raised padded={false} style={styles.plateCard}>
+      {/* The hero: its plate (painted once the diver has seen one, a pencil sketch until then), its name, and its tier. */}
+      <Card padded={false} style={styles.hero}>
         <View
           onLayout={(e) => setPlateWidth(Math.floor(e.nativeEvent.layout.width))}
           accessible
           accessibilityLabel={seen ? CATEGORY_LABEL[species.category] : `${CATEGORY_LABEL[species.category]}, not seen yet`}
-          style={[
-            styles.mount,
-            seen
-              ? { borderColor: theme.text, backgroundColor: `${wash}14` }
-              : { borderColor: theme.rule, borderStyle: 'dashed' },
-          ]}>
-          <View style={styles.plateTop}>
-            <ThemedText type="label">{CATEGORY_LABEL[species.category]}</ThemedText>
+          style={[styles.mat, { backgroundColor: mat }]}>
+          <View style={styles.matTop}>
+            <Tag label={CATEGORY_LABEL[species.category]} style={{ backgroundColor: theme.backgroundElement }} />
           </View>
           <View style={[styles.art, { width: artWidth, height: artHeight }]}>
-            {seen ? (
-              <Wash
-                width={artWidth + 36}
-                height={artHeight + 20}
-                color={scheme === 'dark' ? darken(wash, 0.35) : lighten(wash, 0.5)}
-                seed={seed}
-                opacity={0.55}
-                style={{ position: 'absolute', left: -18, top: -6 }}
-              />
-            ) : null}
             {has3d ? (
               // Tapping the drawing opens the animal in 3D, as the button below does.
               <Pressable onPress={open3d} accessibilityRole="button" accessibilityLabel={`See ${species.commonName.toLowerCase()} in 3D`} style={styles.artTap}>
-                <SpeciesArt species={species} width={artWidth} found={seen} />
+                <SpeciesArt species={species} width={artWidth} found={seen} paper={mat} />
               </Pressable>
             ) : (
-              <SpeciesArt species={species} width={artWidth} found={seen} />
+              <SpeciesArt species={species} width={artWidth} found={seen} paper={mat} />
             )}
           </View>
-          {!seen ? (
-            <ThemedText type="caption" themeColor="textSecondary" style={styles.pencilNote}>
-              Not seen yet
-            </ThemedText>
-          ) : null}
+          {!seen ? <Tag label="Not seen yet" dashed style={styles.notSeen} /> : null}
         </View>
 
         <View style={styles.names}>
@@ -240,7 +222,7 @@ export default function SpeciesDetailScreen() {
             </Disclosure>
           </View>
         </View>
-      </Paper>
+      </Card>
 
       <ThemedText>{species.blurb}</ThemedText>
 
@@ -250,15 +232,21 @@ export default function SpeciesDetailScreen() {
         <>
           {mine.length === 1 ? (
             // One sighting: the line is the way to its page.
-            <PaperButton onPress={() => router.push(`/sighting/${mine[0].id}`)} accessibilityRole="link" accessibilityLabel={`In your log. ${inYourLog}. Open the sighting`} style={styles.logLine}>
-              <ThemedText type="smallBold" style={styles.flex}>
-                {inYourLog}
-              </ThemedText>
-              <Icon name="chevronRight" size={16} color={theme.textSecondary} weight="bold" />
-            </PaperButton>
+            <List>
+              <ListRow
+                title="In your log"
+                subtitle={inYourLog}
+                subtitleLines={2}
+                accessibilityRole="link"
+                accessibilityLabel={`In your log. ${inYourLog}. Open the sighting`}
+                onPress={() => router.push(`/sighting/${mine[0].id}`)}
+              />
+            </List>
           ) : (
             <>
-              <ThemedText accessibilityLabel={`In your log. ${inYourLog}`}>{inYourLog}</ThemedText>
+              <ThemedText type="bodyStrong" accessibilityLabel={`In your log. ${inYourLog}`}>
+                {inYourLog}
+              </ThemedText>
               {/* Each of the diver's sightings opens its own page, to edit or delete just that one. */}
               <View style={styles.mine}>
                 {newestFirst.map((s) => (
@@ -275,33 +263,18 @@ export default function SpeciesDetailScreen() {
               </View>
             </>
           )}
-          <OceanButton
-            title="Log another sighting"
-            variant="log"
-            icon="plus"
-            onPress={() =>
-              router.push({ pathname: '/log/new', params: { speciesId: species.id } })
-            }
-          />
+          <Button title="Log another sighting" variant="log" icon="plus" onPress={logIt} />
           <ShareDiscoveryButton species={species} sightings={sightings} sites={sightingSites} ownerId={myUserId} observedNote={observedNote} />
         </>
       ) : (
-        <OceanButton
-          title="I saw one! Log it"
-          variant="log"
-          icon="plus"
-          onPress={() =>
-            router.push({ pathname: '/log/new', params: { speciesId: species.id } })
-          }
-        />
+        <Button title="I saw one! Log it" variant="log" icon="plus" onPress={logIt} />
       )}
 
       {species.photoUrl ? (
         <View style={styles.photoBlock}>
-          {/* Mounted like a print pasted into the guide. */}
-          <Paper padded={false} style={styles.print}>
+          <Card padded={false} style={styles.print}>
             <PhotoPrint species={species} uri={species.photoUrl} />
-          </Paper>
+          </Card>
           {species.photoAttribution && species.photoSource ? (
             // The credit opens the photo's page, where its licence is stated (as CC BY asks).
             <Pressable
@@ -310,37 +283,36 @@ export default function SpeciesDetailScreen() {
               accessibilityLabel={`Photo ${species.photoAttribution}`}
               accessibilityHint="Opens the photo on iNaturalist"
               style={styles.creditLink}>
-              <ThemedText type="caption" themeColor="textSecondary" style={styles.credit}>
+              <ThemedText type="footnote" themeColor="textSecondary">
                 Photo: {shortPhotoCredit(species.photoAttribution)} · iNaturalist ›
               </ThemedText>
             </Pressable>
           ) : species.photoAttribution ? (
-            <ThemedText type="caption" themeColor="textSecondary" style={styles.credit}>
+            <ThemedText type="footnote" themeColor="textSecondary" style={styles.credit}>
               Photo: {shortPhotoCredit(species.photoAttribution)} · iNaturalist
             </ThemedText>
           ) : null}
         </View>
       ) : null}
 
-      {has3d ? <OceanButton title={`See ${species.commonName.toLowerCase()} in 3D`} variant="secondary" icon="eye" onPress={open3d} /> : null}
+      {has3d ? <Button title={`See ${species.commonName.toLowerCase()} in 3D`} variant="secondary" icon="eye" onPress={open3d} /> : null}
 
       {/* Only where it says something new: for an animal the diver has seen, one site is the sighting row above. */}
       {seenAt.length >= (seen ? 2 : 1) ? (
-        <>
-          <SectionHeader title="Where it’s been seen" />
-          <View style={styles.sites}>
+        <Section title="Where it’s been seen">
+          <List>
             {seenAt.map(({ site, count, last }) => (
-              <SiteCard key={site.id} site={site} count={count} last={last} />
+              <SiteRow key={site.id} site={site} count={count} last={last} />
             ))}
-          </View>
-        </>
+          </List>
+        </Section>
       ) : null}
 
       {/* Public records saved on this phone: kept apart from the diver's own sightings above, and read from the cache only. */}
       <SpeciesRecordsSection species={species} sites={sites} />
 
       {error ? (
-        <ThemedText type="small" themeColor="danger" accessibilityLiveRegion="polite" style={styles.center}>
+        <ThemedText type="subhead" themeColor="danger" accessibilityLiveRegion="polite" style={styles.center}>
           {error}
         </ThemedText>
       ) : null}
@@ -362,8 +334,8 @@ function PhotoPrint({ species, uri }: { species: Species; uri: string }) {
         accessible
         accessibilityLabel={`Photo of a ${species.commonName}: couldn’t be loaded`}
         style={[styles.photo, styles.photoMissing, { backgroundColor: theme.backgroundSelected }]}>
-        <Icon name="image" size={28} color={theme.textSecondary} />
-        <ThemedText type="caption" themeColor="textSecondary" style={styles.center}>
+        <Icon name="image" size={Size.icon} color={theme.textSecondary} />
+        <ThemedText type="callout" themeColor="textSecondary" style={styles.center}>
           The photo couldn’t be loaded.
         </ThemedText>
       </View>
@@ -381,32 +353,22 @@ function PhotoPrint({ species, uri }: { species: Species; uri: string }) {
 }
 
 /** A site this species has been seen at: how many times, and when last. */
-function SiteCard({ site, count, last }: { site: DiveSite; count: number; last: string }) {
+function SiteRow({ site, count, last }: { site: DiveSite; count: number; last: string }) {
   const theme = useTheme();
   return (
-    <PaperButton
-      onPress={() => router.push(`/site/${site.id}`)}
-      accessibilityRole="button"
+    <ListRow
+      leading="pin"
+      title={site.name}
+      subtitle={`${site.region}, ${site.country}`}
       accessibilityLabel={`${site.name}, ${site.region}, ${site.country}: seen ${count} ${count === 1 ? 'time' : 'times'}, last on ${formatDate(last)}`}
-      style={styles.site}>
-      <View style={[styles.siteIcon, { backgroundColor: theme.backgroundSelected }]}>
-        <Icon name="pin" size={22} />
-      </View>
-      <View style={styles.siteBody}>
-        <Text numberOfLines={1} style={[styles.siteName, { color: theme.text }]}>
-          {site.name}
-        </Text>
-        <ThemedText type="small" themeColor="textSecondary" numberOfLines={1}>
-          {site.region}, {site.country}
-        </ThemedText>
-      </View>
-      <View style={styles.siteStats}>
-        <Text style={[styles.siteCount, { color: theme.text }]}>×{count}</Text>
-        <ThemedText type="small" themeColor="textSecondary">
-          last {formatDate(last)}
-        </ThemedText>
-      </View>
-    </PaperButton>
+      trailing={
+        <View style={styles.siteStats}>
+          <Text style={[TypeScale.bodyStrong, { color: theme.text }]}>×{count}</Text>
+          <Text style={[TypeScale.footnote, { color: theme.textSecondary }]}>last {formatDate(last)}</Text>
+        </View>
+      }
+      onPress={() => router.push(`/site/${site.id}`)}
+    />
   );
 }
 
@@ -415,141 +377,80 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   mine: {
-    gap: Spacing.two,
+    gap: Space.s2,
   },
   headerActions: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingRight: Platform.OS === 'web' ? Spacing.three : 0,
+    paddingRight: Platform.OS === 'web' ? Space.s3 : 0,
   },
   artTap: {
     alignItems: 'center',
     justifyContent: 'center',
   },
-  logLine: {
-    flexDirection: 'row',
+  // The hero: a mat for the plate, then the names, in one card.
+  hero: {
+    padding: Space.s2,
+    paddingBottom: Space.s5,
+    gap: Space.s4,
+  },
+  mat: {
+    borderRadius: Radius.md,
+    paddingTop: Space.s3,
+    paddingBottom: Space.s4,
+    paddingHorizontal: Space.s4,
     alignItems: 'center',
-    gap: 8,
-    minHeight: 52,
-    paddingHorizontal: 16,
+    gap: Space.s2,
+    overflow: 'hidden',
   },
-  flex: {
-    flex: 1,
-  },
-  missing: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: Spacing.two,
-    padding: Spacing.four,
-  },
-  missingArt: {
-    width: 112,
-    height: 78,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  // The plate, set in a fine frame like the island on Home.
-  plateCard: {
-    padding: 8,
-    paddingBottom: 18,
-    gap: 14,
-  },
-  mount: {
-    borderWidth: 1,
-    borderRadius: Radius.md + 4,
-    paddingTop: 12,
-    paddingBottom: 18,
-    paddingHorizontal: 14,
-    alignItems: 'center',
-    gap: 10,
-  },
-  plateTop: {
+  matTop: {
     alignSelf: 'stretch',
     flexDirection: 'row',
-    justifyContent: 'space-between',
-    gap: 12,
   },
   art: {
     alignItems: 'center',
     justifyContent: 'center',
-    marginVertical: 6,
   },
-  pencilNote: {
-    textAlign: 'center',
-    marginTop: -4,
+  notSeen: {
+    alignSelf: 'center',
   },
   names: {
-    paddingHorizontal: 12,
-    gap: 4,
+    paddingHorizontal: Space.s3,
+    gap: Space.s1,
   },
   tags: {
     alignSelf: 'stretch',
     alignItems: 'center',
-    marginTop: 2,
+    marginTop: Space.s1,
   },
   raritySource: {
     alignItems: 'center',
   },
   photoBlock: {
-    gap: 6,
+    gap: Space.s1,
   },
   print: {
-    padding: 6,
+    overflow: 'hidden',
   },
   photo: {
     width: '100%',
     height: 220,
-    borderRadius: Radius.md,
   },
   photoMissing: {
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 6,
+    gap: Space.s2,
   },
   // The credit is a link: a 44 pt strip to tap, not just its line of text.
   creditLink: {
-    minHeight: 44,
+    minHeight: Size.hit,
     justifyContent: 'center',
+    paddingHorizontal: Space.s1,
   },
   credit: {
-    fontSize: 13,
-    lineHeight: 18,
-    paddingHorizontal: 4,
-  },
-  sites: {
-    gap: 10,
-  },
-  site: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-    paddingVertical: 12,
-    paddingHorizontal: 14,
-  },
-  siteIcon: {
-    width: 42,
-    height: 42,
-    borderRadius: 12,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  siteBody: {
-    flex: 1,
-    gap: 1,
-  },
-  siteName: {
-    fontFamily: Type.bodyHeavy,
-    fontSize: 15,
-    lineHeight: 20,
+    paddingHorizontal: Space.s1,
   },
   siteStats: {
     alignItems: 'flex-end',
-    gap: 1,
-  },
-  siteCount: {
-    fontFamily: Type.display,
-    fontSize: 20,
-    lineHeight: 24,
   },
 });

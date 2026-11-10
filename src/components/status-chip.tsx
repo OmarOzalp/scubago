@@ -1,4 +1,4 @@
-import { Tag } from '@/components/journal/tag';
+import { Tag } from '@/components/ui/tag';
 import { useSchemeName } from '@/hooks/use-theme';
 import type { SightingStatus } from '@/lib/types';
 import { STATUS_COLOR, STATUS_LABEL, STATUS_TEXT } from '@/lib/verification';

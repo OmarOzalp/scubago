@@ -1,11 +1,12 @@
 import { Fragment } from 'react';
 import { StyleSheet, View } from 'react-native';
 
-import { SectionHeader } from '@/components/journal/screen';
 import { BadgeLadder } from '@/components/rewards/badge-ladder';
 import { countEarned, itemsOfKind, KIND_ORDER, KIND_TITLE, type BadgeItem } from '@/components/rewards/badge-groups';
 import { BadgePage, BadgeTile } from '@/components/rewards/badge-tile';
 import { ThemedText } from '@/components/themed-text';
+import { Section } from '@/components/ui/screen';
+import { Space } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import type { BadgeResult } from '@/lib/rewards';
 
@@ -20,25 +21,25 @@ interface Props {
 export function BadgesView({ badges, newIds, onOpenBadge }: Props) {
   return (
     <View style={styles.view}>
-      {KIND_ORDER.map((kind) => {
+      {KIND_ORDER.map((kind, index) => {
         const items = itemsOfKind(badges, kind);
         if (items.length === 0) return null;
         const ofKind = badges.filter((b) => b.kind === kind);
         const earned = countEarned(ofKind);
         return (
-          <View key={kind} style={styles.kind}>
-            <SectionHeader
-              title={KIND_TITLE[kind]}
-              accessory={
-                <ThemedText type="small" themeColor="textSecondary" accessibilityLabel={`${earned} of ${ofKind.length} earned`}>
-                  {earned} of {ofKind.length}
-                </ThemedText>
-              }
-            />
+          <Section
+            key={kind}
+            title={KIND_TITLE[kind]}
+            flush={index === 0}
+            accessory={
+              <ThemedText type="footnote" themeColor="textSecondary" accessibilityLabel={`${earned} of ${ofKind.length} earned`}>
+                {earned} of {ofKind.length}
+              </ThemedText>
+            }>
             <BadgePage>
               <Blocks items={items} newIds={newIds} onOpenBadge={onOpenBadge} />
             </BadgePage>
-          </View>
+          </Section>
         );
       })}
     </View>
@@ -79,21 +80,18 @@ function Blocks({ items, newIds, onOpenBadge }: { items: BadgeItem[]; newIds?: R
 
 const styles = StyleSheet.create({
   view: {
-    gap: 22,
-  },
-  kind: {
-    gap: 10,
+    gap: Space.s4,
   },
   grid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    rowGap: 6,
+    rowGap: Space.s2,
   },
   cell: {
     width: '33.333%',
-    paddingHorizontal: 3,
+    paddingHorizontal: Space.s1,
   },
   rule: {
-    height: 1,
+    height: StyleSheet.hairlineWidth,
   },
 });

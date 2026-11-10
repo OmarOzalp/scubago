@@ -1,14 +1,14 @@
 import { useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 
-import { Paper } from '@/components/journal/paper';
-import { ProgressRing } from '@/components/journal/progress-ring';
-import { SectionHeader } from '@/components/journal/screen';
 import { Stamp } from '@/components/journal/stamp';
 import { longDate } from '@/components/rewards/format';
 import { CARD_GAP, onGridLayout, SpeciesCard, useCardGrid } from '@/components/species-card';
 import { ThemedText } from '@/components/themed-text';
-import { Type } from '@/constants/theme';
+import { Card } from '@/components/ui/card';
+import { ProgressRing } from '@/components/ui/progress-ring';
+import { Section } from '@/components/ui/screen';
+import { Space, TypeScale } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { CATALOG_BY_ID } from '@/lib/catalog';
 import type { CollectionKind, CollectionResult } from '@/lib/rewards';
@@ -36,58 +36,58 @@ export function CollectionDetailView({
   const foundIds = new Set(collection.foundIds);
   const found = species(collection.memberIds.filter((id) => foundIds.has(id)));
   const missing = species(collection.memberIds.filter((id) => !foundIds.has(id)));
+  const fraction = collection.total > 0 ? collection.found / collection.total : 0;
   return (
     <View style={styles.view}>
-      <View style={styles.head}>
-        <View style={styles.titles}>
-          <ThemedText type="label">{KIND_LABEL[collection.kind]}</ThemedText>
-          <ThemedText type="display" accessibilityRole="header">
-            {collection.title}
-          </ThemedText>
-        </View>
+      <View style={styles.titles}>
+        <ThemedText type="footnoteStrong" themeColor="textSecondary">
+          {KIND_LABEL[collection.kind]}
+        </ThemedText>
+        <ThemedText type="display" accessibilityRole="header">
+          {collection.title}
+        </ThemedText>
       </View>
       <ThemedText>{collection.description}</ThemedText>
 
-      <Paper raised style={styles.standing}>
+      <Card style={styles.standing}>
         <ProgressRing
-          fraction={collection.total > 0 ? collection.found / collection.total : 0}
-          size={76}
+          fraction={fraction}
+          size={72}
           color={collection.completed ? theme.sun : undefined}
+          label={`${Math.round(fraction * 100)}%`}
           accessibilityLabel={`${collection.found} of ${collection.total} found${collection.hint && !collection.completed ? `, ${collection.hint} to go` : ''}`}
         />
         <View style={styles.standingText}>
-          <Text style={[styles.count, { color: theme.text }]}>
+          <Text style={[TypeScale.figure, { color: theme.text }]}>
             {collection.found} of {collection.total} found
           </Text>
           {collection.completed ? (
-            <ThemedText type="small" themeColor="textSecondary">
+            <ThemedText type="subhead" themeColor="textSecondary">
               {collection.completedOn ? `Completed ${longDate(collection.completedOn)}.` : 'Completed.'}
             </ThemedText>
           ) : null}
         </View>
         {collection.completed ? <Stamp lines={['Complete']} color={theme.tint} rotate={-8} animate /> : null}
-      </Paper>
+      </Card>
 
       <View onLayout={onGridLayout(setInner)} style={styles.sections}>
         {found.length > 0 ? (
-          <View style={styles.section}>
-            <SectionHeader title="Found" />
+          <Section title="Found">
             <View style={styles.grid}>
               {found.map((s) => (
                 <SpeciesCard key={s.id} species={s} width={cardWidth} count={Math.max(1, counts.get(s.id) ?? 1)} onPress={() => onOpenSpecies?.(s.id)} />
               ))}
             </View>
-          </View>
+          </Section>
         ) : null}
         {missing.length > 0 ? (
-          <View style={styles.section}>
-            <SectionHeader title="Still to find" />
+          <Section title="Still to find">
             <View style={styles.grid}>
               {missing.map((s) => (
                 <SpeciesCard key={s.id} species={s} width={cardWidth} count={0} onPress={() => onOpenSpecies?.(s.id)} />
               ))}
             </View>
-          </View>
+          </Section>
         ) : null}
       </View>
     </View>
@@ -96,35 +96,22 @@ export function CollectionDetailView({
 
 const styles = StyleSheet.create({
   view: {
-    gap: 18,
-  },
-  head: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    gap: Space.s4,
   },
   titles: {
-    flex: 1,
-    gap: 2,
+    gap: Space.s1,
   },
   standing: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 14,
+    gap: Space.s4,
   },
   standingText: {
     flex: 1,
-    gap: 2,
-  },
-  count: {
-    fontFamily: Type.display,
-    fontSize: 22,
-    lineHeight: 28,
+    gap: Space.s1,
   },
   sections: {
-    gap: 20,
-  },
-  section: {
-    gap: 12,
+    gap: Space.s4,
   },
   grid: {
     flexDirection: 'row',

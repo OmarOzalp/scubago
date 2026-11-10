@@ -1,4 +1,4 @@
-import { Tag } from '@/components/journal/tag';
+import { Tag } from '@/components/ui/tag';
 import { useSchemeName } from '@/hooks/use-theme';
 import { RARITY_COLOR, RARITY_LABEL, RARITY_TEXT } from '@/lib/rarity';
 import type { Rarity } from '@/lib/types';

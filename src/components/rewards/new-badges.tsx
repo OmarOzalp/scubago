@@ -3,14 +3,14 @@ import { StyleSheet, Text, View, type ViewStyle } from 'react-native';
 import Animated, { useReducedMotion } from 'react-native-reanimated';
 
 import { Icon } from '@/components/icon';
-import { Paper } from '@/components/journal/paper';
-import { Tag } from '@/components/journal/tag';
 import { Wash } from '@/components/journal/wash';
-import { OceanButton } from '@/components/ocean-button';
 import { BadgeMedal } from '@/components/rewards/badge-medal';
 import { longDate, stampDate } from '@/components/rewards/format';
 import { ThemedText } from '@/components/themed-text';
-import { Type } from '@/constants/theme';
+import { Button } from '@/components/ui/button';
+import { Card } from '@/components/ui/card';
+import { Tag } from '@/components/ui/tag';
+import { Space, TypeScale } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import type { BadgeResult } from '@/lib/rewards';
 import { hashSeed } from '@/lib/wash';
@@ -64,8 +64,8 @@ export function NewBadgesBanner({ badges, onOpenAll }: { badges: readonly BadgeR
   const shown = badges.slice(0, MOST_SHOWN);
   return (
     <View accessibilityLiveRegion="polite" style={styles.wrap}>
-      <Paper tone="sand" style={styles.card}>
-        <ThemedText type="label" accessibilityRole="header" style={styles.center}>
+      <Card style={[styles.card, { backgroundColor: theme.sunSoft }]}>
+        <ThemedText type="footnoteStrong" themeColor="textSecondary" accessibilityRole="header" style={styles.center}>
           {single ? 'New badge' : `${badges.length} new badges`}
         </ThemedText>
         {single ? (
@@ -77,11 +77,11 @@ export function NewBadgesBanner({ badges, onOpenAll }: { badges: readonly BadgeR
               <Glint size={16} delay={1050} style={{ right: 6, top: 52 }} />
               <Glint size={18} delay={1200} style={{ left: 30, bottom: 36 }} />
             </View>
-            <Text style={[styles.title, { color: theme.text }]}>{single.title}</Text>
-            <ThemedText type="small" themeColor="textSecondary" style={styles.center}>
+            <Text style={[TypeScale.display, styles.center, { color: theme.text }]}>{single.title}</Text>
+            <ThemedText type="callout" themeColor="textSecondary" style={styles.center}>
               {single.description}
             </ThemedText>
-            {single.earnedOn ? <Text style={[styles.date, { color: theme.textSecondary }]}>EARNED {stampDate(single.earnedOn)}</Text> : null}
+            {single.earnedOn ? <Text style={[TypeScale.footnoteStrong, { color: theme.textSecondary }]}>EARNED {stampDate(single.earnedOn)}</Text> : null}
           </View>
         ) : (
           <View style={styles.many}>
@@ -89,14 +89,14 @@ export function NewBadgesBanner({ badges, onOpenAll }: { badges: readonly BadgeR
               {shown.map((badge, index) => (
                 <BadgeMedal key={badge.id} badge={badge} size={shown.length > 3 ? 52 : 76} reveal delay={250 + index * 220} />
               ))}
-              {badges.length > shown.length ? <Text style={[styles.more, { color: theme.textSecondary }]}>+{badges.length - shown.length}</Text> : null}
+              {badges.length > shown.length ? <Text style={[TypeScale.figure, { color: theme.textSecondary }]}>+{badges.length - shown.length}</Text> : null}
             </View>
             <View accessible accessibilityLabel={newBadgesSummary(badges)} style={styles.list}>
               {badges.length <= 2 ? (
                 badges.map((badge) => (
                   <View key={badge.id} style={styles.item}>
-                    <Text style={[styles.itemTitle, { color: theme.text }]}>{badge.title}</Text>
-                    <ThemedText type="small" themeColor="textSecondary">
+                    <Text style={[TypeScale.bodyStrong, { color: theme.text }]}>{badge.title}</Text>
+                    <ThemedText type="subhead" themeColor="textSecondary">
                       {badge.description}
                     </ThemedText>
                   </View>
@@ -105,15 +105,15 @@ export function NewBadgesBanner({ badges, onOpenAll }: { badges: readonly BadgeR
                 // A whole page of firsts at once: the names are enough.
                 <View style={styles.names}>
                   {badges.map((b) => (
-                    <Tag key={b.id} label={b.title} text={theme.text} />
+                    <Tag key={b.id} label={b.title} />
                   ))}
                 </View>
               )}
             </View>
           </View>
         )}
-        {onOpenAll ? <OceanButton title="See all badges" variant="secondary" icon="medal" onPress={onOpenAll} style={styles.button} /> : null}
-      </Paper>
+        {onOpenAll ? <Button title="See all badges" variant="secondary" icon="medal" onPress={onOpenAll} style={styles.button} /> : null}
+      </Card>
     </View>
   );
 }
@@ -123,76 +123,53 @@ const styles = StyleSheet.create({
     alignSelf: 'stretch',
   },
   card: {
-    gap: 10,
+    gap: Space.s3,
     alignSelf: 'stretch',
-    paddingVertical: 18,
+    paddingVertical: Space.s5,
   },
   center: {
     textAlign: 'center',
   },
   single: {
     alignItems: 'center',
-    gap: 6,
+    gap: Space.s2,
   },
   stage: {
     width: 210,
     height: 150,
     alignItems: 'center',
     justifyContent: 'flex-start',
-    paddingTop: 4,
+    paddingTop: Space.s1,
   },
   halo: {
     position: 'absolute',
     top: -8,
     left: 0,
   },
-  title: {
-    fontFamily: Type.display,
-    fontSize: 26,
-    lineHeight: 32,
-    textAlign: 'center',
-  },
-  date: {
-    fontFamily: Type.label,
-    fontSize: 13,
-    letterSpacing: 1.3,
-    marginTop: 2,
-  },
   many: {
-    gap: 12,
+    gap: Space.s3,
   },
   medals: {
     flexDirection: 'row',
     justifyContent: 'center',
     alignItems: 'center',
-    gap: 6,
+    gap: Space.s2,
   },
   list: {
-    gap: 8,
+    gap: Space.s2,
   },
   item: {
-    gap: 1,
+    gap: 2,
   },
   names: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     justifyContent: 'center',
-    gap: 6,
-  },
-  more: {
-    alignSelf: 'center',
-    fontFamily: Type.display,
-    fontSize: 20,
-    marginLeft: 2,
-  },
-  itemTitle: {
-    fontFamily: Type.bodyHeavy,
-    fontSize: 15,
-    lineHeight: 20,
+    gap: Space.s2,
   },
   button: {
     alignSelf: 'stretch',
-    marginTop: 4,
+    marginTop: Space.s1,
   },
 });
 

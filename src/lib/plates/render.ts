@@ -12,7 +12,9 @@ export const PLATE_BOX = { width: 200, height: 128 } as const;
 export const INK = '#1F2A44';
 export const PAPER = '#F6F0E2';
 const SEPIA = '#8B7A5C';
-const PENCIL = '#9C9381';
+const PENCIL = '#7D7563';
+/** On a dark paper (night mode) the pencil lightens instead, so the outline still shows. */
+const PENCIL_ON_DARK = '#9C9381';
 
 export interface PlateShape {
   d: string;
@@ -92,14 +94,15 @@ export function drawPlate(g: PlateGeom, palette: Palette, { width, found = true,
   const shapes: PlateShape[] = [];
 
   if (!found) {
+    const PENCIL_INK = luminance(paper) < 0.3 ? PENCIL_ON_DARK : PENCIL;
     const dash = `${(2.6 / scale).toFixed(2)} ${(2 / scale).toFixed(2)}`;
-    const pencil = (poly: Pt[]) => shapes.push({ d: pathOf(poly, true), fill: paper, stroke: PENCIL, strokeWidth: edge * 0.85, dash });
+    const pencil = (poly: Pt[]) => shapes.push({ d: pathOf(poly, true), fill: paper, stroke: PENCIL_INK, strokeWidth: edge * 0.85, dash });
     g.far.forEach((p) => pencil(p.poly));
     pencil(g.body);
     g.near.forEach((p) => pencil(p.poly));
     if (detailed)
-      for (const l of g.lines) if (!l.detail || width >= 140) shapes.push({ d: pathOf(l.pts), stroke: PENCIL, strokeWidth: fine * 1.1, dash });
-    for (const e of g.eyes) shapes.push({ d: circle(e.c, e.r * 0.8), stroke: PENCIL, strokeWidth: fine * 1.2 });
+      for (const l of g.lines) if (!l.detail || width >= 140) shapes.push({ d: pathOf(l.pts), stroke: PENCIL_INK, strokeWidth: fine * 1.1, dash });
+    for (const e of g.eyes) shapes.push({ d: circle(e.c, e.r * 0.8), stroke: PENCIL_INK, strokeWidth: fine * 1.2 });
     return { trunk, body, shapes: merged(shapes) };
   }
 

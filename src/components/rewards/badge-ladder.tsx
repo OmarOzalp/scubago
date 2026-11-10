@@ -5,7 +5,7 @@ import { BadgeMedal } from '@/components/rewards/badge-medal';
 import { badgeLabel } from '@/components/rewards/badge-tile';
 import { ladderTitle } from '@/components/rewards/format';
 import { ThemedText } from '@/components/themed-text';
-import { Type } from '@/constants/theme';
+import { Radius, Size, Space, TypeScale } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import type { BadgeResult } from '@/lib/rewards';
 
@@ -35,14 +35,14 @@ export function BadgeLadder({
   const climbed = rungs.filter((r) => r.earned).length;
   const note = ladderNote(rungs);
   // Seven rungs fit a phone's width only a little smaller.
-  const size = medal ?? (rungs.length > 5 ? 40 : 46);
+  const size = medal ?? (rungs.length > 5 ? 40 : 48);
   return (
     <View style={styles.ladder}>
       <View style={styles.head}>
-        <ThemedText type="heading" accessibilityRole="header" style={styles.title}>
+        <ThemedText type="bodyStrong" accessibilityRole="header" style={styles.title}>
           {ladderTitle(ladder)}
         </ThemedText>
-        <Text accessibilityLabel={`${climbed} of ${rungs.length} rungs climbed`} style={[styles.count, { color: theme.textSecondary }]}>
+        <Text accessibilityLabel={`${climbed} of ${rungs.length} rungs climbed`} style={[TypeScale.footnote, { color: theme.textSecondary }]}>
           {climbed} of {rungs.length}
         </Text>
       </View>
@@ -59,17 +59,17 @@ export function BadgeLadder({
               accessibilityRole={onPress ? 'button' : undefined}
               accessibilityLabel={badgeLabel(rung, isNew)}
               accessibilityHint={onPress ? 'Opens the badge' : undefined}
-              style={({ pressed }) => [styles.rung, { opacity: pressed ? 0.6 : 1 }]}>
+              style={({ pressed }) => [styles.rung, { backgroundColor: pressed ? theme.backgroundSelected : 'transparent' }]}>
               <View>
                 <BadgeMedal badge={rung} size={size} />
                 {isNew ? <NewBadge style={styles.new} /> : null}
               </View>
-              <Text style={[styles.step, { color: rung.earned ? theme.text : theme.textSecondary }]}>{rung.progress.need.toLocaleString('en')}</Text>
+              <Text style={[TypeScale.footnoteStrong, { color: rung.earned ? theme.text : theme.textSecondary }]}>{rung.progress.need.toLocaleString('en')}</Text>
             </Pressable>
           );
         })}
       </View>
-      <ThemedText type="caption" themeColor="textSecondary">
+      <ThemedText type="footnote" themeColor="textSecondary">
         {note}
       </ThemedText>
     </View>
@@ -78,22 +78,16 @@ export function BadgeLadder({
 
 const styles = StyleSheet.create({
   ladder: {
-    gap: 8,
+    gap: Space.s3,
   },
   head: {
     flexDirection: 'row',
     alignItems: 'baseline',
     justifyContent: 'space-between',
-    gap: 8,
+    gap: Space.s2,
   },
   title: {
     flex: 1,
-    fontSize: 18,
-    lineHeight: 24,
-  },
-  count: {
-    fontFamily: Type.body,
-    fontSize: 13,
   },
   row: {
     flexDirection: 'row',
@@ -108,13 +102,10 @@ const styles = StyleSheet.create({
   rung: {
     flex: 1,
     alignItems: 'center',
-    gap: 3,
-    minHeight: 44,
-  },
-  step: {
-    fontFamily: Type.display,
-    fontSize: 15,
-    lineHeight: 19,
+    gap: Space.s1,
+    minHeight: Size.hit,
+    paddingVertical: Space.s1,
+    borderRadius: Radius.sm,
   },
   new: {
     position: 'absolute',

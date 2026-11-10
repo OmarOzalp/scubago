@@ -1,12 +1,13 @@
 import { StyleSheet, Text, View } from 'react-native';
 
 import { Icon } from '@/components/icon';
-import { PaperButton } from '@/components/journal/paper';
-import { ProgressRing } from '@/components/journal/progress-ring';
 import { Stamp } from '@/components/journal/stamp';
 import { longDate } from '@/components/rewards/format';
 import { SpeciesArt } from '@/components/species-art';
-import { Radius, Type } from '@/constants/theme';
+import { Card } from '@/components/ui/card';
+import { mix } from '@/components/ui/color';
+import { ProgressRing } from '@/components/ui/progress-ring';
+import { Radius, Size, Space, TypeScale } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { CATALOG_BY_ID } from '@/lib/catalog';
 import type { CollectionResult } from '@/lib/rewards';
@@ -18,27 +19,18 @@ export function collectionLabel(c: CollectionResult): string {
   return `${c.title}, ${standing}${c.hint ? `. ${c.hint}` : ''}`;
 }
 
-/** The animal's plate on a small tile: painted in once found, a dashed pencil outline until then. */
-export function PlateChip({ speciesId, found, size = 46 }: { speciesId: string; found: boolean; size?: number }) {
+/** The animal's plate on a small tile: painted in once found, a pencil outline on a white tile until then. */
+export function PlateChip({ speciesId, found, size = Size.thumb }: { speciesId: string; found: boolean; size?: number }) {
   const theme = useTheme();
   const species = CATALOG_BY_ID.get(speciesId);
   if (!species) return null;
   const { wash } = artFor(species);
+  const tile = found ? mix(theme.backgroundElement, wash, 0.15) : theme.backgroundElement;
   return (
     <View
       aria-hidden
-      style={[
-        styles.chip,
-        {
-          width: size,
-          height: size,
-          backgroundColor: found ? `${wash}26` : 'transparent',
-          borderColor: found ? theme.cardBorder : theme.textSecondary,
-          borderStyle: found ? 'solid' : 'dashed',
-          opacity: found ? 1 : 0.85,
-        },
-      ]}>
-      <SpeciesArt species={species} width={size * 0.9} found={found} paper={theme.backgroundElement} />
+      style={[styles.chip, { width: size, height: size, backgroundColor: tile }, !found && { borderWidth: StyleSheet.hairlineWidth * 2, borderColor: theme.cardBorder }]}>
+      <SpeciesArt species={species} width={size * 0.9} found={found} paper={tile} />
     </View>
   );
 }
@@ -52,74 +44,64 @@ export function CollectionCard({ collection, onPress }: { collection: Collection
   const foundIds = new Set(collection.foundIds);
   const members = collection.memberIds.map((id) => ({ id, found: foundIds.has(id) }));
   const shown = members.length > MOST_PLATES + 1 ? members.slice(0, MOST_PLATES) : members;
+  const fraction = total > 0 ? found / total : 0;
   return (
-    <PaperButton
+    <Card
       onPress={onPress}
-      disabled={!onPress}
-      accessibilityRole="button"
+      accessibilityRole={onPress ? 'button' : undefined}
       accessibilityLabel={collectionLabel(collection)}
-      accessibilityHint="Opens the collection"
+      accessibilityHint={onPress ? 'Opens the collection' : undefined}
       style={styles.card}>
       <View style={styles.head}>
         <ProgressRing
-          fraction={total > 0 ? found / total : 0}
-          size={58}
+          fraction={fraction}
+          size={56}
           color={completed ? theme.sun : undefined}
+          label={`${Math.round(fraction * 100)}%`}
           accessibilityLabel={`${found} of ${total} found`}
         />
         <View style={styles.titles}>
-          <Text numberOfLines={2} style={[styles.title, { color: theme.text }]}>
+          <Text numberOfLines={2} style={[TypeScale.headline, { color: theme.text }]}>
             {collection.title}
           </Text>
           {completed ? (
-            <Text style={[styles.sub, { color: theme.textSecondary }]}>Complete{collection.completedOn ? ` · ${longDate(collection.completedOn)}` : ''}</Text>
+            <Text style={[TypeScale.subhead, { color: theme.textSecondary }]}>Complete{collection.completedOn ? ` · ${longDate(collection.completedOn)}` : ''}</Text>
           ) : (
             // "3 of 10", then the next step in plain words ("2 more reef sharks").
-            <Text style={[styles.sub, { color: theme.textSecondary }]}>
-              <Text style={{ fontFamily: Type.bodyHeavy, color: theme.text }}>{found}</Text> of {total}
+            <Text style={[TypeScale.subhead, { color: theme.textSecondary }]}>
+              <Text style={[TypeScale.subheadStrong, { color: theme.text }]}>{found}</Text> of {total}
               {collection.hint ? ` · ${collection.hint}` : ''}
             </Text>
           )}
         </View>
-        {completed ? <Stamp lines={['Complete']} color={theme.tint} rotate={-8} style={styles.stamp} /> : <Icon name="chevronRight" size={18} color={theme.textSecondary} weight="bold" />}
+        {completed ? <Stamp lines={['Complete']} color={theme.tint} rotate={-8} style={styles.stamp} /> : <Icon name="chevronRight" size={16} color={theme.textTertiary} weight="bold" />}
       </View>
       <View style={styles.plates}>
         {shown.map((m) => (
           <PlateChip key={m.id} speciesId={m.id} found={m.found} />
         ))}
         {shown.length < members.length ? (
-          <View style={[styles.more, { borderColor: theme.rule }]}>
-            <Text style={[styles.moreText, { color: theme.textSecondary }]}>+{members.length - shown.length}</Text>
+          <View style={[styles.chip, styles.more, { backgroundColor: theme.backgroundSelected }]}>
+            <Text style={[TypeScale.footnoteStrong, { color: theme.textSecondary }]}>+{members.length - shown.length}</Text>
           </View>
         ) : null}
       </View>
-    </PaperButton>
+    </Card>
   );
 }
 
 const styles = StyleSheet.create({
   card: {
-    padding: 14,
-    gap: 12,
+    gap: Space.s3,
   },
   head: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
+    gap: Space.s3,
   },
   titles: {
     flex: 1,
     gap: 2,
-  },
-  title: {
-    fontFamily: Type.display,
-    fontSize: 19,
-    lineHeight: 24,
-  },
-  sub: {
-    fontFamily: Type.body,
-    fontSize: 14,
-    lineHeight: 19,
   },
   stamp: {
     alignSelf: 'center',
@@ -127,25 +109,16 @@ const styles = StyleSheet.create({
   plates: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 6,
+    gap: Space.s2,
   },
   chip: {
     borderRadius: Radius.sm,
-    borderWidth: 1.5,
     alignItems: 'center',
     justifyContent: 'center',
     overflow: 'hidden',
   },
   more: {
-    width: 46,
-    height: 46,
-    borderRadius: Radius.sm,
-    borderWidth: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  moreText: {
-    fontFamily: Type.bodyHeavy,
-    fontSize: 13,
+    width: Size.thumb,
+    height: Size.thumb,
   },
 });

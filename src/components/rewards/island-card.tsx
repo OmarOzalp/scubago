@@ -1,15 +1,16 @@
+import { useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { IslandArt } from '@/components/home/island-art';
 import { Icon } from '@/components/icon';
-import { Paper } from '@/components/journal/paper';
-import { ProgressBar } from '@/components/journal/progress-bar';
-import { Tag } from '@/components/journal/tag';
 import { longDate, plural, stampDate } from '@/components/rewards/format';
-import { RarityChip } from '@/components/rarity-chip';
-import { SpeciesArt } from '@/components/species-art';
+import { CARD_GAP, cardWidthFor, onGridLayout, SpeciesCard } from '@/components/species-card';
 import { ThemedText } from '@/components/themed-text';
-import { Radius, Type } from '@/constants/theme';
+import { Card } from '@/components/ui/card';
+import { usePressScale } from '@/components/ui/press';
+import { ProgressBar } from '@/components/ui/progress';
+import { Tag } from '@/components/ui/tag';
+import { Radius, Size, Space, TypeScale } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { ISLANDS } from '@/lib/archipelago';
 import { CATALOG_BY_ID } from '@/lib/catalog';
@@ -22,6 +23,9 @@ export function islandLabel(island: IslandResult): string {
   if (!island.unlocked) return `${island.name}, locked. ${island.requirement ?? ''} ${residents}.`.replace(/\s+/g, ' ');
   return `${island.name}, ${island.unlockedOn ? `raised ${longDate(island.unlockedOn)}` : 'your home island'}. ${residents}.`;
 }
+
+/** The gap between the animals to look for. */
+const TARGET_GAP = CARD_GAP;
 
 /**
  * One island of the archipelago: its picture (under mist while locked), how many residents are found,
@@ -38,6 +42,10 @@ export function IslandCard({
   onOpenSpecies?: (speciesId: string) => void;
 }) {
   const theme = useTheme();
+  const scale = usePressScale();
+  // The row of animals to look for: three across, as in a grid, measured (a phone's width to begin with).
+  const [inner, setInner] = useState(310);
+  const targetWidth = cardWidthFor(inner, 3);
   const habitat = HABITATS.find((h) => h.id === ISLANDS[island.id])!;
   const raisedBy = island.raisedBy ? CATALOG_BY_ID.get(island.raisedBy)?.commonName : undefined;
   const open = island.unlocked ? onOpen : undefined;
@@ -51,8 +59,8 @@ export function IslandCard({
         </View>
         {island.unlocked ? null : (
           <View style={[StyleSheet.absoluteFill, styles.mist, { backgroundColor: theme.backgroundElement }]}>
-            <View style={[styles.lock, { borderColor: theme.textSecondary, backgroundColor: theme.backgroundElement }]}>
-              <Icon name="lock" size={22} color={theme.text} />
+            <View style={[styles.lock, { backgroundColor: theme.backgroundElement }]}>
+              <Icon name="lock" size={Size.icon} color={theme.text} />
             </View>
           </View>
         )}
@@ -60,36 +68,31 @@ export function IslandCard({
       <View style={styles.info}>
         <View style={styles.nameRow}>
           <View aria-hidden style={[styles.dot, { backgroundColor: island.color }]} />
-          <Text style={[styles.name, { color: theme.text }]}>{island.name}</Text>
-          {open ? <Icon name="chevronRight" size={18} color={theme.textSecondary} weight="bold" /> : null}
+          <Text style={[TypeScale.headline, styles.name, { color: theme.text }]}>{island.name}</Text>
+          {open ? <Icon name="chevronRight" size={16} color={theme.textTertiary} weight="bold" /> : null}
         </View>
         {island.unlocked ? (
-          <Tag
-            label={island.unlockedOn ? `Raised ${stampDate(island.unlockedOn)}` : 'Your home island'}
-            color={theme.turquoise}
-            text={theme.text}
-            small
-          />
+          <Tag label={island.unlockedOn ? `Raised ${stampDate(island.unlockedOn)}` : 'Your home island'} tone="lagoon" />
         ) : (
-          <Tag label="Locked" dashed small />
+          <Tag label="Locked" dashed />
         )}
         {line ? (
-          <ThemedText type="small" themeColor="textSecondary">
+          <ThemedText type="subhead" themeColor="textSecondary">
             {line}
           </ThemedText>
         ) : null}
       </View>
     </>
   );
-  const body = (
-    <>
+  return (
+    <Card style={styles.card}>
       {open ? (
         <Pressable
           onPress={() => open(island.id)}
           accessibilityRole="link"
           accessibilityLabel={islandLabel(island)}
           accessibilityHint="Opens the island full screen"
-          style={({ pressed }) => [styles.top, { opacity: pressed ? 0.7 : 1 }]}>
+          style={({ pressed }) => [styles.top, scale(pressed)]}>
           {head}
         </Pressable>
       ) : (
@@ -98,9 +101,8 @@ export function IslandCard({
         </View>
       )}
       <View style={styles.residents}>
-        <Text style={[styles.count, { color: theme.text }]}>
-          {island.residentsFound}
-          <Text style={{ fontFamily: Type.body, color: theme.textSecondary }}> of {plural(island.residentsTotal, 'resident')} found</Text>
+        <Text style={[TypeScale.subhead, { color: theme.textSecondary }]}>
+          <Text style={[TypeScale.subheadStrong, { color: theme.text }]}>{island.residentsFound}</Text> of {plural(island.residentsTotal, 'resident')} found
         </Text>
         <ProgressBar
           fraction={island.residentsTotal > 0 ? island.residentsFound / island.residentsTotal : 0}
@@ -111,62 +113,38 @@ export function IslandCard({
       </View>
       {island.next.length > 0 ? (
         <View style={styles.lookFor}>
-          <ThemedText type="smallBold">Look for</ThemedText>
-          <View style={styles.targets}>
+          <ThemedText type="footnoteStrong" themeColor="textSecondary">
+            Look for
+          </ThemedText>
+          <View style={styles.targets} onLayout={onGridLayout(setInner)}>
             {island.next.map((target) => {
               const species = CATALOG_BY_ID.get(target.speciesId);
               if (!species) return null;
-              return (
-                <Pressable
-                  key={target.speciesId}
-                  onPress={onOpenSpecies ? () => onOpenSpecies(target.speciesId) : undefined}
-                  disabled={!onOpenSpecies}
-                  accessibilityRole={onOpenSpecies ? 'link' : undefined}
-                  accessibilityLabel={`${target.name}, ${target.rarity}, not seen yet`}
-                  style={({ pressed }) => [styles.target, { borderColor: theme.rule, opacity: pressed ? 0.65 : 1 }]}>
-                  <SpeciesArt species={species} width={78} found={false} paper={theme.backgroundElement} />
-                  <Text numberOfLines={2} style={[styles.targetName, { color: theme.text }]}>
-                    {target.name}
-                  </Text>
-                  <RarityChip rarity={target.rarity} small />
-                </Pressable>
-              );
+              return <SpeciesCard key={target.speciesId} species={species} width={targetWidth} count={0} onPress={() => onOpenSpecies?.(target.speciesId)} />;
             })}
           </View>
         </View>
       ) : (
-        <ThemedText type="caption" themeColor="textSecondary">
+        <ThemedText type="subhead" themeColor="textSecondary">
           Every resident found.
         </ThemedText>
       )}
-    </>
-  );
-  // A locked island is a pencil outline on the page; a raised one is a sheet of paper.
-  return island.unlocked ? (
-    <Paper style={styles.card}>{body}</Paper>
-  ) : (
-    <View style={[styles.card, styles.locked, { borderColor: theme.textSecondary }]}>{body}</View>
+    </Card>
   );
 }
 
 const styles = StyleSheet.create({
   card: {
-    gap: 14,
-  },
-  locked: {
-    borderWidth: 1.5,
-    borderStyle: 'dashed',
-    borderRadius: Radius.lg,
-    padding: 16,
+    gap: Space.s4,
   },
   top: {
     flexDirection: 'row',
-    gap: 14,
+    gap: Space.s4,
     alignItems: 'flex-start',
   },
   art: {
-    width: 118,
-    height: 110,
+    width: 112,
+    height: 112,
     borderRadius: Radius.md,
     overflow: 'hidden',
   },
@@ -180,65 +158,37 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   lock: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    borderWidth: 1.5,
-    borderStyle: 'dashed',
+    width: Size.hit,
+    height: Size.hit,
+    borderRadius: Radius.pill,
     alignItems: 'center',
     justifyContent: 'center',
   },
   info: {
     flex: 1,
-    gap: 6,
+    gap: Space.s2,
   },
   nameRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    gap: Space.s2,
   },
   dot: {
-    width: 11,
-    height: 11,
-    borderRadius: 6,
+    width: 10,
+    height: 10,
+    borderRadius: Radius.pill,
   },
   name: {
     flex: 1,
-    fontFamily: Type.display,
-    fontSize: 21,
-    lineHeight: 26,
   },
   residents: {
-    gap: 6,
-  },
-  count: {
-    fontFamily: Type.bodyHeavy,
-    fontSize: 15,
-    lineHeight: 20,
+    gap: Space.s2,
   },
   lookFor: {
-    gap: 8,
+    gap: Space.s2,
   },
   targets: {
     flexDirection: 'row',
-    gap: 8,
-  },
-  target: {
-    flex: 1,
-    alignItems: 'center',
-    gap: 4,
-    borderWidth: 1,
-    borderStyle: 'dashed',
-    borderRadius: Radius.md,
-    paddingVertical: 8,
-    paddingHorizontal: 2,
-    minHeight: 44,
-  },
-  targetName: {
-    fontFamily: Type.bodyHeavy,
-    fontSize: 14,
-    lineHeight: 18,
-    textAlign: 'center',
-    minHeight: 36,
+    gap: TARGET_GAP,
   },
 });

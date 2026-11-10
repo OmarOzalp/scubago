@@ -1,11 +1,11 @@
 import type { ReactNode } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
-import { Paper } from '@/components/journal/paper';
 import { NewBadge } from '@/components/journal/stamp';
 import { BadgeMedal } from '@/components/rewards/badge-medal';
 import { longDate, TIER_LABEL } from '@/components/rewards/format';
-import { Type } from '@/constants/theme';
+import { Card } from '@/components/ui/card';
+import { Radius, Size, Space, TypeScale } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import type { BadgeResult } from '@/lib/rewards';
 
@@ -30,7 +30,7 @@ export function BadgeTile({ badge, isNew = false, onPress, medal = 72 }: { badge
       accessibilityRole={onPress ? 'button' : undefined}
       accessibilityLabel={badgeLabel(badge, isNew)}
       accessibilityHint={onPress ? 'Opens the badge' : undefined}
-      style={({ pressed }) => [styles.tile, { opacity: pressed ? 0.6 : 1 }]}>
+      style={({ pressed }) => [styles.tile, { backgroundColor: pressed ? theme.backgroundSelected : 'transparent' }]}>
       <View>
         <BadgeMedal badge={badge} size={medal} />
         {isNew ? <NewBadge style={styles.new} /> : null}
@@ -50,27 +50,25 @@ export function BadgeTile({ badge, isNew = false, onPress, medal = 72 }: { badge
 
 /** A page of the album: badges laid out three to a row. */
 export function BadgePage({ children }: { children: ReactNode }) {
-  return <Paper style={styles.page}>{children}</Paper>;
+  return <Card style={styles.page}>{children}</Card>;
 }
 
 const styles = StyleSheet.create({
   tile: {
     alignItems: 'center',
-    gap: 5,
-    minHeight: 44,
-    paddingVertical: 4,
+    gap: Space.s1,
+    minHeight: Size.hit,
+    paddingVertical: Space.s1,
+    paddingHorizontal: Space.s1,
+    borderRadius: Radius.sm,
   },
   title: {
-    fontFamily: Type.bodyHeavy,
-    fontSize: 14,
-    lineHeight: 18,
+    ...TypeScale.subheadStrong,
     textAlign: 'center',
-    minHeight: 36,
+    minHeight: 2 * TypeScale.subheadStrong.lineHeight,
   },
   hint: {
-    fontFamily: Type.body,
-    fontSize: 13,
-    lineHeight: 17,
+    ...TypeScale.footnote,
     textAlign: 'center',
   },
   new: {
@@ -79,7 +77,7 @@ const styles = StyleSheet.create({
     right: -14,
   },
   page: {
-    gap: 14,
-    paddingHorizontal: 12,
+    gap: Space.s3,
+    paddingHorizontal: Space.s3,
   },
 });
