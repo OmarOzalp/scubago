@@ -6,20 +6,20 @@ import { Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 import { BuddyVerification } from '@/components/buddy-verification';
 import { Icon, type IconName } from '@/components/icon';
 import { Disclosure } from '@/components/journal/disclosure';
-import { IconButton } from '@/components/journal/icon-button';
-import { Paper, PaperButton } from '@/components/journal/paper';
-import { Screen } from '@/components/journal/screen';
-import { MoreMenu } from '@/components/ui/more-menu';
-import { Wash } from '@/components/journal/wash';
 import { RarityChip } from '@/components/rarity-chip';
 import { formatEntryDate } from '@/components/sighting-row';
 import { SpeciesAvatar } from '@/components/species-avatar';
 import { StatusChip } from '@/components/status-chip';
 import { SyncLine, useSyncLineShown } from '@/components/sync-line';
-import { ThemedText } from '@/components/themed-text';
-import { Radius, Spacing, Type } from '@/constants/theme';
+import { Card } from '@/components/ui/card';
+import { IconButton } from '@/components/ui/icon-button';
+import { List, ListRow } from '@/components/ui/list';
+import { MoreMenu } from '@/components/ui/more-menu';
+import { EmptyState } from '@/components/ui/notice';
+import { Screen, ScreenTitle } from '@/components/ui/screen';
+import { Size, Space, TypeScale } from '@/constants/theme';
 import { usePhotoUrl } from '@/hooks/use-photo-url';
-import { useSchemeName, useTheme } from '@/hooks/use-theme';
+import { useTheme } from '@/hooks/use-theme';
 import { announce } from '@/lib/announce';
 import { UNLISTED_ID, speciesForSighting } from '@/lib/catalog';
 import { confirmAction } from '@/lib/confirm';
@@ -30,7 +30,7 @@ import { canEditSighting, localIsoDate } from '@/lib/sighting-edit';
 import { useAppStore, useMyUserId, useSiteById } from '@/lib/store';
 import { displayablePhoto } from '@/lib/sync';
 import type { Sighting, SightingStatus } from '@/lib/types';
-import { STATUS_COLOR, STATUS_EXPLANATION, STATUS_TEXT, statusOf } from '@/lib/verification';
+import { STATUS_EXPLANATION, statusOf } from '@/lib/verification';
 
 /** The mark beside each verification status. */
 const STATUS_ICON: Record<SightingStatus, IconName> = {
@@ -64,7 +64,6 @@ function colophonText(sighting: Pick<Sighting, 'isDemo' | 'sightedOn' | 'created
 export default function SightingDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const theme = useTheme();
-  const scheme = useSchemeName();
   const siteById = useSiteById();
   const live = useAppStore((s) => s.sightings.find((x) => x.id === id));
   // Deleted from this page: it goes on showing the sighting while it closes, rather than "This sighting isn't
@@ -86,19 +85,10 @@ export default function SightingDetailScreen() {
   const species = sighting ? speciesForSighting(sighting) : undefined;
   if (!sighting || !species) {
     return (
-      <View style={[styles.missing, { backgroundColor: theme.background }]}>
+      <Screen contentStyle={styles.missing}>
         <Stack.Screen options={{ title: '' }} />
-        <View style={styles.missingArt}>
-          <Wash width={112} height={78} color={theme.wash} seed={23} style={StyleSheet.absoluteFill} />
-          <Icon name="logbook" size={40} />
-        </View>
-        <ThemedText type="heading" style={styles.center}>
-          This sighting isn’t here any more.
-        </ThemedText>
-        <ThemedText type="small" themeColor="textSecondary" style={styles.center}>
-          It may have been deleted.
-        </ThemedText>
-      </View>
+        <EmptyState icon="logbook" title="This sighting isn’t here any more." message="It may have been deleted." />
+      </Screen>
     );
   }
 
@@ -148,7 +138,7 @@ export default function SightingDetailScreen() {
           headerRight: mine
             ? () => (
               <View style={styles.headerActions}>
-                <IconButton icon="edit" size={44} accessibilityLabel="Edit sighting" onPress={() => !busy && router.push({ pathname: '/log/new', params: { edit: sighting.id } })} style={{ opacity: busy ? 0.4 : 1 }} />
+                <IconButton icon="edit" accessibilityLabel="Edit sighting" disabled={busy} onPress={() => !busy && router.push({ pathname: '/log/new', params: { edit: sighting.id } })} />
                 <MoreMenu
                   accessibilityLabel="More actions for this sighting"
                   disabled={busy}
@@ -162,136 +152,107 @@ export default function SightingDetailScreen() {
 
       {/* The top of the page, as in a paper logbook: the day, then the site. */}
       <View style={styles.entryHead}>
-        <View accessible accessibilityRole="header" accessibilityLabel={`Logbook entry, ${entryDate}`} style={styles.entryTitles}>
-          <ThemedText type="heading">{entryDate}</ThemedText>
-        </View>
+        <ScreenTitle title={entryDate} />
         {site ? (
           <Pressable
             onPress={() => router.push(`/site/${site.id}`)}
             accessibilityRole="link"
             accessibilityLabel={`Site: ${site.name}`}
             style={({ pressed }) => [styles.siteLink, { opacity: pressed ? 0.6 : 1 }]}>
-            <Icon name="pin" size={20} color={theme.tint} />
-            <ThemedText type="smallBold" themeColor="tint" style={styles.shrink}>
-              {site.name} ›
-            </ThemedText>
+            <Icon name="pin" size={18} color={theme.tint} />
+            <Text style={[TypeScale.subheadStrong, styles.shrink, { color: theme.tint }]}>{site.name} ›</Text>
           </Pressable>
         ) : (
           <View style={styles.siteLink}>
-            <Icon name="pin" size={20} color={theme.textSecondary} wash={theme.textSecondary} washOpacity={0.2} />
-            <ThemedText type="small" themeColor="textSecondary">
-              Unknown site
-            </ThemedText>
+            <Icon name="pin" size={18} color={theme.textSecondary} />
+            <Text style={[TypeScale.subhead, { color: theme.textSecondary }]}>Unknown site</Text>
           </View>
         )}
-        <View style={[styles.rule, { backgroundColor: theme.rule }]} />
       </View>
 
       {/* "Something else" has no species page: it isn't in the catalogue. */}
-      <PaperButton
+      <Card
         onPress={unlisted ? undefined : () => router.push(`/species/${species.id}`)}
-        disabled={unlisted}
         accessibilityRole={unlisted ? 'header' : 'button'}
         accessibilityLabel={unlisted ? `${species.commonName}, not in the catalogue` : `${species.commonName}. About this species`}
         style={styles.speciesCard}>
         <SpeciesAvatar species={species} size={84} showRarityRing={!unlisted} />
         <View style={styles.speciesText}>
-          <Text style={[styles.speciesName, { color: theme.text }]}>{species.commonName}</Text>
-          <ThemedText type="scientific" themeColor="textSecondary">
-            {species.scientificName}
-          </ThemedText>
+          <Text style={[TypeScale.title, { color: theme.text }]}>{species.commonName}</Text>
+          <Text style={[TypeScale.scientific, { color: theme.textSecondary }]}>{species.scientificName}</Text>
           {unlisted ? null : (
             <View style={styles.speciesTag}>
               <RarityChip rarity={species.rarity} small />
             </View>
           )}
         </View>
-        {unlisted ? null : <Icon name="chevronRight" size={18} color={theme.textSecondary} weight="bold" />}
-      </PaperButton>
+        {unlisted ? null : <Icon name="chevronRight" size={16} color={theme.textTertiary} weight="bold" />}
+      </Card>
 
       {photo ? (
         <View style={styles.photoBlock}>
-          {/* Pasted in like a print. */}
-          <Paper padded={false} style={styles.print}>
+          <Card padded={false} style={styles.print}>
             <Image source={{ uri: photo }} style={styles.photo} contentFit="cover" accessibilityLabel="Photo from the dive" />
-          </Paper>
+          </Card>
           <View style={styles.photoCaption}>
-            <Icon name={photoPrivate ? 'lock' : 'camera'} size={16} color={theme.textSecondary} wash={theme.textSecondary} washOpacity={0.2} />
-            <ThemedText type="caption" themeColor="textSecondary" style={styles.flex}>
+            <Icon name={photoPrivate ? 'lock' : 'camera'} size={16} color={theme.textSecondary} />
+            <Text style={[TypeScale.footnote, styles.flex, { color: theme.textSecondary }]}>
               {mine ? (photoPrivate ? 'Your photo · only you can see it' : 'Your photo') : `Photo by @${sighting.username}`}
-            </ThemedText>
+            </Text>
           </View>
         </View>
       ) : null}
 
       {sighting.notes ? (
-        <View style={styles.block}>
+        <Card style={styles.notes}>
           <View style={styles.labelRow}>
-            <Icon name={notesPrivate ? 'lock' : 'notes'} size={18} color={theme.textSecondary} wash={theme.textSecondary} washOpacity={0.2} />
-            <ThemedText type="label" accessibilityRole="header" style={styles.flex}>
+            <Icon name={notesPrivate ? 'lock' : 'notes'} size={16} color={theme.textSecondary} />
+            <Text accessibilityRole="header" style={[TypeScale.footnoteStrong, styles.flex, { color: theme.textSecondary }]}>
               {notesPrivate ? 'Notes · only you can see them' : 'Notes'}
-            </ThemedText>
+            </Text>
           </View>
-          <Paper tone="sand">
-            <ThemedText>{sighting.notes}</ThemedText>
-          </Paper>
-        </View>
+          <Text style={[TypeScale.body, { color: theme.text }]}>{sighting.notes}</Text>
+        </Card>
       ) : null}
 
-      {/* One card of three ruled lines: the page, who sees it, and where it stands. What each means waits behind one row below. */}
-      <Paper padded={false}>
+      {/* One card of up to three rows: the page, who sees it, and where it stands. What each means waits behind one row below. */}
+      <List>
         {/* Dives are private to their diver: only the owner sees which page a sighting is on. */}
         {mine ? (
           dive ? (
-            <Pressable onPress={() => router.push(`/dive/${dive.id}`)} accessibilityRole="link" accessibilityLabel={`On dive ${dive.number}. Open the page`}>
-              {({ pressed }) => (
-                <View style={{ opacity: pressed ? 0.6 : 1 }}>
-                  <Fact icon="logbook" label="Dive">
-                    <ThemedText type="smallBold" themeColor="tint">
-                      {formatDiveNumber(dive.number)} · open the page ›
-                    </ThemedText>
-                  </Fact>
-                </View>
-              )}
-            </Pressable>
+            <ListRow
+              leading="logbook"
+              title="Dive"
+              subtitle={`${formatDiveNumber(dive.number)} · open the page ›`}
+              accessibilityRole="link"
+              accessibilityLabel={`On dive ${dive.number}. Open the page`}
+              onPress={() => router.push(`/dive/${dive.id}`)}
+            />
           ) : (
-            <Fact icon="logbook" label="Dive">
-              <ThemedText type="small" themeColor="textSecondary">
-                Not on a page of your log yet.
-              </ThemedText>
-            </Fact>
+            <ListRow leading="logbook" title="Dive" subtitle="Not on a page of your log yet." />
           )
         ) : null}
-        {mine && backendEnabled ? (
-          <Fact icon={isPrivateSighting(sighting) ? 'lock' : 'everyone'} label="Visible to" ruled>
-            <ThemedText type="smallBold">{privacySummary(sighting)}</ThemedText>
-          </Fact>
-        ) : null}
-        <Fact
-          icon={STATUS_ICON[status]}
-          label="Status"
-          ruled={mine}
-          iconColor={STATUS_TEXT[scheme][status]}
-          iconWash={STATUS_COLOR[status]}>
-          <View style={styles.statusLine}>
-            <StatusChip status={status} />
-            <ThemedText type="small" themeColor="textSecondary">
-              {sighting.photoUri ? 'Photo attached' : 'No photo'}
-            </ThemedText>
-          </View>
-        </Fact>
-      </Paper>
+        {mine && backendEnabled ? <ListRow leading={isPrivateSighting(sighting) ? 'lock' : 'everyone'} title="Visible to" subtitle={privacySummary(sighting)} /> : null}
+        <ListRow
+          leading={STATUS_ICON[status]}
+          title="Status"
+          below={
+            <View style={styles.statusLine}>
+              <StatusChip status={status} />
+              <Text style={[TypeScale.subhead, { color: theme.textSecondary }]}>{sighting.photoUri ? 'Photo attached' : 'No photo'}</Text>
+            </View>
+          }
+        />
+      </List>
       <Disclosure label="What does this mean?" hint="Explains who can see this and what the status means">
         <View style={styles.meaning}>
           {mine && backendEnabled && isPrivateSighting(sighting) && !unlisted ? (
-            <ThemedText type="small" themeColor="textSecondary">
+            <Text style={[TypeScale.subhead, { color: theme.textSecondary }]}>
               Only you can see this sighting. If you ask a buddy to confirm it, they’ll see the species, site and date, never your notes or
               photo.
-            </ThemedText>
+            </Text>
           ) : null}
-          <ThemedText type="small" themeColor="textSecondary">
-            {sighting.isDemo ? 'Example data: not a real sighting.' : STATUS_EXPLANATION[status]}
-          </ThemedText>
+          <Text style={[TypeScale.subhead, { color: theme.textSecondary }]}>{sighting.isDemo ? 'Example data: not a real sighting.' : STATUS_EXPLANATION[status]}</Text>
         </View>
       </Disclosure>
 
@@ -299,178 +260,39 @@ export default function SightingDetailScreen() {
 
       {colophon || (mine && syncShown) ? (
         <View style={styles.colophon}>
-          {colophon ? (
-            <ThemedText type="caption" themeColor="textSecondary">
-              {colophon}
-            </ThemedText>
-          ) : null}
+          {colophon ? <Text style={[TypeScale.footnote, { color: theme.textSecondary }]}>{colophon}</Text> : null}
           {mine ? <SyncLine item={sighting} /> : null}
         </View>
       ) : null}
 
       {error ? (
-        <ThemedText type="small" themeColor="danger" accessibilityLiveRegion="polite" style={styles.center}>
+        <Text accessibilityLiveRegion="polite" style={[TypeScale.subhead, styles.center, { color: theme.danger }]}>
           {error}
-        </ThemedText>
+        </Text>
       ) : null}
     </Screen>
   );
 }
 
-/** A ruled line of the entry: an icon, a label, and what goes there. */
-function Fact({
-  icon,
-  label,
-  ruled = false,
-  iconColor,
-  iconWash,
-  children,
-}: {
-  icon: IconName;
-  label: string;
-  ruled?: boolean;
-  /** The icon in a status colour, with its wash, instead of the quiet grey. */
-  iconColor?: string;
-  iconWash?: string;
-  children: React.ReactNode;
-}) {
-  const theme = useTheme();
-  return (
-    <View style={[styles.fact, ruled && { borderTopWidth: 1, borderTopColor: theme.rule }]}>
-      <Icon
-        name={icon}
-        size={20}
-        color={iconColor ?? theme.textSecondary}
-        wash={iconWash ?? theme.textSecondary}
-        washOpacity={iconWash ? 0.35 : 0.2}
-        style={styles.factIcon}
-      />
-      <View style={styles.factBody}>
-        <ThemedText type="label">{label}</ThemedText>
-        {children}
-      </View>
-    </View>
-  );
-}
-
 const styles = StyleSheet.create({
-  flex: {
-    flex: 1,
-  },
-  shrink: {
-    flexShrink: 1,
-  },
-  center: {
-    textAlign: 'center',
-  },
+  flex: { flex: 1 },
+  shrink: { flexShrink: 1 },
+  center: { textAlign: 'center' },
   // The web's header has no margin at its right end (a phone's has its own).
-  headerActions: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: Spacing.two,
-    paddingRight: Platform.OS === 'web' ? Spacing.three : 0,
-  },
-  missing: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: Spacing.two,
-    padding: Spacing.four,
-  },
-  missingArt: {
-    width: 112,
-    height: 78,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: Spacing.one,
-  },
-  entryHead: {
-    gap: 2,
-  },
-  entryTitles: {
-    gap: 2,
-  },
-  siteLink: {
-    alignSelf: 'flex-start',
-    minHeight: 44,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-  },
-  rule: {
-    height: 1,
-    marginTop: 4,
-  },
-  speciesCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 14,
-    padding: 12,
-    paddingRight: 14,
-  },
-  speciesText: {
-    flex: 1,
-    gap: 2,
-  },
-  speciesName: {
-    fontFamily: Type.display,
-    fontSize: 24,
-    lineHeight: 29,
-  },
-  speciesTag: {
-    flexDirection: 'row',
-    marginTop: 4,
-  },
-  photoBlock: {
-    gap: 6,
-  },
-  print: {
-    padding: 6,
-  },
-  photo: {
-    width: '100%',
-    height: 240,
-    borderRadius: Radius.md,
-  },
-  photoCaption: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    paddingHorizontal: 4,
-  },
-  block: {
-    gap: 8,
-  },
-  labelRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-  },
-  fact: {
-    flexDirection: 'row',
-    gap: 12,
-    paddingVertical: 14,
-    paddingHorizontal: 16,
-  },
-  factIcon: {
-    marginTop: 1,
-  },
-  factBody: {
-    flex: 1,
-    gap: 3,
-  },
-  statusLine: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    alignItems: 'center',
-    columnGap: 8,
-    rowGap: 2,
-  },
-  meaning: {
-    gap: 6,
-    paddingBottom: 4,
-  },
-  colophon: {
-    gap: 2,
-  },
+  headerActions: { flexDirection: 'row', alignItems: 'center', gap: Space.s2, paddingRight: Platform.OS === 'web' ? Space.s4 : 0 },
+  missing: { flexGrow: 1, justifyContent: 'center' },
+  entryHead: { gap: Space.s1 },
+  siteLink: { alignSelf: 'flex-start', minHeight: Size.hit, flexDirection: 'row', alignItems: 'center', gap: Space.s2 },
+  speciesCard: { flexDirection: 'row', alignItems: 'center', gap: Space.s4 },
+  speciesText: { flex: 1, gap: 2 },
+  speciesTag: { flexDirection: 'row', marginTop: Space.s1 },
+  photoBlock: { gap: Space.s2 },
+  print: { overflow: 'hidden' },
+  photo: { width: '100%', height: 240 },
+  photoCaption: { flexDirection: 'row', alignItems: 'center', gap: Space.s2, paddingHorizontal: Space.s1 },
+  notes: { gap: Space.s2 },
+  labelRow: { flexDirection: 'row', alignItems: 'center', gap: Space.s2 },
+  statusLine: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', columnGap: Space.s2, rowGap: 2, marginTop: Space.s1 },
+  meaning: { gap: Space.s2, paddingBottom: Space.s1 },
+  colophon: { gap: Space.s1 },
 });

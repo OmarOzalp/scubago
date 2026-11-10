@@ -100,7 +100,7 @@ export function DiveForm({
   const invalid = (key: DraftField) => problem?.field === key;
   const problemAt = (...keys: DraftField[]) =>
     problem && keys.includes(problem.field) ? (
-      <ThemedText type="small" themeColor="danger" accessibilityLiveRegion="polite">
+      <ThemedText type="subhead" themeColor="danger" accessibilityLiveRegion="polite">
         {problem.message}
       </ThemedText>
     ) : null;
@@ -189,7 +189,7 @@ export function DiveForm({
         {problemAt('number', 'timeIn')}
         {/* The number is filled in with the next one, which says itself; only a clash is worth a line. */}
         {takenBy ? (
-          <ThemedText type="small" themeColor="danger" accessibilityLiveRegion="polite">
+          <ThemedText type="subhead" themeColor="danger" accessibilityLiveRegion="polite">
             {formatDiveNumber(takenBy.number)} is already a page in your log{takenBy.siteName ? ` (${takenBy.siteName})` : ''}. You can keep it, but each dive usually has its own number.
           </ThemedText>
         ) : null}
@@ -322,7 +322,7 @@ export function DiveForm({
             </Pair>
             {problemAt('pressureStartBar', 'pressureEndBar')}
             {sac !== undefined ? (
-              <ThemedText type="small" themeColor="textSecondary" accessibilityLiveRegion="polite">
+              <ThemedText type="subhead" themeColor="textSecondary" accessibilityLiveRegion="polite">
                 About {sac} litres a minute at the surface (your air consumption on this dive).
               </ThemedText>
             ) : null}
@@ -349,7 +349,7 @@ export function DiveForm({
               />
               {/* What the stamp is, and that it is not checked, waits behind a row of its own. */}
               <Disclosure label="About the stamp" hint="Explains how the centre’s stamp is drawn">
-                <ThemedText type="small" themeColor="textSecondary">
+                <ThemedText type="subhead" themeColor="textSecondary">
                   Drawn on the page as a stamp. ScubaGo doesn’t check it with the centre, and the stamp says so.
                 </ThemedText>
               </Disclosure>
@@ -360,7 +360,7 @@ export function DiveForm({
       ) : null}
 
       {carried ? (
-        <ThemedText type="small" themeColor="textSecondary">
+        <ThemedText type="subhead" themeColor="textSecondary">
           {sentence(carried.what)} carried over from {formatDiveNumber(carried.from)}.
         </ThemedText>
       ) : null}

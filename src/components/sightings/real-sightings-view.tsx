@@ -1,15 +1,16 @@
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, Text, View } from 'react-native';
 
+import { FieldLabel } from '@/components/form-field';
 import { Disclosure } from '@/components/journal/disclosure';
-import { SectionHeader } from '@/components/journal/screen';
 import { buildModel, creditLine } from '@/components/sightings/format';
 import { openExternalUrl } from '@/components/sightings/open-external';
+import { CreditFooter } from '@/components/sightings/parts';
 import { RecentObservations } from '@/components/sightings/recent-observations';
 import { SpeciesEvidenceList } from '@/components/sightings/species-evidence-list';
 import { SightingsEmpty, SightingsNotices, SightingsPlaceholder, SightingsUnavailable, UpdatedLine } from '@/components/sightings/states';
-import { OceanButton } from '@/components/ocean-button';
-import { ThemedText } from '@/components/themed-text';
-import { Type } from '@/constants/theme';
+import { Button } from '@/components/ui/button';
+import { Section } from '@/components/ui/screen';
+import { Space, TypeScale } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import type { SightingsStatus, SiteSightings } from '@/lib/external-sightings/types';
 
@@ -52,13 +53,10 @@ export function RealSightingsView({ summary, status, onRefresh, onOpenSpecies, o
       ? 'iNaturalist has records here, but none recent that are openly licensed for ScubaGo to show.'
       : null;
   return (
-    <View style={styles.section}>
-      <SectionHeader title="Marine life recorded here" />
+    <Section title="Marine life recorded here" flush style={styles.section}>
       {/* OBIS is searched in a box whose half-side is the radius (geo.ts), so its corners reach further. */}
       <Disclosure label="About these records" hint="Shows where these records come from">
-        <ThemedText type="caption" themeColor="textSecondary">
-          {recordsNearSiteText(model.radiusKm)}
-        </ThemedText>
+        <Text style={[TypeScale.callout, { color: theme.textSecondary }]}>{recordsNearSiteText(model.radiusKm)}</Text>
       </Disclosure>
 
       {model.kind === 'loading' ? <SightingsPlaceholder /> : null}
@@ -75,33 +73,25 @@ export function RealSightingsView({ summary, status, onRefresh, onOpenSpecies, o
 
           {model.species.length > 0 ? (
             <View style={styles.block}>
-              <ThemedText type="label" accessibilityRole="header">
-                {`Animals recorded nearby · ${model.species.length}`}
-              </ThemedText>
+              <FieldLabel header>{`Animals recorded nearby · ${model.species.length}`}</FieldLabel>
               <SpeciesEvidenceList species={model.species} onOpenSpecies={onOpenSpecies} />
             </View>
           ) : null}
 
           {model.recent.length > 0 ? (
             <View style={styles.block}>
-              <ThemedText type="label" accessibilityRole="header">
-                Recent observations
-              </ThemedText>
+              <FieldLabel header>Recent observations</FieldLabel>
               <RecentObservations recent={model.recent} onOpenUrl={onOpenUrl} />
             </View>
           ) : recentGap ? (
             <View style={styles.block}>
-              <ThemedText type="label" accessibilityRole="header">
-                Recent observations
-              </ThemedText>
-              <ThemedText type="small" themeColor="textSecondary">
-                {recentGap}
-              </ThemedText>
+              <FieldLabel header>Recent observations</FieldLabel>
+              <Text style={[TypeScale.subhead, { color: theme.textSecondary }]}>{recentGap}</Text>
             </View>
           ) : null}
 
           {model.exploreUrl ? (
-            <OceanButton
+            <Button
               title="See more on iNaturalist"
               variant="secondary"
               icon="external"
@@ -110,44 +100,18 @@ export function RealSightingsView({ summary, status, onRefresh, onOpenSpecies, o
             />
           ) : null}
 
-          <Pressable
-            onPress={onOpenCredits}
-            accessibilityRole="link"
-            accessibilityLabel={`${creditLine(model.credited)}. Data and credits`}
-            accessibilityHint="Opens the data and credits page"
-            style={[styles.footer, { borderTopColor: theme.rule }]}>
-            <Text style={[styles.credit, { color: theme.textSecondary }]}>
-              {`${creditLine(model.credited)} · `}
-              <Text style={[styles.creditLink, { color: theme.tint }]}>Data & credits</Text>
-            </Text>
-          </Pressable>
+          <CreditFooter credit={creditLine(model.credited)} onOpenCredits={onOpenCredits} />
         </>
       ) : null}
-    </View>
+    </Section>
   );
 }
 
 const styles = StyleSheet.create({
   section: {
-    gap: 14,
+    gap: Space.s3,
   },
   block: {
-    gap: 8,
-  },
-  footer: {
-    minHeight: 44,
-    borderTopWidth: 1,
-    paddingTop: 12,
-    paddingBottom: 6,
-    justifyContent: 'center',
-  },
-  credit: {
-    fontFamily: Type.body,
-    fontSize: 13,
-    lineHeight: 19,
-  },
-  creditLink: {
-    fontFamily: Type.bodyBold,
-    textDecorationLine: 'underline',
+    gap: Space.s2,
   },
 });

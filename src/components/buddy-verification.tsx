@@ -1,15 +1,15 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { router } from 'expo-router';
 import { useEffect, useState, type ReactNode } from 'react';
-import { ActivityIndicator, Platform, Pressable, Share, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Platform, Share, StyleSheet, Text, View } from 'react-native';
 import Svg, { Line } from 'react-native-svg';
 
 import { Icon } from '@/components/icon';
-import { Paper } from '@/components/journal/paper';
 import { Seal } from '@/components/journal/stamp';
-import { OceanButton } from '@/components/ocean-button';
-import { ThemedText } from '@/components/themed-text';
-import { Radius, Spacing, Type } from '@/constants/theme';
+import { Button } from '@/components/ui/button';
+import { Card } from '@/components/ui/card';
+import { IconTile } from '@/components/ui/list';
+import { Radius, Space, TypeScale } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { announce } from '@/lib/announce';
 import { useAppStore } from '@/lib/store';
@@ -111,8 +111,8 @@ export function BuddyVerification({ sighting, speciesName }: { sighting: Sightin
   // Signed out: the one button is still the way in, and a short line says what comes first.
   if (!user) {
     return <View style={styles.ask}>
-      <OceanButton title="Ask a buddy to confirm" icon="buddies" variant="secondary" accessibilityHint="Sign in first" onPress={() => router.push('/auth')} />
-      <ThemedText type="small" themeColor="textSecondary" style={styles.centred}>Sign in first.</ThemedText>
+      <Button title="Ask a buddy to confirm" icon="buddies" variant="secondary" accessibilityHint="Sign in first" onPress={() => router.push('/auth')} />
+      <Text style={[TypeScale.subhead, styles.centred, { color: theme.textSecondary }]}>Sign in first.</Text>
     </View>;
   }
 
@@ -148,7 +148,7 @@ export function BuddyVerification({ sighting, speciesName }: { sighting: Sightin
   const code = cached.code;
 
   const askButton = (
-    <OceanButton
+    <Button
       title={busy ? 'Creating a code…' : 'Ask a buddy to confirm'}
       icon="buddies"
       variant="secondary"
@@ -157,10 +157,10 @@ export function BuddyVerification({ sighting, speciesName }: { sighting: Sightin
     />
   );
   const problemLine = problem ? (
-    <ThemedText type="small" themeColor={problem.kind === 'offline' ? 'textSecondary' : 'danger'} accessibilityLiveRegion="polite">
+    <Text accessibilityLiveRegion="polite" style={[TypeScale.subhead, { color: problem.kind === 'offline' ? theme.textSecondary : theme.danger }]}>
       {problem.message}
       {problem.kind === 'offline' && cached.checkedAt ? ` Showing what was known on ${dateOf(cached.checkedAt)}.` : ''}
-    </ThemedText>
+    </Text>
   ) : null;
 
   // Nothing asked yet and nothing answered: just the button, not a card with a heading above it.
@@ -178,7 +178,7 @@ export function BuddyVerification({ sighting, speciesName }: { sighting: Sightin
         {answers.map((a, index) => {
           const saw = a.decision === 'saw_it';
           return (
-            <View key={`${a.verifier}-${a.at}`} style={[styles.answer, index > 0 && { borderTopWidth: 1, borderTopColor: theme.rule }]}>
+            <View key={`${a.verifier}-${a.at}`} style={[styles.answer, index > 0 && { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: theme.rule }]}>
               <Icon
                 name={saw ? 'checkCircle' : 'close'}
                 size={saw ? 20 : 16}
@@ -186,13 +186,11 @@ export function BuddyVerification({ sighting, speciesName }: { sighting: Sightin
                 weight={saw ? 'duotone' : 'bold'}
                 style={styles.answerIcon}
               />
-              <ThemedText type="small" style={styles.flex}>
-                <ThemedText type="smallBold">@{a.verifier}</ThemedText>
+              <Text style={[TypeScale.subhead, styles.flex, { color: theme.text }]}>
+                <Text style={TypeScale.subheadStrong}>@{a.verifier}</Text>
                 {saw ? ' confirmed it' : a.decision === 'did_not_see' ? ' didn’t see it' : ' wasn’t on this dive'}
-                <ThemedText type="small" themeColor="textSecondary">
-                  {a.role === 'buddy' ? '' : ` · says they were the ${ROLE_LABEL[a.role].toLowerCase()} (not checked)`}
-                </ThemedText>
-              </ThemedText>
+                <Text style={{ color: theme.textSecondary }}>{a.role === 'buddy' ? '' : ` · says they were the ${ROLE_LABEL[a.role].toLowerCase()} (not checked)`}</Text>
+              </Text>
             </View>
           );
         })}
@@ -201,46 +199,36 @@ export function BuddyVerification({ sighting, speciesName }: { sighting: Sightin
 
     {!sighting.synced ? (
       <View style={styles.note}>
-        <Icon name="sync" size={18} color={theme.textSecondary} wash={theme.textSecondary} washOpacity={0.2} style={styles.answerIcon} />
-        <ThemedText type="small" themeColor="textSecondary" style={styles.flex}>
+        <Icon name="sync" size={18} color={theme.textSecondary} style={styles.answerIcon} />
+        <Text style={[TypeScale.subhead, styles.flex, { color: theme.textSecondary }]}>
           {voided
             ? 'You changed the species, site or date, so earlier confirmations no longer apply. Once your change has synced, you can ask again.'
             : 'Once this sighting has synced, you can ask someone who was on the dive to confirm it.'}
-        </ThemedText>
+        </Text>
       </View>
     ) : code ? (
       <View style={styles.stack}>
-        <ThemedText type="small" themeColor="textSecondary">Send this code to someone who was on the dive with you:</ThemedText>
+        <Text style={[TypeScale.subhead, { color: theme.textSecondary }]}>Send this code to someone who was on the dive with you:</Text>
         {/* The code as a ticket stub: typewriter letters above a perforation, the terms below it. */}
-        <View style={[styles.ticket, { backgroundColor: theme.background, borderColor: theme.rule }]}>
-          <Text selectable accessibilityLabel={`Code ${code.code.split('').join(' ')}`} style={[styles.code, { color: theme.text }]}>
+        <View style={[styles.ticket, { backgroundColor: theme.backgroundSelected }]}>
+          <Text selectable accessibilityLabel={`Code ${code.code.split('').join(' ')}`} style={[TypeScale.ticket, styles.centred, { color: theme.text }]}>
             {code.code}
           </Text>
           {/* Hidden on a wrapper: on the web, Svg hands its props straight to the <svg> element. */}
-          <View aria-hidden>
+          <View aria-hidden style={styles.perforation}>
             <Svg width="100%" height={2}>
-              <Line x1="0" y1="1" x2="100%" y2="1" stroke={theme.rule} strokeWidth={1.5} strokeDasharray="5 4" />
+              <Line x1="0" y1="1" x2="100%" y2="1" stroke={theme.textTertiary} strokeWidth={1.5} strokeDasharray="5 4" />
             </Svg>
           </View>
           <View style={styles.terms}>
-            <Icon name="clock" size={16} color={theme.textSecondary} wash={theme.textSecondary} washOpacity={0.2} />
-            <ThemedText type="small" themeColor="textSecondary" style={styles.shrink}>
+            <Icon name="clock" size={16} color={theme.textSecondary} />
+            <Text style={[TypeScale.subhead, styles.shrink, { color: theme.textSecondary }]}>
               Up to {code.maxUses} people can answer · valid until {dateOf(code.expiresAt)}
-            </ThemedText>
+            </Text>
           </View>
         </View>
-        <OceanButton title="Share code" icon="share" onPress={() => void share(code)} />
-        <Pressable
-          onPress={() => void ask(code)}
-          disabled={busy}
-          accessibilityRole="button"
-          accessibilityHint="The code above stops working"
-          style={({ pressed }) => [styles.link, styles.linkRow, { opacity: busy ? 0.4 : pressed ? 0.6 : 1 }]}>
-          <Icon name="sync" size={16} color={theme.tint} />
-          <ThemedText type="smallBold" themeColor="tint">
-            {busy ? 'Making a new code…' : 'Make a new code'}
-          </ThemedText>
-        </Pressable>
+        <Button title="Share code" icon="share" onPress={() => void share(code)} />
+        <Button title={busy ? 'Making a new code…' : 'Make a new code'} icon="sync" variant="plain" size="md" disabled={busy} accessibilityHint="The code above stops working" onPress={() => void ask(code)} />
       </View>
     ) : (
       <View style={styles.stack}>{askButton}</View>
@@ -254,40 +242,31 @@ export function BuddyVerification({ sighting, speciesName }: { sighting: Sightin
 /** The block's card: a heading beside its icon, and the seal once a buddy has confirmed the sighting. */
 function Section({ title, seal, children }: { title: string; seal?: ReactNode; children: ReactNode }) {
   const theme = useTheme();
-  return <Paper style={styles.card}>
+  return <Card style={styles.card}>
     <View style={styles.head}>
-      <View style={[styles.headIcon, { backgroundColor: theme.backgroundSelected }]}>
-        <Icon name="buddies" size={24} />
-      </View>
-      <ThemedText type="heading" accessibilityRole="header" style={styles.flex}>{title}</ThemedText>
+      <IconTile icon="buddies" />
+      <Text accessibilityRole="header" style={[TypeScale.headline, styles.flex, { color: theme.text }]}>{title}</Text>
       {seal ? <View style={styles.seal}>{seal}</View> : null}
     </View>
     {children}
-  </Paper>;
+  </Card>;
 }
 
 const styles = StyleSheet.create({
   ask: {
-    gap: 6,
+    gap: Space.s2,
   },
   centred: {
     textAlign: 'center',
   },
   card: {
-    gap: 12,
+    gap: Space.s3,
   },
   head: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
+    gap: Space.s3,
     minHeight: 44,
-  },
-  headIcon: {
-    width: 42,
-    height: 42,
-    borderRadius: 12,
-    alignItems: 'center',
-    justifyContent: 'center',
   },
   // The seal overhangs the heading a little, as a stamp pressed onto the page would.
   seal: {
@@ -301,13 +280,13 @@ const styles = StyleSheet.create({
     flexShrink: 1,
   },
   stack: {
-    gap: 10,
+    gap: Space.s3,
   },
   answer: {
     flexDirection: 'row',
     alignItems: 'flex-start',
-    gap: 10,
-    paddingVertical: 8,
+    gap: Space.s3,
+    paddingVertical: Space.s2,
   },
   answerIcon: {
     marginTop: 1,
@@ -317,40 +296,23 @@ const styles = StyleSheet.create({
   note: {
     flexDirection: 'row',
     alignItems: 'flex-start',
-    gap: 10,
+    gap: Space.s3,
   },
   ticket: {
-    borderWidth: 1.5,
     borderRadius: Radius.md,
-    paddingTop: Spacing.three,
-    paddingBottom: 12,
-    paddingHorizontal: Spacing.three,
-    gap: 12,
+    paddingTop: Space.s4,
+    paddingBottom: Space.s3,
+    paddingHorizontal: Space.s4,
+    gap: Space.s3,
     alignItems: 'center',
   },
-  code: {
-    fontFamily: Type.label,
-    fontSize: 26,
-    lineHeight: 32,
-    letterSpacing: 3,
-    textAlign: 'center',
+  perforation: {
+    alignSelf: 'stretch',
   },
   terms: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 6,
-  },
-  link: {
-    alignSelf: 'center',
-    paddingVertical: Spacing.one,
-    minHeight: 44,
-    justifyContent: 'center',
-  },
-  linkRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    paddingHorizontal: Spacing.two,
+    gap: Space.s2,
   },
 });

@@ -1,7 +1,6 @@
 import { Pressable, StyleSheet, Text } from 'react-native';
 
-import { ThemedText } from '@/components/themed-text';
-import { Type } from '@/constants/theme';
+import { Space, TypeScale } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { describeRarityEvidence, describeWorldwideCounts, type RarityEntry } from '@/lib/real-rarity';
 
@@ -28,9 +27,7 @@ export function RaritySource({ entry, onOpenCredits }: { entry?: RarityEntry; on
   const theme = useTheme();
   if (!entry) {
     return (
-      <ThemedText type="small" themeColor="textSecondary" style={styles.plain}>
-        {OWN_ESTIMATE_TEXT}
-      </ThemedText>
+      <Text style={[TypeScale.footnote, styles.plain, { color: theme.textSecondary }]}>{OWN_ESTIMATE_TEXT}</Text>
     );
   }
   const evidence = describeRarityEvidence(entry);
@@ -41,10 +38,10 @@ export function RaritySource({ entry, onOpenCredits }: { entry?: RarityEntry; on
       accessibilityRole="link"
       accessibilityLabel={`${evidence}. ${worldwide ? `${worldwide}. ` : ''}${RANKING_CAVEAT} Data and credits`}
       accessibilityHint="Opens the data and credits page"
-      style={({ pressed }) => [styles.link, pressed && { backgroundColor: theme.backgroundSelected }]}>
-      <Text style={[styles.text, { color: theme.textSecondary }]}>
+      style={({ pressed }) => [styles.link, pressed && { opacity: 0.6 }]}>
+      <Text style={[TypeScale.footnote, styles.text, { color: theme.textSecondary }]}>
         {`${evidence}.\n${worldwide ? `${worldwide}.\n` : ''}${RANKING_CAVEAT} `}
-        <Text style={[styles.creditLink, { color: theme.tint }]}>Data & credits</Text>
+        <Text style={[TypeScale.footnoteStrong, styles.creditLink, { color: theme.tint }]}>Data & credits</Text>
       </Text>
     </Pressable>
   );
@@ -53,24 +50,17 @@ export function RaritySource({ entry, onOpenCredits }: { entry?: RarityEntry; on
 const styles = StyleSheet.create({
   plain: {
     textAlign: 'center',
-    fontSize: 13,
-    lineHeight: 19,
   },
   link: {
     minHeight: 44,
     justifyContent: 'center',
-    paddingVertical: 4,
-    paddingHorizontal: 4,
-    borderRadius: 8,
+    paddingVertical: Space.s1,
+    paddingHorizontal: Space.s1,
   },
   text: {
-    fontFamily: Type.body,
-    fontSize: 13,
-    lineHeight: 19,
     textAlign: 'center',
   },
   creditLink: {
-    fontFamily: Type.bodyBold,
     textDecorationLine: 'underline',
   },
 });

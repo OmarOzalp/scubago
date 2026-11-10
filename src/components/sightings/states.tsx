@@ -2,11 +2,11 @@ import { StyleSheet, Text, View } from 'react-native';
 import Animated, { useReducedMotion } from 'react-native-reanimated';
 
 import { Icon } from '@/components/icon';
-import { Paper } from '@/components/journal/paper';
-import type { Notice } from '@/components/sightings/format';
-import { OceanButton } from '@/components/ocean-button';
-import { ThemedText } from '@/components/themed-text';
-import { Radius, Type } from '@/constants/theme';
+import type { Notice as NoticeModel } from '@/components/sightings/format';
+import { GhostRows, QuietCard } from '@/components/sightings/parts';
+import { Button } from '@/components/ui/button';
+import { Notice } from '@/components/ui/notice';
+import { Space, TypeScale } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 
 /** A quiet stand-in while the first look-up runs: three ruled lines, no spinner. It breathes unless Reduce Motion is on. */
@@ -27,23 +27,18 @@ export function SightingsPlaceholder() {
       accessibilityLabel="Looking up public records near this site"
       accessibilityState={{ busy: true }}
       aria-busy
-      accessibilityLiveRegion="polite">
-      <Paper padded={false}>
-        <Animated.View style={breathe}>
-          {[0, 1, 2].map((index) => (
-            <View key={index} style={[styles.ghostRow, index > 0 && { borderTopWidth: 1, borderTopColor: theme.rule }]}>
-              <View style={[styles.ghostPlate, { backgroundColor: theme.backgroundSelected }]} />
-              <View style={styles.ghostText}>
-                <View style={[styles.ghostBar, { width: index === 1 ? '48%' : '62%', backgroundColor: theme.backgroundSelected }]} />
-                <View style={[styles.ghostBar, { width: '82%', height: 10, backgroundColor: theme.rule }]} />
-              </View>
-            </View>
-          ))}
-        </Animated.View>
-      </Paper>
-      <ThemedText type="caption" themeColor="textSecondary" style={styles.placeholderNote}>
-        Looking up public records…
-      </ThemedText>
+      accessibilityLiveRegion="polite"
+      style={styles.placeholder}>
+      <Animated.View style={breathe}>
+        <GhostRows
+          widths={[
+            ['62%', '82%'],
+            ['48%', '82%'],
+            ['62%', '82%'],
+          ]}
+        />
+      </Animated.View>
+      <Text style={[TypeScale.callout, { color: theme.textSecondary }]}>Looking up public records…</Text>
     </View>
   );
 }
@@ -52,17 +47,15 @@ export function SightingsPlaceholder() {
 export function SightingsUnavailable({ offline, onRetry }: { offline: boolean; onRetry: () => void }) {
   const theme = useTheme();
   return (
-    <View style={[styles.box, { borderColor: theme.rule }]} accessibilityLiveRegion="polite">
+    <QuietCard live>
       {/* What the short line leaves out is in its label, so a screen reader still hears the reason. */}
-      <ThemedText
-        type="caption"
-        themeColor="textSecondary"
-        style={styles.center}
+      <Text
+        style={[TypeScale.callout, styles.center, { color: theme.textSecondary }]}
         accessibilityLabel={`Couldn’t reach the public records right now. ${offline ? 'You seem to be offline: they’ll show here once you’re connected.' : 'Check your connection and try again in a moment.'}`}>
         Couldn’t reach records.
-      </ThemedText>
-      <OceanButton title="Try again" variant="secondary" icon="sync" onPress={onRetry} style={styles.retryCentred} />
-    </View>
+      </Text>
+      <Button title="Try again" variant="secondary" size="md" icon="sync" onPress={onRetry} />
+    </QuietCard>
   );
 }
 
@@ -74,37 +67,28 @@ export function SightingsEmpty({ radiusKm, answered, total, hasCuratedSpecies }:
     ? `No records of catalogue species from ${answered.join(' or ')} within ${radiusKm} km yet.`
     : `No public records of catalogue species within ${radiusKm} km yet.`;
   return (
-    <View style={[styles.box, { borderColor: theme.rule }]}>
+    <QuietCard>
       <Icon name="binoculars" size={30} />
-      <ThemedText type="caption" themeColor="textSecondary" style={styles.center}>
-        {text}
-      </ThemedText>
-      {hasCuratedSpecies ? null : (
-        <ThemedText type="small" themeColor="textSecondary" style={styles.center}>
-          ScubaGo has no species list for this site yet either.
-        </ThemedText>
-      )}
-    </View>
+      <Text style={[TypeScale.callout, styles.center, { color: theme.textSecondary }]}>{text}</Text>
+      {hasCuratedSpecies ? null : <Text style={[TypeScale.subhead, styles.center, { color: theme.textSecondary }]}>ScubaGo has no species list for this site yet either.</Text>}
+    </QuietCard>
   );
 }
 
 /** What is not quite right with the records on show: an old copy, a source that did not answer, a cut-off list. */
-export function SightingsNotices({ notices, canRetry, onRetry }: { notices: Notice[]; canRetry: boolean; onRetry: () => void }) {
+export function SightingsNotices({ notices, canRetry, onRetry }: { notices: NoticeModel[]; canRetry: boolean; onRetry: () => void }) {
   if (notices.length === 0) return null;
   return (
-    <Paper tone="sand" style={styles.notices}>
+    <View style={styles.notices}>
       <View accessibilityLiveRegion="polite" style={styles.noticeList}>
         {notices.map((notice) => (
-          <View key={notice.key} style={styles.notice}>
-            <Icon name={notice.kind === 'refreshFailed' ? 'warning' : 'info'} size={20} style={styles.noticeIcon} />
-            <ThemedText type="small" style={styles.noticeText}>
-              {notice.text}
-            </ThemedText>
-          </View>
+          <Notice key={notice.key} icon={notice.kind === 'refreshFailed' ? 'warning' : 'info'}>
+            {notice.text}
+          </Notice>
         ))}
       </View>
-      {canRetry ? <OceanButton title="Try again" variant="secondary" icon="sync" onPress={onRetry} style={styles.retry} /> : null}
-    </Paper>
+      {canRetry ? <Button title="Try again" variant="secondary" size="md" icon="sync" onPress={onRetry} style={styles.retry} /> : null}
+    </View>
   );
 }
 
@@ -114,81 +98,30 @@ export function UpdatedLine({ text, refreshing }: { text: string; refreshing: bo
   return (
     <View style={styles.updated} accessibilityLiveRegion="polite">
       <Icon name={refreshing ? 'sync' : 'clock'} size={16} color={theme.textSecondary} />
-      <Text style={[styles.updatedText, { color: theme.textSecondary }]}>{refreshing ? `${text} · refreshing…` : text}</Text>
+      <Text style={[TypeScale.footnote, { color: theme.textSecondary }]}>{refreshing ? `${text} · refreshing…` : text}</Text>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  ghostRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-    paddingVertical: 12,
-    paddingHorizontal: 14,
-  },
-  ghostPlate: {
-    width: 56,
-    height: 56,
-    borderRadius: Radius.md,
-  },
-  ghostText: {
-    flex: 1,
-    gap: 10,
-  },
-  ghostBar: {
-    height: 14,
-    borderRadius: Radius.xs,
-  },
-  placeholderNote: {
-    marginTop: 8,
-  },
-  box: {
-    borderWidth: 1.5,
-    borderStyle: 'dashed',
-    borderRadius: Radius.lg,
-    paddingVertical: 20,
-    paddingHorizontal: 14,
-    alignItems: 'center',
-    gap: 8,
+  placeholder: {
+    gap: Space.s2,
   },
   center: {
     textAlign: 'center',
   },
   retry: {
     alignSelf: 'flex-start',
-    marginTop: 6,
-  },
-  retryCentred: {
-    alignSelf: 'center',
-    marginTop: 6,
   },
   notices: {
-    gap: 10,
-    padding: 14,
+    gap: Space.s3,
   },
   noticeList: {
-    gap: 10,
-  },
-  notice: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    gap: 10,
-  },
-  noticeIcon: {
-    marginTop: 0,
-  },
-  noticeText: {
-    flex: 1,
+    gap: Space.s2,
   },
   updated: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
-  },
-  updatedText: {
-    fontFamily: Type.body,
-    fontSize: 13,
-    lineHeight: 18,
+    gap: Space.s2,
   },
 });

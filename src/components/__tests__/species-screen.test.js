@@ -46,7 +46,8 @@ test("an animal's page lists the diver's sightings of it, each opening its own p
   await act(async () => { root = create(<SpeciesDetailScreen />); });
 
   // Only the diver's own sightings are listed, newest first; a tap opens that sighting's page (to edit or delete one).
-  const rows = root.root.findAll((n) => typeof n.props.onPress === 'function' && /Reef Manta Ray, .*2026/.test(n.props.accessibilityLabel ?? ''));
+  // (A row is a ListRow and the pressable inside it, which share one handler: each row counts once.)
+  const rows = [...new Map(root.root.findAll((n) => typeof n.props.onPress === 'function' && /Reef Manta Ray, .*2026/.test(n.props.accessibilityLabel ?? '')).map((n) => [n.props.onPress, n])).values()];
   expect(rows.map((r) => r.props.accessibilityLabel)).toHaveLength(2);
   await act(async () => rows[0].props.onPress());
   expect(router.push).toHaveBeenCalledWith('/sighting/b');

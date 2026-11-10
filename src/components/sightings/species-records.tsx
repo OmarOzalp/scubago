@@ -1,15 +1,15 @@
 import { router } from 'expo-router';
 import { useState } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, Text, View } from 'react-native';
 
-import { Icon } from '@/components/icon';
+import { FieldLabel } from '@/components/form-field';
 import { Disclosure } from '@/components/journal/disclosure';
-import { Paper } from '@/components/journal/paper';
-import { SectionHeader } from '@/components/journal/screen';
 import { creditLine, inatCountText, isIsoDate } from '@/components/sightings/format';
+import { CreditFooter, GhostRows, QuietCard, ShowAllRow } from '@/components/sightings/parts';
 import { formatDate } from '@/components/sighting-row';
-import { ThemedText } from '@/components/themed-text';
-import { Radius, Type } from '@/constants/theme';
+import { List, ListRow } from '@/components/ui/list';
+import { Section } from '@/components/ui/screen';
+import { Space, TypeScale } from '@/constants/theme';
 import {
   useSpeciesRecords,
   type RecordSite,
@@ -79,15 +79,13 @@ interface Props {
  * ScubaGo has not checked them, and the section says so before it shows anything.
  */
 export function SpeciesRecords({ status, sites, checked, speciesName, onOpenSite, onOpenCredits, shown = SITES_SHOWN }: Props) {
+  const theme = useTheme();
   const radius = status === 'ready' ? commonRadius(sites) : undefined;
   return (
-    <View style={styles.section}>
-      <SectionHeader title="Recorded near dive sites" />
+    <Section title="Recorded near dive sites" flush style={styles.section}>
       {/* The explanation waits behind a row: what these are, where they are kept, and that they are not the diver's own. */}
       <Disclosure label="About these records" hint="Shows where these records come from">
-        <ThemedText type="caption" themeColor="textSecondary">
-          {recordsExplainer(speciesName, radius, status === 'empty' && checked > 0)}
-        </ThemedText>
+        <Text style={[TypeScale.callout, { color: theme.textSecondary }]}>{recordsExplainer(speciesName, radius, status === 'empty' && checked > 0)}</Text>
       </Disclosure>
 
       {status === 'loading' ? <RecordsPlaceholder /> : null}
@@ -95,14 +93,12 @@ export function SpeciesRecords({ status, sites, checked, speciesName, onOpenSite
       {status === 'empty' ? <RecordsEmpty checked={checked} /> : null}
       {status === 'ready' ? (
         <>
-          <ThemedText type="label" accessibilityRole="header">
-            {recordedNearText(sites.length, checked)}
-          </ThemedText>
+          <FieldLabel header>{recordedNearText(sites.length, checked)}</FieldLabel>
           <SiteRecordList sites={sites} onOpenSite={onOpenSite} shown={shown} showRadius={radius === undefined} />
-          <CreditFooter sources={creditedSources(sites)} onOpenCredits={onOpenCredits} />
+          <CreditFooter credit={creditLine(creditedSources(sites))} onOpenCredits={onOpenCredits} />
         </>
       ) : null}
-    </View>
+    </Section>
   );
 }
 
@@ -132,28 +128,18 @@ export function SpeciesRecordsSection({ species, sites }: { species: Pick<Specie
 }
 
 function SiteRecordList({ sites, onOpenSite, shown, showRadius }: { sites: SpeciesSiteRecord[]; onOpenSite: (siteId: string) => void; shown: number; showRadius: boolean }) {
-  const theme = useTheme();
   const [all, setAll] = useState(false);
   const visible = all ? sites : sites.slice(0, shown);
   const expandable = sites.length > shown;
   return (
-    <Paper padded={false} style={styles.paper}>
+    <List>
       {visible.map((site, index) => (
         <SiteRecordRow key={site.siteId} site={site} first={index === 0} showRadius={showRadius} onPress={() => onOpenSite(site.siteId)} />
       ))}
       {expandable ? (
-        <Pressable
-          onPress={() => setAll((value) => !value)}
-          accessibilityRole="button"
-          aria-expanded={all}
-          accessibilityState={{ expanded: all }}
-          accessibilityLabel={all ? 'Show fewer dive sites' : `Show all ${sites.length} dive sites`}
-          style={({ pressed }) => [styles.more, { borderTopColor: theme.rule, backgroundColor: pressed ? theme.backgroundSelected : 'transparent' }]}>
-          <Text style={[styles.moreText, { color: theme.tint }]}>{all ? 'Show fewer' : `Show all ${sites.length}`}</Text>
-          <Icon name="chevronDown" size={16} color={theme.tint} weight="bold" style={all ? styles.flipped : undefined} />
-        </Pressable>
+        <ShowAllRow expanded={all} label={all ? 'Show fewer' : `Show all ${sites.length}`} accessibilityLabel={all ? 'Show fewer dive sites' : `Show all ${sites.length} dive sites`} onPress={() => setAll((value) => !value)} />
       ) : null}
-    </Paper>
+    </List>
   );
 }
 
@@ -165,66 +151,34 @@ function SiteRecordRow({ site, first, showRadius, onPress }: { site: SpeciesSite
   const radius = `within ${kmText(site.radiusKm)} km, OBIS in a ${kmText(site.radiusKm * 2)} km square`;
   // One line per fact, so a count never breaks across two lines.
   const details = [showRadius ? `Within ${kmText(site.radiusKm)} km (OBIS: ${kmText(site.radiusKm * 2)} km square)` : null, newest ? `Newest on file: ${newest}` : null].filter((part): part is string => part !== null);
-  const label = [
-    `${site.name}, ${site.region}, ${site.country}`,
-    evidence.join(', '),
-    radius,
-    newest ? `newest on file ${newest}` : null,
-  ]
-    .filter(Boolean)
-    .join(', ');
+  const label = [`${site.name}, ${site.region}, ${site.country}`, evidence.join(', '), radius, newest ? `newest on file ${newest}` : null].filter(Boolean).join(', ');
   return (
-    <Pressable
-      onPress={onPress}
-      accessibilityRole="button"
-      accessibilityLabel={label}
-      accessibilityHint="Opens the dive site page"
-      style={({ pressed }) => [
-        styles.row,
-        { borderTopColor: theme.rule, borderTopWidth: first ? 0 : 1, backgroundColor: pressed ? theme.backgroundSelected : 'transparent' },
-      ]}>
-      <View style={[styles.pin, { backgroundColor: theme.backgroundSelected }]}>
-        <Icon name="pin" size={22} />
-      </View>
-      <View style={styles.body}>
-        <Text numberOfLines={2} style={[styles.name, { color: theme.text }]}>
-          {site.name}
-        </Text>
-        <Text numberOfLines={2} style={[styles.meta, { color: theme.textSecondary }]}>
-          {`${site.region}, ${site.country}`}
-        </Text>
-        <View style={styles.evidenceList}>
+    <ListRow
+      leading="pin"
+      title={site.name}
+      titleLines={2}
+      subtitle={`${site.region}, ${site.country}`}
+      subtitleLines={2}
+      below={
+        <View>
           {evidence.map((phrase) => (
-            <Text key={phrase} style={[styles.evidence, { color: theme.text }]}>
+            <Text key={phrase} style={[TypeScale.subheadStrong, { color: theme.text }]}>
               {phrase}
             </Text>
           ))}
+          {details.map((detail) => (
+            <Text key={detail} style={[TypeScale.subhead, { color: theme.textSecondary }]}>
+              {detail}
+            </Text>
+          ))}
         </View>
-        {details.map((detail) => (
-          <Text key={detail} style={[styles.meta, { color: theme.textSecondary }]}>
-            {detail}
-          </Text>
-        ))}
-      </View>
-      <Icon name="chevronRight" size={18} color={theme.textSecondary} weight="bold" />
-    </Pressable>
-  );
-}
-
-function CreditFooter({ sources, onOpenCredits }: { sources: SourceId[]; onOpenCredits: () => void }) {
-  const theme = useTheme();
-  return (
-    <Pressable
-      onPress={onOpenCredits}
-      accessibilityRole="link"
-      accessibilityLabel={`${creditLine(sources)}. Data and credits`}
-      accessibilityHint="Opens the data and credits page"
-      style={[styles.footer, { borderTopColor: theme.rule }]}>
-      <Text style={[styles.credit, { color: theme.textSecondary }]}>
-        {`${creditLine(sources)} · `}
-        <Text style={[styles.creditLink, { color: theme.tint }]}>Data & credits</Text>
-      </Text>
-    </Pressable>
+      }
+      accessibilityLabel={label}
+      accessibilityHint="Opens the dive site page"
+      separator={!first}
+      inGroup
+      onPress={onPress}
+    />
   );
 }
 
@@ -232,21 +186,14 @@ function CreditFooter({ sources, onOpenCredits }: { sources: SourceId[]; onOpenC
 function RecordsPlaceholder() {
   const theme = useTheme();
   return (
-    <View accessible accessibilityLabel="Checking the public records saved on this phone" accessibilityState={{ busy: true }} aria-busy>
-      <Paper padded={false}>
-        {[0, 1].map((index) => (
-          <View key={index} style={[styles.ghostRow, index > 0 && { borderTopWidth: 1, borderTopColor: theme.rule }]}>
-            <View style={[styles.pin, { backgroundColor: theme.backgroundSelected }]} />
-            <View style={styles.ghostText}>
-              <View style={[styles.ghostBar, { width: index === 0 ? '56%' : '44%', backgroundColor: theme.backgroundSelected }]} />
-              <View style={[styles.ghostBar, { width: '78%', height: 10, backgroundColor: theme.rule }]} />
-            </View>
-          </View>
-        ))}
-      </Paper>
-      <ThemedText type="caption" themeColor="textSecondary" style={styles.placeholderNote}>
-        Checking the records saved on this phone…
-      </ThemedText>
+    <View accessible accessibilityLabel="Checking the public records saved on this phone" accessibilityState={{ busy: true }} aria-busy style={styles.placeholder}>
+      <GhostRows
+        widths={[
+          ['56%', '78%'],
+          ['44%', '78%'],
+        ]}
+      />
+      <Text style={[TypeScale.callout, { color: theme.textSecondary }]}>Checking the records saved on this phone…</Text>
     </View>
   );
 }
@@ -254,11 +201,11 @@ function RecordsPlaceholder() {
 function RecordsError() {
   const theme = useTheme();
   return (
-    <View style={[styles.box, { borderColor: theme.rule }]} accessibilityLiveRegion="polite">
-      <ThemedText type="caption" themeColor="textSecondary" style={styles.center} accessibilityLabel="Couldn’t read the public records saved on this phone just now.">
+    <QuietCard live>
+      <Text style={[TypeScale.callout, styles.center, { color: theme.textSecondary }]} accessibilityLabel="Couldn’t read the public records saved on this phone just now.">
         Couldn’t read the saved records.
-      </ThemedText>
-    </View>
+      </Text>
+    </QuietCard>
   );
 }
 
@@ -266,115 +213,20 @@ function RecordsError() {
 function RecordsEmpty({ checked }: { checked: number }) {
   const theme = useTheme();
   return (
-    <View style={[styles.box, { borderColor: theme.rule }]}>
-      <ThemedText type="caption" themeColor="textSecondary" style={styles.center}>
+    <QuietCard>
+      <Text style={[TypeScale.callout, styles.center, { color: theme.textSecondary }]}>
         {checked === 0 ? 'Open a dive site to see records.' : `No records at the ${checked === 1 ? '1 site' : `${checked} sites`} you’ve opened.`}
-      </ThemedText>
-    </View>
+      </Text>
+    </QuietCard>
   );
 }
 
 const styles = StyleSheet.create({
   section: {
-    gap: 14,
+    gap: Space.s3,
   },
-  paper: {
-    overflow: 'hidden',
-  },
-  row: {
-    minHeight: 76,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-    paddingVertical: 12,
-    paddingHorizontal: 14,
-  },
-  pin: {
-    width: 42,
-    height: 42,
-    borderRadius: 12,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  body: {
-    flex: 1,
-    gap: 1,
-  },
-  name: {
-    fontFamily: Type.bodyHeavy,
-    fontSize: 16,
-    lineHeight: 21,
-  },
-  evidenceList: {
-    marginVertical: 2,
-  },
-  evidence: {
-    fontFamily: Type.bodySemiBold,
-    fontSize: 14,
-    lineHeight: 19,
-  },
-  meta: {
-    fontFamily: Type.body,
-    fontSize: 14,
-    lineHeight: 19,
-  },
-  more: {
-    minHeight: 50,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-    borderTopWidth: 1,
-    paddingHorizontal: 14,
-  },
-  moreText: {
-    fontFamily: Type.bodyHeavy,
-    fontSize: 15,
-  },
-  flipped: {
-    transform: [{ rotate: '180deg' }],
-  },
-  footer: {
-    minHeight: 44,
-    borderTopWidth: 1,
-    paddingTop: 12,
-    paddingBottom: 6,
-    justifyContent: 'center',
-  },
-  credit: {
-    fontFamily: Type.body,
-    fontSize: 13,
-    lineHeight: 19,
-  },
-  creditLink: {
-    fontFamily: Type.bodyBold,
-    textDecorationLine: 'underline',
-  },
-  ghostRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-    paddingVertical: 14,
-    paddingHorizontal: 14,
-  },
-  ghostText: {
-    flex: 1,
-    gap: 10,
-  },
-  ghostBar: {
-    height: 14,
-    borderRadius: Radius.xs,
-  },
-  placeholderNote: {
-    marginTop: 8,
-  },
-  box: {
-    borderWidth: 1.5,
-    borderStyle: 'dashed',
-    borderRadius: Radius.lg,
-    paddingVertical: 14,
-    paddingHorizontal: 14,
-    alignItems: 'center',
+  placeholder: {
+    gap: Space.s2,
   },
   center: {
     textAlign: 'center',

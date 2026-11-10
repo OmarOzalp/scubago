@@ -160,7 +160,7 @@ export function ListRow({
       accessibilityHint={accessibilityHint}
       aria-checked={accessibilityRole === 'checkbox' || accessibilityRole === 'radio' ? selected : undefined}
       aria-expanded={expanded}
-      accessibilityState={isSwitch ? { checked: switchValue, ...accessibilityState } : { selected: selected || undefined, expanded, ...accessibilityState }}
+      accessibilityState={isSwitch ? { checked: switchValue, ...accessibilityState } : { ...(selected ? { selected: true } : null), ...(expanded !== undefined ? { expanded } : null), ...accessibilityState }}
       style={({ pressed }) => [
         styles.row,
         grouped && [rowFill(theme), grouped],
